@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { NodalKpiCard } from "./components/NodalKpiCard";
-import { SubmissionCard } from "./components/SubmissionCard";
+import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
 import { UpcomingDeadlines } from "./components/UpcomingDeadlines";
 import { QuickActions } from "./components/QuickActions";
 import { QuickTips } from "./components/QuickTips";
@@ -351,7 +351,7 @@ export function NodalDashboardPage() {
                     </div>
                   ) : (
                     filteredSubmissions?.map((submission) => (
-                      <SubmissionCard 
+                      <UnifiedSubmissionCard 
                         key={submission.id} 
                         id={submission.id}
                         title={submission.title}
@@ -362,6 +362,7 @@ export function NodalDashboardPage() {
                         progress={submission.progress}
                         nextStep={submission.nextStep}
                         reviewerNote={submission.reviewerNote}
+                        submission={submission.submission}
                         currentUserRole="NODAL_OFFICER"
                         onEdit={() => handleEditSubmission(submission.id, navigate)}
                         onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}

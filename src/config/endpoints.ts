@@ -24,7 +24,7 @@ export const API_ENDPOINTS = {
       switch (role.toLowerCase()) {
         case "state_approver":
           status =
-            "SUBMITTED_TO_STATE,RETURNED_FROM_MOSPI,REJECTED,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER";
+            "SUBMITTED_TO_STATE,RETURNED_FROM_MOSPI,REJECTED,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,APPROVED";
           break;
         case "nodal_officer":
           status =
@@ -32,7 +32,7 @@ export const API_ENDPOINTS = {
           break;
         case "mospi_reviewer":
           status =
-            "SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,REJECTED_FINAL";
+            "SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,REJECTED_FINAL,APPROVED";
           break;
         case "mospi_approver":
           status = "SUBMITTED_TO_MOSPI_APPROVER,APPROVED,REJECTED_FINAL";

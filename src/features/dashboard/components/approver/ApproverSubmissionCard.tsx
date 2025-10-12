@@ -106,7 +106,7 @@ export function ApproverSubmissionCard({
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-1">{title}</h3>
         </div>
-        {submission && hasMospiApproverComment(submission) ? (
+        {submission && hasMospiApproverComment(submission) && status !== "APPROVED" ? (
           <Button 
             className="bg-red-600 hover:bg-red-700"
             onClick={onReview}
@@ -114,7 +114,7 @@ export function ApproverSubmissionCard({
             <AlertCircle className="w-4 h-4 mr-2" />
             Action Required
           </Button>
-        ) : submission && isReturnedFromMospi(submission) && currentUserRole === "STATE_APPROVER" ? (
+        ) : submission && isReturnedFromMospi(submission) && currentUserRole === "STATE_APPROVER" && status !== "APPROVED" ? (
           <Button 
             className="bg-yellow-500 hover:bg-yellow-600 text-white"
             onClick={onReview}

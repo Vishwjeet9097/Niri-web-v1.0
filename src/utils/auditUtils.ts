@@ -438,12 +438,12 @@ export const getWaitingMessage = (
       break;
     case "STATE_APPROVER":
       if (status === "SUBMITTED_TO_STATE") {
-        return "आपका approval के लिए wait कर रहा है";
+        return ""; // No waiting message needed
       }
       break;
     case "MOSPI_REVIEWER":
       if (status === "SUBMITTED_TO_MOSPI_REVIEWER") {
-        return "आपका review के लिए wait कर रहा है";
+        return ""; // No waiting message needed
       }
       break;
     case "MOSPI_APPROVER":

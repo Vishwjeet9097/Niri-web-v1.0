@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
 import { exportTableToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import { hasMospiApproverComment, getMospiApproverComment, canReviewSubmission } from "@/utils/auditUtils";
@@ -257,150 +258,50 @@ export const SubmissionListPage = () => {
                 </CardContent>
               </Card>
             ) : (
-              filteredSubmissions.map((submission) => (
-                <div
-                  key={submission.id}
-                  className={`bg-card border-l-4 ${
-                    submission.status === "overdue"
-                      ? "border-l-red-500"
-                      : submission.status === "APPROVED"
-                      ? "border-l-green-500"
-                      : "border-l-orange-500"
-                  } rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow ${
-                    submission.status !== "APPROVED" ? "cursor-pointer" : "cursor-default"
-                  }`}
-                  onClick={() => {
-                    if (submission.status !== "APPROVED") {
-                      navigate(`/data-submission/review/${submission.id}`);
-                    }
-                  }}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-foreground">
-                          {submission.submissionId || submission.title}
-                        </h3>
-                        {submission.status === "APPROVED" ? (
-                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Approved
-                          </Badge>
-                        ) : submission.status === "REJECTED" || submission.status === "REJECTED_FINAL" ? (
-                          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-                            <AlertCircle className="w-3 h-3 mr-1" />
-                            Rejected
-                          </Badge>
-                        ) : hasMospiApproverComment(submission) ? (
-                          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-                            <AlertCircle className="w-3 h-3 mr-1" />
-                            Action Required
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Submitted by</p>
-                          <p className="font-medium text-foreground">
-                            {submission.user ? `${submission.user.firstName} ${submission.user.lastName}` : submission.submittedBy?.name || "Unknown"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">
-                            Submission Date
-                          </p>
-                          <p className="font-medium text-foreground">
-                            {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString() : submission.submissionDate || "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Deadline</p>
-                          <p className="font-medium text-foreground">
-                            {submission.deadline || (submission.createdAt ? new Date(new Date(submission.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString() : "N/A")}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Category</p>
-                          <p className="font-medium text-foreground">
-                            {submission.category || "Infrastructure"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    {submission.status === "APPROVED" ? (
-                      <Button
-                        className="ml-4 gap-2 bg-green-600 hover:bg-green-700 cursor-default"
-                        disabled
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        Approved
-                      </Button>
-                    ) : submission.status === "REJECTED" || submission.status === "REJECTED_FINAL" ? (
-                      <Button
-                        className="ml-4 gap-2 bg-red-600 hover:bg-red-700 cursor-default"
-                        disabled
-                      >
-                        <AlertCircle className="w-4 h-4" />
-                        Rejected
-                      </Button>
-                    ) : hasMospiApproverComment(submission) ? (
-                      <Button
-                        onClick={() =>
-                          navigate(`/data-submission/review/${submission.id}`)
-                        }
-                        className="ml-4 gap-2 bg-red-600 hover:bg-red-700"
-                      >
-                        <AlertCircle className="w-4 h-4" />
-                        Action Required
-                      </Button>
-                    ) : canReviewSubmission(user?.role || "", submission.status) ? (
-                      <Button
-                        onClick={() =>
-                          navigate(`/data-submission/review/${submission.id}`)
-                        }
-                        className="ml-4"
-                      >
-                        <FileText className="w-4 h-4 mr-2" />
-                        Review Now
-                      </Button>
-                    ) : null}
-                  </div>
+              filteredSubmissions.map((submission) => {
+                // Calculate progress
+                const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
+                
+                // Determine next step
+                let nextStep = "Complete submission";
+                if (submission.status === "DRAFT") {
+                  nextStep = "Complete all required sections";
+                } else if (submission.status === "SUBMITTED_TO_STATE") {
+                  nextStep = "Waiting for state approval";
+                } else if (submission.status === "APPROVED") {
+                  nextStep = "Submission approved";
+                } else if (submission.status === "REJECTED" || submission.status === "REJECTED_FINAL") {
+                  nextStep = "Address reviewer feedback";
+                }
 
-                  {/* Progress Section */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium text-foreground">
-                        Progress
-                      </p>
-                      <p className="text-sm font-bold text-foreground">
-                        {submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0)}%
-                      </p>
-                    </div>
-                    <Progress
-                      value={submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0)}
-                      className="h-2 mb-3"
-                    />
-                    <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        <span>{submission.attachedFiles?.length || submission.documentsCount || 0} documents</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        <span>Pending {submission.daysPending || (submission.createdAt ? Math.max(0, Math.floor((new Date().getTime() - new Date(submission.createdAt).getTime()) / (1000 * 60 * 60 * 24))) : 0)} days</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>{submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0)}% complete</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
+                // Get reviewer note
+                const reviewerNote = submission.reviewComments && submission.reviewComments.length > 0 
+                  ? submission.reviewComments[submission.reviewComments.length - 1]?.text 
+                  : undefined;
+
+                return (
+                  <UnifiedSubmissionCard
+                    key={submission.id}
+                    id={submission.id}
+                    title={submission.submissionId || submission.title || `Submission ${submission.id}`}
+                    status={submission.status}
+                    referenceId={submission.submissionId || submission.id}
+                    updatedDate={submission.createdAt ? new Date(submission.createdAt).toLocaleDateString() : submission.submissionDate || "N/A"}
+                    dueDate={submission.deadline || (submission.createdAt ? new Date(new Date(submission.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString() : "N/A")}
+                    progress={Math.round(progress)}
+                    nextStep={nextStep}
+                    reviewerNote={reviewerNote}
+                    submission={submission}
+                    currentUserRole={user?.role}
+                    onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
+                    onReview={() => navigate(`/data-submission/review/${submission.id}`)}
+                  />
+                );
+              })
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-4">
             {filteredSubmissions.length === 0 ? (
               <Card className="col-span-full">
                 <CardContent className="flex flex-col items-center justify-center py-12">
@@ -414,148 +315,46 @@ export const SubmissionListPage = () => {
                 </CardContent>
               </Card>
             ) : (
-              filteredSubmissions.map((submission) => (
-                <Card
-                  key={submission.id}
-                  className={`border-l-4 ${
-                    submission.status === "overdue"
-                      ? "border-l-red-500"
-                      : submission.status === "APPROVED"
-                      ? "border-l-green-500"
-                      : "border-l-orange-500"
-                  } hover:shadow-md transition-shadow ${
-                    submission.status !== "APPROVED" ? "cursor-pointer" : "cursor-default"
-                  }`}
-                  onClick={() => {
-                    if (submission.status !== "APPROVED") {
-                      navigate(`/data-submission/review/${submission.id}`);
-                    }
-                  }}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-semibold text-foreground line-clamp-2">
-                        {submission.submissionId || submission.title}
-                      </CardTitle>
-                      {submission.status === "APPROVED" ? (
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Approved
-                        </Badge>
-                      ) : submission.status === "REJECTED" || submission.status === "REJECTED_FINAL" ? (
-                        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs">
-                          <AlertCircle className="w-3 h-3 mr-1" />
-                          Rejected
-                        </Badge>
-                      ) : hasMospiApproverComment(submission) ? (
-                        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs">
-                          <AlertCircle className="w-3 h-3 mr-1" />
-                          Action Required
-                        </Badge>
-                      ) : null}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="text-muted-foreground">Submitted by</p>
-                          <p className="font-medium text-foreground truncate">
-                            {submission.user ? `${submission.user.firstName} ${submission.user.lastName}` : submission.submittedBy?.name || "Unknown"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Location</p>
-                          <p className="font-medium text-foreground truncate">
-                            {submission.stateUt || submission.submittedBy?.location || "Unknown"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Deadline</p>
-                          <p className="font-medium text-foreground">
-                            {submission.deadline || (submission.createdAt ? new Date(new Date(submission.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString() : "N/A")}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Category</p>
-                          <p className="font-medium text-foreground truncate">
-                            {submission.category || "Infrastructure"}
-                          </p>
-                        </div>
-                      </div>
+              filteredSubmissions.map((submission) => {
+                // Calculate progress
+                const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
+                
+                // Determine next step
+                let nextStep = "Complete submission";
+                if (submission.status === "DRAFT") {
+                  nextStep = "Complete all required sections";
+                } else if (submission.status === "SUBMITTED_TO_STATE") {
+                  nextStep = "Waiting for state approval";
+                } else if (submission.status === "APPROVED") {
+                  nextStep = "Submission approved";
+                } else if (submission.status === "REJECTED" || submission.status === "REJECTED_FINAL") {
+                  nextStep = "Address reviewer feedback";
+                }
 
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-xs font-medium text-foreground">
-                            Progress
-                          </p>
-                          <p className="text-xs font-bold text-foreground">
-                            {submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0)}%
-                          </p>
-                        </div>
-                        <Progress
-                          value={submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0)}
-                          className="h-1.5"
-                        />
-                      </div>
+                // Get reviewer note
+                const reviewerNote = submission.reviewComments && submission.reviewComments.length > 0 
+                  ? submission.reviewComments[submission.reviewComments.length - 1]?.text 
+                  : undefined;
 
-                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                        <div className="flex items-center gap-1">
-                          <FileText className="w-3 h-3" />
-                          <span>{submission.attachedFiles?.length || submission.documentsCount || 0} docs</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{submission.daysPending || (submission.createdAt ? Math.max(0, Math.floor((new Date().getTime() - new Date(submission.createdAt).getTime()) / (1000 * 60 * 60 * 24))) : 0)} days</span>
-                        </div>
-                      </div>
-
-                      {/* Action Button */}
-                      <div className="pt-3">
-                        {submission.status === "APPROVED" ? (
-                          <Button
-                            className="w-full gap-2 bg-green-600 hover:bg-green-700 cursor-default"
-                            disabled
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            Approved
-                          </Button>
-                        ) : submission.status === "REJECTED" || submission.status === "REJECTED_FINAL" ? (
-                          <Button
-                            className="w-full gap-2 bg-red-600 hover:bg-red-700 cursor-default"
-                            disabled
-                          >
-                            <AlertCircle className="w-4 h-4" />
-                            Rejected
-                          </Button>
-                        ) : hasMospiApproverComment(submission) ? (
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/data-submission/review/${submission.id}`);
-                            }}
-                            className="w-full gap-2 bg-red-600 hover:bg-red-700"
-                          >
-                            <AlertCircle className="w-4 h-4" />
-                            Action Required
-                          </Button>
-                        ) : canReviewSubmission(user?.role || "", submission.status) ? (
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/data-submission/review/${submission.id}`);
-                            }}
-                            className="w-full gap-2"
-                          >
-                            <FileText className="w-4 h-4" />
-                            Review
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                return (
+                  <UnifiedSubmissionCard
+                    key={submission.id}
+                    id={submission.id}
+                    title={submission.submissionId || submission.title || `Submission ${submission.id}`}
+                    status={submission.status}
+                    referenceId={submission.submissionId || submission.id}
+                    updatedDate={submission.createdAt ? new Date(submission.createdAt).toLocaleDateString() : submission.submissionDate || "N/A"}
+                    dueDate={submission.deadline || (submission.createdAt ? new Date(new Date(submission.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString() : "N/A")}
+                    progress={Math.round(progress)}
+                    nextStep={nextStep}
+                    reviewerNote={reviewerNote}
+                    submission={submission}
+                    currentUserRole={user?.role}
+                    onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
+                    onReview={() => navigate(`/data-submission/review/${submission.id}`)}
+                  />
+                );
+              })
             )}
           </div>
         )}

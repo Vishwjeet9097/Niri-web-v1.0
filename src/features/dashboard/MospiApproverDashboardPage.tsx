@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
 import { FileText, CheckCircle, Clock, AlertCircle, Eye } from "lucide-react";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
@@ -233,82 +234,22 @@ export const MospiApproverDashboardPage = () => {
                 </div>
               ) : (
                 submissions.slice(0, 5).map((submission) => (
-                  <Card
+                  <UnifiedSubmissionCard
                     key={submission.id}
-                    className={`border-l-4 ${getBorderColor(submission.status)}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold text-foreground">
-                              {submission.title || submission.submissionId || `Submission ${submission.id}`}
-                            </h3>
-                            <Badge
-                              variant="outline"
-                              className={getStatusColor(submission.status)}
-                            >
-                              {getStatusText(submission.status)}
-                            </Badge>
-                          </div>
-                          <div className="grid md:grid-cols-2 gap-4 text-sm text-muted-foreground">
-                            <div>
-                              <p>📍 {submission.stateUt || submission.submittedBy?.location || "Unknown"}</p>
-                              <p>
-                                👤 MoSPI Reviewer:{" "}
-                                {submission.mospiReviewer?.name || "N/A"}
-                            </p>
-                          </div>
-                          <div>
-                            <p>📋 Category: {submission.category || "Infrastructure"}</p>
-                            <p>
-                              ⏰ At Final Level:{" "}
-                              {submission.atFinalLevel || new Date(submission.createdAt || submission.updatedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      {(() => {
-                        const isWaiting = isWaitingForCurrentUser(submission, "MOSPI_APPROVER");
-                        const waitingMessage = getWaitingMessage(submission, "MOSPI_APPROVER");
-                        
-                        return (
-                          <>
-                            {isWaiting && waitingMessage && (
-                              <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                                <div className="flex items-center gap-2">
-                                  <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                  <p className="text-sm text-blue-800">{waitingMessage}</p>
-                                </div>
-                              </div>
-                            )}
-                            {submission.status === "APPROVED" ? (
-                              <Button
-                                className="gap-2 bg-green-600 hover:bg-green-700 cursor-default"
-                                disabled
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                                Approved
-                              </Button>
-                            ) : (
-                              <Button
-                                onClick={() =>
-                                  navigate(
-                                    `/data-submission/review/${submission.id}`,
-                                  )
-                                }
-                                className="gap-2"
-                              >
-                                <Eye className="w-4 h-4" />
-                                Review
-                              </Button>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </CardContent>
-                </Card>
+                    id={submission.id}
+                    title={submission.title || submission.submissionId || `Submission ${submission.id}`}
+                    status={submission.status}
+                    referenceId={submission.submissionId || submission.id}
+                    updatedDate={new Date(submission.updatedAt || submission.createdAt).toLocaleDateString()}
+                    dueDate={submission.deadline || "TBD"}
+                    progress={submission.progress || 40}
+                    nextStep={submission.status === "APPROVED" ? "Submission approved" : submission.status === "REJECTED" ? "Address reviewer feedback" : "Waiting for final approval"}
+                    reviewerNote={submission.reviewerNote}
+                    submission={submission}
+                    currentUserRole="MOSPI_APPROVER"
+                    onReview={() => navigate(`/data-submission/review/${submission.id}`)}
+                    onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
+                  />
                 ))
               )}
             </div>

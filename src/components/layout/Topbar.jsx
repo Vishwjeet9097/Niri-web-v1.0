@@ -1,4 +1,5 @@
-import { Bell, Menu, X } from "lucide-react";
+import { Bell, Menu, X, Contrast } from "lucide-react";
+import { useTheme } from "@/app/ThemeProvider";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { NotificationCenter } from "@/features/notifications/NotificationCenter";
@@ -11,6 +12,9 @@ import { NotificationCenter } from "@/features/notifications/NotificationCenter"
  */
 export function Topbar({ sidebarOpen, setSidebarOpen }) {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme
+    ? useTheme()
+    : { theme: "light", toggleTheme: () => {} };
 
   return (
     <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-md">
@@ -44,8 +48,19 @@ export function Topbar({ sidebarOpen, setSidebarOpen }) {
             </div>
           </div>
         </div>
-        {/* Right: Notification and Profile */}
+        {/* Right: Theme Toggle, Notification, and Profile */}
         <div className="flex items-center gap-2">
+          {/* Theme Toggle Button - always visible */}
+          <button
+            title="Toggle dark mode"
+            aria-label="Toggle dark mode"
+            className={`px-2 py-1 rounded transition-colors bg-white/20 text-white hover:bg-white/40 hover:shadow-lg ${
+              theme === "dark" ? "bg-blue-400" : ""
+            }`}
+            onClick={toggleTheme}
+          >
+            <Contrast size={18} />
+          </button>
           <NotificationCenter />
           <div className="hidden sm:flex items-center gap-2 ml-4 pl-4 border-l border-primary-foreground/20">
             <div className="flex items-center gap-4">
@@ -66,12 +81,7 @@ export function Topbar({ sidebarOpen, setSidebarOpen }) {
                 <span className="text-lg font-bold leading-tight">
                   {user?.name || "User"}
                 </span>
-                <div className
-
-
-                    ?.
-                  [0]?.toUpperCase() || "V"}
-              </span>
+              </div>
             </div>
           </div>
         </div>

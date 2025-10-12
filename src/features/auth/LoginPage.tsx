@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTheme } from "@/app/ThemeProvider";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Loader2, Minus, Plus, Contrast, Info } from "lucide-react";
 type LoginStep = "sso" | "otp" | "manual" | "loading";
 
 export function LoginPage() {
+  const { theme, toggleTheme } = useTheme();
   // Font size state: 0 = default, -1 = small, 1 = large
   const [fontSizeLevel, setFontSizeLevel] = useState(0);
 
@@ -171,9 +173,9 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+  <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-white transition-colors duration-300">
       {/* --- Top Bar (edge-to-edge) --- */}
-      <header className="w-full bg-[#003366] text-white py-2 px-6 flex justify-between items-center text-sm">
+  <header className="w-full bg-[#003366] text-white dark:bg-gray-950 dark:text-white py-2 px-6 flex justify-between items-center text-sm transition-colors duration-300">
         <div className="flex items-center space-x-3">
           <img
             src="https://doc.ux4g.gov.in/assets/img/icon/in-flag.png"
@@ -188,7 +190,7 @@ export function LoginPage() {
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
+  <div className="flex items-center space-x-4">
           <a href="#main" className="hover:underline">Skip to Main Content</a>
           <div className="flex items-center space-x-1 rounded px-2 py-1">
             <button
@@ -219,7 +221,12 @@ export function LoginPage() {
               A+
             </button>
           </div>
-          <button title="High Contrast" aria-label="High Contrast" className="opacity-90 hover:opacity-100">
+          <button
+            title="Toggle dark mode"
+            aria-label="Toggle dark mode"
+            className={`opacity-90 hover:opacity-100 px-2 py-1 rounded transition-colors ${theme === 'dark' ? 'bg-white/20' : ''}`}
+            onClick={toggleTheme}
+          >
             <Contrast size={16} />
           </button>
           <select className="bg-[#002850] text-white border-none text-xs p-1 rounded">
@@ -230,9 +237,9 @@ export function LoginPage() {
       </header>
 
       {/* Main Content Row: Left banner + Right auth card */}
-      <div className="flex flex-1">
+  <div className="flex flex-1">
         {/* Left Banner Section */}
-        <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-gray-100">
+  <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-gray-100 dark:bg-gray-800 transition-colors duration-300">
           <img
             src="/images/login-banner.jpeg"
             alt="Login Banner"
@@ -247,7 +254,7 @@ export function LoginPage() {
           <div className="w-full max-w-xl">
             {/* SSO Login Step */}
             {step === "sso" && (
-              <div className="bg-white rounded-lg shadow-lg p-8">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
                 <div className="text-center mb-8">
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     Login to your account with SSO
@@ -360,7 +367,7 @@ export function LoginPage() {
 
             {/* OTP Verification Step */}
             {step === "otp" && (
-              <div className="bg-white rounded-lg shadow-lg p-8">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
                 <div className="text-center mb-8">
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     Verify your account
@@ -458,7 +465,7 @@ export function LoginPage() {
 
             {/* Loading Step */}
             {step === "loading" && (
-              <div className="bg-white rounded-lg shadow-lg p-8">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
                 <div className="text-center">
                   <h1 className="text-2xl font-bold text-gray-900 mb-4">
                     Please wait...

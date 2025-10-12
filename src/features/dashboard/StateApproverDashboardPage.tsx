@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { StateApproverKPICard } from "./components/approver/StateApproverKPICard";
-import { ApproverSubmissionCard } from "./components/approver/ApproverSubmissionCard";
+import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
 import { RecentActionsCard } from "./components/approver/RecentActionsCard";
 import { QuickActionsCard } from "./components/approver/QuickActionsCard";
 import { Button } from "@/components/ui/button";
@@ -343,21 +343,21 @@ export function StateApproverDashboardPage() {
                 </div>
               ) : (
                 filteredSubmissions?.map((submission) => (
-                  <ApproverSubmissionCard 
+                  <UnifiedSubmissionCard 
                     key={submission.id} 
+                    id={submission.id}
                     title={submission.title}
                     status={submission.status}
-                    submittedBy={submission.submittedBy}
-                    submissionDate={submission.submissionDate}
-                    deadline={submission.deadline}
-                    category={submission.category}
+                    referenceId={submission.title}
+                    updatedDate={submission.submissionDate}
+                    dueDate={submission.deadline}
                     progress={submission.progress}
-                    documents={submission.documents}
-                    pendingDays={submission.pendingDays}
-                    completionPercent={submission.completionPercent}
+                    nextStep={submission.status === "APPROVED" ? "Submission approved" : submission.status === "REJECTED" ? "Address reviewer feedback" : "Waiting for state approval"}
+                    reviewerNote={submission.reviewerNote}
                     submission={submission}
                     currentUserRole="STATE_APPROVER"
                     onReview={() => navigate(`/data-submission/review/${submission.id}`)}
+                    onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                   />
                 ))
               )}
