@@ -1,4 +1,5 @@
 import { storageService } from "./storage.service";
+import { config } from "@/config/environment";
 import type { User, AuthTokens, LoginApiResponse } from "@/types";
 
 const TOKEN_KEY = "auth_tokens";
@@ -116,21 +117,16 @@ class AuthService {
       }
 
       // Call actual refresh token API
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_BASE_URL || "http://18.61.243.96:5000/api"
-        }/auth/refresh`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.tokens.refreshToken}`,
-          },
-          body: JSON.stringify({
-            refreshToken: this.tokens.refreshToken,
-          }),
-        }
-      );
+      const response = await fetch(`${config.apiBaseUrl}/auth/refresh`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.tokens.refreshToken}`,
+        },
+        body: JSON.stringify({
+          refreshToken: this.tokens.refreshToken,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`Refresh failed: ${response.status}`);
