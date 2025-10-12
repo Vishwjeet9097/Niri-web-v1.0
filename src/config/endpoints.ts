@@ -28,7 +28,7 @@ export const API_ENDPOINTS = {
           break;
         case "nodal_officer":
           status =
-            "DRAFT,REJECTED,APPROVED,SUBMITTED_TO_STATE,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,RETURNED_FROM_STATE"; // Nodal officers see their own drafts
+            "DRAFT,REJECTED_FINAL,REJECTED,APPROVED,SUBMITTED_TO_STATE,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,RETURNED_FROM_STATE"; // Nodal officers see their own drafts
           break;
         case "mospi_reviewer":
           status =
