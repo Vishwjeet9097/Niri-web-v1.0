@@ -1,4 +1,3 @@
-# Simple Dockerfile for Vite-based React App
 # Build stage
 FROM node:18-alpine AS build
 WORKDIR /app

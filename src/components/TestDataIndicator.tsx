@@ -17,7 +17,7 @@ export const TestDataIndicator: React.FC<TestDataIndicatorProps> = ({
   return (
     <Badge 
       variant="destructive" 
-      className={`${className} flex items-center gap-2 shadow-lg`}
+      className={`${className} flex items-center gap-2 shadow-lg hidden`}
     >
       <AlertTriangle className="w-3 h-3" />
       <span className="text-xs font-medium">TEST DATA</span>

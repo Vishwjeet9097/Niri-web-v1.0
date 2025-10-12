@@ -191,15 +191,14 @@ export function LoginPage() {
       {/* Main Content Row: Left banner + Right auth card */}
       <div className="flex flex-1">
         {/* Left Banner Section */}
-        <div
-          className="hidden lg:flex lg:w-1/2 bg-cover bg-center relative"
-          style={{
-            backgroundImage:
-              "url('https://niri-fe-bucket.s3.ap-south-2.amazonaws.com/assets/login-banner.jpeg?response-content-disposition=inline&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Security-Token=IQoJb3JpZ2luX2VjELX%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCmFwLXNvdXRoLTIiSDBGAiEAyZqUsMqUtfg0Q0lH32hsiTSvN9ooq4adv%2BrSgOZRnEACIQDDRZop7h1cx%2FAxwAS9AqbX9KS3z4hzCSSE393i%2BViWRCrbAwjW%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDY2Mzg2MTA0NzQzOCIM90lbvzaKq9NyajqRKq8DG%2BpXulqzDrgyLBkJgRMqKIs1rItOcMX8R%2FhDKRqC6UbIgY8RMBW5OFZ467hb65K3kM5%2FqjuS%2F8JhCrIzhCoTqYHObpegY%2Blud6Qbrhvwz5IysO4iPbCJgq9W9WGXFagw14I%2Bt9LnRwD9FIxEdM6%2FNM%2FtrlpdPFAfHogweArvBdd95C4120FzZyJH1FUpnUmiKxC2kPl2rCM3cJeOJovmfYFjmM6ZqiaDNk53NlanxBtdNkexdFuPwpLVWmcZzcMXKZfkz4Qaq%2FWjMWvVAyba7UKmvqtnkSzfS14VaOHHJ1htewI7X7lvVuNwdlmHFk8gKTNHUW5yae8eUc4wGVftRKotfHeOwxLNBoBcpSiGEJHnNtzbUHYijoJxi3Uknr94Hz4RDobWcbnd1Ade%2BUso4SckyV8k2iWgQLdUn3c9biDV%2BU7SyTAC%2F9%2Fus%2Fg6URZkLPbgwGo45LUdIxNXfLmtlsGQ2OHBwaLeljf37wjTjgnpWkvco4hPxqw9EaA6Ox13oHQbpYnPyruO0jcOTJEJwufMP7p%2BB%2FDWsv1edxjeSWOnJIr5YrueO5qCJBdz4tUwm8CdxwY63QKcKDzGNWRsToS%2F%2FmC5BpHhpk8WSQlhtKgUVSnTfM2quBZSXxJHxk6k9iMFlCJTJ3SpEQJloPcH3mTFE6l68ThpZuvJZLOwvAa1VYOl8SRi9uPRAhGtKdKO1mG9iejbbmAonkaw0G4WvuC5GHEn1z11EvWom%2BrfIQMeID1gZ2Rz0IYWUztw4v6Ymk0yO%2BRQ6AyUwAGdugspHC3CXE03JtM81h3Kdj5q1Bcq4DufsBX5R8pPD0Da%2BzYlZTvT4fRzLm8P%2F9LgAwZtUDSPgH3w7Eg0x7oYLwx31sfv8%2FYv0FF0OHStUpYluxqh3LeeKsLE3XL6xT8tbndbUHtkSxLHgyeCrdYAsT1vS%2FjhkFPNRQ6Q2OWuaumtMyXiMHUwfrlmZRekUMhdxW%2Fnd2sZYBW4hopvT%2BkrAfOSFC1OMHUC%2BJO9MQGILk5EkizncuEs3jvp0poOhINIDR%2F5qeW7IYzO&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAZVEJTWCHEBRUU667%2F20251009%2Fap-south-2%2Fs3%2Faws4_request&X-Amz-Date=20251009T122201Z&X-Amz-Expires=43200&X-Amz-SignedHeaders=host&X-Amz-Signature=7f2707e7810cf230e6c263cb661ff169153f081238af69bc8b593fca517e2159')",
-          }}
-        >
-          {/* Optional overlay for readability */}
-          <div className="absolute inset-0 bg-black/10"></div>
+        <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-gray-100">
+          <img
+            src="/images/login-banner.jpeg"
+            alt="Login Banner"
+            className="object-contain h-full w-full  shadow-lg"
+            style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
+            loading="lazy"
+          />
         </div>
 
         {/* Right Login Section */}
