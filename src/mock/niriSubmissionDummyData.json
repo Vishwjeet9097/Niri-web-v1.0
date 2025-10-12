@@ -1,0 +1,181 @@
+{
+  "state_ut_id": "Maharashtra",
+  "submission_status": "DRAFT",
+  "submission_date": "2025-01-15T10:30:00Z",
+  "submitted_by_user_id": "nodal_officer_maharashtra",
+  "submission_data": {
+    "Infrastructure_Financing": [
+      {
+        "indicator_id": "1.1",
+        "indicator_name": "% of Capex (Budgetary Capital Allocation) to GSDP",
+        "user_fill_value_a1": 25000,
+        "user_fill_value_a2": 800000
+      },
+      {
+        "indicator_id": "1.2",
+        "indicator_name": "% Capex Utilization",
+        "user_fill_value_a1": 24000,
+        "user_fill_value_a2": 25000
+      },
+      {
+        "indicator_id": "1.3",
+        "indicator_name": "% of Credit Rated ULBs",
+        "user_fill_value_a1": 4,
+        "user_fill_value_a2": 10
+      },
+      {
+        "indicator_id": "1.4",
+        "indicator_name": "% of ULBs issuing Bonds",
+        "user_fill_value_a1": 3,
+        "user_fill_value_a2": 10
+      },
+      {
+        "indicator_id": "1.5",
+        "indicator_name": "Functional financial intermediary for infra dev",
+        "user_fill_value_a1": "No",
+        "user_fill_value_a2": null
+      }
+    ],
+    "Infrastructure_Development": [
+      {
+        "indicator_id": "2.1",
+        "indicator_name": "Availability of Infrastructure Act/Policy",
+        "user_fill_value_a1": "Yes",
+        "user_fill_value_a2": null
+      },
+      {
+        "indicator_id": "2.2",
+        "indicator_name": "Availability of specialized entity for infra dev",
+        "user_fill_value_a1": "No",
+        "user_fill_value_a2": null
+      },
+      {
+        "indicator_id": "2.3",
+        "indicator_name": "Availability of Sector Infra Development Plan",
+        "user_fill_value_a1": 5,
+        "user_fill_value_a2": null,
+        "details": {
+          "planned_sectors": [
+            {"sector": "Transport", "plan_year": 2023},
+            {"sector": "Water", "plan_year": 2024},
+            {"sector": "Energy", "plan_year": 2025},
+            {"sector": "Social Infra", "plan_year": 2023},
+            {"sector": "Logistics", "plan_year": 2024}
+          ]
+        }
+      },
+      {
+        "indicator_id": "2.4",
+        "indicator_name": "Availability of Investment Ready project pipeline",
+        "user_fill_value_a1": "Yes",
+        "user_fill_value_a2": null
+      },
+      {
+        "indicator_id": "2.5",
+        "indicator_name": "Availability of Asset Monetization pipeline",
+        "user_fill_value_a1": "No",
+        "user_fill_value_a2": null
+      }
+    ],
+    "PPP_Development": [
+      {
+        "indicator_id": "3.1",
+        "indicator_name": "Availability of PPP Act/Policy",
+        "user_fill_value_a1": "No",
+        "user_fill_value_a2": null
+      },
+      {
+        "indicator_id": "3.2",
+        "indicator_name": "Functional State/UT PPP Cell/Unit",
+        "user_fill_value_a1": "Yes",
+        "user_fill_value_a2": null
+      },
+      {
+        "indicator_id": "3.3",
+        "indicator_name": "Proposals submitted under VGF/IIPDF",
+        "user_fill_value_a1": 8,
+        "user_fill_value_a2": null,
+        "details": {
+          "projects_submitted": [
+            {"project_name": "Proj P1", "fund_type": "VGF"},
+            {"project_name": "Proj P2", "fund_type": "VGF"},
+            {"project_name": "Proj P3", "fund_type": "IIPDF"},
+            {"project_name": "Proj P4", "fund_type": "VGF"},
+            {"project_name": "Proj P5", "fund_type": "VGF"},
+            {"project_name": "Proj P6", "fund_type": "IIPDF"},
+            {"project_name": "Proj P7", "fund_type": "VGF"},
+            {"project_name": "Proj P8", "fund_type": "VGF"}
+          ]
+        }
+      },
+      {
+        "indicator_id": "3.4",
+        "indicator_name": "Proportion of TPC of PPP or Bankable projects",
+        "user_fill_value_a1": 40000,
+        "user_fill_value_a2": 150000
+      }
+    ],
+    "Infrastructure_Enablers": [
+      {
+        "indicator_id": "4.1",
+        "indicator_name": "Are all eligible Infra projects on PMG portal",
+        "user_fill_value_a1": "No",
+        "user_fill_value_a2": null
+      },
+      {
+        "indicator_id": "4.2",
+        "indicator_name": "Availability and use of State/UT PMG portal",
+        "user_fill_value_a1": "Yes",
+        "user_fill_value_a2": null
+      },
+      {
+        "indicator_id": "4.3",
+        "indicator_name": "Adoption of PM GatiShakti NMP",
+        "user_fill_value_a1": 12,
+        "user_fill_value_a2": null,
+        "details": {
+          "projects_planned_via_pmgs": [
+            {"project_name": "P1"},
+            {"project_name": "P2"},
+            {"project_name": "P3"},
+            {"project_name": "P4"},
+            {"project_name": "P5"},
+            {"project_name": "P6"},
+            {"project_name": "P7"},
+            {"project_name": "P8"},
+            {"project_name": "P9"},
+            {"project_name": "P10"},
+            {"project_name": "P11"},
+            {"project_name": "P12"}
+          ]
+        }
+      },
+      {
+        "indicator_id": "4.4",
+        "indicator_name": "Adoption of Alternate Dispute Resolution (ADR)",
+        "user_fill_value_a1": "Yes",
+        "user_fill_value_a2": null
+      },
+      {
+        "indicator_id": "4.5",
+        "indicator_name": "Any Innovative Practice for Infra Dev",
+        "user_fill_value_a1": 4,
+        "user_fill_value_a2": null,
+        "details": {
+          "practices_list": [
+            {"name": "GIS Mapping"},
+            {"name": "Fast Track Clearance"},
+            {"name": "Infra Bond Issuance"},
+            {"name": "Skill Dev Program"}
+          ]
+        }
+      },
+      {
+        "indicator_id": "4.6",
+        "indicator_name": "Capacity building - officer participation",
+        "user_fill_value_a1": 75,
+        "user_fill_value_a2": null
+      }
+    ]
+  }
+}

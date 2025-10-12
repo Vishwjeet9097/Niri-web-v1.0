@@ -1,0 +1,26 @@
+[
+  {
+    "id": "notif_1",
+    "title": "Submission Approved",
+    "message": "Your Infrastructure Financing Q4 2024 submission has been approved",
+    "type": "success",
+    "timestamp": 1716800000000,
+    "read": false
+  },
+  {
+    "id": "notif_2",
+    "title": "Upcoming Deadline",
+    "message": "Transport Infrastructure Data submission due in 21 days",
+    "type": "warning",
+    "timestamp": 1716700000000,
+    "read": false
+  },
+  {
+    "id": "notif_3",
+    "title": "New Feature Available",
+    "message": "Pre-fill from Last FY feature is now available",
+    "type": "info",
+    "timestamp": 1716600000000,
+    "read": true
+  }
+]

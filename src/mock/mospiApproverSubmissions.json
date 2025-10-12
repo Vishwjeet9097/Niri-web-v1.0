@@ -1,0 +1,84 @@
+[
+  {
+    "id": "sub-001",
+    "title": "Infrastructure Financing Q4 2025",
+    "state": "Maharashtra",
+    "district": "Mumbai",
+    "category": "Infrastructure Financing",
+    "status": "pending",
+    "statusBadge": "Pending",
+    "submittedBy": {
+      "name": "Rajesh Kumar",
+      "role": "Nodal Officer",
+      "location": "Mumbai, Maharashtra"
+    },
+    "submittedOn": "01-04-2025",
+    "mospiReviewer": {
+      "name": "Vinayak Patil",
+      "reviewedOn": "15-01-2025",
+      "commentsCount": 6
+    },
+    "nodalOfficer": {
+      "name": "Naresh Sen"
+    },
+    "mospiApprover": {
+      "name": "Shri Arjun Patil"
+    },
+    "nationalPriority": {
+      "category": "Infrastructure Financing",
+      "type": "Budget Allocation",
+      "submittedOn": "15-01-2025"
+    },
+    "financialImpact": {
+      "totalValue": "₹XXXCr",
+      "economicMultiplier": "2.8x",
+      "roi": "12.5%"
+    },
+    "atFinalLevel": "3 Days",
+    "summary": {
+      "totalDocuments": 12,
+      "reviewed": 0,
+      "daysPending": 3,
+      "checklistCompleted": 0
+    },
+    "sections": [
+      {
+        "id": "infra-financing",
+        "name": "Infrastructure Financing",
+        "points": 235,
+        "maxPoints": 250,
+        "sectionsWithComments": "5/5",
+        "progress": 94,
+        "status": "Excellent"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc-001",
+        "fileName": "Budget_Report_Q4.pdf",
+        "fileSize": "2.3 MB",
+        "fileType": "pdf",
+        "uploadedBy": "Rajesh Kumar",
+        "uploadedDate": "2024-01-15"
+      }
+    ],
+    "checklist": [
+      {
+        "id": "check-001",
+        "title": "All required documents submitted",
+        "category": "Documentation",
+        "status": "compliant"
+      }
+    ],
+    "history": [
+      {
+        "id": "hist-001",
+        "userName": "Rajesh Kumar",
+        "userRole": "Nodal Officer",
+        "location": "Pune, Maharashtra",
+        "action": "Initial submission completed",
+        "timestamp": "15-01-2025 | 10:30 AM"
+      }
+    ]
+  }
+]

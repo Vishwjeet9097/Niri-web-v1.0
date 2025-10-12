@@ -1,0 +1,67 @@
+{
+  "kpis": [
+    {
+      "id": "total_submissions",
+      "title": "Total Submissions",
+      "value": 14,
+      "change": 12,
+      "trend": "up",
+      "icon": "FileText"
+    },
+    {
+      "id": "pending_review",
+      "title": "Pending Review",
+      "value": 3,
+      "change": -5,
+      "trend": "down",
+      "icon": "Clock"
+    },
+    {
+      "id": "approved",
+      "title": "Approved",
+      "value": 8,
+      "change": 15,
+      "trend": "up",
+      "icon": "CheckCircle"
+    },
+    {
+      "id": "completion_rate",
+      "title": "Completion Rate",
+      "value": "75%",
+      "change": 8,
+      "trend": "up",
+      "icon": "TrendingUp"
+    }
+  ],
+  "recentActivity": [
+    {
+      "id": "1",
+      "action": "Submission approved",
+      "description": "Infrastructure Financing Q4 2024",
+      "timestamp": "2 hours ago",
+      "type": "success"
+    },
+    {
+      "id": "2",
+      "action": "New deadline",
+      "description": "Transport Infrastructure Data - 21 days left",
+      "timestamp": "5 hours ago",
+      "type": "warning"
+    },
+    {
+      "id": "3",
+      "action": "Draft saved",
+      "description": "Energy Sector Assessment",
+      "timestamp": "1 day ago",
+      "type": "info"
+    }
+  ],
+  "chartData": [
+    { "month": "Jan", "submissions": 12 },
+    { "month": "Feb", "submissions": 15 },
+    { "month": "Mar", "submissions": 18 },
+    { "month": "Apr", "submissions": 14 },
+    { "month": "May", "submissions": 22 },
+    { "month": "Jun", "submissions": 20 }
+  ]
+}

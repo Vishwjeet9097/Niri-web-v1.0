@@ -1,0 +1,280 @@
+[
+  {
+    "id": "SUB2025001",
+    "title": "Infrastructure Financing Q4 2025",
+    "status": "pending",
+    "submittedBy": {
+      "name": "Mumbai Nodal Officer",
+      "location": "Mumbai"
+    },
+    "submissionDate": "2025-04-01",
+    "deadline": "2025-04-15",
+    "category": "Infrastructure Financing",
+    "progress": 95,
+    "documentsCount": 12,
+    "daysPending": 4,
+    "nodalOfficer": {
+      "name": "Rajesh Kumar",
+      "role": "Nodal Officer",
+      "email": "rajesh.kumar@maharashtra.gov.in",
+      "phone": "+91-98765-43210"
+    },
+    "submissionInfo": {
+      "category": "Infrastructure Financing",
+      "budgetAllocation": "Budget Allocation",
+      "location": "Mumbai",
+      "submittedOn": "2025-04-01"
+    },
+    "performanceMetrics": {
+      "estimatedValue": "₹500Cr",
+      "impactScore": 85,
+      "complianceScore": 92,
+      "completionRate": 100
+    },
+    "summary": {
+      "totalDocuments": 12,
+      "reviewed": 8,
+      "daysPending": 4,
+      "checklistCompleted": 75
+    },
+    "documents": [
+      {
+        "id": "DOC001",
+        "fileName": "Budget_Report_Q4.pdf",
+        "fileSize": "2.3 MB",
+        "fileType": "pdf",
+        "uploadedBy": "Rajesh Kumar",
+        "uploadedDate": "2025-04-01"
+      },
+      {
+        "id": "DOC002",
+        "fileName": "Financial_Statement.xlsx",
+        "fileSize": "2.8 MB",
+        "fileType": "xlsx",
+        "uploadedBy": "Rajesh Kumar",
+        "uploadedDate": "2025-04-01"
+      }
+    ],
+    "checklist": [],
+    "history": [
+      {
+        "id": "HIST001",
+        "userName": "Rajesh Kumar",
+        "userRole": "Nodal Officer",
+        "location": "Mumbai, Maharashtra",
+        "action": "Initial submission completed. All required documents attached.",
+        "timestamp": "2025-04-01T10:30:00"
+      }
+    ]
+  },
+  {
+    "id": "SUB2024002",
+    "title": "Infrastructure Development Q3 2024",
+    "status": "overdue",
+    "submittedBy": {
+      "name": "Pune Nodal Officer",
+      "location": "Pune"
+    },
+    "submissionDate": "2024-03-15",
+    "deadline": "2024-03-25",
+    "category": "Infrastructure Development",
+    "progress": 85,
+    "documentsCount": 8,
+    "daysPending": 12,
+    "nodalOfficer": {
+      "name": "Priya Sharma",
+      "role": "Nodal Officer",
+      "email": "priya.sharma@maharashtra.gov.in",
+      "phone": "+91-98765-43211"
+    },
+    "submissionInfo": {
+      "category": "Infrastructure Development",
+      "budgetAllocation": "Project Development",
+      "location": "Pune",
+      "submittedOn": "2024-03-15"
+    },
+    "performanceMetrics": {
+      "estimatedValue": "₹350Cr",
+      "impactScore": 78,
+      "complianceScore": 88,
+      "completionRate": 85
+    },
+    "summary": {
+      "totalDocuments": 8,
+      "reviewed": 3,
+      "daysPending": 12,
+      "checklistCompleted": 50
+    },
+    "documents": [],
+    "checklist": [],
+    "history": []
+  },
+  {
+    "id": "SUB2025003",
+    "title": "PPP Development Projects 2025",
+    "status": "approved",
+    "submittedBy": {
+      "name": "Nagpur Nodal Officer",
+      "location": "Nagpur"
+    },
+    "submissionDate": "2025-03-20",
+    "deadline": "2025-04-05",
+    "category": "PPP Development",
+    "progress": 100,
+    "documentsCount": 15,
+    "daysPending": 0,
+    "nodalOfficer": {
+      "name": "Amit Patel",
+      "role": "Nodal Officer",
+      "email": "amit.patel@maharashtra.gov.in",
+      "phone": "+91-98765-43212"
+    },
+    "submissionInfo": {
+      "category": "PPP Development",
+      "budgetAllocation": "PPP Projects",
+      "location": "Nagpur",
+      "submittedOn": "2025-03-20"
+    },
+    "performanceMetrics": {
+      "estimatedValue": "₹750Cr",
+      "impactScore": 95,
+      "complianceScore": 98,
+      "completionRate": 100
+    },
+    "summary": {
+      "totalDocuments": 15,
+      "reviewed": 15,
+      "daysPending": 0,
+      "checklistCompleted": 100
+    },
+    "documents": [],
+    "checklist": [],
+    "history": []
+  },
+  {
+    "id": "SUB2025004",
+    "title": "Infrastructure Enablers Q1 2025",
+    "status": "pending",
+    "submittedBy": {
+      "name": "Nashik Nodal Officer",
+      "location": "Nashik"
+    },
+    "submissionDate": "2025-04-05",
+    "deadline": "2025-04-20",
+    "category": "Infrastructure Enablers",
+    "progress": 70,
+    "documentsCount": 10,
+    "daysPending": 5,
+    "nodalOfficer": {
+      "name": "Sneha Deshmukh",
+      "role": "Nodal Officer",
+      "email": "sneha.deshmukh@maharashtra.gov.in",
+      "phone": "+91-98765-43213"
+    },
+    "submissionInfo": {
+      "category": "Infrastructure Enablers",
+      "budgetAllocation": "Enabler Programs",
+      "location": "Nashik",
+      "submittedOn": "2025-04-05"
+    },
+    "performanceMetrics": {
+      "estimatedValue": "₹200Cr",
+      "impactScore": 80,
+      "complianceScore": 85,
+      "completionRate": 70
+    },
+    "summary": {
+      "totalDocuments": 10,
+      "reviewed": 5,
+      "daysPending": 5,
+      "checklistCompleted": 60
+    },
+    "documents": [],
+    "checklist": [],
+    "history": []
+  },
+  {
+    "id": "SUB2025005",
+    "title": "Smart City Infrastructure 2025",
+    "status": "pending",
+    "submittedBy": {
+      "name": "Thane Nodal Officer",
+      "location": "Thane"
+    },
+    "submissionDate": "2025-04-08",
+    "deadline": "2025-04-22",
+    "category": "Infrastructure Development",
+    "progress": 90,
+    "documentsCount": 18,
+    "daysPending": 2,
+    "nodalOfficer": {
+      "name": "Vikram Singh",
+      "role": "Nodal Officer",
+      "email": "vikram.singh@maharashtra.gov.in",
+      "phone": "+91-98765-43214"
+    },
+    "submissionInfo": {
+      "category": "Infrastructure Development",
+      "budgetAllocation": "Smart City Projects",
+      "location": "Thane",
+      "submittedOn": "2025-04-08"
+    },
+    "performanceMetrics": {
+      "estimatedValue": "₹900Cr",
+      "impactScore": 92,
+      "complianceScore": 95,
+      "completionRate": 90
+    },
+    "summary": {
+      "totalDocuments": 18,
+      "reviewed": 12,
+      "daysPending": 2,
+      "checklistCompleted": 85
+    },
+    "documents": [],
+    "checklist": [],
+    "history": []
+  },
+  {
+    "id": "SUB2024006",
+    "title": "Road Infrastructure Q2 2024",
+    "status": "overdue",
+    "submittedBy": {
+      "name": "Aurangabad Nodal Officer",
+      "location": "Aurangabad"
+    },
+    "submissionDate": "2024-02-10",
+    "deadline": "2024-02-28",
+    "category": "Infrastructure Financing",
+    "progress": 60,
+    "documentsCount": 6,
+    "daysPending": 20,
+    "nodalOfficer": {
+      "name": "Meera Joshi",
+      "role": "Nodal Officer",
+      "email": "meera.joshi@maharashtra.gov.in",
+      "phone": "+91-98765-43215"
+    },
+    "submissionInfo": {
+      "category": "Infrastructure Financing",
+      "budgetAllocation": "Road Development",
+      "location": "Aurangabad",
+      "submittedOn": "2024-02-10"
+    },
+    "performanceMetrics": {
+      "estimatedValue": "₹400Cr",
+      "impactScore": 70,
+      "complianceScore": 75,
+      "completionRate": 60
+    },
+    "summary": {
+      "totalDocuments": 6,
+      "reviewed": 2,
+      "daysPending": 20,
+      "checklistCompleted": 40
+    },
+    "documents": [],
+    "checklist": [],
+    "history": []
+  }
+]
