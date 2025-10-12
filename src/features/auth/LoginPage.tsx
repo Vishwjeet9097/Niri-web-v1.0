@@ -215,38 +215,30 @@ export function LoginPage() {
 
                 <form onSubmit={handleSSOLogin} className="space-y-6">
                   <div>
-                    <Label htmlFor="sso-email" className="text-sm font-medium text-gray-700">
-                      Email Id*
+                    <Label htmlFor="sso-email" className="text-sm font-medium text-gray-400">
+                      Email Id* (SSO Disabled)
                     </Label>
                     <Input
                       id="sso-email"
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@gov.in or name@nic.in"
-                      required
-                      className="mt-1"
-                      disabled={loading}
+                      className="mt-1 bg-gray-100 cursor-not-allowed"
+                      disabled
+                      readOnly
                     />
-                    <div className="mt-2 flex items-center text-sm text-gray-600">
+                    <div className="mt-2 flex items-center text-sm text-gray-400">
                       <Info className="w-4 h-4 mr-1" />
-                      Only @nic.in and @gov.in domains are authorized
+                      SSO login is currently disabled. Please use manual login below.
                     </div>
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={loading}
+                    className="w-full bg-blue-300 cursor-not-allowed"
+                    disabled
                   >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      "Continue"
-                    )}
+                    SSO Disabled
                   </Button>
                 </form>
 
