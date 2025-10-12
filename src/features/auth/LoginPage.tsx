@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,24 @@ import { Loader2, Minus, Plus, Contrast, Info } from "lucide-react";
 type LoginStep = "sso" | "otp" | "manual" | "loading";
 
 export function LoginPage() {
+  // Font size state: 0 = default, -1 = small, 1 = large
+  const [fontSizeLevel, setFontSizeLevel] = useState(0);
+
+  // Font size values in rem
+  const fontSizes = ["15px", "16px", "18px"];
+  const getFontSize = (level: number) => {
+    if (level === -1) return fontSizes[0];
+    if (level === 1) return fontSizes[2];
+    return fontSizes[1];
+  };
+
+  // Update root font size on change
+  useEffect(() => {
+    document.documentElement.style.fontSize = getFontSize(fontSizeLevel);
+    return () => {
+      document.documentElement.style.fontSize = "16px";
+    };
+  }, [fontSizeLevel]);
   const navigate = useNavigate();
   const location = useLocation();
   const { login, setUser, setIsAuthenticated } = useAuth();
@@ -172,12 +190,35 @@ export function LoginPage() {
 
         <div className="flex items-center space-x-4">
           <a href="#main" className="hover:underline">Skip to Main Content</a>
-          <button title="Decrease text size" aria-label="Decrease text size" className="opacity-90 hover:opacity-100">
-            <Minus size={16} />
-          </button>
-          <button title="Increase text size" aria-label="Increase text size" className="opacity-90 hover:opacity-100">
-            <Plus size={16} />
-          </button>
+          <div className="flex items-center space-x-1 rounded px-2 py-1">
+            <button
+              title="Decrease text size"
+              aria-label="Decrease text size"
+              className={`px-2 py-1 rounded font-bold text-xs transition-colors bg-white/20 text-white ${fontSizeLevel === -1 ? 'bg-blue-400' : 'hover:bg-white/40 hover:shadow-lg'}`}
+              onClick={() => setFontSizeLevel(-1)}
+              style={{ minWidth: 32 }}
+            >
+              A-
+            </button>
+            <button
+              title="Reset text size"
+              aria-label="Reset text size"
+              className={`px-2 py-1 rounded font-bold text-xs transition-colors bg-white/20 text-white ${fontSizeLevel === 0 ? 'bg-blue-400' : 'hover:bg-white/40 hover:shadow-lg'}`}
+              onClick={() => setFontSizeLevel(0)}
+              style={{ minWidth: 32 }}
+            >
+              A
+            </button>
+            <button
+              title="Increase text size"
+              aria-label="Increase text size"
+              className={`px-2 py-1 rounded font-bold text-xs transition-colors bg-white/20 text-white ${fontSizeLevel === 1 ? 'bg-blue-400' : 'hover:bg-white/40 hover:shadow-lg'}`}
+              onClick={() => setFontSizeLevel(1)}
+              style={{ minWidth: 32 }}
+            >
+              A+
+            </button>
+          </div>
           <button title="High Contrast" aria-label="High Contrast" className="opacity-90 hover:opacity-100">
             <Contrast size={16} />
           </button>
