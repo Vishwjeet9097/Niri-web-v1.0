@@ -158,6 +158,8 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
+    } else if (!/\.(gov\.in|nic\.in)$/i.test(formData.email)) {
+      newErrors.email = "Only .gov.in and .nic.in email addresses are allowed";
     }
 
     // Password is required only for new users
@@ -344,7 +346,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Enter official email address</p>
+                  <p>Only .gov.in and .nic.in email addresses are allowed</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -352,11 +354,35 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
           <Input
             id="email"
             type="email"
-            placeholder="e.g. example@email.com"
+            placeholder="e.g. user@gujarat.gov.in or user@nic.in"
             value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
+            onChange={(e) => {
+              const email = e.target.value;
+              setFormData({ ...formData, email });
+              
+              // Real-time validation for email domain
+              if (email.trim() === "") {
+                // Clear error if field is empty
+                setErrors(prev => {
+                  const newErrors = { ...prev };
+                  delete newErrors.email;
+                  return newErrors;
+                });
+              } else if (!/\.(gov\.in|nic\.in)$/i.test(email)) {
+                // Show error if domain is not .gov.in or .nic.in
+                setErrors(prev => ({
+                  ...prev,
+                  email: "Only .gov.in and .nic.in email addresses are allowed"
+                }));
+              } else {
+                // Clear error if domain is correct
+                setErrors(prev => {
+                  const newErrors = { ...prev };
+                  delete newErrors.email;
+                  return newErrors;
+                });
+              }
+            }}
             className={errors.email ? "border-destructive" : ""}
           />
           {errors.email && (
