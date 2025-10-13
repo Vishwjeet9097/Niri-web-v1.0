@@ -296,20 +296,99 @@ export function UserManagementPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
+  // Sorting state
+  const [sortField, setSortField] = useState<"firstName" | "role" | "state" | "email">("firstName");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // ✅ getStateNameById function removed - using stateId directly as state name
 
-  // Filter officers based on search term and role
-  const filteredOfficers = officers.filter(officer => {
-    const matchesSearch = searchTerm === "" || 
-      officer.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      officer.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      officer.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesRole = roleFilter === "all" || officer.role === roleFilter;
-    
-    return matchesSearch && matchesRole;
+  // Filter and sort officers
+  const filteredOfficers = officers
+    .filter(officer => {
+      const matchesSearch = searchTerm === "" || 
+        officer.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        officer.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        officer.email.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesRole = roleFilter === "all" || officer.role === roleFilter;
+      
+      console.log("🔍 Filter Debug:", {
+        officerName: `${officer.firstName} ${officer.lastName}`,
+        searchTerm,
+        matchesSearch,
+        roleFilter,
+        matchesRole,
+        finalMatch: matchesSearch && matchesRole
+      });
+      
+      return matchesSearch && matchesRole;
+    })
+    .sort((a, b) => {
+      let aValue = "";
+      let bValue = "";
+      
+      switch (sortField) {
+        case "firstName":
+          aValue = `${a.firstName} ${a.lastName}`.toLowerCase();
+          bValue = `${b.firstName} ${b.lastName}`.toLowerCase();
+          break;
+        case "role":
+          aValue = a.role.toLowerCase();
+          bValue = b.role.toLowerCase();
+          break;
+        case "state":
+          aValue = (a.stateId || a.state).toLowerCase();
+          bValue = (b.stateId || b.state).toLowerCase();
+          break;
+        case "email":
+          aValue = a.email.toLowerCase();
+          bValue = b.email.toLowerCase();
+          break;
+        default:
+          aValue = a.firstName.toLowerCase();
+          bValue = b.firstName.toLowerCase();
+      }
+      
+      if (sortDirection === "asc") {
+        return aValue.localeCompare(bValue);
+      } else {
+        return bValue.localeCompare(aValue);
+      }
+    });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredOfficers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOfficers = filteredOfficers.slice(startIndex, endIndex);
+  
+  console.log("🔍 Pagination Debug:", {
+    totalOfficers: officers.length,
+    filteredOfficers: filteredOfficers.length,
+    currentPage,
+    totalPages,
+    startIndex,
+    endIndex,
+    paginatedOfficers: paginatedOfficers.length,
+    searchTerm,
+    roleFilter
   });
+
+  // Handle sorting
+  const handleSort = (field: "firstName" | "role" | "state" | "email") => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setCurrentPage(1); // Reset to first page when sorting
+  };
 
   const handleDeleteAll = async () => {
     // Only proceed if users are selected
@@ -487,13 +566,21 @@ export function UserManagementPage() {
           <Input
             placeholder="Search by name or email..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              console.log("🔍 Search Input Changed:", e.target.value);
+              setSearchTerm(e.target.value);
+              setCurrentPage(1); // Reset to first page when searching
+            }}
             className="pl-10"
           />
         </div>
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <Select value={roleFilter} onValueChange={(value) => {
+            console.log("🔍 Role Filter Changed:", value);
+            setRoleFilter(value);
+            setCurrentPage(1); // Reset to first page when filtering
+          }}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
@@ -514,6 +601,7 @@ export function UserManagementPage() {
             onClick={() => {
               setSearchTerm("");
               setRoleFilter("all");
+              setCurrentPage(1); // Reset to first page when clearing filters
             }}
           >
             Clear Filters
@@ -523,22 +611,71 @@ export function UserManagementPage() {
 
       {/* Results Count */}
       <div className="text-sm text-muted-foreground">
-        Showing {filteredOfficers.length} of {officers.length} users
-        {(searchTerm || roleFilter !== "all") && (
+        Showing {startIndex + 1}-{Math.min(endIndex, filteredOfficers.length)} of {filteredOfficers.length} users
+        {filteredOfficers.length !== officers.length && (
           <span className="ml-2 text-primary">
-            (filtered)
+            (filtered from {officers.length} total)
           </span>
         )}
       </div>
 
       <UserTable
-        officers={filteredOfficers}
+        officers={paginatedOfficers}
         onEdit={handleEditUser}
         onDelete={handleDeleteUser}
         onAssignIndicator={handleAssignIndicator}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSort={handleSort}
       />
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              First
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm">
+              {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              Last
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal for User Deletion */}
       <ConfirmationModal
