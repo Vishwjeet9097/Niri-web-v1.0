@@ -176,7 +176,7 @@ export function LoginPage() {
   };
 
   return (
-  <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-white transition-colors duration-300">
+  <div className="h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-white transition-colors duration-300 overflow-hidden">
       {/* --- Top Bar (edge-to-edge) --- */}
   <header className="w-full bg-[#003366] text-white dark:bg-gray-950 dark:text-white py-2 px-6 flex justify-between items-center text-sm transition-colors duration-300">
         <div className="flex items-center space-x-3">
@@ -253,26 +253,26 @@ export function LoginPage() {
         </div>
 
         {/* Right Login Section */}
-        <div id="main" className="flex-1 flex items-center justify-center p-8">
+        <div id="main" className="flex-1 flex items-start justify-center p-4 pt-16">
           <div className="w-full max-w-xl">
             {/* SSO Login Step */}
             {step === "sso" && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
-                <div className="text-center mb-8">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 transition-colors duration-300">
+                <div className="text-center mb-6">
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                    Login to your account with SSO
+                    Login to your account
                   </h1>
                 </div>
 
-                <form onSubmit={handleSSOLogin} className="space-y-6">
-                  <div>
+                <form onSubmit={handleSSOLogin} className="space-y-4">
+                  { <div>
                     <Label htmlFor="sso-email" className="text-sm font-medium text-gray-400">
                       Email Id* (SSO Disabled)
                     </Label>
                     <Input
                       id="sso-email"
                       type="email"
-                      value={email}
+                      value=""
                       placeholder="name@gov.in or name@nic.in"
                       className="mt-1 bg-gray-100 cursor-not-allowed"
                       disabled
@@ -282,7 +282,7 @@ export function LoginPage() {
                       <Info className="w-4 h-4 mr-1" />
                       SSO login is currently disabled. Please use manual login below.
                     </div>
-                  </div>
+                  </div> }
 
                   <Button
                     type="submit"
@@ -370,8 +370,8 @@ export function LoginPage() {
 
             {/* OTP Verification Step */}
             {step === "otp" && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
-                <div className="text-center mb-8">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 transition-colors duration-300">
+                <div className="text-center mb-6">
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     Verify your account
                   </h1>
@@ -383,7 +383,7 @@ export function LoginPage() {
                   </p>
                 </div>
 
-                <form onSubmit={handleOTPVerification} className="space-y-6">
+                <form onSubmit={handleOTPVerification} className="space-y-4">
                   <div>
                     <Label className="text-sm font-medium text-gray-700">
                       Enter OTP
@@ -468,7 +468,7 @@ export function LoginPage() {
 
             {/* Loading Step */}
             {step === "loading" && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 transition-colors duration-300">
                 <div className="text-center">
                   <h1 className="text-2xl font-bold text-gray-900 mb-4">
                     Please wait...
