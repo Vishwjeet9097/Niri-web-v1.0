@@ -207,7 +207,7 @@ export function NodalDashboardPage() {
             nextStep: nextStep,
             reviewerNote: reviewerNote,
             submission: sub, // Pass full submission object for isReturnedFromMospi check
-            submittedBy: sub.user?.firstName + " " + sub.user?.lastName || "Unknown",
+            submittedBy: sub.user ? `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim() || "Unknown" : "Unknown",
             stateUt: sub.stateUt,
             rejectionCount: sub.rejectionCount || 0,
             finalScore: sub.finalScore,
@@ -364,6 +364,7 @@ export function NodalDashboardPage() {
                         reviewerNote={submission.reviewerNote}
                         submission={submission.submission}
                         currentUserRole="NODAL_OFFICER"
+                        submittedBy={submission.submittedBy}
                         onEdit={() => handleEditSubmission(submission.id, navigate)}
                         onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                         onRevise={() => navigate(`/data-submission/review/${submission.id}`)}

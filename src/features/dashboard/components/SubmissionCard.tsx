@@ -17,6 +17,7 @@ export interface SubmissionCardProps {
   reviewerNote?: string;
   submission?: any; // Full submission object for isReturnedFromMospi check
   currentUserRole?: string;
+  submittedBy?: string; // Added submitted by field
   onEdit?: () => void;
   onViewDetails?: () => void;
   onRevise?: () => void;
@@ -114,6 +115,7 @@ export function SubmissionCard({
   reviewerNote,
   submission,
   currentUserRole,
+  submittedBy,
   onEdit,
   onViewDetails,
   onRevise,
@@ -145,6 +147,7 @@ export function SubmissionCard({
             <span>ID: {referenceId}</span>
             <span>Updated: {updatedDate}</span>
             <span>Due: {dueDate}</span>
+            {submittedBy && <span>Submitted by: {submittedBy}</span>}
           </div>
           {isWaiting && waitingMessage && (
             <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">

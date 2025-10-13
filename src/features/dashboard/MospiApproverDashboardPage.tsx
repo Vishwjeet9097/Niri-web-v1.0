@@ -247,6 +247,7 @@ export const MospiApproverDashboardPage = () => {
                     reviewerNote={submission.reviewerNote}
                     submission={submission}
                     currentUserRole="MOSPI_APPROVER"
+                    submittedBy={submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown"}
                     onReview={() => navigate(`/data-submission/review/${submission.id}`)}
                     onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                   />

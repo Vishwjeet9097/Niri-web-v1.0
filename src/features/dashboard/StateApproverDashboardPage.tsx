@@ -207,11 +207,21 @@ export function StateApproverDashboardPage() {
           // Determine if overdue (more than 7 days)
           const isOverdue = pendingDays > 7;
           
+          // Debug log for submittedBy
+          const submittedByName = sub.user ? `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
+          console.log("🔍 StateApprover - Mapping submission:", {
+            id: sub.id,
+            user: sub.user,
+            submittedByName,
+            firstName: sub.user?.firstName,
+            lastName: sub.user?.lastName
+          });
+          
           return {
             id: sub.id,
             title: sub.submissionId || `Submission ${sub.id}`,
             status: sub.status || sub.submissionId || `SUB-${sub.id.slice(-6)}`, // Use actual status field
-            submittedBy: sub.user ? `${sub.user.firstName} ${sub.user.lastName}` : "Unknown",
+            submittedBy: submittedByName,
             submissionDate: new Date(sub.createdAt).toLocaleDateString(),
             deadline: sub.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
             category: "Infrastructure",
@@ -356,6 +366,7 @@ export function StateApproverDashboardPage() {
                     reviewerNote={submission.reviewerNote}
                     submission={submission}
                     currentUserRole="STATE_APPROVER"
+                    submittedBy={submission.submittedBy}
                     onReview={() => navigate(`/data-submission/review/${submission.id}`)}
                     onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                   />
