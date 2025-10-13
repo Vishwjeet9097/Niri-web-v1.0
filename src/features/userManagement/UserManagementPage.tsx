@@ -10,6 +10,7 @@ import { UserTable } from "./components/UserTable";
 import { EmptyState } from "./components/EmptyState";
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/services/api.service";
+import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 
 export function UserManagementPage() {
@@ -74,13 +75,14 @@ export function UserManagementPage() {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
           email: officerData.email,
-          contactNumber: officerData.contactNumber, // Add contactNumber field
+          contactNumber: officerData.contactNumber,
           role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
         } as any);
-        toast({
-          title: "Success",
-          description: "Officer updated successfully",
-        });
+        
+        notificationService.success(
+          "Officer updated successfully",
+          "Update Successful"
+        );
       } else {
         // Create new user via backend API
         console.log("🔍 Creating user with data:", {
@@ -96,30 +98,58 @@ export function UserManagementPage() {
         
         const newUser = await apiService.register(
           officerData.email,
-          officerData.password || "password123", // Use provided password or default
+          officerData.password || "password123",
           officerData.firstName,
           officerData.lastName,
-          officerData.contactNumber, // Add contactNumber parameter
+          officerData.contactNumber,
           officerData.role,
-          user?.state || "", // stateUt parameter
-          officerData.stateId // stateId parameter
+          user?.state || "",
+          officerData.stateId
         );
         console.log("🔍 New User Created:", newUser);
-        toast({
-          title: "Success",
-          description: "Officer added successfully",
-        });
+        
+        notificationService.success(
+          "Officer added successfully",
+          "Registration Successful"
+        );
       }
       await loadOfficers();
       setShowForm(false);
       setEditingOfficer(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error saving user:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save officer. Please try again.",
-        variant: "destructive",
-      });
+      
+      // Extract error message from response
+      let errorMessage = "Failed to save officer. Please try again.";
+      let errorTitle = "Operation Failed";
+      
+      if (error?.response?.data) {
+        const responseData = error.response.data;
+        
+        // Priority: message > error > default
+        if (responseData.message) {
+          errorMessage = responseData.message;
+          errorTitle = responseData.error || "Error";
+        } else if (responseData.error) {
+          errorMessage = responseData.error;
+        }
+        
+        // Handle specific error cases
+        if (responseData.statusCode === 409) {
+          errorTitle = "User Already Exists";
+          errorMessage = "A user with this email address already exists. Please use a different email.";
+        } else if (responseData.statusCode === 400) {
+          errorTitle = "Invalid Data";
+          errorMessage = "Please check your input data and try again.";
+        } else if (responseData.statusCode === 403) {
+          errorTitle = "Access Denied";
+          errorMessage = "You don't have permission to perform this action.";
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      notificationService.error(errorMessage, errorTitle);
     }
   };
 
@@ -138,10 +168,10 @@ export function UserManagementPage() {
     try {
       // Delete user via backend API
       await apiService.deactivateUser(userToDelete.id);
-      toast({
-        title: "Success",
-        description: `${userToDelete.firstName} ${userToDelete.lastName} deactivated successfully`,
-      });
+      notificationService.success(
+        `${userToDelete.firstName} ${userToDelete.lastName} deactivated successfully`,
+        "Deactivation Successful"
+      );
       
       // Refresh data
       await loadOfficers();
@@ -151,11 +181,10 @@ export function UserManagementPage() {
       setUserToDelete(null);
     } catch (error) {
       console.error("❌ Error deleting user:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete officer. Please try again.",
-        variant: "destructive",
-      });
+      notificationService.error(
+        "Failed to delete officer. Please try again.",
+        "Delete Failed"
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -180,11 +209,10 @@ export function UserManagementPage() {
   const handleDeleteAll = async () => {
     // Only proceed if users are selected
     if (selectedIds.size === 0) {
-      toast({
-        title: "No Selection",
-        description: "Please select users to delete",
-        variant: "destructive",
-      });
+      notificationService.warning(
+        "Please select users to delete",
+        "No Selection"
+      );
       return;
     }
     
@@ -210,10 +238,10 @@ export function UserManagementPage() {
       const selectedIdsArray = Array.from(selectedIds);
       const result = await apiService.deactivateUsers(selectedIdsArray);
       
-      toast({
-        title: "Success",
-        description: `${result.deactivatedCount || selectedIdsArray.length} users deactivated successfully`,
-      });
+      notificationService.success(
+        `${result.deactivatedCount || selectedIdsArray.length} users deactivated successfully`,
+        "Bulk Deactivation Successful"
+      );
       
       // Clear selection and refresh data
       setSelectedIds(new Set());
@@ -224,11 +252,10 @@ export function UserManagementPage() {
       setUserToDelete(null);
     } catch (error) {
       console.error("❌ Error deleting users:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete users. Please try again.",
-        variant: "destructive",
-      });
+      notificationService.error(
+        "Failed to delete users. Please try again.",
+        "Bulk Delete Failed"
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -240,18 +267,17 @@ export function UserManagementPage() {
       await apiService.updateUser(id, {
         assignedIndicator: indicator,
       } as any);
-      toast({
-        title: "Success",
-        description: "Indicator assigned successfully",
-      });
+      notificationService.success(
+        "Indicator assigned successfully",
+        "Assignment Successful"
+      );
       await loadOfficers();
     } catch (error) {
       console.error("❌ Error assigning indicator:", error);
-      toast({
-        title: "Error",
-        description: "Failed to assign indicator. Please try again.",
-        variant: "destructive",
-      });
+      notificationService.error(
+        "Failed to assign indicator. Please try again.",
+        "Assignment Failed"
+      );
     }
   };
 

@@ -80,7 +80,7 @@ export function UserTable({
             <TableHead>State/UT</TableHead>
             <TableHead>Contact Number</TableHead>
             <TableHead>Email</TableHead>
-            <TableHead>Assigned Indicator</TableHead>
+            {/* <TableHead>Assigned Indicator</TableHead> */}
             <TableHead className="w-24">Action</TableHead>
           </TableRow>
         </TableHeader>
@@ -103,7 +103,7 @@ export function UserTable({
               <TableCell>{officer.stateId || officer.state}</TableCell>
               <TableCell>+91 {officer.contactNumber}</TableCell>
               <TableCell>{officer.email}</TableCell>
-              <TableCell>
+              {/* <TableCell>
                 {officer.assignedIndicator ? (
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="bg-primary text-primary-foreground">
@@ -144,7 +144,7 @@ export function UserTable({
                     </SelectContent>
                   </Select>
                 )}
-              </TableCell>
+              </TableCell> */}
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
