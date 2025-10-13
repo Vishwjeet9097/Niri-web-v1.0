@@ -196,7 +196,8 @@ export const SubmissionDetailPage = () => {
                   Send Back
                 </Button>
               )}
-              {canRejectSubmission(user?.role || "", submission?.status) && (
+              {/* Reject button commented out for all roles */}
+              {/* {canRejectSubmission(user?.role || "", submission?.status) && (
                 <Button
                   variant="destructive"
                   onClick={() => setRejectModalOpen(true)}
@@ -205,7 +206,7 @@ export const SubmissionDetailPage = () => {
                   <AlertTriangle className="w-4 h-4" />
                   Reject
                 </Button>
-              )}
+              )} */}
               {canApproveSubmission(user?.role || "", submission?.status) && (
                 <Button
                   onClick={() => setApproveModalOpen(true)}
@@ -231,7 +232,8 @@ export const SubmissionDetailPage = () => {
                   Send Back
                 </Button>
               )}
-              {canRejectSubmission(user?.role || "", submission?.status) && (
+              {/* Reject button commented out for all roles */}
+              {/* {canRejectSubmission(user?.role || "", submission?.status) && (
                 <Button
                   variant="destructive"
                   onClick={() => setRejectModalOpen(true)}
@@ -240,7 +242,7 @@ export const SubmissionDetailPage = () => {
                   <AlertTriangle className="w-4 h-4" />
                   Reject
                 </Button>
-              )}
+              )} */}
               {canReviewSubmission(user?.role || "", submission?.status) && (
                 <Button
                   onClick={() => setSendToApproverModalOpen(true)}

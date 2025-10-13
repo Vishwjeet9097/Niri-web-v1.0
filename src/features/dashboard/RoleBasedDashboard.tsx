@@ -32,8 +32,8 @@ export default function RoleBasedDashboard() {
       return <StateApproverDashboardPage />;
     
     case "ADMIN":
-      // Admin redirects to User Management
-      return <Navigate to="/user-management" replace />;
+      // Admin can access dashboard, no redirect needed
+      return <DashboardPage />;
     
     default:
       // Fallback for unknown roles

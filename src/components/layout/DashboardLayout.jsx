@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
+import { getRoleDisplayName } from "@/utils/roles";
 import {
   LayoutDashboard,
   FileText,
@@ -99,7 +100,8 @@ export function DashboardLayout() {
                   {user?.firstName + " " + user?.lastName || "Nodal Officer"}
                 </p>
                 <p className="text-xs opacity-75">
-                  {user?.role || "Nodal Officer"} | {user?.stateName || "N/A"}
+                  {getRoleDisplayName(user?.role) || "Nodal Officer"} |{" "}
+                  {user?.stateName || "N/A"}
                 </p>
               </div>
               <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center overflow-hidden">

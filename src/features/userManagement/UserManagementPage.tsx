@@ -3,7 +3,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Users, Search, Filter } from "lucide-react";
+import { Plus, Users, Search, Filter, Loader2 } from "lucide-react";
 import { getRoleDisplayName } from "@/utils/roles";
 import { userManagementService, NodalOfficer } from "./services/userManagement.service";
 import { UserForm } from "./components/UserForm";
@@ -24,6 +24,7 @@ export function UserManagementPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<NodalOfficer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadStates = async () => {
     try {
@@ -37,6 +38,7 @@ export function UserManagementPage() {
 
   const loadOfficers = useCallback(async () => {
     try {
+      setIsLoading(true);
       console.log("🔍 Loading officers for user:", { role: user?.role, state: user?.state });
       
       // Try to load from backend API first
@@ -74,6 +76,8 @@ export function UserManagementPage() {
       // Fallback to local storage
       const data = userManagementService.getOfficers(user?.state || "");
       setOfficers(data);
+    } finally {
+      setIsLoading(false);
     }
   }, [user?.role, user?.state]); // Add dependencies
 
@@ -506,6 +510,21 @@ export function UserManagementPage() {
           </p>
           <p className="text-sm text-gray-500">
             Only State Approvers, MoSPI Approvers, and Admins can manage users.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Users</h2>
+          <p className="text-gray-600">
+            Please wait while we fetch the user data...
           </p>
         </div>
       </div>

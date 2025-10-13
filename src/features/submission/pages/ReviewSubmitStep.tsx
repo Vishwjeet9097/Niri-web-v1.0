@@ -18,7 +18,7 @@ import { useFormValidation } from '../hooks/useFormValidation';
 
 export const ReviewSubmitStep = () => {
   const { currentStep, goToPrevious } = useStepNavigation(5);
-  const { formData, clearFormData } = useFormPersistence();
+  const { formData, clearFormData, isResubmit } = useFormPersistence();
   const navigate = useNavigate();
   const [showPreview, setShowPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -216,7 +216,7 @@ export const ReviewSubmitStep = () => {
             onClick={handleSubmit}
             disabled={isSubmitting || isValidating}
           >
-            {isSubmitting ? 'Submitting...' : isValidating ? 'Validating...' : 'Submit Data'}
+            {isSubmitting ? (isResubmit ? 'Resubmitting...' : 'Submitting...') : isValidating ? 'Validating...' : (isResubmit ? 'Resubmit Data' : 'Submit Data')}
           </Button>
         </div>
       </div>
@@ -225,15 +225,18 @@ export const ReviewSubmitStep = () => {
       <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to submit?</AlertDialogTitle>
+            <AlertDialogTitle>{isResubmit ? 'Are you sure you want to resubmit?' : 'Are you sure you want to submit?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              Once submitted, your data will be locked for editing and sent to the State Approver for review.
+              {isResubmit 
+                ? 'Once resubmitted, your updated data will be sent to the State Approver for review.'
+                : 'Once submitted, your data will be locked for editing and sent to the State Approver for review.'
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Send to State Approver'}
+              {isSubmitting ? (isResubmit ? 'Resubmitting...' : 'Submitting...') : (isResubmit ? 'Resubmit to State Approver' : 'Send to State Approver')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -247,7 +250,7 @@ export const ReviewSubmitStep = () => {
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
-              <AlertDialogTitle className="text-green-800">Data Submitted Successfully!</AlertDialogTitle>
+              <AlertDialogTitle className="text-green-800">{isResubmit ? 'Data Resubmitted Successfully!' : 'Data Submitted Successfully!'}</AlertDialogTitle>
             </div>
             <AlertDialogDescription className="text-gray-600">
               {submissionMessage}

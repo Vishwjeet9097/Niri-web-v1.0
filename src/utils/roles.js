@@ -32,12 +32,6 @@ export const LEGACY_ROLES = {
 
 export const MENU_CONFIG = [
   {
-    label: "User Management",
-    path: "/user-management",
-    roles: [ROLES.ADMIN, ROLES.STATE_APPROVER, ROLES.MOSPI_APPROVER], // Admin first
-    icon: "users",
-  },
-  {
     label: "Dashboard",
     path: "/dashboard",
     roles: [
@@ -45,9 +39,15 @@ export const MENU_CONFIG = [
       ROLES.MOSPI_REVIEWER,
       ROLES.MOSPI_APPROVER,
       ROLES.STATE_APPROVER,
-      // ROLES.ADMIN, // Admin doesn't need dashboard
+      ROLES.ADMIN, // Admin also has dashboard access
     ],
     icon: "dashboard",
+  },
+  {
+    label: "User Management",
+    path: "/user-management",
+    roles: [ROLES.ADMIN, ROLES.STATE_APPROVER, ROLES.MOSPI_APPROVER], // Second position
+    icon: "users",
   },
   // {
   //   label: "Report",
