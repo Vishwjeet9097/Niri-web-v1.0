@@ -1,6 +1,7 @@
 // niri - web / src / features / dashboard / RoleBasedDashboard.tsx;
 import React from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { Navigate } from "react-router-dom";
 import ReviewerDashboardPage from "./ReviewerDashboardPage";
 import ApproverDashboardPage from "./ApproverDashboardPage";
 import { NodalDashboardPage } from "./NodalDashboardPage";
@@ -29,6 +30,10 @@ export default function RoleBasedDashboard() {
     
     case "STATE_APPROVER":
       return <StateApproverDashboardPage />;
+    
+    case "ADMIN":
+      // Admin redirects to User Management
+      return <Navigate to="/user-management" replace />;
     
     default:
       // Fallback for unknown roles
