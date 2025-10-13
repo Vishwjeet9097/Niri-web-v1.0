@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, Loader2 } from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import {
   Tooltip,
@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { statesService, State } from "@/services/states.service";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
@@ -34,12 +35,20 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     email: "",
     password: "",
     role: "NODAL_OFFICER",
+    stateId: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [states, setStates] = useState<State[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
 
   useEffect(() => {
     if (officer) {
+      console.log("🔍 Setting form data for officer:", {
+        officer,
+        stateId: officer.stateId,
+        state: officer.state
+      });
       setFormData({
         firstName: officer.firstName,
         lastName: officer.lastName,
@@ -47,9 +56,86 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         email: officer.email,
         password: "", // Don't show password for existing users
         role: officer.role,
+        stateId: "", // Will be set after states are loaded
+      });
+    } else {
+      // Reset form when no officer (new user)
+      setFormData({
+        firstName: "",
+        lastName: "",
+        contactNumber: "",
+        email: "",
+        password: "",
+        role: "NODAL_OFFICER",
+        stateId: "",
       });
     }
   }, [officer]);
+
+  // Load states on component mount
+  useEffect(() => {
+    const loadStates = async () => {
+      setLoadingStates(true);
+      try {
+        const statesData = await statesService.getStates();
+        setStates(statesData);
+        
+        // If we have an officer but no stateId, try to find it by stateUt/state name
+        if (officer && (!officer.stateId || officer.stateId === "") && officer.state) {
+          console.log("🔍 Looking for state match:", {
+            officerState: officer.state,
+            statesData: statesData.length
+          });
+          
+          const foundState = statesData.find(state => 
+            state.name.toLowerCase() === officer.state.toLowerCase() ||
+            state.code.toLowerCase() === officer.state.toLowerCase()
+          );
+          
+          if (foundState) {
+            console.log("🔍 Found matching state:", foundState);
+            setFormData(prev => ({
+              ...prev,
+              stateId: foundState.id
+            }));
+          } else {
+            console.warn("⚠️ No matching state found for:", officer.state);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading states:", error);
+      } finally {
+        setLoadingStates(false);
+      }
+    };
+
+    loadStates();
+  }, [officer]);
+
+  // Set stateId after states are loaded and officer is available
+  useEffect(() => {
+    if (officer && states.length > 0 && !formData.stateId) {
+      console.log("🔍 Setting stateId after states loaded:", {
+        officerState: officer.state,
+        statesCount: states.length
+      });
+      
+      const foundState = states.find(state => 
+        state.name.toLowerCase() === officer.state.toLowerCase() ||
+        state.code.toLowerCase() === officer.state.toLowerCase()
+      );
+      
+      if (foundState) {
+        console.log("🔍 Found matching state for form:", foundState);
+        setFormData(prev => ({
+          ...prev,
+          stateId: foundState.id
+        }));
+      } else {
+        console.warn("⚠️ No matching state found for form:", officer.state);
+      }
+    }
+  }, [officer, states, formData.stateId]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -83,6 +169,10 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
 
     if (!formData.role) {
       newErrors.role = "Role is required";
+    }
+
+    if (!formData.stateId) {
+      newErrors.stateId = "State is required";
     }
 
     setErrors(newErrors);
@@ -138,6 +228,13 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       console.log("🔍 Form data being submitted:", formData);
       onSave(formData);
     }
+  };
+
+  // Get selected state name for display
+  const getSelectedStateName = () => {
+    if (!formData.stateId) return "";
+    const selectedState = states.find(state => state.id === formData.stateId);
+    return selectedState ? `${selectedState.name} (${selectedState.code})` : "";
   };
 
   return (
@@ -299,7 +396,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
           </div>
         )}
 
-        <div className="space-y-2 col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="role" className="flex items-center gap-2">
             Role
             <span className="text-destructive">*</span>
@@ -336,6 +433,59 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
           </Select>
           {errors.role && (
             <p className="text-sm text-destructive">{errors.role}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="stateId" className="flex items-center gap-2">
+            State/UT
+            <span className="text-destructive">*</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Select the state/union territory</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </Label>
+          <Select
+            value={formData.stateId}
+            onValueChange={(value) =>
+              setFormData({ ...formData, stateId: value })
+            }
+            disabled={loadingStates}
+          >
+            <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
+              <SelectValue 
+                placeholder={loadingStates ? "Loading states..." : "Select state/UT"}
+              >
+                {formData.stateId ? getSelectedStateName() : (loadingStates ? "Loading states..." : "Select state/UT")}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {loadingStates ? (
+                <div className="flex items-center justify-center p-2">
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Loading states...
+                </div>
+              ) : (
+                states.map((state) => (
+                  <SelectItem 
+                    key={state.id} 
+                    value={state.id}
+                    disabled={!state.isActive}
+                  >
+                    {state.name} ({state.code})
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          {errors.stateId && (
+            <p className="text-sm text-destructive">{errors.stateId}</p>
           )}
         </div>
       </div>

@@ -39,9 +39,11 @@ export function UserManagementPage() {
         lastName: user.lastName,
         contactNumber: user.contactNumber || "",
         email: user.email,
-        role: user.role,
-        state: user.stateUt || user.state,
+        role: user.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
+        state: user.stateUt || user.state || "",
+        stateId: user.stateId || "", // Will be set later when states are loaded
         assignedIndicator: user.assignedIndicator,
+        isActive: user.isActive,
         createdAt: new Date(user.createdAt).getTime(),
       }));
       
@@ -72,9 +74,9 @@ export function UserManagementPage() {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
           email: officerData.email,
-          contactNumber: officerData.contactNumber,
-          role: officerData.role,
-        });
+          contactNumber: officerData.contactNumber, // Add contactNumber field
+          role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
+        } as any);
         toast({
           title: "Success",
           description: "Officer updated successfully",
@@ -86,8 +88,10 @@ export function UserManagementPage() {
           password: officerData.password,
           firstName: officerData.firstName,
           lastName: officerData.lastName,
+          contactNumber: officerData.contactNumber,
           role: officerData.role,
-          stateUt: user?.state || ""
+          stateUt: user?.state || "",
+          stateId: officerData.stateId
         });
         
         const newUser = await apiService.register(
@@ -95,8 +99,10 @@ export function UserManagementPage() {
           officerData.password || "password123", // Use provided password or default
           officerData.firstName,
           officerData.lastName,
+          officerData.contactNumber, // Add contactNumber parameter
           officerData.role,
-          user?.state || ""
+          user?.state || "", // stateUt parameter
+          officerData.stateId // stateId parameter
         );
         console.log("🔍 New User Created:", newUser);
         toast({
@@ -192,7 +198,8 @@ export function UserManagementPage() {
       role: "",
       state: user?.state || "",
       contactNumber: "",
-      isActive: true
+      isActive: true,
+      createdAt: Date.now()
     });
     setDeleteModalOpen(true);
   };
@@ -232,7 +239,7 @@ export function UserManagementPage() {
       // Update user with assigned indicator via backend API
       await apiService.updateUser(id, {
         assignedIndicator: indicator,
-      });
+      } as any);
       toast({
         title: "Success",
         description: "Indicator assigned successfully",

@@ -77,6 +77,7 @@ export function UserTable({
             <TableHead className="w-20">S.no.</TableHead>
             <TableHead>Officer Name</TableHead>
             <TableHead>Role</TableHead>
+            <TableHead>State/UT</TableHead>
             <TableHead>Contact Number</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Assigned Indicator</TableHead>
@@ -99,6 +100,7 @@ export function UserTable({
                 {officer.firstName} {officer.lastName}
               </TableCell>
               <TableCell>{officer.role}</TableCell>
+              <TableCell>{officer.stateId || officer.state}</TableCell>
               <TableCell>+91 {officer.contactNumber}</TableCell>
               <TableCell>{officer.email}</TableCell>
               <TableCell>

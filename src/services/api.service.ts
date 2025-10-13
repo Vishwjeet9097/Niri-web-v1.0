@@ -20,6 +20,7 @@ export interface NiriUser {
   email: string;
   firstName: string;
   lastName: string;
+  contactNumber?: string;
   role:
     | "NODAL_OFFICER"
     | "STATE_APPROVER"
@@ -352,8 +353,10 @@ class ApiService implements HttpClient {
     password: string,
     firstName: string,
     lastName: string,
+    contactNumber: string,
     role: string,
-    stateUt: string
+    stateUt: string,
+    stateId?: string
   ): Promise<{ user: NiriUser; accessToken: string }> {
     try {
       const userData = {
@@ -361,8 +364,10 @@ class ApiService implements HttpClient {
         password,
         firstName,
         lastName,
+        contactNumber,
         role,
         stateUt,
+        stateId: stateId || stateUt, // Use stateId if provided, otherwise use stateUt
       };
 
       console.log("🔍 API Service - Register Request Data:", userData);
