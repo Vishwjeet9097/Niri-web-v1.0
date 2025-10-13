@@ -25,6 +25,7 @@ import {
 import { MoreVertical, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import { Badge } from "@/components/ui/badge";
+import { getRoleDisplayName } from "@/utils/roles";
 
 interface UserTableProps {
   officers: NodalOfficer[];
@@ -124,7 +125,11 @@ export function UserTable({
               <TableCell className="font-medium">
                 {officer.firstName} {officer.lastName}
               </TableCell>
-              <TableCell>{officer.role}</TableCell>
+              <TableCell>
+                <Badge variant="secondary">
+                  {getRoleDisplayName(officer.role)}
+                </Badge>
+              </TableCell>
               <TableCell>{officer.stateId || officer.state}</TableCell>
               <TableCell>+91 {officer.contactNumber}</TableCell>
               <TableCell>{officer.email}</TableCell>

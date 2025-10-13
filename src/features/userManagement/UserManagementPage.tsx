@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Users, Search, Filter } from "lucide-react";
+import { getRoleDisplayName } from "@/utils/roles";
 import { userManagementService, NodalOfficer } from "./services/userManagement.service";
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
@@ -317,14 +318,6 @@ export function UserManagementPage() {
       
       const matchesRole = roleFilter === "all" || officer.role === roleFilter;
       
-      console.log("🔍 Filter Debug:", {
-        officerName: `${officer.firstName} ${officer.lastName}`,
-        searchTerm,
-        matchesSearch,
-        roleFilter,
-        matchesRole,
-        finalMatch: matchesSearch && matchesRole
-      });
       
       return matchesSearch && matchesRole;
     })
@@ -367,17 +360,6 @@ export function UserManagementPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedOfficers = filteredOfficers.slice(startIndex, endIndex);
   
-  console.log("🔍 Pagination Debug:", {
-    totalOfficers: officers.length,
-    filteredOfficers: filteredOfficers.length,
-    currentPage,
-    totalPages,
-    startIndex,
-    endIndex,
-    paginatedOfficers: paginatedOfficers.length,
-    searchTerm,
-    roleFilter
-  });
 
   // Handle sorting
   const handleSort = (field: "firstName" | "role" | "state" | "email") => {
@@ -567,7 +549,6 @@ export function UserManagementPage() {
             placeholder="Search by name or email..."
             value={searchTerm}
             onChange={(e) => {
-              console.log("🔍 Search Input Changed:", e.target.value);
               setSearchTerm(e.target.value);
               setCurrentPage(1); // Reset to first page when searching
             }}
@@ -576,8 +557,7 @@ export function UserManagementPage() {
         </div>
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select value={roleFilter} onValueChange={(value) => {
-            console.log("🔍 Role Filter Changed:", value);
+          <Select value={roleFilter}           onValueChange={(value) => {
             setRoleFilter(value);
             setCurrentPage(1); // Reset to first page when filtering
           }}>
@@ -586,11 +566,11 @@ export function UserManagementPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="NODAL_OFFICER">Nodal Officer</SelectItem>
-              <SelectItem value="STATE_APPROVER">State Approver</SelectItem>
-              <SelectItem value="MOSPI_REVIEWER">MoSPI Reviewer</SelectItem>
-              <SelectItem value="MOSPI_APPROVER">MoSPI Approver</SelectItem>
-              <SelectItem value="ADMIN">Admin</SelectItem>
+              <SelectItem value="NODAL_OFFICER">{getRoleDisplayName("NODAL_OFFICER")}</SelectItem>
+              <SelectItem value="STATE_APPROVER">{getRoleDisplayName("STATE_APPROVER")}</SelectItem>
+              <SelectItem value="MOSPI_REVIEWER">{getRoleDisplayName("MOSPI_REVIEWER")}</SelectItem>
+              <SelectItem value="MOSPI_APPROVER">{getRoleDisplayName("MOSPI_APPROVER")}</SelectItem>
+              <SelectItem value="ADMIN">{getRoleDisplayName("ADMIN")}</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getRoleDisplayName } from "@/utils/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,22 +51,22 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       case "STATE_APPROVER":
         // State Approver can only create Nodal Officers
         return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
+          { value: "NODAL_OFFICER", label: getRoleDisplayName("NODAL_OFFICER") },
         ];
       case "MOSPI_APPROVER":
         // MoSPI Approver can create MoSPI Reviewers and State Approvers
         return [
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
+          { value: "MOSPI_REVIEWER", label: getRoleDisplayName("MOSPI_REVIEWER") },
+          { value: "STATE_APPROVER", label: getRoleDisplayName("STATE_APPROVER") },
         ];
       case "ADMIN":
         // Admin can create all roles (for system administration)
         return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-          { value: "ADMIN", label: "Admin" },
+          { value: "NODAL_OFFICER", label: getRoleDisplayName("NODAL_OFFICER") },
+          { value: "STATE_APPROVER", label: getRoleDisplayName("STATE_APPROVER") },
+          { value: "MOSPI_REVIEWER", label: getRoleDisplayName("MOSPI_REVIEWER") },
+          { value: "MOSPI_APPROVER", label: getRoleDisplayName("MOSPI_APPROVER") },
+          { value: "ADMIN", label: getRoleDisplayName("ADMIN") },
         ];
       default:
         // Default fallback - no roles available

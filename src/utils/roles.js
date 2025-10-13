@@ -7,6 +7,20 @@ export const ROLES = {
   ADMIN: "ADMIN",
 };
 
+// Role display names mapping
+export const ROLE_DISPLAY_NAMES = {
+  [ROLES.NODAL_OFFICER]: "Nodal Officer",
+  [ROLES.MOSPI_REVIEWER]: "MoSPI Reviewer",
+  [ROLES.MOSPI_APPROVER]: "MoSPI Approver",
+  [ROLES.STATE_APPROVER]: "State Approver",
+  [ROLES.ADMIN]: "Admin",
+};
+
+// Function to get display name for a role
+export const getRoleDisplayName = (role) => {
+  return ROLE_DISPLAY_NAMES[role] || role;
+};
+
 // Legacy role mapping for backward compatibility
 export const LEGACY_ROLES = {
   NODAL_OFFICER: "Nodal Officer",
