@@ -78,7 +78,7 @@ export function DashboardLayout() {
             </Button>
             <div className="flex items-center gap-3">
               <img
-                src="/public/images/logo.png"
+                src="https://img1.digitallocker.gov.in/ai/images/logo.png"
                 alt="NIRI Logo"
                 className=" h-12 rounded-lg object-contain bg-white"
               />
