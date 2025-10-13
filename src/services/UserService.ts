@@ -28,9 +28,49 @@ export const UserService = {
       const response: LoginApiResponse = res.data;
       console.log("🔐 Login response received:", response);
 
-      if (response.success && response.user && response.tokens) {
+      // Handle both response formats: new format (status/data) and old format (success/user/tokens)
+      let processedResponse: LoginApiResponse;
+
+      if (response.status && response.data) {
+        // New format: { status: true, data: { user, accessToken }, message }
+        const { user, accessToken } = response.data;
+
+        // Calculate expiration time from JWT token
+        const calculateExpirationTime = (token: string): number => {
+          try {
+            const payload = JSON.parse(atob(token.split(".")[1]));
+            return payload.exp * 1000; // Convert to milliseconds
+          } catch (error) {
+            console.warn("Failed to parse JWT expiration:", error);
+            return Date.now() + 24 * 60 * 60 * 1000; // Default 24 hours
+          }
+        };
+
+        processedResponse = {
+          success: response.status,
+          user: user,
+          tokens: {
+            accessToken: accessToken,
+            refreshToken: "", // Not provided in new format
+            tokenType: "Bearer",
+            expiresIn: "24h", // Default expiration
+            expiresAt: calculateExpirationTime(accessToken),
+          },
+          message: response.message,
+        };
+      } else {
+        // Old format: { success, user, tokens }
+        processedResponse = response;
+      }
+
+      if (
+        processedResponse.success &&
+        processedResponse.user &&
+        processedResponse.tokens
+      ) {
         // Process the login response using AuthService
-        const { user, tokens } = authService.processLoginResponse(response);
+        const { user, tokens } =
+          authService.processLoginResponse(processedResponse);
 
         // Show success notification
         notificationService.success(
@@ -41,7 +81,8 @@ export const UserService = {
         return { success: true, user, tokens };
       } else {
         const errorMessage =
-          response.message || "Login failed. Please check your credentials.";
+          processedResponse.message ||
+          "Login failed. Please check your credentials.";
         notificationService.error(errorMessage, "Login Failed");
         return { success: false, message: errorMessage };
       }
