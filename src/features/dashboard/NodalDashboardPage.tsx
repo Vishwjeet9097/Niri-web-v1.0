@@ -367,7 +367,7 @@ export function NodalDashboardPage() {
                         submittedBy={submission.submittedBy}
                         onEdit={() => handleEditSubmission(submission.id, navigate)}
                         onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
-                        onRevise={() => navigate(`/data-submission/review/${submission.id}`)}
+                        onRevise={() => handleEditSubmission(submission.id, navigate)}
                       />
                     ))
                   )}
