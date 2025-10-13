@@ -25,16 +25,39 @@ export const UserService = {
           password,
         });
 
-      const response: LoginApiResponse = res.data;
+      const response: any = res.data;
       console.log("🔐 Login response received:", response);
+      console.log("🔐 Response success:", response.success);
+      console.log("🔐 Response status:", response.status);
+      console.log("🔐 Response data:", response.data);
 
-      if (response.success && response.user && response.tokens) {
+      // Check for both success and status fields, and data structure
+      if (
+        (response.success || response.status) &&
+        response.data &&
+        response.data.user &&
+        response.data.accessToken
+      ) {
+        // Transform the response to match expected format
+        const transformedResponse = {
+          success: true,
+          user: response.data.user,
+          tokens: {
+            accessToken: response.data.accessToken,
+            refreshToken: "",
+            tokenType: "Bearer",
+            expiresIn: "3600",
+            expiresAt: Date.now() + 3600000, // 1 hour
+          },
+        };
+
         // Process the login response using AuthService
-        const { user, tokens } = authService.processLoginResponse(response);
+        const { user, tokens } =
+          authService.processLoginResponse(transformedResponse);
 
         // Show success notification
         notificationService.success(
-          `Welcome back, ${user.firstName}! You have been successfully logged in.`,
+          `Welcome back, ${user.firstName}! Login successful.`,
           "Login Successful"
         );
 

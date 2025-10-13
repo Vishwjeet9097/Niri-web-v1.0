@@ -139,11 +139,12 @@ export function LoginPage() {
       const result = await login(email, password);
       
       if (result.success) {
-        notificationService.success(`Welcome back, ${result.user.firstName}!`, "Login Successful");
+        // Success notification is already shown by UserService
         const from = location.state?.from?.pathname || "/dashboard";
         navigate(from, { replace: true });
       } else {
-        notificationService.error(result.message || "Login failed", "Authentication Error");
+        // Error notification is already shown by UserService
+        console.log("Login failed:", result.message);
       }
     } catch (error) {
       notificationService.error("Login failed. Please try again.", "Network Error");

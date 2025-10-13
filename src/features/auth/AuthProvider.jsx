@@ -84,6 +84,15 @@ export function AuthProvider({ children }) {
         setUser(transformedUser);
         setIsAuthenticated(true);
 
+        // Show success notification
+        const { notificationService } = await import(
+          "@/services/notification.service"
+        );
+        notificationService.success(
+          `Welcome back, ${transformedUser.firstName}! Login successful.`,
+          "Login Successful"
+        );
+
         return { success: true, user: transformedUser };
       } else {
         return { success: false, message: "Invalid response from server" };

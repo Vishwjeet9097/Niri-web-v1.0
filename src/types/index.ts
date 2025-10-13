@@ -38,7 +38,7 @@ export interface AuthTokens {
 }
 
 export interface LoginApiResponse {
-  success: boolean;
+  success?: boolean;
   user: User;
   tokens: AuthTokens;
   message?: string;
@@ -76,7 +76,7 @@ export interface Submission {
 export interface ApiResponse<T = any> {
   data: T;
   message?: string;
-  success: boolean;
+  success?: boolean;
 }
 
 export interface User {
@@ -109,7 +109,7 @@ export interface AuthTokens {
 }
 
 export interface LoginApiResponse {
-  success: boolean;
+  success?: boolean;
   user: User;
   tokens: AuthTokens;
   message?: string;
@@ -147,7 +147,7 @@ export interface Submission {
 export interface ApiResponse<T = any> {
   data: T;
   message?: string;
-  success: boolean;
+  success?: boolean;
 }
 
 export interface ApiError {
