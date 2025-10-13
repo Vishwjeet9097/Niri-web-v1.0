@@ -29,6 +29,15 @@ interface UserFormProps {
 
 export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   const { user } = useAuth();
+  
+  // Debug user info (temporarily enabled)
+  console.log("🔍 UserForm - User info:", {
+    userRole: user?.role,
+    userState: user?.state,
+    userEmail: user?.email,
+    isAdmin: user?.role === "ADMIN"
+  });
+  
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -46,6 +55,8 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   // Get available roles based on current user's role
   const getAvailableRoles = useCallback(() => {
     const currentUserRole = user?.role;
+    
+    console.log("🔍 getAvailableRoles - Current user role:", currentUserRole);
     
     switch (currentUserRole) {
       case "STATE_APPROVER":
@@ -234,7 +245,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   const getSelectedStateName = () => {
     if (!formData.stateId) return "";
     const selectedState = states.find(state => state.id === formData.stateId);
-    return selectedState ? selectedState.name : "";
+    return selectedState ? selectedState.name : formData.stateId; // Fallback to stateId if not found
   };
 
   return (
@@ -487,11 +498,21 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
               onValueChange={(value) => {
                 console.log("🔍 State selected in UserForm:", {
                   selectedValue: value,
+                  valueType: typeof value,
+                  valueLength: value.length,
                   currentUserRole: user?.role,
                   currentUserState: user?.state,
                   formDataBefore: formData,
-                  availableStates: states.length
+                  availableStates: states.length,
+                  matchingState: states.find(s => s.id === value)
                 });
+                
+                // Temporarily disable validation to allow state selection
+                // if (value && (value.includes('q') || value.length < 3 || /\d.*[a-zA-Z]/.test(value))) {
+                //   console.error("❌ Invalid state selected:", value);
+                //   return;
+                // }
+                
                 setFormData({ ...formData, stateId: value });
               }}
               disabled={loadingStates}
