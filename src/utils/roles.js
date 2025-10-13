@@ -32,7 +32,7 @@ export const MENU_CONFIG = [
   {
     label: "User Management",
     path: "/user-management",
-    roles: [ROLES.STATE_APPROVER, ROLES.ADMIN],
+    roles: [ROLES.STATE_APPROVER, ROLES.MOSPI_APPROVER, ROLES.ADMIN],
     icon: "users",
   },
   // {

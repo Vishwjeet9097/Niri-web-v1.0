@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import { statesService } from "@/services/states.service";
 
 export function UserManagementPage() {
   const { user } = useAuth();
@@ -23,14 +24,32 @@ export function UserManagementPage() {
   const [userToDelete, setUserToDelete] = useState<NodalOfficer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    loadOfficers();
-  }, []);
-
-  const loadOfficers = async () => {
+  const loadStates = async () => {
     try {
+      console.log("🔍 Loading states for state resolution...");
+      await statesService.getStates();
+      console.log("🔍 States loaded successfully");
+    } catch (error) {
+      console.error("❌ Error loading states:", error);
+    }
+  };
+
+  const loadOfficers = useCallback(async () => {
+    try {
+      console.log("🔍 Loading officers for user:", { role: user?.role, state: user?.state });
+      
       // Try to load from backend API first
-      const backendUsers = await apiService.getUsersByState(user?.state || "");
+      // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
+      let backendUsers;
+      if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
+        // Admin and MOSPI Approver can see all users across all states
+        console.log(`🔍 ${user?.role} - Loading all users`);
+        backendUsers = await apiService.getAllUsers();
+      } else {
+        // State Approver can only see users from their state
+        console.log("🔍 STATE_APPROVER - Loading users for state:", user?.state);
+        backendUsers = await apiService.getUsersByState(user?.state || "");
+      }
       console.log("🔍 Backend Users:", backendUsers);
       
       // Transform backend users to NodalOfficer format
@@ -55,7 +74,13 @@ export function UserManagementPage() {
       const data = userManagementService.getOfficers(user?.state || "");
       setOfficers(data);
     }
-  };
+  }, [user?.role, user?.state]); // Add dependencies
+
+  useEffect(() => {
+    loadOfficers();
+    // Load states to ensure cache is available
+    loadStates();
+  }, [loadOfficers]); // Add loadOfficers dependency back
 
   const handleAddUser = () => {
     setEditingOfficer(null);
@@ -71,12 +96,42 @@ export function UserManagementPage() {
     try {
       if (editingOfficer) {
         // Update existing user via backend API
+        let selectedState = "";
+        
+        if (user?.role === "ADMIN") {
+          // Admin can select any state - use stateId directly as it's the state name
+          if (officerData.stateId) {
+            selectedState = officerData.stateId; // stateId is already the state name
+            console.log("🔍 ADMIN - Using selected state for update:", {
+              stateId: officerData.stateId,
+              stateName: selectedState
+            });
+          } else {
+            throw new Error("State selection is required for Admin");
+          }
+        } else {
+          // STATE_APPROVER and MOSPI_APPROVER use their own state
+          selectedState = user?.state || "";
+          console.log("🔍 Using current user state for update:", {
+            userRole: user?.role,
+            userState: user?.state,
+            selectedState: selectedState
+          });
+        }
+        
+        // ✅ Validate state
+        if (!selectedState) {
+          throw new Error("State is required but not provided");
+        }
+        
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
           email: officerData.email,
           contactNumber: officerData.contactNumber,
           role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
+          stateUt: selectedState, // State NAME (e.g., "Bihar", "Delhi")
+          stateId: selectedState  // State NAME (e.g., "Bihar", "Delhi") - same as stateUt
         } as any);
         
         notificationService.success(
@@ -85,6 +140,52 @@ export function UserManagementPage() {
         );
       } else {
         // Create new user via backend API
+        console.log("🔍 Debug State Selection:", {
+          currentUserRole: user?.role,
+          currentUserState: user?.state,
+          selectedStateId: officerData.stateId,
+          stateIdType: typeof officerData.stateId,
+          officerData: officerData
+        });
+        
+        let selectedState = "";
+        
+        if (user?.role === "ADMIN") {
+          // Admin can select any state - use stateId directly as it's the state name
+          if (officerData.stateId) {
+            selectedState = officerData.stateId; // stateId is already the state name
+            console.log("🔍 ADMIN - Using selected state for creation:", {
+              stateId: officerData.stateId,
+              stateName: selectedState
+            });
+          } else {
+            throw new Error("State selection is required for Admin");
+          }
+        } else {
+          // STATE_APPROVER and MOSPI_APPROVER use their own state
+          selectedState = user?.state || "";
+          console.log("🔍 Using current user state for both roles:", {
+            userRole: user?.role,
+            userState: user?.state,
+            selectedState: selectedState
+          });
+        }
+        
+        // ✅ Validate state
+        if (!selectedState) {
+          throw new Error("State is required but not provided");
+        }
+          
+        console.log("🔍 State Resolution Result:", {
+          selectedState,
+          stateId: officerData.stateId
+        });
+          
+        // ✅ Final validation before API call
+        if (!selectedState || selectedState.trim() === "") {
+          throw new Error("State name is required but not provided");
+        }
+        
         console.log("🔍 Creating user with data:", {
           email: officerData.email,
           password: officerData.password,
@@ -92,8 +193,10 @@ export function UserManagementPage() {
           lastName: officerData.lastName,
           contactNumber: officerData.contactNumber,
           role: officerData.role,
-          stateUt: user?.state || "",
-          stateId: officerData.stateId
+          stateUt: selectedState, // State NAME (e.g., "Bihar", "Delhi")
+          stateId: selectedState, // State NAME (e.g., "Bihar", "Delhi") - same as stateUt
+          currentUserRole: user?.role,
+          selectedState: selectedState
         });
         
         const newUser = await apiService.register(
@@ -103,8 +206,8 @@ export function UserManagementPage() {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          user?.state || "",
-          officerData.stateId
+          selectedState, // State NAME (e.g., "Bihar", "Delhi")
+          selectedState  // State NAME (e.g., "Bihar", "Delhi") - same as stateUt
         );
         console.log("🔍 New User Created:", newUser);
         
@@ -193,6 +296,8 @@ export function UserManagementPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+
+  // ✅ getStateNameById function removed - using stateId directly as state name
 
   // Filter officers based on search term and role
   const filteredOfficers = officers.filter(officer => {
@@ -286,7 +391,15 @@ export function UserManagementPage() {
     setEditingOfficer(null);
   };
 
+  console.log("🔍 UserManagementPage Render State:", {
+    showForm,
+    officersCount: officers.length,
+    userRole: user?.role,
+    editingOfficer: editingOfficer?.id
+  });
+
   if (showForm) {
+    console.log("🔍 Rendering UserForm");
     return (
       <div className="p-6 space-y-6">
         <UserForm
@@ -299,6 +412,7 @@ export function UserManagementPage() {
   }
 
   if (officers.length === 0) {
+    console.log("🔍 Rendering EmptyState - No officers found");
     return (
       <div className="p-6">
         <div className="mb-6 flex items-center gap-4">
@@ -313,6 +427,26 @@ export function UserManagementPage() {
           </div>
         </div>
         <EmptyState onAddClick={handleAddUser} />
+      </div>
+    );
+  }
+
+  console.log("🔍 Rendering UserTable with officers:", officers.length);
+
+  // Access control - Only STATE_APPROVER, MOSPI_APPROVER, and ADMIN can access user management
+  if (user?.role !== "STATE_APPROVER" && user?.role !== "MOSPI_APPROVER" && user?.role !== "ADMIN") {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🚫</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">
+            You don't have permission to access User Management.
+          </p>
+          <p className="text-sm text-gray-500">
+            Only State Approvers, MoSPI Approvers, and Admins can manage users.
+          </p>
+        </div>
       </div>
     );
   }

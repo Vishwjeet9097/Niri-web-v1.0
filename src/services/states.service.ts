@@ -34,7 +34,15 @@ class StatesService {
       if (Array.isArray(data)) {
         states = data;
       } else if (data.data && Array.isArray(data.data)) {
-        states = data.data;
+        // Direct API response - use value as both id and name
+        states = data.data.map((state: any, index: number) => ({
+          id: state.value || state.label, // Use state name as id directly
+          name: state.value || state.label,
+          code: state.value || state.label,
+          isActive: true,
+        }));
+
+        console.log("🌍 Processed states:", states.slice(0, 3)); // Log first 3 states for debugging
       } else if (data.states && Array.isArray(data.states)) {
         states = data.states;
       } else {

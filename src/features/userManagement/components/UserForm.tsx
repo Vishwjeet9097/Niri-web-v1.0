@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,37 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
 
+  // Get available roles based on current user's role
+  const getAvailableRoles = useCallback(() => {
+    const currentUserRole = user?.role;
+    
+    switch (currentUserRole) {
+      case "STATE_APPROVER":
+        // State Approver can only create Nodal Officers
+        return [
+          { value: "NODAL_OFFICER", label: "Nodal Officer" },
+        ];
+      case "MOSPI_APPROVER":
+        // MoSPI Approver can create MoSPI Reviewers and State Approvers
+        return [
+          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
+          { value: "STATE_APPROVER", label: "State Approver" },
+        ];
+      case "ADMIN":
+        // Admin can create all roles (for system administration)
+        return [
+          { value: "NODAL_OFFICER", label: "Nodal Officer" },
+          { value: "STATE_APPROVER", label: "State Approver" },
+          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
+          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
+          { value: "ADMIN", label: "Admin" },
+        ];
+      default:
+        // Default fallback - no roles available
+        return [];
+    }
+  }, [user?.role]);
+
   useEffect(() => {
     if (officer) {
       console.log("🔍 Setting form data for officer:", {
@@ -60,17 +91,21 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       });
     } else {
       // Reset form when no officer (new user)
+      // Set default role based on current user's permissions
+      const availableRoles = getAvailableRoles();
+      const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
+      
       setFormData({
         firstName: "",
         lastName: "",
         contactNumber: "",
         email: "",
         password: "",
-        role: "NODAL_OFFICER",
-        stateId: "",
+        role: defaultRole,
+        stateId: user?.role === "ADMIN" ? "" : (user?.state || ""), // ✅ Admin can select any state, others use current state
       });
     }
-  }, [officer]);
+  }, [officer, user?.state, user?.role, getAvailableRoles]);
 
   // Load states on component mount
   useEffect(() => {
@@ -78,6 +113,11 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       setLoadingStates(true);
       try {
         const statesData = await statesService.getStates();
+        console.log("🔍 States loaded in UserForm:", {
+          statesCount: statesData.length,
+          firstState: statesData[0],
+          userRole: user?.role
+        });
         setStates(statesData);
         
         // If we have an officer but no stateId, try to find it by stateUt/state name
@@ -173,56 +213,13 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       newErrors.role = "Role is required";
     }
 
-    if (!formData.stateId) {
+    // ✅ State validation for ADMIN only
+    if (user?.role === "ADMIN" && !formData.stateId) {
       newErrors.stateId = "State is required";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  // Get available roles based on current user's role
-  const getAvailableRoles = () => {
-    const currentUserRole = user?.role;
-    
-    switch (currentUserRole) {
-      case "STATE_APPROVER":
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-        ];
-      case "ADMIN":
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-          { value: "ADMIN", label: "Admin" },
-        ];
-      case "MOSPI_REVIEWER":
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-        ];
-      case "MOSPI_APPROVER":
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-        ];
-      default:
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-        ];
-    }
   };
 
   const handleSubmit = () => {
@@ -236,7 +233,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   const getSelectedStateName = () => {
     if (!formData.stateId) return "";
     const selectedState = states.find(state => state.id === formData.stateId);
-    return selectedState ? `${selectedState.name} (${selectedState.code})` : "";
+    return selectedState ? selectedState.name : "";
   };
 
   return (
@@ -472,44 +469,78 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Select the state/union territory</p>
+                  <p>
+                    {user?.role === "ADMIN" 
+                      ? "Select the state/union territory for the user" 
+                      : "State will be automatically set to your current state"
+                    }
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </Label>
-          <Select
-            value={formData.stateId}
-            onValueChange={(value) =>
-              setFormData({ ...formData, stateId: value })
-            }
-            disabled={loadingStates}
-          >
-            <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
-              <SelectValue 
-                placeholder={loadingStates ? "Loading states..." : "Select state/UT"}
-              >
-                {formData.stateId ? getSelectedStateName() : (loadingStates ? "Loading states..." : "Select state/UT")}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {loadingStates ? (
-                <div className="flex items-center justify-center p-2">
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Loading states...
-                </div>
-              ) : (
-                states.map((state) => (
-                  <SelectItem 
-                    key={state.id} 
-                    value={state.id}
-                    disabled={!state.isActive}
-                  >
-                    {state.name} ({state.code})
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+          
+          {user?.role === "ADMIN" ? (
+            <Select
+              value={formData.stateId}
+              onValueChange={(value) => {
+                console.log("🔍 State selected in UserForm:", {
+                  selectedValue: value,
+                  currentUserRole: user?.role,
+                  currentUserState: user?.state,
+                  formDataBefore: formData,
+                  availableStates: states.length
+                });
+                setFormData({ ...formData, stateId: value });
+              }}
+              disabled={loadingStates}
+            >
+              <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
+                <SelectValue 
+                  placeholder={loadingStates ? "Loading states..." : "Select state/UT"}
+                >
+                  {formData.stateId ? getSelectedStateName() : (loadingStates ? "Loading states..." : "Select state/UT")}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {loadingStates ? (
+                  <div className="flex items-center justify-center p-2">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Loading states...
+                  </div>
+                ) : (
+                  states.map((state) => (
+                    <SelectItem 
+                      key={state.id} 
+                      value={state.id}
+                      disabled={!state.isActive}
+                    >
+                      {state.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              id="stateId"
+              value={user?.state || "Loading..."}
+              disabled={true}
+              className="bg-muted"
+              placeholder="Your current state"
+            />
+          )}
+          
+          {user?.role === "ADMIN" ? (
+            <p className="text-sm text-muted-foreground">
+              Select the state where you want to create the user
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Users will be created in your current state: <strong>{user?.state}</strong>
+            </p>
+          )}
+          
           {errors.stateId && (
             <p className="text-sm text-destructive">{errors.stateId}</p>
           )}
