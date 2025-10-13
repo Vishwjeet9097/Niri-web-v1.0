@@ -3,7 +3,7 @@ import { authService } from "./auth.service";
 import { config } from "@/config/environment";
 import type { User, AuthTokens, LoginApiResponse } from "@/types";
 import type { AxiosResponse } from "axios";
-import { notificationService } from "./NotificationBus";
+import { notificationService } from "./notification.service";
 
 export const UserService = {
   async login(
@@ -47,9 +47,71 @@ export const UserService = {
       }
     } catch (e: unknown) {
       const err = e as {
-        response?: { data?: { message?: string } };
+        response?: {
+          status?: number;
+          data?: {
+            message?: string;
+            error?: string;
+            statusCode?: number;
+          };
+        };
         message?: string;
       };
+
+      // Handle specific 401 Unauthorized error
+      if (
+        err?.response?.status === 401 ||
+        err?.response?.data?.statusCode === 401
+      ) {
+        const serverMessage = err?.response?.data?.message;
+        let userFriendlyMessage = "Invalid credentials";
+        let toastTitle = "Login Failed";
+
+        // Map server messages to user-friendly messages
+        if (serverMessage) {
+          switch (serverMessage.toLowerCase()) {
+            case "invalid credentials":
+            case "unauthorized":
+              userFriendlyMessage =
+                "Login unsuccessful. Please recheck your credentials.";
+              toastTitle = "Login Failed";
+              break;
+            case "user not found":
+              userFriendlyMessage =
+                "No account found with this email address. Please verify your email or contact your administrator.";
+              toastTitle = "Account Not Found";
+              break;
+            case "account disabled":
+            case "user disabled":
+              userFriendlyMessage =
+                "Your account has been disabled. Please contact your administrator for assistance.";
+              toastTitle = "Account Disabled";
+              break;
+            case "account locked":
+              userFriendlyMessage =
+                "Your account has been temporarily locked due to multiple failed login attempts. Please try again later or contact support.";
+              toastTitle = "Account Locked";
+              break;
+            default:
+              userFriendlyMessage =
+                "Login unsuccessful. Please recheck your credentials.";
+              toastTitle = "Login Failed";
+          }
+        } else {
+          userFriendlyMessage =
+            "Login unsuccessful. Please recheck your credentials.";
+          toastTitle = "Login Failed";
+        }
+
+        console.error(
+          "🔐 Login error (401):",
+          serverMessage || "No server message"
+        );
+        notificationService.error(userFriendlyMessage, toastTitle);
+        return { success: false, message: userFriendlyMessage };
+      }
+
+      // Handle other errors
       const serverMsg = err?.response?.data?.message;
       const message =
         serverMsg ||

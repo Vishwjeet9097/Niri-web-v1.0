@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "./AuthProvider";
-import { notificationService } from "@/services/NotificationBus";
+import { notificationService } from "@/services/notification.service";
 import { Loader2, Minus, Plus, Contrast, Info } from "lucide-react";
 
 type LoginStep = "sso" | "otp" | "manual" | "loading";
@@ -49,7 +49,7 @@ export function LoginPage() {
   const handleSSOLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidDomain(email)) {
-      notificationService.error("Only @nic.in and @gov.in domains are authorized");
+      notificationService.error("Please use your official government email address (@nic.in or @gov.in) to access this system.", "Invalid Email Domain");
       return;
     }
     
@@ -67,7 +67,7 @@ export function LoginPage() {
   const handleOTPVerification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otp.length !== 6) {
-      notificationService.error("Please enter complete OTP");
+      notificationService.error("Please enter the complete 6-digit verification code sent to your email.", "Incomplete Verification Code");
       return;
     }
     
@@ -111,14 +111,14 @@ export function LoginPage() {
         setUser(mockUser);
         setIsAuthenticated(true);
         
-        notificationService.success(`Welcome back, ${mockUser.firstName}!`, "Login Successful");
+        notificationService.success(`Welcome back, ${mockUser.firstName}! You have been successfully signed in.`, "Sign In Successful");
         
         // Navigate to dashboard
         const from = location.state?.from?.pathname || "/dashboard";
         navigate(from, { replace: true });
       } catch (error) {
         console.error("OTP verification error:", error);
-        notificationService.error("OTP verification failed. Please try again.", "Authentication Error");
+        notificationService.error("The verification code you entered is incorrect or has expired. Please try again or request a new code.", "Verification Failed");
         setStep("otp");
       } finally {
         setLoading(false);
@@ -130,7 +130,7 @@ export function LoginPage() {
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      notificationService.error("Please enter both email and password");
+      notificationService.error("Please enter both your email address and password to continue.", "Missing Information");
       return;
     }
     
@@ -139,14 +139,17 @@ export function LoginPage() {
       const result = await login(email, password);
       
       if (result.success) {
-        notificationService.success(`Welcome back, ${result.user.firstName}!`, "Login Successful");
+        notificationService.success(`Welcome back, ${result.user.firstName}! You have been successfully signed in.`, "Sign In Successful");
         const from = location.state?.from?.pathname || "/dashboard";
         navigate(from, { replace: true });
       } else {
-        notificationService.error(result.message || "Login failed", "Authentication Error");
+        // Error message is already shown by UserService, no need to show again
+        console.log("Login unsuccessful:", result.message);
       }
     } catch (error) {
-      notificationService.error("Login failed. Please try again.", "Network Error");
+      // This catch block should rarely be reached as UserService handles most errors
+      console.error("Unexpected login error:", error);
+      notificationService.error("We encountered an unexpected issue while signing you in. Please try again or contact support if the problem continues.", "Sign In Error");
     } finally {
       setLoading(false);
     }
