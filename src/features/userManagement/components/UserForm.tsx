@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { InfoIcon, Loader2 } from "lucide-react";
+import { InfoIcon, Loader2, Eye, EyeOff } from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import {
   Tooltip,
@@ -51,6 +51,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Get available roles based on current user's role
   const getAvailableRoles = useCallback(() => {
@@ -93,12 +94,12 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         state: officer.state
       });
       setFormData({
-        firstName: officer.firstName,
-        lastName: officer.lastName,
-        contactNumber: officer.contactNumber,
-        email: officer.email,
+        firstName: officer.firstName || "",
+        lastName: officer.lastName || "",
+        contactNumber: officer.contactNumber || "",
+        email: officer.email || "",
         password: "", // Don't show password for existing users
-        role: officer.role,
+        role: officer.role || "NODAL_OFFICER",
         stateId: "", // Will be set after states are loaded
       });
     } else {
@@ -415,16 +416,29 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                 </Tooltip>
               </TooltipProvider>
             </Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter password (min 6 characters)"
-              value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
-              className={errors.password ? "border-destructive" : ""}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter password (min 6 characters)"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                className={errors.password ? "border-destructive pr-10" : "pr-10"}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password}</p>
             )}
