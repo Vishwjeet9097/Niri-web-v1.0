@@ -834,9 +834,9 @@ export const InfraFinancingStep = () => {
             type="button"
             variant="outline"
             onClick={addBond}
-            className="w-fit mx-auto border-blue-500 text-blue-500 hover:bg-blue-50"
+            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             Add More Bond
           </Button>
         </div>
@@ -844,15 +844,19 @@ export const InfraFinancingStep = () => {
 
       {/* Section 1.5 */}
       <SectionCard
-        title="1.5 - Functional Financial Intermediary"
+      title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
+          </span>
+        </div>}
         subtitle="Annex 4: Provide website link and funding details"
         className="mb-6"
       >
         <div className="space-y-4">
           {formData.section1_5.map((intermediary, index) => (
-            <div key={intermediary.id} className="grid grid-cols-5 gap-4 p-4 border rounded-lg bg-gray-50">
+            <div key={intermediary.id} className="grid grid-cols-5 gap-4">
               <div>
-                <Label>Organisation Name*</Label>
+                <Label>Organisation Name<span className="text-red-500">*</span></Label>
                 <Input
                   placeholder="Enter organisation name"
                   value={intermediary.organisationName}
@@ -867,7 +871,7 @@ export const InfraFinancingStep = () => {
                 />
               </div>
               <div>
-                <Label>Organisation Type*</Label>
+                <Label>Organisation Type<span className="text-red-500">*</span></Label>
                 <Select
                   value={intermediary.organisationType}
                   onValueChange={(value) =>
@@ -891,7 +895,7 @@ export const InfraFinancingStep = () => {
                 </Select>
               </div>
               <div>
-                <Label>Year of Establishment*</Label>
+                <Label>Year of Establishment<span className="text-red-500">*</span></Label>
                 <Select
                   value={intermediary.yearEstablished}
                   onValueChange={(value) =>
@@ -948,9 +952,9 @@ export const InfraFinancingStep = () => {
                   variant="outline"
                   size="icon"
                   onClick={() => removeIntermediary(intermediary.id)}
-                  className="text-red-500 hover:text-red-700"
+                  className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-6 w-6" />
                 </Button>
               </div>
             </div>
@@ -960,9 +964,9 @@ export const InfraFinancingStep = () => {
             type="button"
             variant="outline"
             onClick={addIntermediary}
-            className="w-fit mx-auto border-blue-500 text-blue-500 hover:bg-blue-50"
+            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             Add More Financial Intermediary
           </Button>
         </div>

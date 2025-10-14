@@ -69,7 +69,7 @@ export const FileUploadSection = ({
       }, 200);
 
       const response = await apiService.uploadFile(submissionId, file);
-      
+
       clearInterval(progressInterval);
       setUploadProgress(100);
 
@@ -151,7 +151,7 @@ export const FileUploadSection = ({
             Uploading file...
           </p>
           <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-            <div 
+            <div
               className="bg-primary h-2 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
@@ -161,41 +161,65 @@ export const FileUploadSection = ({
           </p>
         </div>
       ) : !value ? (
-        <div
-          className={cn(
-            'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
-            dragActive
-              ? 'border-primary bg-primary/5'
-              : 'border-border hover:border-primary/50 hover:bg-muted/30'
-          )}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragActive(true);
-          }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={handleDrop}
-        >
-          <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground mb-3">
-            Drag and drop your file here, or click to browse
-          </p>
-          <input
-            type="file"
-            accept={accept}
-            onChange={handleChange}
-            className="hidden"
-            id={`file-${label}`}
-            disabled={uploading}
-          />
-          <Button type="button" variant="outline" size="sm" asChild disabled={uploading}>
-            <label htmlFor={`file-${label}`} className="cursor-pointer">
-              Choose File
+        <>
+          {/* <div
+            className={cn(
+              'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
+              dragActive
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50 hover:bg-muted/30'
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDrop}
+          >
+
+            <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground mb-3">
+              Drag and drop your file here, or click to browse
+            </p>
+            <input
+              type="file"
+              accept={accept}
+              onChange={handleChange}
+              className="hidden"
+              id={`file-${label}`}
+              disabled={uploading}
+            />
+            <Button type="button" variant="outline" size="sm" asChild disabled={uploading}>
+              <label htmlFor={`file-${label}`} className="cursor-pointer">
+                Choose File
+              </label>
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              Maximum file size: {maxSize}MB
+            </p>
+          </div> */}
+          <div className="flex items-center gap-3">
+            <label
+              htmlFor={`file-${label}`} className="cursor-pointer"
+              className="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-md cursor-pointer font-medium text-sm hover:bg-indigo-200 transition"
+            >
+              Upload File
             </label>
-          </Button>
-          <p className="text-xs text-muted-foreground mt-2">
-            Maximum file size: {maxSize}MB
-          </p>
-        </div>
+
+            <input
+               type="file"
+              accept={accept}
+              onChange={handleChange}
+              className="hidden"
+              id={`file-${label}`}
+              disabled={uploading}
+            />
+
+            <span className="text-gray-600 text-sm truncate max-w-[200px]">
+              {value ? value.fileName : 'No file chosen'}
+            </span>
+          </div>
+        </>
       ) : (
         <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/30">
           <File className="w-8 h-8 text-primary flex-shrink-0" />
@@ -205,9 +229,9 @@ export const FileUploadSection = ({
               {formatFileSize(value.fileSize)}
             </p>
             {value.fileUrl && (
-              <a 
-                href={value.fileUrl} 
-                target="_blank" 
+              <a
+                href={value.fileUrl}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline"
               >

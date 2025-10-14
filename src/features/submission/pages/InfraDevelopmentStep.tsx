@@ -82,7 +82,7 @@ export const InfraDevelopmentStep = () => {
       try {
         const submissionData = JSON.parse(editingSubmission);
         console.log("🔍 Direct editing submission check in InfraDevelopmentStep:", submissionData);
-        
+
         if (submissionData.formData && submissionData.formData.infraDevelopment) {
           const stepData = submissionData.formData.infraDevelopment as Partial<InfraDevelopmentData>;
           const updatedData: InfraDevelopmentData = {
@@ -96,7 +96,7 @@ export const InfraDevelopmentStep = () => {
           };
           setFormData(updatedData);
           console.log("✅ Direct prefill from editing submission:", updatedData);
-          
+
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
         }
@@ -303,19 +303,19 @@ export const InfraDevelopmentStep = () => {
     try {
       // Save to localStorage first
       updateFormData("infraDevelopment", formData);
-      
+
       // Generate submission ID if not exists
       const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-      
+
       // Save to backend
       const success = await draftService.saveDraft(
-        submissionId, 
-        formData, 
+        submissionId,
+        formData,
         "infraDevelopment",
         user?.id,
         user?.state
       );
-      
+
       if (success) {
         toast({
           title: "Draft Saved",
@@ -333,10 +333,18 @@ export const InfraDevelopmentStep = () => {
       });
     }
   };
+  const files = [
+    {
+      id: 1,
+      sector: "Roads & Bridges",
+      fileName: "Act/Policy.pdf",
+      fileSize: "40.MB",
+    },
 
+  ]
   // --- UI ---
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
       <ProgressHeader
         title="Infrastructure Development"
@@ -346,18 +354,20 @@ export const InfraDevelopmentStep = () => {
         total={5}
         progress={10}
       />
-
-
       {/* Section 2.1 */}
       <SectionCard
-        title="2.1 - Availability of Infrastructure Act/Policy"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">2.1 -</span> Availability of Infrastructure Act/Policy{" "}
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 ">
           {formData.section2_1.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div key={entry.id} className=" mb-2 relative">
+              <div className="flex flex-col gap-4 max-w-[70%]">
                 <div className="flex-1 w-full">
                   <Label>
                     Select Sector <span className="text-destructive">*</span>
@@ -405,44 +415,89 @@ export const InfraDevelopmentStep = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="self-start mt-6"
+                  className="self-start absolute top-2 right-2"
                   onClick={() => removeEntry("section2_1", entry.id)}
                   aria-label="Remove"
                 >
                   <Trash2 className="w-5 h-5 text-destructive" />
                 </Button>
               </div>
+
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addEntry("section2_1")}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add More Entry
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Upload copy of Act/Policy
-          </p>
-          {errors.section2_1 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_1}</p>
-          )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addEntry("section2_1")}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add More Entry
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload copy of Act/Policy
+            </p>
+
+            {errors.section2_1 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_1}</p>
+            )}
+          </div>
+          <div className="overflow-x-auto rounded-xl">
+            <table className="min-w-full border-separate border-spacing-0 ">
+              <thead>
+                <tr className="bg-[#DDE3F9]">
+                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                    <input type="checkbox" className="accent-indigo-500" />
+                    <span className="ml-2">Sector</span>
+                  </th>
+                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((file, idx) => (
+                  <tr key={file.id} className="bg-white">
+                    <td className="py-3 px-4 text-sm font-normal">
+                      <input type="checkbox" className="accent-indigo-500" />
+                      <span className="ml-2 ">{file.sector}</span>
+                    </td>
+                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
+                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
+                    <td className="py-3 px-4">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(file.id)}
+                        className="text-red-600 hover:text-red-800"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </SectionCard>
 
       {/* Section 2.2 */}
       <SectionCard
-        title="2.2 - Availability of Specialized Entity"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">2.2 -</span> Availability of Specialized Entity{" "}
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
           {formData.section2_2.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div key={entry.id} className="mb-2 relative">
+              <div className="flex flex-col gap-4 max-w-[70%]">
                 <div className="flex-1 w-full">
                   <Label>
                     Select Sector <span className="text-destructive">*</span>
@@ -490,7 +545,7 @@ export const InfraDevelopmentStep = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="self-start mt-6"
+                  className="absolute top-2 right-2"
                   onClick={() => removeEntry("section2_2", entry.id)}
                   aria-label="Remove"
                 >
@@ -499,33 +554,76 @@ export const InfraDevelopmentStep = () => {
               </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addEntry("section2_2")}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add More Entry
-          </Button>
-          <p className="text-xs text-muted-foreground">Upload evidence</p>
-          {errors.section2_2 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_2}</p>
-          )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addEntry("section2_2")}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add More Entry
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">Upload evidence</p>
+            {errors.section2_2 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_2}</p>
+            )}
+          </div>
+          <div className="overflow-x-auto rounded-xl">
+            <table className="min-w-full border-separate border-spacing-0 ">
+              <thead>
+                <tr className="bg-[#DDE3F9]">
+                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                    <input type="checkbox" className="accent-indigo-500" />
+                    <span className="ml-2">Sector</span>
+                  </th>
+                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((file, idx) => (
+                  <tr key={file.id} className="bg-white">
+                    <td className="py-3 px-4 text-sm font-normal">
+                      <input type="checkbox" className="accent-indigo-500" />
+                      <span className="ml-2 ">{file.sector}</span>
+                    </td>
+                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
+                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
+                    <td className="py-3 px-4">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(file.id)}
+                        className="text-red-600 hover:text-red-800"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </SectionCard>
 
       {/* Section 2.3 */}
       <SectionCard
-        title="2.3 - Availability of Sector Infra Development Plan"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">2.3 -</span> Availability of Sector Infra Development Plan{" "}
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
           {formData.section2_3.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div key={entry.id} className="mb-2 relative">
+              <div className="flex flex-col gap-4 max-w-[70%]">
                 <div className="flex-1 w-full">
                   <Label>
                     Select Sector <span className="text-destructive">*</span>
@@ -573,7 +671,7 @@ export const InfraDevelopmentStep = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="self-start mt-6"
+                  className="absolute top-2 right-2"
                   onClick={() => removeEntry("section2_3", entry.id)}
                   aria-label="Remove"
                 >
@@ -582,33 +680,76 @@ export const InfraDevelopmentStep = () => {
               </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addEntry("section2_3")}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add More Entry
-          </Button>
-          <p className="text-xs text-muted-foreground">Upload plan</p>
-          {errors.section2_3 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_3}</p>
-          )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addEntry("section2_3")}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add More Entry
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">Upload plan</p>
+            {errors.section2_3 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_3}</p>
+            )}
+          </div>
+          <div className="overflow-x-auto rounded-xl">
+            <table className="min-w-full border-separate border-spacing-0 ">
+              <thead>
+                <tr className="bg-[#DDE3F9]">
+                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                    <input type="checkbox" className="accent-indigo-500" />
+                    <span className="ml-2">Sector</span>
+                  </th>
+                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((file, idx) => (
+                  <tr key={file.id} className="bg-white">
+                    <td className="py-3 px-4 text-sm font-normal">
+                      <input type="checkbox" className="accent-indigo-500" />
+                      <span className="ml-2 ">{file.sector}</span>
+                    </td>
+                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
+                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
+                    <td className="py-3 px-4">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(file.id)}
+                        className="text-red-600 hover:text-red-800"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </SectionCard>
 
       {/* Section 2.4 */}
       <SectionCard
-        title="2.4 - Availability of Investment Ready Project Pipeline"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
+          </span>
+        </div>}
         subtitle="Annex 5: Upload DPR/Feasibility Report"
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
           {formData.section2_4.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div key={entry.id} className="mb-2 relative">
+              <div className="flex flex-col gap-4 max-w-[70%]">
                 <div className="flex-1 w-full">
                   <Label>
                     Project Name <span className="text-destructive">*</span>
@@ -636,7 +777,7 @@ export const InfraDevelopmentStep = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="self-start mt-6"
+                  className="absolute top-2 right-2"
                   onClick={() => removeProject(entry.id)}
                   aria-label="Remove"
                 >
@@ -645,32 +786,38 @@ export const InfraDevelopmentStep = () => {
               </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addProject}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Project
-          </Button>
-          {errors.section2_4 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_4}</p>
-          )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addProject}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Project
+            </Button>
+            {errors.section2_4 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_4}</p>
+            )}
+          </div>
         </div>
       </SectionCard>
 
       {/* Section 2.5 */}
       <SectionCard
-        title="2.5 - Availability of Asset Monetization Pipeline"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
+          </span>
+        </div>}
         subtitle="Annex 6"
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
           {formData.section2_5.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+            <div key={entry.id} className="mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                 <div>
                   <Label>
                     Project/Asset Name{" "}
@@ -757,47 +904,52 @@ export const InfraDevelopmentStep = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Estimated Monetization</Label>
-                  <Input
-                    type="number"
-                    placeholder="Estimated Monetization"
-                    value={entry.estimatedMonetization}
-                    onChange={(e) =>
-                      updateAsset(
-                        entry.id,
-                        "estimatedMonetization",
-                        e.target.value,
-                      )
-                    }
-                  />
+                <div className="flex items-center gap-2">
+                  <div>
+                    <Label>Estimated Monetization</Label>
+                    <Input
+                      type="number"
+                      placeholder="Estimated Monetization"
+                      value={entry.estimatedMonetization}
+                      onChange={(e) =>
+                        updateAsset(
+                          entry.id,
+                          "estimatedMonetization",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="self-start mt-6"
+                    onClick={() => removeAsset(entry.id)}
+                    aria-label="Remove"
+                  >
+                    <Trash2 className="w-5 h-5 text-destructive" />
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="self-start mt-6"
-                  onClick={() => removeAsset(entry.id)}
-                  aria-label="Remove"
-                >
-                  <Trash2 className="w-5 h-5 text-destructive" />
-                </Button>
+
               </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addAsset}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add More Asset
-          </Button>
-          {errors.section2_5 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_5}</p>
-          )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addAsset}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 " />
+              Add More Asset
+            </Button>
+            {errors.section2_5 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_5}</p>
+            )}
+          </div>
         </div>
       </SectionCard>
 
