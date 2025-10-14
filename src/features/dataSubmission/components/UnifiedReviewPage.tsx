@@ -49,6 +49,7 @@ interface Submission {
     updatedAt: string;
   };
   finalScore: number | null;
+  sections?: any[];
 }
 
 interface UnifiedReviewPageProps {
@@ -106,7 +107,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
       console.log("🔍 API Response:", response);
       
       if (response) {
-        setSubmission(response);
+        setSubmission(response as unknown as Submission);
       } else {
         setError("Submission not found");
       }
@@ -205,8 +206,11 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
     const submissionStatus = submission?.status;
     const currentOwnerRole = submission?.currentOwnerRole;
 
-    // Only show actions if current user is the owner
-    if (currentUserRole !== currentOwnerRole) return null;
+    // Only show actions if current user is the owner or if STATE_APPROVER is handling RETURNED_FROM_MOSPI
+    if (currentUserRole !== currentOwnerRole && 
+        !(currentUserRole === "STATE_APPROVER" && submissionStatus === "RETURNED_FROM_MOSPI")) {
+      return null;
+    }
 
     const buttons = [];
 
@@ -276,7 +280,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
     }
 
     // Approve button
-    if ((currentUserRole === "STATE_APPROVER" && submissionStatus === "SUBMITTED_TO_STATE") ||
+    if ((currentUserRole === "STATE_APPROVER" && (submissionStatus === "SUBMITTED_TO_STATE" || submissionStatus === "RETURNED_FROM_MOSPI")) ||
         (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")) {
       buttons.push(
         <Button
