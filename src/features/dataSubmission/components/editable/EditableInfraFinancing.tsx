@@ -176,7 +176,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
               <span className="text-base font-semibold text-primary">
                 1.1 - % Capex to GSDP{" "}
                 <span className="font-normal text-xs text-muted-foreground">
-                  (10 marks per 1%)
+                  
                 </span>
               </span>
               <span className="text-xs text-muted-foreground font-normal">
@@ -256,7 +256,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
 
         {/* Section 1.2 */}
         <SectionCard
-          title="1.2 - % Capex Utilization (10 marks per 1%)"
+          title="1.2 - % Capex Utilization"
           subtitle="Annex 2: Verified with MoHUA data"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

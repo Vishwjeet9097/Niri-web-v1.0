@@ -25,7 +25,7 @@ export const UserService = {
           password,
         });
 
-      const response: LoginApiResponse = res.data;
+      const response: any = res.data;
       console.log("🔐 Login response received:", response);
 
       // Handle both response formats: new format (status/data) and old format (success/user/tokens)
@@ -74,7 +74,7 @@ export const UserService = {
 
         // Show success notification
         notificationService.success(
-          `Welcome back, ${user.firstName}! You have been successfully logged in.`,
+          `Welcome back, ${user.firstName}! Login successful.`,
           "Login Successful"
         );
 

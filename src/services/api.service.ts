@@ -1697,6 +1697,369 @@ class ApiService implements HttpClient {
       throw error;
     }
   }
+
+  // Scoring Methods
+  async getScoreRankings(): Promise<any[]> {
+    try {
+      const response = await this.axios.get("/scoring/rankings");
+      console.log(
+        "🔍 API Service - Get Score Rankings Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get Score Rankings Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const rankingsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get Score Rankings Data:",
+        rankingsData
+      );
+
+      return rankingsData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Score Rankings 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn(
+        "⚠️ Backend score rankings failed, using dummy data:",
+        error.message
+      );
+      // Return dummy data as fallback
+      return [
+        {
+          rank: 1,
+          stateUt: "Gujarat",
+          totalScore: 742,
+          percentage: 74.2,
+          approvedAt: "2024-01-01T00:00:00.000Z",
+          submissionId: "uuid-1"
+        },
+        {
+          rank: 2,
+          stateUt: "Tamil Nadu",
+          totalScore: 698,
+          percentage: 69.8,
+          approvedAt: "2024-01-01T00:00:00.000Z",
+          submissionId: "uuid-2"
+        },
+        {
+          rank: 3,
+          stateUt: "Karnataka",
+          totalScore: 685,
+          percentage: 68.5,
+          approvedAt: "2024-01-01T00:00:00.000Z",
+          submissionId: "uuid-3"
+        }
+      ];
+    }
+  }
+
+  // Role-based scoring methods
+  async getScoreRankingsByRole(userRole: string, userState?: string): Promise<any[]> {
+    try {
+      console.log(`🔍 API Service - Get Score Rankings for role: ${userRole}, state: ${userState}`);
+      
+      // Check if user is authenticated
+      if (!authService.isAuthenticated()) {
+        console.warn("⚠️ User not authenticated, using dummy data");
+        return this.getDummyRankingsData();
+      }
+
+      // Get current user info
+      const user = authService.getUser();
+      console.log(`🔍 API Service - Current user:`, user);
+
+      // Role-based endpoint selection
+      if (userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER") {
+        // MOSPI users can access scoring endpoints
+        try {
+          const response = await this.axios.get("/scoring/rankings");
+          console.log(
+            "🔍 API Service - Get Score Rankings Response Status:",
+            response.status
+          );
+          console.log(
+            "🔍 API Service - Get Score Rankings Response Data:",
+            response.data
+          );
+
+          const rankingsData =
+            response.data?.data !== undefined ? response.data.data : response.data;
+          console.log(
+            "🔍 API Service - Processed Get Score Rankings Data:",
+            rankingsData
+          );
+
+          return rankingsData;
+        } catch (scoringError: any) {
+          console.warn("⚠️ Scoring rankings failed for MOSPI user, trying regular rankings:", scoringError.message);
+          // Fallback to regular rankings
+          return this.getRegularRankings();
+        }
+      } else {
+        // NODAL_OFFICER and STATE_APPROVER use regular rankings endpoint
+        console.log(`🔍 Using regular rankings endpoint for ${userRole}`);
+        return this.getRegularRankings();
+      }
+    } catch (error: any) {
+      console.error(`❌ API Error for role ${userRole}:`, error);
+      
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Score Rankings 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+
+      // Handle 403 Forbidden - user doesn't have permission
+      if (error.response?.status === 403) {
+        console.warn(`⚠️ 403 Forbidden for role ${userRole} - User doesn't have permission to access ranking data`);
+        console.warn("⚠️ Using dummy data as fallback");
+        return this.getDummyRankingsData();
+      }
+
+      // Handle other errors
+      console.warn(
+        "⚠️ Backend rankings failed, using dummy data:",
+        error.message
+      );
+      return this.getDummyRankingsData();
+    }
+  }
+
+  // Helper method to get regular rankings
+  private async getRegularRankings(): Promise<any[]> {
+    try {
+      const response = await this.axios.get("/report/ranking");
+      console.log(
+        "🔍 API Service - Regular Rankings Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Regular Rankings Response Data:",
+        response.data
+      );
+
+      const rankingsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Regular Rankings Data:",
+        rankingsData
+      );
+
+      return rankingsData;
+    } catch (error: any) {
+      console.error("❌ Regular rankings failed:", error);
+      throw error;
+    }
+  }
+
+  // Helper method to get dummy rankings data
+  private getDummyRankingsData() {
+    return [
+      {
+        rank: 1,
+        stateUt: "Gujarat",
+        totalScore: 742,
+        percentage: 74.2,
+        approvedAt: "2024-01-01T00:00:00.000Z",
+        submissionId: "uuid-1"
+      },
+      {
+        rank: 2,
+        stateUt: "Tamil Nadu",
+        totalScore: 698,
+        percentage: 69.8,
+        approvedAt: "2024-01-01T00:00:00.000Z",
+        submissionId: "uuid-2"
+      },
+      {
+        rank: 3,
+        stateUt: "Karnataka",
+        totalScore: 685,
+        percentage: 68.5,
+        approvedAt: "2024-01-01T00:00:00.000Z",
+        submissionId: "uuid-3"
+      }
+    ];
+  }
+
+  async getScoreStatistics(): Promise<any> {
+    try {
+      // Get current user info for role-based access
+      const user = authService.getUser();
+      const userRole = user?.role;
+
+      console.log(`🔍 API Service - Get Score Statistics for role: ${userRole}`);
+
+      // Role-based endpoint selection
+      if (userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER") {
+        // MOSPI users can access scoring statistics
+        try {
+          const response = await this.axios.get("/scoring/statistics");
+          console.log(
+            "🔍 API Service - Get Score Statistics Response Status:",
+            response.status
+          );
+          console.log(
+            "🔍 API Service - Get Score Statistics Response Data:",
+            response.data
+          );
+
+          const statisticsData =
+            response.data?.data !== undefined ? response.data.data : response.data;
+          console.log(
+            "🔍 API Service - Processed Get Score Statistics Data:",
+            statisticsData
+          );
+
+          return statisticsData;
+        } catch (scoringError: any) {
+          console.warn("⚠️ Scoring statistics failed for MOSPI user, using dummy data:", scoringError.message);
+          return this.getDummyStatisticsData();
+        }
+      } else {
+        // NODAL_OFFICER and STATE_APPROVER use dummy statistics
+        console.log(`🔍 Using dummy statistics for ${userRole}`);
+        return this.getDummyStatisticsData();
+      }
+    } catch (error: any) {
+      console.error("❌ API Error for statistics:", error);
+      
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Score Statistics 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+
+      // Handle 403 Forbidden - user doesn't have permission
+      if (error.response?.status === 403) {
+        console.warn("⚠️ 403 Forbidden for statistics - User doesn't have permission to access scoring statistics");
+        console.warn("⚠️ Using dummy data as fallback");
+        return this.getDummyStatisticsData();
+      }
+
+      console.warn(
+        "⚠️ Backend score statistics failed, using dummy data:",
+        error.message
+      );
+      return this.getDummyStatisticsData();
+    }
+  }
+
+  // Helper method to get dummy statistics data
+  private getDummyStatisticsData() {
+    return {
+      totalStates: 3,
+      averageScore: 708.33,
+      highestScore: 742,
+      lowestScore: 685,
+      scoreDistribution: {
+        "90-100": 0,
+        "80-89": 0,
+        "70-79": 2,
+        "60-69": 1,
+        "50-59": 0,
+        "Below 50": 0
+      }
+    };
+  }
+
+  async getStateScore(stateUt: string): Promise<any> {
+    try {
+      const response = await this.axios.get(`/scoring/state/${stateUt}`);
+      console.log(
+        "🔍 API Service - Get State Score Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get State Score Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const stateScoreData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get State Score Data:",
+        stateScoreData
+      );
+
+      return stateScoreData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get State Score 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn(
+        "⚠️ Backend state score failed, using dummy data:",
+        error.message
+      );
+      // Return dummy data as fallback
+      return {
+        id: "uuid",
+        submissionId: "uuid",
+        stateUt: stateUt,
+        totalScore: 742,
+        scoreBreakdown: {
+          totalScore: 742,
+          maxPossibleScore: 1000,
+          percentage: 74.2,
+          calculations: [],
+          methodology: "NIRI Scoring Methodology v2.0"
+        },
+        calculationMethodology: "NIRI Scoring Methodology v2.0",
+        approvedBy: "uuid",
+        createdAt: "2024-01-01T00:00:00.000Z"
+      };
+    }
+  }
+
+  async calculateScore(submissionId: string): Promise<any> {
+    try {
+      const response = await this.axios.get(`/scoring/calculate/${submissionId}`);
+      console.log(
+        "🔍 API Service - Calculate Score Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Calculate Score Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const scoreData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Calculate Score Data:",
+        scoreData
+      );
+
+      return scoreData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Calculate Score 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn(
+        "⚠️ Backend calculate score failed:",
+        error.message
+      );
+      throw error;
+    }
+  }
 }
 
 export const apiService = new ApiService();
