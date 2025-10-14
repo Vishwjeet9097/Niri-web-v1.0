@@ -25,12 +25,17 @@ export function UserManagementPage() {
   const [userToDelete, setUserToDelete] = useState<NodalOfficer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [states, setStates] = useState<any[]>([]);
 
   const loadStates = async () => {
     try {
       console.log("🔍 Loading states for state resolution...");
-      await statesService.getStates();
-      console.log("🔍 States loaded successfully");
+      const statesData = await statesService.getStates();
+      setStates(statesData);
+      console.log("🔍 States loaded in UserManagementPage:", {
+        statesCount: statesData.length,
+        firstState: statesData[0]
+      });
     } catch (error) {
       console.error("❌ Error loading states:", error);
     }
@@ -104,18 +109,53 @@ export function UserManagementPage() {
         let selectedState = "";
         
         if (user?.role === "ADMIN") {
-          // Admin can select any state - use stateId directly as it's the state name
+          // Admin can select any state - convert stateId to state name
           if (officerData.stateId) {
-            selectedState = officerData.stateId; // stateId is already the state name
+            // Temporarily disable validation to allow state selection
+            // if (officerData.stateId.includes('q') || officerData.stateId.length < 3 || /\d.*[a-zA-Z]/.test(officerData.stateId)) {
+            //   throw new Error(`Invalid state selected: "${officerData.stateId}". Please select a valid state.`);
+            // }
+            
+            // Check if stateId is a number (like "9") and convert to state name
+            if (!isNaN(Number(officerData.stateId))) {
+              // This is a state ID, we need to get the state name from states array
+              const state = states.find(s => s.id === officerData.stateId);
+              if (state) {
+                selectedState = state.name;
+                console.log("🔍 Converted state ID to name for update:", {
+                  stateId: officerData.stateId,
+                  stateName: selectedState
+                });
+              } else {
+                selectedState = officerData.stateId; // Fallback to ID if not found
+                console.warn("⚠️ State not found in states array for update:", officerData.stateId);
+              }
+            } else {
+              // This is already a state name, find the ID
+              const state = states.find(s => s.name === officerData.stateId);
+              if (state) {
+                selectedState = state.name;
+                console.log("🔍 Using state name for update:", {
+                  stateName: selectedState
+                });
+              } else {
+                selectedState = officerData.stateId; // Fallback
+                console.warn("⚠️ State not found in states array for update:", officerData.stateId);
+              }
+            }
+            
             console.log("🔍 ADMIN - Using selected state for update:", {
               stateId: officerData.stateId,
-              stateName: selectedState
+              stateName: selectedState,
+              stateIdType: typeof officerData.stateId,
+              stateIdLength: officerData.stateId.length
             });
           } else {
             throw new Error("State selection is required for Admin");
           }
         } else {
           // STATE_APPROVER and MOSPI_APPROVER use their own state
+          // For these roles, both stateId and stateUt should be the same (state name)
           selectedState = user?.state || "";
           console.log("🔍 Using current user state for update:", {
             userRole: user?.role,
@@ -135,8 +175,7 @@ export function UserManagementPage() {
           email: officerData.email,
           contactNumber: officerData.contactNumber,
           role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
-          stateUt: selectedState, // State NAME (e.g., "Bihar", "Delhi")
-          stateId: selectedState  // State NAME (e.g., "Bihar", "Delhi") - same as stateUt
+          stateUt: selectedState // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
         } as any);
         
         notificationService.success(
@@ -153,42 +192,88 @@ export function UserManagementPage() {
           officerData: officerData
         });
         
-        let selectedState = "";
+        let selectedStateId = "";
+        let selectedStateName = "";
         
         if (user?.role === "ADMIN") {
-          // Admin can select any state - use stateId directly as it's the state name
+          // Admin can select any state - convert stateId to state name
           if (officerData.stateId) {
-            selectedState = officerData.stateId; // stateId is already the state name
+            // Temporarily disable validation to allow state selection
+            // if (officerData.stateId.includes('q') || officerData.stateId.length < 3 || /\d.*[a-zA-Z]/.test(officerData.stateId)) {
+            //   throw new Error(`Invalid state selected: "${officerData.stateId}". Please select a valid state.`);
+            // }
+            
+            // Check if stateId is a number (like "9") and convert to state name
+            if (!isNaN(Number(officerData.stateId))) {
+              // This is a state ID, we need to get the state name from states array
+              const state = states.find(s => s.id === officerData.stateId);
+              if (state) {
+                selectedStateId = state.id; // Keep original ID
+                selectedStateName = state.name; // Get state name
+                console.log("🔍 Converted state ID to name:", {
+                  stateId: selectedStateId,
+                  stateName: selectedStateName
+                });
+              } else {
+                selectedStateId = officerData.stateId; // Fallback to ID if not found
+                selectedStateName = officerData.stateId; // Fallback to ID if not found
+                console.warn("⚠️ State not found in states array:", officerData.stateId);
+              }
+            } else {
+              // This is already a state name, find the ID
+              const state = states.find(s => s.name === officerData.stateId);
+              if (state) {
+                selectedStateId = state.id; // Use state ID
+                selectedStateName = state.name; // Use state name
+                console.log("🔍 Converted state name to ID:", {
+                  stateName: selectedStateName,
+                  stateId: selectedStateId
+                });
+              } else {
+                selectedStateId = officerData.stateId; // Fallback
+                selectedStateName = officerData.stateId; // Fallback
+                console.warn("⚠️ State not found in states array:", officerData.stateId);
+              }
+            }
+            
             console.log("🔍 ADMIN - Using selected state for creation:", {
-              stateId: officerData.stateId,
-              stateName: selectedState
+              originalStateId: officerData.stateId,
+              selectedStateId: selectedStateId,
+              selectedStateName: selectedStateName,
+              stateIdType: typeof officerData.stateId,
+              stateIdLength: officerData.stateId.length,
+              isNumber: !isNaN(Number(officerData.stateId))
             });
           } else {
             throw new Error("State selection is required for Admin");
           }
         } else {
           // STATE_APPROVER and MOSPI_APPROVER use their own state
-          selectedState = user?.state || "";
+          // For these roles, both stateId and stateUt should be the same (state name)
+          selectedStateId = user?.state || "";
+          selectedStateName = user?.state || "";
           console.log("🔍 Using current user state for both roles:", {
             userRole: user?.role,
             userState: user?.state,
-            selectedState: selectedState
+            selectedStateId: selectedStateId,
+            selectedStateName: selectedStateName
           });
         }
         
         // ✅ Validate state
-        if (!selectedState) {
+        if (!selectedStateId || !selectedStateName) {
           throw new Error("State is required but not provided");
         }
           
         console.log("🔍 State Resolution Result:", {
-          selectedState,
-          stateId: officerData.stateId
+          selectedStateId,
+          selectedStateName,
+          originalStateId: officerData.stateId
         });
           
         // ✅ Final validation before API call
-        if (!selectedState || selectedState.trim() === "") {
-          throw new Error("State name is required but not provided");
+        if (!selectedStateId || !selectedStateName || selectedStateName.trim() === "") {
+          throw new Error("State is required but not provided");
         }
         
         console.log("🔍 Creating user with data:", {
@@ -198,10 +283,11 @@ export function UserManagementPage() {
           lastName: officerData.lastName,
           contactNumber: officerData.contactNumber,
           role: officerData.role,
-          stateUt: selectedState, // State NAME (e.g., "Bihar", "Delhi")
-          stateId: selectedState, // State NAME (e.g., "Bihar", "Delhi") - same as stateUt
+          stateUt: selectedStateName, // State NAME (e.g., "Bihar", "Delhi")
+          stateId: selectedStateId, // State ID (e.g., "9", "28")
           currentUserRole: user?.role,
-          selectedState: selectedState
+          selectedStateId: selectedStateId,
+          selectedStateName: selectedStateName
         });
         
         const newUser = await apiService.register(
@@ -211,8 +297,7 @@ export function UserManagementPage() {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          selectedState, // State NAME (e.g., "Bihar", "Delhi")
-          selectedState  // State NAME (e.g., "Bihar", "Delhi") - same as stateUt
+          selectedStateName // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
         );
         console.log("🔍 New User Created:", newUser);
         
