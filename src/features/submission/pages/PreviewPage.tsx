@@ -10,7 +10,9 @@ import { storageService } from "@/services/storage.service";
 import { apiV2 } from "@/services/ApiService";
 import { config } from "@/config/environment";
 import { notificationService } from "@/services/NotificationBus";
+import { SectionCard } from "../components/SectionCard";
 import { transformFormDataForSubmission, validateFormData, getFormDataSummary } from "@/utils/formDataTransformer";
+import { Label } from "@/components/ui/label";
 
 const PREVIEW_FLAG_KEY = "submission_has_previewed";
 
@@ -35,30 +37,29 @@ export const PreviewPage = () => {
     title: string,
     fields: { label: string; value: any }[],
   ) => (
-    <Card className="mb-4">
-      <CardHeader className="bg-muted/30">
-        <CardTitle className="text-base">
-          {sectionNum} - {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {fields.map((field, idx) => (
-            <div key={idx} className="mb-2">
-              <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                {field.label}
-              </label>
-              <input
-                className="w-full bg-muted/10 border border-border rounded px-2 py-1 text-sm"
-                value={field.value ?? ""}
-                readOnly
-                disabled
-              />
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <SectionCard
+      title={<div className="flex flex-col">
+        <span className="text-base font-semibold ">
+          <span className="text-primary">{sectionNum} </span> {title}{" "}
+        </span>
+      </div>}
+      subtitle=""
+      className="mb-6"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-[70%]">
+        {fields.map((field, idx) => (
+          <div key={idx} className="mb-2">
+            <Label className="font-semibold">
+              {field.label}
+            </Label>
+            <Label>
+              {field.value}
+            </Label>
+
+          </div>
+        ))}
+      </div>
+    </SectionCard>
   );
 
   // Helper for array sections (table-like)
@@ -70,21 +71,27 @@ export const PreviewPage = () => {
   ) => {
     // Safety check: ensure rows is an array
     const safeRows = Array.isArray(rows) ? rows : [];
-    
+
     return (
-    <Card className="mb-4">
-      <CardHeader className="bg-muted/30">
-        <CardTitle className="text-base">
-          {sectionNum} - {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm border">
+      <SectionCard
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">{sectionNum} -</span> {title}{" "}
+          </span>
+        </div>}
+        subtitle=""
+        className="mb-6"
+      >
+        <div className="overflow-x-auto rounded-t-xl">
+          <table className="min-w-full border-separate border-spacing-0 !border-separate">
             <thead>
-              <tr>
+              <tr className="bg-[#DDE3F9]">
                 {columns.map((col, idx) => (
-                  <th key={idx} className="px-2 py-1 border-b bg-muted/20">
+                  <th key={idx} className={`
+                      py-3 px-4 text-left text-sm font-normal
+                      ${idx === 0 ? 'rounded-tl-xl' : ''}
+                      ${idx === columns.length - 1 ? 'rounded-tr-xl' : ''}
+                    `}>
                     {col}
                   </th>
                 ))}
@@ -92,19 +99,19 @@ export const PreviewPage = () => {
             </thead>
             <tbody>
               {safeRows.length === 0 ? (
-                <tr>
+                <tr className="bg-white">
                   <td
                     colSpan={columns.length}
-                    className="text-center text-muted-foreground py-2"
+                    className="py-3 px-4 text-sm font-normal"
                   >
                     No data
                   </td>
                 </tr>
               ) : (
                 safeRows.map((row, i) => (
-                  <tr key={i}>
+                  <tr key={i} className="bg-white">
                     {columns.map((col, j) => (
-                      <td key={j} className="px-2 py-1 border-b">
+                      <td key={j} className="py-3 px-4 text-sm font-normal">
                         {row[col] ?? ""}
                       </td>
                     ))}
@@ -114,8 +121,7 @@ export const PreviewPage = () => {
             </tbody>
           </table>
         </div>
-      </CardContent>
-    </Card>
+      </SectionCard>
     );
   };
 
@@ -125,23 +131,24 @@ export const PreviewPage = () => {
     title: string,
     fields: Array<{ label: string; value: string | number | undefined }>,
   ) => (
-    <Card className="mb-4">
-      <CardHeader className="bg-muted/30">
-        <CardTitle className="text-base">
-          {sectionNum} - {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="space-y-3">
-          {fields.map((field, index) => (
-            <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100">
-              <span className="font-medium text-gray-700">{field.label}:</span>
-              <span className="text-gray-900">{field.value || "Not provided"}</span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <SectionCard
+      title={<div className="flex flex-col">
+        <span className="text-base font-semibold ">
+          <span className="text-primary">{sectionNum} -</span> {title}{" "}
+        </span>
+      </div>}
+      subtitle=""
+      className="mb-6"
+    >
+      <div className="flex gap-6">
+        {fields.map((field, index) => (
+          <div key={index} className="flex flex-col w-full">
+            <Label className="font-semibold">{field.label}</Label>
+            <Label className="">{field.value || "Not provided"}</Label>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
   );
 
   // Final submit handler with confirmation modal
@@ -150,15 +157,15 @@ export const PreviewPage = () => {
       e.preventDefault();
       e.stopPropagation();
     }
-    
+
     if (!hasPreviewed || isSubmitting) return;
-    
+
     // Validate form data before showing confirmation modal
     if (!validateFormData(formData)) {
       notificationService.error('Please complete all required sections before submitting.', 'Incomplete Form');
       return;
     }
-    
+
     // Show confirmation modal
     setShowConfirmModal(true);
   };
@@ -167,32 +174,32 @@ export const PreviewPage = () => {
   const handleConfirmSubmit = async () => {
     setIsSubmitting(true);
     setShowConfirmModal(false);
-    
+
     try {
       // Transform form data to required API format ONLY for submission
       const transformedPayload = transformFormDataForSubmission(formData, "SUBMITTED_TO_STATE");
-      
+
       const response = await apiV2.post(config.formsPath, transformedPayload);
-      
+
       // Dynamic success message from response
-      const successMessage = response.data?.message || 
+      const successMessage = response.data?.message ||
         'Your submission has been sent to the State Approver for review. You will be notified of its status.';
-      
+
       setSubmissionMessage(successMessage);
       setShowSuccessModal(true);
-      
+
       // Clear form data AFTER successful submission
       clearFormData(); // Clear localStorage after successful submission
       storageService.remove(PREVIEW_FLAG_KEY);
       localStorage.removeItem("editing_submission"); // Clear editing submission data
-      
+
     } catch (error: unknown) {
       // Dynamic error message from response
       const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = err?.response?.data?.message || 
-        err?.message || 
+      const errorMessage = err?.response?.data?.message ||
+        err?.message ||
         'An unexpected error occurred during submission.';
-      
+
       notificationService.error(errorMessage, 'Submission Failed');
     } finally {
       setIsSubmitting(false);
@@ -211,14 +218,14 @@ export const PreviewPage = () => {
     <div className="">
       <div className="w-full bg-card rounded-lg p-6 mb-6 border border-[#DDD]">
         <Button
-         
+
           onClick={() => navigate("/submissions/review-submit")}
           className="mb-4 flex items-center gap-2 bg-[none] border-none p-0 text-primary hover:underline hover:bg-[none]"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </Button>
-      
+
         <h1 className="text-xl text-[#212121] font-bold mb-2">Preview</h1>
         <p className="text-sm text-[#727272]">
           Review your submission before sending. You must preview before final
@@ -227,7 +234,7 @@ export const PreviewPage = () => {
       </div>
 
       <Tabs defaultValue="infra-financing" className="mb-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="w-full">
           <TabsTrigger value="infra-financing">Infra Financing</TabsTrigger>
           <TabsTrigger value="infra-development">Infra Development</TabsTrigger>
           <TabsTrigger value="ppp-development">PPP Development</TabsTrigger>
@@ -497,9 +504,9 @@ export const PreviewPage = () => {
       </Tabs>
 
       <div className="flex justify-end pt-6 border-t">
-        <Button 
+        <Button
           type="button"
-          onClick={handleFinalSubmit} 
+          onClick={handleFinalSubmit}
           disabled={!hasPreviewed || isSubmitting}
         >
           {isSubmitting ? (isResubmit ? 'Resubmitting...' : 'Submitting...') : (isResubmit ? 'Resubmit' : 'Final Submit')}
@@ -512,7 +519,7 @@ export const PreviewPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{isResubmit ? 'Are you sure you want to resubmit?' : 'Are you sure you want to submit?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              {isResubmit 
+              {isResubmit
                 ? 'Once resubmitted, your updated data will be sent to the State Approver for review.'
                 : 'Once submitted, your data will be locked for editing and sent to the State Approver for review.'
               }
