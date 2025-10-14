@@ -418,6 +418,7 @@ export const isWaitingForCurrentUser = (
  * @param submission - Submission data object
  * @param currentUserRole - Current user's role
  * @returns waiting message string
+ * @deprecated Use getWaitingMessage from statusUtils instead
  */
 export const getWaitingMessage = (
   submission: any,
@@ -429,10 +430,13 @@ export const getWaitingMessage = (
 
   switch (currentUserRole) {
     case "NODAL_OFFICER":
-      if (status === "RETURNED_FROM_MOSPI") {
+      if (status === "RETURNED_FROM_STATE") {
         return "आपका submission State Approver से वापस आया है - कृपया revision करें";
       }
-      if (status === "RETURNED_FROM_MOSPI") {
+      if (
+        status === "RETURNED_FROM_MOSPI_REVIEWER" ||
+        status === "RETURNED_FROM_MOSPI_APPROVER"
+      ) {
         return "आपका submission MoSPI से वापस आया है - कृपया revision करें";
       }
       break;

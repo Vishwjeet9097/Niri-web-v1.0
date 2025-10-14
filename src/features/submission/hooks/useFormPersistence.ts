@@ -34,11 +34,7 @@ export const useFormPersistence = () => {
         // Don't remove editing_submission here - let individual components handle it
         // localStorage.removeItem("editing_submission");
       } catch (error) {
-        console.error("🔍 useFormPersistence - Error:", error);
-        // Don't clear editing_submission on error, just log it
-        console.log(
-          "🔍 useFormPersistence - Keeping editing_submission data despite error"
-        );
+        console.error("Error parsing editing submission data:", error);
       }
     }
   }, []);

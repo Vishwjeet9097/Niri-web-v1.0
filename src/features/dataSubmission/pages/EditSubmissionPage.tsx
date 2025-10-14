@@ -47,9 +47,6 @@ export const EditSubmissionPage = () => {
         setSubmission(submissionData);
         
         // Save submission data to localStorage for normal form
-        console.log("🔍 EditSubmissionPage - submissionData structure:", submissionData);
-        console.log("🔍 EditSubmissionPage - submissionData.formData:", submissionData?.formData);
-        
         const originalFormData = {
           infraFinancing: submissionData?.formData?.infraFinancing || {},
           infraDevelopment: submissionData?.formData?.infraDevelopment || {},
@@ -61,24 +58,6 @@ export const EditSubmissionPage = () => {
         localStorage.setItem('editing_submission_id', id);
         localStorage.setItem('is_edit_mode', 'true');
         localStorage.setItem('submission_form_data', JSON.stringify(originalFormData));
-        
-        console.log("💾 Saved editing_submission_id to localStorage:", id);
-        console.log("💾 Saved is_edit_mode to localStorage: true");
-        console.log("💾 Saved submission_form_data to localStorage:", originalFormData);
-        
-        // Verify data was saved
-        const savedSubmissionId = localStorage.getItem('editing_submission_id');
-        const savedIsEditMode = localStorage.getItem('is_edit_mode');
-        
-        console.log("🔍 Verification - editing_submission_id in localStorage:", savedSubmissionId);
-        console.log("🔍 Verification - is_edit_mode in localStorage:", savedIsEditMode);
-        
-        if (!savedSubmissionId) {
-          console.error("❌ editing_submission_id not saved to localStorage!");
-        }
-        if (!savedIsEditMode) {
-          console.error("❌ is_edit_mode not saved to localStorage!");
-        }
         
         // Redirect to normal submission form
         navigate('/submissions');

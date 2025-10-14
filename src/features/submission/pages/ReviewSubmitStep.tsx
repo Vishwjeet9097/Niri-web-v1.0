@@ -36,17 +36,9 @@ export const ReviewSubmitStep = () => {
     const editingSubmissionId = localStorage.getItem('editing_submission_id');
     const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
     
-    console.log("🔍 ReviewSubmitStep - localStorage check:", {
-      editingSubmissionId,
-      isEditModeFlag
-    });
-    
     if (editingSubmissionId && isEditModeFlag) {
       setIsEditMode(true);
       setEditingSubmissionId(editingSubmissionId);
-      console.log("🔍 ReviewSubmitStep - Edit mode detected for submission:", editingSubmissionId);
-    } else {
-      console.log("🔍 ReviewSubmitStep - Edit mode conditions not met");
     }
   }, []);
 
@@ -135,8 +127,6 @@ export const ReviewSubmitStep = () => {
       
       if (isEditMode && editingSubmissionId) {
         // Edit mode - use resubmit API
-        console.log("🔄 ReviewSubmitStep - Resubmitting existing submission:", editingSubmissionId);
-        console.log("🔄 ReviewSubmitStep - Resubmit payload:", transformedPayload);
         res = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedPayload);
       } else {
         // Normal mode - create new submission

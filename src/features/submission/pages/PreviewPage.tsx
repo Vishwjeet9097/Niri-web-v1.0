@@ -35,17 +35,9 @@ export const PreviewPage = () => {
     const editingSubmissionId = localStorage.getItem('editing_submission_id');
     const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
     
-    console.log("🔍 PreviewPage - localStorage check:", {
-      editingSubmissionId,
-      isEditModeFlag
-    });
-    
     if (editingSubmissionId && isEditModeFlag) {
       setIsEditMode(true);
       setEditingSubmissionId(editingSubmissionId);
-      console.log("🔍 PreviewPage - Edit mode detected for submission:", editingSubmissionId);
-    } else {
-      console.log("🔍 PreviewPage - Edit mode conditions not met");
     }
     
     storageService.set(PREVIEW_FLAG_KEY, true);
@@ -82,32 +74,21 @@ export const PreviewPage = () => {
       // Transform form data for API submission
       const transformedData = transformFormDataForSubmission(formData);
       
-      console.log("🚀 Submitting data:", transformedData);
-      console.log("🔍 Edit mode check:", { isEditMode, editingSubmissionId, isResubmit });
-
       let response;
       
       if (isEditMode && editingSubmissionId) {
         // Edit mode - use resubmit API
-        console.log("🔄 Resubmitting existing submission:", editingSubmissionId);
-        console.log("🔄 Resubmit URL:", `http://localhost:3000/submission/resubmit/${editingSubmissionId}`);
-        console.log("🔄 Resubmit payload:", transformedData);
         response = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedData);
       } else if (isResubmit) {
         // Resubmit mode - use resubmit API with submission ID from localStorage
         const editingSubmissionId = localStorage.getItem('editing_submission_id');
         if (editingSubmissionId) {
-          console.log("🔄 Resubmitting from localStorage:", editingSubmissionId);
-          console.log("🔄 Resubmit URL:", `http://localhost:3000/submission/resubmit/${editingSubmissionId}`);
-          console.log("🔄 Resubmit payload:", transformedData);
           response = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedData);
         } else {
-          console.log("🔄 No submission ID found, creating new submission");
           response = await apiV2.post(`http://localhost:3000/submission`, transformedData);
         }
       } else {
         // Normal mode - create new submission
-        console.log("🔄 Creating new submission");
         response = await apiV2.post(`http://localhost:3000/submission`, transformedData);
       }
       
@@ -190,27 +171,6 @@ export const PreviewPage = () => {
 
   return (
     <>
-      {/* Debug Info */}
-      <div className="bg-yellow-100 border border-yellow-400 p-4 mb-4 rounded">
-        <h3 className="font-bold text-yellow-800">Debug Info:</h3>
-        <p>isEditMode: {isEditMode ? 'true' : 'false'}</p>
-        <p>editingSubmissionId: {editingSubmissionId || 'null'}</p>
-        <p>isResubmit: {isResubmit ? 'true' : 'false'}</p>
-        <p>localStorage is_edit_mode: {localStorage.getItem('is_edit_mode')}</p>
-        <p>localStorage editing_submission_id: {localStorage.getItem('editing_submission_id') || 'null'}</p>
-        <p>All localStorage keys: {Object.keys(localStorage).join(', ')}</p>
-        <button 
-          onClick={() => {
-            console.log("🔍 Manual localStorage check:");
-            console.log("editing_submission_id:", localStorage.getItem('editing_submission_id'));
-            console.log("is_edit_mode:", localStorage.getItem('is_edit_mode'));
-            console.log("All keys:", Object.keys(localStorage));
-          }}
-          className="bg-blue-500 text-white px-2 py-1 rounded text-sm mt-2"
-        >
-          Check localStorage
-        </button>
-      </div>
 
       {/* Use UnifiedReviewPage for preview */}
       <UnifiedReviewPage 

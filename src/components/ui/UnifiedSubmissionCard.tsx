@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { 
   isWaitingForCurrentUser, 
-  getWaitingMessage, 
   canEditSubmission, 
   canReviewSubmission, 
   getCommentBackgroundClass, 
@@ -22,6 +21,7 @@ import {
   getCommentIconColorClass, 
   isReturnedFromMospi 
 } from "@/utils/auditUtils";
+import { getStatusInfo, getStatusPills, getWaitingMessage as getStatusWaitingMessage, shouldShowMultipleStatusPills } from "@/utils/statusUtils";
 
 export interface UnifiedSubmissionCardProps {
   id: string;
@@ -33,7 +33,7 @@ export interface UnifiedSubmissionCardProps {
   progress: number;
   nextStep: string;
   reviewerNote?: string;
-  submission?: any;
+  submission?: Record<string, unknown>;
   currentUserRole?: string;
   submittedBy?: string; // Added submitted by field
   onEdit?: () => void;
@@ -165,27 +165,12 @@ export function UnifiedSubmissionCard({
 
   // Check if submission is waiting for current user
   const isWaiting = currentUserRole ? isWaitingForCurrentUser({ status }, currentUserRole) : false;
-  const waitingMessage = currentUserRole ? getWaitingMessage({ status }, currentUserRole) : "";
+  const waitingMessage = currentUserRole ? getStatusWaitingMessage(status, currentUserRole) : "";
 
-  // Determine if we should show multiple status pills
-  const showMultipleStatusPills = status === "SUBMITTED_TO_STATE" || status === "SUBMITTED_TO_MOSPI_REVIEWER" || status === "SUBMITTED_TO_MOSPI_APPROVER";
-  
-  // Special handling for specific status combinations
-  const getStatusPills = () => {
-    if (status === "SUBMITTED_TO_STATE") {
-      return [
-        { label: "Under Review", className: "bg-blue-100 text-blue-800 border-blue-200" },
-        { label: "Waiting for State Approver Review", className: "bg-blue-100 text-blue-800 border-blue-200" }
-      ];
-    }
-    if (status === "SUBMITTED_TO_MOSPI_APPROVER") {
-      return [
-        { label: "Under Review", className: "bg-blue-100 text-blue-800 border-blue-200" },
-        { label: "Waiting for State Approver Review", className: "bg-blue-100 text-blue-800 border-blue-200" }
-      ];
-    }
-    return [{ label: config.label, className: config.badgeClass }];
-  };
+  // Use centralized status utilities
+  const statusInfo = getStatusInfo(status);
+  const statusPills = getStatusPills(status, currentUserRole);
+  const showMultiplePills = shouldShowMultipleStatusPills(status, currentUserRole);
 
   return (
     <Card className={`p-6 mb-4 border-l-4 ${config.borderClass} ${config.bgClass} hover:shadow-lg transition-all duration-200 rounded-lg`}>
@@ -196,7 +181,7 @@ export function UnifiedSubmissionCard({
             <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
             <div className="flex items-center gap-2 flex-wrap">
               {/* Status pills */}
-              {getStatusPills().map((pill, index) => (
+              {statusPills.map((pill, index) => (
                 <Badge key={index} variant="outline" className={`${pill.className} text-xs font-medium px-2 py-1`}>
                   {pill.label}
                 </Badge>
