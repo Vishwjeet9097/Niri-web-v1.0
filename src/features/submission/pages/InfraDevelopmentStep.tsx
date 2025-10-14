@@ -336,7 +336,7 @@ export const InfraDevelopmentStep = () => {
 
   // --- UI ---
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
       <ProgressHeader
         title="Infrastructure Development"

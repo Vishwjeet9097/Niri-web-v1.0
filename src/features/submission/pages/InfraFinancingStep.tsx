@@ -334,7 +334,7 @@ export const InfraFinancingStep = () => {
 
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
 
       <ProgressHeader
@@ -351,24 +351,22 @@ export const InfraFinancingStep = () => {
       <SectionCard
         title={
           <div className="flex flex-col">
-            <span className="text-base font-semibold text-primary">
-              1.1 - % Capex to GSDP{" "}
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
               <span className="font-normal text-xs text-muted-foreground">
                 (10 marks per 1%)
               </span>
             </span>
-            <span className="text-xs text-muted-foreground font-normal">
-              Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
-              Capital Expenditure)
-            </span>
+          
           </div>
         }
-        subtitle=""
+        subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
+              Capital Expenditure)"
         className="mb-6"
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 max-w-[70%]">
           <div>
-            <Label>Year*</Label>
+            <Label>Year<span className="text-red-500">*</span></Label>
             <Input
               type="text"
               placeholder="2024-25"
@@ -382,9 +380,9 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div>
-            <Label className="flex items-center gap-2">
-              Capital Allocation for FY (INR)*
-              <Info className="h-4 w-4 text-gray-500" />
+            <Label className="">
+              Capital Allocation for FY (INR)<span className="text-red-500">*</span>
+              <Info className="h-4 w-4 text-gray-500 inline-block ml-2" />
             </Label>
             <Input
               placeholder="₹1,50,000 crores"
@@ -401,9 +399,9 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div>
-            <Label className="flex items-center gap-2">
-              GSDP for FY (INR)*
-              <Info className="h-4 w-4 text-gray-500" />
+            <Label className="">
+              GSDP for FY (INR)<span className="text-red-500">*</span>
+              <Info className="h-4 w-4 text-gray-500 ml-2" />
             </Label>
             <Input
               placeholder="₹25,00,000 crores"
@@ -420,9 +418,9 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div>
-            <Label className="flex items-center gap-2">
-              State Capex Utilisation (INR)*
-              <Info className="h-4 w-4 text-gray-500" />
+            <Label className="">
+              State Capex Utilisation (INR)<span className="text-red-500">*</span>
+              <Info className="h-4 w-4 text-gray-500 ml-2" />
             </Label>
             <Input
               placeholder="₹1,20,000 crores"
@@ -439,9 +437,9 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div>
-            <Label className="flex items-center gap-2">
-              % Allocation to GSDP*
-              <Info className="h-4 w-4 text-gray-500" />
+            <Label className="">
+              % Allocation to GSDP<span className="text-red-500">*</span>
+              <Info className="h-4 w-4 text-gray-500 ml-2" />
             </Label>
             <Input
               placeholder="6.0%"
@@ -458,9 +456,9 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div>
-            <Label className="flex items-center gap-2">
-              Capex to % Capex Actuals*
-              <Info className="h-4 w-4 text-gray-500" />
+            <Label className="">
+              Capex to % Capex Actuals<span className="text-red-500">*</span>
+              <Info className="h-4 w-4 text-gray-500 ml-2" />
             </Label>
             <Input
               placeholder="95%"
@@ -481,12 +479,19 @@ export const InfraFinancingStep = () => {
 
       {/* Section 1.2 */}
       <SectionCard
-        title="1.2 - % Capex Utilization (10 marks per 1%)"
+        title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.2 -</span> % Capex Utilization{" "}
+              <span className="font-normal text-xs text-muted-foreground">
+                (10 marks per 1%)
+              </span>
+            </span>
+          </div>}
         subtitle="Annex 2: Verified with MoHUA data"
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 max-w-[70%]">
           <div className="space-y-2">
-            <Label>Year*</Label>
+            <Label>Year<span className="text-red-500">*</span></Label>
             <Input
               placeholder="Year"
               value={formData.section1_2.year}
@@ -515,7 +520,7 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label>A₁ - Actual Capex (INR)*</Label>
+            <Label>A₁ - Actual Capex (INR)<span className="text-red-500">*</span></Label>
             <Input
               placeholder="₹2,15,400 Crores"
               value={formData.section1_2.actualCapex}
@@ -531,7 +536,7 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label>A₂ - Budgetary Capex (INR)*</Label>
+            <Label>A₂ - Budgetary Capex (INR)<span className="text-red-500">*</span></Label>
             <Input
               placeholder="₹1,50,000 crores"
               value={formData.section1_2.budgetaryCapex}
@@ -583,15 +588,19 @@ export const InfraFinancingStep = () => {
 
       {/* Section 1.3 */}
       <SectionCard
-        title="1.3 - % of Credit Rated ULBs"
+        title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
+            </span>
+          </div>}
         subtitle="Annex 2: Verified with MoHUA data"
         className="mb-6"
       >
         <div className="space-y-4">
           {formData.section1_3.map((ulb, index) => (
-            <div key={ulb.id} className="grid grid-cols-4 gap-4 p-4 border rounded-lg bg-gray-50">
+            <div key={ulb.id} className="grid grid-cols-4 gap-4">
               <div>
-                <Label>City name*</Label>
+                <Label>City name<span className="text-red-500">*</span></Label>
                 <Input
                   placeholder="Mumbai"
                   value={ulb.cityName}
@@ -606,7 +615,7 @@ export const InfraFinancingStep = () => {
                 />
               </div>
               <div>
-                <Label>ULB*</Label>
+                <Label>ULB<span className="text-red-500">*</span></Label>
                 <Select
                   value={ulb.ulb}
                   onValueChange={(value) =>
@@ -629,13 +638,13 @@ export const InfraFinancingStep = () => {
                 </Select>
               </div>
               <div>
-                <Label>Rating date*</Label>
+                <Label>Rating date<span className="text-red-500">*</span></Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
                         !ulb.ratingDate && "text-muted-foreground"
                       )}
                     >
@@ -662,7 +671,7 @@ export const InfraFinancingStep = () => {
               </div>
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <Label>Select Rating*</Label>
+                  <Label>Select Rating<span className="text-red-500">*</span></Label>
                   <Select
                     value={ulb.rating}
                     onValueChange={(value) =>
@@ -690,9 +699,9 @@ export const InfraFinancingStep = () => {
                   variant="outline"
                   size="icon"
                   onClick={() => removeULB(ulb.id)}
-                  className="text-red-500 hover:text-red-700"
+                  className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-6 w-6" />
                 </Button>
               </div>
             </div>
@@ -702,9 +711,9 @@ export const InfraFinancingStep = () => {
             type="button"
             variant="outline"
             onClick={addULB}
-            className="w-fit mx-auto border-blue-500 text-blue-500 hover:bg-blue-50"
+            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 "
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             Add More ULB
           </Button>
         </div>
