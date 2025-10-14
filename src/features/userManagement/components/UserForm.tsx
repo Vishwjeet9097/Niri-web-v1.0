@@ -211,8 +211,8 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
-    } else if (!/\.(gov\.in|nic\.in)$/i.test(formData.email)) {
-      newErrors.email = "Only .gov.in and .nic.in email addresses are allowed";
+    } else if (!/@(gov\.in|nic\.in)$/i.test(formData.email)) {
+      newErrors.email = "Only @gov.in and @nic.in email addresses are allowed";
     }
 
     // Password is required only for new users
@@ -356,7 +356,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Only .gov.in and .nic.in email addresses are allowed</p>
+                  <p>Only @gov.in and @nic.in email addresses are allowed</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -378,11 +378,11 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   delete newErrors.email;
                   return newErrors;
                 });
-              } else if (!/\.(gov\.in|nic\.in)$/i.test(email)) {
-                // Show error if domain is not .gov.in or .nic.in
+              } else if (!/@(gov\.in|nic\.in)$/i.test(email)) {
+                // Show error if domain is not @gov.in or @nic.in
                 setErrors(prev => ({
                   ...prev,
-                  email: "Only .gov.in and .nic.in email addresses are allowed"
+                  email: "Only @gov.in and @nic.in email addresses are allowed"
                 }));
               } else {
                 // Clear error if domain is correct
