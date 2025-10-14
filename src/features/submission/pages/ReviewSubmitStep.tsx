@@ -118,7 +118,8 @@ export const ReviewSubmitStep = () => {
       setShowSuccessModal(true);
       
       // Clear form data AFTER successful submission
-      // clearFormData(); // Commented out - don't clear localStorage for now
+      clearFormData(); // Clear localStorage after successful submission
+      localStorage.removeItem("editing_submission"); // Clear editing submission data
     } catch (e: unknown) {
       // Dynamic error message from response
       const error = e as { response?: { data?: { message?: string } }; message?: string };

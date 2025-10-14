@@ -182,8 +182,9 @@ export const PreviewPage = () => {
       setShowSuccessModal(true);
       
       // Clear form data AFTER successful submission
-      // clearFormData(); // Commented out - don't clear localStorage for now
+      clearFormData(); // Clear localStorage after successful submission
       storageService.remove(PREVIEW_FLAG_KEY);
+      localStorage.removeItem("editing_submission"); // Clear editing submission data
       
     } catch (error: unknown) {
       // Dynamic error message from response

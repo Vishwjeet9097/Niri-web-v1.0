@@ -9,7 +9,6 @@ import { Info, X } from "lucide-react";
 import { MospiOverviewTab } from "../components/tabs/MospiOverviewTab";
 import { MospiApproverDataReviewTab } from "../components/tabs/MospiApproverDataReviewTab";
 import { DocumentsTab } from "../components/tabs/DocumentsTab";
-import { ChecklistTab } from "../components/tabs/ChecklistTab";
 import { HistoryTab } from "../components/tabs/HistoryTab";
 import { SendBackModal } from "../components/modals/SendBackModal";
 import { ApproveModal } from "../components/modals/ApproveModal";
@@ -163,12 +162,11 @@ export const MospiApproverSubmissionDetailPage = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="reviewer-comments">MoSPI Reviewer Comments</TabsTrigger>
             <TabsTrigger value="data-review">Data Review</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
-            <TabsTrigger value="checklist">Checklist</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
 
@@ -203,12 +201,6 @@ export const MospiApproverSubmissionDetailPage = () => {
             <DocumentsTab documents={submission.documents} submissionId={submission.id} />
           </TabsContent>
 
-          <TabsContent value="checklist">
-            <ChecklistTab checklist={submission.checklist.map((item: any) => ({
-              ...item,
-              status: item.status as "compliant" | "na" | "non-compliant" | "pending"
-            }))} submissionId={submission.id} />
-          </TabsContent>
 
           <TabsContent value="history">
             <AuditLog entries={generateAuditEntries(submission)} />
