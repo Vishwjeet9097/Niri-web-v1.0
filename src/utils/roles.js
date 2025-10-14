@@ -39,7 +39,7 @@ export const MENU_CONFIG = [
       ROLES.MOSPI_REVIEWER,
       ROLES.MOSPI_APPROVER,
       ROLES.STATE_APPROVER,
-      ROLES.ADMIN, // Admin also has dashboard access
+      // ROLES.ADMIN, // Admin doesn't have dashboard access
     ],
     icon: "dashboard",
   },
