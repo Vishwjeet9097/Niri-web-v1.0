@@ -27,10 +27,29 @@ import type { InfraFinancingData } from "@/features/submission/types";
 
 interface EditableInfraFinancingProps {
   submissionId: string;
+  submission?: any;
 }
 
-export const EditableInfraFinancing = ({ submissionId }: EditableInfraFinancingProps) => {
+export const EditableInfraFinancing = ({ submissionId, submission }: EditableInfraFinancingProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
+
+  // Initialize form data with submission data if available
+  useEffect(() => {
+    if (submission?.formData?.infraFinancing) {
+      console.log("🔍 Loading submission data into form:", submission.formData.infraFinancing);
+      const submissionData = submission.formData.infraFinancing;
+      setFormData({
+        ...defaultData,
+        ...submissionData,
+        section1_1: { ...defaultData.section1_1, ...(submissionData.section1_1 || {}) },
+        section1_2: { ...defaultData.section1_2, ...(submissionData.section1_2 || {}) },
+        section1_3: submissionData.section1_3 || [],
+        section1_4: submissionData.section1_4 || [],
+        section1_5: submissionData.section1_5 || [],
+      });
+      updateFormData("infraFinancing", submissionData);
+    }
+  }, [submission, updateFormData]);
 
   const defaultData: InfraFinancingData = {
     section1_1: {
@@ -161,7 +180,7 @@ export const EditableInfraFinancing = ({ submissionId }: EditableInfraFinancingP
           }
           subtitle=""
         >
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label>Year*</Label>
               <Input
@@ -208,51 +227,22 @@ export const EditableInfraFinancing = ({ submissionId }: EditableInfraFinancingP
               />
             </div>
             <div>
-              <Label>State Capex Utilisation (INR)*</Label>
-              <Input
-                placeholder="₹1,20,000 crores"
-                value={formData.section1_1.stateCapex}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    section1_1: {
-                      ...formData.section1_1,
-                      stateCapex: e.target.value,
-                    },
-                  })
-                }
-              />
-            </div>
-            <div>
               <Label>% Allocation to GSDP*</Label>
               <Input
-                placeholder="6.0%"
-                value={formData.section1_1.allocationToGSDP}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    section1_1: {
-                      ...formData.section1_1,
-                      allocationToGSDP: e.target.value,
-                    },
-                  })
-                }
-              />
-            </div>
-            <div>
-              <Label>Capex to % Capex Actuals*</Label>
-              <Input
-                placeholder="95%"
-                value={formData.section1_1.capexToCapexActuals}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    section1_1: {
-                      ...formData.section1_1,
-                      capexToCapexActuals: e.target.value,
-                    },
-                  })
-                }
+                placeholder="Auto-calculated"
+                value={(() => {
+                  const capitalAllocation = parseFloat(formData.section1_1.capitalAllocation.replace(/[₹,]/g, ''));
+                  const gsdpForFY = parseFloat(formData.section1_1.gsdpForFY.replace(/[₹,]/g, ''));
+                  
+                  if (isNaN(capitalAllocation) || isNaN(gsdpForFY) || gsdpForFY === 0) {
+                    return '';
+                  }
+                  
+                  const percentage = (capitalAllocation / gsdpForFY) * 100;
+                  return percentage.toFixed(1) + '%';
+                })()}
+                readOnly
+                className="bg-gray-50 cursor-not-allowed"
               />
             </div>
           </div>
@@ -263,7 +253,7 @@ export const EditableInfraFinancing = ({ submissionId }: EditableInfraFinancingP
           title="1.2 - % Capex Utilization (10 marks per 1%)"
           subtitle="Annex 2: Verified with MoHUA data"
         >
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label>Year*</Label>
               <Input
@@ -273,22 +263,6 @@ export const EditableInfraFinancing = ({ submissionId }: EditableInfraFinancingP
                   setFormData({
                     ...formData,
                     section1_2: { ...formData.section1_2, year: e.target.value },
-                  })
-                }
-              />
-            </div>
-            <div>
-              <Label>GSDP for FY (INR)*</Label>
-              <Input
-                placeholder="₹25,00,000 crores"
-                value={formData.section1_2.gsdpForFY}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    section1_2: {
-                      ...formData.section1_2,
-                      gsdpForFY: e.target.value,
-                    },
                   })
                 }
               />
@@ -312,7 +286,7 @@ export const EditableInfraFinancing = ({ submissionId }: EditableInfraFinancingP
             <div>
               <Label>State Capex Utilisation (INR)*</Label>
               <Input
-                placeholder="₹1,20,000 crores"
+                placeholder="₹15,40,250 crores"
                 value={formData.section1_2.stateCapexUtilisation}
                 onChange={(e) =>
                   setFormData({
@@ -328,17 +302,20 @@ export const EditableInfraFinancing = ({ submissionId }: EditableInfraFinancingP
             <div>
               <Label>% Capex Actuals to GSDP*</Label>
               <Input
-                placeholder="5.8%"
-                value={formData.section1_2.capexActualsToGSDP}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    section1_2: {
-                      ...formData.section1_2,
-                      capexActualsToGSDP: e.target.value,
-                    },
-                  })
-                }
+                placeholder="Auto-calculated"
+                value={(() => {
+                  const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
+                  const stateCapexUtilisation = parseFloat(formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, ''));
+                  
+                  if (isNaN(actualCapex) || isNaN(stateCapexUtilisation) || stateCapexUtilisation === 0) {
+                    return '';
+                  }
+                  
+                  const percentage = (actualCapex / stateCapexUtilisation) * 100;
+                  return percentage.toFixed(1) + '%';
+                })()}
+                readOnly
+                className="bg-gray-50 cursor-not-allowed"
               />
             </div>
           </div>

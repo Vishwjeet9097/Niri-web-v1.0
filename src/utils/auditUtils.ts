@@ -491,8 +491,15 @@ export const canEditSubmission = (
 
   switch (userRole) {
     case "NODAL_OFFICER":
-      return submissionStatus === "DRAFT";
+      return (
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE"
+      );
     case "STATE_APPROVER":
+      return (
+        submissionStatus === "SUBMITTED_TO_STATE" ||
+        submissionStatus === "RETURNED_FROM_MOSPI"
+      );
     case "MOSPI_REVIEWER":
     case "MOSPI_APPROVER":
       return false; // These roles cannot edit submissions

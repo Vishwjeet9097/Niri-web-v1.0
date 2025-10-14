@@ -27,6 +27,7 @@ import type { PPPDevelopmentData, FileUpload } from "@/features/submission/types
 
 interface EditablePPPDevelopmentProps {
   submissionId: string;
+  submission?: any;
 }
 
 const defaultData: PPPDevelopmentData = {
@@ -49,8 +50,25 @@ const defaultData: PPPDevelopmentData = {
   },
 };
 
-export const EditablePPPDevelopment = ({ submissionId }: EditablePPPDevelopmentProps) => {
+export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPPDevelopmentProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
+
+  // Initialize form data with submission data if available
+  useEffect(() => {
+    if (submission?.formData?.pppDevelopment) {
+      console.log("🔍 Loading submission data into form:", submission.formData.pppDevelopment);
+      const submissionData = submission.formData.pppDevelopment;
+      setFormData({
+        ...defaultData,
+        ...submissionData,
+        section3_1: { ...defaultData.section3_1, ...(submissionData.section3_1 || {}) },
+        section3_2: { ...defaultData.section3_2, ...(submissionData.section3_2 || {}) },
+        section3_3: submissionData.section3_3 || [],
+        section3_4: { ...defaultData.section3_4, ...(submissionData.section3_4 || {}) },
+      });
+      updateFormData("pppDevelopment", submissionData);
+    }
+  }, [submission, updateFormData]);
 
   // Load data from localStorage or use defaults
   const loadedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};

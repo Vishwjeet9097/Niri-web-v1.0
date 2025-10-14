@@ -29,6 +29,7 @@ import type { InfraDevelopmentData, FileUpload } from "@/features/submission/typ
 
 interface EditableInfraDevelopmentProps {
   submissionId: string;
+  submission?: any;
 }
 
 const defaultData: InfraDevelopmentData = {
@@ -39,8 +40,26 @@ const defaultData: InfraDevelopmentData = {
   section2_5: [],
 };
 
-export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopmentProps) => {
+export const EditableInfraDevelopment = ({ submissionId, submission }: EditableInfraDevelopmentProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
+
+  // Initialize form data with submission data if available
+  useEffect(() => {
+    if (submission?.formData?.infraDevelopment) {
+      console.log("🔍 Loading submission data into form:", submission.formData.infraDevelopment);
+      const submissionData = submission.formData.infraDevelopment;
+      setFormData({
+        ...defaultData,
+        ...submissionData,
+        section2_1: submissionData.section2_1 || [],
+        section2_2: submissionData.section2_2 || [],
+        section2_3: submissionData.section2_3 || [],
+        section2_4: submissionData.section2_4 || [],
+        section2_5: submissionData.section2_5 || [],
+      });
+      updateFormData("infraDevelopment", submissionData);
+    }
+  }, [submission, updateFormData]);
 
   // Load data from localStorage or use defaults
   const loadedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};

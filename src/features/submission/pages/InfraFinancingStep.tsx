@@ -38,15 +38,11 @@ export const InfraFinancingStep = () => {
       year: "",
       capitalAllocation: "", // A₁
       gsdpForFY: "", // A₂
-      stateCapexUtilisation: "",
       allocationToGSDP: "",
-      capexToCapexActuals: "",
     },
     section1_2: {
       year: "",
-      gsdpForFY: "",
       actualCapex: "", // A₁
-      budgetaryCapex: "", // A₂
       stateCapexUtilisation: "",
       capexActualsToGSDP: "",
     },
@@ -141,20 +137,20 @@ export const InfraFinancingStep = () => {
 
   const calculateSection1_2 = useCallback(() => {
     const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
-    const budgetaryCapex = parseFloat(formData.section1_2.budgetaryCapex.replace(/[₹,]/g, ''));
+    const stateCapexUtilisation = parseFloat(formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, ''));
     
-    if (isNaN(actualCapex) || isNaN(budgetaryCapex) || budgetaryCapex === 0) {
+    if (isNaN(actualCapex) || isNaN(stateCapexUtilisation) || stateCapexUtilisation === 0) {
       return { percentage: 0, marksObtained: 0 };
     }
     
-    const percentage = (actualCapex / budgetaryCapex) * 100;
+    const percentage = (actualCapex / stateCapexUtilisation) * 100;
     const marksObtained = Math.min(percentage / 2, 50); // Max 50 marks
     
     return {
       percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
       marksObtained: Math.round(marksObtained * 100) / 100
     };
-  }, [formData.section1_2.actualCapex, formData.section1_2.budgetaryCapex]);
+  }, [formData.section1_2.actualCapex, formData.section1_2.stateCapexUtilisation]);
 
   // Helper functions for array management
   const addULB = () => {
@@ -227,15 +223,37 @@ export const InfraFinancingStep = () => {
     const section1_1Calc = calculateSection1_1();
     const section1_2Calc = calculateSection1_2();
 
+    // Calculate % Allocation to GSDP
+    const capitalAllocation = parseFloat(formData.section1_1.capitalAllocation.replace(/[₹,]/g, ''));
+    const gsdpForFY = parseFloat(formData.section1_1.gsdpForFY.replace(/[₹,]/g, ''));
+    let allocationToGSDP = '';
+    
+    if (!isNaN(capitalAllocation) && !isNaN(gsdpForFY) && gsdpForFY > 0) {
+      const percentage = (capitalAllocation / gsdpForFY) * 100;
+      allocationToGSDP = percentage.toFixed(1) + '%';
+    }
+
+    // Calculate % Capex Actuals to GSDP
+    const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
+    const stateCapexUtilisation = parseFloat(formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, ''));
+    let capexActualsToGSDP = '';
+    
+    if (!isNaN(actualCapex) && !isNaN(stateCapexUtilisation) && stateCapexUtilisation > 0) {
+      const percentage = (actualCapex / stateCapexUtilisation) * 100;
+      capexActualsToGSDP = percentage.toFixed(1) + '%';
+    }
+
     setFormData(prev => {
       // Check if values actually changed to prevent infinite loop
       const section1_1Changed = 
         prev.section1_1.percentage !== section1_1Calc.percentage ||
-        prev.section1_1.marksObtained !== section1_1Calc.marksObtained;
+        prev.section1_1.marksObtained !== section1_1Calc.marksObtained ||
+        prev.section1_1.allocationToGSDP !== allocationToGSDP;
       
       const section1_2Changed = 
         prev.section1_2.percentage !== section1_2Calc.percentage ||
-        prev.section1_2.marksObtained !== section1_2Calc.marksObtained;
+        prev.section1_2.marksObtained !== section1_2Calc.marksObtained ||
+        prev.section1_2.capexActualsToGSDP !== capexActualsToGSDP;
 
       if (!section1_1Changed && !section1_2Changed) {
         return prev; // No change, return same object
@@ -246,12 +264,14 @@ export const InfraFinancingStep = () => {
         section1_1: {
           ...prev.section1_1,
           percentage: section1_1Calc.percentage,
-          marksObtained: section1_1Calc.marksObtained
+          marksObtained: section1_1Calc.marksObtained,
+          allocationToGSDP: allocationToGSDP
         },
         section1_2: {
           ...prev.section1_2,
           percentage: section1_2Calc.percentage,
-          marksObtained: section1_2Calc.marksObtained
+          marksObtained: section1_2Calc.marksObtained,
+          capexActualsToGSDP: capexActualsToGSDP
         }
       };
     });
@@ -259,7 +279,7 @@ export const InfraFinancingStep = () => {
     formData.section1_1.capitalAllocation,
     formData.section1_1.gsdpForFY,
     formData.section1_2.actualCapex,
-    formData.section1_2.budgetaryCapex
+    formData.section1_2.stateCapexUtilisation
   ]);
 
   // Autosave to localStorage with debouncing (avoid infinite loop)
@@ -421,59 +441,24 @@ export const InfraFinancingStep = () => {
           </div>
           <div>
             <Label className="flex items-center gap-2">
-              State Capex Utilisation (INR)*
-              <Info className="h-4 w-4 text-gray-500" />
-            </Label>
-            <Input
-              placeholder="₹1,20,000 crores"
-              value={formData.section1_1.stateCapexUtilisation}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_1: {
-                    ...formData.section1_1,
-                    stateCapexUtilisation: e.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label className="flex items-center gap-2">
               % Allocation to GSDP*
               <Info className="h-4 w-4 text-gray-500" />
             </Label>
             <Input
-              placeholder="6.0%"
-              value={formData.section1_1.allocationToGSDP}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_1: {
-                    ...formData.section1_1,
-                    allocationToGSDP: e.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label className="flex items-center gap-2">
-              Capex to % Capex Actuals*
-              <Info className="h-4 w-4 text-gray-500" />
-            </Label>
-            <Input
-              placeholder="95%"
-              value={formData.section1_1.capexToCapexActuals}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_1: {
-                    ...formData.section1_1,
-                    capexToCapexActuals: e.target.value,
-                  },
-                })
-              }
+              placeholder="Auto-calculated"
+              value={(() => {
+                const capitalAllocation = parseFloat(formData.section1_1.capitalAllocation.replace(/[₹,]/g, ''));
+                const gsdpForFY = parseFloat(formData.section1_1.gsdpForFY.replace(/[₹,]/g, ''));
+                
+                if (isNaN(capitalAllocation) || isNaN(gsdpForFY) || gsdpForFY === 0) {
+                  return '';
+                }
+                
+                const percentage = (capitalAllocation / gsdpForFY) * 100;
+                return percentage.toFixed(1) + '%';
+              })()}
+              readOnly
+              className="bg-gray-50 cursor-not-allowed"
             />
           </div>
         </div>
@@ -499,22 +484,6 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label>GSDP for FY (INR)</Label>
-            <Input
-              placeholder="₹15,40,250 Crores"
-              value={formData.section1_2.gsdpForFY}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_2: {
-                    ...formData.section1_2,
-                    gsdpForFY: e.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-          <div className="space-y-2">
             <Label>A₁ - Actual Capex (INR)*</Label>
             <Input
               placeholder="₹2,15,400 Crores"
@@ -525,22 +494,6 @@ export const InfraFinancingStep = () => {
                   section1_2: {
                     ...formData.section1_2,
                     actualCapex: e.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>A₂ - Budgetary Capex (INR)*</Label>
-            <Input
-              placeholder="₹1,50,000 crores"
-              value={formData.section1_2.budgetaryCapex}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_2: {
-                    ...formData.section1_2,
-                    budgetaryCapex: e.target.value,
                   },
                 })
               }
@@ -565,17 +518,20 @@ export const InfraFinancingStep = () => {
           <div className="space-y-2">
             <Label>% Capex Actuals to GSDP</Label>
             <Input
-              placeholder="6.0%"
-              value={formData.section1_2.capexActualsToGSDP}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_2: {
-                    ...formData.section1_2,
-                    capexActualsToGSDP: e.target.value,
-                  },
-                })
-              }
+              placeholder="Auto-calculated"
+              value={(() => {
+                const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
+                const stateCapexUtilisation = parseFloat(formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, ''));
+                
+                if (isNaN(actualCapex) || isNaN(stateCapexUtilisation) || stateCapexUtilisation === 0) {
+                  return '';
+                }
+                
+                const percentage = (actualCapex / stateCapexUtilisation) * 100;
+                return percentage.toFixed(1) + '%';
+              })()}
+              readOnly
+              className="bg-gray-50 cursor-not-allowed"
             />
           </div>
         </div>
@@ -998,7 +954,7 @@ export const InfraFinancingStep = () => {
         isLastStep={isLastStep}
         nextLabel={isLastStep ? "Review & Submit" : "Next"}
         showSaveDraft={true}
-        isNextDisabled={!validateFields()}
+        isNextDisabled={false} // Commented out validation: !validateFields()
       />
     </div>
   );

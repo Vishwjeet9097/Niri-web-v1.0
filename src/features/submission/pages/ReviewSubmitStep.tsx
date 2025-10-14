@@ -64,22 +64,22 @@ export const ReviewSubmitStep = () => {
     {
       title: 'Infrastructure Development',
       icon: Building2,
-      completed: 4,
+      completed: 5,
       total: 5,
       color: 'bg-green-500/10 text-green-600',
     },
     {
       title: 'PPP Development',
       icon: Briefcase,
-      completed: 1,
-      total: 2,
+      completed: 4,
+      total: 4,
       color: 'bg-purple-500/10 text-purple-600',
     },
     {
       title: 'Infra Enablers',
       icon: Settings,
-      completed: 3,
-      total: 4,
+      completed: 6,
+      total: 6,
       color: 'bg-orange-500/10 text-orange-600',
     },
   ];
@@ -158,9 +158,6 @@ export const ReviewSubmitStep = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Please review all the information you've provided before submitting your NIRI data. Once submitted, you can track the approval status in your dashboard.
               </p>
-              <Badge variant="outline" className="font-mono">
-                Reference: NIRI321883
-              </Badge>
             </div>
           </div>
         </CardContent>

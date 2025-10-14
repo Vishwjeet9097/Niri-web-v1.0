@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { storageService } from "@/services/storage.service";
 import type { SubmissionFormData } from "@/features/submission/types";
 
-const getStorageKey = (submissionId: string) => `review_form_data_${submissionId}`;
+const getStorageKey = (submissionId: string) =>
+  `review_form_data_${submissionId}`;
 const AUTO_SAVE_DELAY = 1000; // Auto-save after 1 second of inactivity
 
 export const useReviewFormPersistence = (submissionId: string) => {
@@ -25,7 +26,10 @@ export const useReviewFormPersistence = (submissionId: string) => {
 
     const timeout = setTimeout(() => {
       storageService.set(getStorageKey(submissionId), formData);
-      console.log(`Auto-saved review data for submission ${submissionId}`, formData);
+      console.log(
+        `Auto-saved review data for submission ${submissionId}`,
+        formData
+      );
     }, AUTO_SAVE_DELAY);
 
     setAutoSaveTimeout(timeout);
@@ -59,11 +63,16 @@ export const useReviewFormPersistence = (submissionId: string) => {
     console.log(`Manually saved review data for submission ${submissionId}`);
   }, [formData, submissionId]);
 
+  const getFormData = useCallback(() => {
+    return formData;
+  }, [formData]);
+
   return {
     formData,
     updateFormData,
     clearFormData,
     getStepData,
     saveFormData,
+    getFormData,
   };
 };

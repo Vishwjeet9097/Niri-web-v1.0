@@ -26,7 +26,8 @@ export const EditSubmissionPage = () => {
   const [currentSection, setCurrentSection] = useState(0);
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const { saveFormData } = useReviewFormPersistence(id || "");
+  const [isResubmitting, setIsResubmitting] = useState(false);
+  const { saveFormData, getFormData } = useReviewFormPersistence(id || "");
 
   useEffect(() => {
     const loadSubmission = async () => {
@@ -38,6 +39,8 @@ export const EditSubmissionPage = () => {
       try {
         setLoading(true);
         const submissionData = await apiService.getSubmission(id);
+        console.log("🔍 EditSubmissionPage - Loaded submission data:", submissionData);
+        console.log("🔍 EditSubmissionPage - Form data:", submissionData?.formData);
         setSubmission(submissionData);
       } catch (error: any) {
         console.error("Failed to load submission:", error);
@@ -112,6 +115,98 @@ export const EditSubmissionPage = () => {
     navigate(`/data-submission/review/${id}`);
   };
 
+  const handleResubmit = async () => {
+    try {
+      setIsResubmitting(true);
+      
+      // Get updated form data from localStorage
+      const storageKey = `niri_app:review_form_data_${id}`;
+      console.log("🔍 Looking for localStorage key:", storageKey);
+      
+      // Check all localStorage keys that start with niri_app:review_form_data
+      const allKeys = Object.keys(localStorage).filter(key => key.startsWith('niri_app:review_form_data_'));
+      console.log("🔍 All niri_app:review_form_data keys in localStorage:", allKeys);
+      
+      const savedFormData = localStorage.getItem(storageKey);
+      console.log("🔍 Raw saved form data:", savedFormData);
+      
+      let updatedFormData = {};
+      
+      if (savedFormData) {
+        try {
+          updatedFormData = JSON.parse(savedFormData);
+          console.log("🔍 Parsed form data from localStorage:", updatedFormData);
+        } catch (error) {
+          console.error("❌ Error parsing form data from localStorage:", error);
+          updatedFormData = submission?.formData || {};
+        }
+      } else {
+        console.warn("⚠️ No form data found in localStorage, using original submission data");
+        console.log("🔍 Original submission formData:", submission?.formData);
+        updatedFormData = submission?.formData || {};
+      }
+      
+      // Get auth token from correct localStorage key
+      const authData = localStorage.getItem('niri_app:auth_tokens');
+      if (!authData) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+      
+      const parsedAuthData = JSON.parse(authData);
+      const token = parsedAuthData?.value?.accessToken;
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+
+      // Resubmit the submission using correct endpoint
+      const resubmitUrl = `http://localhost:3000/submission/resubmit/${id}`;
+      console.log("🔍 Resubmit payload:", { formData: updatedFormData, comment: "Resubmitted after editing" });
+      
+      const response = await fetch(resubmitUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          formData: updatedFormData,
+          comment: "Resubmitted after editing"
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to resubmit submission');
+      }
+      
+      toast({
+        title: "Submission Resubmitted",
+        description: "Your changes have been resubmitted successfully.",
+      });
+
+      // Clear localStorage after successful resubmit
+      localStorage.removeItem(storageKey);
+      console.log("🧹 Cleared localStorage key:", storageKey);
+      
+      // Also clear any other related localStorage keys
+      const allReviewKeys = Object.keys(localStorage).filter(key => key.includes('review_form_data'));
+      allReviewKeys.forEach(key => {
+        localStorage.removeItem(key);
+        console.log("🧹 Cleared additional key:", key);
+      });
+
+      // Navigate back to dashboard
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error("Failed to resubmit submission:", error);
+      notificationService.error(
+        error.message || "Failed to resubmit. Please try again.",
+        "Resubmit Failed"
+      );
+    } finally {
+      setIsResubmitting(false);
+    }
+  };
+
   const CurrentSectionComponent = sections[currentSection].component;
 
   return (
@@ -141,20 +236,17 @@ export const EditSubmissionPage = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
-                Edit Mode
-              </Badge>
               <Button variant="outline" onClick={handleCancel} className="gap-2">
                 <X className="w-4 h-4" />
                 Cancel
               </Button>
-              <Button onClick={handleSave} variant="outline" className="gap-2">
+              <Button 
+                onClick={handleResubmit} 
+                disabled={isResubmitting}
+                className="gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              >
                 <Save className="w-4 h-4" />
-                Save Changes
-              </Button>
-              <Button onClick={handleSaveAndExit} className="gap-2">
-                <Save className="w-4 h-4" />
-                Save & Exit
+                {isResubmitting ? "Submitting..." : ((submission?.status === "RETURNED_FROM_STATE" || submission?.status === "RETURNED_FROM_MOSPI") ? "Update" : "Resubmit")}
               </Button>
             </div>
           </div>
@@ -201,7 +293,7 @@ export const EditSubmissionPage = () => {
           </div>
         </div>
 
-        <CurrentSectionComponent submissionId={id!} />
+        <CurrentSectionComponent submissionId={id!} submission={submission} />
 
         {/* Navigation Buttons */}
         <div className="flex items-center justify-between pt-6 border-t mt-8">
@@ -214,15 +306,28 @@ export const EditSubmissionPage = () => {
             <ChevronLeft className="w-4 h-4" />
             Previous Section
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => setCurrentSection((prev) => Math.min(sections.length - 1, prev + 1))}
-            disabled={currentSection === sections.length - 1}
-            className="gap-2"
-          >
-            Next Section
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+          
+          {currentSection === sections.length - 1 ? (
+            // Show Resubmit button on last step
+            <Button
+              onClick={handleResubmit}
+              disabled={isResubmitting}
+              className="gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              {isResubmitting ? "Submitting..." : "Resubmit with Updated Data"}
+            </Button>
+          ) : (
+            // Show Next button for other steps
+            <Button
+              variant="outline"
+              onClick={() => setCurrentSection((prev) => Math.min(sections.length - 1, prev + 1))}
+              className="gap-2"
+            >
+              Next Section
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
