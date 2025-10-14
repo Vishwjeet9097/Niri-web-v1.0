@@ -25,9 +25,29 @@ export const PreviewPage = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submissionMessage, setSubmissionMessage] = useState('');
+  
+  // Check if we're in edit mode
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(null);
 
-  // Mark as previewed on mount (run only once)
+  // Check for edit mode on mount
   useEffect(() => {
+    const editingSubmissionId = localStorage.getItem('editing_submission_id');
+    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
+    
+    console.log("🔍 PreviewPage - localStorage check:", {
+      editingSubmissionId,
+      isEditModeFlag
+    });
+    
+    if (editingSubmissionId && isEditModeFlag) {
+      setIsEditMode(true);
+      setEditingSubmissionId(editingSubmissionId);
+      console.log("🔍 PreviewPage - Edit mode detected for submission:", editingSubmissionId);
+    } else {
+      console.log("🔍 PreviewPage - Edit mode conditions not met");
+    }
+    
     storageService.set(PREVIEW_FLAG_KEY, true);
     setHasPreviewed(true);
   }, []); // Empty dependency array to run only once
@@ -63,18 +83,45 @@ export const PreviewPage = () => {
       const transformedData = transformFormDataForSubmission(formData);
       
       console.log("🚀 Submitting data:", transformedData);
+      console.log("🔍 Edit mode check:", { isEditMode, editingSubmissionId, isResubmit });
 
-      // Submit to API
-      const response = await apiV2.post(`${config.apiBaseUrl}/api/v2/submissions`, transformedData);
+      let response;
+      
+      if (isEditMode && editingSubmissionId) {
+        // Edit mode - use resubmit API
+        console.log("🔄 Resubmitting existing submission:", editingSubmissionId);
+        console.log("🔄 Resubmit URL:", `http://localhost:3000/submission/resubmit/${editingSubmissionId}`);
+        console.log("🔄 Resubmit payload:", transformedData);
+        response = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedData);
+      } else if (isResubmit) {
+        // Resubmit mode - use resubmit API with submission ID from localStorage
+        const editingSubmissionId = localStorage.getItem('editing_submission_id');
+        if (editingSubmissionId) {
+          console.log("🔄 Resubmitting from localStorage:", editingSubmissionId);
+          console.log("🔄 Resubmit URL:", `http://localhost:3000/submission/resubmit/${editingSubmissionId}`);
+          console.log("🔄 Resubmit payload:", transformedData);
+          response = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedData);
+        } else {
+          console.log("🔄 No submission ID found, creating new submission");
+          response = await apiV2.post(`http://localhost:3000/submission`, transformedData);
+        }
+      } else {
+        // Normal mode - create new submission
+        console.log("🔄 Creating new submission");
+        response = await apiV2.post(`http://localhost:3000/submission`, transformedData);
+      }
       
       console.log("✅ Submission successful:", response);
 
       // Clear form data from localStorage
       clearFormData();
-      localStorage.removeItem("editing_submission");
+      localStorage.removeItem("editing_submission_id");
+      localStorage.removeItem("is_edit_mode");
 
       // Show success message
-      const successMessage = isResubmit 
+      const successMessage = isEditMode 
+        ? "Form resubmitted successfully! Your changes have been sent for review."
+        : isResubmit 
         ? "Form resubmitted successfully! Your updated submission has been sent for review."
         : "Form submitted successfully! Your submission has been sent for review.";
       
@@ -143,6 +190,28 @@ export const PreviewPage = () => {
 
   return (
     <>
+      {/* Debug Info */}
+      <div className="bg-yellow-100 border border-yellow-400 p-4 mb-4 rounded">
+        <h3 className="font-bold text-yellow-800">Debug Info:</h3>
+        <p>isEditMode: {isEditMode ? 'true' : 'false'}</p>
+        <p>editingSubmissionId: {editingSubmissionId || 'null'}</p>
+        <p>isResubmit: {isResubmit ? 'true' : 'false'}</p>
+        <p>localStorage is_edit_mode: {localStorage.getItem('is_edit_mode')}</p>
+        <p>localStorage editing_submission_id: {localStorage.getItem('editing_submission_id') || 'null'}</p>
+        <p>All localStorage keys: {Object.keys(localStorage).join(', ')}</p>
+        <button 
+          onClick={() => {
+            console.log("🔍 Manual localStorage check:");
+            console.log("editing_submission_id:", localStorage.getItem('editing_submission_id'));
+            console.log("is_edit_mode:", localStorage.getItem('is_edit_mode'));
+            console.log("All keys:", Object.keys(localStorage));
+          }}
+          className="bg-blue-500 text-white px-2 py-1 rounded text-sm mt-2"
+        >
+          Check localStorage
+        </button>
+      </div>
+
       {/* Use UnifiedReviewPage for preview */}
       <UnifiedReviewPage 
         isPreview={true} 
@@ -150,7 +219,8 @@ export const PreviewPage = () => {
         submission={mockSubmission}
         onFinalSubmit={() => handleFinalSubmit()}
         isSubmitting={isSubmitting}
-        isResubmit={isResubmit}
+        isResubmit={isEditMode ? true : isResubmit}
+        isEditMode={isEditMode}
       />
 
       {/* Confirmation Modal */}
@@ -158,10 +228,12 @@ export const PreviewPage = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isResubmit ? "Resubmit Form?" : "Submit Form?"}
+              {isEditMode ? "Resubmit Form?" : isResubmit ? "Resubmit Form?" : "Submit Form?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {isResubmit 
+              {isEditMode 
+                ? "Are you sure you want to resubmit this form? Your changes will be sent for review."
+                : isResubmit 
                 ? "Are you sure you want to resubmit this form? Your changes will be sent for review."
                 : "Are you sure you want to submit this form? Once submitted, you cannot make changes."
               }
@@ -170,7 +242,7 @@ export const PreviewPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={performSubmission}>
-              {isResubmit ? "Resubmit" : "Submit"}
+              {isEditMode ? "Resubmit" : isResubmit ? "Resubmit" : "Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

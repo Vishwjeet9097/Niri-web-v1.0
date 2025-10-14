@@ -43,37 +43,37 @@ const defaultData: InfraDevelopmentData = {
 export const EditableInfraDevelopment = ({ submissionId, submission }: EditableInfraDevelopmentProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
 
-  // Initialize form data with submission data if available
-  useEffect(() => {
-    if (submission?.formData?.infraDevelopment) {
-      console.log("🔍 Loading submission data into form:", submission.formData.infraDevelopment);
-      const submissionData = submission.formData.infraDevelopment;
-      setFormData({
-        ...defaultData,
-        ...submissionData,
-        section2_1: submissionData.section2_1 || [],
-        section2_2: submissionData.section2_2 || [],
-        section2_3: submissionData.section2_3 || [],
-        section2_4: submissionData.section2_4 || [],
-        section2_5: submissionData.section2_5 || [],
-      });
-      updateFormData("infraDevelopment", submissionData);
-    }
-  }, [submission, updateFormData]);
-
-  // Load data from localStorage or use defaults
-  const loadedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
-  const initialData: InfraDevelopmentData = {
+  // Get data from persistence hook (this will be the source of truth)
+  const persistedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
+  
+  console.log("🔍 EditableInfraDevelopment - persistedData:", persistedData);
+  
+  // Create form data by merging persisted data with defaults
+  const createFormData = (data: Partial<InfraDevelopmentData>): InfraDevelopmentData => ({
     ...defaultData,
-    ...loadedData,
-    section2_1: loadedData.section2_1 || [],
-    section2_2: loadedData.section2_2 || [],
-    section2_3: loadedData.section2_3 || [],
-    section2_4: loadedData.section2_4 || [],
-    section2_5: loadedData.section2_5 || [],
-  };
+    ...data,
+    section2_1: data.section2_1 || [],
+    section2_2: data.section2_2 || [],
+    section2_3: data.section2_3 || [],
+    section2_4: data.section2_4 || [],
+    section2_5: data.section2_5 || [],
+  });
 
-  const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
+  const [formData, setFormData] = useState<InfraDevelopmentData>(() => 
+    createFormData(persistedData)
+  );
+
+  // Sync with persisted data when it changes
+  useEffect(() => {
+    const currentPersistedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
+    const newFormData = createFormData(currentPersistedData);
+    
+    // Only update if data has actually changed
+    if (JSON.stringify(formData) !== JSON.stringify(newFormData)) {
+      console.log("🔄 Syncing form data with persisted data:", newFormData);
+      setFormData(newFormData);
+    }
+  }, [persistedData]); // Depend on persistedData from hook
 
   // Auto-save to localStorage on every change
   useEffect(() => {

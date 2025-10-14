@@ -65,6 +65,24 @@ export const InfraFinancingStep = () => {
 
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
 
+  // Sync with localStorage data when component mounts or data changes
+  useEffect(() => {
+    const currentStepData = getStepData("infraFinancing") as Partial<InfraFinancingData>;
+    if (currentStepData && Object.keys(currentStepData).length > 0) {
+      const syncedData: InfraFinancingData = {
+        ...defaultData,
+        ...currentStepData,
+        section1_1: { ...defaultData.section1_1, ...(currentStepData.section1_1 || {}) },
+        section1_2: { ...defaultData.section1_2, ...(currentStepData.section1_2 || {}) },
+        section1_3: Array.isArray(currentStepData.section1_3) ? currentStepData.section1_3 : [],
+        section1_4: Array.isArray(currentStepData.section1_4) ? currentStepData.section1_4 : [],
+        section1_5: Array.isArray(currentStepData.section1_5) ? currentStepData.section1_5 : [],
+      };
+      setFormData(syncedData);
+      console.log("🔄 Synced infraFinancing data from localStorage in normal flow:", syncedData);
+    }
+  }, [getStepData]);
+
   // Initialize form data from persisted data or editing submission (run only once)
   useEffect(() => {
     let shouldUpdate = false;

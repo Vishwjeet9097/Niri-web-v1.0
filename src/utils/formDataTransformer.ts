@@ -27,7 +27,16 @@ export const transformFormDataForSubmission = (
 
   const formDataObj = formData as Record<string, unknown>;
 
-  return {
+  console.log(
+    "🔍 transformFormDataForSubmission - Input formData:",
+    formDataObj
+  );
+  console.log(
+    "🔍 transformFormDataForSubmission - formDataObj keys:",
+    Object.keys(formDataObj)
+  );
+
+  const transformedData = {
     submissionId,
     formData: {
       infraFinancing: formDataObj.infraFinancing || {},
@@ -37,6 +46,13 @@ export const transformFormDataForSubmission = (
     },
     status,
   };
+
+  console.log(
+    "🔍 transformFormDataForSubmission - Output transformedData:",
+    transformedData
+  );
+
+  return transformedData;
 };
 
 /**

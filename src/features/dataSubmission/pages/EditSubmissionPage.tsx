@@ -11,6 +11,8 @@ import { EditablePPPDevelopment } from "../components/editable/EditablePPPDevelo
 import { EditableInfraEnablers } from "../components/editable/EditableInfraEnablers";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { storageService } from "@/services/storage.service";
+import type { SubmissionFormData } from "@/features/submission/types";
 
 const sections = [
   { id: "infra-financing", label: "Infra Financing", points: 250, component: EditableInfraFinancing },
@@ -27,7 +29,8 @@ export const EditSubmissionPage = () => {
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isResubmitting, setIsResubmitting] = useState(false);
-  const { saveFormData, getFormData } = useReviewFormPersistence(id || "");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const { saveFormData, getFormData, formData: currentFormData, getMergedData, changeTracker, initializeFromSubmission } = useReviewFormPersistence(id || "");
 
   useEffect(() => {
     const loadSubmission = async () => {
@@ -42,6 +45,43 @@ export const EditSubmissionPage = () => {
         console.log("🔍 EditSubmissionPage - Loaded submission data:", submissionData);
         console.log("🔍 EditSubmissionPage - Form data:", submissionData?.formData);
         setSubmission(submissionData);
+        
+        // Save submission data to localStorage for normal form
+        console.log("🔍 EditSubmissionPage - submissionData structure:", submissionData);
+        console.log("🔍 EditSubmissionPage - submissionData.formData:", submissionData?.formData);
+        
+        const originalFormData = {
+          infraFinancing: submissionData?.formData?.infraFinancing || {},
+          infraDevelopment: submissionData?.formData?.infraDevelopment || {},
+          pppDevelopment: submissionData?.formData?.pppDevelopment || {},
+          infraEnablers: submissionData?.formData?.infraEnablers || {}
+        };
+        
+        // Save submission ID directly to localStorage
+        localStorage.setItem('editing_submission_id', id);
+        localStorage.setItem('is_edit_mode', 'true');
+        localStorage.setItem('submission_form_data', JSON.stringify(originalFormData));
+        
+        console.log("💾 Saved editing_submission_id to localStorage:", id);
+        console.log("💾 Saved is_edit_mode to localStorage: true");
+        console.log("💾 Saved submission_form_data to localStorage:", originalFormData);
+        
+        // Verify data was saved
+        const savedSubmissionId = localStorage.getItem('editing_submission_id');
+        const savedIsEditMode = localStorage.getItem('is_edit_mode');
+        
+        console.log("🔍 Verification - editing_submission_id in localStorage:", savedSubmissionId);
+        console.log("🔍 Verification - is_edit_mode in localStorage:", savedIsEditMode);
+        
+        if (!savedSubmissionId) {
+          console.error("❌ editing_submission_id not saved to localStorage!");
+        }
+        if (!savedIsEditMode) {
+          console.error("❌ is_edit_mode not saved to localStorage!");
+        }
+        
+        // Redirect to normal submission form
+        navigate('/submissions');
       } catch (error: any) {
         console.error("Failed to load submission:", error);
         notificationService.error(
@@ -115,36 +155,49 @@ export const EditSubmissionPage = () => {
     navigate(`/data-submission/review/${id}`);
   };
 
+  const handleResubmitClick = () => {
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmResubmit = () => {
+    setShowConfirmModal(false);
+    handleResubmit();
+  };
+
+  const handleCancelResubmit = () => {
+    setShowConfirmModal(false);
+  };
+
   const handleResubmit = async () => {
     try {
       setIsResubmitting(true);
       
-      // Get updated form data from localStorage
-      const storageKey = `niri_app:review_form_data_${id}`;
+      // Save current form data before resubmit
+      console.log("💾 Saving current form data before resubmit");
+      saveFormData();
+      
+      // Wait a bit for the save to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Collect complete data from all sections
+      const storageKey = `review_form_data_${id}`;
       console.log("🔍 Looking for localStorage key:", storageKey);
       
-      // Check all localStorage keys that start with niri_app:review_form_data
-      const allKeys = Object.keys(localStorage).filter(key => key.startsWith('niri_app:review_form_data_'));
-      console.log("🔍 All niri_app:review_form_data keys in localStorage:", allKeys);
+      // Check all localStorage keys that start with review_form_data
+      const allKeys = Object.keys(localStorage).filter(key => key.startsWith('review_form_data_'));
+      console.log("🔍 All review_form_data keys in localStorage:", allKeys);
       
       const savedFormData = localStorage.getItem(storageKey);
       console.log("🔍 Raw saved form data:", savedFormData);
       
-      let updatedFormData = {};
+      // Professional merge: Use edited data where changed, original data where not changed
+      const originalData = submission?.formData || {};
+      const updatedFormData = getMergedData(originalData);
       
-      if (savedFormData) {
-        try {
-          updatedFormData = JSON.parse(savedFormData);
-          console.log("🔍 Parsed form data from localStorage:", updatedFormData);
-        } catch (error) {
-          console.error("❌ Error parsing form data from localStorage:", error);
-          updatedFormData = submission?.formData || {};
-        }
-      } else {
-        console.warn("⚠️ No form data found in localStorage, using original submission data");
-        console.log("🔍 Original submission formData:", submission?.formData);
-        updatedFormData = submission?.formData || {};
-      }
+      console.log("🔍 Original submission data:", originalData);
+      console.log("🔍 Current form data:", currentFormData);
+      console.log("🔍 Change tracker:", changeTracker);
+      console.log("🔍 Professional merged data:", updatedFormData);
       
       // Get auth token from correct localStorage key
       const authData = localStorage.getItem('niri_app:auth_tokens');
@@ -160,7 +213,20 @@ export const EditSubmissionPage = () => {
 
       // Resubmit the submission using correct endpoint
       const resubmitUrl = `http://localhost:3000/submission/resubmit/${id}`;
-      console.log("🔍 Resubmit payload:", { formData: updatedFormData, comment: "Resubmitted after editing" });
+      
+      // Ensure payload structure matches original format (no extra "value" key)
+      const resubmitPayload = {
+        formData: updatedFormData,
+        comment: "Resubmitted after editing"
+      };
+      
+      console.log("🔍 Resubmit payload:", resubmitPayload);
+      console.log("🔍 FormData structure:", {
+        infraFinancing: Object.keys(updatedFormData.infraFinancing || {}),
+        infraDevelopment: Object.keys(updatedFormData.infraDevelopment || {}),
+        pppDevelopment: Object.keys(updatedFormData.pppDevelopment || {}),
+        infraEnablers: Object.keys(updatedFormData.infraEnablers || {})
+      });
       
       const response = await fetch(resubmitUrl, {
         method: 'POST',
@@ -168,10 +234,7 @@ export const EditSubmissionPage = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          formData: updatedFormData,
-          comment: "Resubmitted after editing"
-        })
+        body: JSON.stringify(resubmitPayload)
       });
       
       if (!response.ok) {
@@ -187,12 +250,19 @@ export const EditSubmissionPage = () => {
       localStorage.removeItem(storageKey);
       console.log("🧹 Cleared localStorage key:", storageKey);
       
-      // Also clear any other related localStorage keys
-      const allReviewKeys = Object.keys(localStorage).filter(key => key.includes('review_form_data'));
+      // Clear all related localStorage keys
+      const allReviewKeys = Object.keys(localStorage).filter(key => 
+        key.includes('review_form_data') || 
+        key.includes(`review_form_data_${id}`)
+      );
       allReviewKeys.forEach(key => {
         localStorage.removeItem(key);
         console.log("🧹 Cleared additional key:", key);
       });
+      
+      // Clear editing submission data
+      localStorage.removeItem('editing_submission');
+      console.log("🧹 Cleared editing_submission data");
 
       // Navigate back to dashboard
       navigate('/dashboard');
@@ -240,14 +310,6 @@ export const EditSubmissionPage = () => {
                 <X className="w-4 h-4" />
                 Cancel
               </Button>
-              <Button 
-                onClick={handleResubmit} 
-                disabled={isResubmitting}
-                className="gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                {isResubmitting ? "Submitting..." : ((submission?.status === "RETURNED_FROM_STATE" || submission?.status === "RETURNED_FROM_MOSPI") ? "Update" : "Resubmit")}
-              </Button>
             </div>
           </div>
         </div>
@@ -261,7 +323,22 @@ export const EditSubmissionPage = () => {
               <Button
                 key={section.id}
                 variant={currentSection === index ? "default" : "outline"}
-                onClick={() => setCurrentSection(index)}
+                onClick={() => {
+                  // Save current form data to localStorage before switching sections
+                  console.log("💾 Saving form data before switching to section:", section.label);
+                  
+                  // Get current form data from the persistence hook
+                  const currentData = getFormData();
+                  console.log("🔍 Current form data before save:", currentData);
+                  
+                  // Save the current data
+                  saveFormData();
+                  
+                  // Small delay to ensure save completes
+                  setTimeout(() => {
+                    setCurrentSection(index);
+                  }, 50);
+                }}
                 className="whitespace-nowrap"
                 size="sm"
               >
@@ -299,7 +376,22 @@ export const EditSubmissionPage = () => {
         <div className="flex items-center justify-between pt-6 border-t mt-8">
           <Button
             variant="outline"
-            onClick={() => setCurrentSection((prev) => Math.max(0, prev - 1))}
+            onClick={() => {
+              // Save current form data to localStorage before moving to previous step
+              console.log("💾 Saving form data before moving to previous step");
+              
+              // Get current form data from the persistence hook
+              const currentData = getFormData();
+              console.log("🔍 Current form data before save:", currentData);
+              
+              // Save the current data
+              saveFormData();
+              
+              // Small delay to ensure save completes
+              setTimeout(() => {
+                setCurrentSection((prev) => Math.max(0, prev - 1));
+              }, 50);
+            }}
             disabled={currentSection === 0}
             className="gap-2"
           >
@@ -310,7 +402,7 @@ export const EditSubmissionPage = () => {
           {currentSection === sections.length - 1 ? (
             // Show Resubmit button on last step
             <Button
-              onClick={handleResubmit}
+              onClick={handleResubmitClick}
               disabled={isResubmitting}
               className="gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50"
             >
@@ -321,7 +413,22 @@ export const EditSubmissionPage = () => {
             // Show Next button for other steps
             <Button
               variant="outline"
-              onClick={() => setCurrentSection((prev) => Math.min(sections.length - 1, prev + 1))}
+              onClick={() => {
+                // Save current form data to localStorage before moving to next step
+                console.log("💾 Saving form data before moving to next step");
+                
+                // Get current form data from the persistence hook
+                const currentData = getFormData();
+                console.log("🔍 Current form data before save:", currentData);
+                
+                // Save the current data
+                saveFormData();
+                
+                // Small delay to ensure save completes
+                setTimeout(() => {
+                  setCurrentSection((prev) => Math.min(sections.length - 1, prev + 1));
+                }, 50);
+              }}
               className="gap-2"
             >
               Next Section
@@ -330,6 +437,52 @@ export const EditSubmissionPage = () => {
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Confirm Resubmission
+                </h3>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-600">
+                Are you sure you want to resubmit this submission with your updated data? 
+                This action will send the updated submission for review.
+              </p>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleCancelResubmit}
+                disabled={isResubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmResubmit}
+                disabled={isResubmitting}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isResubmitting ? "Submitting..." : "Confirm Resubmit"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

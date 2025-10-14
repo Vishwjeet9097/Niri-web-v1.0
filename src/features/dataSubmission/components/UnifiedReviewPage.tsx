@@ -58,9 +58,10 @@ interface UnifiedReviewPageProps {
   onFinalSubmit?: () => void;
   isSubmitting?: boolean;
   isResubmit?: boolean;
+  isEditMode?: boolean;
 }
 
-export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, submission: propSubmission, onFinalSubmit, isSubmitting = false, isResubmit = false }: UnifiedReviewPageProps) => {
+export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, submission: propSubmission, onFinalSubmit, isSubmitting = false, isResubmit = false, isEditMode = false }: UnifiedReviewPageProps) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -72,6 +73,19 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [sendToApproverModalOpen, setSendToApproverModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  
+  // Check for edit mode from localStorage
+  const [actualEditMode, setActualEditMode] = useState(isEditMode);
+
+  // Check for edit mode on mount
+  useEffect(() => {
+    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
+    const editingSubmission = localStorage.getItem('editing_submission');
+    
+    if (isEditModeFlag || editingSubmission) {
+      setActualEditMode(true);
+    }
+  }, []);
 
   // Load submission data from API or use prop
   const loadSubmission = async () => {
@@ -156,16 +170,35 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
   // Get action buttons based on role and status
   const getActionButtons = () => {
     if (isPreview) {
-      return onFinalSubmit ? (
-        <Button
-          onClick={onFinalSubmit}
-          disabled={isSubmitting}
-          className="gap-2 bg-green-600 hover:bg-green-700"
-        >
-          <CheckCircle className="w-4 h-4" />
-          {isSubmitting ? "Submitting..." : (isResubmit ? "Resubmit" : "Submit")}
-        </Button>
-      ) : null;
+      return (
+        <div className="flex gap-2">
+          {actualEditMode && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Clear edit mode flags and go back
+                localStorage.removeItem("editing_submission_id");
+                localStorage.removeItem("is_edit_mode");
+                navigate("/data-submission/review");
+              }}
+              className="gap-2"
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </Button>
+          )}
+          {onFinalSubmit && (
+            <Button
+              onClick={onFinalSubmit}
+              disabled={isSubmitting}
+              className="gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="w-4 h-4" />
+              {isSubmitting ? "Submitting..." : (actualEditMode ? "Resubmit" : isResubmit ? "Resubmit" : "Submit")}
+            </Button>
+          )}
+        </div>
+      );
     }
 
     const currentUserRole = user?.role;

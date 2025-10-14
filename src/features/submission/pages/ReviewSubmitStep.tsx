@@ -26,6 +26,29 @@ export const ReviewSubmitStep = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submissionMessage, setSubmissionMessage] = useState('');
+  
+  // Check for edit mode
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(null);
+
+  // Check for edit mode on mount
+  useEffect(() => {
+    const editingSubmissionId = localStorage.getItem('editing_submission_id');
+    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
+    
+    console.log("🔍 ReviewSubmitStep - localStorage check:", {
+      editingSubmissionId,
+      isEditModeFlag
+    });
+    
+    if (editingSubmissionId && isEditModeFlag) {
+      setIsEditMode(true);
+      setEditingSubmissionId(editingSubmissionId);
+      console.log("🔍 ReviewSubmitStep - Edit mode detected for submission:", editingSubmissionId);
+    } else {
+      console.log("🔍 ReviewSubmitStep - Edit mode conditions not met");
+    }
+  }, []);
 
   // Use validation hook
   const { validateAndProceed, isValidating } = useFormValidation({
@@ -108,18 +131,29 @@ export const ReviewSubmitStep = () => {
       // Transform form data to required API format ONLY for submission
       const transformedPayload = transformFormDataForSubmission(formData, "SUBMITTED_TO_STATE");
       
-      const res = await apiV2.post(config.formsPath, transformedPayload);
+      let res;
+      
+      if (isEditMode && editingSubmissionId) {
+        // Edit mode - use resubmit API
+        console.log("🔄 ReviewSubmitStep - Resubmitting existing submission:", editingSubmissionId);
+        console.log("🔄 ReviewSubmitStep - Resubmit payload:", transformedPayload);
+        res = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedPayload);
+      } else {
+        // Normal mode - create new submission
+        res = await apiV2.post(config.formsPath, transformedPayload);
+      }
       
       // Dynamic success message from response
       const successMessage = res.data?.message || 
-        'Your submission has been sent to the State Approver for review. You will be notified of its status.';
+        (isEditMode ? 'Your changes have been resubmitted successfully!' : 'Your submission has been sent to the State Approver for review. You will be notified of its status.');
       
       setSubmissionMessage(successMessage);
       setShowSuccessModal(true);
       
       // Clear form data AFTER successful submission
       clearFormData(); // Clear localStorage after successful submission
-      localStorage.removeItem("editing_submission"); // Clear editing submission data
+      localStorage.removeItem("editing_submission_id"); // Clear editing submission ID
+      localStorage.removeItem("is_edit_mode"); // Clear edit mode flag
     } catch (e: unknown) {
       // Dynamic error message from response
       const error = e as { response?: { data?: { message?: string } }; message?: string };
@@ -214,7 +248,7 @@ export const ReviewSubmitStep = () => {
             onClick={handleSubmit}
             disabled={isSubmitting || isValidating}
           >
-            {isSubmitting ? (isResubmit ? 'Resubmitting...' : 'Submitting...') : isValidating ? 'Validating...' : (isResubmit ? 'Resubmit Data' : 'Submit Data')}
+            {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : isValidating ? 'Validating...' : (isEditMode || isResubmit ? 'Resubmit Data' : 'Submit Data')}
           </Button>
         </div>
       </div>
@@ -223,9 +257,9 @@ export const ReviewSubmitStep = () => {
       <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{isResubmit ? 'Are you sure you want to resubmit?' : 'Are you sure you want to submit?'}</AlertDialogTitle>
+            <AlertDialogTitle>{isEditMode || isResubmit ? 'Are you sure you want to resubmit?' : 'Are you sure you want to submit?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              {isResubmit 
+              {isEditMode || isResubmit 
                 ? 'Once resubmitted, your updated data will be sent to the State Approver for review.'
                 : 'Once submitted, your data will be locked for editing and sent to the State Approver for review.'
               }
@@ -234,7 +268,7 @@ export const ReviewSubmitStep = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmSubmit} disabled={isSubmitting}>
-              {isSubmitting ? (isResubmit ? 'Resubmitting...' : 'Submitting...') : (isResubmit ? 'Resubmit to State Approver' : 'Send to State Approver')}
+              {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : (isEditMode || isResubmit ? 'Resubmit to State Approver' : 'Send to State Approver')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

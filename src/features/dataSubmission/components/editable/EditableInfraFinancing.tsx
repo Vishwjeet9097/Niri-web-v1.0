@@ -33,24 +33,6 @@ interface EditableInfraFinancingProps {
 export const EditableInfraFinancing = ({ submissionId, submission }: EditableInfraFinancingProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
 
-  // Initialize form data with submission data if available
-  useEffect(() => {
-    if (submission?.formData?.infraFinancing) {
-      console.log("🔍 Loading submission data into form:", submission.formData.infraFinancing);
-      const submissionData = submission.formData.infraFinancing;
-      setFormData({
-        ...defaultData,
-        ...submissionData,
-        section1_1: { ...defaultData.section1_1, ...(submissionData.section1_1 || {}) },
-        section1_2: { ...defaultData.section1_2, ...(submissionData.section1_2 || {}) },
-        section1_3: submissionData.section1_3 || [],
-        section1_4: submissionData.section1_4 || [],
-        section1_5: submissionData.section1_5 || [],
-      });
-      updateFormData("infraFinancing", submissionData);
-    }
-  }, [submission, updateFormData]);
-
   const defaultData: InfraFinancingData = {
     section1_1: {
       year: "",
@@ -72,22 +54,46 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
     section1_5: [],
   };
 
-  const loadedData = (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
-  const initialData: InfraFinancingData = {
+  // Get data from persistence hook (this will be the source of truth)
+  const persistedData = (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
+  
+  console.log("🔍 EditableInfraFinancing - persistedData:", persistedData);
+  
+  // Create form data by merging persisted data with defaults
+  const createFormData = (data: Partial<InfraFinancingData>): InfraFinancingData => ({
     ...defaultData,
-    ...loadedData,
-    section1_1: { ...defaultData.section1_1, ...(loadedData.section1_1 || {}) },
-    section1_2: { ...defaultData.section1_2, ...(loadedData.section1_2 || {}) },
-    section1_3: loadedData.section1_3 || [],
-    section1_4: loadedData.section1_4 || [],
-    section1_5: loadedData.section1_5 || [],
-  };
+    ...data,
+    section1_1: { ...defaultData.section1_1, ...(data.section1_1 || {}) },
+    section1_2: { ...defaultData.section1_2, ...(data.section1_2 || {}) },
+    section1_3: data.section1_3 || [],
+    section1_4: data.section1_4 || [],
+    section1_5: data.section1_5 || [],
+  });
 
-  const [formData, setFormData] = useState<InfraFinancingData>(initialData);
+  const [formData, setFormData] = useState<InfraFinancingData>(() => 
+    createFormData(persistedData)
+  );
 
-  // Auto-save on change
+  // Sync with persisted data when it changes
+  useEffect(() => {
+    const currentPersistedData = (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
+    const newFormData = createFormData(currentPersistedData);
+    
+    // Only update if data has actually changed
+    if (JSON.stringify(formData) !== JSON.stringify(newFormData)) {
+      console.log("🔄 Syncing form data with persisted data:", newFormData);
+      setFormData(newFormData);
+    }
+  }, [persistedData]); // Depend on persistedData from hook
+
+  // Auto-save on change with immediate save
   useEffect(() => {
     updateFormData("infraFinancing", formData);
+    // Also save immediately to localStorage to prevent data loss
+    const timeoutId = setTimeout(() => {
+      updateFormData("infraFinancing", formData);
+    }, 100); // Small delay to ensure data is saved
+    return () => clearTimeout(timeoutId);
   }, [formData, updateFormData]);
 
   const addULB = () => {
