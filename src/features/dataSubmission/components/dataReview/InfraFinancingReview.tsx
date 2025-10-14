@@ -94,7 +94,7 @@ export const InfraFinancingReview = ({ submissionId }: InfraFinancingReviewProps
         </CardContent>
       </Card>
 
-        {/* Section 1.2 */}
+        {/* Section 1.2 7 */}
         <Card>
           <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
