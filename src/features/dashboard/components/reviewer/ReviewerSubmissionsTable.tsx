@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Eye, CheckCircle, XCircle, Search } from "lucide-react";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { useAuth } from "@/features/auth/AuthProvider";
 
 export default function ReviewerSubmissionsTable() {
+  const { user } = useAuth();
   const [selectedState, setSelectedState] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -17,9 +19,8 @@ export default function ReviewerSubmissionsTable() {
     const loadSubmissions = async () => {
       try {
         setLoading(true);
-  // TODO: Replace 'mospi_reviewer' with actual user role from auth context/store
-  const userRole = "mospi_reviewer";
-  const submissionsData = await apiService.getSubmissions(1, 20, userRole);
+        const userRole = user?.role || "MOSPI_REVIEWER";
+        const submissionsData = await apiService.getSubmissions(1, 20, userRole);
         console.log("🔍 Reviewer - Received Submissions Data:", submissionsData);
         
         // Extract submissions array from response

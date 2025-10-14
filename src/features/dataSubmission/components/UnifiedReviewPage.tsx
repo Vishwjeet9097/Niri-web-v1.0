@@ -260,7 +260,8 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
     }
 
     // Send Back button
-    if (currentUserRole === "STATE_APPROVER" && submissionStatus === "SUBMITTED_TO_STATE") {
+    if ((currentUserRole === "STATE_APPROVER" && submissionStatus === "SUBMITTED_TO_STATE") ||
+        (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")) {
       buttons.push(
         <Button
           key="send-back"
@@ -276,7 +277,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
 
     // Approve button
     if ((currentUserRole === "STATE_APPROVER" && submissionStatus === "SUBMITTED_TO_STATE") ||
-        (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI")) {
+        (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")) {
       buttons.push(
         <Button
           key="approve"
@@ -290,7 +291,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
     }
 
     // Send to Approver button
-    if (currentUserRole === "MOSPI_REVIEWER" && submissionStatus === "SUBMITTED_TO_MOSPI") {
+    if (currentUserRole === "MOSPI_REVIEWER" && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
       buttons.push(
         <Button
           key="send-to-approver"
