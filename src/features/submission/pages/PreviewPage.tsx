@@ -208,20 +208,19 @@ export const PreviewPage = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="mb-6">
+    <div className="">
+      <div className="w-full bg-card rounded-lg p-6 mb-6 border border-[#DDD]">
         <Button
-          variant="ghost"
+         
           onClick={() => navigate("/submissions/review-submit")}
+          className="mb-4 flex items-center gap-2 bg-[none] border-none p-0 text-primary hover:underline hover:bg-[none]"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ArrowLeft className="w-4 h-4" />
           Back
         </Button>
-      </div>
-
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Preview</h1>
-        <p className="text-sm text-muted-foreground">
+      
+        <h1 className="text-xl text-[#212121] font-bold mb-2">Preview</h1>
+        <p className="text-sm text-[#727272]">
           Review your submission before sending. You must preview before final
           submit is enabled.
         </p>
