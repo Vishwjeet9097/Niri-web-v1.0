@@ -512,10 +512,11 @@ class ApiService implements HttpClient {
         STATE_APPROVER:
           "SUBMITTED_TO_STATE,RETURNED_FROM_MOSPI,REJECTED,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,APPROVED",
         NODAL_OFFICER:
-          "DRAFT,REJECTED,APPROVED,SUBMITTED_TO_STATE,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,RETURNED_FROM_STATE",
+          "DRAFT,REJECTED,APPROVED,SUBMITTED_TO_STATE,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,RETURNED_FROM_STATE,RETURNED_FROM_MOSPI",
         MOSPI_REVIEWER:
-          "SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,REJECTED_FINAL,APPROVED",
-        MOSPI_APPROVER: "SUBMITTED_TO_MOSPI_APPROVER,APPROVED,REJECTED_FINAL",
+          "SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,REJECTED_FINAL,APPROVED,RETURNED_FROM_MOSPI",
+        MOSPI_APPROVER:
+          "SUBMITTED_TO_MOSPI_APPROVER,APPROVED,REJECTED_FINAL,RETURNED_FROM_MOSPI",
       };
 
       const statusForRole = roleToStatusMap[currentUserRole];
@@ -1739,7 +1740,7 @@ class ApiService implements HttpClient {
           totalScore: 742,
           percentage: 74.2,
           approvedAt: "2024-01-01T00:00:00.000Z",
-          submissionId: "uuid-1"
+          submissionId: "uuid-1",
         },
         {
           rank: 2,
@@ -1747,7 +1748,7 @@ class ApiService implements HttpClient {
           totalScore: 698,
           percentage: 69.8,
           approvedAt: "2024-01-01T00:00:00.000Z",
-          submissionId: "uuid-2"
+          submissionId: "uuid-2",
         },
         {
           rank: 3,
@@ -1755,17 +1756,22 @@ class ApiService implements HttpClient {
           totalScore: 685,
           percentage: 68.5,
           approvedAt: "2024-01-01T00:00:00.000Z",
-          submissionId: "uuid-3"
-        }
+          submissionId: "uuid-3",
+        },
       ];
     }
   }
 
   // Role-based scoring methods
-  async getScoreRankingsByRole(userRole: string, userState?: string): Promise<any[]> {
+  async getScoreRankingsByRole(
+    userRole: string,
+    userState?: string
+  ): Promise<any[]> {
     try {
-      console.log(`🔍 API Service - Get Score Rankings for role: ${userRole}, state: ${userState}`);
-      
+      console.log(
+        `🔍 API Service - Get Score Rankings for role: ${userRole}, state: ${userState}`
+      );
+
       // Check if user is authenticated
       if (!authService.isAuthenticated()) {
         console.warn("⚠️ User not authenticated, using dummy data");
@@ -1791,7 +1797,9 @@ class ApiService implements HttpClient {
           );
 
           const rankingsData =
-            response.data?.data !== undefined ? response.data.data : response.data;
+            response.data?.data !== undefined
+              ? response.data.data
+              : response.data;
           console.log(
             "🔍 API Service - Processed Get Score Rankings Data:",
             rankingsData
@@ -1799,7 +1807,10 @@ class ApiService implements HttpClient {
 
           return rankingsData;
         } catch (scoringError: any) {
-          console.warn("⚠️ Scoring rankings failed for MOSPI user, trying regular rankings:", scoringError.message);
+          console.warn(
+            "⚠️ Scoring rankings failed for MOSPI user, trying regular rankings:",
+            scoringError.message
+          );
           // Fallback to regular rankings
           return this.getRegularRankings();
         }
@@ -1810,7 +1821,7 @@ class ApiService implements HttpClient {
       }
     } catch (error: any) {
       console.error(`❌ API Error for role ${userRole}:`, error);
-      
+
       // Handle 304 as success
       if (error.response?.status === 304) {
         console.log("📋 Get Score Rankings 304 - Using cached data");
@@ -1820,7 +1831,9 @@ class ApiService implements HttpClient {
 
       // Handle 403 Forbidden - user doesn't have permission
       if (error.response?.status === 403) {
-        console.warn(`⚠️ 403 Forbidden for role ${userRole} - User doesn't have permission to access ranking data`);
+        console.warn(
+          `⚠️ 403 Forbidden for role ${userRole} - User doesn't have permission to access ranking data`
+        );
         console.warn("⚠️ Using dummy data as fallback");
         return this.getDummyRankingsData();
       }
@@ -1870,7 +1883,7 @@ class ApiService implements HttpClient {
         totalScore: 742,
         percentage: 74.2,
         approvedAt: "2024-01-01T00:00:00.000Z",
-        submissionId: "uuid-1"
+        submissionId: "uuid-1",
       },
       {
         rank: 2,
@@ -1878,7 +1891,7 @@ class ApiService implements HttpClient {
         totalScore: 698,
         percentage: 69.8,
         approvedAt: "2024-01-01T00:00:00.000Z",
-        submissionId: "uuid-2"
+        submissionId: "uuid-2",
       },
       {
         rank: 3,
@@ -1886,8 +1899,8 @@ class ApiService implements HttpClient {
         totalScore: 685,
         percentage: 68.5,
         approvedAt: "2024-01-01T00:00:00.000Z",
-        submissionId: "uuid-3"
-      }
+        submissionId: "uuid-3",
+      },
     ];
   }
 
@@ -1897,7 +1910,9 @@ class ApiService implements HttpClient {
       const user = authService.getUser();
       const userRole = user?.role;
 
-      console.log(`🔍 API Service - Get Score Statistics for role: ${userRole}`);
+      console.log(
+        `🔍 API Service - Get Score Statistics for role: ${userRole}`
+      );
 
       // Role-based endpoint selection
       if (userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER") {
@@ -1914,7 +1929,9 @@ class ApiService implements HttpClient {
           );
 
           const statisticsData =
-            response.data?.data !== undefined ? response.data.data : response.data;
+            response.data?.data !== undefined
+              ? response.data.data
+              : response.data;
           console.log(
             "🔍 API Service - Processed Get Score Statistics Data:",
             statisticsData
@@ -1922,7 +1939,10 @@ class ApiService implements HttpClient {
 
           return statisticsData;
         } catch (scoringError: any) {
-          console.warn("⚠️ Scoring statistics failed for MOSPI user, using dummy data:", scoringError.message);
+          console.warn(
+            "⚠️ Scoring statistics failed for MOSPI user, using dummy data:",
+            scoringError.message
+          );
           return this.getDummyStatisticsData();
         }
       } else {
@@ -1932,7 +1952,7 @@ class ApiService implements HttpClient {
       }
     } catch (error: any) {
       console.error("❌ API Error for statistics:", error);
-      
+
       // Handle 304 as success
       if (error.response?.status === 304) {
         console.log("📋 Get Score Statistics 304 - Using cached data");
@@ -1942,7 +1962,9 @@ class ApiService implements HttpClient {
 
       // Handle 403 Forbidden - user doesn't have permission
       if (error.response?.status === 403) {
-        console.warn("⚠️ 403 Forbidden for statistics - User doesn't have permission to access scoring statistics");
+        console.warn(
+          "⚠️ 403 Forbidden for statistics - User doesn't have permission to access scoring statistics"
+        );
         console.warn("⚠️ Using dummy data as fallback");
         return this.getDummyStatisticsData();
       }
@@ -1968,8 +1990,8 @@ class ApiService implements HttpClient {
         "70-79": 2,
         "60-69": 1,
         "50-59": 0,
-        "Below 50": 0
-      }
+        "Below 50": 0,
+      },
     };
   }
 
@@ -2016,18 +2038,20 @@ class ApiService implements HttpClient {
           maxPossibleScore: 1000,
           percentage: 74.2,
           calculations: [],
-          methodology: "NIRI Scoring Methodology v2.0"
+          methodology: "NIRI Scoring Methodology v2.0",
         },
         calculationMethodology: "NIRI Scoring Methodology v2.0",
         approvedBy: "uuid",
-        createdAt: "2024-01-01T00:00:00.000Z"
+        createdAt: "2024-01-01T00:00:00.000Z",
       };
     }
   }
 
   async calculateScore(submissionId: string): Promise<any> {
     try {
-      const response = await this.axios.get(`/scoring/calculate/${submissionId}`);
+      const response = await this.axios.get(
+        `/scoring/calculate/${submissionId}`
+      );
       console.log(
         "🔍 API Service - Calculate Score Response Status:",
         response.status
@@ -2053,10 +2077,7 @@ class ApiService implements HttpClient {
         const cachedData = error.response?.data || {};
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }
-      console.warn(
-        "⚠️ Backend calculate score failed:",
-        error.message
-      );
+      console.warn("⚠️ Backend calculate score failed:", error.message);
       throw error;
     }
   }
