@@ -61,6 +61,19 @@ class ScoringService {
   }
 
   /**
+   * Get score rankings by user role
+   */
+  async getRankingsByRole(userRole: string, userState?: string): Promise<ScoreRanking[]> {
+    try {
+      console.log(`🔍 Scoring Service - Getting rankings for role: ${userRole}, state: ${userState}`);
+      return await apiService.getScoreRankingsByRole(userRole, userState);
+    } catch (error) {
+      console.error('Error fetching score rankings by role:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get score statistics
    */
   async getStatistics(): Promise<ScoreStatistics> {

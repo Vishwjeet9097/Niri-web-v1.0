@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useAuth } from "../../features/auth/AuthProvider";
 import { rankingData } from "../../api/rankingData";
 import { scoringService } from "../../services/scoring.service";
 import StateRankingTable from "./StateRankingTable";
@@ -15,6 +16,8 @@ import ExportButton from "./ExportButton";
  * - Renders info cards, category legend, table, benchmarking, methodology
  */
 const RankingScoringPage = () => {
+  const { user } = useAuth();
+  
   // State for filters, search, pagination
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("All Region");
@@ -39,14 +42,21 @@ const RankingScoringPage = () => {
         setLoading(true);
         setError(null);
 
-        // Load rankings and statistics in parallel
+        console.log("🔍 Ranking Page - Loading data for user role:", user?.role);
+
+        // Load rankings and statistics in parallel based on user role
         const [rankingsData, statisticsData] = await Promise.all([
-          scoringService.getRankings(),
+          scoringService.getRankingsByRole(user.role, user.state),
           scoringService.getStatistics()
         ]);
 
+        console.log("🔍 Ranking Page - Received rankings data:", rankingsData);
+        console.log("🔍 Ranking Page - Received statistics data:", statisticsData);
+
         // Transform API data to match expected format using scoring service
         const transformedStates = scoringService.transformRankingData(rankingsData);
+
+        console.log("🔍 Ranking Page - Transformed states:", transformedStates);
 
         setApiStates(transformedStates);
         setApiStatistics(statisticsData);
@@ -54,14 +64,17 @@ const RankingScoringPage = () => {
         console.error("Error loading scoring data:", err);
         setError(err.message);
         // Fallback to dummy data
+        console.log("🔍 Ranking Page - Using fallback dummy data");
         setApiStates(states);
       } finally {
         setLoading(false);
       }
     };
 
-    loadScoringData();
-  }, []);
+    if (user) {
+      loadScoringData();
+    }
+  }, [user]);
 
 
   // Use API data if available, otherwise fallback to dummy data
