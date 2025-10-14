@@ -164,13 +164,22 @@ export function SubmissionCard({
               <XCircle className="w-4 h-4 mr-1" />
               Rejected
             </Button>
-          ) : submission && isReturnedFromMospi(submission) && currentUserRole === "STATE_APPROVER" && status !== "APPROVED" ? (
+          ) : submission && isReturnedFromMospi(submission) && currentUserRole === "STATE_APPROVER" && status !== "APPROVED" && status !== "RETURNED_FROM_STATE" ? (
             <Button size="sm" variant="outline" className="text-yellow-600 border-yellow-300 bg-yellow-50 hover:bg-yellow-100" onClick={onViewDetails}>
               <AlertCircle className="w-4 h-4 mr-1" />
               Action Required
             </Button>
           ) : (status === "need_revision" || status === "RETURNED_FROM_MOSPI" || status === "RETURNED_FROM_STATE") && onRevise ? (
-            <Button size="sm" variant="outline" className="text-blue-600 border-blue-300" onClick={onRevise}>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className={`${
+                status === "RETURNED_FROM_STATE" 
+                  ? "text-orange-600 border-orange-300 bg-orange-50 hover:bg-orange-100" 
+                  : "text-blue-600 border-blue-300"
+              }`} 
+              onClick={onRevise}
+            >
               Revise
             </Button>
           ) : (

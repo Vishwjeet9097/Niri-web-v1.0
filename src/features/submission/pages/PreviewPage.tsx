@@ -16,7 +16,7 @@ const PREVIEW_FLAG_KEY = "submission_has_previewed";
 
 export const PreviewPage = () => {
   const navigate = useNavigate();
-  const { formData, clearFormData } = useFormPersistence();
+  const { formData, clearFormData, isResubmit } = useFormPersistence();
   const [hasPreviewed, setHasPreviewed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -182,8 +182,9 @@ export const PreviewPage = () => {
       setShowSuccessModal(true);
       
       // Clear form data AFTER successful submission
-      // clearFormData(); // Commented out - don't clear localStorage for now
+      clearFormData(); // Clear localStorage after successful submission
       storageService.remove(PREVIEW_FLAG_KEY);
+      localStorage.removeItem("editing_submission"); // Clear editing submission data
       
     } catch (error: unknown) {
       // Dynamic error message from response
@@ -502,7 +503,7 @@ export const PreviewPage = () => {
           onClick={handleFinalSubmit} 
           disabled={!hasPreviewed || isSubmitting}
         >
-          {isSubmitting ? 'Submitting...' : 'Final Submit'}
+          {isSubmitting ? (isResubmit ? 'Resubmitting...' : 'Submitting...') : (isResubmit ? 'Resubmit' : 'Final Submit')}
         </Button>
       </div>
 
@@ -510,15 +511,18 @@ export const PreviewPage = () => {
       <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to submit?</AlertDialogTitle>
+            <AlertDialogTitle>{isResubmit ? 'Are you sure you want to resubmit?' : 'Are you sure you want to submit?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              Once submitted, your data will be locked for editing and sent to the State Approver for review.
+              {isResubmit 
+                ? 'Once resubmitted, your updated data will be sent to the State Approver for review.'
+                : 'Once submitted, your data will be locked for editing and sent to the State Approver for review.'
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Send to State Approver'}
+              {isSubmitting ? (isResubmit ? 'Resubmitting...' : 'Submitting...') : (isResubmit ? 'Resubmit to State Approver' : 'Send to State Approver')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -532,7 +536,7 @@ export const PreviewPage = () => {
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
-              <AlertDialogTitle>Submission Successful!</AlertDialogTitle>
+              <AlertDialogTitle>{isResubmit ? 'Resubmission Successful!' : 'Submission Successful!'}</AlertDialogTitle>
             </div>
             <AlertDialogDescription className="mt-2">
               {submissionMessage}
