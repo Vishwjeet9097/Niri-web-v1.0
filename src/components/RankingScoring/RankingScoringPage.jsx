@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { rankingData } from "../../api/rankingData";
+import { scoringService } from "../../services/scoring.service";
 import StateRankingTable from "./StateRankingTable";
 import Filters from "./Filters";
 import SearchBar from "./SearchBar";
@@ -9,7 +10,7 @@ import ExportButton from "./ExportButton";
 
 /**
  * Main Ranking & Scoring Page
- * - Loads all data from dummy API
+ * - Loads data from real API with fallback to dummy data
  * - Handles filter, search, pagination, export
  * - Renders info cards, category legend, table, benchmarking, methodology
  */
@@ -21,19 +22,60 @@ const RankingScoringPage = () => {
   const [page, setPage] = useState(1);
   const itemsPerPage = 7;
 
-  // Extract data from dummy API
+  // State for API data
+  const [apiStates, setApiStates] = useState([]);
+  const [apiStatistics, setApiStatistics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Extract data from dummy API as fallback
   const { infoCards, categories, states, benchmarking, methodology } =
     rankingData;
 
+  // Load data from API on component mount
+  useEffect(() => {
+    const loadScoringData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Load rankings and statistics in parallel
+        const [rankingsData, statisticsData] = await Promise.all([
+          scoringService.getRankings(),
+          scoringService.getStatistics()
+        ]);
+
+        // Transform API data to match expected format using scoring service
+        const transformedStates = scoringService.transformRankingData(rankingsData);
+
+        setApiStates(transformedStates);
+        setApiStatistics(statisticsData);
+      } catch (err) {
+        console.error("Error loading scoring data:", err);
+        setError(err.message);
+        // Fallback to dummy data
+        setApiStates(states);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadScoringData();
+  }, []);
+
+
+  // Use API data if available, otherwise fallback to dummy data
+  const currentStates = apiStates.length > 0 ? apiStates : states;
+
   // Unique region list for filter dropdown
   const regionOptions = useMemo(() => {
-    const allRegions = states.map((s) => s.region).filter(Boolean);
+    const allRegions = currentStates.map((s) => s.region).filter(Boolean);
     return ["All Region", ...Array.from(new Set(allRegions))];
-  }, [states]);
+  }, [currentStates]);
 
   // Filtering and searching logic
   const filteredStates = useMemo(() => {
-    let filtered = [...states];
+    let filtered = [...currentStates];
     if (region !== "All Region") {
       filtered = filtered.filter((s) => s.region === region);
     }
@@ -46,7 +88,7 @@ const RankingScoringPage = () => {
       );
     }
     return filtered;
-  }, [states, region, category, search]);
+  }, [currentStates, region, category, search]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredStates.length / itemsPerPage);
@@ -78,6 +120,44 @@ const RankingScoringPage = () => {
       new CustomEvent("export-states-table", { detail: filteredStates }),
     );
   };
+
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="ranking-scoring-page" style={{ padding: "32px 0" }}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading scoring data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="ranking-scoring-page" style={{ padding: "32px 0" }}>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <div className="text-red-600 mb-2">
+            <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Data</h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ranking-scoring-page " style={{ padding: "32px 0" }}>

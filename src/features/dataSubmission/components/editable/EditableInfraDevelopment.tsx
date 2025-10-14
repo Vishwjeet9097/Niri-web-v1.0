@@ -176,7 +176,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.1 */}
         <SectionCard
           title="2.1 - Availability of Infrastructure Act/Policy"
-          subtitle="(10 marks per sector, min. 3 sectors)"
+          // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
             {formData.section2_1.map((entry, idx) => (
@@ -248,7 +248,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.2 */}
         <SectionCard
           title="2.2 - Availability of Specialized Entity"
-          subtitle="(10 marks per sector, min. 3 sectors)"
+          // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
             {formData.section2_2.map((entry, idx) => (
@@ -320,7 +320,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.3 */}
         <SectionCard
           title="2.3 - Availability of Sector Infra Development Plan"
-          subtitle="(10 marks per sector, min. 3 sectors)"
+          // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
             {formData.section2_3.map((entry, idx) => (
@@ -392,7 +392,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.4 */}
         <SectionCard
           title="2.4 - Projects with DPR/Feasibility Report"
-          subtitle="(10 marks per project)"
+          // subtitle="(10 marks per project)"
         >
           <div className="space-y-4">
             {formData.section2_4.map((project, index) => (
@@ -437,7 +437,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.5 */}
         <SectionCard
           title="2.5 - Asset Monetization Portfolio"
-          subtitle="(10 marks per asset)"
+          // subtitle="(10 marks per asset)"
         >
           <div className="space-y-4">
             {formData.section2_5.map((asset, index) => (

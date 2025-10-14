@@ -48,7 +48,7 @@ export const InfraFinancingReview = ({ submissionId }: InfraFinancingReviewProps
           <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
-                1.1 - % Capex to GSDP (10 marks per 1%)
+                1.1 - % Capex to GSDP 
               </CardTitle>
               <Button
                 variant="outline"
@@ -99,7 +99,7 @@ export const InfraFinancingReview = ({ submissionId }: InfraFinancingReviewProps
           <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
-                1.2 - % Capex Utilisation (10 marks per 1%)
+                1.2 - % Capex Utilisation
               </CardTitle>
               <Button
                 variant="outline"
