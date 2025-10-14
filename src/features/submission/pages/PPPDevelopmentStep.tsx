@@ -77,7 +77,7 @@ export const PPPDevelopmentStep = () => {
       try {
         const submissionData = JSON.parse(editingSubmission);
         console.log("🔍 Direct editing submission check in PPPDevelopmentStep:", submissionData);
-        
+
         if (submissionData.formData && submissionData.formData.pppDevelopment) {
           const stepData = submissionData.formData.pppDevelopment as Partial<PPPDevelopmentData>;
           const updatedData: PPPDevelopmentData = {
@@ -90,7 +90,7 @@ export const PPPDevelopmentStep = () => {
           };
           setFormData(updatedData);
           console.log("✅ Direct prefill from editing submission:", updatedData);
-          
+
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
         }
@@ -116,7 +116,7 @@ export const PPPDevelopmentStep = () => {
     // For section 3.3, marks = MIN(number of proposals × 5, 50)
     const numberOfProposals = formData.section3_3.length;
     const marksObtained = Math.min(numberOfProposals * 5, 50);
-    
+
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
@@ -126,16 +126,16 @@ export const PPPDevelopmentStep = () => {
     // A₁: TPC of PPP projects, A₂: Total TPC
     const tpcOfPPPProjects = parseFloat(formData.section3_4.tpcOfPPPProjects);
     const totalTPC = parseFloat(formData.section3_4.totalTPC);
-    
+
     if (isNaN(tpcOfPPPProjects) || isNaN(totalTPC) || totalTPC === 0) {
       return { proportion: 0, marksObtained: 0 };
     }
-    
+
     // Proportion (P): (A₁ / A₂) × 100
     const proportion = (tpcOfPPPProjects / totalTPC) * 100;
     // Marks: MIN(P × 2, 100)
     const marksObtained = Math.min(proportion * 2, 100);
-    
+
     return {
       proportion: Math.round(proportion * 100) / 100, // Round to 2 decimal places
       marksObtained: Math.round(marksObtained * 100) / 100
@@ -214,19 +214,19 @@ export const PPPDevelopmentStep = () => {
     try {
       // Save to localStorage first
       updateFormData("pppDevelopment", formData);
-      
+
       // Generate submission ID if not exists
       const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-      
+
       // Save to backend
       const success = await draftService.saveDraft(
-        submissionId, 
-        formData, 
+        submissionId,
+        formData,
         "pppDevelopment",
         user?.id,
         user?.state
       );
-      
+
       if (success) {
         toast({
           title: "Draft Saved",
@@ -246,7 +246,7 @@ export const PPPDevelopmentStep = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
       <ProgressHeader
         title="PPP Development"
@@ -260,51 +260,58 @@ export const PPPDevelopmentStep = () => {
 
       {/* Section 3.1 */}
       <SectionCard
-        title="3.1 - Availability of Infrastructure Act/Policy"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">3.1 - </span> Availability of Infrastructure Act/Policy{" "}
+          </span>
+        </div>}
+
         subtitle=""
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
-          <Label>
-            PPP Act/Policy Available?{" "}
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="inline w-3 h-3 ml-1" />
-              </TooltipTrigger>
-              <TooltipContent>Is there a PPP Act/Policy?</TooltipContent>
-            </Tooltip>
-          </Label>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="ppp-act-policy"
-                value="yes"
-                checked={formData.section3_1.available === "yes"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section3_1: { ...prev.section3_1, available: "yes" },
-                  }))
-                }
-              />
-              Yes
-            </label>
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="ppp-act-policy"
-                value="no"
-                checked={formData.section3_1.available === "no"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section3_1: { ...prev.section3_1, available: "no" },
-                  }))
-                }
-              />
-              No
-            </label>
+          <div>
+            <Label>
+              PPP Act/Policy Available?{" "}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="inline w-3 h-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>Is there a PPP Act/Policy?</TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="ppp-act-policy"
+                  value="yes"
+                  checked={formData.section3_1.available === "yes"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section3_1: { ...prev.section3_1, available: "yes" },
+                    }))
+                  }
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="ppp-act-policy"
+                  value="no"
+                  checked={formData.section3_1.available === "no"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section3_1: { ...prev.section3_1, available: "no" },
+                    }))
+                  }
+                />
+                No
+              </label>
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <FileUploadSection
@@ -326,53 +333,59 @@ export const PPPDevelopmentStep = () => {
 
       {/* Section 3.2 */}
       <SectionCard
-        title="3.2 - Functional PPP Cell/Unit"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">3.2 - </span> Functional PPP Cell/Unit{" "}
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
-          <Label>
-            Functional State/UT PPP Cell/Unit{" "}
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="inline w-3 h-3 ml-1" />
-              </TooltipTrigger>
-              <TooltipContent>
-                Is there a functional PPP Cell/Unit?
-              </TooltipContent>
-            </Tooltip>
-          </Label>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="ppp-cell-unit"
-                value="yes"
-                checked={formData.section3_2.available === "yes"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section3_2: { ...prev.section3_2, available: "yes" },
-                  }))
-                }
-              />
-              Yes
-            </label>
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="ppp-cell-unit"
-                value="no"
-                checked={formData.section3_2.available === "no"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section3_2: { ...prev.section3_2, available: "no" },
-                  }))
-                }
-              />
-              No
-            </label>
+          <div>
+            <Label>
+              Functional State/UT PPP Cell/Unit{" "}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="inline w-3 h-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Is there a functional PPP Cell/Unit?
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="ppp-cell-unit"
+                  value="yes"
+                  checked={formData.section3_2.available === "yes"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section3_2: { ...prev.section3_2, available: "yes" },
+                    }))
+                  }
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="ppp-cell-unit"
+                  value="no"
+                  checked={formData.section3_2.available === "no"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section3_2: { ...prev.section3_2, available: "no" },
+                    }))
+                  }
+                />
+                No
+              </label>
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <FileUploadSection
@@ -394,14 +407,18 @@ export const PPPDevelopmentStep = () => {
 
       {/* Section 3.3 */}
       <SectionCard
-        title="3.3 - Proposals Submitted under VGF/IIPDF"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">3.3 - </span> Proposals Submitted under VGF/IIPDF{" "}
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
           {formData.section3_3.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+            <div key={entry.id} className="mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
                 <div>
                   <Label>Project Name</Label>
                   <Input
@@ -453,7 +470,8 @@ export const PPPDevelopmentStep = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="flex items-center gap-2 w-full">
+                  <div className="w-full">
                   <Label>Submission Date</Label>
                   <Input
                     type="date"
@@ -462,8 +480,8 @@ export const PPPDevelopmentStep = () => {
                       updateProject(entry.id, "submissionDate", e.target.value)
                     }
                   />
-                </div>
-                <Button
+                  </div>
+                  <Button
                   type="button"
                   variant="ghost"
                   size="icon"
@@ -473,6 +491,8 @@ export const PPPDevelopmentStep = () => {
                 >
                   <Trash2 className="w-5 h-5 text-destructive" />
                 </Button>
+                </div>
+                
               </div>
               <div className="mt-4">
                 <FileUploadSection
@@ -483,30 +503,36 @@ export const PPPDevelopmentStep = () => {
               </div>
             </div>
           ))}
+          <div>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={addProject}
-            className="w-fit"
+            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4" />
             Add More Project
           </Button>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground mt-1">
             Annex 7: Provide VGF/IIPDF details
           </p>
-          
+          </div>
+
         </div>
       </SectionCard>
 
       {/* Section 3.4 */}
       <SectionCard
-        title="3.4 - Proportion of TPC of PPP Projects"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">3.4 - </span> Proportion of TPC of PPP Projects{" "}
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 w-[70%]">
           <div>
             <Label>A₁ - TPC of PPP Projects*</Label>
             <Input
