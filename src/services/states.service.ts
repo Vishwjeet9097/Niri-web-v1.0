@@ -1,4 +1,5 @@
 import { apiService } from "./api.service";
+import { config } from "@/config/environment";
 
 export interface State {
   id: string;
@@ -20,7 +21,7 @@ class StatesService {
 
     try {
       console.log("🌍 Fetching states from API...");
-      const response = await fetch("http://localhost:3000/states");
+      const response = await fetch(`${config.apiBaseUrl}/states`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch states: ${response.status}`);

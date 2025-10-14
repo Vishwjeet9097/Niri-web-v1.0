@@ -12,6 +12,7 @@ import { EditableInfraEnablers } from "../components/editable/EditableInfraEnabl
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { storageService } from "@/services/storage.service";
+import { config } from "@/config/environment";
 import type { SubmissionFormData } from "@/features/submission/types";
 
 const sections = [
@@ -26,7 +27,7 @@ export const EditSubmissionPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentSection, setCurrentSection] = useState(0);
-  const [submission, setSubmission] = useState<any>(null);
+  const [submission, setSubmission] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -191,7 +192,7 @@ export const EditSubmissionPage = () => {
       }
 
       // Resubmit the submission using correct endpoint
-      const resubmitUrl = `http://localhost:3000/submission/resubmit/${id}`;
+      const resubmitUrl = `${config.apiBaseUrl}/submission/resubmit/${id}`;
       
       // Ensure payload structure matches original format (no extra "value" key)
       const resubmitPayload = {

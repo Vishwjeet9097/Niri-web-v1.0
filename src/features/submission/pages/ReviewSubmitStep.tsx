@@ -127,7 +127,7 @@ export const ReviewSubmitStep = () => {
       
       if (isEditMode && editingSubmissionId) {
         // Edit mode - use resubmit API
-        res = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedPayload);
+        res = await apiV2.post(`${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`, transformedPayload);
       } else {
         // Normal mode - create new submission
         res = await apiV2.post(config.formsPath, transformedPayload);

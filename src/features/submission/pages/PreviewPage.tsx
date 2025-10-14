@@ -78,18 +78,18 @@ export const PreviewPage = () => {
       
       if (isEditMode && editingSubmissionId) {
         // Edit mode - use resubmit API
-        response = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedData);
+        response = await apiV2.post(`${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`, transformedData);
       } else if (isResubmit) {
         // Resubmit mode - use resubmit API with submission ID from localStorage
         const editingSubmissionId = localStorage.getItem('editing_submission_id');
         if (editingSubmissionId) {
-          response = await apiV2.post(`http://localhost:3000/submission/resubmit/${editingSubmissionId}`, transformedData);
+          response = await apiV2.post(`${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`, transformedData);
         } else {
-          response = await apiV2.post(`http://localhost:3000/submission`, transformedData);
+          response = await apiV2.post(`${config.apiBaseUrl}/submission`, transformedData);
         }
       } else {
         // Normal mode - create new submission
-        response = await apiV2.post(`http://localhost:3000/submission`, transformedData);
+        response = await apiV2.post(`${config.apiBaseUrl}/submission`, transformedData);
       }
       
       console.log("✅ Submission successful:", response);
@@ -114,12 +114,10 @@ export const PreviewPage = () => {
         navigate("/dashboard");
       }, 3000);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ Submission failed:", error);
-      notificationService.error(
-        error.response?.data?.message || 
-        "Failed to submit form. Please try again."
-      );
+      const errorMessage = error instanceof Error ? error.message : "Failed to submit form. Please try again.";
+      notificationService.error(errorMessage, "Submission Error");
     } finally {
       setIsSubmitting(false);
     }
@@ -129,7 +127,7 @@ export const PreviewPage = () => {
   const mockSubmission = formData ? {
     id: "preview-submission",
     submissionId: "PREVIEW-001",
-    stateUt: (formData as any).stateUt || "Preview State",
+    stateUt: (formData as Record<string, unknown>).stateUt as string || "Preview State",
     submittedBy: "current-user",
     rejectionCount: 0,
     formData: formData,
@@ -146,7 +144,7 @@ export const PreviewPage = () => {
       lastName: user?.lastName || "User",
       contactNumber: user?.contactNumber || null,
       role: user?.role || "NODAL_OFFICER",
-      stateUt: user?.state || (formData as any).stateUt || "Preview State",
+      stateUt: user?.state || (formData as Record<string, unknown>).stateUt as string || "Preview State",
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
