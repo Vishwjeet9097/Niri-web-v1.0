@@ -90,7 +90,7 @@ export const InfraEnablersStep = () => {
       try {
         const submissionData = JSON.parse(editingSubmission);
         console.log("🔍 Direct editing submission check in InfraEnablersStep:", submissionData);
-        
+
         if (submissionData.formData && submissionData.formData.infraEnablers) {
           const stepData = submissionData.formData.infraEnablers as Partial<InfraEnablersData>;
           const updatedData: InfraEnablersData = {
@@ -105,7 +105,7 @@ export const InfraEnablersStep = () => {
           };
           setFormData(updatedData);
           console.log("✅ Direct prefill from editing submission:", updatedData);
-          
+
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
         }
@@ -160,14 +160,14 @@ export const InfraEnablersStep = () => {
   const calculateSection4_3 = () => {
     // A₁: Number of projects
     const numberOfProjects = parseInt(formData.section4_3.numberOfProjects);
-    
+
     if (isNaN(numberOfProjects)) {
       return { marksObtained: 0 };
     }
-    
+
     // Marks: MIN(A₁ × 5, 20)
     const marksObtained = Math.min(numberOfProjects * 5, 20);
-    
+
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
@@ -176,7 +176,7 @@ export const InfraEnablersStep = () => {
   const calculateSection4_4 = () => {
     // For section 4.4, marks = IF adopted = 'Yes' THEN 50 ELSE 0
     const marksObtained = formData.section4_4.adopted === "yes" ? 50 : 0;
-    
+
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
@@ -188,9 +188,9 @@ export const InfraEnablersStep = () => {
       // Since we don't have participants field, we'll use 1 per training
       return sum + 1;
     }, 0);
-    
+
     const marksObtained = Math.min(totalParticipants * 1, 50);
-    
+
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
@@ -209,8 +209,8 @@ export const InfraEnablersStep = () => {
         section4_5: formData.section4_5 || defaultData.section4_5,
         section4_6: formData.section4_6 || defaultData.section4_6,
       };
-      
-      
+
+
       updateFormData("infraEnablers", structuredData);
     }, 500); // Debounce for 500ms
 
@@ -282,19 +282,19 @@ export const InfraEnablersStep = () => {
     try {
       // Save to localStorage first
       updateFormData("infraEnablers", formData);
-      
+
       // Generate submission ID if not exists
       const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-      
+
       // Save to backend
       const success = await draftService.saveDraft(
-        submissionId, 
-        formData, 
+        submissionId,
+        formData,
         "infraEnablers",
         user?.id,
         user?.state
       );
-      
+
       if (success) {
         toast({
           title: "Draft Saved",
@@ -314,7 +314,7 @@ export const InfraEnablersStep = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
       <ProgressHeader
         title="Infrastructure Enablers"
@@ -328,59 +328,65 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.1 */}
       <SectionCard
-        title="4.1 - Eligible Infrastructure Projects"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">4.1 - </span> Eligible Infrastructure Projects{" "}
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
-        <div className="flex flex-col gap-4">
-          <Label>
-            All Eligible Infra Projects on NIP Portal{" "}
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="inline w-3 h-3 ml-1" />
-              </TooltipTrigger>
-              <TooltipContent>
-                Are all eligible infra projects on NIP Portal?
-              </TooltipContent>
-            </Tooltip>
-          </Label>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="all-eligible"
-                value="yes"
-                checked={formData.section4_1.allEligible === "yes"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_1: { ...prev.section4_1, allEligible: "yes" },
-                  }))
-                }
-              />
-              Yes
-            </label>
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="all-eligible"
-                value="no"
-                checked={formData.section4_1.allEligible === "no"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_1: { ...prev.section4_1, allEligible: "no" },
-                  }))
-                }
-              />
-              No
-            </label>
+        <div className="flex flex-col gap-4 w-[40%]">
+          <div>
+            <Label>
+              All Eligible Infra Projects on NIP Portal{" "}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="inline w-3 h-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Are all eligible infra projects on NIP Portal?
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="all-eligible"
+                  value="yes"
+                  checked={formData.section4_1.allEligible === "yes"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_1: { ...prev.section4_1, allEligible: "yes" },
+                    }))
+                  }
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="all-eligible"
+                  value="no"
+                  checked={formData.section4_1.allEligible === "no"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_1: { ...prev.section4_1, allEligible: "no" },
+                    }))
+                  }
+                />
+                No
+              </label>
+            </div>
           </div>
           <div>
             <Label>Website Link</Label>
             <Input
               type="url"
-              placeholder="Enter project name"
+              placeholder="Enter Website Link"
               value={formData.section4_1.websiteLink}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -398,53 +404,59 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.2 */}
       <SectionCard
-        title="4.2 - Availability & Use of State/UT PMG"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">4.2 - </span> Availability & Use of State/UT PMG{" "}
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
-        <div className="flex flex-col gap-4">
-          <Label>
-            Availability & Use of State/UT PMG{" "}
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="inline w-3 h-3 ml-1" />
-              </TooltipTrigger>
-              <TooltipContent>
-                Is State/UT PMG available and used?
-              </TooltipContent>
-            </Tooltip>
-          </Label>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="pmg-available"
-                value="yes"
-                checked={formData.section4_2.available === "yes"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_2: { ...prev.section4_2, available: "yes" },
-                  }))
-                }
-              />
-              Yes
-            </label>
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="pmg-available"
-                value="no"
-                checked={formData.section4_2.available === "no"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_2: { ...prev.section4_2, available: "no" },
-                  }))
-                }
-              />
-              No
-            </label>
+        <div className="flex flex-col gap-4 w-[70%]">
+          <div>
+            <Label>
+              Availability & Use of State/UT PMG{" "}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="inline w-3 h-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Is State/UT PMG available and used?
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="pmg-available"
+                  value="yes"
+                  checked={formData.section4_2.available === "yes"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_2: { ...prev.section4_2, available: "yes" },
+                    }))
+                  }
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="pmg-available"
+                  value="no"
+                  checked={formData.section4_2.available === "no"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_2: { ...prev.section4_2, available: "no" },
+                    }))
+                  }
+                />
+                No
+              </label>
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <FileUploadSection
@@ -464,11 +476,18 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.3 */}
       <SectionCard
-        title="4.3 - Adoption of PM GatiShakti (5 marks per 1%)"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">4.3 - </span> Adoption of PM GatiShakti
+            <span className="font-normal text-xs text-muted-foreground ml-1">
+              (10 marks per 1%)
+            </span>
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
-        <div className="space-y-4">
+        <div className="space-y-4 w-[40%]">
           <div>
             <Label>A₁ - Number of Projects*</Label>
             <Input
@@ -491,51 +510,60 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.4 */}
       <SectionCard
-        title="4.4 - Adoption of ADR (10 marks per practice)"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">4.4 - </span> Adoption of ADR
+            <span className="font-normal text-xs text-muted-foreground ml-1">
+              (10 marks per practice)
+            </span>
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
-          <Label>
-            Adoption of PM GatiShakti{" "}
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="inline w-3 h-3 ml-1" />
-              </TooltipTrigger>
-              <TooltipContent>Is ADR adopted?</TooltipContent>
-            </Tooltip>
-          </Label>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="adr-adopted"
-                value="yes"
-                checked={formData.section4_4.adopted === "yes"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_4: { ...prev.section4_4, adopted: "yes" },
-                  }))
-                }
-              />
-              Yes
-            </label>
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="adr-adopted"
-                value="no"
-                checked={formData.section4_4.adopted === "no"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_4: { ...prev.section4_4, adopted: "no" },
-                  }))
-                }
-              />
-              No
-            </label>
+          <div>
+            <Label>
+              Adoption of PM GatiShakti{" "}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="inline w-3 h-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>Is ADR adopted?</TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="adr-adopted"
+                  value="yes"
+                  checked={formData.section4_4.adopted === "yes"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_4: { ...prev.section4_4, adopted: "yes" },
+                    }))
+                  }
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="adr-adopted"
+                  value="no"
+                  checked={formData.section4_4.adopted === "no"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_4: { ...prev.section4_4, adopted: "no" },
+                    }))
+                  }
+                />
+                No
+              </label>
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <FileUploadSection
@@ -552,57 +580,66 @@ export const InfraEnablersStep = () => {
               Upload ADR orders/notifications
             </p>
           </div>
-          
+
         </div>
       </SectionCard>
 
       {/* Section 4.5 */}
       <SectionCard
-        title="4.5 - Innovative Practices (10 marks per practice)"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">4.5 - </span> Innovative Practices
+            <span className="font-normal text-xs text-muted-foreground ml-1">
+              (10 marks per practice)
+            </span>
+          </span>
+        </div>}
         subtitle=""
         className="mb-6"
       >
-        <div className="flex flex-col gap-4">
-          <Label>
-            Innovation Practices{" "}
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="inline w-3 h-3 ml-1" />
-              </TooltipTrigger>
-              <TooltipContent>Are there innovative practices?</TooltipContent>
-            </Tooltip>
-          </Label>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="innovation-practices"
-                value="yes"
-                checked={formData.section4_5.implemented === "yes"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_5: { ...prev.section4_5, implemented: "yes" },
-                  }))
-                }
-              />
-              Yes
-            </label>
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="innovation-practices"
-                value="no"
-                checked={formData.section4_5.implemented === "no"}
-                onChange={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_5: { ...prev.section4_5, implemented: "no" },
-                  }))
-                }
-              />
-              No
-            </label>
+        <div className="flex flex-col gap-4 w-[70%]">
+          <div>
+            <Label>
+              Innovation Practices{" "}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="inline w-3 h-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>Are there innovative practices?</TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="innovation-practices"
+                  value="yes"
+                  checked={formData.section4_5.implemented === "yes"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_5: { ...prev.section4_5, implemented: "yes" },
+                    }))
+                  }
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="innovation-practices"
+                  value="no"
+                  checked={formData.section4_5.implemented === "no"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_5: { ...prev.section4_5, implemented: "no" },
+                    }))
+                  }
+                />
+                No
+              </label>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -672,47 +709,56 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.6 */}
       <SectionCard
-        title="4.6 - Capacity Building - Officer Participation (1 marks per officer)"
-        subtitle="Annex 11"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">4.6 - </span> Capacity Building - Officer Participation
+            <span className="font-normal text-xs text-muted-foreground ml-1">
+              (1 marks per officer)
+            </span>
+          </span>
+        </div>}
+        // subtitle="Annex 11"
         className="mb-6"
       >
         <div className="flex flex-col gap-4">
-          <Label>
-            Capacity Building – Officer Participation{" "}
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="inline w-3 h-3 ml-1" />
-              </TooltipTrigger>
-              <TooltipContent>
-                Has there been officer participation in capacity building?
-              </TooltipContent>
-            </Tooltip>
-          </Label>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="capacity-building"
-                value="yes"
-                checked={formData.section4_6.length > 0}
-                readOnly
-              />
-              Yes
-            </label>
-            <label className="flex items-center gap-2">
-              <Input
-                type="radio"
-                name="capacity-building"
-                value="no"
-                checked={formData.section4_6.length === 0}
-                readOnly
-              />
-              No
-            </label>
+          <div>
+            <Label>
+              Capacity Building – Officer Participation{" "}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="inline w-3 h-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Has there been officer participation in capacity building?
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="capacity-building"
+                  value="yes"
+                  checked={formData.section4_6.length > 0}
+                  readOnly
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <Input
+                  type="radio"
+                  name="capacity-building"
+                  value="no"
+                  checked={formData.section4_6.length === 0}
+                  readOnly
+                />
+                No
+              </label>
+            </div>
           </div>
           {formData.section4_6.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+            <div key={entry.id} className="mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                 <div>
                   <Label>Officer Name</Label>
                   <Input
@@ -784,7 +830,8 @@ export const InfraEnablersStep = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+                  <div className="w-full">
                   <Label>Training Type</Label>
                   <Select
                     value={entry.trainingType}
@@ -803,8 +850,8 @@ export const InfraEnablersStep = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <Button
+                  </div>
+                  <Button
                   type="button"
                   variant="ghost"
                   size="icon"
@@ -814,6 +861,8 @@ export const InfraEnablersStep = () => {
                 >
                   <Trash2 className="w-5 h-5 text-destructive" />
                 </Button>
+                </div>
+                
               </div>
             </div>
           ))}
@@ -822,13 +871,13 @@ export const InfraEnablersStep = () => {
             variant="outline"
             size="sm"
             onClick={addTraining}
-            className="w-fit"
+            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 "
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4" />
             Add More Training
           </Button>
           <p className="text-xs text-muted-foreground">Annex 11</p>
-          
+
         </div>
       </SectionCard>
 
