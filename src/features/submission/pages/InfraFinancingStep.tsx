@@ -125,14 +125,14 @@ export const InfraFinancingStep = () => {
   const calculateSection1_1 = useCallback(() => {
     const capitalAllocation = parseFloat(formData.section1_1.capitalAllocation.replace(/[₹,]/g, ''));
     const gsdpForFY = parseFloat(formData.section1_1.gsdpForFY.replace(/[₹,]/g, ''));
-    
+
     if (isNaN(capitalAllocation) || isNaN(gsdpForFY) || gsdpForFY === 0) {
       return { percentage: 0, marksObtained: 0 };
     }
-    
+
     const percentage = (capitalAllocation / gsdpForFY) * 100;
     const marksObtained = Math.min(percentage * 10, 50); // Max 50 marks
-    
+
     return {
       percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
       marksObtained: Math.round(marksObtained * 100) / 100
@@ -142,14 +142,14 @@ export const InfraFinancingStep = () => {
   const calculateSection1_2 = useCallback(() => {
     const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
     const budgetaryCapex = parseFloat(formData.section1_2.budgetaryCapex.replace(/[₹,]/g, ''));
-    
+
     if (isNaN(actualCapex) || isNaN(budgetaryCapex) || budgetaryCapex === 0) {
       return { percentage: 0, marksObtained: 0 };
     }
-    
+
     const percentage = (actualCapex / budgetaryCapex) * 100;
     const marksObtained = Math.min(percentage / 2, 50); // Max 50 marks
-    
+
     return {
       percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
       marksObtained: Math.round(marksObtained * 100) / 100
@@ -229,11 +229,11 @@ export const InfraFinancingStep = () => {
 
     setFormData(prev => {
       // Check if values actually changed to prevent infinite loop
-      const section1_1Changed = 
+      const section1_1Changed =
         prev.section1_1.percentage !== section1_1Calc.percentage ||
         prev.section1_1.marksObtained !== section1_1Calc.marksObtained;
-      
-      const section1_2Changed = 
+
+      const section1_2Changed =
         prev.section1_2.percentage !== section1_2Calc.percentage ||
         prev.section1_2.marksObtained !== section1_2Calc.marksObtained;
 
@@ -284,13 +284,13 @@ export const InfraFinancingStep = () => {
     ) {
       return false;
     }
-    
+
     // Check for division by zero
     const gsdpValue = parseFloat(s1.gsdpForFY.replace(/[₹,]/g, ''));
     if (gsdpValue === 0) {
       return false;
     }
-    
+
     // Section 1.2 - Check if calculation fields are valid
     const s2 = formData.section1_2;
     if (
@@ -301,28 +301,28 @@ export const InfraFinancingStep = () => {
     ) {
       return false;
     }
-    
+
     // Check for division by zero
     const budgetaryCapexValue = parseFloat(s2.budgetaryCapex.replace(/[₹,]/g, ''));
     if (budgetaryCapexValue === 0) {
       return false;
     }
-    
+
     // Section 1.3 - Check if at least one ULB is added
     if (formData.section1_3.length === 0) {
       return false;
     }
-    
+
     // Section 1.4 - Check if at least one bond is added
     if (formData.section1_4.length === 0) {
       return false;
     }
-    
+
     // Section 1.5 - Check if at least one intermediary is added
     if (formData.section1_5.length === 0) {
       return false;
     }
-    
+
     return true;
   };
 
@@ -357,7 +357,7 @@ export const InfraFinancingStep = () => {
                 (10 marks per 1%)
               </span>
             </span>
-          
+
           </div>
         }
         subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
@@ -480,13 +480,13 @@ export const InfraFinancingStep = () => {
       {/* Section 1.2 */}
       <SectionCard
         title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.2 -</span> % Capex Utilization{" "}
-              <span className="font-normal text-xs text-muted-foreground">
-                (10 marks per 1%)
-              </span>
+          <span className="text-base font-semibold ">
+            <span className="text-primary">1.2 -</span> % Capex Utilization{" "}
+            <span className="font-normal text-xs text-muted-foreground">
+              (10 marks per 1%)
             </span>
-          </div>}
+          </span>
+        </div>}
         subtitle="Annex 2: Verified with MoHUA data"
       >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
@@ -589,10 +589,10 @@ export const InfraFinancingStep = () => {
       {/* Section 1.3 */}
       <SectionCard
         title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
-            </span>
-          </div>}
+          <span className="text-base font-semibold ">
+            <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
+          </span>
+        </div>}
         subtitle="Annex 2: Verified with MoHUA data"
         className="mb-6"
       >
@@ -706,7 +706,7 @@ export const InfraFinancingStep = () => {
               </div>
             </div>
           ))}
-          
+
           <Button
             type="button"
             variant="outline"
@@ -721,15 +721,19 @@ export const InfraFinancingStep = () => {
 
       {/* Section 1.4 */}
       <SectionCard
-        title="1.4 - % of ULBs issuing Bonds"
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">1.4 -</span> % of ULBs issuing Bonds{" "}
+          </span>
+        </div>}
         subtitle="Annex 3: ULBs with population > 50,000"
         className="mb-6"
       >
         <div className="space-y-4">
           {formData.section1_4.map((bond, index) => (
-            <div key={bond.id} className="grid grid-cols-4 gap-4 p-4 border rounded-lg bg-gray-50">
+            <div key={bond.id} className="grid grid-cols-4 gap-4">
               <div>
-                <Label>Select Bond Type*</Label>
+                <Label>Select Bond Type<span className="text-red-500">*</span></Label>
                 <Select
                   value={bond.bondType}
                   onValueChange={(value) =>
@@ -752,7 +756,7 @@ export const InfraFinancingStep = () => {
                 </Select>
               </div>
               <div>
-                <Label>City Name*</Label>
+                <Label>City Name<span className="text-red-500">*</span></Label>
                 <Select
                   value={bond.cityName}
                   onValueChange={(value) =>
@@ -776,7 +780,7 @@ export const InfraFinancingStep = () => {
                 </Select>
               </div>
               <div>
-                <Label>Issuing Authority*</Label>
+                <Label>Issuing Authority<span className="text-red-500">*</span></Label>
                 <Select
                   value={bond.issuingAuthority}
                   onValueChange={(value) =>
@@ -800,7 +804,7 @@ export const InfraFinancingStep = () => {
               </div>
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <Label>Value (INR crore)*</Label>
+                  <Label>Value (INR crore)<span className="text-red-500">*</span></Label>
                   <Input
                     placeholder="₹500 crores"
                     value={bond.value}
@@ -818,14 +822,14 @@ export const InfraFinancingStep = () => {
                   variant="outline"
                   size="icon"
                   onClick={() => removeBond(bond.id)}
-                  className="text-red-500 hover:text-red-700"
+                  className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           ))}
-          
+
           <Button
             type="button"
             variant="outline"
@@ -951,7 +955,7 @@ export const InfraFinancingStep = () => {
               </div>
             </div>
           ))}
-          
+
           <Button
             type="button"
             variant="outline"
@@ -970,27 +974,27 @@ export const InfraFinancingStep = () => {
         onSaveDraft={async () => {
           try {
             // Save to localStorage first
-          updateFormData("infraFinancing", formData);
-            
+            updateFormData("infraFinancing", formData);
+
             // Generate submission ID if not exists
             const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-            
+
             // Save to backend
             const success = await draftService.saveDraft(
-              submissionId, 
-              formData, 
+              submissionId,
+              formData,
               "infraFinancing",
               user?.id,
               user?.state
             );
-            
+
             if (success) {
-          const { toast } = require("@/hooks/use-toast");
-          toast({
-            title: "Draft Saved",
-            description: "Your data has been saved as a draft.",
-            duration: 2000,
-          });
+              const { toast } = require("@/hooks/use-toast");
+              toast({
+                title: "Draft Saved",
+                description: "Your data has been saved as a draft.",
+                duration: 2000,
+              });
             }
           } catch (error) {
             console.error("Failed to save draft:", error);
