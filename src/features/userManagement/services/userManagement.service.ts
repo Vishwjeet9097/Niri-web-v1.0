@@ -7,7 +7,9 @@ export interface NodalOfficer {
   password?: string;
   role: string;
   state: string;
+  stateId?: string; // Added for API compatibility
   assignedIndicator?: string;
+  isActive?: boolean; // Added for API compatibility
   createdAt: number;
 }
 

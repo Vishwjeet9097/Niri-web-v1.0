@@ -18,11 +18,16 @@ export interface User {
   roleId: string;
   state: string;
   stateName: string;
+  stateUt?: string; // Added for new API format
   ministry: string | null;
   ministryName: string | null;
   type: string;
   isMospiUser: boolean;
   mospiUserType: string | null;
+  isActive?: boolean; // Added for new API format
+  createdAt?: string; // Added for new API format
+  updatedAt?: string; // Added for new API format
+  contactNumber?: string; // Added for new API format
   // Legacy fields for backward compatibility
   id?: string;
   name?: string;
@@ -39,8 +44,13 @@ export interface AuthTokens {
 
 export interface LoginApiResponse {
   success?: boolean;
-  user: User;
-  tokens: AuthTokens;
+  status?: boolean;
+  user?: User;
+  data?: {
+    user: User;
+    accessToken: string;
+  };
+  tokens?: AuthTokens;
   message?: string;
 }
 
@@ -89,11 +99,16 @@ export interface User {
   roleId: string;
   state: string;
   stateName: string;
+  stateUt?: string; // Added for new API format
   ministry: string | null;
   ministryName: string | null;
   type: string;
   isMospiUser: boolean;
   mospiUserType: string | null;
+  isActive?: boolean; // Added for new API format
+  createdAt?: string; // Added for new API format
+  updatedAt?: string; // Added for new API format
+  contactNumber?: string; // Added for new API format
   // Legacy fields for backward compatibility
   id?: string;
   name?: string;
@@ -110,8 +125,13 @@ export interface AuthTokens {
 
 export interface LoginApiResponse {
   success?: boolean;
-  user: User;
-  tokens: AuthTokens;
+  status?: boolean;
+  user?: User;
+  data?: {
+    user: User;
+    accessToken: string;
+  };
+  tokens?: AuthTokens;
   message?: string;
 }
 

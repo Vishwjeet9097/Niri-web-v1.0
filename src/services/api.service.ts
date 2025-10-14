@@ -20,6 +20,7 @@ export interface NiriUser {
   email: string;
   firstName: string;
   lastName: string;
+  contactNumber?: string;
   role:
     | "NODAL_OFFICER"
     | "STATE_APPROVER"
@@ -111,8 +112,17 @@ class ApiService implements HttpClient {
 
         const originalRequest = error.config;
 
-        // Handle 401 - token expired
+        // Handle 401 - token expired (but not for login calls)
         if (error.response?.status === 401 && !originalRequest._retry) {
+          const isLoginCall =
+            originalRequest.url?.includes("/auth/login") ||
+            originalRequest.url?.includes("/login");
+
+          // Don't attempt refresh for login calls
+          if (isLoginCall) {
+            return Promise.reject(error);
+          }
+
           originalRequest._retry = true;
 
           try {
@@ -126,7 +136,11 @@ class ApiService implements HttpClient {
               message: "Please log in again",
               type: "warning",
             });
-            window.location.href = "/login";
+            // Use navigate instead of window.location to avoid page refresh
+            if (typeof window !== "undefined" && window.history) {
+              window.history.pushState(null, "", "/login");
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }
             return Promise.reject(refreshError);
           }
         }
@@ -321,6 +335,15 @@ class ApiService implements HttpClient {
         const cachedData = error.response?.data || {};
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }
+
+      // Handle 401 Unauthorized specifically
+      if (error.response?.status === 401) {
+        console.log("🔐 Login 401 - Invalid credentials");
+        const errorData = error.response?.data || {};
+        const errorMessage = errorData.message || "Invalid credentials";
+        throw new Error(errorMessage);
+      }
+
       throw error;
     }
   }
@@ -330,8 +353,10 @@ class ApiService implements HttpClient {
     password: string,
     firstName: string,
     lastName: string,
+    contactNumber: string,
     role: string,
-    stateUt: string
+    stateUt: string,
+    stateId?: string
   ): Promise<{ user: NiriUser; accessToken: string }> {
     try {
       const userData = {
@@ -339,8 +364,10 @@ class ApiService implements HttpClient {
         password,
         firstName,
         lastName,
+        contactNumber,
         role,
         stateUt,
+        stateId: stateId || stateUt, // Use stateId if provided, otherwise use stateUt
       };
 
       console.log("🔍 API Service - Register Request Data:", userData);

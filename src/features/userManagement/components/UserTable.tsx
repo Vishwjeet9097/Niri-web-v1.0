@@ -22,9 +22,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import { Badge } from "@/components/ui/badge";
+import { getRoleDisplayName } from "@/utils/roles";
 
 interface UserTableProps {
   officers: NodalOfficer[];
@@ -33,6 +34,9 @@ interface UserTableProps {
   onAssignIndicator: (id: string, indicator: string) => void;
   selectedIds: Set<string>;
   onSelectionChange: (selectedIds: Set<string>) => void;
+  sortField?: "firstName" | "role" | "state" | "email";
+  sortDirection?: "asc" | "desc";
+  onSort?: (field: "firstName" | "role" | "state" | "email") => void;
 }
 
 export function UserTable({
@@ -42,6 +46,9 @@ export function UserTable({
   onAssignIndicator,
   selectedIds,
   onSelectionChange,
+  sortField,
+  sortDirection,
+  onSort,
 }: UserTableProps) {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -63,6 +70,25 @@ export function UserTable({
 
   const allSelected = officers.length > 0 && selectedIds.size === officers.length;
 
+  // Sortable header component
+  const SortableHeader = ({ field, children }: { field: "firstName" | "role" | "state" | "email", children: React.ReactNode }) => {
+    if (!onSort) return <TableHead>{children}</TableHead>;
+    
+    return (
+      <TableHead 
+        className="cursor-pointer hover:bg-muted/50 select-none"
+        onClick={() => onSort(field)}
+      >
+        <div className="flex items-center gap-1">
+          {children}
+          {sortField === field && (
+            sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+          )}
+        </div>
+      </TableHead>
+    );
+  };
+
   return (
     <div className="border rounded-lg bg-card">
       <Table>
@@ -75,11 +101,12 @@ export function UserTable({
               />
             </TableHead>
             <TableHead className="w-20">S.no.</TableHead>
-            <TableHead>Officer Name</TableHead>
-            <TableHead>Role</TableHead>
+            <SortableHeader field="firstName">Officer Name</SortableHeader>
+            <SortableHeader field="role">Role</SortableHeader>
+            <SortableHeader field="state">State/UT</SortableHeader>
             <TableHead>Contact Number</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Assigned Indicator</TableHead>
+            <SortableHeader field="email">Email</SortableHeader>
+            {/* <TableHead>Assigned Indicator</TableHead> */}
             <TableHead className="w-24">Action</TableHead>
           </TableRow>
         </TableHeader>
@@ -98,10 +125,15 @@ export function UserTable({
               <TableCell className="font-medium">
                 {officer.firstName} {officer.lastName}
               </TableCell>
-              <TableCell>{officer.role}</TableCell>
+              <TableCell>
+                <Badge variant="secondary">
+                  {getRoleDisplayName(officer.role)}
+                </Badge>
+              </TableCell>
+              <TableCell>{officer.stateId || officer.state}</TableCell>
               <TableCell>+91 {officer.contactNumber}</TableCell>
               <TableCell>{officer.email}</TableCell>
-              <TableCell>
+              {/* <TableCell>
                 {officer.assignedIndicator ? (
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="bg-primary text-primary-foreground">
@@ -142,7 +174,7 @@ export function UserTable({
                     </SelectContent>
                   </Select>
                 )}
-              </TableCell>
+              </TableCell> */}
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

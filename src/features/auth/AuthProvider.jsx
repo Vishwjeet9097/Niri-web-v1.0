@@ -49,60 +49,45 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      // Use new NIRI API service for backend login
-      const result = await apiService.login(email, password);
+      // Use UserService for proper error handling and notifications
+      const result = await UserService.login(email, password);
 
-      if (result.user && result.accessToken) {
-        // Transform user data to match expected format
-        const transformedUser = {
-          _id: result.user.id,
-          id: result.user.id,
-          firstName: result.user.firstName,
-          lastName: result.user.lastName,
-          email: result.user.email,
-          role: result.user.role,
-          state: result.user.stateUt,
-          stateName: result.user.stateUt,
-          name: `${result.user.firstName} ${result.user.lastName}`.trim(),
-          isActive: result.user.isActive,
-          createdAt: result.user.createdAt,
-          updatedAt: result.user.updatedAt,
-        };
-
-        // Create tokens object for authService
-        const tokens = {
-          accessToken: result.accessToken,
-          refreshToken: "", // Backend doesn't provide refresh token yet
-          tokenType: "Bearer",
-          expiresIn: "3600",
-          expiresAt: Date.now() + 3600000, // 1 hour
-        };
-
-        // Store user and tokens using authService.setAuth
-        authService.setAuth(transformedUser, tokens);
-
-        setUser(transformedUser);
+      if (result.success && result.user) {
+        // UserService already handles auth storage, just update context
+        setUser(result.user);
         setIsAuthenticated(true);
-
-        // Show success notification
-        const { notificationService } = await import(
-          "@/services/notification.service"
-        );
-        notificationService.success(
-          `Welcome back, ${transformedUser.firstName}! Login successful.`,
-          "Login Successful"
-        );
-
-        return { success: true, user: transformedUser };
+        return { success: true, user: result.user };
       } else {
-        return { success: false, message: "Invalid response from server" };
+        // UserService already shows error notification
+        return { success: false, message: result.message };
       }
     } catch (error) {
       console.error("Login error:", error);
+
+      // This should rarely happen as UserService handles most errors
+      let userFriendlyMessage =
+        "Login unsuccessful. Please recheck your credentials.";
+
+      if (error.message) {
+        // Map technical error messages to user-friendly ones
+        if (
+          error.message.includes("Network Error") ||
+          error.message.includes("fetch")
+        ) {
+          userFriendlyMessage =
+            "Unable to connect to the server. Please check your internet connection and try again.";
+        } else if (error.message.includes("timeout")) {
+          userFriendlyMessage =
+            "The request is taking too long. Please try again.";
+        } else {
+          userFriendlyMessage =
+            "Login unsuccessful. Please recheck your credentials.";
+        }
+      }
+
       return {
         success: false,
-        message:
-          error.message || "Login failed. Please check your credentials.",
+        message: userFriendlyMessage,
       };
     } finally {
       setLoading(false);

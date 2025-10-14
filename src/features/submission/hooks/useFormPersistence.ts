@@ -10,6 +10,7 @@ export const useFormPersistence = () => {
     const saved = storageService.get<Partial<SubmissionFormData>>(STORAGE_KEY);
     return saved || {};
   });
+  const [isResubmit, setIsResubmit] = useState(false);
 
   // Check for editing submission data on mount
   useEffect(() => {
@@ -17,6 +18,11 @@ export const useFormPersistence = () => {
     if (editingSubmission) {
       try {
         const submissionData = JSON.parse(editingSubmission);
+
+        // Check if this is a resubmit (RETURNED_FROM_STATE status)
+        if (submissionData.status === "RETURNED_FROM_STATE") {
+          setIsResubmit(true);
+        }
 
         // Transform backend data to form data format
         if (submissionData.formData) {
@@ -90,5 +96,6 @@ export const useFormPersistence = () => {
     updateFormData,
     clearFormData,
     getStepData,
+    isResubmit,
   };
 };

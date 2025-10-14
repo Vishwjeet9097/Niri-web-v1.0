@@ -71,7 +71,13 @@ class AuthService {
     const { user, tokens } = response;
 
     // Calculate expiration time from JWT token or expiresIn
-    const expiresAt = this.parseJWTExpiration(tokens.accessToken);
+    let expiresAt: number;
+    if (tokens.expiresIn) {
+      expiresAt = this.calculateExpirationTime(tokens.expiresIn);
+    } else {
+      // If no expiresIn, try to parse from JWT token
+      expiresAt = this.parseJWTExpiration(tokens.accessToken);
+    }
 
     // Create normalized tokens object
     const normalizedTokens: AuthTokens = {
@@ -84,6 +90,9 @@ class AuthService {
       ...user,
       id: user._id, // Legacy field
       name: `${user.firstName} ${user.lastName}`.trim(), // Legacy field
+      // Map stateUt to state if stateUt exists but state doesn't
+      state: user.state || user.stateUt || "",
+      stateName: user.stateName || user.stateUt || "",
     };
 
     this.setAuth(normalizedUser, normalizedTokens);

@@ -35,6 +35,7 @@ export interface UnifiedSubmissionCardProps {
   reviewerNote?: string;
   submission?: any;
   currentUserRole?: string;
+  submittedBy?: string; // Added submitted by field
   onEdit?: () => void;
   onViewDetails?: () => void;
   onRevise?: () => void;
@@ -148,6 +149,7 @@ export function UnifiedSubmissionCard({
   reviewerNote,
   submission,
   currentUserRole,
+  submittedBy,
   onEdit,
   onViewDetails,
   onRevise,
@@ -207,6 +209,7 @@ export function UnifiedSubmissionCard({
             <span className="font-medium">ID: {referenceId}</span>
             <span>Updated: {updatedDate}</span>
             <span>Due: {dueDate}</span>
+            {submittedBy && <span>Submitted by: {submittedBy}</span>}
           </div>
 
           {/* Waiting message */}

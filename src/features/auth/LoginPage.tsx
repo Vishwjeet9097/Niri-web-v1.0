@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "./AuthProvider";
-import { notificationService } from "@/services/NotificationBus";
-import { Loader2, Minus, Plus, Contrast, Info } from "lucide-react";
+import { notificationService } from "@/services/notification.service";
+import { Loader2, Minus, Plus, Contrast, Info, Eye, EyeOff } from "lucide-react";
 
 type LoginStep = "sso" | "otp" | "manual" | "loading";
 
@@ -40,6 +40,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<LoginStep>("sso");
   const [otpTimer, setOtpTimer] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Validate email domain
   const isValidDomain = (email: string) =>
@@ -49,7 +50,7 @@ export function LoginPage() {
   const handleSSOLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidDomain(email)) {
-      notificationService.error("Only @nic.in and @gov.in domains are authorized");
+      notificationService.error("Please use your official government email address (@nic.in or @gov.in) to access this system.", "Invalid Email Domain");
       return;
     }
     
@@ -67,7 +68,7 @@ export function LoginPage() {
   const handleOTPVerification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otp.length !== 6) {
-      notificationService.error("Please enter complete OTP");
+      notificationService.error("Please enter the complete 6-digit verification code sent to your email.", "Incomplete Verification Code");
       return;
     }
     
@@ -111,14 +112,14 @@ export function LoginPage() {
         setUser(mockUser);
         setIsAuthenticated(true);
         
-        notificationService.success(`Welcome back, ${mockUser.firstName}!`, "Login Successful");
+        notificationService.success(`Welcome back, ${mockUser.firstName}! You have been successfully signed in.`, "Sign In Successful");
         
         // Navigate to dashboard
         const from = location.state?.from?.pathname || "/dashboard";
         navigate(from, { replace: true });
       } catch (error) {
         console.error("OTP verification error:", error);
-        notificationService.error("OTP verification failed. Please try again.", "Authentication Error");
+        notificationService.error("The verification code you entered is incorrect or has expired. Please try again or request a new code.", "Verification Failed");
         setStep("otp");
       } finally {
         setLoading(false);
@@ -130,7 +131,7 @@ export function LoginPage() {
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      notificationService.error("Please enter both email and password");
+      notificationService.error("Please enter both your email address and password to continue.", "Missing Information");
       return;
     }
     
@@ -139,15 +140,19 @@ export function LoginPage() {
       const result = await login(email, password);
       
       if (result.success) {
-        // Success notification is already shown by UserService
-        const from = location.state?.from?.pathname || "/dashboard";
+        notificationService.success(`Welcome back, ${result.user.firstName}! You have been successfully signed in.`, "Sign In Successful");
+        // Admin redirects to user management, others to dashboard
+        const defaultPath = result.user.role === "ADMIN" ? "/user-management" : "/dashboard";
+        const from = location.state?.from?.pathname || defaultPath;
         navigate(from, { replace: true });
       } else {
-        // Error notification is already shown by UserService
-        console.log("Login failed:", result.message);
+        // Error message is already shown by UserService, no need to show again
+        console.log("Login unsuccessful:", result.message);
       }
     } catch (error) {
-      notificationService.error("Login failed. Please try again.", "Network Error");
+      // This catch block should rarely be reached as UserService handles most errors
+      console.error("Unexpected login error:", error);
+      notificationService.error("We encountered an unexpected issue while signing you in. Please try again or contact support if the problem continues.", "Sign In Error");
     } finally {
       setLoading(false);
     }
@@ -174,7 +179,7 @@ export function LoginPage() {
   };
 
   return (
-  <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-white transition-colors duration-300">
+  <div className="h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-white transition-colors duration-300 overflow-hidden">
       {/* --- Top Bar (edge-to-edge) --- */}
   <header className="w-full bg-[#003366] text-white dark:bg-gray-950 dark:text-white py-2 px-6 flex justify-between items-center text-sm transition-colors duration-300">
         <div className="flex items-center space-x-3">
@@ -251,26 +256,26 @@ export function LoginPage() {
         </div>
 
         {/* Right Login Section */}
-        <div id="main" className="flex-1 flex items-center justify-center p-8">
+        <div id="main" className="flex-1 flex items-start justify-center p-4 pt-16">
           <div className="w-full max-w-xl">
             {/* SSO Login Step */}
             {step === "sso" && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
-                <div className="text-center mb-8">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 transition-colors duration-300">
+                <div className="text-center mb-6">
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                    Login to your account with SSO
+                    Login to your account
                   </h1>
                 </div>
 
-                <form onSubmit={handleSSOLogin} className="space-y-6">
-                  <div>
+                <form onSubmit={handleSSOLogin} className="space-y-4">
+                  { <div>
                     <Label htmlFor="sso-email" className="text-sm font-medium text-gray-400">
                       Email Id* (SSO Disabled)
                     </Label>
                     <Input
                       id="sso-email"
                       type="email"
-                      value={email}
+                      value=""
                       placeholder="name@gov.in or name@nic.in"
                       className="mt-1 bg-gray-100 cursor-not-allowed"
                       disabled
@@ -280,7 +285,7 @@ export function LoginPage() {
                       <Info className="w-4 h-4 mr-1" />
                       SSO login is currently disabled. Please use manual login below.
                     </div>
-                  </div>
+                  </div> }
 
                   <Button
                     type="submit"
@@ -326,16 +331,30 @@ export function LoginPage() {
                       <Label htmlFor="manual-password" className="text-sm font-medium text-gray-700">
                         Password
                       </Label>
-                      <Input
-                        id="manual-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Password"
-                        required
-                        className="mt-1"
-                        disabled={loading}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="manual-password"
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Password"
+                          required
+                          className="mt-1 pr-10"
+                          disabled={loading}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                          disabled={loading}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     <Button
@@ -368,8 +387,8 @@ export function LoginPage() {
 
             {/* OTP Verification Step */}
             {step === "otp" && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
-                <div className="text-center mb-8">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 transition-colors duration-300">
+                <div className="text-center mb-6">
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     Verify your account
                   </h1>
@@ -381,7 +400,7 @@ export function LoginPage() {
                   </p>
                 </div>
 
-                <form onSubmit={handleOTPVerification} className="space-y-6">
+                <form onSubmit={handleOTPVerification} className="space-y-4">
                   <div>
                     <Label className="text-sm font-medium text-gray-700">
                       Enter OTP
@@ -466,7 +485,7 @@ export function LoginPage() {
 
             {/* Loading Step */}
             {step === "loading" && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 transition-colors duration-300">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 transition-colors duration-300">
                 <div className="text-center">
                   <h1 className="text-2xl font-bold text-gray-900 mb-4">
                     Please wait...
