@@ -503,7 +503,7 @@ export const PreviewPage = () => {
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end pt-6 border-t">
+      <div className="flex justify-end">
         <Button
           type="button"
           onClick={handleFinalSubmit}

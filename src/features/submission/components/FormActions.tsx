@@ -23,7 +23,7 @@ export const FormActions = ({
   isNextDisabled = false,
 }: FormActionsProps) => {
   return (
-    <div className="flex items-center justify-between pt-6 border-t">
+    <div className="flex items-center justify-between ">
       <div>
         {!isFirstStep && onPrevious && (
           <Button variant="outline" onClick={onPrevious}>
