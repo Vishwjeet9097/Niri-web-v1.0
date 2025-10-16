@@ -65,7 +65,7 @@ export function StateApproverDashboardPage() {
         // Fetch role-specific KPIs and submissions for State Approver
         const [kpiData, submittedToStateData] = await Promise.all([
           apiService.getRoleKPIs("STATE_APPROVER"),
-          apiService.getSubmissionsByRole("state_approver", 1, 100)
+          apiService.getSubmissions(1, 100)
         ]);
         
         // Use submissions data directly

@@ -20,7 +20,7 @@ export const MospiApproverDashboardPage = () => {
         setLoading(true);
   // TODO: Replace 'mospi_approver' with actual user role from auth context/store
   const userRole = "mospi_approver";
-  const submissionsData = await apiService.getSubmissionsByRole("mospi_approver", 1, 100);
+  const submissionsData = await apiService.getSubmissions(1, 100);
         
         // Handle different response structures
         let submissionsArray = [];

@@ -124,7 +124,7 @@ export function NodalDashboardPage() {
         const userRole = "nodal_officer";
         const [kpiData, submissionsData] = await Promise.all([
           apiService.getRoleKPIs("NODAL_OFFICER"),
-          apiService.getSubmissionsByRole("nodal_officer", 1, 20)
+          apiService.getSubmissions(1, 20)
         ]);
 
           // Transform KPIs data with fallback

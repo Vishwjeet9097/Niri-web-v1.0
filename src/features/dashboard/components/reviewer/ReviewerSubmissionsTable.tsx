@@ -20,7 +20,7 @@ export default function ReviewerSubmissionsTable() {
       try {
         setLoading(true);
         const userRole = user?.role || "MOSPI_REVIEWER";
-        const submissionsData = await apiService.getSubmissions(1, 20, userRole);
+        const submissionsData = await apiService.getSubmissions(1, 20);
         console.log("🔍 Reviewer - Received Submissions Data:", submissionsData);
         
         // Extract submissions array from response

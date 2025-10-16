@@ -503,47 +503,31 @@ class ApiService implements HttpClient {
     page: number;
     limit: number;
   }> {
-    // Get current user's role for automatic status filtering
-    const currentUserRole = UserService.getRole();
+    // Get all submissions without any role-based filtering
+    console.log("🔍 Getting all submissions without any filtering");
 
-    // If no statusOrRole provided, use current user's role for automatic filtering
-    if (!statusOrRole && currentUserRole) {
-      const roleToStatusMap: Record<string, string> = {
-        STATE_APPROVER:
-          "SUBMITTED_TO_STATE,RETURNED_FROM_MOSPI,REJECTED,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,APPROVED",
-        NODAL_OFFICER:
-          "DRAFT,REJECTED,APPROVED,SUBMITTED_TO_STATE,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,RETURNED_FROM_STATE,RETURNED_FROM_MOSPI",
-        MOSPI_REVIEWER:
-          "SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,REJECTED_FINAL,APPROVED,RETURNED_FROM_MOSPI",
-        MOSPI_APPROVER:
-          "SUBMITTED_TO_MOSPI_APPROVER,APPROVED,REJECTED_FINAL,RETURNED_FROM_MOSPI",
-      };
+    // If statusOrRole is provided and it's a specific status, filter by that status
+    // Otherwise, get all submissions
+    let url = `/submission?page=${page}&limit=${limit}`;
+    if (statusOrRole && statusOrRole !== "all") {
+      // Check if it's a known role, if so ignore it and get all submissions
+      const knownRoles = [
+        "state_approver",
+        "nodal_officer",
+        "mospi_reviewer",
+        "mospi_approver",
+        "STATE_APPROVER",
+        "NODAL_OFFICER",
+        "MOSPI_REVIEWER",
+        "MOSPI_APPROVER",
+      ];
 
-      const statusForRole = roleToStatusMap[currentUserRole];
-      if (statusForRole) {
-        console.log(
-          `🔍 Auto-filtering submissions for ${currentUserRole} with status: ${statusForRole}`
-        );
-        const url = `/submission?page=${page}&limit=${limit}&status=${statusForRole}`;
-        return this.getSubmissionsUrl(url, page, limit);
+      // Only add status filter if it's not a role
+      if (!knownRoles.includes(statusOrRole)) {
+        url += `&status=${statusOrRole}`;
       }
     }
 
-    // If statusOrRole matches a known role, use byRole; otherwise treat as status
-    const knownRoles = [
-      "state_approver",
-      "nodal_officer",
-      "mospi_reviewer",
-      "mospi_approver",
-    ];
-    if (statusOrRole && knownRoles.includes(statusOrRole.toLowerCase())) {
-      return this.getSubmissionsByRole(statusOrRole, page, limit);
-    }
-    // Otherwise, treat as status param
-    let url = `/submission?page=${page}&limit=${limit}`;
-    if (statusOrRole && statusOrRole !== "all") {
-      url += `&status=${statusOrRole}`;
-    }
     return this.getSubmissionsUrl(url, page, limit);
   }
 
