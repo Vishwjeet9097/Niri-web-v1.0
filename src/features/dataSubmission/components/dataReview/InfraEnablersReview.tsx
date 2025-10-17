@@ -18,9 +18,10 @@ import { useSectionMessages } from "../../hooks/useSectionMessages";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
+  formData?: any;
 }
 
-export const InfraEnablersReview = ({ submissionId }: InfraEnablersReviewProps) => {
+export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersReviewProps) => {
   const { saveMessage, getMessage } = useSectionMessages(submissionId);
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
@@ -72,25 +73,35 @@ export const InfraEnablersReview = ({ submissionId }: InfraEnablersReviewProps) 
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">All Eligible Infra Projects on NIP Portal?*</Label>
-              <RadioGroup defaultValue="yes">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="yes" id="nip-yes" />
-                  <Label htmlFor="nip-yes">Yes</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no" id="nip-no" />
-                  <Label htmlFor="nip-no">No</Label>
-                </div>
-              </RadioGroup>
+              <div className="flex items-center space-x-2">
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  formData?.section4_1?.allEligible === "yes" 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-red-100 text-red-800"
+                }`}>
+                  {formData?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <Label>Website Link</Label>
+              <Input value={formData?.section4_1?.websiteLink || ""} readOnly />
             </div>
 
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" className="gap-2 bg-blue-50">
-                <Upload className="w-4 h-4" />
-                Upload File
-              </Button>
-              <span className="text-sm">SelfCertification document.doc</span>
-              <span className="text-sm text-green-600">✓</span>
+              <div className="flex-1">
+                <Label>Uploaded File</Label>
+                {formData?.section4_1?.file ? (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">{formData.section4_1.file.fileName || "Self-certification document"}</span>
+                    <span className="text-sm text-green-600">✓</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No file uploaded</span>
+                )}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -99,25 +110,30 @@ export const InfraEnablersReview = ({ submissionId }: InfraEnablersReviewProps) 
 
             <div>
               <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
-              <RadioGroup defaultValue="yes">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="yes" id="ease-yes" />
-                  <Label htmlFor="ease-yes">Yes</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no" id="ease-no" />
-                  <Label htmlFor="ease-no">No</Label>
-                </div>
-              </RadioGroup>
+              <div className="flex items-center space-x-2">
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  formData?.section4_2?.available === "yes" 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-red-100 text-red-800"
+                }`}>
+                  {formData?.section4_2?.available === "yes" ? "Yes" : "No"}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" className="gap-2 bg-blue-50">
-                <Upload className="w-4 h-4" />
-                Upload File
-              </Button>
-              <span className="text-sm">Document.doc</span>
-              <span className="text-sm text-green-600">✓</span>
+              <div className="flex-1">
+                <Label>Uploaded File</Label>
+                {formData?.section4_2?.file ? (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">{formData.section4_2.file.fileName || "Evidence document"}</span>
+                    <span className="text-sm text-green-600">✓</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No file uploaded</span>
+                )}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -148,26 +164,32 @@ export const InfraEnablersReview = ({ submissionId }: InfraEnablersReviewProps) 
         <CardContent className="pt-6">
           <div className="space-y-4">
             <div>
-              <Label>Project Name</Label>
-              <Input placeholder="Enter project name" />
-            </div>
-            <div>
-              <Label>Sector</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sector" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="transport">Transport</SelectItem>
-                  <SelectItem value="energy">Energy</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="mb-3 block">Adoption of PM GatiShakti?*</Label>
+              <div className="flex items-center space-x-2">
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  formData?.section4_2?.adopted === "yes" 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-red-100 text-red-800"
+                }`}>
+                  {formData?.section4_2?.adopted === "yes" ? "Yes" : "No"}
+                </span>
+              </div>
             </div>
 
-            <Button variant="outline" size="sm" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add More
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <Label>Uploaded File</Label>
+                {formData?.section4_2?.file ? (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">{formData.section4_2.file.fileName || "PM GatiShakti document"}</span>
+                    <span className="text-sm text-green-600">✓</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No file uploaded</span>
+                )}
+              </div>
+            </div>
 
             <p className="text-xs text-muted-foreground">
               Upload GatiShakti evidence
@@ -222,31 +244,49 @@ export const InfraEnablersReview = ({ submissionId }: InfraEnablersReviewProps) 
         </CardHeader>
         <CardContent className="pt-6">
           <div className="space-y-4">
-            <div>
-              <Label>Practice Name</Label>
-              <Input placeholder="Practice Name" />
-            </div>
-            <div>
-              <Label>Impact</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Impact" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">High Impact</SelectItem>
-                  <SelectItem value="medium">Medium Impact</SelectItem>
-                  <SelectItem value="low">Low Impact</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" className="gap-2 bg-blue-50">
-                <Upload className="w-4 h-4" />
-                Upload File
-              </Button>
-              <span className="text-sm">No file chosen</span>
-            </div>
+            {formData?.section4_5 ? (
+              <div className="border rounded-lg p-4">
+                <div className="space-y-4">
+                  <div>
+                    <Label>Practice Name</Label>
+                    <Input value={formData.section4_5.practiceName || ""} readOnly />
+                  </div>
+                  <div>
+                    <Label>Impact</Label>
+                    <Input value={formData.section4_5.impact || ""} readOnly />
+                  </div>
+                  <div>
+                    <Label>Implemented</Label>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-3 py-1 rounded-full text-sm ${
+                        formData.section4_5.implemented === "yes" 
+                          ? "bg-green-100 text-green-800" 
+                          : "bg-red-100 text-red-800"
+                      }`}>
+                        {formData.section4_5.implemented === "yes" ? "Yes" : "No"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <Label>Uploaded File</Label>
+                      {formData.section4_5.file ? (
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                          <Upload className="w-4 h-4" />
+                          <span className="text-sm">{formData.section4_5.file.fileName || "Practice document"}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">No file uploaded</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-4">
+                No innovative practices data available
+              </div>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Upload RMB orders/Awards
@@ -284,66 +324,36 @@ export const InfraEnablersReview = ({ submissionId }: InfraEnablersReviewProps) 
         </CardHeader>
         <CardContent className="pt-6">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Label>Officer Name</Label>
-                <Input placeholder="Enter officer name" />
+            {formData?.section4_6?.map((item: any, index: number) => (
+              <div key={item.id || index} className="border rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label>Officer Name</Label>
+                    <Input value={item.officerName || ""} readOnly />
+                  </div>
+                  <div>
+                    <Label>Designation</Label>
+                    <Input value={item.designation || ""} readOnly />
+                  </div>
+                  <div>
+                    <Label>Program Name</Label>
+                    <Input value={item.programName || ""} readOnly />
+                  </div>
+                  <div>
+                    <Label>Organiser</Label>
+                    <Input value={item.organiser || ""} readOnly />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Label>Training Type</Label>
+                  <Input value={item.trainingType || ""} readOnly />
+                </div>
               </div>
-              <div>
-                <Label>Designation</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an Option" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="secretary">Secretary</SelectItem>
-                    <SelectItem value="officer">Officer</SelectItem>
-                  </SelectContent>
-                </Select>
+            )) || (
+              <div className="text-center text-muted-foreground py-4">
+                No capacity building data available
               </div>
-              <div>
-                <Label>Program Name</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an Option" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="program1">Program 1</SelectItem>
-                    <SelectItem value="program2">Program 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Organiser</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Asset ownership" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="org1">Organisation 1</SelectItem>
-                    <SelectItem value="org2">Organisation 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label>Training Type</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="online">Online</SelectItem>
-                  <SelectItem value="offline">Offline</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button variant="outline" size="sm" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add More Training
-            </Button>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Annex 11

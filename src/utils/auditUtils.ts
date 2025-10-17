@@ -418,6 +418,7 @@ export const isWaitingForCurrentUser = (
  * @param submission - Submission data object
  * @param currentUserRole - Current user's role
  * @returns waiting message string
+ * @deprecated Use getWaitingMessage from statusUtils instead
  */
 export const getWaitingMessage = (
   submission: any,
@@ -429,10 +430,13 @@ export const getWaitingMessage = (
 
   switch (currentUserRole) {
     case "NODAL_OFFICER":
-      if (status === "RETURNED_FROM_MOSPI") {
+      if (status === "RETURNED_FROM_STATE") {
         return "आपका submission State Approver से वापस आया है - कृपया revision करें";
       }
-      if (status === "RETURNED_FROM_MOSPI") {
+      if (
+        status === "RETURNED_FROM_MOSPI_REVIEWER" ||
+        status === "RETURNED_FROM_MOSPI_APPROVER"
+      ) {
         return "आपका submission MoSPI से वापस आया है - कृपया revision करें";
       }
       break;
@@ -491,8 +495,15 @@ export const canEditSubmission = (
 
   switch (userRole) {
     case "NODAL_OFFICER":
-      return submissionStatus === "DRAFT";
+      return (
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE"
+      );
     case "STATE_APPROVER":
+      return (
+        submissionStatus === "SUBMITTED_TO_STATE" ||
+        submissionStatus === "RETURNED_FROM_MOSPI"
+      );
     case "MOSPI_REVIEWER":
     case "MOSPI_APPROVER":
       return false; // These roles cannot edit submissions

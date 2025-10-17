@@ -41,7 +41,8 @@ export const FormActions = ({
           </Button>
         )}
         {onNext && (
-          <Button onClick={onNext} disabled={isNextDisabled}>
+          <Button onClick={onNext} disabled={false}>
+            {/* disabled={isNextDisabled} // Commented out validation */}
             {nextLabel}
             {!isLastStep && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>

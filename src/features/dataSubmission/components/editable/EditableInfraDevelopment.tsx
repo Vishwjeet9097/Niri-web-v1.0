@@ -29,6 +29,7 @@ import type { InfraDevelopmentData, FileUpload } from "@/features/submission/typ
 
 interface EditableInfraDevelopmentProps {
   submissionId: string;
+  submission?: any;
 }
 
 const defaultData: InfraDevelopmentData = {
@@ -39,22 +40,40 @@ const defaultData: InfraDevelopmentData = {
   section2_5: [],
 };
 
-export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopmentProps) => {
+export const EditableInfraDevelopment = ({ submissionId, submission }: EditableInfraDevelopmentProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
 
-  // Load data from localStorage or use defaults
-  const loadedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
-  const initialData: InfraDevelopmentData = {
+  // Get data from persistence hook (this will be the source of truth)
+  const persistedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
+  
+  console.log("🔍 EditableInfraDevelopment - persistedData:", persistedData);
+  
+  // Create form data by merging persisted data with defaults
+  const createFormData = (data: Partial<InfraDevelopmentData>): InfraDevelopmentData => ({
     ...defaultData,
-    ...loadedData,
-    section2_1: loadedData.section2_1 || [],
-    section2_2: loadedData.section2_2 || [],
-    section2_3: loadedData.section2_3 || [],
-    section2_4: loadedData.section2_4 || [],
-    section2_5: loadedData.section2_5 || [],
-  };
+    ...data,
+    section2_1: data.section2_1 || [],
+    section2_2: data.section2_2 || [],
+    section2_3: data.section2_3 || [],
+    section2_4: data.section2_4 || [],
+    section2_5: data.section2_5 || [],
+  });
 
-  const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
+  const [formData, setFormData] = useState<InfraDevelopmentData>(() => 
+    createFormData(persistedData)
+  );
+
+  // Sync with persisted data when it changes
+  useEffect(() => {
+    const currentPersistedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
+    const newFormData = createFormData(currentPersistedData);
+    
+    // Only update if data has actually changed
+    if (JSON.stringify(formData) !== JSON.stringify(newFormData)) {
+      console.log("🔄 Syncing form data with persisted data:", newFormData);
+      setFormData(newFormData);
+    }
+  }, [persistedData]); // Depend on persistedData from hook
 
   // Auto-save to localStorage on every change
   useEffect(() => {
@@ -176,7 +195,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.1 */}
         <SectionCard
           title="2.1 - Availability of Infrastructure Act/Policy"
-          subtitle="(10 marks per sector, min. 3 sectors)"
+          // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
             {formData.section2_1.map((entry, idx) => (
@@ -248,7 +267,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.2 */}
         <SectionCard
           title="2.2 - Availability of Specialized Entity"
-          subtitle="(10 marks per sector, min. 3 sectors)"
+          // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
             {formData.section2_2.map((entry, idx) => (
@@ -320,7 +339,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.3 */}
         <SectionCard
           title="2.3 - Availability of Sector Infra Development Plan"
-          subtitle="(10 marks per sector, min. 3 sectors)"
+          // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
             {formData.section2_3.map((entry, idx) => (
@@ -392,7 +411,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.4 */}
         <SectionCard
           title="2.4 - Projects with DPR/Feasibility Report"
-          subtitle="(10 marks per project)"
+          // subtitle="(10 marks per project)"
         >
           <div className="space-y-4">
             {formData.section2_4.map((project, index) => (
@@ -437,7 +456,7 @@ export const EditableInfraDevelopment = ({ submissionId }: EditableInfraDevelopm
         {/* Section 2.5 */}
         <SectionCard
           title="2.5 - Asset Monetization Portfolio"
-          subtitle="(10 marks per asset)"
+          // subtitle="(10 marks per asset)"
         >
           <div className="space-y-4">
             {formData.section2_5.map((asset, index) => (

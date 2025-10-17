@@ -20,29 +20,8 @@ export const API_ENDPOINTS = {
      * @param limit - page size (default 10)
      */
     byRole: (role: string, page = 1, limit = 10) => {
-      let status = "";
-      switch (role.toLowerCase()) {
-        case "state_approver":
-          status =
-            "SUBMITTED_TO_STATE,RETURNED_FROM_MOSPI,REJECTED,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,APPROVED";
-          break;
-        case "nodal_officer":
-          status =
-            "DRAFT,REJECTED_FINAL,REJECTED,APPROVED,SUBMITTED_TO_STATE,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,RETURNED_FROM_STATE"; // Nodal officers see their own drafts
-          break;
-        case "mospi_reviewer":
-          status =
-            "SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,REJECTED_FINAL,APPROVED";
-          break;
-        case "mospi_approver":
-          status = "SUBMITTED_TO_MOSPI_APPROVER,APPROVED,REJECTED_FINAL";
-          break;
-        default:
-          status = "";
-      }
-      let url = `${BASE}/submission?page=${page}&limit=${limit}`;
-      if (status) url += `&status=${status}`;
-      return url;
+      // Return all submissions without role-based filtering
+      return `${BASE}/submission?page=${page}&limit=${limit}`;
     },
     byId: (id: string) => `${BASE}/submission/${id}`,
     comment: (id: string) => `${BASE}/submission/${id}/comment`,

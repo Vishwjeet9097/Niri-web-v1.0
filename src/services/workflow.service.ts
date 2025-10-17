@@ -56,6 +56,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, WorkflowAction[]> = {
     WORKFLOW_ACTIONS.ADD_COMMENT,
   ],
   [USER_ROLES.STATE_APPROVER]: [
+    WORKFLOW_ACTIONS.EDIT,
+    WORKFLOW_ACTIONS.RESUBMIT,
     WORKFLOW_ACTIONS.FORWARD_TO_MOSPI,
     WORKFLOW_ACTIONS.STATE_REJECT,
     WORKFLOW_ACTIONS.ADD_COMMENT,
@@ -123,6 +125,24 @@ class WorkflowService {
     // Check state-specific permissions
     switch (action) {
       case WORKFLOW_ACTIONS.EDIT:
+        // NODAL_OFFICER can edit DRAFT or RETURNED_FROM_STATE
+        if (
+          (submission.status === WORKFLOW_STATES.DRAFT ||
+            submission.status === WORKFLOW_STATES.RETURNED_FROM_STATE) &&
+          userRole === USER_ROLES.NODAL_OFFICER
+        ) {
+          return true;
+        }
+        // STATE_APPROVER can edit SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+        if (
+          (submission.status === WORKFLOW_STATES.SUBMITTED_TO_STATE ||
+            submission.status === WORKFLOW_STATES.RETURNED_FROM_MOSPI) &&
+          userRole === USER_ROLES.STATE_APPROVER
+        ) {
+          return true;
+        }
+        return false;
+
       case WORKFLOW_ACTIONS.SUBMIT_TO_STATE:
         return (
           submission.status === WORKFLOW_STATES.DRAFT &&
@@ -432,10 +452,23 @@ class WorkflowService {
 
   // Check if submission can be edited
   canEdit(submission: NiriSubmission, userRole: UserRole): boolean {
-    return (
-      submission.status === WORKFLOW_STATES.DRAFT &&
+    // NODAL_OFFICER can edit DRAFT or RETURNED_FROM_STATE
+    if (
+      (submission.status === WORKFLOW_STATES.DRAFT ||
+        submission.status === WORKFLOW_STATES.RETURNED_FROM_STATE) &&
       userRole === USER_ROLES.NODAL_OFFICER
-    );
+    ) {
+      return true;
+    }
+    // STATE_APPROVER can edit SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+    if (
+      (submission.status === WORKFLOW_STATES.SUBMITTED_TO_STATE ||
+        submission.status === WORKFLOW_STATES.RETURNED_FROM_MOSPI) &&
+      userRole === USER_ROLES.STATE_APPROVER
+    ) {
+      return true;
+    }
+    return false;
   }
 
   // Check if submission is in final state

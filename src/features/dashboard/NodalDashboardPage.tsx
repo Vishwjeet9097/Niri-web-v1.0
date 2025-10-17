@@ -81,6 +81,32 @@ const handleEditSubmission = async (submissionId: string, navigate: any) => {
   }
 };
 
+// Helper function to handle edit submission for edit page
+const handleEditSubmissionForEdit = async (submissionId: string, navigate: any) => {
+  try {
+    console.log("🔍 Loading submission for edit page:", submissionId);
+    
+    // Navigate to edit page
+    navigate(`/data-submission/edit/${submissionId}`);
+    
+    notificationService.success(
+      "Opening edit page",
+      "Edit Mode",
+      {
+        details: {
+          submissionId,
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error("❌ Failed to open edit page:", error);
+    notificationService.error(
+      error.message || "Failed to open edit page",
+      "Error"
+    );
+  }
+};
+
 export function NodalDashboardPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
@@ -98,7 +124,7 @@ export function NodalDashboardPage() {
         const userRole = "nodal_officer";
         const [kpiData, submissionsData] = await Promise.all([
           apiService.getRoleKPIs("NODAL_OFFICER"),
-          apiService.getSubmissionsByRole("nodal_officer", 1, 20)
+          apiService.getSubmissions(1, 20)
         ]);
 
           // Transform KPIs data with fallback
@@ -167,9 +193,9 @@ export function NodalDashboardPage() {
         } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
           // Wrapped response with submissions property
           submissionsArray = submissionsData.submissions;
-        } else if (submissionsData?.data && Array.isArray(submissionsData.data)) {
-          // Wrapped response with data property
-          submissionsArray = submissionsData.data;
+        } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
+          // Wrapped response with data.submissions property
+          submissionsArray = (submissionsData as any).data.submissions;
         }
         
         console.log("🔍 Nodal Dashboard - Processed Submissions Array:", submissionsArray);
@@ -365,7 +391,7 @@ export function NodalDashboardPage() {
                         submission={submission.submission}
                         currentUserRole="NODAL_OFFICER"
                         submittedBy={submission.submittedBy}
-                        onEdit={() => handleEditSubmission(submission.id, navigate)}
+                        onEdit={() => handleEditSubmissionForEdit(submission.id, navigate)}
                         onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                         onRevise={() => handleEditSubmission(submission.id, navigate)}
                       />

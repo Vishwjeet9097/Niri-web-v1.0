@@ -18,9 +18,10 @@ import { useSectionMessages } from "../../hooks/useSectionMessages";
 
 interface PPPDevelopmentReviewProps {
   submissionId: string;
+  formData?: any;
 }
 
-export const PPPDevelopmentReview = ({ submissionId }: PPPDevelopmentReviewProps) => {
+export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentReviewProps) => {
   const { saveMessage, getMessage } = useSectionMessages(submissionId);
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
@@ -72,25 +73,30 @@ export const PPPDevelopmentReview = ({ submissionId }: PPPDevelopmentReviewProps
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
-              <RadioGroup defaultValue="yes">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="yes" id="ppp-yes" />
-                  <Label htmlFor="ppp-yes">Yes</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no" id="ppp-no" />
-                  <Label htmlFor="ppp-no">No</Label>
-                </div>
-              </RadioGroup>
+              <div className="flex items-center space-x-2">
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  formData?.section3_1?.available === "yes" 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-red-100 text-red-800"
+                }`}>
+                  {formData?.section3_1?.available === "yes" ? "Yes" : "No"}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" className="gap-2 bg-blue-50">
-                <Upload className="w-4 h-4" />
-                Upload File
-              </Button>
-              <span className="text-sm">ActPolicy document.pdf</span>
-              <span className="text-sm text-green-600">✓</span>
+              <div className="flex-1">
+                <Label>Uploaded File</Label>
+                {formData?.section3_1?.file ? (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">{formData.section3_1.file.fileName || "Act/Policy document"}</span>
+                    <span className="text-sm text-green-600">✓</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No file uploaded</span>
+                )}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -122,25 +128,30 @@ export const PPPDevelopmentReview = ({ submissionId }: PPPDevelopmentReviewProps
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">Functional State/UT PPP Cell/Unit*</Label>
-              <RadioGroup defaultValue="yes">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="yes" id="cell-yes" />
-                  <Label htmlFor="cell-yes">Yes</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no" id="cell-no" />
-                  <Label htmlFor="cell-no">No</Label>
-                </div>
-              </RadioGroup>
+              <div className="flex items-center space-x-2">
+                <span className={`px-3 py-1 rounded-full text-sm ${
+                  formData?.section3_2?.available === "yes" 
+                    ? "bg-green-100 text-green-800" 
+                    : "bg-red-100 text-red-800"
+                }`}>
+                  {formData?.section3_2?.available === "yes" ? "Yes" : "No"}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" className="gap-2 bg-blue-50">
-                <Upload className="w-4 h-4" />
-                Upload File
-              </Button>
-              <span className="text-sm">document.doc</span>
-              <span className="text-sm text-green-600">✓</span>
+              <div className="flex-1">
+                <Label>Uploaded File</Label>
+                {formData?.section3_2?.file ? (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">{formData.section3_2.file.fileName || "PPP Cell document"}</span>
+                    <span className="text-sm text-green-600">✓</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No file uploaded</span>
+                )}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -182,15 +193,30 @@ export const PPPDevelopmentReview = ({ submissionId }: PPPDevelopmentReviewProps
                   </tr>
                 </thead>
                 <tbody>
-                  {[1, 2, 3, 4].map((item) => (
-                    <tr key={item} className="border-b">
-                      <td className="py-3">Project ABC</td>
-                      <td className="py-3">XYZ Sector</td>
-                      <td className="py-3">XYZ Type</td>
-                      <td className="py-3">22-04-2025</td>
-                      <td className="py-3">PDF File.pdf</td>
+                  {formData?.section3_3?.map((item: any, index: number) => (
+                    <tr key={item.id || index} className="border-b">
+                      <td className="py-3">{item.projectName || ""}</td>
+                      <td className="py-3">{item.sector || ""}</td>
+                      <td className="py-3">{item.type || ""}</td>
+                      <td className="py-3">{item.submissionDate || ""}</td>
+                      <td className="py-3">
+                        {item.file ? (
+                          <div className="flex items-center gap-2">
+                            <Upload className="w-4 h-4" />
+                            <span className="text-sm">{item.file.fileName || "File"}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">No file</span>
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                  )) || (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                        No VGF/IIPDF proposals data available
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -226,39 +252,33 @@ export const PPPDevelopmentReview = ({ submissionId }: PPPDevelopmentReviewProps
             </div>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Name of PPP/Bankable Projects</Label>
-              <Input placeholder="Enter project name" />
-            </div>
-            <div>
-              <Label>Infrastructure Sector</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a sector" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="transport">Transport</SelectItem>
-                  <SelectItem value="energy">Energy</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>NIP ID</Label>
-              <Input placeholder="Enter NIP ID" />
-            </div>
-            <div>
-              <Label>Date of Award</Label>
-              <Input type="date" placeholder="DD-MM-YYYY" />
-            </div>
-            <div>
-              <Label>Funding Source (in case of bankable project)</Label>
-              <Input placeholder="Enter funding source name" />
-            </div>
-            <div>
-              <Label>% of Capex funded by non-Govt sources</Label>
-              <Input placeholder="Enter percentage" />
-            </div>
+          <div className="space-y-4">
+            {formData?.section3_4 ? (
+              <div className="border rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Total TPC of PPP Projects</Label>
+                    <Input value={formData.section3_4.totalTPC || ""} readOnly />
+                  </div>
+                  <div>
+                    <Label>Proportion</Label>
+                    <Input value={formData.section3_4.proportion ? `${formData.section3_4.proportion}%` : ""} readOnly />
+                  </div>
+                  <div>
+                    <Label>Marks Obtained</Label>
+                    <Input value={formData.section3_4.marksObtained ? `${formData.section3_4.marksObtained} marks` : ""} readOnly />
+                  </div>
+                  <div>
+                    <Label>TPC of PPP Projects</Label>
+                    <Input value={formData.section3_4.tpcOfPPPProjects || ""} readOnly />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-4">
+                No TPC of PPP Projects data available
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

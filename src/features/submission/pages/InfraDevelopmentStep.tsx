@@ -75,7 +75,25 @@ export const InfraDevelopmentStep = () => {
   const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Also check for editing submission data directly
+  // Sync with localStorage data when component mounts or data changes
+  useEffect(() => {
+    const currentStepData = getStepData("infraDevelopment") as Partial<InfraDevelopmentData>;
+    if (currentStepData && Object.keys(currentStepData).length > 0) {
+      const syncedData: InfraDevelopmentData = {
+        ...defaultData,
+        ...currentStepData,
+        section2_1: currentStepData.section2_1 || [],
+        section2_2: currentStepData.section2_2 || [],
+        section2_3: currentStepData.section2_3 || [],
+        section2_4: currentStepData.section2_4 || [],
+        section2_5: currentStepData.section2_5 || [],
+      };
+      setFormData(syncedData);
+      console.log("🔄 Synced infraDevelopment data from localStorage in normal flow:", syncedData);
+    }
+  }, [getStepData]);
+
+  // Initialize form data only once when component mounts
   useEffect(() => {
     const editingSubmission = localStorage.getItem("editing_submission");
     if (editingSubmission) {
@@ -105,7 +123,7 @@ export const InfraDevelopmentStep = () => {
         localStorage.removeItem("editing_submission");
       }
     }
-  }, []);
+  }, []); // Empty dependency array to run only once
 
   // Autosave to localStorage with debouncing (avoid infinite loop)
   useEffect(() => {

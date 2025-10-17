@@ -70,7 +70,24 @@ export const PPPDevelopmentStep = () => {
   const [formData, setFormData] = useState<PPPDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Also check for editing submission data directly
+  // Sync with localStorage data when component mounts or data changes
+  useEffect(() => {
+    const currentStepData = getStepData("pppDevelopment") as Partial<PPPDevelopmentData>;
+    if (currentStepData && Object.keys(currentStepData).length > 0) {
+      const syncedData: PPPDevelopmentData = {
+        ...defaultData,
+        ...currentStepData,
+        section3_1: { ...defaultData.section3_1, ...(currentStepData.section3_1 || {}) },
+        section3_2: { ...defaultData.section3_2, ...(currentStepData.section3_2 || {}) },
+        section3_3: currentStepData.section3_3 || [],
+        section3_4: { ...defaultData.section3_4, ...(currentStepData.section3_4 || {}) },
+      };
+      setFormData(syncedData);
+      console.log("🔄 Synced pppDevelopment data from localStorage in normal flow:", syncedData);
+    }
+  }, [getStepData]);
+
+  // Initialize form data only once when component mounts
   useEffect(() => {
     const editingSubmission = localStorage.getItem("editing_submission");
     if (editingSubmission) {
@@ -99,7 +116,7 @@ export const PPPDevelopmentStep = () => {
         localStorage.removeItem("editing_submission");
       }
     }
-  }, []);
+  }, []); // Empty dependency array to run only once
 
   // Autosave to localStorage with debouncing (avoid infinite loop)
   useEffect(() => {

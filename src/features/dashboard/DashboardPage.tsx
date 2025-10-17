@@ -44,7 +44,7 @@ export function DashboardPage() {
         const userRole = "nodal_officer";
         const [dashboardSummary, submissionsData] = await Promise.all([
           apiService.getDashboardSummary(),
-          apiService.getSubmissions(1, 10, userRole) // Always filtered by role
+          apiService.getSubmissions(1, 10) // Get all submissions
         ]);
 
         // Transform backend data to frontend format with fallback

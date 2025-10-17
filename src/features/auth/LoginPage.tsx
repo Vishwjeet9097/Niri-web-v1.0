@@ -260,14 +260,14 @@ export function LoginPage() {
           <div className="w-full max-w-xl">
             {/* SSO Login Step */}
             {step === "sso" && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 transition-colors duration-300">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-10  py-28 transition-colors duration-300">
                 <div className="text-center mb-6">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-10">
                     Login to your account
                   </h1>
                 </div>
 
-                <form onSubmit={handleSSOLogin} className="space-y-4">
+                {/* <form onSubmit={handleSSOLogin} className="space-y-4">
                   { <div>
                     <Label htmlFor="sso-email" className="text-sm font-medium text-gray-400">
                       Email Id* (SSO Disabled)
@@ -294,17 +294,17 @@ export function LoginPage() {
                   >
                     SSO Disabled
                   </Button>
-                </form>
+                </form> */}
 
                 <div className="mt-6">
-                  <div className="relative">
+                  {/* <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-gray-300" />
                     </div>
                     <div className="relative flex justify-center text-sm">
                       <span className="px-2 bg-white text-gray-500">Or</span>
                     </div>
-                  </div>
+                  </div> */}
 
                   <form onSubmit={handleManualLogin} className="mt-6 space-y-4">
                     <div>

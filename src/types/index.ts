@@ -86,7 +86,7 @@ export interface Submission {
 export interface ApiResponse<T = any> {
   data: T;
   message?: string;
-  success: boolean;
+  success?: boolean;
 }
 
 export interface User {
@@ -167,7 +167,7 @@ export interface Submission {
 export interface ApiResponse<T = any> {
   data: T;
   message?: string;
-  success: boolean;
+  success?: boolean;
 }
 
 export interface ApiError {

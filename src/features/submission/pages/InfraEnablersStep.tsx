@@ -83,7 +83,26 @@ export const InfraEnablersStep = () => {
   const [formData, setFormData] = useState<InfraEnablersData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Also check for editing submission data directly
+  // Sync with localStorage data when component mounts or data changes
+  useEffect(() => {
+    const currentStepData = getStepData("infraEnablers") as Partial<InfraEnablersData>;
+    if (currentStepData && Object.keys(currentStepData).length > 0) {
+      const syncedData: InfraEnablersData = {
+        ...defaultData,
+        ...currentStepData,
+        section4_1: { ...defaultData.section4_1, ...(currentStepData.section4_1 || {}) },
+        section4_2: { ...defaultData.section4_2, ...(currentStepData.section4_2 || {}) },
+        section4_3: { ...defaultData.section4_3, ...(currentStepData.section4_3 || {}) },
+        section4_4: { ...defaultData.section4_4, ...(currentStepData.section4_4 || {}) },
+        section4_5: { ...defaultData.section4_5, ...(currentStepData.section4_5 || {}) },
+        section4_6: Array.isArray(currentStepData.section4_6) ? currentStepData.section4_6 : [],
+      };
+      setFormData(syncedData);
+      console.log("🔄 Synced infraEnablers data from localStorage in normal flow:", syncedData);
+    }
+  }, [getStepData]);
+
+  // Initialize form data only once when component mounts
   useEffect(() => {
     const editingSubmission = localStorage.getItem("editing_submission");
     if (editingSubmission) {
@@ -114,7 +133,7 @@ export const InfraEnablersStep = () => {
         localStorage.removeItem("editing_submission");
       }
     }
-  }, []);
+  }, []); // Empty dependency array to run only once
 
   // Always load latest data from localStorage on mount
   useEffect(() => {

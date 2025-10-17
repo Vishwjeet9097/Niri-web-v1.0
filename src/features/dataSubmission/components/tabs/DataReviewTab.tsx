@@ -9,6 +9,7 @@ import { InfraEnablersReview } from "../dataReview/InfraEnablersReview";
 
 interface DataReviewTabProps {
   submissionId: string;
+  formData?: any;
 }
 
 const sections = [
@@ -18,19 +19,32 @@ const sections = [
   { id: "infra-enablers", label: "Infra Enablers", points: 250 },
 ];
 
-export const DataReviewTab = ({ submissionId }: DataReviewTabProps) => {
+export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) => {
   const [currentSection, setCurrentSection] = useState(0);
 
   const renderSectionContent = () => {
+    const sectionFormData = formData ? {
+      infraFinancing: formData.infraFinancing,
+      infraDevelopment: formData.infraDevelopment,
+      pppDevelopment: formData.pppDevelopment,
+      infraEnablers: formData.infraEnablers
+    } : {};
+
+    console.log("🔍 DataReviewTab Debug:", {
+      formData,
+      sectionFormData,
+      currentSection: sections[currentSection].id
+    });
+
     switch (sections[currentSection].id) {
       case "infra-financing":
-        return <InfraFinancingReview submissionId={submissionId} />;
+        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} />;
       case "infra-development":
-        return <InfraDevelopmentReview submissionId={submissionId} />;
+        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} />;
       case "ppp-development":
-        return <PPPDevelopmentReview submissionId={submissionId} />;
+        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} />;
       case "infra-enablers":
-        return <InfraEnablersReview submissionId={submissionId} />;
+        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} />;
       default:
         return null;
     }
@@ -70,11 +84,6 @@ export const DataReviewTab = ({ submissionId }: DataReviewTabProps) => {
         </div>
       </div>
 
-      {/* Pre-fill from Last FY Button */}
-      <Button variant="outline" className="gap-2">
-        <AlertCircle className="w-4 h-4" />
-        Pre-fill from Last FY
-      </Button>
 
       {/* Section Content */}
       {renderSectionContent()}

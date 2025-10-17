@@ -18,6 +18,96 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
     saveMessage("overview", message);
   };
 
+  // Count total documents from formData
+  const countTotalDocuments = () => {
+    let count = 0;
+    
+    if (!submission.formData) return count;
+
+    // Helper function to count files
+    const countFiles = (file: any) => {
+      if (file && file.fileName) count++;
+    };
+
+    const countFileArray = (files: any[]) => {
+      if (files && Array.isArray(files)) {
+        files.forEach(file => countFiles(file));
+      }
+    };
+
+    // Count from Infra Financing
+    if (submission.formData.infraFinancing?.section1_2?.file) {
+      countFiles(submission.formData.infraFinancing.section1_2.file);
+    }
+
+    // Count from Infra Development
+    if (submission.formData.infraDevelopment) {
+      // Section 2.1 files
+      if (submission.formData.infraDevelopment.section2_1) {
+        submission.formData.infraDevelopment.section2_1.forEach((item: any) => {
+          if (item.files) countFileArray(item.files);
+        });
+      }
+      // Section 2.2 files
+      if (submission.formData.infraDevelopment.section2_2) {
+        submission.formData.infraDevelopment.section2_2.forEach((item: any) => {
+          if (item.files) countFileArray(item.files);
+        });
+      }
+      // Section 2.3 files
+      if (submission.formData.infraDevelopment.section2_3) {
+        submission.formData.infraDevelopment.section2_3.forEach((item: any) => {
+          if (item.files) countFileArray(item.files);
+        });
+      }
+      // Section 2.4 files
+      if (submission.formData.infraDevelopment.section2_4) {
+        submission.formData.infraDevelopment.section2_4.forEach((item: any) => {
+          if (item.dprFile) countFiles(item.dprFile);
+        });
+      }
+    }
+
+    // Count from PPP Development
+    if (submission.formData.pppDevelopment) {
+      if (submission.formData.pppDevelopment.section3_1?.file) {
+        countFiles(submission.formData.pppDevelopment.section3_1.file);
+      }
+      if (submission.formData.pppDevelopment.section3_2?.file) {
+        countFiles(submission.formData.pppDevelopment.section3_2.file);
+      }
+      if (submission.formData.pppDevelopment.section3_3) {
+        submission.formData.pppDevelopment.section3_3.forEach((item: any) => {
+          if (item.file) countFiles(item.file);
+        });
+      }
+    }
+
+    // Count from Infra Enablers
+    if (submission.formData.infraEnablers) {
+      if (submission.formData.infraEnablers.section4_2?.file) {
+        countFiles(submission.formData.infraEnablers.section4_2.file);
+      }
+      if (submission.formData.infraEnablers.section4_4?.file) {
+        countFiles(submission.formData.infraEnablers.section4_4.file);
+      }
+    }
+
+    return count;
+  };
+
+  const totalDocuments = countTotalDocuments();
+
+  // Count review comments
+  const countReviewComments = () => {
+    if (!submission.reviewComments || !Array.isArray(submission.reviewComments)) {
+      return 0;
+    }
+    return submission.reviewComments.length;
+  };
+
+  const reviewCommentsCount = countReviewComments();
+
   return (
     <div className="space-y-6">
       {/* Three Column Layout */}
@@ -131,11 +221,11 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 text-center">
             <div className="text-4xl font-bold text-blue-600 mb-2">
-              {submission.summary?.totalDocuments || 0}
+              {totalDocuments}
             </div>
             <p className="text-sm text-muted-foreground">Total Documents</p>
           </CardContent>
@@ -143,7 +233,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
         <Card>
           <CardContent className="pt-6 text-center">
             <div className="text-4xl font-bold text-green-600 mb-2">
-              {submission.summary?.reviewed || 0}
+              {reviewCommentsCount}
             </div>
             <p className="text-sm text-muted-foreground">Reviewed</p>
           </CardContent>
@@ -154,14 +244,6 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
               {submission.summary?.daysPending || 0}
             </div>
             <p className="text-sm text-muted-foreground">Days Pending</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-4xl font-bold text-purple-600 mb-2">
-              {submission.summary?.checklistCompleted || 0}
-            </div>
-            <p className="text-sm text-muted-foreground">Checklist Completed</p>
           </CardContent>
         </Card>
       </div>
