@@ -456,9 +456,9 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div>
-            <Label className="flex items-center gap-2">
-              % Allocation to GSDP*
-              <Info className="h-4 w-4 text-gray-500" />
+            <Label className=" ">
+              % Allocation to GSDP<span className="text-red-500">*</span>
+              <Info className="h-4 w-4 text-gray-500 ml-2" />
             </Label>
             <Input
               placeholder="Auto-calculated"
@@ -507,7 +507,7 @@ export const InfraFinancingStep = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label>A₁ - Actual Capex (INR)*</Label>
+            <Label>A₁ - Actual Capex (INR)<span className="text-red-500">*</span></Label>
             <Input
               placeholder="₹2,15,400 Crores"
               value={formData.section1_2.actualCapex}

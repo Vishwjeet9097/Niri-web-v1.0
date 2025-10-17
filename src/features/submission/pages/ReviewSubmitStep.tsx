@@ -222,11 +222,11 @@ export const ReviewSubmitStep = () => {
         </div>
       </SectionCard>
 
-      <Alert className="mb-6 border-blue-200 bg-blue-50/50">
+      {/* <Alert className="mb-6 border-blue-200 bg-blue-50/50">
         <AlertDescription className="text-sm">
           <strong className="font-semibold">Important:</strong> After submission, your data will go through a multi-tier approval process. You will receive notifications at each stage and can track progress in your dashboard.
         </AlertDescription>
-      </Alert>
+      </Alert> */}
       <div className="mb-6 bg-[#1E40AF14] p-6 rounded-lg border border-[#1E40AF52]">
         <div className="flex items-start gap-4 ">
           <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0">
