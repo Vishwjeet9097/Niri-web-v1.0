@@ -67,12 +67,13 @@ export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) =>
       </div>
 
       {/* Section Header */}
-      <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="flex flex-col items-center gap-8 self-stretch rounded-lg border border-[#DDD] bg-white p-5 mb-6">
+        <div className="flex items-start justify-between w-full">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">
+          <h3 className="text-[18px] font-semibold text-[#212121]">
             {sections[currentSection].label} | {sections[currentSection].points} Points
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-[#727272] mt-1">
             Data related to {sections[currentSection].label.toLowerCase()} and budget allocation
           </p>
         </div>
@@ -81,6 +82,7 @@ export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) =>
             5/5 completed
           </Badge>
           <p className="text-xs text-muted-foreground mt-1">100% Progress</p>
+        </div>
         </div>
       </div>
 

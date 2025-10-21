@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, User, MessageSquare, CheckCircle, XCircle, Send, ArrowRight } from "lucide-react";
 import { getRoleDisplayName, getPillColorClass } from "@/utils/auditUtils";
+import { SectionCard } from "@/features/submission/components/SectionCard";
 
 export interface AuditEntry {
   id: string;
@@ -62,107 +63,128 @@ export const AuditLog: React.FC<AuditLogProps> = ({ entries, className = "" }) =
 
   if (entries.length === 0) {
     return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Audit Log</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <p>No audit entries available</p>
-          </div>
-        </CardContent>
-      </Card>
+      <SectionCard
+        title={<div className="flex flex-col relative">
+          <span className="text-base font-semibold ">
+            <span className="text-primary"></span> Audit Log
+          </span>
+
+        </div>}
+        subtitle="Data related to infrastructure financing and budget allocation"
+        className="mb-6"
+      >
+        
+            <div className="text-center py-8 text-muted-foreground">
+              <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p>No audit entries available</p>
+            </div>
+          
+      </SectionCard>
     );
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold">Audit Log</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Complete history of submission actions and comments
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {entries.map((entry, index) => {
-            const { date, time } = formatTimestamp(entry.timestamp);
-            const isLast = index === entries.length - 1;
+    <SectionCard
+      title={<div className="flex flex-col relative">
+        <span className="text-base font-semibold ">
+          <span className="text-primary"></span> Audit Log
+        </span>
+        {/* <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center justify-between absolute right-0 -top-[6px]"
+            onClick={() => setMessageModalOpen(true)}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Add Comment
+          </Button> */}
+      </div>}
+      subtitle="Complete history of submission actions and comments"
+      className={`mb-6 ${className}`}
+    >
+        {/* <CardHeader>
+          <CardTitle className="text-lg font-semibold">Audit Log</CardTitle>
+          <p className="text-sm text-muted-foreground">
+           
+          </p>
+        </CardHeader> */}
+          <div className="space-y-4">
+            {entries.map((entry, index) => {
+              const { date, time } = formatTimestamp(entry.timestamp);
+              const isLast = index === entries.length - 1;
 
-            return (
-              <div key={entry.id} className="relative">
-                {/* Timeline line */}
-                {!isLast && (
-                  <div className="absolute left-4 top-8 w-0.5 h-full bg-gray-200" />
-                )}
+              return (
+                <div key={entry.id} className="relative">
+                  {/* Timeline line */}
+                  {!isLast && (
+                    <div className="absolute left-4 top-8 w-0.5 h-full bg-gray-200" />
+                  )}
 
-                <div className="flex items-start space-x-4">
-                  {/* Icon */}
-                  <div className="flex-shrink-0 w-8 h-8 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center">
-                    {getActionIcon(entry.action)}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant="outline"
-                          className={getActionColor(entry.action, entry.status)}
-                        >
-                          {entry.action}
-                        </Badge>
-                        {entry.status && (
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs ${getPillColorClass(entry.action, entry.status)}`}
-                          >
-                            {entry.status}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {date} at {time}
-                      </div>
+                  <div className="flex items-start space-x-4">
+                    {/* Icon */}
+                    <div className="flex-shrink-0 w-8 h-8 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center">
+                      {getActionIcon(entry.action)}
                     </div>
 
-                    <div className="mt-2">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <User className="w-4 h-4 text-gray-500" />
-                        <span className="font-medium">{entry.actor}</span>
-                        <span className="text-muted-foreground">
-                          ({getRoleDisplayName(entry.actorRole)})
-                        </span>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant="outline"
+                            className={getActionColor(entry.action, entry.status)}
+                          >
+                            {entry.action}
+                          </Badge>
+                          {entry.status && (
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${getPillColorClass(entry.action, entry.status)}`}
+                            >
+                              {entry.status}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {date} at {time}
+                        </div>
                       </div>
 
-                      {entry.comment && (
-                        <div className="mt-2 p-3 bg-gray-50 rounded-lg border">
-                          <div className="flex items-start space-x-2">
-                            <MessageSquare className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-sm text-gray-700">
-                                {entry.comment}
-                              </p>
+                      <div className="mt-2">
+                        <div className="flex items-center space-x-2 text-sm">
+                          <User className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium">{entry.actor}</span>
+                          <span className="text-muted-foreground">
+                            ({getRoleDisplayName(entry.actorRole)})
+                          </span>
+                        </div>
+
+                        {entry.comment && (
+                          <div className="mt-2 p-3 bg-gray-50 rounded-lg border">
+                            <div className="flex items-start space-x-2">
+                              <MessageSquare className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-sm text-gray-700">
+                                  {entry.comment}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {entry.details && (
-                        <div className="mt-2 text-sm text-muted-foreground">
-                          {entry.details}
-                        </div>
-                      )}
+                        {entry.details && (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            {entry.details}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+              );
+            })}
+          </div>
+    </SectionCard>
   );
 };
 

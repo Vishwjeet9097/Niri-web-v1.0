@@ -314,10 +314,10 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4 border border-[#ddd] bg-[#fff] rounded-lg p-6">
+          <div className="flex items-center justify-between mb-6 border border-[#ddd] bg-[#fff] rounded-lg p-6">
             <div className="">
               <Button
                 variant="outline"
