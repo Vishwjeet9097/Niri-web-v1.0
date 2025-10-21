@@ -10,6 +10,7 @@ import { InfraEnablersReview } from "../dataReview/InfraEnablersReview";
 interface DataReviewTabProps {
   submissionId: string;
   formData?: any;
+  submission?: any; // Complete submission object
 }
 
 const sections = [
@@ -19,7 +20,7 @@ const sections = [
   { id: "infra-enablers", label: "Infra Enablers", points: 250 },
 ];
 
-export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) => {
+export const DataReviewTab = ({ submissionId, formData, submission }: DataReviewTabProps) => {
   const [currentSection, setCurrentSection] = useState(0);
 
   const renderSectionContent = () => {
@@ -38,13 +39,13 @@ export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) =>
 
     switch (sections[currentSection].id) {
       case "infra-financing":
-        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} />;
+        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} />;
       case "infra-development":
-        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} />;
+        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} />;
       case "ppp-development":
-        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} />;
+        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} />;
       case "infra-enablers":
-        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} />;
+        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} />;
       default:
         return null;
     }

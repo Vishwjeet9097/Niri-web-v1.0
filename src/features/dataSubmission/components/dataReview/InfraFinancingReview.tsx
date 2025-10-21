@@ -2,33 +2,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Plus, Trash2 } from "lucide-react";
+import { MessageSquare, Plus, Trash2, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { MessageModal } from "../modals/MessageModal";
+import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 
 interface InfraFinancingReviewProps {
   submissionId: string;
-  formData?: any;
+  formData?: unknown;
+  submission?: unknown; // Complete submission object
 }
 
-export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingReviewProps) => {
-  const { saveMessage, getMessage } = useSectionMessages(submissionId);
+export const InfraFinancingReview = ({ submissionId, formData, submission }: InfraFinancingReviewProps) => {
+  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+  const [submissionData, setSubmissionData] = useState(formData);
 
   // State for real-time calculation
   const [capitalAllocation, setCapitalAllocation] = useState('');
   const [gsdpForFY, setGsdpForFY] = useState('');
 
-  // Initialize values from formData when available
+  // Initialize values from formData when availableimage.png
   useEffect(() => {
     console.log("🔍 useEffect - formData structure:", formData);
-    if (formData?.section1_1) {
-      console.log("🔍 Found section1_1 data:", formData.section1_1);
-      setCapitalAllocation(formData.section1_1.capitalAllocation || '');
-      setGsdpForFY(formData.section1_1.gsdpForFY || '');
+    if (formData && typeof formData === 'object' && 'section1_1' in formData) {
+      const data = formData as { section1_1?: { capitalAllocation?: string; gsdpForFY?: string } };
+      console.log("🔍 Found section1_1 data:", data.section1_1);
+      setCapitalAllocation(data.section1_1?.capitalAllocation || '');
+      setGsdpForFY(data.section1_1?.gsdpForFY || '');
     } else {
       console.log("🔍 No section1_1 found in formData");
     }
@@ -36,7 +41,10 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
 
   // Debug formData structure
   console.log("🔍 InfraFinancingReview - Full formData:", formData);
-  console.log("🔍 InfraFinancingReview - section1_1:", formData?.section1_1);
+  if (formData && typeof formData === 'object' && 'section1_1' in formData) {
+    const data = formData as { section1_1?: unknown };
+    console.log("🔍 InfraFinancingReview - section1_1:", data.section1_1);
+  }
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -46,9 +54,24 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
     setActiveSection(null);
   };
 
-  const handleSaveMessage = (message: string) => {
+  const handleOpenTimeline = (sectionId: string) => {
+    setTimelineSection(sectionId);
+  };
+
+  const handleCloseTimeline = () => {
+    setTimelineSection(null);
+  };
+
+  const handleSaveMessage = async (message: string) => {
     if (activeSection) {
-      saveMessage(activeSection, message);
+      try {
+        const updatedSubmission = await saveMessage(activeSection, message);
+        if (updatedSubmission) {
+          setSubmissionData(updatedSubmission);
+        }
+      } catch (error) {
+        console.error("Error saving message:", error);
+      }
     }
   };
 
@@ -61,6 +84,47 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
       "1.5": "1.5 - Functional Financial Intermediary",
     };
     return titles[sectionId] || sectionId;
+  };
+
+  const getFormDataValue = (path: string) => {
+    if (!formData || typeof formData !== 'object') return undefined;
+    const data = formData as Record<string, unknown>;
+    return data[path];
+  };
+
+
+  const renderActionButtons = (sectionId: string) => {
+    const comments = getComments(sectionId);
+    const commentCount = comments ? comments.length : 0;
+    
+    console.log(`🔍 renderActionButtons for ${sectionId}:`, {
+      comments,
+      commentCount,
+      sectionId
+    });
+
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenModal(sectionId)}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Add Comment
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
+        </Button>
+      </div>
+    );
   };
 
   // Real-time calculation for % Allocation to GSDP
@@ -92,19 +156,13 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
       <div className="space-y-6">
         {/* Section 1.1 */}
         <SectionCard
-          title={<div className="flex relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("1.1")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
+          title={<div className="flex flex-col relative">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
+              </span>
+              {renderActionButtons("1.1")}
+            </div>
           </div>}
           subtitle="Annex 1: Verified with NBRP.csv / Budgeted Estimates for Capital Expenditure"
           className="mb-6 relative"
@@ -133,7 +191,9 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
           <div className="grid grid-cols-2 gap-4 max-w-[70%]">
             <div>
               <Label>Year</Label>
-              <Input value={formData?.section1_1?.year || "2024-25"} readOnly />
+              <Input value={
+                (getFormDataValue('section1_1') as { year?: string })?.year || "2024-25"
+              } readOnly />
             </div>
             <div>
               <Label>Capital Allocation for FY (INR)</Label>
@@ -186,23 +246,18 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
             </div>
           </div>
 
+
         </SectionCard>
 
         {/* Section 1.2 7 */}
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.2 -</span> % Capex Utilisation{" "}
-            </span>
-            <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center justify-between absolute right-0 -top-[6px]"
-                onClick={() => handleOpenModal("1.2")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">1.2 -</span> % Capex Utilisation{" "}
+              </span>
+              {renderActionButtons("1.2")}
+            </div>
           </div>}
           subtitle="Annex 2: Verified with Actuals data"
           className="mb-6"
@@ -240,23 +295,18 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
                 />
               </div>
             </div>
+
         </SectionCard>
 
         {/* Section 1.3 */}
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
-            </span>
-            <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center justify-between absolute right-0 -top-[6px]"
-                onClick={() => handleOpenModal("1.3")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
+              </span>
+              {renderActionButtons("1.3")}
+            </div>
           </div>}
           subtitle="Annex 3: Verified with Muni.GOI"
           className="mb-6"
@@ -288,24 +338,19 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
                     No ULB data available
                   </div>
                 )}
+
             </div>
         </SectionCard>
 
         {/* Section 1.4 */}
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.4 -</span> % of ULBs Issuing Bonds{" "}
-            </span>
-            <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center justify-between absolute right-0 -top-[6px]"
-                onClick={() => handleOpenModal("1.4")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">1.4 -</span> % of ULBs Issuing Bonds{" "}
+              </span>
+              {renderActionButtons("1.4")}
+            </div>
           </div>}
           subtitle="Annex 4: Provide Bond Details"
           className="mb-6"
@@ -356,24 +401,19 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
                     No bond data available
                   </div>
                 )}
+
             </div>
         </SectionCard>
 
         {/* Section 1.5 */}
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
-            </span>
-            <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center justify-between absolute right-0 -top-[6px]"
-                onClick={() => handleOpenModal("1.5")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
+              </span>
+              {renderActionButtons("1.5")}
+            </div>
           </div>}
           subtitle="Annex 4: Provide link and funding details"
           className="mb-6"
@@ -410,6 +450,7 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
                     No financial intermediary data available
                   </div>
                 )}
+
             </div>
         </SectionCard>
       </div>
@@ -419,7 +460,18 @@ export const InfraFinancingReview = ({ submissionId, formData }: InfraFinancingR
         onClose={handleCloseModal}
         onSave={handleSaveMessage}
         sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
+        sectionId={activeSection || ""}
+        submissionId={submissionId}
         existingMessage={activeSection ? getMessage(activeSection) : ""}
+      />
+
+      <TimelineModal
+        isOpen={timelineSection !== null}
+        onClose={handleCloseTimeline}
+        sectionId={timelineSection || ""}
+        sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
+        comments={getAllComments()}
+        key={`timeline-${timelineSection}-${getAllComments().length}`} // Force re-render when comments change
       />
     </>
   );

@@ -676,12 +676,14 @@ class ApiService implements HttpClient {
   async addComment(
     id: string,
     text: string,
-    type: "comment" | "rejection" | "approval" = "comment"
-  ): Promise<ReviewComment> {
+    sectionId: string,
+    type: "indicator_comment" | "rejection" | "approval" = "indicator_comment"
+  ): Promise<NiriSubmission> {
     try {
       const response = await this.axios.post(`/submission/${id}/comment`, {
         text,
         type,
+        sectionId,
       });
       console.log(
         "🔍 API Service - Add Comment Response Status:",
@@ -690,11 +692,14 @@ class ApiService implements HttpClient {
       console.log("🔍 API Service - Add Comment Response Data:", response.data);
 
       // Handle response.data.data pattern
-      const commentData =
+      const submissionData =
         response.data?.data !== undefined ? response.data.data : response.data;
-      console.log("🔍 API Service - Processed Add Comment Data:", commentData);
+      console.log(
+        "🔍 API Service - Processed Add Comment Data:",
+        submissionData
+      );
 
-      return commentData;
+      return submissionData;
     } catch (error: any) {
       // Handle 304 as success
       if (error.response?.status === 304) {

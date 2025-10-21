@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Upload, Plus, Trash2 } from "lucide-react";
+import { MessageSquare, Upload, Plus, Trash2, Clock } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -14,18 +14,22 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { MessageModal } from "../modals/MessageModal";
+import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
-  formData?: any;
+  formData?: unknown;
+  submission?: unknown; // Complete submission object
 }
 
-export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersReviewProps) => {
-  const { saveMessage, getMessage } = useSectionMessages(submissionId);
+export const InfraEnablersReview = ({ submissionId, formData, submission }: InfraEnablersReviewProps) => {
+  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+  const [submissionData, setSubmissionData] = useState(formData);
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -35,20 +39,66 @@ export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersRev
     setActiveSection(null);
   };
 
-  const handleSaveMessage = (message: string) => {
+  const handleOpenTimeline = (sectionId: string) => {
+    setTimelineSection(sectionId);
+  };
+
+  const handleCloseTimeline = () => {
+    setTimelineSection(null);
+  };
+
+  const handleSaveMessage = async (message: string) => {
     if (activeSection) {
-      saveMessage(activeSection, message);
+      try {
+        const updatedSubmission = await saveMessage(activeSection, message);
+        if (updatedSubmission) {
+          setSubmissionData(updatedSubmission);
+        }
+      } catch (error) {
+        console.error("Error saving message:", error);
+      }
     }
   };
 
   const getSectionTitle = (sectionId: string) => {
     const titles: Record<string, string> = {
-      "4.1": "4.1 - Eligible Infrastructure Projects",
-      "4.2": "4.2 - Adoption of PM GatiShakti",
-      "4.3": "4.3 - Innovative Practices",
-      "4.4": "4.4 - Capacity Building - Officer Participation",
+      "4.1": "4.1 - All Eligible Infra Projects on NIP Portal",
+      "4.2": "4.2 - Availability & Use of State/UT PMG",
+      "4.3": "4.3 - Adoption of PM GatiShakti",
+      "4.4": "4.4 - Adoption of ADR",
+      "4.5": "4.5 - Innovative Practices",
+      "4.6": "4.6 - Capacity Building - Officer Participation",
     };
     return titles[sectionId] || sectionId;
+  };
+
+
+  const renderActionButtons = (sectionId: string) => {
+    const comments = getComments(sectionId);
+    const commentCount = comments ? comments.length : 0;
+
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenModal(sectionId)}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Add Comment
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
+        </Button>
+      </div>
+    );
   };
   return (
     <>
@@ -56,18 +106,12 @@ export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersRev
         {/* Section 4.1 */}
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">4.1 -</span> Eligible Infrastructure Projects{" "}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("4.1")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.1 -</span> Eligible Infrastructure Projects{" "}
+              </span>
+              {renderActionButtons("4.1")}
+            </div>
           </div>}
           subtitle=""
           className="mb-6"
@@ -155,24 +199,19 @@ export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersRev
             <p className="text-xs text-muted-foreground">
               Upload Evidence/Certificate/File
             </p>
-          </div>
+            </div>
+
         </SectionCard>
 
         {/* Section 4.2 */}
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">4.2 -</span> Adoption of PM GatiShakti <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("4.2")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.2 -</span> Adoption of PM GatiShakti <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
+              </span>
+              {renderActionButtons("4.2")}
+            </div>
           </div>}
           subtitle=""
           className="mb-6"
@@ -250,24 +289,19 @@ export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersRev
             <p className="text-xs text-muted-foreground">
               Upload ADR orders/notification
             </p>
-          </div>
+            </div>
+
         </SectionCard>
 
         {/* Section 4.3 */}
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">4.3 -</span>Innovative Practices <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per practice)</span>{" "}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("4.3")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.3 -</span>Innovative Practices <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per practice)</span>{" "}
+              </span>
+              {renderActionButtons("4.3")}
+            </div>
           </div>}
           subtitle=""
           className="mb-6"
@@ -346,24 +380,19 @@ export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersRev
             <p className="text-xs text-muted-foreground">
               Annex 10
             </p>
-          </div>
+            </div>
+
         </SectionCard>
 
         {/* Section 4.4 */}
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">4.4 -</span>Capacity Building - Officer Participation <span className="font-normal text-xs text-muted-foreground ml-1">(1 marks per officer)</span>{" "}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("4.4")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.4 -</span>Capacity Building - Officer Participation <span className="font-normal text-xs text-muted-foreground ml-1">(1 marks per officer)</span>{" "}
+              </span>
+              {renderActionButtons("4.4")}
+            </div>
           </div>}
           subtitle=""
           className="mb-6"
@@ -420,7 +449,56 @@ export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersRev
               <p className="text-xs text-muted-foreground">
                 Annex 11
               </p>
+
             </div>
+          </CardContent>
+        </SectionCard>
+
+        {/* Section 4.5 */}
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.5 -</span> Innovative Practices{" "}
+              </span>
+              {renderActionButtons("4.5")}
+            </div>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground py-4">
+              No innovative practices data available
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Upload evidence of innovative practices
+            </p>
+
+          </CardContent>
+        </SectionCard>
+
+        {/* Section 4.6 */}
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.6 -</span> Capacity Building - Officer Participation{" "}
+              </span>
+              {renderActionButtons("4.6")}
+            </div>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground py-4">
+              No capacity building data available
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Upload capacity building participation data
+            </p>
+
           </CardContent>
         </SectionCard>
       </div>
@@ -430,7 +508,18 @@ export const InfraEnablersReview = ({ submissionId, formData }: InfraEnablersRev
         onClose={handleCloseModal}
         onSave={handleSaveMessage}
         sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
+        sectionId={activeSection || ""}
+        submissionId={submissionId}
         existingMessage={activeSection ? getMessage(activeSection) : ""}
+      />
+
+      <TimelineModal
+        isOpen={timelineSection !== null}
+        onClose={handleCloseTimeline}
+        sectionId={timelineSection || ""}
+        sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
+        comments={getAllComments()}
+        key={`timeline-${timelineSection}-${getAllComments().length}`} // Force re-render when comments change
       />
     </>
   );
