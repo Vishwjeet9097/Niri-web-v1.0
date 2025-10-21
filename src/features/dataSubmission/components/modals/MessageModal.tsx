@@ -65,6 +65,9 @@ export const MessageModal = ({
         description: "Comment added successfully",
       });
       
+      // Clear the input field after successful save
+      setMessage("");
+      
       onSave(updatedSubmission);
       onClose();
     } catch (error: unknown) {
