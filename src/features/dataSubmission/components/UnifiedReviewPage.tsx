@@ -192,7 +192,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
             <Button
               onClick={onFinalSubmit}
               disabled={isSubmitting}
-              className="gap-2 bg-green-600 hover:bg-green-700"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
             >
               <CheckCircle className="w-4 h-4" />
               {isSubmitting ? "Submitting..." : (actualEditMode ? "Resubmit" : isResubmit ? "Resubmit" : "Submit")}
@@ -317,21 +317,21 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between mb-4 border border-[#ddd] bg-[#fff] rounded-lg p-6">
+            <div className="">
               <Button
                 variant="outline"
                 onClick={() => navigate(-1)}
-                className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-800 transition-colors"
+                className="gap-2 flex items-center border-none bg-[none] px-0 text-primary hover:bg-[none] mb-4"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-lg font-semibold text-[#212121]">
                   {isPreview ? "Preview Submission" : "Review Submission"}
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-[#727272]">
                   {submission.submissionId} • {submission.stateUt}
                 </p>
               </div>
@@ -348,24 +348,24 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
           </div>
 
           {/* Submission Info */}
-          <div className="bg-white rounded-lg border p-4 mb-6">
+          <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Submitted By</p>
-                <p className="font-medium">
+                <p className="text-sm font-semibold text-[#212121]">Submitted By</p>
+                <p className="text-[#727272] text-sm">
                   {submission.user.firstName} {submission.user.lastName}
                 </p>
-                <p className="text-sm text-gray-500">{submission.user.email}</p>
+                <p className="text-sm text-[#727272]">{submission.user.email}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Submission Date</p>
-                <p className="font-medium">
+                <p className="text-sm font-semibold text-[#212121]">Submission Date</p>
+                <p className="text-[#727272] text-sm">
                   {new Date(submission.createdAt).toLocaleDateString()}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Current Owner</p>
-                <p className="font-medium">{submission.currentOwnerRole.replace(/_/g, " ")}</p>
+                <p className="text-sm font-semibold text-[#212121]">Current Owner</p>
+                <p className="text-[#727272] text-sm">{submission.currentOwnerRole.replace(/_/g, " ")}</p>
               </div>
             </div>
           </div>
@@ -392,7 +392,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className={`grid w-full mb-6 ${isMospiApprover ? 'grid-cols-5' : 'grid-cols-4'}`}>
+          <TabsList className={` w-full mb-6 `}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             {isMospiApprover && (
               <TabsTrigger value="reviewer-comments">MoSPI Reviewer Comments</TabsTrigger>

@@ -89,7 +89,7 @@ export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) =>
       {renderSectionContent()}
 
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between pt-6 border-t">
+      <div className="flex items-center justify-between pt-6">
         <Button
           variant="outline"
           onClick={() => setCurrentSection((prev) => Math.max(0, prev - 1))}
