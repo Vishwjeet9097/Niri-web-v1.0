@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { MessageModal } from "../modals/MessageModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
+import { SectionCard } from "@/features/submission/components/SectionCard";
 
 interface Document {
   id: string;
@@ -41,7 +42,7 @@ export const DocumentsTab = ({ documents, submissionId, formData }: DocumentsTab
   // Extract all documents from formData
   const extractAllDocuments = () => {
     const allDocuments: Document[] = [];
-    
+
     if (!formData) return allDocuments;
 
     // Helper function to add file to documents list
@@ -141,11 +142,28 @@ export const DocumentsTab = ({ documents, submissionId, formData }: DocumentsTab
 
   return (
     <>
-      <Card>
-        <CardHeader>
+      <SectionCard
+        title={<div className="flex flex-col relative">
+          <span className="text-base font-semibold ">
+            <span className="text-primary"></span> Document Review
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center justify-between absolute right-0 -top-[6px]"
+            onClick={() => setMessageModalOpen(true)}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Add Comment
+          </Button>
+        </div>}
+        subtitle="Data related to infrastructure financing and budget allocation"
+        className="mb-6"
+      >
+        {/* <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Document Review</CardTitle>
+              <CardTitle></CardTitle>
               <CardDescription>
                 Data related to infrastructure financing and budget allocation
               </CardDescription>
@@ -160,54 +178,54 @@ export const DocumentsTab = ({ documents, submissionId, formData }: DocumentsTab
               Add Comment
             </Button>
           </div>
-        </CardHeader>
-      <CardContent className="space-y-4">
-        {allDocuments.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p>No documents found in this submission</p>
-          </div>
-        ) : (
-          allDocuments.map((doc) => (
-          <div
-            key={doc.id}
-            className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-          >
-            <div className="flex items-center gap-4">
-              {getFileIcon(doc.fileType)}
-              <div>
-                <h4 className="font-semibold text-foreground">{doc.fileName}</h4>
-                <p className="text-sm text-muted-foreground">
-                  {doc.fileSize} | Uploaded by {doc.uploadedBy} on {doc.uploadedDate}
-                </p>
-              </div>
+        </CardHeader> */}
+        <CardContent className="space-y-4">
+          {allDocuments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>No documents found in this submission</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Eye className="w-4 h-4" />
-                View
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Download className="w-4 h-4" />
-                Download
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="w-4 h-4" />
+          ) : (
+            allDocuments.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  {getFileIcon(doc.fileType)}
+                  <div>
+                    <h4 className="font-semibold text-foreground">{doc.fileName}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {doc.fileSize} | Uploaded by {doc.uploadedBy} on {doc.uploadedDate}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Eye className="w-4 h-4" />
+                    View
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Delete</DropdownMenuItem>
-                  <DropdownMenuItem>Share</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>Delete</DropdownMenuItem>
+                      <DropdownMenuItem>Share</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </SectionCard>
 
       <MessageModal
         isOpen={messageModalOpen}

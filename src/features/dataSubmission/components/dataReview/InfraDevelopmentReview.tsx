@@ -170,24 +170,40 @@ export const InfraDevelopmentReview = ({ submissionId, formData }: InfraDevelopm
         </SectionCard>
 
         {/* Section 2.2 */}
-        <Card>
-          <CardHeader className="bg-muted/30">
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.2 -</span> Availability of Specialised Entity{" "}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center justify-between absolute right-0 -top-[6px]"
+              onClick={() => handleOpenModal("2.2")}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Add Comment
+            </Button>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
-                2.2 - Availability of Specialised Entity
+                 
               </CardTitle>
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
-                onClick={() => handleOpenModal("2.2")}
+                
               >
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
+          </CardHeader> */}
             <div className="space-y-4">
               {formData?.section2_2?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
@@ -223,15 +239,31 @@ export const InfraDevelopmentReview = ({ submissionId, formData }: InfraDevelopm
                 )}
               <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
             </div>
-          </CardContent>
-        </Card>
+        </SectionCard>
 
         {/* Section 2.3 */}
-        <Card>
-          <CardHeader className="bg-muted/30">
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.3 -</span> Availability of Sector Infra Development Plan{" "}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center justify-between absolute right-0 -top-[6px]"
+              onClick={() => handleOpenModal("2.2")}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Add Comment
+            </Button>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
-                2.3 - Availability of Sector Infra Development Plan
+                 
               </CardTitle>
               <Button
                 variant="outline"
@@ -243,8 +275,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData }: InfraDevelopm
                 Add Comment
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
+          </CardHeader> */}
             <div className="space-y-4">
               {formData?.section2_3?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
@@ -280,12 +311,28 @@ export const InfraDevelopmentReview = ({ submissionId, formData }: InfraDevelopm
                 )}
               <p className="text-sm text-muted-foreground">Upload plan</p>
             </div>
-          </CardContent>
-        </Card>
+        </SectionCard>
 
         {/* Section 2.4 */}
-        <Card>
-          <CardHeader className="bg-muted/30">
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center justify-between absolute right-0 -top-[6px]"
+              onClick={() => handleOpenModal("2.4")}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Add Comment
+            </Button>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 2.4 - Availability of Investment Ready Project Pipeline
@@ -300,8 +347,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData }: InfraDevelopm
                 Add Comment
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
+          </CardHeader> */}
             <div className="space-y-4">
               {formData?.section2_4?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
@@ -335,15 +381,31 @@ export const InfraDevelopmentReview = ({ submissionId, formData }: InfraDevelopm
                 Annex 8: Upload DPR/Feasibility Report
               </p>
             </div>
-          </CardContent>
-        </Card>
+        </SectionCard>
 
         {/* Section 2.5 */}
-        <Card>
-          <CardHeader className="bg-muted/30">
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center justify-between absolute right-0 -top-[6px]"
+              onClick={() => handleOpenModal("2.5")}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Add Comment
+            </Button>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
-                2.5 - Availability of Asset Monetization Pipeline
+                 Availability of Asset Monetization Pipeline
               </CardTitle>
               <Button
                 variant="outline"
@@ -355,28 +417,26 @@ export const InfraDevelopmentReview = ({ submissionId, formData }: InfraDevelopm
                 Add Comment
               </Button>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              <div className="border rounded-lg p-4">
+          </CardHeader> */}
+              <div className="overflow-x-auto rounded-xl">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Project/Asset Name</th>
-                      <th className="text-left py-2">Sector</th>
-                      <th className="text-left py-2">Type</th>
-                      <th className="text-left py-2">Ownership</th>
-                      <th className="text-left py-2">Estimated Monetization</th>
+                    <tr className="bg-[#DDE3F9]">
+                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project/Asset Name</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Type</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Ownership</th>
+                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Estimated Monetization</th>
                     </tr>
                   </thead>
                   <tbody>
                     {formData?.section2_5?.map((item: any, index: number) => (
                       <tr key={item.id || index} className="border-b">
-                        <td className="py-3">{item.projectName || ""}</td>
-                        <td className="py-3">{item.sector || ""}</td>
-                        <td className="py-3">{item.type || ""}</td>
-                        <td className="py-3">{item.ownership || ""}</td>
-                        <td className="py-3">{item.estimatedMonetization ? `₹ ${item.estimatedMonetization} Crores` : ""}</td>
+                        <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
+                        <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
+                        <td className="py-3 px-4 text-sm font-normal">{item.type || ""}</td>
+                        <td className="py-3 px-4 text-sm font-normal">{item.ownership || ""}</td>
+                        <td className="py-3 px-4 text-sm font-normal">{item.estimatedMonetization ? `₹ ${item.estimatedMonetization} Crores` : ""}</td>
                       </tr>
                     )) || (
                         <tr>
@@ -388,9 +448,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData }: InfraDevelopm
                   </tbody>
                 </table>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+        </SectionCard>
       </div>
 
       <MessageModal
