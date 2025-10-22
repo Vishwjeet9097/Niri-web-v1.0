@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiService } from "@/services/api.service";
 import { useToast } from "@/hooks/use-toast";
+import { storageService } from "@/services/storage.service";
 
 interface SectionComment {
   role: string;
@@ -130,6 +131,11 @@ export const useSectionMessages = (
           } else {
             console.log("🔍 No indicatorComment in API response");
           }
+
+          // Clear localStorage to prevent stale data issues
+          const reviewFormKey = `review_form_data_${submissionId}`;
+          storageService.remove(reviewFormKey);
+          console.log("🧹 Cleared localStorage to prevent stale data");
         } else {
           console.log("🔍 Invalid API response:", updatedSubmission);
         }

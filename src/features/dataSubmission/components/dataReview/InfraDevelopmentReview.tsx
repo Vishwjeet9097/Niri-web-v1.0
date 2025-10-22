@@ -50,7 +50,16 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
       try {
         const updatedSubmission = await saveMessage(activeSection, message);
         if (updatedSubmission) {
+          // Update form data with fresh API response
           setSubmissionData(updatedSubmission);
+          
+          // Force timeline refresh if modal is open for same section
+          if (timelineSection === activeSection) {
+            setTimelineSection(null);
+            setTimeout(() => {
+              setTimelineSection(activeSection);
+            }, 100);
+          }
         }
       } catch (error) {
         console.error("Error saving message:", error);
@@ -490,7 +499,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
         sectionId={timelineSection || ""}
         sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
         comments={getAllComments()}
-        key={`timeline-${timelineSection}-${getAllComments().length}`} // Force re-render when comments change
+        key={`timeline-${timelineSection}-${getAllComments().length}-${Date.now()}`} // Force re-render when comments change
       />
     </>
   );
