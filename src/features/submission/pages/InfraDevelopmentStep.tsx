@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { draftService } from "@/services/draft.service";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 const defaultData: InfraDevelopmentData = {
   section2_1: [],
@@ -56,6 +57,15 @@ export const InfraDevelopmentStep = () => {
     useStepNavigation(2);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+  
+  // Indicator access control
+  const { 
+    loading: indicatorLoading, 
+    error: indicatorError, 
+    assignedIndicators, 
+    hasIndicatorAccess, 
+    isNodalOfficer 
+  } = useIndicatorAccess();
 
   // Note: Editing submission data is handled by useFormPersistence hook
 
@@ -360,6 +370,50 @@ export const InfraDevelopmentStep = () => {
     },
 
   ]
+
+  // Access control for NODAL_OFFICER
+  if (isNodalOfficer) {
+    // Check if user has access to any indicator in this section
+    const hasAccessToSection = hasIndicatorAccess('2.1') || hasIndicatorAccess('2.2') || 
+                              hasIndicatorAccess('2.3') || hasIndicatorAccess('2.4') || hasIndicatorAccess('2.5');
+    
+    console.log("🔍 InfraDevelopmentStep: Access control check", {
+      isNodalOfficer,
+      assignedIndicators,
+      hasAccessToSection,
+      hasAccess2_1: hasIndicatorAccess('2.1'),
+      hasAccess2_2: hasIndicatorAccess('2.2'),
+      hasAccess2_3: hasIndicatorAccess('2.3'),
+      hasAccess2_4: hasIndicatorAccess('2.4'),
+      hasAccess2_5: hasIndicatorAccess('2.5')
+    });
+
+    if (!hasAccessToSection) {
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+          <ProgressHeader
+            title="Infrastructure Development"
+            description="Physical infrastructure development and completion metrics"
+            points={250}
+            completed={0}
+            total={5}
+            progress={0}
+          />
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Access</h3>
+            <p className="text-gray-600 mb-4">
+              You don't have access to any indicators in this section.
+            </p>
+            <Button onClick={goToNext} className="bg-primary text-white">
+              Skip to Next Section
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  }
+
   // --- UI ---
   return (
     <div className="">
@@ -373,15 +427,16 @@ export const InfraDevelopmentStep = () => {
         progress={10}
       />
       {/* Section 2.1 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.1 -</span> Availability of Infrastructure Act/Policy{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.1')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.1 -</span> Availability of Infrastructure Act/Policy{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4 ">
           {formData.section2_1.map((entry, idx) => (
             <div key={entry.id} className=" mb-2 relative">
@@ -500,18 +555,20 @@ export const InfraDevelopmentStep = () => {
             </table>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.2 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.2 -</span> Availability of Specialized Entity{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.2')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.2 -</span> Availability of Specialized Entity{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_2.map((entry, idx) => (
             <div key={entry.id} className="mb-2 relative">
@@ -626,18 +683,20 @@ export const InfraDevelopmentStep = () => {
             </table>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.3 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.3 -</span> Availability of Sector Infra Development Plan{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.3')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.3 -</span> Availability of Sector Infra Development Plan{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_3.map((entry, idx) => (
             <div key={entry.id} className="mb-2 relative">
@@ -752,18 +811,20 @@ export const InfraDevelopmentStep = () => {
             </table>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.4 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
-          </span>
-        </div>}
-        subtitle="Annex 5: Upload DPR/Feasibility Report"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.4')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
+            </span>
+          </div>}
+          subtitle="Annex 5: Upload DPR/Feasibility Report"
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_4.map((entry, idx) => (
             <div key={entry.id} className="mb-2 relative">
@@ -820,18 +881,20 @@ export const InfraDevelopmentStep = () => {
             )}
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.5 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
-          </span>
-        </div>}
-        subtitle="Annex 6"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.5')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
+            </span>
+          </div>}
+          subtitle="Annex 6"
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_5.map((entry, idx) => (
             <div key={entry.id} className="mb-2">
@@ -969,7 +1032,8 @@ export const InfraDevelopmentStep = () => {
             )}
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Navigation Buttons */}
       <FormActions

@@ -24,49 +24,33 @@ import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
 import { authService } from "@/services/auth.service";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 export const InfraFinancingStep = () => {
   const { currentStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
     useStepNavigation(1);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+  
+  // Indicator access control
+  const { 
+    loading: indicatorLoading, 
+    error: indicatorError, 
+    assignedIndicators, 
+    hasIndicatorAccess, 
+    isNodalOfficer 
+  } = useIndicatorAccess();
 
-  // Force API call for NODAL_OFFICER
+  // Debug logging for access control
   useEffect(() => {
-    console.log("🔍 InfraFinancingStep: Component mounted, checking user role:", user?.role);
-    
-    if (user?.role === "NODAL_OFFICER") {
-      console.log("🔍 InfraFinancingStep: NODAL_OFFICER detected, making API call");
-      const makeApiCall = async () => {
-        try {
-          const userId = user?._id || user?.id;
-          console.log("🔍 InfraFinancingStep: User ID for API call:", userId);
-          
-          if (userId) {
-            console.log("🔍 InfraFinancingStep: Making API call to getUserAssignedIndicators");
-            const indicators = await apiService.getUserAssignedIndicators(userId);
-            console.log("🔍 InfraFinancingStep: API response - indicators:", indicators);
-            
-            if (indicators && indicators.length > 0) {
-              const updatedUser = { ...user, assignedIndicators: indicators };
-              authService.setAuth(updatedUser, authService.getTokens());
-              console.log("🔍 InfraFinancingStep: Updated user with indicators:", indicators);
-            } else {
-              console.log("🔍 InfraFinancingStep: No indicators returned from API");
-            }
-          } else {
-            console.log("🔍 InfraFinancingStep: No user ID found, cannot make API call");
-          }
-        } catch (error) {
-          console.error("🔍 InfraFinancingStep: API call failed:", error);
-        }
-      };
-      
-      makeApiCall();
-    } else {
-      console.log("🔍 InfraFinancingStep: User is not NODAL_OFFICER, skipping API call");
-    }
-  }, [user?.role, user?._id, user?.id]); // Dependencies to ensure it runs when user changes
+    console.log("🔍 InfraFinancingStep: Access control state", {
+      isNodalOfficer,
+      assignedIndicators,
+      indicatorLoading,
+      indicatorError,
+      user: user ? { id: user._id || user.id, role: user.role } : null
+    });
+  }, [isNodalOfficer, assignedIndicators, indicatorLoading, indicatorError, user]);
 
   // Note: Editing submission data is handled by useFormPersistence hook
   const { toast } = useToast();
@@ -409,6 +393,48 @@ export const InfraFinancingStep = () => {
     goToNext();
   };
 
+  // Access control for NODAL_OFFICER
+  if (isNodalOfficer) {
+    // Check if user has access to any indicator in this section
+    const hasAccessToSection = hasIndicatorAccess('1.1') || hasIndicatorAccess('1.2') || 
+                              hasIndicatorAccess('1.3') || hasIndicatorAccess('1.4') || hasIndicatorAccess('1.5');
+    
+    console.log("🔍 InfraFinancingStep: Access control check", {
+      isNodalOfficer,
+      assignedIndicators,
+      hasAccessToSection,
+      hasAccess1_1: hasIndicatorAccess('1.1'),
+      hasAccess1_2: hasIndicatorAccess('1.2'),
+      hasAccess1_3: hasIndicatorAccess('1.3'),
+      hasAccess1_4: hasIndicatorAccess('1.4'),
+      hasAccess1_5: hasIndicatorAccess('1.5')
+    });
+
+    if (!hasAccessToSection) {
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+          <ProgressHeader
+            title="Infrastructure Financing"
+            description="Data related to infrastructure financing and budget allocation"
+            points={250}
+            completed={0}
+            total={5}
+            progress={0}
+          />
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Access</h3>
+            <p className="text-gray-600 mb-4">
+              You don't have access to any indicators in this section.
+            </p>
+            <Button onClick={goToNext} className="bg-primary text-white">
+              Skip to Next Section
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="">
@@ -425,22 +451,23 @@ export const InfraFinancingStep = () => {
 
 
       {/* Section 1.1 */}
-      <SectionCard
-        title={
-          <div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
-              <span className="font-normal text-xs text-muted-foreground">
-                
+      {(!isNodalOfficer || hasIndicatorAccess('1.1')) && (
+        <SectionCard
+          title={
+            <div className="flex flex-col">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
+                <span className="font-normal text-xs text-muted-foreground">
+                  
+                </span>
               </span>
-            </span>
 
-          </div>
-        }
-        subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
-              Capital Expenditure)"
-        className="mb-6"
-      >
+            </div>
+          }
+          subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
+                Capital Expenditure)"
+          className="mb-6"
+        >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
           <div>
             <Label>Year<span className="text-red-500">*</span></Label>
@@ -517,20 +544,22 @@ export const InfraFinancingStep = () => {
             />
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 1.2 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">1.2 -</span> % Capex Utilization{" "}
-            <span className="font-normal text-xs text-muted-foreground">
-              (10 marks per 1%)
+      {(!isNodalOfficer || hasIndicatorAccess('1.2')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.2 -</span> % Capex Utilization{" "}
+              <span className="font-normal text-xs text-muted-foreground">
+                (10 marks per 1%)
+              </span>
             </span>
-          </span>
-        </div>}
-        subtitle="Annex 2: Verified with MoHUA data"
-      >
+          </div>}
+          subtitle="Annex 2: Verified with MoHUA data"
+        >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
           <div className="space-y-2">
             <Label>Year<span className="text-red-500">*</span></Label>
@@ -597,18 +626,20 @@ export const InfraFinancingStep = () => {
             />
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 1.3 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
-          </span>
-        </div>}
-        subtitle="Annex 2: Verified with MoHUA data"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('1.3')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
+            </span>
+          </div>}
+          subtitle="Annex 2: Verified with MoHUA data"
+          className="mb-6"
+        >
         <div className="space-y-4">
           {formData.section1_3.map((ulb, index) => (
             <div key={ulb.id} className="grid grid-cols-4 gap-4">
@@ -730,18 +761,20 @@ export const InfraFinancingStep = () => {
             Add More ULB
           </Button>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 1.4 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">1.4 -</span> % of ULBs issuing Bonds{" "}
-          </span>
-        </div>}
-        subtitle="Annex 3: ULBs with population > 50,000"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('1.4')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.4 -</span> % of ULBs issuing Bonds{" "}
+            </span>
+          </div>}
+          subtitle="Annex 3: ULBs with population > 50,000"
+          className="mb-6"
+        >
         <div className="space-y-4">
           {formData.section1_4.map((bond, index) => (
             <div key={bond.id} className="grid grid-cols-4 gap-4">
@@ -853,18 +886,20 @@ export const InfraFinancingStep = () => {
             Add More Bond
           </Button>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 1.5 */}
-      <SectionCard
-      title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
-          </span>
-        </div>}
-        subtitle="Annex 4: Provide website link and funding details"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('1.5')) && (
+        <SectionCard
+        title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
+            </span>
+          </div>}
+          subtitle="Annex 4: Provide website link and funding details"
+          className="mb-6"
+        >
         <div className="space-y-4">
           {formData.section1_5.map((intermediary, index) => (
             <div key={intermediary.id} className="grid grid-cols-5 gap-4">
@@ -983,7 +1018,8 @@ export const InfraFinancingStep = () => {
             Add More Financial Intermediary
           </Button>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       <FormActions
         onPrevious={isFirstStep ? undefined : goToPrevious}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ import { FileUploadSection } from "../components/FileUploadSection";
 import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 const defaultData: InfraEnablersData = {
   section4_1: {
@@ -63,6 +64,24 @@ export const InfraEnablersStep = () => {
   const { currentStep, goToNext, goToPrevious, isLastStep } = useStepNavigation(4);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+  
+  // Indicator access control
+  const { 
+    loading: indicatorLoading, 
+    error: indicatorError, 
+    assignedIndicators, 
+    hasIndicatorAccess, 
+    isNodalOfficer 
+  } = useIndicatorAccess();
+
+  // Debug logging for indicator access
+  console.log("🔍 InfraEnablersStep: Indicator access state", {
+    indicatorLoading,
+    indicatorError,
+    assignedIndicators,
+    isNodalOfficer,
+    user: user ? { id: user._id || user.id, role: user.role } : null
+  });
 
   // Note: Editing submission data is handled by useFormPersistence hook
 
@@ -176,7 +195,7 @@ export const InfraEnablersStep = () => {
   }, [formData.section4_3.numberOfProjects, formData.section4_4.adopted, formData.section4_6.length]);
 
   // Calculation functions
-  const calculateSection4_3 = () => {
+  const calculateSection4_3 = useCallback(() => {
     // A₁: Number of projects
     const numberOfProjects = parseInt(formData.section4_3.numberOfProjects);
 
@@ -190,18 +209,18 @@ export const InfraEnablersStep = () => {
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
-  };
+  }, [formData.section4_3.numberOfProjects]);
 
-  const calculateSection4_4 = () => {
+  const calculateSection4_4 = useCallback(() => {
     // For section 4.4, marks = IF adopted = 'Yes' THEN 50 ELSE 0
     const marksObtained = formData.section4_4.adopted === "yes" ? 50 : 0;
 
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
-  };
+  }, [formData.section4_4.adopted]);
 
-  const calculateSection4_6 = () => {
+  const calculateSection4_6 = useCallback(() => {
     // For section 4.6, marks = MIN(number of participants × 1, 50)
     const totalParticipants = formData.section4_6.reduce((sum, training) => {
       // Since we don't have participants field, we'll use 1 per training
@@ -213,7 +232,7 @@ export const InfraEnablersStep = () => {
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
-  };
+  }, [formData.section4_6.length]);
 
 
   // Autosave to localStorage with debouncing (avoid infinite loop)
@@ -332,6 +351,51 @@ export const InfraEnablersStep = () => {
     }
   };
 
+  // Access control for NODAL_OFFICER
+  if (isNodalOfficer) {
+    // Check if user has access to any indicator in this section
+    const hasAccessToSection = hasIndicatorAccess('4.1') || hasIndicatorAccess('4.2') || 
+                              hasIndicatorAccess('4.3') || hasIndicatorAccess('4.4') || 
+                              hasIndicatorAccess('4.5') || hasIndicatorAccess('4.6');
+    
+    console.log("🔍 InfraEnablersStep: Access control check", {
+      isNodalOfficer,
+      assignedIndicators,
+      hasAccessToSection,
+      hasAccess4_1: hasIndicatorAccess('4.1'),
+      hasAccess4_2: hasIndicatorAccess('4.2'),
+      hasAccess4_3: hasIndicatorAccess('4.3'),
+      hasAccess4_4: hasIndicatorAccess('4.4'),
+      hasAccess4_5: hasIndicatorAccess('4.5'),
+      hasAccess4_6: hasIndicatorAccess('4.6')
+    });
+
+    if (!hasAccessToSection) {
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+          <ProgressHeader
+            title="Infrastructure Enablers"
+            description="Supporting infrastructure and policy enablers"
+            points={250}
+            completed={0}
+            total={6}
+            progress={0}
+          />
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Access</h3>
+            <p className="text-gray-600 mb-4">
+              You don't have access to any indicators in this section.
+            </p>
+            <Button onClick={goToNext} className="bg-primary text-white">
+              Skip to Next Section
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
@@ -346,15 +410,16 @@ export const InfraEnablersStep = () => {
 
 
       {/* Section 4.1 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">4.1 - </span> Eligible Infrastructure Projects{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('4.1')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">4.1 - </span> Eligible Infrastructure Projects{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4 w-[40%]">
           <div>
             <Label>
@@ -419,18 +484,20 @@ export const InfraEnablersStep = () => {
             />
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 4.2 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">4.2 - </span> Availability & Use of State/UT PMG{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('4.2')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">4.2 - </span> Availability & Use of State/UT PMG{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4 w-[70%]">
           <div>
             <Label>
@@ -491,21 +558,23 @@ export const InfraEnablersStep = () => {
             <p className="text-xs text-muted-foreground">Description</p>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 4.3 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">4.3 - </span> Adoption of PM GatiShakti
-            <span className="font-normal text-xs text-muted-foreground ml-1">
-              (10 marks per 1%)
+      {(!isNodalOfficer || hasIndicatorAccess('4.3')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">4.3 - </span> Adoption of PM GatiShakti
+              <span className="font-normal text-xs text-muted-foreground ml-1">
+                (10 marks per 1%)
+              </span>
             </span>
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="space-y-4 w-[40%]">
           <div>
             <Label>A₁ - Number of Projects*</Label>
@@ -525,21 +594,23 @@ export const InfraEnablersStep = () => {
             />
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 4.4 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">4.4 - </span> Adoption of ADR
-            <span className="font-normal text-xs text-muted-foreground ml-1">
-              (10 marks per practice)
+      {(!isNodalOfficer || hasIndicatorAccess('4.4')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">4.4 - </span> Adoption of ADR
+              <span className="font-normal text-xs text-muted-foreground ml-1">
+                (10 marks per practice)
+              </span>
             </span>
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           <div>
             <Label>
@@ -601,21 +672,23 @@ export const InfraEnablersStep = () => {
           </div>
 
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 4.5 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">4.5 - </span> Innovative Practices
-            <span className="font-normal text-xs text-muted-foreground ml-1">
-              (10 marks per practice)
+      {(!isNodalOfficer || hasIndicatorAccess('4.5')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">4.5 - </span> Innovative Practices
+              <span className="font-normal text-xs text-muted-foreground ml-1">
+                (10 marks per practice)
+              </span>
             </span>
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4 w-[70%]">
           <div>
             <Label>
@@ -724,21 +797,23 @@ export const InfraEnablersStep = () => {
             <p className="text-xs text-muted-foreground">Upload evidence</p>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 4.6 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">4.6 - </span> Capacity Building - Officer Participation
-            <span className="font-normal text-xs text-muted-foreground ml-1">
-              (1 marks per officer)
+      {(!isNodalOfficer || hasIndicatorAccess('4.6')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">4.6 - </span> Capacity Building - Officer Participation
+              <span className="font-normal text-xs text-muted-foreground ml-1">
+                (1 marks per officer)
+              </span>
             </span>
-          </span>
-        </div>}
-        // subtitle="Annex 11"
-        className="mb-6"
-      >
+          </div>}
+          // subtitle="Annex 11"
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           <div>
             <Label>
@@ -898,7 +973,8 @@ export const InfraEnablersStep = () => {
           <p className="text-xs text-muted-foreground">Annex 11</p>
 
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Navigation Buttons */}
       <FormActions

@@ -958,7 +958,7 @@ class ApiService implements HttpClient {
   async uploadFile(
     submissionId: string,
     file: File
-  ): Promise<FileUploadResponse> {
+  ): Promise<{ url: string; filename: string; size: number }> {
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -996,7 +996,10 @@ class ApiService implements HttpClient {
   async uploadMultipleFiles(
     submissionId: string,
     files: File[]
-  ): Promise<{ files: FileUploadResponse[]; count: number }> {
+  ): Promise<{
+    files: { url: string; filename: string; size: number }[];
+    count: number;
+  }> {
     try {
       const formData = new FormData();
       files.forEach((file) => formData.append("files", file));
@@ -2075,69 +2078,75 @@ class ApiService implements HttpClient {
 
   // Indicator Access Control Methods
   async getUserAssignedIndicators(userId: string): Promise<string[]> {
+    console.log(
+      "🔍 API Service - getUserAssignedIndicators called with userId:",
+      userId
+    );
     try {
-      const response = await this.axios.get(`/auth/my-indicators`);
+      // Try fallback endpoint
       console.log(
-        "🔍 API Service - Get User Assigned Indicators Response Status:",
-        response.status
+        "🔍 API Service - Making request to /users/${userId}/indicators"
+      );
+      const fallbackResponse = await this.axios.get(
+        `/users/${userId}/indicators`
       );
       console.log(
-        "🔍 API Service - Get User Assigned Indicators Response Data:",
-        response.data
+        "🔍 API Service - Fallback Get User Assigned Indicators Response Status:",
+        fallbackResponse.status
+      );
+      console.log(
+        "🔍 API Service - Fallback Get User Assigned Indicators Response Data:",
+        fallbackResponse.data
       );
 
-      // Handle response.data.data pattern
       const indicatorsData =
-        response.data?.data !== undefined ? response.data.data : response.data;
+        fallbackResponse.data?.data !== undefined
+          ? fallbackResponse.data.data
+          : fallbackResponse.data;
       console.log(
-        "🔍 API Service - Processed Get User Assigned Indicators Data:",
+        "🔍 API Service - Processed Fallback Get User Assigned Indicators Data:",
         indicatorsData
       );
 
-      return indicatorsData.indicators || indicatorsData || [];
-    } catch (error: any) {
-      console.log("🔍 API Service - Primary endpoint failed, trying fallback");
-
-      try {
-        // Try fallback endpoint
-        const fallbackResponse = await this.axios.get(
-          `/users/${userId}/indicators`
-        );
+      // Extract indicator codes from the response
+      if (Array.isArray(indicatorsData)) {
+        // If response is array of objects with indicator property
+        const indicatorCodes = indicatorsData
+          .map((item: any) => item.indicator?.code || item.code)
+          .filter((code: string) => code); // Remove undefined/null values
         console.log(
-          "🔍 API Service - Fallback Get User Assigned Indicators Response Status:",
-          fallbackResponse.status
+          "🔍 API Service - Extracted indicator codes:",
+          indicatorCodes
         );
-        console.log(
-          "🔍 API Service - Fallback Get User Assigned Indicators Response Data:",
-          fallbackResponse.data
-        );
-
-        const indicatorsData =
-          fallbackResponse.data?.data !== undefined
-            ? fallbackResponse.data.data
-            : fallbackResponse.data;
-        console.log(
-          "🔍 API Service - Processed Fallback Get User Assigned Indicators Data:",
-          indicatorsData
-        );
-
-        return indicatorsData.indicators || indicatorsData || [];
-      } catch (fallbackError: any) {
-        // Handle 304 as success
-        if (error.response?.status === 304) {
-          console.log(
-            "📋 Get User Assigned Indicators 304 - Using cached data"
-          );
-          const cachedData = error.response?.data || {};
-          return cachedData?.data?.indicators || cachedData?.indicators || [];
-        }
-        console.warn(
-          "⚠️ Backend get user assigned indicators failed on both endpoints:",
-          error.message,
-          fallbackError.message
-        );
-        return [];
+        console.log("🔍 API Service - Original response data:", indicatorsData);
+        return indicatorCodes;
+      } else if (indicatorsData.indicators) {
+        // If response has indicators property
+        return indicatorsData.indicators;
+      } else {
+        // If response is already an array of codes
+        return indicatorsData || [];
       }
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get User Assigned Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        const indicatorsData = cachedData?.data || cachedData;
+
+        if (Array.isArray(indicatorsData)) {
+          const indicatorCodes = indicatorsData
+            .map((item: any) => item.indicator?.code || item.code)
+            .filter((code: string) => code);
+          return indicatorCodes;
+        }
+        return indicatorsData?.indicators || [];
+      }
+      console.warn(
+        "⚠️ Backend get user assigned indicators failed on both endpoints:",
+        error.message
+      );
+      return [];
     }
   }
 

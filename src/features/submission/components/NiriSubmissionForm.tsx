@@ -14,6 +14,28 @@ import { useIndicatorAccess } from '@/hooks/useIndicatorAccess';
 import { IndicatorSection } from '@/components/IndicatorSection';
 import { filterFormDataByIndicators, validateFormDataAccess } from '@/utils/indicatorUtils';
 import { Download, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
+
+// Import all indicator components
+import { Section1_1_CapexToGSDP } from '@/components/IndicatorSections/Section1_1_CapexToGSDP';
+import { Section1_2_CapexUtilization } from '@/components/IndicatorSections/Section1_2_CapexUtilization';
+import { Section1_3_CreditRatedULBs } from '@/components/IndicatorSections/Section1_3_CreditRatedULBs';
+import { Section1_4_ULBsIssuingBonds } from '@/components/IndicatorSections/Section1_4_ULBsIssuingBonds';
+import { Section1_5_FunctionalFinancialIntermediary } from '@/components/IndicatorSections/Section1_5_FunctionalFinancialIntermediary';
+import { Section2_1_InfrastructureActPolicy } from '@/components/IndicatorSections/Section2_1_InfrastructureActPolicy';
+import { Section2_2_SpecializedEntity } from '@/components/IndicatorSections/Section2_2_SpecializedEntity';
+import { Section2_3_SectorInfraPlan } from '@/components/IndicatorSections/Section2_3_SectorInfraPlan';
+import { Section2_4_InvestmentReadyPipeline } from '@/components/IndicatorSections/Section2_4_InvestmentReadyPipeline';
+import { Section2_5_AssetMonetizationPipeline } from '@/components/IndicatorSections/Section2_5_AssetMonetizationPipeline';
+import { Section3_1_PPPActPolicy } from '@/components/IndicatorSections/Section3_1_PPPActPolicy';
+import { Section3_2_FunctionalPPPCell } from '@/components/IndicatorSections/Section3_2_FunctionalPPPCell';
+import { Section3_3_VGFIIPDFProposals } from '@/components/IndicatorSections/Section3_3_VGFIIPDFProposals';
+import { Section3_4_PPPBankableProjects } from '@/components/IndicatorSections/Section3_4_PPPBankableProjects';
+import { Section4_1_PMGPortalEligible } from '@/components/IndicatorSections/Section4_1_PMGPortalEligible';
+import { Section4_2_StatePMGPortal } from '@/components/IndicatorSections/Section4_2_StatePMGPortal';
+import { Section4_3_PMGatiShaktiAdoption } from '@/components/IndicatorSections/Section4_3_PMGatiShaktiAdoption';
+import { Section4_4_ADRAdoption } from '@/components/IndicatorSections/Section4_4_ADRAdoption';
+import { Section4_5_InnovativePractices } from '@/components/IndicatorSections/Section4_5_InnovativePractices';
+import { Section4_6_CapacityBuilding } from '@/components/IndicatorSections/Section4_6_CapacityBuilding';
 // Removed mock data import - using actual API data
 
 interface NiriSubmissionFormProps {
@@ -33,7 +55,7 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   let indicatorLoading = false;
   let indicatorError = null;
   let assignedIndicators: string[] = [];
-  let hasAnyAccess = true;
+  let hasAnyAccess = () => true;
   let getFirstAvailableSection = () => "infra-financing";
   let isNodalOfficer = false;
 
@@ -445,7 +467,8 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       isNodalOfficer,
       assignedIndicators,
       indicatorLoading,
-      indicatorError
+      indicatorError,
+      fields
     });
 
     // For NODAL_OFFICER, check if user has access to any field in this section
@@ -480,6 +503,7 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
         console.log("🔍 No indicators assigned, hiding section:", sectionId);
         return null;
       }
+
       const fieldToIndicatorMap: Record<string, string> = {
         'capexToGsdpRatio': '1.1',
         'capexUtilization': '1.2',
@@ -506,103 +530,326 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       // Check if any field in this section is assigned to user
       const hasAccessToSection = fields.some(field => {
         const indicator = fieldToIndicatorMap[field];
-        return indicator && assignedIndicators.includes(indicator);
+        const hasAccess = indicator && assignedIndicators.includes(indicator);
+        console.log(`🔍 Field ${field} -> Indicator ${indicator} -> Has Access: ${hasAccess}`);
+        return hasAccess;
       });
 
+      console.log(`🔍 Section ${sectionId} has access: ${hasAccessToSection}`);
+
       if (!hasAccessToSection) {
+        console.log(`🔍 Hiding section ${sectionId} - no access`);
         return null; // Hide section completely
       }
 
       // Filter fields to only show assigned ones
       const accessibleFields = fields.filter(field => {
         const indicator = fieldToIndicatorMap[field];
-        return indicator && assignedIndicators.includes(indicator);
+        const hasAccess = indicator && assignedIndicators.includes(indicator);
+        console.log(`🔍 Accessible field ${field} -> Indicator ${indicator} -> Has Access: ${hasAccess}`);
+        return hasAccess;
       });
+
+      console.log(`🔍 Accessible fields for ${sectionId}:`, accessibleFields);
 
       return (
         <IndicatorSection sectionId={sectionId} title={title}>
           <div className="space-y-4">
-            {accessibleFields.map(field => (
-              <div key={field} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor={field} className="text-sm font-medium">
-                    {getFieldLabel(field)}
-                    <span className="text-red-500 ml-1">*</span>
-                  </Label>
-                  {getFieldType(field) === 'select' ? (
-                    <Select
-                      value={formData[field] || ''}
-                      onValueChange={(value) => handleInputChange(field, value)}
-                    >
-                      <SelectTrigger className={errors[field] ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Select option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Yes">Yes</SelectItem>
-                        <SelectItem value="No">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      id={field}
-                      type="number"
-                      value={formData[field] || ''}
-                      onChange={(e) => handleInputChange(field, e.target.value)}
-                      className={errors[field] ? 'border-red-500' : ''}
-                      placeholder="Enter value"
-                    />
-                  )}
-                  {errors[field] && (
-                    <p className="text-sm text-red-500 mt-1">{errors[field]}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+            {/* Section 1: Infrastructure Financing */}
+            {sectionId === 'infra-financing' && (
+              <>
+                {accessibleFields.includes('capexToGsdpRatio') && (
+                  <Section1_1_CapexToGSDP
+                    value={typeof formData.capexToGsdpRatio === 'number' ? formData.capexToGsdpRatio : undefined}
+                    onChange={(value) => handleInputChange('capexToGsdpRatio', value)}
+                    error={errors.capexToGsdpRatio}
+                  />
+                )}
+                {accessibleFields.includes('capexUtilization') && (
+                  <Section1_2_CapexUtilization
+                    value={typeof formData.capexUtilization === 'number' ? formData.capexUtilization : undefined}
+                    onChange={(value) => handleInputChange('capexUtilization', value)}
+                    error={errors.capexUtilization}
+                  />
+                )}
+                {accessibleFields.includes('creditRatedULBs') && (
+                  <Section1_3_CreditRatedULBs
+                    value={typeof formData.creditRatedULBs === 'number' ? formData.creditRatedULBs : undefined}
+                    onChange={(value) => handleInputChange('creditRatedULBs', value)}
+                    error={errors.creditRatedULBs}
+                  />
+                )}
+                {accessibleFields.includes('ulbsIssuingBonds') && (
+                  <Section1_4_ULBsIssuingBonds
+                    value={typeof formData.ulbsIssuingBonds === 'number' ? formData.ulbsIssuingBonds : undefined}
+                    onChange={(value) => handleInputChange('ulbsIssuingBonds', value)}
+                    error={errors.ulbsIssuingBonds}
+                  />
+                )}
+                {accessibleFields.includes('functionalFinancialIntermediary') && (
+                  <Section1_5_FunctionalFinancialIntermediary
+                    value={typeof formData.functionalFinancialIntermediary === 'number' ? formData.functionalFinancialIntermediary : undefined}
+                    onChange={(value) => handleInputChange('functionalFinancialIntermediary', value)}
+                    error={errors.functionalFinancialIntermediary}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Section 2: Infrastructure Development */}
+            {sectionId === 'infra-development' && (
+              <>
+                {accessibleFields.includes('infrastructureActPolicy') && (
+                  <Section2_1_InfrastructureActPolicy
+                    value={formData.infrastructureActPolicy}
+                    onChange={(value) => handleInputChange('infrastructureActPolicy', value)}
+                    error={errors.infrastructureActPolicy}
+                  />
+                )}
+                {accessibleFields.includes('specializedEntity') && (
+                  <Section2_2_SpecializedEntity
+                    value={typeof formData.specializedEntity === 'number' ? formData.specializedEntity : undefined}
+                    onChange={(value) => handleInputChange('specializedEntity', value)}
+                    error={errors.specializedEntity}
+                  />
+                )}
+                {accessibleFields.includes('sectorInfraPlan') && (
+                  <Section2_3_SectorInfraPlan
+                    value={formData.sectorInfraPlan}
+                    onChange={(value) => handleInputChange('sectorInfraPlan', value)}
+                    error={errors.sectorInfraPlan}
+                  />
+                )}
+                {accessibleFields.includes('investmentReadyPipeline') && (
+                  <Section2_4_InvestmentReadyPipeline
+                    value={typeof formData.investmentReadyPipeline === 'number' ? formData.investmentReadyPipeline : undefined}
+                    onChange={(value) => handleInputChange('investmentReadyPipeline', value)}
+                    error={errors.investmentReadyPipeline}
+                  />
+                )}
+                {accessibleFields.includes('assetMonetizationPipeline') && (
+                  <Section2_5_AssetMonetizationPipeline
+                    value={typeof formData.assetMonetizationPipeline === 'number' ? formData.assetMonetizationPipeline : undefined}
+                    onChange={(value) => handleInputChange('assetMonetizationPipeline', value)}
+                    error={errors.assetMonetizationPipeline}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Section 3: PPP Development */}
+            {sectionId === 'ppp-development' && (
+              <>
+                {accessibleFields.includes('pppActPolicy') && (
+                  <Section3_1_PPPActPolicy
+                    value={formData.pppActPolicy}
+                    onChange={(value) => handleInputChange('pppActPolicy', value)}
+                    error={errors.pppActPolicy}
+                  />
+                )}
+                {accessibleFields.includes('pppCell') && (
+                  <Section3_2_FunctionalPPPCell
+                    value={formData.pppCell}
+                    onChange={(value) => handleInputChange('pppCell', value)}
+                    error={errors.pppCell}
+                  />
+                )}
+                {accessibleFields.includes('vgfIipdfProposals') && (
+                  <Section3_3_VGFIIPDFProposals
+                    value={typeof formData.vgfIipdfProposals === 'number' ? formData.vgfIipdfProposals : undefined}
+                    onChange={(value) => handleInputChange('vgfIipdfProposals', value)}
+                    error={errors.vgfIipdfProposals}
+                  />
+                )}
+                {accessibleFields.includes('pppBankableProjects') && (
+                  <Section3_4_PPPBankableProjects
+                    value={typeof formData.pppBankableProjects === 'number' ? formData.pppBankableProjects : undefined}
+                    onChange={(value) => handleInputChange('pppBankableProjects', value)}
+                    error={errors.pppBankableProjects}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Section 4: Infrastructure Enablers */}
+            {sectionId === 'infra-enablers' && (
+              <>
+                {accessibleFields.includes('pmgPortalEligible') && (
+                  <Section4_1_PMGPortalEligible
+                    value={formData.pmgPortalEligible}
+                    onChange={(value) => handleInputChange('pmgPortalEligible', value)}
+                    error={errors.pmgPortalEligible}
+                  />
+                )}
+                {accessibleFields.includes('statePmgPortal') && (
+                  <Section4_2_StatePMGPortal
+                    value={formData.statePmgPortal}
+                    onChange={(value) => handleInputChange('statePmgPortal', value)}
+                    error={errors.statePmgPortal}
+                  />
+                )}
+                {accessibleFields.includes('pmGatiShaktiAdoption') && (
+                  <Section4_3_PMGatiShaktiAdoption
+                    value={formData.pmGatiShaktiAdoption}
+                    onChange={(value) => handleInputChange('pmGatiShaktiAdoption', value)}
+                    error={errors.pmGatiShaktiAdoption}
+                  />
+                )}
+                {accessibleFields.includes('adrAdoption') && (
+                  <Section4_4_ADRAdoption
+                    value={formData.adrAdoption}
+                    onChange={(value) => handleInputChange('adrAdoption', value)}
+                    error={errors.adrAdoption}
+                  />
+                )}
+                {accessibleFields.includes('innovativePractices') && (
+                  <Section4_5_InnovativePractices
+                    value={typeof formData.innovativePractices === 'number' ? formData.innovativePractices : undefined}
+                    onChange={(value) => handleInputChange('innovativePractices', value)}
+                    error={errors.innovativePractices}
+                  />
+                )}
+                {accessibleFields.includes('capacityBuilding') && (
+                  <Section4_6_CapacityBuilding
+                    value={typeof formData.capacityBuilding === 'number' ? formData.capacityBuilding : undefined}
+                    onChange={(value) => handleInputChange('capacityBuilding', value)}
+                    error={errors.capacityBuilding}
+                  />
+                )}
+              </>
+            )}
           </div>
         </IndicatorSection>
       );
     }
 
-    // For other roles, show all fields
+    // For other roles, show all fields using the same component structure
     return (
       <IndicatorSection sectionId={sectionId} title={title}>
         <div className="space-y-4">
-          {fields.map(field => (
-            <div key={field} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor={field} className="text-sm font-medium">
-                  {getFieldLabel(field)}
-                  <span className="text-red-500 ml-1">*</span>
-                </Label>
-                {getFieldType(field) === 'select' ? (
-                  <Select
-                    value={formData[field] || ''}
-                    onValueChange={(value) => handleInputChange(field, value)}
-                  >
-                    <SelectTrigger className={errors[field] ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Yes">Yes</SelectItem>
-                      <SelectItem value="No">No</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    id={field}
-                    type="number"
-                    value={formData[field] || ''}
-                    onChange={(e) => handleInputChange(field, e.target.value)}
-                    className={errors[field] ? 'border-red-500' : ''}
-                    placeholder="Enter value"
-                  />
-                )}
-                {errors[field] && (
-                  <p className="text-sm text-red-500 mt-1">{errors[field]}</p>
-                )}
-              </div>
-            </div>
-          ))}
+          {/* Section 1: Infrastructure Financing */}
+          {sectionId === 'infra-financing' && (
+            <>
+              <Section1_1_CapexToGSDP
+                value={typeof formData.capexToGsdpRatio === 'number' ? formData.capexToGsdpRatio : undefined}
+                onChange={(value) => handleInputChange('capexToGsdpRatio', value)}
+                error={errors.capexToGsdpRatio}
+              />
+              <Section1_2_CapexUtilization
+                value={typeof formData.capexUtilization === 'number' ? formData.capexUtilization : undefined}
+                onChange={(value) => handleInputChange('capexUtilization', value)}
+                error={errors.capexUtilization}
+              />
+              <Section1_3_CreditRatedULBs
+                value={typeof formData.creditRatedULBs === 'number' ? formData.creditRatedULBs : undefined}
+                onChange={(value) => handleInputChange('creditRatedULBs', value)}
+                error={errors.creditRatedULBs}
+              />
+              <Section1_4_ULBsIssuingBonds
+                value={typeof formData.ulbsIssuingBonds === 'number' ? formData.ulbsIssuingBonds : undefined}
+                onChange={(value) => handleInputChange('ulbsIssuingBonds', value)}
+                error={errors.ulbsIssuingBonds}
+              />
+              <Section1_5_FunctionalFinancialIntermediary
+                value={typeof formData.functionalFinancialIntermediary === 'number' ? formData.functionalFinancialIntermediary : undefined}
+                onChange={(value) => handleInputChange('functionalFinancialIntermediary', value)}
+                error={errors.functionalFinancialIntermediary}
+              />
+            </>
+          )}
+
+          {/* Section 2: Infrastructure Development */}
+          {sectionId === 'infra-development' && (
+            <>
+              <Section2_1_InfrastructureActPolicy
+                value={formData.infrastructureActPolicy}
+                onChange={(value) => handleInputChange('infrastructureActPolicy', value)}
+                error={errors.infrastructureActPolicy}
+              />
+              <Section2_2_SpecializedEntity
+                value={typeof formData.specializedEntity === 'number' ? formData.specializedEntity : undefined}
+                onChange={(value) => handleInputChange('specializedEntity', value)}
+                error={errors.specializedEntity}
+              />
+              <Section2_3_SectorInfraPlan
+                value={formData.sectorInfraPlan}
+                onChange={(value) => handleInputChange('sectorInfraPlan', value)}
+                error={errors.sectorInfraPlan}
+              />
+              <Section2_4_InvestmentReadyPipeline
+                value={typeof formData.investmentReadyPipeline === 'number' ? formData.investmentReadyPipeline : undefined}
+                onChange={(value) => handleInputChange('investmentReadyPipeline', value)}
+                error={errors.investmentReadyPipeline}
+              />
+              <Section2_5_AssetMonetizationPipeline
+                value={typeof formData.assetMonetizationPipeline === 'number' ? formData.assetMonetizationPipeline : undefined}
+                onChange={(value) => handleInputChange('assetMonetizationPipeline', value)}
+                error={errors.assetMonetizationPipeline}
+              />
+            </>
+          )}
+
+          {/* Section 3: PPP Development */}
+          {sectionId === 'ppp-development' && (
+            <>
+              <Section3_1_PPPActPolicy
+                value={formData.pppActPolicy}
+                onChange={(value) => handleInputChange('pppActPolicy', value)}
+                error={errors.pppActPolicy}
+              />
+              <Section3_2_FunctionalPPPCell
+                value={formData.pppCell}
+                onChange={(value) => handleInputChange('pppCell', value)}
+                error={errors.pppCell}
+              />
+              <Section3_3_VGFIIPDFProposals
+                value={typeof formData.vgfIipdfProposals === 'number' ? formData.vgfIipdfProposals : undefined}
+                onChange={(value) => handleInputChange('vgfIipdfProposals', value)}
+                error={errors.vgfIipdfProposals}
+              />
+              <Section3_4_PPPBankableProjects
+                value={typeof formData.pppBankableProjects === 'number' ? formData.pppBankableProjects : undefined}
+                onChange={(value) => handleInputChange('pppBankableProjects', value)}
+                error={errors.pppBankableProjects}
+              />
+            </>
+          )}
+
+          {/* Section 4: Infrastructure Enablers */}
+          {sectionId === 'infra-enablers' && (
+            <>
+              <Section4_1_PMGPortalEligible
+                value={formData.pmgPortalEligible}
+                onChange={(value) => handleInputChange('pmgPortalEligible', value)}
+                error={errors.pmgPortalEligible}
+              />
+              <Section4_2_StatePMGPortal
+                value={formData.statePmgPortal}
+                onChange={(value) => handleInputChange('statePmgPortal', value)}
+                error={errors.statePmgPortal}
+              />
+              <Section4_3_PMGatiShaktiAdoption
+                value={formData.pmGatiShaktiAdoption}
+                onChange={(value) => handleInputChange('pmGatiShaktiAdoption', value)}
+                error={errors.pmGatiShaktiAdoption}
+              />
+              <Section4_4_ADRAdoption
+                value={formData.adrAdoption}
+                onChange={(value) => handleInputChange('adrAdoption', value)}
+                error={errors.adrAdoption}
+              />
+              <Section4_5_InnovativePractices
+                value={typeof formData.innovativePractices === 'number' ? formData.innovativePractices : undefined}
+                onChange={(value) => handleInputChange('innovativePractices', value)}
+                error={errors.innovativePractices}
+              />
+              <Section4_6_CapacityBuilding
+                value={typeof formData.capacityBuilding === 'number' ? formData.capacityBuilding : undefined}
+                onChange={(value) => handleInputChange('capacityBuilding', value)}
+                error={errors.capacityBuilding}
+              />
+            </>
+          )}
         </div>
       </IndicatorSection>
     );
@@ -763,8 +1010,9 @@ function getFieldLabel(field: string): string {
 function getFieldType(field: string): 'number' | 'select' {
   const selectFields = [
     'functionalFinancialIntermediary', 'infrastructureActPolicy', 'specializedEntity',
-    'investmentReadyPipeline', 'assetMonetizationPipeline', 'pppActPolicy', 'pppCell',
-    'pmgPortalEligible', 'statePmgPortal', 'adrAdoption'
+    'sectorInfraPlan', 'investmentReadyPipeline', 'assetMonetizationPipeline', 
+    'pppActPolicy', 'pppCell', 'pmgPortalEligible', 'statePmgPortal', 
+    'pmGatiShaktiAdoption', 'adrAdoption'
   ];
   
   return selectFields.includes(field) ? 'select' : 'number';

@@ -19,14 +19,14 @@ export const INDICATOR_SECTIONS: IndicatorSection[] = [
   {
     id: "ppp-development",
     name: "PPP Development",
-    indicators: ["3.1", "3.2", "3.3", "3.4", "3.5"],
+    indicators: ["3.1", "3.2", "3.3", "3.4"],
     points: 250,
     description: "Public-Private Partnership development indicators",
   },
   {
     id: "infra-enablers",
     name: "Infrastructure Enablers",
-    indicators: ["4.1", "4.2", "4.3", "4.4", "4.5"],
+    indicators: ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"],
     points: 250,
     description: "Supporting infrastructure and policy enablers",
   },

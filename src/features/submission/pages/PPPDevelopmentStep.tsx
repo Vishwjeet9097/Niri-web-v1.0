@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ import { FileUploadSection } from "../components/FileUploadSection";
 import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 const defaultData: PPPDevelopmentData = {
   section3_1: {
@@ -52,6 +53,15 @@ export const PPPDevelopmentStep = () => {
   const { currentStep, goToNext, goToPrevious, isFirstStep, isLastStep } = useStepNavigation(3);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+  
+  // Indicator access control
+  const { 
+    loading: indicatorLoading, 
+    error: indicatorError, 
+    assignedIndicators, 
+    hasIndicatorAccess, 
+    isNodalOfficer 
+  } = useIndicatorAccess();
 
   // Note: Editing submission data is handled by useFormPersistence hook
 
@@ -129,7 +139,7 @@ export const PPPDevelopmentStep = () => {
   }, [formData]);
 
   // Calculation functions
-  const calculateSection3_3 = () => {
+  const calculateSection3_3 = useCallback(() => {
     // For section 3.3, marks = MIN(number of proposals × 5, 50)
     const numberOfProposals = formData.section3_3.length;
     const marksObtained = Math.min(numberOfProposals * 5, 50);
@@ -137,9 +147,9 @@ export const PPPDevelopmentStep = () => {
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
-  };
+  }, [formData.section3_3.length]);
 
-  const calculateSection3_4 = () => {
+  const calculateSection3_4 = useCallback(() => {
     // A₁: TPC of PPP projects, A₂: Total TPC
     const tpcOfPPPProjects = parseFloat(formData.section3_4.tpcOfPPPProjects);
     const totalTPC = parseFloat(formData.section3_4.totalTPC);
@@ -157,7 +167,7 @@ export const PPPDevelopmentStep = () => {
       proportion: Math.round(proportion * 100) / 100, // Round to 2 decimal places
       marksObtained: Math.round(marksObtained * 100) / 100
     };
-  };
+  }, [formData.section3_4.tpcOfPPPProjects, formData.section3_4.totalTPC]);
 
   // Update calculations when form data changes
   useEffect(() => {
@@ -262,6 +272,48 @@ export const PPPDevelopmentStep = () => {
     }
   };
 
+  // Access control for NODAL_OFFICER
+  if (isNodalOfficer) {
+    // Check if user has access to any indicator in this section
+    const hasAccessToSection = hasIndicatorAccess('3.1') || hasIndicatorAccess('3.2') || 
+                              hasIndicatorAccess('3.3') || hasIndicatorAccess('3.4');
+    
+    console.log("🔍 PPPDevelopmentStep: Access control check", {
+      isNodalOfficer,
+      assignedIndicators,
+      hasAccessToSection,
+      hasAccess3_1: hasIndicatorAccess('3.1'),
+      hasAccess3_2: hasIndicatorAccess('3.2'),
+      hasAccess3_3: hasIndicatorAccess('3.3'),
+      hasAccess3_4: hasIndicatorAccess('3.4')
+    });
+
+    if (!hasAccessToSection) {
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+          <ProgressHeader
+            title="PPP Development"
+            description="Public-Private Partnership projects and initiatives"
+            points={250}
+            completed={0}
+            total={4}
+            progress={0}
+          />
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Access</h3>
+            <p className="text-gray-600 mb-4">
+              You don't have access to any indicators in this section.
+            </p>
+            <Button onClick={goToNext} className="bg-primary text-white">
+              Skip to Next Section
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
@@ -276,16 +328,17 @@ export const PPPDevelopmentStep = () => {
 
 
       {/* Section 3.1 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">3.1 - </span> Availability of Infrastructure Act/Policy{" "}
-          </span>
-        </div>}
+      {(!isNodalOfficer || hasIndicatorAccess('3.1')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">3.1 - </span> Availability of Infrastructure Act/Policy{" "}
+            </span>
+          </div>}
 
-        subtitle=""
-        className="mb-6"
-      >
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           <div>
             <Label>
@@ -346,18 +399,20 @@ export const PPPDevelopmentStep = () => {
             </p>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 3.2 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">3.2 - </span> Functional PPP Cell/Unit{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('3.2')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">3.2 - </span> Functional PPP Cell/Unit{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           <div>
             <Label>
@@ -420,18 +475,20 @@ export const PPPDevelopmentStep = () => {
             </p>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 3.3 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">3.3 - </span> Proposals Submitted under VGF/IIPDF{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('3.3')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">3.3 - </span> Proposals Submitted under VGF/IIPDF{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section3_3.map((entry, idx) => (
             <div key={entry.id} className="mb-2">
@@ -537,18 +594,20 @@ export const PPPDevelopmentStep = () => {
           </div>
 
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 3.4 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">3.4 - </span> Proportion of TPC of PPP Projects{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('3.4')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">3.4 - </span> Proportion of TPC of PPP Projects{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="grid grid-cols-2 gap-4 w-[70%]">
           <div>
             <Label>A₁ - TPC of PPP Projects*</Label>
@@ -585,7 +644,8 @@ export const PPPDevelopmentStep = () => {
             />
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Navigation Buttons */}
       <FormActions
