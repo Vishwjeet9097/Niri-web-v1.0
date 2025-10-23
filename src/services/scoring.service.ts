@@ -5,8 +5,31 @@ export interface ScoreRanking {
   stateUt: string;
   totalScore: number;
   percentage: number;
-  approvedAt: string;
+  approvedAt?: string;
   submissionId: string;
+  createdAt?: string;
+  categoryScores?: {
+    infraFinancing: {
+      score: number;
+      maxScore: number;
+      percentage: number;
+    };
+    infraDevelopment: {
+      score: number;
+      maxScore: number;
+      percentage: number;
+    };
+    pppDevelopment: {
+      score: number;
+      maxScore: number;
+      percentage: number;
+    };
+    infraEnablers: {
+      score: number;
+      maxScore: number;
+      percentage: number;
+    };
+  };
 }
 
 export interface ScoreStatistics {
@@ -118,17 +141,17 @@ class ScoringService {
       name: item.stateUt,
       isUserState: item.stateUt === "Maharashtra", // Customize this logic
       totalScore: item.totalScore,
-      financing: Math.round((item.totalScore * 0.25)), // Approximate breakdown - will be updated with real data
-      development: Math.round((item.totalScore * 0.25)),
-      ppp: Math.round((item.totalScore * 0.25)),
-      enablers: Math.round((item.totalScore * 0.25)),
+      financing: item.categoryScores?.infraFinancing?.score ?? Math.round((item.totalScore * 0.25)), // Use actual categoryScores or fallback to calculated
+      development: item.categoryScores?.infraDevelopment?.score ?? Math.round((item.totalScore * 0.25)),
+      ppp: item.categoryScores?.pppDevelopment?.score ?? Math.round((item.totalScore * 0.25)),
+      enablers: item.categoryScores?.infraEnablers?.score ?? Math.round((item.totalScore * 0.25)),
       category: this.getCategoryFromScore(item.totalScore),
       categoryRange: this.getCategoryRange(item.totalScore),
       yoyChange: Math.floor(Math.random() * 5) - 2, // Random change for demo
       scorePercent: item.percentage,
       region: this.getRegionFromState(item.stateUt),
       rank: item.rank,
-      approvedAt: item.approvedAt
+      approvedAt: item.approvedAt || item.createdAt
     }));
   }
 
