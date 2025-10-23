@@ -88,12 +88,18 @@ class AuthService {
     // Create normalized user object with legacy fields
     const normalizedUser: User = {
       ...user,
-      id: user._id, // Legacy field
+      id: user._id || user.id, // Use _id first, fallback to id
       name: `${user.firstName} ${user.lastName}`.trim(), // Legacy field
       // Map stateUt to state if stateUt exists but state doesn't
       state: user.state || user.stateUt || "",
       stateName: user.stateName || user.stateUt || "",
     };
+
+    // Ensure we have a valid ID
+    if (!normalizedUser.id) {
+      console.error("❌ No valid user ID found in login response:", user);
+      throw new Error("Invalid user data: missing user ID");
+    }
 
     this.setAuth(normalizedUser, normalizedTokens);
     return { user: normalizedUser, tokens: normalizedTokens };

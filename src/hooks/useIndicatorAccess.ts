@@ -44,10 +44,74 @@ export function useIndicatorAccess() {
   const user = authService.getUser();
   const isNodalOfficer = user?.role === "NODAL_OFFICER";
 
-  // Load assigned indicators
+  // Debug logging
+  console.log("🔍 useIndicatorAccess: Hook initialized", {
+    user: user
+      ? { id: user._id || user.id, role: user.role, name: user.name }
+      : null,
+    isNodalOfficer,
+    assignedIndicators,
+    loading,
+    error,
+  });
+
+  // Force immediate API call for NODAL_OFFICER
+  if (isNodalOfficer && assignedIndicators.length === 0) {
+    console.log(
+      "🔍 useIndicatorAccess: NODAL_OFFICER detected, making immediate API call"
+    );
+    const immediateApiCall = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const userId = user?._id || user?.id;
+        console.log(
+          "🔍 useIndicatorAccess: Immediate API call - User ID:",
+          userId
+        );
+
+        if (userId) {
+          const indicators = await apiService.getUserAssignedIndicators(userId);
+          console.log(
+            "🔍 useIndicatorAccess: Immediate API response - indicators:",
+            indicators
+          );
+          setAssignedIndicators(indicators);
+
+          if (indicators.length > 0) {
+            const updatedUser = { ...user, assignedIndicators: indicators };
+            authService.setAuth(updatedUser, authService.getTokens());
+            console.log(
+              "🔍 useIndicatorAccess: Immediate updated user with indicators:",
+              indicators
+            );
+          }
+        }
+      } catch (err) {
+        console.error("🔍 useIndicatorAccess: Immediate API call failed:", err);
+        setError(err.message || "Failed to load assigned indicators");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    immediateApiCall();
+  }
+
+  // Load assigned indicators when component mounts (page visit)
   useEffect(() => {
     const loadAssignedIndicators = async () => {
+      console.log("🔍 useIndicatorAccess: useEffect triggered", {
+        isNodalOfficer,
+        userId: user?._id || user?.id,
+        userRole: user?.role,
+      });
+
       if (!isNodalOfficer) {
+        console.log(
+          "🔍 useIndicatorAccess: Not a NODAL_OFFICER, skipping indicator fetch"
+        );
         setLoading(false);
         return;
       }
@@ -56,32 +120,143 @@ export function useIndicatorAccess() {
         setLoading(true);
         setError(null);
 
-        // First try to get from user profile
-        if (user?.assignedIndicators && user.assignedIndicators.length > 0) {
-          setAssignedIndicators(user.assignedIndicators);
-          setLoading(false);
-          return;
-        }
+        console.log(
+          "🔍 useIndicatorAccess: Fetching assigned indicators on page visit for NODAL_OFFICER:",
+          user?.id
+        );
 
-        // If not in profile, fetch from API
+        // Always fetch fresh indicators from API when visiting submission page
         const userId = user?._id || user?.id;
+        console.log("🔍 useIndicatorAccess: User ID for API call:", userId);
+
         if (userId) {
+          console.log(
+            "🔍 useIndicatorAccess: Making API call to getUserAssignedIndicators"
+          );
           const indicators = await apiService.getUserAssignedIndicators(userId);
+          console.log(
+            "🔍 useIndicatorAccess: API response - indicators:",
+            indicators
+          );
           setAssignedIndicators(indicators);
+
+          // Update user object with fresh indicators
+          if (indicators.length > 0) {
+            const updatedUser = {
+              ...user,
+              assignedIndicators: indicators,
+            };
+            authService.setAuth(updatedUser, authService.getTokens());
+            console.log(
+              "🔍 useIndicatorAccess: Updated user with fresh indicators:",
+              indicators
+            );
+          } else {
+            console.log(
+              "🔍 useIndicatorAccess: No indicators returned from API"
+            );
+          }
         } else {
+          console.log(
+            "🔍 useIndicatorAccess: No user ID found, setting empty indicators"
+          );
           setAssignedIndicators([]);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const error = err as { message?: string };
         console.error("Failed to load assigned indicators:", err);
-        setError(err.message || "Failed to load assigned indicators");
+        setError(error.message || "Failed to load assigned indicators");
         setAssignedIndicators([]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadAssignedIndicators();
-  }, [isNodalOfficer, user?._id, user?.assignedIndicators]);
+    // Only run if we have a user and they are a NODAL_OFFICER
+    if (user && isNodalOfficer) {
+      console.log(
+        "🔍 useIndicatorAccess: User found, starting indicator fetch"
+      );
+      loadAssignedIndicators();
+    } else {
+      console.log(
+        "🔍 useIndicatorAccess: No user or not NODAL_OFFICER, skipping"
+      );
+      setLoading(false);
+    }
+  }, [isNodalOfficer, user?._id, user?.id, user]); // Include user dependencies to ensure it runs when user changes
+
+  // Additional useEffect to ensure API call on every page visit
+  useEffect(() => {
+    console.log("🔍 useIndicatorAccess: Page visit useEffect triggered", {
+      isNodalOfficer,
+      userId: user?._id || user?.id,
+      userRole: user?.role,
+      assignedIndicatorsLength: assignedIndicators.length,
+    });
+
+    // Force API call if user is NODAL_OFFICER and no indicators loaded yet
+    if (
+      isNodalOfficer &&
+      assignedIndicators.length === 0 &&
+      !loading &&
+      !error
+    ) {
+      console.log(
+        "🔍 useIndicatorAccess: Force triggering API call for NODAL_OFFICER"
+      );
+      const forceLoadIndicators = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+
+          const userId = user?._id || user?.id;
+          if (userId) {
+            console.log(
+              "🔍 useIndicatorAccess: Force API call - User ID:",
+              userId
+            );
+            const indicators = await apiService.getUserAssignedIndicators(
+              userId
+            );
+            console.log(
+              "🔍 useIndicatorAccess: Force API response - indicators:",
+              indicators
+            );
+            setAssignedIndicators(indicators);
+
+            // Update user object with fresh indicators
+            if (indicators.length > 0) {
+              const updatedUser = {
+                ...user,
+                assignedIndicators: indicators,
+              };
+              authService.setAuth(updatedUser, authService.getTokens());
+              console.log(
+                "🔍 useIndicatorAccess: Force updated user with indicators:",
+                indicators
+              );
+            }
+          }
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          console.error("🔍 useIndicatorAccess: Force API call failed:", err);
+          setError(error.message || "Failed to load assigned indicators");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      forceLoadIndicators();
+    }
+  }, [
+    isNodalOfficer,
+    user?._id,
+    user?.id,
+    assignedIndicators.length,
+    loading,
+    error,
+  ]); // Trigger on page visit
 
   // Calculate indicator access
   const indicatorAccess = useMemo((): IndicatorAccess => {

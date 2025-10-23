@@ -2076,7 +2076,7 @@ class ApiService implements HttpClient {
   // Indicator Access Control Methods
   async getUserAssignedIndicators(userId: string): Promise<string[]> {
     try {
-      const response = await this.axios.get(`/users/${userId}/indicators`);
+      const response = await this.axios.get(`/auth/my-indicators`);
       console.log(
         "🔍 API Service - Get User Assigned Indicators Response Status:",
         response.status
@@ -2096,17 +2096,48 @@ class ApiService implements HttpClient {
 
       return indicatorsData.indicators || indicatorsData || [];
     } catch (error: any) {
-      // Handle 304 as success
-      if (error.response?.status === 304) {
-        console.log("📋 Get User Assigned Indicators 304 - Using cached data");
-        const cachedData = error.response?.data || {};
-        return cachedData?.data?.indicators || cachedData?.indicators || [];
+      console.log("🔍 API Service - Primary endpoint failed, trying fallback");
+
+      try {
+        // Try fallback endpoint
+        const fallbackResponse = await this.axios.get(
+          `/users/${userId}/indicators`
+        );
+        console.log(
+          "🔍 API Service - Fallback Get User Assigned Indicators Response Status:",
+          fallbackResponse.status
+        );
+        console.log(
+          "🔍 API Service - Fallback Get User Assigned Indicators Response Data:",
+          fallbackResponse.data
+        );
+
+        const indicatorsData =
+          fallbackResponse.data?.data !== undefined
+            ? fallbackResponse.data.data
+            : fallbackResponse.data;
+        console.log(
+          "🔍 API Service - Processed Fallback Get User Assigned Indicators Data:",
+          indicatorsData
+        );
+
+        return indicatorsData.indicators || indicatorsData || [];
+      } catch (fallbackError: any) {
+        // Handle 304 as success
+        if (error.response?.status === 304) {
+          console.log(
+            "📋 Get User Assigned Indicators 304 - Using cached data"
+          );
+          const cachedData = error.response?.data || {};
+          return cachedData?.data?.indicators || cachedData?.indicators || [];
+        }
+        console.warn(
+          "⚠️ Backend get user assigned indicators failed on both endpoints:",
+          error.message,
+          fallbackError.message
+        );
+        return [];
       }
-      console.warn(
-        "⚠️ Backend get user assigned indicators failed:",
-        error.message
-      );
-      return [];
     }
   }
 

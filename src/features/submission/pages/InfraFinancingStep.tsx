@@ -22,12 +22,51 @@ import type { InfraFinancingData } from "../types";
 
 import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { apiService } from "@/services/api.service";
+import { authService } from "@/services/auth.service";
 
 export const InfraFinancingStep = () => {
   const { currentStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
     useStepNavigation(1);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+
+  // Force API call for NODAL_OFFICER
+  useEffect(() => {
+    console.log("🔍 InfraFinancingStep: Component mounted, checking user role:", user?.role);
+    
+    if (user?.role === "NODAL_OFFICER") {
+      console.log("🔍 InfraFinancingStep: NODAL_OFFICER detected, making API call");
+      const makeApiCall = async () => {
+        try {
+          const userId = user?._id || user?.id;
+          console.log("🔍 InfraFinancingStep: User ID for API call:", userId);
+          
+          if (userId) {
+            console.log("🔍 InfraFinancingStep: Making API call to getUserAssignedIndicators");
+            const indicators = await apiService.getUserAssignedIndicators(userId);
+            console.log("🔍 InfraFinancingStep: API response - indicators:", indicators);
+            
+            if (indicators && indicators.length > 0) {
+              const updatedUser = { ...user, assignedIndicators: indicators };
+              authService.setAuth(updatedUser, authService.getTokens());
+              console.log("🔍 InfraFinancingStep: Updated user with indicators:", indicators);
+            } else {
+              console.log("🔍 InfraFinancingStep: No indicators returned from API");
+            }
+          } else {
+            console.log("🔍 InfraFinancingStep: No user ID found, cannot make API call");
+          }
+        } catch (error) {
+          console.error("🔍 InfraFinancingStep: API call failed:", error);
+        }
+      };
+      
+      makeApiCall();
+    } else {
+      console.log("🔍 InfraFinancingStep: User is not NODAL_OFFICER, skipping API call");
+    }
+  }, [user?.role, user?._id, user?.id]); // Dependencies to ensure it runs when user changes
 
   // Note: Editing submission data is handled by useFormPersistence hook
   const { toast } = useToast();

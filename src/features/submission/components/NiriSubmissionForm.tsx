@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { transformFormDataToNiriSubmission, validateNiriSubmission, transformNiriSubmissionToFormData } from '@/utils/submissionTransformer';
 import { apiService } from '@/services/api.service';
+import { authService } from '@/services/auth.service';
 import { useToast } from '@/hooks/use-toast';
 import { useIndicatorAccess } from '@/hooks/useIndicatorAccess';
 import { IndicatorSection } from '@/components/IndicatorSection';
@@ -26,16 +27,203 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [forceRefresh, setForceRefresh] = useState(0);
   
   // Indicator access control
-  const {
-    loading: indicatorLoading,
-    error: indicatorError,
+  let indicatorLoading = false;
+  let indicatorError = null;
+  let assignedIndicators: string[] = [];
+  let hasAnyAccess = true;
+  let getFirstAvailableSection = () => "infra-financing";
+  let isNodalOfficer = false;
+
+  try {
+    const indicatorAccess = useIndicatorAccess();
+    indicatorLoading = indicatorAccess.loading;
+    indicatorError = indicatorAccess.error;
+    assignedIndicators = indicatorAccess.assignedIndicators;
+    hasAnyAccess = indicatorAccess.hasAnyAccess;
+    getFirstAvailableSection = indicatorAccess.getFirstAvailableSection;
+    isNodalOfficer = indicatorAccess.isNodalOfficer;
+    console.log("🔍 NiriSubmissionForm: useIndicatorAccess hook called successfully", indicatorAccess);
+  } catch (error) {
+    console.error("🔍 NiriSubmissionForm: useIndicatorAccess hook failed:", error);
+  }
+
+  // Immediate debug logging
+  console.log("🔍 NiriSubmissionForm: Component initialized", {
+    isNodalOfficer,
     assignedIndicators,
-    hasAnyAccess,
-    getFirstAvailableSection,
-    isNodalOfficer
-  } = useIndicatorAccess();
+    indicatorLoading,
+    indicatorError,
+    user: user ? { id: user._id || user.id, role: user.role } : null
+  });
+
+  // Force API call immediately for NODAL_OFFICER
+  React.useEffect(() => {
+    console.log("🔍 NiriSubmissionForm: useEffect triggered for API call", {
+      userRole: user?.role,
+      userId: user?._id || user?.id,
+      userObject: user
+    });
+
+    if (user?.role === "NODAL_OFFICER") {
+      console.log("🔍 NiriSubmissionForm: useEffect - NODAL_OFFICER detected, making API call");
+      const makeApiCall = async () => {
+        try {
+          const userId = user?._id || user?.id;
+          console.log("🔍 NiriSubmissionForm: useEffect - User ID for API call:", userId);
+          
+          if (userId) {
+            console.log("🔍 NiriSubmissionForm: useEffect - Making API call to getUserAssignedIndicators");
+            const indicators = await apiService.getUserAssignedIndicators(userId);
+            console.log("🔍 NiriSubmissionForm: useEffect - API response:", indicators);
+            
+            if (indicators && indicators.length > 0) {
+              const updatedUser = { ...user, assignedIndicators: indicators };
+              authService.setAuth(updatedUser, authService.getTokens());
+              console.log("🔍 NiriSubmissionForm: useEffect - Updated user with indicators:", indicators);
+              setForceRefresh(prev => prev + 1);
+            } else {
+              console.log("🔍 NiriSubmissionForm: useEffect - No indicators returned");
+            }
+          } else {
+            console.log("🔍 NiriSubmissionForm: useEffect - No user ID found");
+          }
+        } catch (error) {
+          console.error("🔍 NiriSubmissionForm: useEffect - API call failed:", error);
+        }
+      };
+      
+      makeApiCall();
+    } else {
+      console.log("🔍 NiriSubmissionForm: useEffect - User is not NODAL_OFFICER");
+    }
+  }, [user?.role, user?._id, user?.id]); // Dependencies to ensure it runs when user changes
+
+  // Force immediate API call for NODAL_OFFICER
+  if (isNodalOfficer && assignedIndicators.length === 0) {
+    console.log("🔍 NiriSubmissionForm: NODAL_OFFICER detected, making immediate API call");
+    const immediateApiCall = async () => {
+      try {
+        const userId = user?._id || user?.id;
+        console.log("🔍 NiriSubmissionForm: Immediate API call - User ID:", userId);
+        
+        if (userId) {
+          const indicators = await apiService.getUserAssignedIndicators(userId);
+          console.log("🔍 NiriSubmissionForm: Immediate API response - indicators:", indicators);
+          
+          if (indicators.length > 0) {
+            const updatedUser = { ...user, assignedIndicators: indicators };
+            authService.setAuth(updatedUser, authService.getTokens());
+            console.log("🔍 NiriSubmissionForm: Immediate updated user with indicators:", indicators);
+            setForceRefresh(prev => prev + 1); // Trigger re-render
+          }
+        }
+      } catch (err) {
+        console.error("🔍 NiriSubmissionForm: Immediate API call failed:", err);
+      }
+    };
+    
+    immediateApiCall();
+  }
+
+  // Force API call for NODAL_OFFICER regardless of hook state
+  console.log("🔍 NiriSubmissionForm: Checking user role:", user?.role);
+  if (user?.role === "NODAL_OFFICER") {
+    console.log("🔍 NiriSubmissionForm: NODAL_OFFICER detected, making forced API call");
+    const forcedApiCall = async () => {
+      try {
+        const userId = user?._id || user?.id;
+        console.log("🔍 NiriSubmissionForm: Forced API call - User ID:", userId);
+        console.log("🔍 NiriSubmissionForm: User object:", user);
+        
+        if (userId) {
+          console.log("🔍 NiriSubmissionForm: Making API call to getUserAssignedIndicators with userId:", userId);
+          const indicators = await apiService.getUserAssignedIndicators(userId);
+          console.log("🔍 NiriSubmissionForm: Forced API response - indicators:", indicators);
+          
+          if (indicators.length > 0) {
+            const updatedUser = { ...user, assignedIndicators: indicators };
+            authService.setAuth(updatedUser, authService.getTokens());
+            console.log("🔍 NiriSubmissionForm: Forced updated user with indicators:", indicators);
+            setForceRefresh(prev => prev + 1); // Trigger re-render
+          } else {
+            console.log("🔍 NiriSubmissionForm: No indicators returned from API");
+          }
+        } else {
+          console.log("🔍 NiriSubmissionForm: No user ID found, cannot make API call");
+        }
+      } catch (err) {
+        console.error("🔍 NiriSubmissionForm: Forced API call failed:", err);
+      }
+    };
+    
+    forcedApiCall();
+  } else {
+    console.log("🔍 NiriSubmissionForm: User is not NODAL_OFFICER, skipping API call");
+  }
+
+  // Manual trigger for indicator fetch
+  const triggerIndicatorFetch = useCallback(async () => {
+    if (!isNodalOfficer) return;
+    
+    console.log("🔍 NiriSubmissionForm: Manual trigger for indicator fetch");
+    try {
+      const userId = user?._id || user?.id;
+      if (userId) {
+        console.log("🔍 NiriSubmissionForm: Making manual API call to getUserAssignedIndicators");
+        const indicators = await apiService.getUserAssignedIndicators(userId);
+        console.log("🔍 NiriSubmissionForm: Manual API response - indicators:", indicators);
+        
+        // Update user object with fresh indicators
+        if (indicators.length > 0) {
+          const updatedUser = {
+            ...user,
+            assignedIndicators: indicators,
+          };
+          authService.setAuth(updatedUser, authService.getTokens());
+          console.log("🔍 NiriSubmissionForm: Updated user with fresh indicators:", indicators);
+          setForceRefresh(prev => prev + 1); // Trigger re-render
+        }
+      }
+    } catch (err) {
+      console.error("🔍 NiriSubmissionForm: Manual indicator fetch failed:", err);
+    }
+  }, [isNodalOfficer, user]);
+
+  // Force refresh indicators when component mounts
+  useEffect(() => {
+    console.log("🔍 NiriSubmissionForm: Component mounted, checking indicator access", {
+      isNodalOfficer,
+      assignedIndicators,
+      indicatorLoading,
+      indicatorError,
+      forceRefresh
+    });
+    
+    // Force trigger indicator fetch if user is NODAL_OFFICER and no indicators loaded
+    if (isNodalOfficer && !indicatorLoading && assignedIndicators.length === 0 && !indicatorError) {
+      console.log("🔍 NiriSubmissionForm: No indicators loaded, triggering manual fetch...");
+      triggerIndicatorFetch();
+    }
+  }, [isNodalOfficer, assignedIndicators, indicatorLoading, indicatorError, forceRefresh, triggerIndicatorFetch]);
+
+  // Additional useEffect to ensure API call happens on every page visit
+  useEffect(() => {
+    console.log("🔍 NiriSubmissionForm: Page visit useEffect triggered", {
+      isNodalOfficer,
+      assignedIndicatorsLength: assignedIndicators.length,
+      indicatorLoading,
+      indicatorError
+    });
+
+    // Force API call if user is NODAL_OFFICER
+    if (isNodalOfficer) {
+      console.log("🔍 NiriSubmissionForm: NODAL_OFFICER detected, ensuring API call...");
+      triggerIndicatorFetch();
+    }
+  }, []); // Run only once when component mounts
 
   // Initialize form with default values
   useEffect(() => {
@@ -251,8 +439,47 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   };
 
   const renderSection = (sectionId: string, title: string, fields: string[]) => {
+    console.log("🔍 renderSection called:", {
+      sectionId,
+      title,
+      isNodalOfficer,
+      assignedIndicators,
+      indicatorLoading,
+      indicatorError
+    });
+
     // For NODAL_OFFICER, check if user has access to any field in this section
-    if (isNodalOfficer && assignedIndicators.length > 0) {
+    if (isNodalOfficer) {
+      // If still loading indicators, show loading state
+      if (indicatorLoading) {
+        return (
+          <IndicatorSection sectionId={sectionId} title={title}>
+            <div className="flex items-center justify-center p-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading your assigned indicators...</p>
+              </div>
+            </div>
+          </IndicatorSection>
+        );
+      }
+
+      // If error loading indicators, show error
+      if (indicatorError) {
+        return (
+          <IndicatorSection sectionId={sectionId} title={title}>
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600">Error loading indicators: {indicatorError}</p>
+            </div>
+          </IndicatorSection>
+        );
+      }
+
+      // If no indicators assigned, hide section
+      if (assignedIndicators.length === 0) {
+        console.log("🔍 No indicators assigned, hiding section:", sectionId);
+        return null;
+      }
       const fieldToIndicatorMap: Record<string, string> = {
         'capexToGsdpRatio': '1.1',
         'capexUtilization': '1.2',
@@ -447,8 +674,8 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
           </div>
         )}
         
-        {/* Prefill Button */}
-        <div className="mt-4">
+        {/* Action Buttons */}
+        <div className="mt-4 flex gap-2">
           <Button
             variant="outline"
             onClick={handlePrefillData}
@@ -457,6 +684,19 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
             <Download className="w-4 h-4" />
             Load Sample Data
           </Button>
+          
+          {/* Refresh Indicators Button for NODAL_OFFICER */}
+          {isNodalOfficer && (
+            <Button
+              variant="outline"
+              onClick={triggerIndicatorFetch}
+              className="gap-2"
+              disabled={indicatorLoading}
+            >
+              <RefreshCw className={`w-4 h-4 ${indicatorLoading ? 'animate-spin' : ''}`} />
+              {indicatorLoading ? 'Loading...' : 'Refresh Indicators'}
+            </Button>
+          )}
         </div>
       </div>
 

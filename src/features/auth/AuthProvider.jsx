@@ -53,6 +53,8 @@ export function AuthProvider({ children }) {
       const result = await UserService.login(email, password);
 
       if (result.success && result.user) {
+        console.log("🔍 Login successful, user object:", result.user);
+
         // UserService already handles auth storage, just update context
         setUser(result.user);
         setIsAuthenticated(true);
