@@ -54,7 +54,7 @@ export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
                 </div>
               </div>
               {index < steps.length - 1 && (
-                <div className={cn(`h-0.5 bg-border z-10 bg-[#C6C6C6] w-40 absolute top-4 -right-20`, {
+                <div className={cn(`h-0.5 bg-border z-10 bg-[#C6C6C6] absolute top-4 left-1/2 w-1/2`, {
                     'bg-[#C6C6C6]': isCurrent,
                     'bg-[#3C9718]': isCompleted,
                     'bg-[#C6C6C6]': !isCurrent && !isCompleted,

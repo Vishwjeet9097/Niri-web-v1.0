@@ -301,12 +301,12 @@ export const PPPDevelopmentStep = () => {
             progress={0}
           />
           <div className="text-center py-12">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Access</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
             <p className="text-gray-600 mb-4">
-              You don't have access to any indicators in this section.
+              This section is not applicable for your submission. No data entry required here.
             </p>
             <Button onClick={goToNext} className="bg-primary text-white">
-              Skip to Next Section
+              Continue to Next Step
             </Button>
           </div>
         </div>
