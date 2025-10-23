@@ -71,6 +71,7 @@ export function UserManagementPage() {
         state: user.stateUt || user.state || "",
         stateId: user.stateId || "", // Will be set later when states are loaded
         assignedIndicator: user.assignedIndicator,
+        assignedIndicators: user.assignedIndicators || [],
         isActive: user.isActive,
         createdAt: new Date(user.createdAt).getTime(),
       }));
@@ -102,7 +103,7 @@ export function UserManagementPage() {
     setShowForm(true);
   };
 
-  const handleSaveUser = async (officerData: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string }) => {
+  const handleSaveUser = async (officerData: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => {
     try {
       if (editingOfficer) {
         // Update existing user via backend API
@@ -177,6 +178,11 @@ export function UserManagementPage() {
           role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
           stateUt: selectedState // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
         } as any);
+
+        // Update assigned indicators if provided
+        if (officerData.assignedIndicators && officerData.assignedIndicators.length > 0) {
+          await apiService.updateUserIndicators(editingOfficer.id, officerData.assignedIndicators);
+        }
         
         notificationService.success(
           "Officer updated successfully",
@@ -297,9 +303,16 @@ export function UserManagementPage() {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          selectedStateName // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
+          selectedStateName, // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
+          selectedStateId, // State ID for reference
+          officerData.assignedIndicators // Pass indicators directly in register call
         );
         console.log("🔍 New User Created:", newUser);
+
+        // Note: Indicators are now included in the register call, no separate API call needed
+        if (officerData.role === "NODAL_OFFICER" && officerData.assignedIndicators && officerData.assignedIndicators.length > 0) {
+          console.log("🔍 Indicators included in user creation:", officerData.assignedIndicators);
+        }
         
         notificationService.success(
           "Officer added successfully",

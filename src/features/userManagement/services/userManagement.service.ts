@@ -9,6 +9,7 @@ export interface NodalOfficer {
   state: string;
   stateId?: string; // Added for API compatibility
   assignedIndicator?: string;
+  assignedIndicators?: string[]; // Added for multiple indicator assignment
   isActive?: boolean; // Added for API compatibility
   createdAt: number;
 }

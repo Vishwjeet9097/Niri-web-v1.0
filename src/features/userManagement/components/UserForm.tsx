@@ -10,7 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { InfoIcon, Loader2, Eye, EyeOff } from "lucide-react";
+import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
+import { Badge } from "@/components/ui/badge";
+import { InfoIcon, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import {
   Tooltip,
@@ -20,10 +22,12 @@ import {
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { statesService, State } from "@/services/states.service";
+import { apiService } from "@/services/api.service";
+import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
-  onSave: (data: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string }) => void;
+  onSave: (data: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => void;
   onCancel: () => void;
 }
 
@@ -46,12 +50,31 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     password: "",
     role: "NODAL_OFFICER",
     stateId: "",
+    assignedIndicators: [] as string[],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Create indicator options for multi-select
+  const indicatorOptions: MultiSelectOption[] = INDICATOR_SECTIONS.flatMap(section =>
+    section.indicators.map(indicator => ({
+      value: indicator,
+      label: `${indicator} - ${getIndicatorDisplayName(indicator)}`,
+      section: section.name,
+      description: section.description
+    }))
+  );
+
+  // Handle indicator selection change
+  const handleIndicatorChange = (selectedIndicators: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      assignedIndicators: selectedIndicators
+    }));
+  };
 
   // Get available roles based on current user's role
   const getAvailableRoles = useCallback(() => {
@@ -101,6 +124,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         password: "", // Don't show password for existing users
         role: officer.role || "NODAL_OFFICER",
         stateId: "", // Will be set after states are loaded
+        assignedIndicators: officer.assignedIndicators || [],
       });
     } else {
       // Reset form when no officer (new user)
@@ -116,6 +140,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         password: "",
         role: defaultRole,
         stateId: user?.role === "ADMIN" ? "" : (user?.state || ""), // ✅ Admin can select any state, others use current state
+        assignedIndicators: [],
       });
     }
   }, [officer, user?.state, user?.role, getAvailableRoles]);
@@ -163,7 +188,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     };
 
     loadStates();
-  }, [officer]);
+  }, [officer, user?.role]);
 
   // Set stateId after states are loaded and officer is available
   useEffect(() => {
@@ -229,6 +254,11 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     // ✅ State validation for ADMIN only
     if (user?.role === "ADMIN" && !formData.stateId) {
       newErrors.stateId = "State is required";
+    }
+
+    // ✅ Indicator validation for NODAL_OFFICER
+    if (formData.role === "NODAL_OFFICER" && formData.assignedIndicators.length === 0) {
+      newErrors.assignedIndicators = "At least one indicator must be assigned to Nodal Officer";
     }
 
     setErrors(newErrors);
@@ -581,7 +611,70 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
             <p className="text-sm text-destructive">{errors.stateId}</p>
           )}
         </div>
+
+        {/* Indicator Assignment Section - Only for NODAL_OFFICER */}
+        {formData.role === "NODAL_OFFICER" && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Assign Indicators
+              <span className="text-destructive">*</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Select indicators that this Nodal Officer will be responsible for</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
+            
+            <MultiSelect
+              options={indicatorOptions}
+              value={formData.assignedIndicators}
+              onChange={handleIndicatorChange}
+              placeholder="Search and select indicators..."
+              searchPlaceholder="Type to search indicators..."
+              showSearch={true}
+              showSelectAll={true}
+              showSectionHeaders={true}
+              groupBySection={true}
+              className="w-full"
+              maxHeight="250px"
+            />
+            
+            {errors.assignedIndicators && (
+              <p className="text-sm text-destructive">{errors.assignedIndicators}</p>
+            )}
+            
+            {/* Selected Indicators Summary */}
+            {formData.assignedIndicators.length > 0 && (
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">
+                    Selected ({formData.assignedIndicators.length})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {formData.assignedIndicators.slice(0, 3).map((indicator) => (
+                    <Badge key={indicator} variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                      {indicator}
+                    </Badge>
+                  ))}
+                  {formData.assignedIndicators.length > 3 && (
+                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                      +{formData.assignedIndicators.length - 3} more
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
 
       <div className="flex justify-end gap-3 pt-6">
         <Button variant="outline" onClick={onCancel}>
@@ -591,4 +684,32 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       </div>
     </div>
   );
+}
+
+// Helper function to get indicator display name
+function getIndicatorDisplayName(indicatorCode: string): string {
+  const indicatorNames: Record<string, string> = {
+    "1.1": "Capex to GSDP Ratio",
+    "1.2": "Capex Utilization",
+    "1.3": "Credit Rated ULBs",
+    "1.4": "ULBs Issuing Bonds",
+    "1.5": "Functional Financial Intermediary",
+    "2.1": "Infrastructure Act/Policy",
+    "2.2": "Specialized Entity",
+    "2.3": "Sector Infrastructure Plan",
+    "2.4": "Investment Ready Pipeline",
+    "2.5": "Asset Monetization Pipeline",
+    "3.1": "PPP Act/Policy",
+    "3.2": "PPP Cell",
+    "3.3": "VGF/IIPDF Proposals",
+    "3.4": "PPP Bankable Projects",
+    "3.5": "PPP Project Monitoring",
+    "4.1": "PMG Portal Eligible",
+    "4.2": "State PMG Portal",
+    "4.3": "PM Gati Shakti Adoption",
+    "4.4": "ADR Adoption",
+    "4.5": "Innovative Practices",
+  };
+
+  return indicatorNames[indicatorCode] || indicatorCode;
 }

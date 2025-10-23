@@ -4,11 +4,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { transformFormDataToNiriSubmission, validateNiriSubmission, transformNiriSubmissionToFormData } from '@/utils/submissionTransformer';
 import { apiService } from '@/services/api.service';
 import { useToast } from '@/hooks/use-toast';
-import { Download, RefreshCw } from 'lucide-react';
+import { useIndicatorAccess } from '@/hooks/useIndicatorAccess';
+import { IndicatorSection } from '@/components/IndicatorSection';
+import { filterFormDataByIndicators, validateFormDataAccess } from '@/utils/indicatorUtils';
+import { Download, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
 // Removed mock data import - using actual API data
 
 interface NiriSubmissionFormProps {
@@ -22,6 +26,16 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Indicator access control
+  const {
+    loading: indicatorLoading,
+    error: indicatorError,
+    assignedIndicators,
+    hasAnyAccess,
+    getFirstAvailableSection,
+    isNodalOfficer
+  } = useIndicatorAccess();
 
   // Initialize form with default values
   useEffect(() => {
@@ -76,21 +90,68 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    // Required field validation
-    const requiredFields = [
-      'capexToGsdpRatio', 'capexUtilization', 'creditRatedULBs', 'ulbsIssuingBonds',
-      'functionalFinancialIntermediary', 'infrastructureActPolicy', 'specializedEntity',
-      'sectorInfraPlan', 'investmentReadyPipeline', 'assetMonetizationPipeline',
-      'pppActPolicy', 'pppCell', 'vgfIipdfProposals', 'pppBankableProjects',
-      'pmgPortalEligible', 'statePmgPortal', 'pmGatiShaktiAdoption', 'adrAdoption',
-      'innovativePractices', 'capacityBuilding'
-    ];
-    
-    requiredFields.forEach(field => {
-      if (!formData[field] || formData[field] === '') {
-        newErrors[field] = 'This field is required';
+    // For NODAL_OFFICER, only validate assigned indicators
+    if (isNodalOfficer && assignedIndicators.length > 0) {
+      // Validate form data access
+      const accessValidation = validateFormDataAccess(formData, assignedIndicators);
+      if (!accessValidation.isValid) {
+        toast({
+          title: "Access Denied",
+          description: `You don't have access to indicators: ${accessValidation.unauthorizedFields.join(', ')}`,
+          variant: "destructive"
+        });
+        return false;
       }
-    });
+
+      // Only validate assigned indicator fields
+      const fieldToIndicatorMap: Record<string, string> = {
+        'capexToGsdpRatio': '1.1',
+        'capexUtilization': '1.2',
+        'creditRatedULBs': '1.3',
+        'ulbsIssuingBonds': '1.4',
+        'functionalFinancialIntermediary': '1.5',
+        'infrastructureActPolicy': '2.1',
+        'specializedEntity': '2.2',
+        'sectorInfraPlan': '2.3',
+        'investmentReadyPipeline': '2.4',
+        'assetMonetizationPipeline': '2.5',
+        'pppActPolicy': '3.1',
+        'pppCell': '3.2',
+        'vgfIipdfProposals': '3.3',
+        'pppBankableProjects': '3.4',
+        'pmgPortalEligible': '4.1',
+        'statePmgPortal': '4.2',
+        'pmGatiShaktiAdoption': '4.3',
+        'adrAdoption': '4.4',
+        'innovativePractices': '4.5',
+        'capacityBuilding': '4.6'
+      };
+
+      // Only validate fields that user has access to
+      Object.entries(fieldToIndicatorMap).forEach(([field, indicator]) => {
+        if (assignedIndicators.includes(indicator)) {
+          if (!formData[field] || formData[field] === '') {
+            newErrors[field] = 'This field is required';
+          }
+        }
+      });
+    } else {
+      // For other roles, validate all fields
+      const requiredFields = [
+        'capexToGsdpRatio', 'capexUtilization', 'creditRatedULBs', 'ulbsIssuingBonds',
+        'functionalFinancialIntermediary', 'infrastructureActPolicy', 'specializedEntity',
+        'sectorInfraPlan', 'investmentReadyPipeline', 'assetMonetizationPipeline',
+        'pppActPolicy', 'pppCell', 'vgfIipdfProposals', 'pppBankableProjects',
+        'pmgPortalEligible', 'statePmgPortal', 'pmGatiShaktiAdoption', 'adrAdoption',
+        'innovativePractices', 'capacityBuilding'
+      ];
+      
+      requiredFields.forEach(field => {
+        if (!formData[field] || formData[field] === '') {
+          newErrors[field] = 'This field is required';
+        }
+      });
+    }
     
     // Number validation for numeric fields
     const numericFields = [
@@ -140,9 +201,16 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
 
     setLoading(true);
     try {
+      // For NODAL_OFFICER, filter form data to only include assigned indicators
+      let submissionData = formData;
+      if (isNodalOfficer && assignedIndicators.length > 0) {
+        submissionData = filterFormDataByIndicators(formData, assignedIndicators);
+        console.log("🔍 Filtered form data for NODAL_OFFICER:", submissionData);
+      }
+
       // Transform form data to NIRI format
       const niriSubmission = transformFormDataToNiriSubmission(
-        formData,
+        submissionData,
         user?.id || '',
         user?.state || ''
       );
@@ -182,51 +250,185 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
     }
   };
 
-  const renderSection = (title: string, fields: string[]) => (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {fields.map(field => (
-          <div key={field} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor={field} className="text-sm font-medium">
-                {getFieldLabel(field)}
-                <span className="text-red-500 ml-1">*</span>
-              </Label>
-              {getFieldType(field) === 'select' ? (
-                <Select
-                  value={formData[field] || ''}
-                  onValueChange={(value) => handleInputChange(field, value)}
-                >
-                  <SelectTrigger className={errors[field] ? 'border-red-500' : ''}>
-                    <SelectValue placeholder="Select option" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Yes">Yes</SelectItem>
-                    <SelectItem value="No">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  id={field}
-                  type="number"
-                  value={formData[field] || ''}
-                  onChange={(e) => handleInputChange(field, e.target.value)}
-                  className={errors[field] ? 'border-red-500' : ''}
-                  placeholder="Enter value"
-                />
-              )}
-              {errors[field] && (
-                <p className="text-sm text-red-500 mt-1">{errors[field]}</p>
-              )}
-            </div>
+  const renderSection = (sectionId: string, title: string, fields: string[]) => {
+    // For NODAL_OFFICER, check if user has access to any field in this section
+    if (isNodalOfficer && assignedIndicators.length > 0) {
+      const fieldToIndicatorMap: Record<string, string> = {
+        'capexToGsdpRatio': '1.1',
+        'capexUtilization': '1.2',
+        'creditRatedULBs': '1.3',
+        'ulbsIssuingBonds': '1.4',
+        'functionalFinancialIntermediary': '1.5',
+        'infrastructureActPolicy': '2.1',
+        'specializedEntity': '2.2',
+        'sectorInfraPlan': '2.3',
+        'investmentReadyPipeline': '2.4',
+        'assetMonetizationPipeline': '2.5',
+        'pppActPolicy': '3.1',
+        'pppCell': '3.2',
+        'vgfIipdfProposals': '3.3',
+        'pppBankableProjects': '3.4',
+        'pmgPortalEligible': '4.1',
+        'statePmgPortal': '4.2',
+        'pmGatiShaktiAdoption': '4.3',
+        'adrAdoption': '4.4',
+        'innovativePractices': '4.5',
+        'capacityBuilding': '4.6'
+      };
+
+      // Check if any field in this section is assigned to user
+      const hasAccessToSection = fields.some(field => {
+        const indicator = fieldToIndicatorMap[field];
+        return indicator && assignedIndicators.includes(indicator);
+      });
+
+      if (!hasAccessToSection) {
+        return null; // Hide section completely
+      }
+
+      // Filter fields to only show assigned ones
+      const accessibleFields = fields.filter(field => {
+        const indicator = fieldToIndicatorMap[field];
+        return indicator && assignedIndicators.includes(indicator);
+      });
+
+      return (
+        <IndicatorSection sectionId={sectionId} title={title}>
+          <div className="space-y-4">
+            {accessibleFields.map(field => (
+              <div key={field} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor={field} className="text-sm font-medium">
+                    {getFieldLabel(field)}
+                    <span className="text-red-500 ml-1">*</span>
+                  </Label>
+                  {getFieldType(field) === 'select' ? (
+                    <Select
+                      value={formData[field] || ''}
+                      onValueChange={(value) => handleInputChange(field, value)}
+                    >
+                      <SelectTrigger className={errors[field] ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Yes">Yes</SelectItem>
+                        <SelectItem value="No">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id={field}
+                      type="number"
+                      value={formData[field] || ''}
+                      onChange={(e) => handleInputChange(field, e.target.value)}
+                      className={errors[field] ? 'border-red-500' : ''}
+                      placeholder="Enter value"
+                    />
+                  )}
+                  {errors[field] && (
+                    <p className="text-sm text-red-500 mt-1">{errors[field]}</p>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
+        </IndicatorSection>
+      );
+    }
+
+    // For other roles, show all fields
+    return (
+      <IndicatorSection sectionId={sectionId} title={title}>
+        <div className="space-y-4">
+          {fields.map(field => (
+            <div key={field} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor={field} className="text-sm font-medium">
+                  {getFieldLabel(field)}
+                  <span className="text-red-500 ml-1">*</span>
+                </Label>
+                {getFieldType(field) === 'select' ? (
+                  <Select
+                    value={formData[field] || ''}
+                    onValueChange={(value) => handleInputChange(field, value)}
+                  >
+                    <SelectTrigger className={errors[field] ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Select option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id={field}
+                    type="number"
+                    value={formData[field] || ''}
+                    onChange={(e) => handleInputChange(field, e.target.value)}
+                    className={errors[field] ? 'border-red-500' : ''}
+                    placeholder="Enter value"
+                  />
+                )}
+                {errors[field] && (
+                  <p className="text-sm text-red-500 mt-1">{errors[field]}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </IndicatorSection>
+    );
+  };
+
+  // Show loading state while checking indicator access
+  if (indicatorLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">NIRI Data Submission</h1>
+          <p className="text-muted-foreground mt-2">Loading your assigned indicators...</p>
+        </div>
+        <div className="flex justify-center">
+          <RefreshCw className="w-8 h-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if indicator access failed
+  if (indicatorError) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">NIRI Data Submission</h1>
+          <Alert className="mt-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {indicatorError}
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
+
+  // Show no access message for NODAL_OFFICER with no assigned indicators
+  if (isNodalOfficer && !hasAnyAccess()) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">NIRI Data Submission</h1>
+          <Alert className="mt-4">
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              आपको कोई भी indicator assign नहीं किया गया है। कृपया अपने administrator से संपर्क करें।
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -235,6 +437,15 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
         <p className="text-muted-foreground mt-2">
           Submit your infrastructure readiness data in the standardized NIRI format
         </p>
+        
+        {/* Show assigned indicators for NODAL_OFFICER */}
+        {isNodalOfficer && assignedIndicators.length > 0 && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Assigned Indicators:</strong> {assignedIndicators.join(', ')}
+            </p>
+          </div>
+        )}
         
         {/* Prefill Button */}
         <div className="mt-4">
@@ -249,21 +460,21 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
         </div>
       </div>
 
-      {renderSection("Infrastructure Financing", [
+      {renderSection("infra-financing", "Infrastructure Financing", [
         'capexToGsdpRatio', 'capexUtilization', 'creditRatedULBs', 
         'ulbsIssuingBonds', 'functionalFinancialIntermediary'
       ])}
 
-      {renderSection("Infrastructure Development", [
+      {renderSection("infra-development", "Infrastructure Development", [
         'infrastructureActPolicy', 'specializedEntity', 'sectorInfraPlan',
         'investmentReadyPipeline', 'assetMonetizationPipeline'
       ])}
 
-      {renderSection("PPP Development", [
+      {renderSection("ppp-development", "PPP Development", [
         'pppActPolicy', 'pppCell', 'vgfIipdfProposals', 'pppBankableProjects'
       ])}
 
-      {renderSection("Infrastructure Enablers", [
+      {renderSection("infra-enablers", "Infrastructure Enablers", [
         'pmgPortalEligible', 'statePmgPortal', 'pmGatiShaktiAdoption',
         'adrAdoption', 'innovativePractices', 'capacityBuilding'
       ])}

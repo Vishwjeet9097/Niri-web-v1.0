@@ -356,7 +356,8 @@ class ApiService implements HttpClient {
     contactNumber: string,
     role: string,
     stateUt: string,
-    stateId?: string
+    stateId?: string,
+    indicatorCodes?: string[]
   ): Promise<{ user: NiriUser; accessToken: string }> {
     try {
       const userData = {
@@ -368,6 +369,7 @@ class ApiService implements HttpClient {
         role,
         stateUt,
         stateId: stateId || stateUt, // Use stateId if provided, otherwise use stateUt
+        ...(indicatorCodes && indicatorCodes.length > 0 && { indicatorCodes }), // Include indicators if provided
       };
 
       console.log("🔍 API Service - Register Request Data:", userData);
@@ -2067,6 +2069,150 @@ class ApiService implements HttpClient {
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }
       console.warn("⚠️ Backend calculate score failed:", error.message);
+      throw error;
+    }
+  }
+
+  // Indicator Access Control Methods
+  async getUserAssignedIndicators(userId: string): Promise<string[]> {
+    try {
+      const response = await this.axios.get(`/users/${userId}/indicators`);
+      console.log(
+        "🔍 API Service - Get User Assigned Indicators Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get User Assigned Indicators Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const indicatorsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get User Assigned Indicators Data:",
+        indicatorsData
+      );
+
+      return indicatorsData.indicators || indicatorsData || [];
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get User Assigned Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data?.indicators || cachedData?.indicators || [];
+      }
+      console.warn(
+        "⚠️ Backend get user assigned indicators failed:",
+        error.message
+      );
+      return [];
+    }
+  }
+
+  async getAllIndicators(): Promise<any[]> {
+    try {
+      const response = await this.axios.get("/indicators");
+      console.log(
+        "🔍 API Service - Get All Indicators Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get All Indicators Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const indicatorsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get All Indicators Data:",
+        indicatorsData
+      );
+
+      return indicatorsData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get All Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn("⚠️ Backend get all indicators failed:", error.message);
+      return [];
+    }
+  }
+
+  async getIndicatorsBySection(sectionId: string): Promise<any[]> {
+    try {
+      const response = await this.axios.get(`/indicators/section/${sectionId}`);
+      console.log(
+        "🔍 API Service - Get Indicators By Section Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get Indicators By Section Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const indicatorsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get Indicators By Section Data:",
+        indicatorsData
+      );
+
+      return indicatorsData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Indicators By Section 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn(
+        "⚠️ Backend get indicators by section failed:",
+        error.message
+      );
+      return [];
+    }
+  }
+
+  async updateUserIndicators(
+    userId: string,
+    indicatorCodes: string[]
+  ): Promise<any> {
+    try {
+      const response = await this.axios.patch(`/users/${userId}/indicators`, {
+        indicatorCodes,
+      });
+      console.log(
+        "🔍 API Service - Update User Indicators Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Update User Indicators Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const updateData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Update User Indicators Data:",
+        updateData
+      );
+
+      return updateData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Update User Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn("⚠️ Backend update user indicators failed:", error.message);
       throw error;
     }
   }
