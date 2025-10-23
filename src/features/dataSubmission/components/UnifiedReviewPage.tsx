@@ -439,7 +439,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
                 formData={submission.formData}
               />
             ) : (
-              <DataReviewTab submissionId={submission.id} formData={submission.formData} />
+              <DataReviewTab submissionId={submission.id} formData={submission.formData} submission={submission} />
             )}
           </TabsContent>
 

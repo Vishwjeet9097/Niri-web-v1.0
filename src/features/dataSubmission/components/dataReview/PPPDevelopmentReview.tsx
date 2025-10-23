@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MessageSquare, Upload, Plus } from "lucide-react";
+import { MessageSquare, Upload, Plus, Clock } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,17 +14,21 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { MessageModal } from "../modals/MessageModal";
+import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 
 interface PPPDevelopmentReviewProps {
   submissionId: string;
-  formData?: any;
+  formData?: unknown;
+  submission?: unknown; // Complete submission object
 }
 
-export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentReviewProps) => {
-  const { saveMessage, getMessage } = useSectionMessages(submissionId);
+export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPPDevelopmentReviewProps) => {
+  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+  const [submissionData, setSubmissionData] = useState(formData);
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -34,9 +38,24 @@ export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentR
     setActiveSection(null);
   };
 
-  const handleSaveMessage = (message: string) => {
+  const handleOpenTimeline = (sectionId: string) => {
+    setTimelineSection(sectionId);
+  };
+
+  const handleCloseTimeline = () => {
+    setTimelineSection(null);
+  };
+
+  const handleSaveMessage = async (message: string) => {
     if (activeSection) {
-      saveMessage(activeSection, message);
+      try {
+        const updatedSubmission = await saveMessage(activeSection, message);
+        if (updatedSubmission) {
+          setSubmissionData(updatedSubmission);
+        }
+      } catch (error) {
+        console.error("Error saving message:", error);
+      }
     }
   };
 
@@ -48,6 +67,35 @@ export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentR
       "3.4": "3.4 - Proportion of TPC of PPP Projects",
     };
     return titles[sectionId] || sectionId;
+  };
+
+
+  const renderActionButtons = (sectionId: string) => {
+    const comments = getComments(sectionId);
+    const commentCount = comments ? comments.length : 0;
+
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenModal(sectionId)}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Add Comment
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
+        </Button>
+      </div>
+    );
   };
   return (
     <>
@@ -118,7 +166,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentR
             <p className="text-xs text-muted-foreground">
               Upload copy of Act/Policy
             </p>
-          </div>
+            </div>
+
         </SectionCard>
 
         {/* Section 3.2 */}
@@ -188,6 +237,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentR
                 Upload notification or mandate
               </p>
             </div>
+
         </SectionCard>
 
         {/* Section 3.3 */}
@@ -275,6 +325,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentR
                 Annex 7: Provide VGF/IIPDF details
               </p>
             </div>
+
         </SectionCard>
 
         {/* Section 3.4 */}
@@ -337,6 +388,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentR
                   No TPC of PPP Projects data available
                 </div>
               )}
+
             </div>
         </SectionCard>
       </div>
@@ -346,7 +398,18 @@ export const PPPDevelopmentReview = ({ submissionId, formData }: PPPDevelopmentR
         onClose={handleCloseModal}
         onSave={handleSaveMessage}
         sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
+        sectionId={activeSection || ""}
+        submissionId={submissionId}
         existingMessage={activeSection ? getMessage(activeSection) : ""}
+      />
+
+      <TimelineModal
+        isOpen={timelineSection !== null}
+        onClose={handleCloseTimeline}
+        sectionId={timelineSection || ""}
+        sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
+        comments={getAllComments()}
+        key={`timeline-${timelineSection}-${getAllComments().length}`} // Force re-render when comments change
       />
     </>
   );
