@@ -1725,6 +1725,12 @@ class ApiService implements HttpClient {
           percentage: 74.2,
           approvedAt: "2024-01-01T00:00:00.000Z",
           submissionId: "uuid-1",
+          categoryScores: {
+            financing: 195,
+            development: 230,
+            ppp: 195,
+            enablers: 195
+          }
         },
         {
           rank: 2,
@@ -1733,6 +1739,12 @@ class ApiService implements HttpClient {
           percentage: 69.8,
           approvedAt: "2024-01-01T00:00:00.000Z",
           submissionId: "uuid-2",
+          categoryScores: {
+            financing: 175,
+            development: 210,
+            ppp: 165,
+            enablers: 148
+          }
         },
         {
           rank: 3,
@@ -1741,6 +1753,12 @@ class ApiService implements HttpClient {
           percentage: 68.5,
           approvedAt: "2024-01-01T00:00:00.000Z",
           submissionId: "uuid-3",
+          categoryScores: {
+            financing: 168,
+            development: 205,
+            ppp: 172,
+            enablers: 140
+          }
         },
       ];
     }
@@ -1766,41 +1784,34 @@ class ApiService implements HttpClient {
       const user = authService.getUser();
       console.log(`🔍 API Service - Current user:`, user);
 
-      // Role-based endpoint selection
-      if (userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER") {
-        // MOSPI users can access scoring endpoints
-        try {
-          const response = await this.axios.get("/scoring/rankings");
-          console.log(
-            "🔍 API Service - Get Score Rankings Response Status:",
-            response.status
-          );
-          console.log(
-            "🔍 API Service - Get Score Rankings Response Data:",
-            response.data
-          );
+      // ALL user roles use the same /scoring/rankings endpoint for consistent data
+      try {
+        const response = await this.axios.get("/scoring/rankings");
+        console.log(
+          "🔍 API Service - Get Score Rankings Response Status:",
+          response.status
+        );
+        console.log(
+          "🔍 API Service - Get Score Rankings Response Data:",
+          response.data
+        );
 
-          const rankingsData =
-            response.data?.data !== undefined
-              ? response.data.data
-              : response.data;
-          console.log(
-            "🔍 API Service - Processed Get Score Rankings Data:",
-            rankingsData
-          );
+        const rankingsData =
+          response.data?.data !== undefined
+            ? response.data.data
+            : response.data;
+        console.log(
+          "🔍 API Service - Processed Get Score Rankings Data:",
+          rankingsData
+        );
 
-          return rankingsData;
-        } catch (scoringError: any) {
-          console.warn(
-            "⚠️ Scoring rankings failed for MOSPI user, trying regular rankings:",
-            scoringError.message
-          );
-          // Fallback to regular rankings
-          return this.getRegularRankings();
-        }
-      } else {
-        // NODAL_OFFICER and STATE_APPROVER use regular rankings endpoint
-        console.log(`🔍 Using regular rankings endpoint for ${userRole}`);
+        return rankingsData;
+      } catch (scoringError: any) {
+        console.warn(
+          "⚠️ Scoring rankings failed, trying regular rankings:",
+          scoringError.message
+        );
+        // Fallback to regular rankings but ensure consistent format
         return this.getRegularRankings();
       }
     } catch (error: any) {
@@ -1898,40 +1909,33 @@ class ApiService implements HttpClient {
         `🔍 API Service - Get Score Statistics for role: ${userRole}`
       );
 
-      // Role-based endpoint selection
-      if (userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER") {
-        // MOSPI users can access scoring statistics
-        try {
-          const response = await this.axios.get("/scoring/statistics");
-          console.log(
-            "🔍 API Service - Get Score Statistics Response Status:",
-            response.status
-          );
-          console.log(
-            "🔍 API Service - Get Score Statistics Response Data:",
-            response.data
-          );
+      // ALL user roles use the same /scoring/statistics endpoint for consistent data
+      try {
+        const response = await this.axios.get("/scoring/statistics");
+        console.log(
+          "🔍 API Service - Get Score Statistics Response Status:",
+          response.status
+        );
+        console.log(
+          "🔍 API Service - Get Score Statistics Response Data:",
+          response.data
+        );
 
-          const statisticsData =
-            response.data?.data !== undefined
-              ? response.data.data
-              : response.data;
-          console.log(
-            "🔍 API Service - Processed Get Score Statistics Data:",
-            statisticsData
-          );
+        const statisticsData =
+          response.data?.data !== undefined
+            ? response.data.data
+            : response.data;
+        console.log(
+          "🔍 API Service - Processed Get Score Statistics Data:",
+          statisticsData
+        );
 
-          return statisticsData;
-        } catch (scoringError: any) {
-          console.warn(
-            "⚠️ Scoring statistics failed for MOSPI user, using dummy data:",
-            scoringError.message
-          );
-          return this.getDummyStatisticsData();
-        }
-      } else {
-        // NODAL_OFFICER and STATE_APPROVER use dummy statistics
-        console.log(`🔍 Using dummy statistics for ${userRole}`);
+        return statisticsData;
+      } catch (scoringError: any) {
+        console.warn(
+          "⚠️ Scoring statistics failed, using dummy data:",
+          scoringError.message
+        );
         return this.getDummyStatisticsData();
       }
     } catch (error: any) {
