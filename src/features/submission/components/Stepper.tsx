@@ -1,6 +1,6 @@
-import { Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { SubmissionStep } from '../types';
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { SubmissionStep } from "../types";
 
 interface StepperProps {
   steps: SubmissionStep[];
@@ -12,8 +12,6 @@ export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
   return (
     <div className="w-full bg-card rounded-lg p-6 mb-6 border border-[#DDD]">
       <div className="flex items-center justify-between relative">
-
-
         {steps.map((step, index) => {
           const stepNumber = index + 1;
           const isCompleted = step.completed;
@@ -28,45 +26,85 @@ export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
               onClick={() => isClickable && onStepClick?.(stepNumber)}
             >
               {/* Step circle */}
-              <div
-                className={cn(
-                  'w-7 h-7 flex items-center justify-center rounded-full border-2 text-sm font-medium',
-                  {
-                    'border-green-600 text-green-600': isCurrent || isCompleted,
-                    'border-gray-300 text-gray-400': !isCurrent && !isCompleted,
-                    'cursor-pointer hover:border-primary/50': isClickable,
-                  }
-                )}
-              >
-                {isCompleted ? <Check className="w-5 h-5" /> : stepNumber}
+              <div className="relative w-12 h-12 flex items-center justify-center">
+                <svg
+                  className="absolute inset-0 -rotate-90"
+                  viewBox="0 0 36 36"
+                >
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="16"
+                    fill="none"
+                    stroke="#E5E7EB"
+                    strokeWidth="3"
+                  />
+                  {isCurrent && (
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="16"
+                      fill="none"
+                      stroke="url(#grad)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeDasharray="100"
+                      strokeDashoffset="0"
+                    />
+                  )}
+                  <defs>
+                    <linearGradient
+                      id="grad"
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="0%"
+                    >
+                      <stop offset="0%" stopColor="#3C9718" />
+                      <stop offset="100%" stopColor="#b5e48c" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div
+                  className={cn(
+                    "w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium z-10",
+                    {
+                      "bg-[#3C9718] text-white": isCompleted, // solid green, white check
+                      "bg-white text-green-700": isCurrent && !isCompleted, // white for current
+                      "bg-white text-gray-400": !isCurrent && !isCompleted, // gray for future
+                      "cursor-pointer": isClickable,
+                    }
+                  )}
+                >
+                  {isCompleted ? <Check className="w-5 h-5" /> : stepNumber}
+                </div>
               </div>
 
               {/* Step label */}
               <div className="mt-2 text-center max-w-[120px]">
                 <div
-                  className={cn('text-xs font-medium', {
-                    'text-primary': isCurrent,
-                    'text-foreground': isCompleted,
-                    'text-muted-foreground': !isCurrent && !isCompleted,
+                  className={cn("text-xs font-medium", {
+                    "text-[#3C9718]": isCurrent,
+                    "text-foreground": isCompleted,
+                    "text-muted-foreground": !isCurrent && !isCompleted,
                   })}
                 >
                   {step.title}
                 </div>
               </div>
+
+              {/* Connecting line */}
               {index < steps.length - 1 && (
-                <div className={cn(`h-0.5 bg-border z-10 bg-[#C6C6C6] w-40 absolute top-4 -right-20`, {
-                    'bg-[#C6C6C6]': isCurrent,
-                    'bg-[#3C9718]': isCompleted,
-                    'bg-[#C6C6C6]': !isCurrent && !isCompleted,
-                  } )}></div>
-              )}
-              {/* Progress line */}
-              {/* <div className="absolute top-4 left-0 right-0 h-0.5 bg-border z-10">
-                <div
-                  className="h-full bg-primary transition-all duration-500"
-                  style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 60}%` }}
-                />
-              </div> */}
+  <div
+    className={cn(
+      "h-0.5 w-40 absolute top-6 -right-20 z-0",
+      {
+        "bg-[#3C9718]": steps[index].completed,
+        "bg-[#C6C6C6]": !steps[index].completed,
+      }
+    )}
+  />
+)}
             </div>
           );
         })}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -16,6 +17,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SectionCard } from "../components/SectionCard";
 import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
@@ -58,15 +60,26 @@ export const PPPDevelopmentStep = () => {
   // Merge loaded data with defaults
   const loadedData =
     (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
+  // const initialData: PPPDevelopmentData = {
+  //   ...defaultData,
+  //   ...loadedData,
+  //   section3_1: { ...defaultData.section3_1, ...(loadedData.section3_1 || {}) },
+  //   section3_2: { ...defaultData.section3_2, ...(loadedData.section3_2 || {}) },
+  //   section3_3: loadedData.section3_3 || [],
+  //   section3_4: { ...defaultData.section3_4, ...(loadedData.section3_4 || {}) },
+  // };
+
   const initialData: PPPDevelopmentData = {
     ...defaultData,
     ...loadedData,
     section3_1: { ...defaultData.section3_1, ...(loadedData.section3_1 || {}) },
     section3_2: { ...defaultData.section3_2, ...(loadedData.section3_2 || {}) },
-    section3_3: loadedData.section3_3 || [],
-    section3_4: { ...defaultData.section3_4, ...(loadedData.section3_4 || {}) },
+    section3_3: (loadedData.section3_3 || []).map(project => ({
+      ...project,
+      marksObtained: project.marksObtained ?? 0
+    })),
+    section3_4: { ...defaultData.section3_4, ...(loadedData.section3_4 || {}), proportion: loadedData.section3_4?.proportion ?? 0, marksObtained: loadedData.section3_4?.marksObtained ?? 0 },
   };
-
   const [formData, setFormData] = useState<PPPDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -160,24 +173,51 @@ export const PPPDevelopmentStep = () => {
   };
 
   // Update calculations when form data changes
+  // useEffect(() => {
+  //   const section3_3Calc = calculateSection3_3();
+  //   const section3_4Calc = calculateSection3_4();
+
+  //   setFormData(prev => ({
+  //     ...prev,
+  //     section3_3: prev.section3_3.map(project => ({
+  //       ...project,
+  //       marksObtained: section3_3Calc.marksObtained
+  //     })),
+  //     section3_4: {
+  //       ...prev.section3_4,
+  //       proportion: section3_4Calc.proportion,
+  //       marksObtained: section3_4Calc.marksObtained
+  //     }
+  //   }));
+  // }, [formData.section3_3.length, formData.section3_4.tpcOfPPPProjects, formData.section3_4.totalTPC]);
+
   useEffect(() => {
     const section3_3Calc = calculateSection3_3();
     const section3_4Calc = calculateSection3_4();
 
-    setFormData(prev => ({
-      ...prev,
-      section3_3: prev.section3_3.map(project => ({
-        ...project,
-        marksObtained: section3_3Calc.marksObtained
-      })),
-      section3_4: {
-        ...prev.section3_4,
-        proportion: section3_4Calc.proportion,
-        marksObtained: section3_4Calc.marksObtained
-      }
-    }));
-  }, [formData.section3_3.length, formData.section3_4.tpcOfPPPProjects, formData.section3_4.totalTPC]);
+    // Check if update is needed
+    const shouldUpdate3_3 = formData.section3_3.some(
+      project => project.marksObtained !== section3_3Calc.marksObtained
+    );
+    const shouldUpdate3_4 =
+      formData.section3_4.proportion !== section3_4Calc.proportion ||
+      formData.section3_4.marksObtained !== section3_4Calc.marksObtained;
 
+    if (shouldUpdate3_3 || shouldUpdate3_4) {
+      setFormData(prev => ({
+        ...prev,
+        section3_3: prev.section3_3.map(project => ({
+          ...project,
+          marksObtained: section3_3Calc.marksObtained
+        })),
+        section3_4: {
+          ...prev.section3_4,
+          proportion: section3_4Calc.proportion,
+          marksObtained: section3_4Calc.marksObtained
+        }
+      }));
+    }
+  }, [formData.section3_3.length, formData.section3_4.tpcOfPPPProjects, formData.section3_4.totalTPC]);
   // --- Section 3.3: Add/Remove Project ---
   const addProject = () => {
     setFormData((prev) => ({
@@ -489,27 +529,56 @@ export const PPPDevelopmentStep = () => {
                 </div>
                 <div className="flex items-center gap-2 w-full">
                   <div className="w-full">
-                  <Label>Submission Date</Label>
-                  <Input
-                    type="date"
-                    value={entry.submissionDate}
-                    onChange={(e) =>
-                      updateProject(entry.id, "submissionDate", e.target.value)
-                    }
-                  />
+                    <Label>Submission Date</Label>
+                    <Input
+                      type="date"
+                      value={entry.submissionDate}
+                      onChange={(e) =>
+                        updateProject(entry.id, "submissionDate", e.target.value)
+                      }
+                    />
+                    {/* <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={updateProject(
+                            "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
+                            !entry.submissionDatee && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={entry.submissionDate ? new Date(entry.submissionDate) : undefined}
+                          onSelect={(date) =>
+                            setFormData(prev => ({
+                              ...prev,
+                              section1_3: prev.section1_3.map(item =>
+                                item.id === entry.id ? { ...item, submissionDate: date ? date.toISOString() : "" } : item
+                              )
+                            }))
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover> */}
                   </div>
                   <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="self-start mt-6"
-                  onClick={() => removeProject(entry.id)}
-                  aria-label="Remove"
-                >
-                  <Trash2 className="w-5 h-5 text-destructive" />
-                </Button>
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="self-start mt-6"
+                    onClick={() => removeProject(entry.id)}
+                    aria-label="Remove"
+                  >
+                    <Trash2 className="w-5 h-5 text-destructive" />
+                  </Button>
                 </div>
-                
+
               </div>
               <div className="mt-4">
                 <FileUploadSection
@@ -521,19 +590,19 @@ export const PPPDevelopmentStep = () => {
             </div>
           ))}
           <div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addProject}
-            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add More Project
-          </Button>
-          <p className="text-xs text-muted-foreground mt-1">
-            Annex 7: Provide VGF/IIPDF details
-          </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addProject}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add More Project
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">
+              Annex 7: Provide VGF/IIPDF details
+            </p>
           </div>
 
         </div>
