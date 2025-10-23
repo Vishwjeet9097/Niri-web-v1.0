@@ -10,7 +10,9 @@ import { storageService } from "@/services/storage.service";
 import { apiV2 } from "@/services/ApiService";
 import { config } from "@/config/environment";
 import { notificationService } from "@/services/NotificationBus";
+import { SectionCard } from "../components/SectionCard";
 import { transformFormDataForSubmission, validateFormData, getFormDataSummary } from "@/utils/formDataTransformer";
+import { Label } from "@/components/ui/label";
 import { UnifiedReviewPage } from "../../dataSubmission/components/UnifiedReviewPage";
 import { useAuth } from "@/features/auth/AuthProvider";
 
@@ -25,7 +27,7 @@ export const PreviewPage = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submissionMessage, setSubmissionMessage] = useState('');
-  
+
   // Check if we're in edit mode
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(null);
@@ -34,12 +36,12 @@ export const PreviewPage = () => {
   useEffect(() => {
     const editingSubmissionId = localStorage.getItem('editing_submission_id');
     const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
-    
+
     if (editingSubmissionId && isEditModeFlag) {
       setIsEditMode(true);
       setEditingSubmissionId(editingSubmissionId);
     }
-    
+
     storageService.set(PREVIEW_FLAG_KEY, true);
     setHasPreviewed(true);
   }, []); // Empty dependency array to run only once
@@ -47,7 +49,7 @@ export const PreviewPage = () => {
   // Final submit handler with confirmation modal
   const handleFinalSubmit = async (e?: React.MouseEvent) => {
     e?.preventDefault();
-    
+
     if (!formData) {
       notificationService.error("No form data found. Please go back and fill the form.");
       return;
@@ -59,7 +61,7 @@ export const PreviewPage = () => {
       notificationService.error(`Please fix the following errors: ${validationResult.missingSections.join(", ")}`);
       return;
     }
-    
+
     setShowConfirmModal(true);
   };
 
@@ -68,14 +70,14 @@ export const PreviewPage = () => {
     if (!formData) return;
 
     try {
-    setIsSubmitting(true);
-    setShowConfirmModal(false);
-    
+      setIsSubmitting(true);
+      setShowConfirmModal(false);
+
       // Transform form data for API submission
       const transformedData = transformFormDataForSubmission(formData);
-      
+
       let response;
-      
+
       if (isEditMode && editingSubmissionId) {
         // Edit mode - use resubmit API
         response = await apiV2.post(`${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`, transformedData);
@@ -91,7 +93,7 @@ export const PreviewPage = () => {
         // Normal mode - create new submission
         response = await apiV2.post(`${config.apiBaseUrl}/submission`, transformedData);
       }
-      
+
       console.log("✅ Submission successful:", response);
 
       // Clear form data from localStorage
@@ -100,15 +102,15 @@ export const PreviewPage = () => {
       localStorage.removeItem("is_edit_mode");
 
       // Show success message
-      const successMessage = isEditMode 
+      const successMessage = isEditMode
         ? "Form resubmitted successfully! Your changes have been sent for review."
-        : isResubmit 
-        ? "Form resubmitted successfully! Your updated submission has been sent for review."
-        : "Form submitted successfully! Your submission has been sent for review.";
-      
+        : isResubmit
+          ? "Form resubmitted successfully! Your updated submission has been sent for review."
+          : "Form submitted successfully! Your submission has been sent for review.";
+
       setSubmissionMessage(successMessage);
       setShowSuccessModal(true);
-      
+
       // Redirect after a delay
       setTimeout(() => {
         navigate("/dashboard");
@@ -153,16 +155,16 @@ export const PreviewPage = () => {
   } : null;
 
   if (!formData || !mockSubmission) {
-  return (
+    return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">No Form Data Found</h2>
           <p className="text-muted-foreground mb-4">Please go back and fill the form first.</p>
           <Button onClick={() => navigate(-1)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Go Back
-        </Button>
-      </div>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -171,8 +173,8 @@ export const PreviewPage = () => {
     <>
 
       {/* Use UnifiedReviewPage for preview */}
-      <UnifiedReviewPage 
-        isPreview={true} 
+      <UnifiedReviewPage
+        isPreview={true}
         isMospiApprover={false}
         submission={mockSubmission}
         onFinalSubmit={() => handleFinalSubmit()}
@@ -189,11 +191,11 @@ export const PreviewPage = () => {
               {isEditMode ? "Resubmit Form?" : isResubmit ? "Resubmit Form?" : "Submit Form?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {isEditMode 
+              {isEditMode
                 ? "Are you sure you want to resubmit this form? Your changes will be sent for review."
-                : isResubmit 
-                ? "Are you sure you want to resubmit this form? Your changes will be sent for review."
-                : "Are you sure you want to submit this form? Once submitted, you cannot make changes."
+                : isResubmit
+                  ? "Are you sure you want to resubmit this form? Your changes will be sent for review."
+                  : "Are you sure you want to submit this form? Once submitted, you cannot make changes."
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -211,7 +213,7 @@ export const PreviewPage = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
               {isResubmit ? "Form Resubmitted!" : "Form Submitted!"}
             </AlertDialogTitle>
             <AlertDialogDescription>

@@ -10,6 +10,7 @@ import { InfraEnablersReview } from "../dataReview/InfraEnablersReview";
 interface DataReviewTabProps {
   submissionId: string;
   formData?: any;
+  submission?: any; // Complete submission object
 }
 
 const sections = [
@@ -19,7 +20,7 @@ const sections = [
   { id: "infra-enablers", label: "Infra Enablers", points: 250 },
 ];
 
-export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) => {
+export const DataReviewTab = ({ submissionId, formData, submission }: DataReviewTabProps) => {
   const [currentSection, setCurrentSection] = useState(0);
 
   const renderSectionContent = () => {
@@ -38,13 +39,13 @@ export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) =>
 
     switch (sections[currentSection].id) {
       case "infra-financing":
-        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} />;
+        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} />;
       case "infra-development":
-        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} />;
+        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} />;
       case "ppp-development":
-        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} />;
+        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} />;
       case "infra-enablers":
-        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} />;
+        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} />;
       default:
         return null;
     }
@@ -67,12 +68,13 @@ export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) =>
       </div>
 
       {/* Section Header */}
-      <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="flex flex-col items-center gap-8 self-stretch rounded-lg border border-[#DDD] bg-white p-5 mb-6">
+        <div className="flex items-start justify-between w-full">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">
+          <h3 className="text-[18px] font-semibold text-[#212121]">
             {sections[currentSection].label} | {sections[currentSection].points} Points
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-[#727272] mt-1">
             Data related to {sections[currentSection].label.toLowerCase()} and budget allocation
           </p>
         </div>
@@ -82,6 +84,7 @@ export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) =>
           </Badge>
           <p className="text-xs text-muted-foreground mt-1">100% Progress</p>
         </div>
+        </div>
       </div>
 
 
@@ -89,7 +92,7 @@ export const DataReviewTab = ({ submissionId, formData }: DataReviewTabProps) =>
       {renderSectionContent()}
 
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between pt-6 border-t">
+      <div className="flex items-center justify-between pt-6">
         <Button
           variant="outline"
           onClick={() => setCurrentSection((prev) => Math.max(0, prev - 1))}

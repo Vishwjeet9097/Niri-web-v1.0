@@ -14,7 +14,7 @@ pids
 *.pid
 *.seed
 *.pid.lock
-
+.env
 # Coverage directory used by tools like istanbul
 coverage/
 *.lcov

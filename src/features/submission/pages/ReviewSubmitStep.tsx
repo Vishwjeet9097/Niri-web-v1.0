@@ -15,6 +15,8 @@ import { apiV2 } from '@/services/ApiService';
 import { config } from '@/config/environment';
 import { transformFormDataForSubmission, getFormDataSummary, debugFormData } from '@/utils/formDataTransformer';
 import { useFormValidation } from '../hooks/useFormValidation';
+import { SectionCard } from "../components/SectionCard";
+import { Plus, Trash2, Info } from "lucide-react";
 
 export const ReviewSubmitStep = () => {
   const { currentStep, goToPrevious } = useStepNavigation(5);
@@ -74,28 +76,28 @@ export const ReviewSubmitStep = () => {
       icon: FileText,
       completed: 5,
       total: 5,
-      color: 'bg-blue-500/10 text-blue-600',
+      color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'Infrastructure Development',
       icon: Building2,
       completed: 5,
       total: 5,
-      color: 'bg-green-500/10 text-green-600',
+      color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'PPP Development',
       icon: Briefcase,
-      completed: 4,
-      total: 4,
-      color: 'bg-purple-500/10 text-purple-600',
+      completed: 1,
+      total: 2,
+      color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'Infra Enablers',
       icon: Settings,
-      completed: 6,
-      total: 6,
-      color: 'bg-orange-500/10 text-orange-600',
+      completed: 3,
+      total: 4,
+      color: 'bg-[#D3DCF8] text-primary',
     },
   ];
 
@@ -104,7 +106,7 @@ export const ReviewSubmitStep = () => {
       e.preventDefault();
       e.stopPropagation();
     }
-    
+
     if (isSubmitting || isValidating) {
       return;
     }
@@ -118,7 +120,7 @@ export const ReviewSubmitStep = () => {
   const handleConfirmSubmit = async () => {
     setIsSubmitting(true);
     setShowConfirmModal(false);
-    
+
     try {
       // Transform form data to required API format ONLY for submission
       const transformedPayload = transformFormDataForSubmission(formData, "SUBMITTED_TO_STATE");
@@ -139,7 +141,7 @@ export const ReviewSubmitStep = () => {
       
       setSubmissionMessage(successMessage);
       setShowSuccessModal(true);
-      
+
       // Clear form data AFTER successful submission
       clearFormData(); // Clear localStorage after successful submission
       localStorage.removeItem("editing_submission_id"); // Clear editing submission ID
@@ -147,10 +149,10 @@ export const ReviewSubmitStep = () => {
     } catch (e: unknown) {
       // Dynamic error message from response
       const error = e as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = error?.response?.data?.message || 
-        error?.message || 
+      const errorMessage = error?.response?.data?.message ||
+        error?.message ||
         'Failed to submit. Please try again.';
-      
+
       notificationService.error(errorMessage, 'Submission Failed');
     } finally {
       setIsSubmitting(false);
@@ -168,35 +170,42 @@ export const ReviewSubmitStep = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-primary" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold mb-2">Review & Submit</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Please review all the information you've provided before submitting your NIRI data. Once submitted, you can track the approval status in your dashboard.
-              </p>
-            </div>
+      <div className="mb-6 bg-[#1E40AF14] p-6 rounded-lg border border-[#1E40AF52]">
+        <div className="flex items-start gap-4 ">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 className="w-6 h-6 text-primary" />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold mb-2">Review & Submit</h2>
+            <p className="text-sm text-[#727272] mb-4">
+              Please review all the information you've provided before submitting your NIRI data. Once submitted, you can track the approval status in your dashboard.
+            </p>
+            <Badge variant="outline" className="bg-[#1E40AF29] rounded-lg border p-2 border-[#7C96E9] text-primary">
+              Reference: NIRI321883
+            </Badge>
+          </div>
+        </div>
+      </div>
 
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-4">Submission Summary - Overview of your data submission</h3>
-
+      <SectionCard
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">Submission Summary - </span> Overview of your data submission{" "}
+          </span>
+        </div>}
+        subtitle=""
+        className="mb-6"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {sections.map((section, index) => {
             const Icon = section.icon;
             return (
-              <Card key={index} className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className={`w-12 h-12 rounded-lg ${section.color} flex items-center justify-center mb-4`}>
+              <div key={index} className="">
+                <CardContent className="pt-6 text-center">
+                  <div className={`w-12 h-12 rounded-lg ${section.color} flex items-center justify-center mb-4 mx-auto`}>
                     <Icon className="w-6 h-6" />
                   </div>
                   <h4 className="font-medium mb-2">{section.title}</h4>
@@ -207,33 +216,46 @@ export const ReviewSubmitStep = () => {
                     Edit
                   </Button>
                 </CardContent>
-              </Card>
+              </div>
             );
           })}
         </div>
-      </div>
+      </SectionCard>
 
-      <Alert className="mb-6 border-blue-200 bg-blue-50/50">
+      {/* <Alert className="mb-6 border-blue-200 bg-blue-50/50">
         <AlertDescription className="text-sm">
           <strong className="font-semibold">Important:</strong> After submission, your data will go through a multi-tier approval process. You will receive notifications at each stage and can track progress in your dashboard.
         </AlertDescription>
-      </Alert>
+      </Alert> */}
+      <div className="mb-6 bg-[#1E40AF14] p-6 rounded-lg border border-[#1E40AF52]">
+        <div className="flex items-start gap-4 ">
+          <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Info className="w-6 h-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-primary mb-2">Important</h2>
+            <p className="text-sm text-primary mb-4">
+              After submission, your data will go through a multi-tier approval process. You will receive notifications at each stage and can track progress in your dashboard.
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <div className="flex items-center justify-between pt-6 border-t">
+      <div className="flex items-center justify-between pt-6">
         <Button variant="outline" onClick={goToPrevious}>
           ← Previous
         </Button>
 
         <div className="flex gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setShowPreview(true)}
             disabled={isSubmitting}
           >
             <Eye className="w-4 h-4 mr-2" />
             Preview Submission
           </Button>
-          <Button 
+          <Button
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || isValidating}
@@ -249,7 +271,7 @@ export const ReviewSubmitStep = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{isEditMode || isResubmit ? 'Are you sure you want to resubmit?' : 'Are you sure you want to submit?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              {isEditMode || isResubmit 
+              {isEditMode || isResubmit
                 ? 'Once resubmitted, your updated data will be sent to the State Approver for review.'
                 : 'Once submitted, your data will be locked for editing and sent to the State Approver for review.'
               }

@@ -5,7 +5,7 @@ export const SubmissionLayout = () => {
   console.log("SubmissionLayout rendered");
 
   return (
-    <div className="min-h-screen  bg-white/10 rounded-lg shadow-sm border p-6">
+    <div className="">
       <Outlet />
     </div>
   );

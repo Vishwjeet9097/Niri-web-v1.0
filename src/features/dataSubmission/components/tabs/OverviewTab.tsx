@@ -115,35 +115,35 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
         {/* Nodal Officer Information */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Nodal Officer Information</CardTitle>
+            <CardTitle className="tracking-tight text-base font-semibold bg-[#E9EDFB] px-6 py-2">Nodal Officer Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3">
               <User className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Name</p>
-                <p className="font-medium">{submission.nodalOfficer?.name || submission.user?.firstName + " " + submission.user?.lastName || "Unknown User"}</p>
+                <p className="text-sm font-semibold text-[#212121]">Name</p>
+                <p className="text-[#727272] text-sm">{submission.nodalOfficer?.name || submission.user?.firstName + " " + submission.user?.lastName || "Unknown User"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Building className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Role</p>
-                <p className="font-medium">{getRoleDisplayName(submission.nodalOfficer?.role || submission.user?.role) || "Nodal Officer"}</p>
+                <p className="text-sm font-semibold text-[#212121]">Role</p>
+                <p className="text-[#727272] text-sm">{getRoleDisplayName(submission.nodalOfficer?.role || submission.user?.role) || "Nodal Officer"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Mail className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Email</p>
+                <p className="text-sm font-semibold text-[#212121]">Email</p>
                 <p className="font-medium text-sm">{submission.nodalOfficer?.email || submission.user?.email || "N/A"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Phone className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Phone</p>
-                <p className="font-medium">{submission.nodalOfficer?.phone || submission.user?.contactNumber || "N/A"}</p>
+                <p className="text-sm font-semibold text-[#212121]">Phone</p>
+                <p className="text-[#727272] text-sm">{submission.nodalOfficer?.phone || submission.user?.contactNumber || "N/A"}</p>
               </div>
             </div>
           </CardContent>
@@ -152,35 +152,35 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
         {/* Submission Information */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Submission Information</CardTitle>
+            <CardTitle className="tracking-tight text-base font-semibold bg-[#E9EDFB] px-6 py-2">Submission Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3">
               <Building className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Category</p>
-                <p className="font-medium">{submission.submissionInfo?.category || submission.category || "Infrastructure"}</p>
+                <p className="text-sm font-semibold text-[#212121]">Category</p>
+                <p className="text-[#727272] text-sm">{submission.submissionInfo?.category || submission.category || "Infrastructure"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <FileText className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Type</p>
-                <p className="font-medium">{submission.submissionInfo?.budgetAllocation || "N/A"}</p>
+                <p className="text-sm font-semibold text-[#212121]">Type</p>
+                <p className="text-[#727272] text-sm">{submission.submissionInfo?.budgetAllocation || "N/A"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <MapPin className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Location</p>
-                <p className="font-medium">{submission.submissionInfo?.location || submission.stateUt || "Unknown"}</p>
+                <p className="text-sm font-semibold text-[#212121]">Location</p>
+                <p className="text-[#727272] text-sm">{submission.submissionInfo?.location || submission.stateUt || "Unknown"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Submitted On</p>
-                <p className="font-medium">{submission.submissionInfo?.submittedOn || new Date(submission.createdAt || submission.updatedAt).toLocaleDateString()}</p>
+                <p className="text-sm font-semibold text-[#212121]">Submitted On</p>
+                <p className="text-[#727272] text-sm">{submission.submissionInfo?.submittedOn || new Date(submission.createdAt || submission.updatedAt).toLocaleDateString()}</p>
               </div>
             </div>
           </CardContent>
@@ -189,30 +189,30 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
         {/* Performance Metrics */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Performance Metrics</CardTitle>
+            <CardTitle className="tracking-tight text-base font-semibold bg-[#E9EDFB] px-6 py-2">Performance Metrics</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <p className="text-sm text-muted-foreground">Estimated Value</p>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-sm font-semibold text-[#212121]">Estimated Value</p>
+              <p className="text-[#727272] text-sm">
                 {submission.performanceMetrics?.estimatedValue || "N/A"}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Impact Score</p>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-sm font-semibold text-[#212121]">Impact Score</p>
+              <p className="text-[#727272] text-sm">
                 {submission.performanceMetrics?.impactScore || 0}%
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Compliance Score</p>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-sm font-semibold text-[#212121]">Compliance Score</p>
+              <p className="text-[#727272] text-sm">
                 {submission.performanceMetrics?.complianceScore || 0}%
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Completion Rate</p>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-sm font-semibold text-[#212121]">Completion Rate</p>
+              <p className="text-[#727272] text-sm">
                 {submission.performanceMetrics?.completionRate || 0}%
               </p>
             </div>
@@ -227,7 +227,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
             <div className="text-4xl font-bold text-blue-600 mb-2">
               {totalDocuments}
             </div>
-            <p className="text-sm text-muted-foreground">Total Documents</p>
+            <p className="text-sm font-semibold text-[#212121]">Total Documents</p>
           </CardContent>
         </Card>
         <Card>
@@ -235,7 +235,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
             <div className="text-4xl font-bold text-green-600 mb-2">
               {reviewCommentsCount}
             </div>
-            <p className="text-sm text-muted-foreground">Reviewed</p>
+            <p className="text-sm font-semibold text-[#212121]">Reviewed</p>
           </CardContent>
         </Card>
         <Card>
@@ -243,7 +243,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
             <div className="text-4xl font-bold text-orange-600 mb-2">
               {submission.summary?.daysPending || 0}
             </div>
-            <p className="text-sm text-muted-foreground">Days Pending</p>
+            <p className="text-sm font-semibold text-[#212121]">Days Pending</p>
           </CardContent>
         </Card>
       </div>
