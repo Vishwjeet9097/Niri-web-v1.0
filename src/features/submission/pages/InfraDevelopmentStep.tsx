@@ -367,15 +367,6 @@ export const InfraDevelopmentStep = () => {
       });
     }
   };
-  const files = [
-    {
-      id: 1,
-      sector: "Roads & Bridges",
-      fileName: "Act/Policy.pdf",
-      fileSize: "40.MB",
-    },
-
-  ]
 
   // Access control for NODAL_OFFICER
   if (isNodalOfficer) {
@@ -527,43 +518,47 @@ export const InfraDevelopmentStep = () => {
               <p className="text-xs text-destructive mt-1">{errors.section2_1}</p>
             )}
           </div>
-          <div className="overflow-x-auto rounded-xl">
-            <table className="min-w-full border-separate border-spacing-0 ">
-              <thead>
-                <tr className="bg-[#DDE3F9]">
-                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                    <input type="checkbox" className="accent-indigo-500" />
-                    <span className="ml-2">Sector</span>
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file, idx) => (
-                  <tr key={file.id} className="bg-white">
-                    <td className="py-3 px-4 text-sm font-normal">
-                      <input type="checkbox" className="accent-indigo-500" />
-                      <span className="ml-2 ">{file.sector}</span>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
-                    <td className="py-3 px-4">
-                      <button
-                        type="button"
-                        onClick={() => onDelete(file.id)}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
+          {formData.section2_1.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {formData.section2_1.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_1", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
         </SectionCard>
       )}
@@ -655,43 +650,47 @@ export const InfraDevelopmentStep = () => {
               <p className="text-xs text-destructive mt-1">{errors.section2_2}</p>
             )}
           </div>
-          <div className="overflow-x-auto rounded-xl">
-            <table className="min-w-full border-separate border-spacing-0 ">
-              <thead>
-                <tr className="bg-[#DDE3F9]">
-                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                    <input type="checkbox" className="accent-indigo-500" />
-                    <span className="ml-2">Sector</span>
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file, idx) => (
-                  <tr key={file.id} className="bg-white">
-                    <td className="py-3 px-4 text-sm font-normal">
-                      <input type="checkbox" className="accent-indigo-500" />
-                      <span className="ml-2 ">{file.sector}</span>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
-                    <td className="py-3 px-4">
-                      <button
-                        type="button"
-                        onClick={() => onDelete(file.id)}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
+          {formData.section2_2.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {formData.section2_2.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_2", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
         </SectionCard>
       )}
@@ -783,43 +782,47 @@ export const InfraDevelopmentStep = () => {
               <p className="text-xs text-destructive mt-1">{errors.section2_3}</p>
             )}
           </div>
-          <div className="overflow-x-auto rounded-xl">
-            <table className="min-w-full border-separate border-spacing-0 ">
-              <thead>
-                <tr className="bg-[#DDE3F9]">
-                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                    <input type="checkbox" className="accent-indigo-500" />
-                    <span className="ml-2">Sector</span>
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file, idx) => (
-                  <tr key={file.id} className="bg-white">
-                    <td className="py-3 px-4 text-sm font-normal">
-                      <input type="checkbox" className="accent-indigo-500" />
-                      <span className="ml-2 ">{file.sector}</span>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
-                    <td className="py-3 px-4">
-                      <button
-                        type="button"
-                        onClick={() => onDelete(file.id)}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
+          {formData.section2_3.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {formData.section2_3.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_3", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
         </SectionCard>
       )}
