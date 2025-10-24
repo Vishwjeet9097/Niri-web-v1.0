@@ -123,13 +123,13 @@ export function StateApproverDashboardPage() {
             icon: FileText,
             variant: "blue" as const,
           },
-          {
-            title: "Overdue",
-            value: calculatedKPIs.overdue.toString() || "1",
-            subtitle: "Critical Attention Needed",
-            icon: AlertTriangle,
-            variant: "red" as const,
-          },
+          // {
+          //   title: "Overdue",
+          //   value: calculatedKPIs.overdue.toString() || "1",
+          //   subtitle: "Critical Attention Needed",
+          //   icon: AlertTriangle,
+          //   variant: "red" as const,
+          // },
           {
             title: "Pending Submission",
             value: calculatedKPIs.pendingReview.toString() || kpiData?.pendingReview?.toString() || "6",
@@ -144,13 +144,13 @@ export function StateApproverDashboardPage() {
             icon: CheckCircle,
             variant: "green" as const,
           },
-          {
-            title: "Sent Back to Nodal Officer",
-            value: calculatedKPIs.sentBack.toString() || "2",
-            subtitle: "Need Revision",
-            icon: ArrowLeft,
-            variant: "yellow" as const,
-          },
+          // {
+          //   title: "Sent Back to Nodal Officer",
+          //   value: calculatedKPIs.sentBack.toString() || "2",
+          //   subtitle: "Need Revision",
+          //   icon: ArrowLeft,
+          //   variant: "yellow" as const,
+          // },
           {
             title: "Returned back from MoSPI",
             value: calculatedKPIs.returnedFromMospi.toString() || "4",
