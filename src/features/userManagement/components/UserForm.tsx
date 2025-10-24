@@ -124,7 +124,9 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         password: "", // Don't show password for existing users
         role: officer.role || "NODAL_OFFICER",
         stateId: "", // Will be set after states are loaded
-        assignedIndicators: officer.assignedIndicators || [],
+        assignedIndicators: Array.isArray(officer.assignedIndicators) 
+          ? officer.assignedIndicators 
+          : officer.assignedIndicators?.map((ai: any) => ai.indicator?.code || ai.indicatorId) || [],
       });
     } else {
       // Reset form when no officer (new user)
@@ -658,13 +660,13 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {formData.assignedIndicators.slice(0, 3).map((indicator) => (
-                    <Badge key={indicator} variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                  {formData.assignedIndicators.slice(0, 3).map((indicator, index) => (
+                    <Badge key={`indicator-${index}-${indicator}`} variant="secondary" className="text-xs bg-blue-100 text-blue-800">
                       {indicator}
                     </Badge>
                   ))}
                   {formData.assignedIndicators.length > 3 && (
-                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                    <Badge key="more-indicators" variant="secondary" className="text-xs bg-blue-100 text-blue-800">
                       +{formData.assignedIndicators.length - 3} more
                     </Badge>
                   )}

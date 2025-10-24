@@ -173,16 +173,11 @@ export function UserManagementPage() {
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
-          email: officerData.email,
           contactNumber: officerData.contactNumber,
           role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
-          stateUt: selectedState // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
+          indicatorCodes: officerData.assignedIndicators || [] // Include assigned indicators in update payload with correct key
+          // Note: email and stateUt are not included in update payload as they should not be changed
         } as any);
-
-        // Update assigned indicators if provided
-        if (officerData.assignedIndicators && officerData.assignedIndicators.length > 0) {
-          await apiService.updateUserIndicators(editingOfficer.id, officerData.assignedIndicators);
-        }
         
         notificationService.success(
           "Officer updated successfully",
