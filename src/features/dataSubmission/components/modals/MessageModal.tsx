@@ -33,12 +33,16 @@ export const MessageModal = ({
   submissionId,
   existingMessage = "",
 }: MessageModalProps) => {
-  const [message, setMessage] = useState(existingMessage);
+  const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    setMessage(existingMessage);
+    if (isOpen) {
+      setMessage(existingMessage || "");
+    } else {
+      setMessage("");
+    }
   }, [existingMessage, isOpen]);
 
   const handleSave = async () => {
@@ -51,11 +55,17 @@ export const MessageModal = ({
       return;
     }
 
+    // Store the message before clearing
+    const messageToSave = message.trim();
+    
+    // Clear the input field immediately when save starts
+    setMessage("");
+    
     setIsLoading(true);
     try {
            const updatedSubmission = await apiService.addComment(
              submissionId,
-             message.trim(),
+             messageToSave,
              sectionId,
              "indicator_comment"
            );
@@ -65,11 +75,12 @@ export const MessageModal = ({
         description: "Comment added successfully",
       });
       
-      // Clear the input field after successful save
-      setMessage("");
-      
       onSave(updatedSubmission);
-      onClose();
+      
+      // Close modal after a small delay to ensure form is cleared
+      setTimeout(() => {
+        onClose();
+      }, 100);
     } catch (error: unknown) {
       console.error("Error adding comment:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to add comment";
@@ -84,12 +95,17 @@ export const MessageModal = ({
   };
 
   const handleCancel = () => {
-    setMessage(existingMessage);
+    setMessage("");
+    onClose();
+  };
+
+  const handleClose = () => {
+    setMessage("");
     onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Add Comment</DialogTitle>

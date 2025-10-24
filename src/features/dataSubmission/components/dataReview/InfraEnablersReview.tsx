@@ -562,7 +562,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
         sectionId={activeSection || ""}
         submissionId={submissionId}
-        existingMessage={activeSection ? getMessage(activeSection) : ""}
+        existingMessage=""
       />
 
       <TimelineModal

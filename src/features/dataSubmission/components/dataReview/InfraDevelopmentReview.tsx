@@ -533,7 +533,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
         sectionId={activeSection || ""}
         submissionId={submissionId}
-        existingMessage={activeSection ? getMessage(activeSection) : ""}
+        existingMessage=""
       />
 
       <TimelineModal
