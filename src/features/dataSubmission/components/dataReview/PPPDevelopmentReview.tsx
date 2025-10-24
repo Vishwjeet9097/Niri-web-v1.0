@@ -17,6 +17,7 @@ import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
+import { hasPPPDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
 
 interface PPPDevelopmentReviewProps {
   submissionId: string;
@@ -29,6 +30,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
+
+  // Check if this section has any data
+  const hasData = hasPPPDevelopmentData({ pppDevelopment: formData });
+  const sectionsWithData = getSectionsWithData({ pppDevelopment: formData }, 'pppDevelopment');
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -106,10 +111,20 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
       </div>
     );
   };
+  // If no data, show message
+  if (!hasData) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No PPP Development data available for review</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="space-y-6">
         {/* Section 3.1 */}
+        {sectionsWithData.includes('section3_1') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <span className="text-base font-semibold ">
@@ -178,8 +193,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 3.2 */}
+        {sectionsWithData.includes('section3_2') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <span className="text-base font-semibold ">
@@ -248,8 +265,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 3.3 */}
+        {sectionsWithData.includes('section3_3') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <span className="text-base font-semibold ">
@@ -336,8 +355,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 3.4 */}
+        {sectionsWithData.includes('section3_4') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <span className="text-base font-semibold ">
@@ -400,6 +421,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
 
             </div>
         </SectionCard>
+        )}
       </div>
 
       <MessageModal

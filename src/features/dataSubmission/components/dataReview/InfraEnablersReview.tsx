@@ -18,6 +18,7 @@ import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
+import { hasInfraEnablersData, getSectionsWithData } from "@/utils/sectionDataValidator";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -30,6 +31,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
+
+  // Check if this section has any data
+  const hasData = hasInfraEnablersData({ infraEnablers: formData });
+  const sectionsWithData = getSectionsWithData({ infraEnablers: formData }, 'infraEnablers');
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -109,10 +114,20 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
       </div>
     );
   };
+  // If no data, show message
+  if (!hasData) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No Infra Enablers data available for review</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="space-y-6">
         {/* Section 4.1 */}
+        {sectionsWithData.includes('section4_1') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -211,8 +226,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 4.2 */}
+        {sectionsWithData.includes('section4_2') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -301,8 +318,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 4.3 */}
+        {sectionsWithData.includes('section4_3') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -392,8 +411,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 4.4 */}
+        {sectionsWithData.includes('section4_4') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -462,8 +483,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
             </div>
           </CardContent>
         </SectionCard>
+        )}
 
         {/* Section 4.5 */}
+        {sectionsWithData.includes('section4_5') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -486,8 +509,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
 
           </CardContent>
         </SectionCard>
+        )}
 
         {/* Section 4.6 */}
+        {sectionsWithData.includes('section4_6') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -510,6 +535,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
 
           </CardContent>
         </SectionCard>
+        )}
       </div>
 
       <MessageModal
