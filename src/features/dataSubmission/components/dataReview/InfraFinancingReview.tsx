@@ -10,6 +10,7 @@ import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { hasInfraFinancingData, getSectionsWithData } from "@/utils/sectionDataValidator";
+import { apiService } from "@/services/api.service";
 
 interface InfraFinancingReviewProps {
   submissionId: string;
@@ -31,6 +32,66 @@ export const InfraFinancingReview = ({ submissionId, formData, submission, isPre
   // State for real-time calculation
   const [capitalAllocation, setCapitalAllocation] = useState('');
   const [gsdpForFY, setGsdpForFY] = useState('');
+
+  // Real-time update listener
+  useEffect(() => {
+    const handleCommentUpdate = async (event: CustomEvent) => {
+      console.log("🔍 InfraFinancingReview - Event received:", event);
+      console.log("🔍 InfraFinancingReview - Event detail:", event.detail);
+      
+      const { submissionId: eventSubmissionId, comments } = event.detail;
+      console.log("🔍 InfraFinancingReview - Event submissionId:", eventSubmissionId);
+      console.log("🔍 InfraFinancingReview - Current submissionId:", submissionId);
+      console.log("🔍 InfraFinancingReview - IDs match:", eventSubmissionId === submissionId);
+      
+      if (eventSubmissionId === submissionId) {
+        console.log("🔄 Real-time comment update received in InfraFinancingReview");
+        
+        // 1. Update submission with fresh comments data
+        setSubmission(prev => ({
+          ...prev,
+          indicatorComment: comments,
+          updatedAt: new Date().toISOString()
+        }));
+        console.log("✅ InfraFinancingReview - Submission state updated with comments");
+        
+        // 2. Refresh complete submission data (same as first load)
+        try {
+          console.log("🔄 InfraFinancingReview - Refreshing complete submission data...");
+          console.log("🔄 InfraFinancingReview - API call: apiService.getSubmission(", submissionId, ")");
+          
+          const freshSubmission = await apiService.getSubmission(submissionId);
+          console.log("🔄 InfraFinancingReview - API response received:", freshSubmission);
+          
+          if (freshSubmission) {
+            // Update submission state with fresh data
+            setSubmission(freshSubmission);
+            console.log("✅ InfraFinancingReview - Submission state updated with fresh data");
+            
+            // Update form data with fresh data
+            if (freshSubmission.formData) {
+              setFormData(freshSubmission.formData);
+              console.log("✅ InfraFinancingReview - Form data updated with fresh data");
+            }
+            
+            console.log("✅ InfraFinancingReview - Fresh submission data loaded:", freshSubmission);
+          } else {
+            console.log("❌ InfraFinancingReview - Fresh submission is null");
+          }
+        } catch (error) {
+          console.error("❌ InfraFinancingReview - Failed to refresh submission data:", error);
+        }
+      } else {
+        console.log("⚠️ InfraFinancingReview - Event submissionId doesn't match current submissionId");
+      }
+    };
+
+    window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    };
+  }, [submissionId]);
 
   // Initialize values from formData when availableimage.png
   useEffect(() => {
@@ -74,12 +135,22 @@ export const InfraFinancingReview = ({ submissionId, formData, submission, isPre
   };
 
   const handleSaveMessage = async (message: string) => {
+    // Validate parameters
+    if (!message || typeof message !== 'string') {
+      console.error("❌ InfraFinancingReview - Invalid message parameter:", message);
+      return;
+    }
+    
     if (activeSection) {
       try {
+        console.log("🔄 InfraFinancingReview - Calling saveMessage with:", { activeSection, message });
         const updatedSubmission = await saveMessage(activeSection, message);
+        console.log("🔄 InfraFinancingReview - saveMessage response:", updatedSubmission);
+        
         if (updatedSubmission) {
           // Update form data with fresh API response
           setSubmissionData(updatedSubmission as unknown as FormData);
+          console.log("✅ InfraFinancingReview - Form data updated");
           
           // Force timeline refresh if modal is open for same section
           if (timelineSection === activeSection) {
@@ -90,8 +161,10 @@ export const InfraFinancingReview = ({ submissionId, formData, submission, isPre
           }
         }
       } catch (error) {
-        console.error("Error saving message:", error);
+        console.error("❌ InfraFinancingReview - Error saving message:", error);
       }
+    } else {
+      console.log("⚠️ InfraFinancingReview - No active section");
     }
   };
 

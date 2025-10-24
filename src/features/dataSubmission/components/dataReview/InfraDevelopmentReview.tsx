@@ -17,6 +17,7 @@ import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { hasInfraDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
+import { apiService } from "@/services/api.service";
 
 interface InfraDevelopmentReviewProps {
   submissionId: string;
@@ -31,7 +32,48 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
 
-  // Check if this section has any data
+  
+  // Real-time update listener
+  useEffect(() => {
+    const handleCommentUpdate = async (event: CustomEvent) => {
+      const { submissionId: eventSubmissionId, comments } = event.detail;
+      if (eventSubmissionId === submissionId) {
+        // Force re-render by updating a dummy state
+        // 1. Update submission with fresh comments data
+        setSubmission(prev => ({
+          ...prev,
+          indicatorComment: comments,
+          updatedAt: new Date().toISOString()
+        }));
+        
+        // 2. Refresh complete submission data (same as first load)
+        try {
+          console.log("🔄 Refreshing complete submission data...");
+          const freshSubmission = await apiService.getSubmission(submissionId);
+          
+          if (freshSubmission) {
+            // Update submission state with fresh data
+            setSubmission(freshSubmission);
+            
+            // Update form data with fresh data
+            if (freshSubmission.formData) {
+              setFormData(freshSubmission.formData);
+            }
+            
+            console.log("✅ Fresh submission data loaded:", freshSubmission);
+          }
+        } catch (error) {
+          console.error("❌ Failed to refresh submission data:", error);
+        }
+      }
+    };
+
+    window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    };
+  }, [submissionId]);// Check if this section has any data
   const hasData = hasInfraDevelopmentData({ infraDevelopment: formData });
   const sectionsWithData = getSectionsWithData({ infraDevelopment: formData }, 'infraDevelopment');
 
