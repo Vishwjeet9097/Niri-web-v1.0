@@ -290,8 +290,8 @@ export class PrefillDataService {
       updateFormData("infraDevelopment", allData.infraDevelopment);
       updateFormData("pppDevelopment", allData.pppDevelopment);
       updateFormData("infraEnablers", allData.infraEnablers);
+    // Debug logging removed for performance
 
-      console.log("🔍 All steps prefilled with sample data");
       return true;
     } catch (error) {
       console.error("❌ Error prefilling all steps:", error);

@@ -142,8 +142,8 @@ export const debugFormData = (formData: unknown) => {
     };
     return acc;
   }, {} as Record<string, unknown>);
+    // Debug logging removed for performance
 
-  console.log("🔍 Form Data Summary:", summary);
 };
 
 /**

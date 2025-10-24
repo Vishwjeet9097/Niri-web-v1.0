@@ -41,21 +41,26 @@ export const TimelineModal = ({
   const [filteredComments, setFilteredComments] = useState<Comment[]>([]);
 
   useEffect(() => {
-    console.log("🔍 TimelineModal - All comments:", comments);
-    console.log("🔍 TimelineModal - Section ID:", sectionId);
-    console.log("🔍 TimelineModal - Comments length:", comments.length);
-    
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
     // Filter comments for the specific section
     const sectionComments = comments.filter(comment => comment.sectionId === sectionId);
-    console.log("🔍 TimelineModal - Filtered comments for section:", sectionComments);
-    console.log("🔍 TimelineModal - Filtered comments count:", sectionComments.length);
-    
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
     // Sort by timestamp (newest first)
     const sortedComments = sectionComments.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-    console.log("🔍 TimelineModal - Sorted comments:", sortedComments);
-    console.log("🔍 TimelineModal - Final comments count:", sortedComments.length);
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
     setFilteredComments(sortedComments);
   }, [comments, sectionId]);
 

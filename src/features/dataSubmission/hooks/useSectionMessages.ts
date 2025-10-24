@@ -28,7 +28,7 @@ export const useSectionMessages = (
 
   // Initialize messages from submission data
   useEffect(() => {
-    console.log("🔍 useSectionMessages - submissionData:", submissionData);
+    // Debug logging removed for performance
 
     if (submissionData && typeof submissionData === "object") {
       const data = submissionData as Record<string, unknown>;
@@ -40,49 +40,42 @@ export const useSectionMessages = (
       // Check if indicatorComment exists and is an object
       if (data.indicatorComment && typeof data.indicatorComment === "object") {
         const indicatorComments = data.indicatorComment as SectionMessages;
-        console.log(
-          "🔍 Initializing messages from indicatorComment:",
-          indicatorComments
-        );
-        console.log(
-          "🔍 Section 1.5 comments from init:",
-          indicatorComments["1.5"]
-        );
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
         setMessages(indicatorComments);
       } else {
-        console.log("🔍 No indicatorComment found in submissionData");
+    // Debug logging removed for performance
+
       }
     } else {
-      console.log("🔍 submissionData is not an object or is null/undefined");
+    // Debug logging removed for performance
+
     }
   }, [submissionData]);
 
   // Also listen for changes in the submission prop (for real-time updates)
   useEffect(() => {
-    console.log(
-      "🔍 useSectionMessages - submission prop changed:",
-      submissionData
-    );
+    // Debug logging removed for performance
 
     if (submissionData && typeof submissionData === "object") {
       const data = submissionData as Record<string, unknown>;
 
       if (data.indicatorComment && typeof data.indicatorComment === "object") {
         const indicatorComments = data.indicatorComment as SectionMessages;
-        console.log(
-          "🔍 Updating messages from submission prop:",
-          indicatorComments
-        );
-        console.log(
-          "🔍 Section 1.5 comments from submission prop:",
-          indicatorComments["1.5"]
-        );
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
         setMessages(indicatorComments);
       } else {
-        console.log("🔍 No indicatorComment in submission prop");
+    // Debug logging removed for performance
+
       }
     } else {
-      console.log("🔍 submissionData is not an object or is null/undefined");
+    // Debug logging removed for performance
+
     }
   }, [submissionData]);
 
@@ -92,7 +85,8 @@ export const useSectionMessages = (
     Object.values(messages).forEach((sectionComments) => {
       allCommentsArray.push(...sectionComments);
     });
-    console.log("🔍 Updating allComments state:", allCommentsArray);
+    // Debug logging removed for performance
+
     setAllComments(allCommentsArray);
   }, [messages]);
 
@@ -122,14 +116,14 @@ export const useSectionMessages = (
             typeof data.indicatorComment === "object"
           ) {
             const indicatorComments = data.indicatorComment as SectionMessages;
-            console.log(
-              "🔍 Updating messages from API response:",
-              indicatorComments
-            );
-            console.log("🔍 Section 1.5 comments:", indicatorComments["1.5"]);
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
             setMessages(indicatorComments);
           } else {
-            console.log("🔍 No indicatorComment in API response");
+    // Debug logging removed for performance
+
           }
 
           // Clear localStorage to prevent stale data issues
@@ -137,7 +131,8 @@ export const useSectionMessages = (
           storageService.remove(reviewFormKey);
           console.log("🧹 Cleared localStorage to prevent stale data");
         } else {
-          console.log("🔍 Invalid API response:", updatedSubmission);
+    // Debug logging removed for performance
+
         }
 
         toast({
@@ -177,17 +172,16 @@ export const useSectionMessages = (
   const getComments = useCallback(
     (sectionId: string) => {
       const sectionComments = messages[sectionId] || [];
-      console.log(`🔍 getComments for ${sectionId}:`, sectionComments);
+    // Debug logging removed for performance
+
       return sectionComments;
     },
     [messages]
   );
 
   const getAllComments = useCallback(() => {
-    console.log(
-      "🔍 getAllComments - Returning allComments state:",
-      allComments
-    );
+    // Debug logging removed for performance
+
     return allComments;
   }, [allComments]);
 

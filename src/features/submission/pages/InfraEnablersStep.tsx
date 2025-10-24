@@ -61,7 +61,7 @@ const defaultData: InfraEnablersData = {
 };
 
 export const InfraEnablersStep = () => {
-  const { currentStep, goToNext, goToPrevious, isLastStep } = useStepNavigation(4);
+  const { currentStep, goToStep, goToNext, goToPrevious, isLastStep } = useStepNavigation(4);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
   
@@ -372,24 +372,28 @@ export const InfraEnablersStep = () => {
 
     if (!hasAccessToSection) {
       return (
-        <div className="max-w-4xl mx-auto space-y-6">
-          <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
-          <ProgressHeader
-            title="Infrastructure Enablers"
-            description="Supporting infrastructure and policy enablers"
-            points={250}
-            completed={0}
-            total={6}
-            progress={0}
-          />
-          <div className="text-center py-12">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
-            <p className="text-gray-600 mb-4">
-              This section is not applicable for your submission. No data entry required here.
-            </p>
-            <Button onClick={goToNext} className="bg-primary text-white">
-              Continue to Next Step
-            </Button>
+        <div className="w-full -mx-6 lg:-mx-8">
+          <div className="px-6 lg:px-8">
+            <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+          </div>
+          <div className="px-6 lg:px-8">
+            <ProgressHeader
+              title="Infrastructure Enablers"
+              description="Supporting infrastructure and policy enablers"
+              points={250}
+              completed={0}
+              total={6}
+              progress={0}
+            />
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
+              <p className="text-gray-600 mb-4">
+                This section is not applicable for your submission. No data entry required here.
+              </p>
+              <Button onClick={goToNext} className="bg-primary text-white">
+                Continue to Next Step
+              </Button>
+            </div>
           </div>
         </div>
       );

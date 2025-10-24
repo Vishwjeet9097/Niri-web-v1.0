@@ -87,8 +87,8 @@ export function DashboardPage() {
         setActivities(dashboardSummary?.recentActivity || []);
 
         // Transform submissions data with fallback
-        console.log("🔍 Dashboard - Submissions Data Structure:", submissionsData);
-        
+    // Debug logging removed for performance
+
         // Handle different response structures
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
@@ -98,9 +98,8 @@ export function DashboardPage() {
         } else if (submissionsData?.data && Array.isArray(submissionsData.data)) {
           submissionsArray = submissionsData.data;
         }
-        
-        console.log("🔍 Dashboard - Processed Submissions Array:", submissionsArray);
-        
+    // Debug logging removed for performance
+
         setSubmissions(submissionsArray.map((sub: any) => ({
           id: sub.id,
           title: sub.submissionId || `Submission ${sub.id}`,

@@ -10,7 +10,7 @@ interface StepperProps {
 
 export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
   return (
-    <div className="w-full mb-6 bg-white rounded-lg shadow-sm border p-6">
+    <div className="w-full mb-6 bg-white rounded-lg shadow-sm border p-4">
       {/* Stepper Nav */}
       <ul className="relative flex flex-row gap-x-2">
         {steps.map((step, index) => {

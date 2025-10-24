@@ -67,50 +67,46 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
     hasAnyAccess = indicatorAccess.hasAnyAccess;
     getFirstAvailableSection = indicatorAccess.getFirstAvailableSection;
     isNodalOfficer = indicatorAccess.isNodalOfficer;
-    console.log("🔍 NiriSubmissionForm: useIndicatorAccess hook called successfully", indicatorAccess);
+    // Debug logging removed for performance
+
   } catch (error) {
     console.error("🔍 NiriSubmissionForm: useIndicatorAccess hook failed:", error);
   }
 
   // Immediate debug logging
-  console.log("🔍 NiriSubmissionForm: Component initialized", {
-    isNodalOfficer,
-    assignedIndicators,
-    indicatorLoading,
-    indicatorError,
-    user: user ? { id: user._id || user.id, role: user.role } : null
-  });
+    // Debug logging removed for performance
 
   // Force API call immediately for NODAL_OFFICER
   React.useEffect(() => {
-    console.log("🔍 NiriSubmissionForm: useEffect triggered for API call", {
-      userRole: user?.role,
-      userId: user?._id || user?.id,
-      userObject: user
-    });
+    // Debug logging removed for performance
 
     if (user?.role === "NODAL_OFFICER") {
-      console.log("🔍 NiriSubmissionForm: useEffect - NODAL_OFFICER detected, making API call");
+    // Debug logging removed for performance
+
       const makeApiCall = async () => {
         try {
           const userId = user?._id || user?.id;
-          console.log("🔍 NiriSubmissionForm: useEffect - User ID for API call:", userId);
-          
+    // Debug logging removed for performance
+
           if (userId) {
-            console.log("🔍 NiriSubmissionForm: useEffect - Making API call to getUserAssignedIndicators");
+    // Debug logging removed for performance
+
             const indicators = await apiService.getUserAssignedIndicators(userId);
-            console.log("🔍 NiriSubmissionForm: useEffect - API response:", indicators);
-            
+    // Debug logging removed for performance
+
             if (indicators && indicators.length > 0) {
               const updatedUser = { ...user, assignedIndicators: indicators };
               authService.setAuth(updatedUser, authService.getTokens());
-              console.log("🔍 NiriSubmissionForm: useEffect - Updated user with indicators:", indicators);
+    // Debug logging removed for performance
+
               setForceRefresh(prev => prev + 1);
             } else {
-              console.log("🔍 NiriSubmissionForm: useEffect - No indicators returned");
+    // Debug logging removed for performance
+
             }
           } else {
-            console.log("🔍 NiriSubmissionForm: useEffect - No user ID found");
+    // Debug logging removed for performance
+
           }
         } catch (error) {
           console.error("🔍 NiriSubmissionForm: useEffect - API call failed:", error);
@@ -119,26 +115,29 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       
       makeApiCall();
     } else {
-      console.log("🔍 NiriSubmissionForm: useEffect - User is not NODAL_OFFICER");
+    // Debug logging removed for performance
+
     }
   }, [user?.role, user?._id, user?.id]); // Dependencies to ensure it runs when user changes
 
   // Force immediate API call for NODAL_OFFICER
   if (isNodalOfficer && assignedIndicators.length === 0) {
-    console.log("🔍 NiriSubmissionForm: NODAL_OFFICER detected, making immediate API call");
+    // Debug logging removed for performance
+
     const immediateApiCall = async () => {
       try {
         const userId = user?._id || user?.id;
-        console.log("🔍 NiriSubmissionForm: Immediate API call - User ID:", userId);
-        
+    // Debug logging removed for performance
+
         if (userId) {
           const indicators = await apiService.getUserAssignedIndicators(userId);
-          console.log("🔍 NiriSubmissionForm: Immediate API response - indicators:", indicators);
-          
+    // Debug logging removed for performance
+
           if (indicators.length > 0) {
             const updatedUser = { ...user, assignedIndicators: indicators };
             authService.setAuth(updatedUser, authService.getTokens());
-            console.log("🔍 NiriSubmissionForm: Immediate updated user with indicators:", indicators);
+    // Debug logging removed for performance
+
             setForceRefresh(prev => prev + 1); // Trigger re-render
           }
         }
@@ -151,30 +150,37 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   }
 
   // Force API call for NODAL_OFFICER regardless of hook state
-  console.log("🔍 NiriSubmissionForm: Checking user role:", user?.role);
+    // Debug logging removed for performance
+
   if (user?.role === "NODAL_OFFICER") {
-    console.log("🔍 NiriSubmissionForm: NODAL_OFFICER detected, making forced API call");
+    // Debug logging removed for performance
+
     const forcedApiCall = async () => {
       try {
         const userId = user?._id || user?.id;
-        console.log("🔍 NiriSubmissionForm: Forced API call - User ID:", userId);
-        console.log("🔍 NiriSubmissionForm: User object:", user);
-        
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
         if (userId) {
-          console.log("🔍 NiriSubmissionForm: Making API call to getUserAssignedIndicators with userId:", userId);
+    // Debug logging removed for performance
+
           const indicators = await apiService.getUserAssignedIndicators(userId);
-          console.log("🔍 NiriSubmissionForm: Forced API response - indicators:", indicators);
-          
+    // Debug logging removed for performance
+
           if (indicators.length > 0) {
             const updatedUser = { ...user, assignedIndicators: indicators };
             authService.setAuth(updatedUser, authService.getTokens());
-            console.log("🔍 NiriSubmissionForm: Forced updated user with indicators:", indicators);
+    // Debug logging removed for performance
+
             setForceRefresh(prev => prev + 1); // Trigger re-render
           } else {
-            console.log("🔍 NiriSubmissionForm: No indicators returned from API");
+    // Debug logging removed for performance
+
           }
         } else {
-          console.log("🔍 NiriSubmissionForm: No user ID found, cannot make API call");
+    // Debug logging removed for performance
+
         }
       } catch (err) {
         console.error("🔍 NiriSubmissionForm: Forced API call failed:", err);
@@ -183,21 +189,23 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
     
     forcedApiCall();
   } else {
-    console.log("🔍 NiriSubmissionForm: User is not NODAL_OFFICER, skipping API call");
+    // Debug logging removed for performance
+
   }
 
   // Manual trigger for indicator fetch
   const triggerIndicatorFetch = useCallback(async () => {
     if (!isNodalOfficer) return;
-    
-    console.log("🔍 NiriSubmissionForm: Manual trigger for indicator fetch");
+    // Debug logging removed for performance
+
     try {
       const userId = user?._id || user?.id;
       if (userId) {
-        console.log("🔍 NiriSubmissionForm: Making manual API call to getUserAssignedIndicators");
+    // Debug logging removed for performance
+
         const indicators = await apiService.getUserAssignedIndicators(userId);
-        console.log("🔍 NiriSubmissionForm: Manual API response - indicators:", indicators);
-        
+    // Debug logging removed for performance
+
         // Update user object with fresh indicators
         if (indicators.length > 0) {
           const updatedUser = {
@@ -205,7 +213,8 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
             assignedIndicators: indicators,
           };
           authService.setAuth(updatedUser, authService.getTokens());
-          console.log("🔍 NiriSubmissionForm: Updated user with fresh indicators:", indicators);
+    // Debug logging removed for performance
+
           setForceRefresh(prev => prev + 1); // Trigger re-render
         }
       }
@@ -216,33 +225,24 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
 
   // Force refresh indicators when component mounts
   useEffect(() => {
-    console.log("🔍 NiriSubmissionForm: Component mounted, checking indicator access", {
-      isNodalOfficer,
-      assignedIndicators,
-      indicatorLoading,
-      indicatorError,
-      forceRefresh
-    });
-    
+    // Debug logging removed for performance
+
     // Force trigger indicator fetch if user is NODAL_OFFICER and no indicators loaded
     if (isNodalOfficer && !indicatorLoading && assignedIndicators.length === 0 && !indicatorError) {
-      console.log("🔍 NiriSubmissionForm: No indicators loaded, triggering manual fetch...");
+    // Debug logging removed for performance
+
       triggerIndicatorFetch();
     }
   }, [isNodalOfficer, assignedIndicators, indicatorLoading, indicatorError, forceRefresh, triggerIndicatorFetch]);
 
   // Additional useEffect to ensure API call happens on every page visit
   useEffect(() => {
-    console.log("🔍 NiriSubmissionForm: Page visit useEffect triggered", {
-      isNodalOfficer,
-      assignedIndicatorsLength: assignedIndicators.length,
-      indicatorLoading,
-      indicatorError
-    });
+    // Debug logging removed for performance
 
     // Force API call if user is NODAL_OFFICER
     if (isNodalOfficer) {
-      console.log("🔍 NiriSubmissionForm: NODAL_OFFICER detected, ensuring API call...");
+    // Debug logging removed for performance
+
       triggerIndicatorFetch();
     }
   }, []); // Run only once when component mounts
@@ -415,7 +415,8 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       let submissionData = formData;
       if (isNodalOfficer && assignedIndicators.length > 0) {
         submissionData = filterFormDataByIndicators(formData, assignedIndicators);
-        console.log("🔍 Filtered form data for NODAL_OFFICER:", submissionData);
+    // Debug logging removed for performance
+
       }
 
       // Transform form data to NIRI format
@@ -424,9 +425,8 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
         user?.id || '',
         user?.state || ''
       );
-      
-      console.log("🔍 NIRI Submission Data:", niriSubmission);
-      
+    // Debug logging removed for performance
+
       // Validate NIRI submission
       const validation = validateNiriSubmission(niriSubmission);
       if (!validation.isValid) {
@@ -461,15 +461,7 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   };
 
   const renderSection = (sectionId: string, title: string, fields: string[]) => {
-    console.log("🔍 renderSection called:", {
-      sectionId,
-      title,
-      isNodalOfficer,
-      assignedIndicators,
-      indicatorLoading,
-      indicatorError,
-      fields
-    });
+    // Debug logging removed for performance
 
     // For NODAL_OFFICER, check if user has access to any field in this section
     if (isNodalOfficer) {
@@ -500,7 +492,8 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
 
       // If no indicators assigned, hide section
       if (assignedIndicators.length === 0) {
-        console.log("🔍 No indicators assigned, hiding section:", sectionId);
+    // Debug logging removed for performance
+
         return null;
       }
 
@@ -531,14 +524,15 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       const hasAccessToSection = fields.some(field => {
         const indicator = fieldToIndicatorMap[field];
         const hasAccess = indicator && assignedIndicators.includes(indicator);
-        console.log(`🔍 Field ${field} -> Indicator ${indicator} -> Has Access: ${hasAccess}`);
+    // Debug logging removed for performance
+
         return hasAccess;
       });
-
-      console.log(`🔍 Section ${sectionId} has access: ${hasAccessToSection}`);
+    // Debug logging removed for performance
 
       if (!hasAccessToSection) {
-        console.log(`🔍 Hiding section ${sectionId} - no access`);
+    // Debug logging removed for performance
+
         return null; // Hide section completely
       }
 
@@ -546,11 +540,11 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       const accessibleFields = fields.filter(field => {
         const indicator = fieldToIndicatorMap[field];
         const hasAccess = indicator && assignedIndicators.includes(indicator);
-        console.log(`🔍 Accessible field ${field} -> Indicator ${indicator} -> Has Access: ${hasAccess}`);
+    // Debug logging removed for performance
+
         return hasAccess;
       });
-
-      console.log(`🔍 Accessible fields for ${sectionId}:`, accessibleFields);
+    // Debug logging removed for performance
 
       return (
         <IndicatorSection sectionId={sectionId} title={title}>

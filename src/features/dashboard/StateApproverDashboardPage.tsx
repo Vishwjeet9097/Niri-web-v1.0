@@ -72,9 +72,12 @@ export function StateApproverDashboardPage() {
         const submissionsData = submittedToStateData;
 
         // Transform KPIs data with fallback
-        console.log("🔍 State Approver - Received KPI Data:", kpiData);
-        console.log("🔍 State Approver - Received Submissions Data:", submissionsData);
-        console.log("🔍 State Approver - First Submission ReviewComments:", submissionsData?.submissions?.[0]?.reviewComments);
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
         console.log("🔍 State Approver - All Submissions:", submissionsData?.submissions?.map(s => ({
           id: s.id,
           submissionId: s.submissionId,
@@ -177,8 +180,8 @@ export function StateApproverDashboardPage() {
         ]);
 
         // Transform submissions data with fallback
-        console.log("🔍 State Approver - Submissions Data Structure:", submissionsData);
-        
+    // Debug logging removed for performance
+
         // Handle different response structures
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
@@ -209,14 +212,8 @@ export function StateApproverDashboardPage() {
           
           // Debug log for submittedBy
           const submittedByName = sub.user ? `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
-          console.log("🔍 StateApprover - Mapping submission:", {
-            id: sub.id,
-            user: sub.user,
-            submittedByName,
-            firstName: sub.user?.firstName,
-            lastName: sub.user?.lastName
-          });
-          
+    // Debug logging removed for performance
+
           return {
             id: sub.id,
             title: sub.submissionId || `Submission ${sub.id}`,

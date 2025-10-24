@@ -104,8 +104,8 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
       setError(null);
       
       const response = await apiService.getSubmission(id);
-      console.log("🔍 API Response:", response);
-      
+    // Debug logging removed for performance
+
       if (response) {
         setSubmission(response as unknown as Submission);
       } else {
@@ -223,11 +223,12 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
           variant="outline"
           onClick={async () => {
             try {
-              console.log("🔍 Loading submission data for edit:", submission.id);
+    // Debug logging removed for performance
+
               // Fetch fresh submission data from endpoint
               const freshSubmissionData = await apiService.getSubmission(submission.id);
-              console.log("🔍 Fresh submission data:", freshSubmissionData);
-              
+    // Debug logging removed for performance
+
               // Store in localStorage for edit page
               localStorage.setItem('editing_submission', JSON.stringify(freshSubmissionData));
               

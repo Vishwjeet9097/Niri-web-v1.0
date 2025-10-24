@@ -33,22 +33,27 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
 
   // Initialize values from formData when availableimage.png
   useEffect(() => {
-    console.log("🔍 useEffect - formData structure:", formData);
+    // Debug logging removed for performance
+
     if (formData && typeof formData === 'object' && 'section1_1' in formData) {
       const data = formData as { section1_1?: { capitalAllocation?: string; gsdpForFY?: string } };
-      console.log("🔍 Found section1_1 data:", data.section1_1);
+    // Debug logging removed for performance
+
       setCapitalAllocation(data.section1_1?.capitalAllocation || '');
       setGsdpForFY(data.section1_1?.gsdpForFY || '');
     } else {
-      console.log("🔍 No section1_1 found in formData");
+    // Debug logging removed for performance
+
     }
   }, [formData]);
 
   // Debug formData structure
-  console.log("🔍 InfraFinancingReview - Full formData:", formData);
+    // Debug logging removed for performance
+
   if (formData && typeof formData === 'object' && 'section1_1' in formData) {
     const data = formData as { section1_1?: unknown };
-    console.log("🔍 InfraFinancingReview - section1_1:", data.section1_1);
+    // Debug logging removed for performance
+
   }
 
   const handleOpenModal = (sectionId: string) => {
@@ -110,12 +115,7 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
   const renderActionButtons = (sectionId: string) => {
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
-    
-    console.log(`🔍 renderActionButtons for ${sectionId}:`, {
-      comments,
-      commentCount,
-      sectionId
-    });
+    // Debug logging removed for performance
 
     return (
       <div className="flex gap-2">
@@ -157,12 +157,14 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
     if (!isNaN(capValue) && !isNaN(gsdpValue) && capValue > 0 && gsdpValue > 0) {
       const percentage = (capValue / gsdpValue) * 100;
       const result = percentage.toFixed(1) + '%';
-      console.log("🔍 Calculated Percentage:", result);
+    // Debug logging removed for performance
+
       return result;
     }
 
     // Return empty string if no valid calculation
-    console.log("🔍 No valid calculation - returning empty string");
+    // Debug logging removed for performance
+
     return '';
   };
   // If no data, show message
@@ -224,7 +226,8 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
               <Input
                 value={capitalAllocation}
                 onChange={(e) => {
-                  console.log("🔍 Capital Allocation changed:", e.target.value);
+    // Debug logging removed for performance
+
                   setCapitalAllocation(e.target.value);
                 }}
                 placeholder="Enter Capital Allocation value"
@@ -239,7 +242,8 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
               <Input
                 value={gsdpForFY}
                 onChange={(e) => {
-                  console.log("🔍 GSDP changed:", e.target.value);
+    // Debug logging removed for performance
+
                   setGsdpForFY(e.target.value);
                 }}
                 placeholder="Enter GSDP value"

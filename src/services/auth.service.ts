@@ -183,6 +183,8 @@ class AuthService {
     this.user = null;
     storageService.remove(TOKEN_KEY);
     storageService.remove(USER_KEY);
+    // Clear all localStorage data on logout
+    storageService.clear();
   }
 
   setAuth(user: User, tokens: AuthTokens): void {
@@ -193,12 +195,7 @@ class AuthService {
     storageService.set(USER_KEY, user);
     storageService.set(TOKEN_KEY, tokens);
 
-    console.log("🔐 Auth set successfully:", {
-      userId: user._id || user.id,
-      userRole: user.role,
-      tokenExpiresAt: new Date(tokens.expiresAt).toISOString(),
-      tokenType: tokens.tokenType,
-    });
+    // Debug logging removed for performance
   }
 
   getAuthHeaders(): Record<string, string> {

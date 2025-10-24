@@ -42,12 +42,7 @@ export const DataReviewTab = ({ submissionId, formData, submission }: DataReview
       pppDevelopment: formData.pppDevelopment,
       infraEnablers: formData.infraEnablers
     } : {};
-
-    console.log("🔍 DataReviewTab Debug:", {
-      formData,
-      sectionFormData,
-      currentSection: availableSections[currentSection]?.id
-    });
+    // Debug logging removed for performance
 
     if (availableSections.length === 0) {
       return (

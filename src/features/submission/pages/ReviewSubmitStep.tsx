@@ -19,7 +19,7 @@ import { SectionCard } from "../components/SectionCard";
 import { Plus, Trash2, Info } from "lucide-react";
 
 export const ReviewSubmitStep = () => {
-  const { currentStep, goToPrevious } = useStepNavigation(5);
+  const { currentStep, goToStep, goToPrevious } = useStepNavigation(5);
   const { formData, clearFormData, isResubmit } = useFormPersistence();
   const navigate = useNavigate();
   const [showPreview, setShowPreview] = useState(false);
@@ -170,8 +170,9 @@ export const ReviewSubmitStep = () => {
   }
 
   return (
-    <div className="">
-      <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+    <div className="w-full -mx-6 lg:-mx-8">
+      <div className="px-6 lg:px-8">
+        <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
 
       <div className="mb-6 bg-[#1E40AF14] p-6 rounded-lg border border-[#1E40AF52]">
         <div className="flex items-start gap-4 ">
@@ -307,6 +308,7 @@ export const ReviewSubmitStep = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 };

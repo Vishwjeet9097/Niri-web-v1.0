@@ -50,7 +50,7 @@ const defaultData: PPPDevelopmentData = {
 };
 
 export const PPPDevelopmentStep = () => {
-  const { currentStep, goToNext, goToPrevious, isFirstStep, isLastStep } = useStepNavigation(3);
+  const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } = useStepNavigation(3);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
   
@@ -278,36 +278,32 @@ export const PPPDevelopmentStep = () => {
     const hasAccessToSection = hasIndicatorAccess('3.1') || hasIndicatorAccess('3.2') || 
                               hasIndicatorAccess('3.3') || hasIndicatorAccess('3.4');
     
-    console.log("🔍 PPPDevelopmentStep: Access control check", {
-      isNodalOfficer,
-      assignedIndicators,
-      hasAccessToSection,
-      hasAccess3_1: hasIndicatorAccess('3.1'),
-      hasAccess3_2: hasIndicatorAccess('3.2'),
-      hasAccess3_3: hasIndicatorAccess('3.3'),
-      hasAccess3_4: hasIndicatorAccess('3.4')
-    });
+    // Debug logging removed for performance
 
     if (!hasAccessToSection) {
       return (
-        <div className="max-w-4xl mx-auto space-y-6">
-          <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
-          <ProgressHeader
-            title="PPP Development"
-            description="Public-Private Partnership projects and initiatives"
-            points={250}
-            completed={0}
-            total={4}
-            progress={0}
-          />
-          <div className="text-center py-12">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
-            <p className="text-gray-600 mb-4">
-              This section is not applicable for your submission. No data entry required here.
-            </p>
-            <Button onClick={goToNext} className="bg-primary text-white">
-              Continue to Next Step
-            </Button>
+        <div className="w-full -mx-6 lg:-mx-8">
+          <div className="px-6 lg:px-8">
+            <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+          </div>
+          <div className="px-6 lg:px-8">
+            <ProgressHeader
+              title="PPP Development"
+              description="Public-Private Partnership projects and initiatives"
+              points={250}
+              completed={0}
+              total={4}
+              progress={0}
+            />
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
+              <p className="text-gray-600 mb-4">
+                This section is not applicable for your submission. No data entry required here.
+              </p>
+              <Button onClick={goToNext} className="bg-primary text-white">
+                Continue to Next Step
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -315,19 +311,17 @@ export const PPPDevelopmentStep = () => {
   }
 
   return (
-    <div className="">
-      <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
-      <ProgressHeader
+    <div className="w-full -mx-6 lg:-mx-8">
+      <div className="px-6 lg:px-8">
+        <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+              <ProgressHeader
         title="PPP Development"
         description="Public-Private Partnership projects and initiatives"
         points={250}
         completed={0}
         total={4}
         progress={0}
-      />
-
-
-      {/* Section 3.1 */}
+      />        {/* Section 3.1 */}
       {(!isNodalOfficer || hasIndicatorAccess('3.1')) && (
         <SectionCard
           title={<div className="flex flex-col">
@@ -400,9 +394,7 @@ export const PPPDevelopmentStep = () => {
           </div>
         </div>
         </SectionCard>
-      )}
-
-      {/* Section 3.2 */}
+      )}        {/* Section 3.2 */}
       {(!isNodalOfficer || hasIndicatorAccess('3.2')) && (
         <SectionCard
           title={<div className="flex flex-col">
@@ -476,9 +468,7 @@ export const PPPDevelopmentStep = () => {
           </div>
         </div>
         </SectionCard>
-      )}
-
-      {/* Section 3.3 */}
+      )}        {/* Section 3.3 */}
       {(!isNodalOfficer || hasIndicatorAccess('3.3')) && (
         <SectionCard
           title={<div className="flex flex-col">
@@ -595,9 +585,7 @@ export const PPPDevelopmentStep = () => {
 
         </div>
         </SectionCard>
-      )}
-
-      {/* Section 3.4 */}
+      )}        {/* Section 3.4 */}
       {(!isNodalOfficer || hasIndicatorAccess('3.4')) && (
         <SectionCard
           title={<div className="flex flex-col">
@@ -647,8 +635,7 @@ export const PPPDevelopmentStep = () => {
         </SectionCard>
       )}
 
-      {/* Navigation Buttons */}
-      <FormActions
+      {/* Navigation Buttons */}        <FormActions
         onPrevious={goToPrevious}
         onNext={handleNext}
         onSaveDraft={handleSaveDraft}
@@ -656,7 +643,8 @@ export const PPPDevelopmentStep = () => {
         isLastStep={isLastStep}
         nextLabel={isLastStep ? "Review & Submit" : "Next"}
         showSaveDraft={true}
-      />
-    </div>
+        />
+        </div>
+      </div>
   );
 };

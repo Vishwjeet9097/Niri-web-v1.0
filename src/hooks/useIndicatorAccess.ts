@@ -44,16 +44,7 @@ export function useIndicatorAccess() {
   const user = authService.getUser();
   const isNodalOfficer = user?.role === "NODAL_OFFICER";
 
-  // Debug logging
-  console.log("🔍 useIndicatorAccess: Hook initialized", {
-    user: user
-      ? { id: user._id || user.id, role: user.role, name: user.name }
-      : null,
-    isNodalOfficer,
-    assignedIndicators,
-    loading,
-    error,
-  });
+  // Debug logging removed for performance
 
   // Cache key for localStorage - memoized to prevent re-renders
   const userId = user?._id || user?.id;
@@ -70,17 +61,15 @@ export function useIndicatorAccess() {
   // Load from cache or fetch from API
   useEffect(() => {
     const loadIndicators = async () => {
-      console.log("🔍 useIndicatorAccess: loadIndicators called", {
-        isNodalOfficer,
+      console.log("🔍 useIndicatorAccess Debug:", {
         userId,
-        user: user ? { id: user._id || user.id, role: user.role } : null,
+        isNodalOfficer,
+        userRole: user?.role,
+        shouldLoad: userId && isNodalOfficer,
       });
 
-      if (!userId) {
-        console.log("🔍 useIndicatorAccess: No userId, skipping", {
-          isNodalOfficer,
-          userId,
-        });
+      if (!userId || !isNodalOfficer) {
+        console.log("❌ Skipping indicator load:", { userId, isNodalOfficer });
         setLoading(false);
         return;
       }
@@ -94,41 +83,57 @@ export function useIndicatorAccess() {
         const cacheExpiry = localStorage.getItem(CACHE_EXPIRY_KEY);
         const now = Date.now();
 
+        console.log("🔍 Cache check:", {
+          CACHE_KEY,
+          cachedData: cachedData ? "exists" : "null",
+          cacheExpiry,
+          now,
+          isExpired: cacheExpiry ? now >= parseInt(cacheExpiry) : "no expiry",
+          willUseCache:
+            cachedData && cacheExpiry && now < parseInt(cacheExpiry),
+        });
+
+        if (cachedData) {
+          console.log("📦 Cached data found:", JSON.parse(cachedData));
+        }
+
         if (cachedData && cacheExpiry && now < parseInt(cacheExpiry)) {
-          console.log("🔍 useIndicatorAccess: Using cached data");
+          console.log("✅ Using cached data, skipping API call");
           const indicators = JSON.parse(cachedData);
           setAssignedIndicators(indicators);
 
           // Update user object with cached indicators
           if (indicators.length > 0) {
-            const updatedUser = { ...user, assignedIndicators: indicators };
-            authService.setAuth(updatedUser, authService.getTokens());
+            const currentUser = authService.getUser();
+            if (currentUser) {
+              const updatedUser = {
+                ...currentUser,
+                assignedIndicators: indicators,
+              };
+              authService.setAuth(updatedUser, authService.getTokens());
+            }
           }
           setLoading(false);
           return;
         }
 
-        console.log(
-          "🔍 useIndicatorAccess: Cache expired or not found, fetching from API"
-        );
-
         // Fetch from API
-        console.log(
-          "🔍 useIndicatorAccess: About to call getUserAssignedIndicators with userId:",
-          userId
-        );
+        console.log("🚀 Making API call for indicators...");
         const indicators = await apiService.getUserAssignedIndicators(userId);
-        console.log(
-          "🔍 useIndicatorAccess: API response - indicators:",
-          indicators
-        );
+        console.log("✅ API call successful, indicators:", indicators);
 
         setAssignedIndicators(indicators);
 
         // Update user object with fresh indicators
         if (indicators.length > 0) {
-          const updatedUser = { ...user, assignedIndicators: indicators };
-          authService.setAuth(updatedUser, authService.getTokens());
+          const currentUser = authService.getUser();
+          if (currentUser) {
+            const updatedUser = {
+              ...currentUser,
+              assignedIndicators: indicators,
+            };
+            authService.setAuth(updatedUser, authService.getTokens());
+          }
         }
 
         // Cache the result
@@ -137,9 +142,8 @@ export function useIndicatorAccess() {
           CACHE_EXPIRY_KEY,
           (now + CACHE_DURATION).toString()
         );
-        console.log("🔍 useIndicatorAccess: Cached indicators for 5 minutes");
       } catch (err) {
-        console.error("🔍 useIndicatorAccess: API call failed:", err);
+        console.error("Failed to load assigned indicators:", err);
         setError(err.message || "Failed to load assigned indicators");
         setAssignedIndicators([]);
       } finally {
@@ -148,14 +152,7 @@ export function useIndicatorAccess() {
     };
 
     loadIndicators();
-  }, [
-    isNodalOfficer,
-    userId,
-    CACHE_KEY,
-    CACHE_EXPIRY_KEY,
-    CACHE_DURATION,
-    user,
-  ]); // Optimized dependencies
+  }, [isNodalOfficer, userId, CACHE_KEY, CACHE_EXPIRY_KEY, CACHE_DURATION]); // Removed user from dependencies to prevent infinite loop
 
   // Calculate indicator access
   const indicatorAccess = useMemo((): IndicatorAccess => {
@@ -190,20 +187,11 @@ export function useIndicatorAccess() {
   // Check if user has access to specific indicator
   const hasIndicatorAccess = (indicatorCode: string): boolean => {
     if (!isNodalOfficer) {
-      console.log(
-        `🔍 hasIndicatorAccess(${indicatorCode}): Not NODAL_OFFICER, returning true`
-      );
       return true;
     }
 
     // For NODAL_OFFICER, check if they have access to the specific indicator
-    const hasAccess = assignedIndicators.includes(indicatorCode);
-    console.log(
-      `🔍 hasIndicatorAccess(${indicatorCode}): ${hasAccess} (assignedIndicators: ${assignedIndicators.join(
-        ", "
-      )})`
-    );
-    return hasAccess;
+    return assignedIndicators.includes(indicatorCode);
   };
 
   // Clear cache function
@@ -211,7 +199,6 @@ export function useIndicatorAccess() {
     if (userId) {
       localStorage.removeItem(CACHE_KEY);
       localStorage.removeItem(CACHE_EXPIRY_KEY);
-      console.log("🔍 useIndicatorAccess: Cache cleared");
     }
   };
 
