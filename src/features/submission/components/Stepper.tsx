@@ -10,12 +10,13 @@ interface StepperProps {
 
 export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
   return (
-    <div className="w-full mb-6">
+    <div className="w-full mb-6 bg-white rounded-lg shadow-sm border p-6">
       {/* Stepper Nav */}
       <ul className="relative flex flex-row gap-x-2">
         {steps.map((step, index) => {
           const stepNumber = index + 1;
-          const isCompleted = step.completed;
+          // Auto-complete previous steps when moving to next step
+          const isCompleted = step.completed || stepNumber < currentStep;
           const isCurrent = stepNumber === currentStep;
           const isPast = stepNumber < currentStep;
           const isClickable = isPast || isCurrent;
@@ -33,7 +34,7 @@ export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
                     {
                       'bg-gray-100 text-gray-800 group-focus:bg-gray-200': !isCurrent && !isCompleted,
                       'bg-blue-600 text-white': isCurrent,
-                      'bg-teal-500 text-white group-focus:bg-teal-600': isCompleted,
+                      'bg-green-500 text-white group-focus:bg-green-600': isCompleted,
                       'cursor-pointer hover:bg-gray-200': isClickable,
                     }
                   )}
@@ -53,8 +54,8 @@ export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
                   className={cn(
                     'w-full h-px flex-1 bg-gray-200 group-last:hidden transition-colors',
                     {
-                      'bg-gray-200': !isCompleted,
-                      'bg-teal-600': isCompleted,
+                      'bg-gray-200': !isCompleted && stepNumber >= currentStep,
+                      'bg-green-600': isCompleted || stepNumber < currentStep,
                     }
                   )}
                 />
