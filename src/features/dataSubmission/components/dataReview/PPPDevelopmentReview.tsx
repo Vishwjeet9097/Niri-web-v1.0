@@ -23,9 +23,10 @@ interface PPPDevelopmentReviewProps {
   submissionId: string;
   formData?: unknown;
   submission?: unknown; // Complete submission object
+  isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
-export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPPDevelopmentReviewProps) => {
+export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: PPPDevelopmentReviewReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
@@ -85,12 +86,19 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
 
 
   const renderActionButtons = (sectionId: string) => {
+    // Don't show action buttons in preview mode
+    if (isPreview) {
+      return null;
+    }
+    
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
+    // Debug logging removed for performance
 
     return (
       <div className="flex gap-2">
-        <Button
+        {!isPreview && (
+          <Button
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
@@ -99,6 +107,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
           <MessageSquare className="w-4 h-4" />
           Add Comment
         </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -130,7 +139,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
             <span className="text-base font-semibold ">
               <span className="text-primary">3.1 -</span> Availability of Infrastructure Act/Policy{" "}
             </span>
-            <Button
+            {!isPreview && (
+              <Button
               variant="outline"
               size="sm"
               className="flex items-center justify-between absolute right-0 -top-[6px]"
@@ -139,6 +149,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
               <MessageSquare className="w-4 h-4" />
               Add Comment
             </Button>
+            )}
           </div>}
           subtitle=""
           className="mb-6"
@@ -148,7 +159,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -157,6 +169,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
           <div className="space-y-4">
@@ -202,7 +215,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
             <span className="text-base font-semibold ">
               <span className="text-primary">3.2 -</span> Availability of Functional PPP Cell/Unit{" "}
             </span>
-            <Button
+            {!isPreview && (
+              <Button
               variant="outline"
               size="sm"
               className="flex items-center justify-between absolute right-0 -top-[6px]"
@@ -211,6 +225,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
               <MessageSquare className="w-4 h-4" />
               Add Comment
             </Button>
+            )}
           </div>}
           subtitle=""
           className="mb-6"
@@ -220,7 +235,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
               <CardTitle className="text-base">
                 3.2 - Functional PPP Cell/Unit
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -229,6 +245,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
@@ -274,7 +291,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
             <span className="text-base font-semibold ">
               <span className="text-primary">3.3 -</span> Proposals Submitted under VGF/IIPDF{" "}
             </span>
-            <Button
+            {!isPreview && (
+              <Button
               variant="outline"
               size="sm"
               className="flex items-center justify-between absolute right-0 -top-[6px]"
@@ -283,6 +301,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
               <MessageSquare className="w-4 h-4" />
               Add Comment
             </Button>
+            )}
           </div>}
           subtitle=""
           className="mb-6"
@@ -292,7 +311,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
               <CardTitle className="text-base">
                 3.3 - Proposals Submitted under VGF/IIPDF
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -301,6 +321,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
@@ -344,10 +365,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
                 </table>
               </div>
 
-              <Button variant="outline" size="sm" className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Add More Project
-              </Button>
+              {!isPreview && (
+                <Button variant="outline" size="sm" className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add More Project
+                </Button>
+              )}
 
               <p className="text-xs text-muted-foreground">
                 Annex 7: Provide VGF/IIPDF details
@@ -364,15 +387,17 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
             <span className="text-base font-semibold ">
               <span className="text-primary">3.4 -</span> Proportion of TPC of PPP Projects{" "}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("3.4")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
+            {!isPreview && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center justify-between absolute right-0 -top-[6px]"
+                onClick={() => handleOpenModal("3.4")}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Add Comment
+              </Button>
+            )}
           </div>}
           subtitle=""
           className="mb-6"
@@ -382,7 +407,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
               <CardTitle className="text-base">
                 3.4 - Proportion of TPC of PPP Projects
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -391,6 +417,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission }: PPP
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">

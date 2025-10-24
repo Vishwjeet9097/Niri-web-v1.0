@@ -15,9 +15,10 @@ interface InfraFinancingReviewProps {
   submissionId: string;
   formData?: unknown;
   submission?: unknown; // Complete submission object
+  isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
-export const InfraFinancingReview = ({ submissionId, formData, submission }: InfraFinancingReviewProps) => {
+export const InfraFinancingReview = ({ submissionId, formData, submission, isPreview = false }: InfraFinancingReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
@@ -113,6 +114,11 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
 
 
   const renderActionButtons = (sectionId: string) => {
+    // Don't show action buttons in preview mode
+    if (isPreview) {
+      return null;
+    }
+    
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
     // Debug logging removed for performance
@@ -199,15 +205,17 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => handleOpenModal("1.1")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
+              {!isPreview && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => handleOpenModal("1.1")}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Add Comment
+                </Button>
+              )}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               Annex 1: Verified with NBRP.csv / Budgeted Estimates for Capital Expenditure
@@ -394,15 +402,17 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
               <CardTitle className="text-base">
                  % of ULBs Issuing Bonds
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => handleOpenModal("1.4")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
+              {!isPreview && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => handleOpenModal("1.4")}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Add Comment
+                </Button>
+              )}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               Annex 4: Provide Bond Details

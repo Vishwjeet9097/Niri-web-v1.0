@@ -22,9 +22,10 @@ interface InfraDevelopmentReviewProps {
   submissionId: string;
   formData?: unknown;
   submission?: unknown; // Complete submission object
+  isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
-export const InfraDevelopmentReview = ({ submissionId, formData, submission }: InfraDevelopmentReviewProps) => {
+export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: InfraDevelopmentReviewReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
@@ -85,12 +86,19 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
 
 
   const renderActionButtons = (sectionId: string) => {
+    // Don't show action buttons in preview mode
+    if (isPreview) {
+      return null;
+    }
+    
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
+    // Debug logging removed for performance
 
     return (
       <div className="flex gap-2">
-        <Button
+        {!isPreview && (
+          <Button
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
@@ -99,6 +107,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
           <MessageSquare className="w-4 h-4" />
           Add Comment
         </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -142,7 +151,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
 
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -151,6 +161,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
@@ -256,7 +267,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -265,6 +277,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
@@ -325,7 +338,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -334,6 +348,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
@@ -394,7 +409,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
                 2.4 - Availability of Investment Ready Project Pipeline
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -403,6 +419,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
@@ -461,7 +478,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
                  Availability of Asset Monetization Pipeline
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -470,6 +488,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
               <div className="overflow-x-auto rounded-xl">

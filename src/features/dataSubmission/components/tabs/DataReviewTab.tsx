@@ -12,6 +12,7 @@ interface DataReviewTabProps {
   submissionId: string;
   formData?: any;
   submission?: any; // Complete submission object
+  isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
 const sections = [
@@ -21,7 +22,7 @@ const sections = [
   { id: "infra-enablers", label: "Infra Enablers", points: 250 },
 ];
 
-export const DataReviewTab = ({ submissionId, formData, submission }: DataReviewTabProps) => {
+export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false }: DataReviewTabProps) => {
   const [currentSection, setCurrentSection] = useState(0);
 
   // Check which sections have data
@@ -54,13 +55,13 @@ export const DataReviewTab = ({ submissionId, formData, submission }: DataReview
 
     switch (availableSections[currentSection]?.id) {
       case "infra-financing":
-        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} />;
+        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} isPreview={isPreview} />;
       case "infra-development":
-        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} />;
+        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} isPreview={isPreview} />;
       case "ppp-development":
-        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} />;
+        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} isPreview={isPreview} />;
       case "infra-enablers":
-        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} />;
+        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} isPreview={isPreview} />;
       default:
         return null;
     }

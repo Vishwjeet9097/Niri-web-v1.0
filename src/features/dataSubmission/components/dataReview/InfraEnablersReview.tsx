@@ -24,9 +24,10 @@ interface InfraEnablersReviewProps {
   submissionId: string;
   formData?: unknown;
   submission?: unknown; // Complete submission object
+  isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
-export const InfraEnablersReview = ({ submissionId, formData, submission }: InfraEnablersReviewProps) => {
+export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false }: InfraEnablersReviewReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
@@ -88,12 +89,19 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
 
 
   const renderActionButtons = (sectionId: string) => {
+    // Don't show action buttons in preview mode
+    if (isPreview) {
+      return null;
+    }
+    
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
+    // Debug logging removed for performance
 
     return (
       <div className="flex gap-2">
-        <Button
+        {!isPreview && (
+          <Button
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
@@ -102,6 +110,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
           <MessageSquare className="w-4 h-4" />
           Add Comment
         </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -145,7 +154,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -154,6 +164,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
           <div className="flex flex-col gap-4 w-[40%]">
@@ -247,7 +258,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -256,6 +268,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
           <div className="space-y-4">
@@ -305,7 +318,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
             </div>
 
             <div className="flex items-center gap-4">
-              {/* <Button variant="" size="sm" className="gap-2"> */}
+              {/* {!isPreview && (   <Button variant="" size="sm" className="gap-2"> */}
               <FileUploadSection className="w-4 h-4" />
 
               {/* </Button>
@@ -347,7 +360,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
               >
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
-              </Button>
+              </Button> )}
             </div>
           </CardHeader> */}
           <div className="space-y-4">
@@ -400,10 +413,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
               Upload RMB orders/Awards
             </p>
 
-            <Button variant="outline" size="sm" className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Add More Practice
-            </Button>
+            {!isPreview && (
+              <Button variant="outline" size="sm" className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Add More Practice
+              </Button>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Annex 10
@@ -441,6 +456,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission }: Infr
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+
+            )}
             </div>
           </CardHeader> */}
           <CardContent className="pt-6">
