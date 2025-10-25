@@ -289,9 +289,59 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
-                <span className="text-primary">4.2 -</span> Adoption of PM GatiShakti <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
+                <span className="text-primary">4.2 -</span> Availability & Use of State/UT PMG <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
               </span>
               {renderActionButtons("4.2")}
+            </div>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          <div className="space-y-4">
+            <div>
+              <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
+              <div className="flex items-center space-x-2">
+                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_2?.available === "yes"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+                  }`}>
+                  {formDataState?.section4_2?.available === "yes" ? "Yes" : "No"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <Label>Uploaded File</Label>
+                {formDataState?.section4_2?.file ? (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">{formDataState.section4_2.file.fileName || "Evidence document"}</span>
+                    <span className="text-sm text-green-600">✓</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No file uploaded</span>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Upload Evidence/Certificate/File
+            </p>
+            </div>
+
+        </SectionCard>
+        )}
+
+        {/* Section 4.3 */}
+        {sectionsWithData.includes('section4_3') && (
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.3 -</span> Adoption of PM GatiShakti <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per 1%)</span>{" "}
+              </span>
+              {renderActionButtons("4.3")}
             </div>
           </div>}
           subtitle=""
@@ -317,13 +367,22 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </CardHeader> */}
           <div className="space-y-4">
             <div>
+              <Label className="mb-3 block">A₁ - Number of Projects*</Label>
+              <Input 
+                value={formDataState?.section4_3?.numberOfProjects || ""} 
+                readOnly 
+                className="w-[200px]"
+              />
+            </div>
+
+            <div>
               <Label className="mb-3 block">Adoption of PM GatiShakti?*</Label>
               <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_2?.adopted === "yes"
+                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_3?.adopted === "yes"
                   ? "bg-green-100 text-green-800"
                   : "bg-red-100 text-red-800"
                   }`}>
-                  {formDataState?.section4_2?.adopted === "yes" ? "Yes" : "No"}
+                  {formDataState?.section4_3?.adopted === "yes" ? "Yes" : "No"}
                 </span>
               </div>
             </div>
@@ -331,10 +390,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <Label>Uploaded File</Label>
-                {formDataState?.section4_2?.file ? (
+                {formDataState?.section4_3?.file ? (
                   <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                     <Upload className="w-4 h-4" />
-                    <span className="text-sm">{formData.section4_2.file.fileName || "PM GatiShakti document"}</span>
+                    <span className="text-sm">{formDataState.section4_3.file.fileName || "PM GatiShakti document"}</span>
                     <span className="text-sm text-green-600">✓</span>
                   </div>
                 ) : (
@@ -346,27 +405,51 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <p className="text-xs text-muted-foreground">
               Upload GatiShakti evidence
             </p>
+            </div>
 
+        </SectionCard>
+        )}
+
+        {/* Section 4.4 */}
+        {sectionsWithData.includes('section4_4') && (
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.4 -</span> Adoption of ADR <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
+              </span>
+              {renderActionButtons("4.4")}
+            </div>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          <div className="space-y-4">
             <div>
               <Label className="mb-3 block">Adoption of Alternate Dispute Resolution (ADR)?*</Label>
-              <RadioGroup defaultValue="yes" className="flex gap-6 items-center">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="yes" id="adr-yes" />
-                  <Label className="mb-0" htmlFor="adr-yes">Yes</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no" id="adr-no" />
-                  <Label className="mb-0" htmlFor="adr-no">No</Label>
-                </div>
-              </RadioGroup>
+              <div className="flex items-center space-x-2">
+                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_4?.adopted === "yes"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+                  }`}>
+                  {formDataState?.section4_4?.adopted === "yes" ? "Yes" : "No"}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
-              {/* {!isPreview && (   <Button variant="" size="sm" className="gap-2"> */}
-              <FileUploadSection className="w-4 h-4" />
-
-              {/* </Button>
-              <span className="text-sm text-muted-foreground">No file chosen</span> */}
+              <div className="flex-1">
+                <Label>Uploaded File</Label>
+                {formDataState?.section4_4?.file ? (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">{formDataState.section4_4.file.fileName || "ADR document"}</span>
+                    <span className="text-sm text-green-600">✓</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No file uploaded</span>
+                )}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
