@@ -1,4 +1,4 @@
-import { Eye, Download, MoreVertical, FileText, MessageSquare } from "lucide-react";
+import { Eye, Download, MoreVertical, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -7,9 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
-import { MessageModal } from "../modals/MessageModal";
-import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 
 interface Document {
@@ -32,12 +29,6 @@ const getFileIcon = (fileType: string) => {
 };
 
 export const DocumentsTab = ({ documents, submissionId, formData }: DocumentsTabProps) => {
-  const { saveMessage, getMessage } = useSectionMessages(submissionId);
-  const [messageModalOpen, setMessageModalOpen] = useState(false);
-
-  const handleSaveMessage = (message: string) => {
-    saveMessage("documents", message);
-  };
 
   // Extract all documents from formData
   const extractAllDocuments = () => {
@@ -143,42 +134,10 @@ export const DocumentsTab = ({ documents, submissionId, formData }: DocumentsTab
   return (
     <>
       <SectionCard
-        title={<div className="flex flex-col relative">
-          <span className="text-base font-semibold ">
-            <span className="text-primary"></span> Document Review
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center justify-between absolute right-0 -top-[6px]"
-            onClick={() => setMessageModalOpen(true)}
-          >
-            <MessageSquare className="w-4 h-4" />
-            Add Comment
-          </Button>
-        </div>}
+        title="Document Review"
         subtitle="Data related to infrastructure financing and budget allocation"
         className="mb-6"
       >
-        {/* <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle></CardTitle>
-              <CardDescription>
-                Data related to infrastructure financing and budget allocation
-              </CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setMessageModalOpen(true)}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
-          </div>
-        </CardHeader> */}
         <CardContent className="space-y-4">
           {allDocuments.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -227,13 +186,6 @@ export const DocumentsTab = ({ documents, submissionId, formData }: DocumentsTab
         </CardContent>
       </SectionCard>
 
-      <MessageModal
-        isOpen={messageModalOpen}
-        onClose={() => setMessageModalOpen(false)}
-        onSave={handleSaveMessage}
-        sectionTitle="Documents"
-        existingMessage={getMessage("documents")}
-      />
     </>
   );
 };
