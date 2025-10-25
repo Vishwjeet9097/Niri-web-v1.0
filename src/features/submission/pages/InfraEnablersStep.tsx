@@ -34,6 +34,7 @@ import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 
 const defaultData: InfraEnablersData = {
   section4_1: {
@@ -317,37 +318,12 @@ export const InfraEnablersStep = () => {
 
 
   const handleSaveDraft = async () => {
-    try {
-      // Save to localStorage first
+    // Save to localStorage with toast message
+    const success = saveDraftToLocalStorage("infraEnablers", formData);
+    
+    if (success) {
+      // Also update form data in persistence hook
       updateFormData("infraEnablers", formData);
-
-      // Generate submission ID if not exists
-      const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-      // Save to backend
-      const success = await draftService.saveDraft(
-        submissionId,
-        formData,
-        "infraEnablers",
-        user?.id,
-        user?.state
-      );
-
-      if (success) {
-        toast({
-          title: "Draft Saved",
-          description: "Your Infra Enablers data has been saved.",
-          duration: 2000,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to save draft:", error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save draft. Please try again.",
-        variant: "destructive",
-        duration: 3000,
-      });
     }
   };
 

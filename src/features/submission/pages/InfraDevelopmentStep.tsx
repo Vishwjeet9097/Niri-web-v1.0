@@ -33,8 +33,9 @@ import { FileUploadSection } from "../components/FileUploadSection";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
-import { draftService } from "@/services/draft.service";
+// import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 
 const defaultData: InfraDevelopmentData = {
   section2_1: [],
@@ -334,37 +335,12 @@ export const InfraDevelopmentStep = () => {
 
 
   const handleSaveDraft = async () => {
-    try {
-      // Save to localStorage first
+    // Save to localStorage with toast message
+    const success = saveDraftToLocalStorage("infraDevelopment", formData);
+    
+    if (success) {
+      // Also update form data in persistence hook
       updateFormData("infraDevelopment", formData);
-
-      // Generate submission ID if not exists
-      const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-      // Save to backend
-      const success = await draftService.saveDraft(
-        submissionId,
-        formData,
-        "infraDevelopment",
-        user?.id,
-        user?.state
-      );
-
-      if (success) {
-        toast({
-          title: "Draft Saved",
-          description: "Your data has been saved as a draft.",
-          duration: 2000,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to save draft:", error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save draft. Please try again.",
-        variant: "destructive",
-        duration: 3000,
-      });
     }
   };
 

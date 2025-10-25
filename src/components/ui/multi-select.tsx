@@ -193,9 +193,17 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                   </span>
                 ))}
                 {selectedOptions.length > 3 && (
-                  <span className="text-sm text-gray-500">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Toggle showing all selected options
+                      // This will be handled by parent component
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                  >
                     +{selectedOptions.length - 3} more
-                  </span>
+                  </button>
                 )}
               </div>
             )}

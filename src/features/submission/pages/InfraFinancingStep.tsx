@@ -18,9 +18,10 @@ import { useFormPersistence } from "../hooks/useFormPersistence";
 import {
   SUBMISSION_STEPS,
 } from "../constants/steps";
+import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import type { InfraFinancingData } from "../types";
 
-import { draftService } from "@/services/draft.service";
+// import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
 import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
 import { authService } from "@/services/auth.service";
@@ -987,37 +988,12 @@ export const InfraFinancingStep = () => {
         onPrevious={isFirstStep ? undefined : goToPrevious}
         onNext={handleNext}
         onSaveDraft={async () => {
-          try {
-            // Save to localStorage first
+          // Save to localStorage with toast message
+          const success = saveDraftToLocalStorage("infraFinancing", formData);
+          
+          if (success) {
+            // Also update form data in persistence hook
             updateFormData("infraFinancing", formData);
-
-            // Generate submission ID if not exists
-            const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-            // Save to backend
-            const success = await draftService.saveDraft(
-              submissionId,
-              formData,
-              "infraFinancing",
-              user?.id,
-              user?.state
-            );
-
-            if (success) {
-              toast({
-                title: "Draft Saved",
-                description: "Your data has been saved as a draft.",
-                duration: 2000,
-              });
-            }
-          } catch (error) {
-            console.error("Failed to save draft:", error);
-            toast({
-              title: "Save Failed",
-              description: "Failed to save draft. Please try again.",
-              variant: "destructive",
-              duration: 3000,
-            });
           }
         }}
         isFirstStep={isFirstStep}

@@ -57,6 +57,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showAllSelectedIndicators, setShowAllSelectedIndicators] = useState(false);
 
   // Create indicator options for multi-select
   const indicatorOptions: MultiSelectOption[] = INDICATOR_SECTIONS.flatMap(section =>
@@ -126,7 +127,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         stateId: "", // Will be set after states are loaded
         assignedIndicators: Array.isArray(officer.assignedIndicators) 
           ? officer.assignedIndicators 
-          : officer.assignedIndicators?.map((ai: any) => ai.indicator?.code || ai.indicatorId) || [],
+          : (officer.assignedIndicators?.map((ai: any) => ai.indicator?.code || ai.indicatorId) || []),
       });
     } else {
       // Reset form when no officer (new user)
@@ -660,15 +661,28 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {formData.assignedIndicators.slice(0, 3).map((indicator, index) => (
+                  {(showAllSelectedIndicators ? formData.assignedIndicators : formData.assignedIndicators.slice(0, 3)).map((indicator, index) => (
                     <Badge key={`indicator-${index}-${indicator}`} variant="secondary" className="text-xs bg-blue-100 text-blue-800">
                       {indicator}
                     </Badge>
                   ))}
-                  {formData.assignedIndicators.length > 3 && (
-                    <Badge key="more-indicators" variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                  {formData.assignedIndicators.length > 3 && !showAllSelectedIndicators && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSelectedIndicators(true)}
+                      className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+                    >
                       +{formData.assignedIndicators.length - 3} more
-                    </Badge>
+                    </button>
+                  )}
+                  {showAllSelectedIndicators && formData.assignedIndicators.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSelectedIndicators(false)}
+                      className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+                    >
+                      Show less
+                    </button>
                   )}
                 </div>
               </div>
