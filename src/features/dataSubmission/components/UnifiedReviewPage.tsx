@@ -247,22 +247,23 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
       );
     }
 
-    // Resubmit button for RETURNED_FROM_STATE status
-    if (currentUserRole === "NODAL_OFFICER" && submissionStatus === "RETURNED_FROM_STATE") {
-      buttons.push(
-        <Button
-          key="resubmit"
-          onClick={() => {
-            // Navigate to resubmit page or handle resubmit
-            navigate(`/data-submission/resubmit/${submission.id}`);
-          }}
-          className="gap-2 bg-orange-600 hover:bg-orange-700"
-        >
-          <CheckCircle className="w-4 h-4" />
-          Resubmit
-        </Button>
-      );
-    }
+    // Resubmit button for RETURNED_FROM_STATE status - HIDDEN as per requirement
+    // User should use Edit button instead
+    // if (currentUserRole === "NODAL_OFFICER" && submissionStatus === "RETURNED_FROM_STATE") {
+    //   buttons.push(
+    //     <Button
+    //       key="resubmit"
+    //       onClick={() => {
+    //         // Navigate to resubmit page or handle resubmit
+    //         navigate(`/data-submission/resubmit/${submission.id}`);
+    //       }}
+    //       className="gap-2 bg-orange-600 hover:bg-orange-700"
+    //     >
+    //       <CheckCircle className="w-4 h-4" />
+    //       Resubmit
+    //     </Button>
+    //   );
+    // }
 
     // Send Back button
     if ((currentUserRole === "STATE_APPROVER" && submissionStatus === "SUBMITTED_TO_STATE") ||

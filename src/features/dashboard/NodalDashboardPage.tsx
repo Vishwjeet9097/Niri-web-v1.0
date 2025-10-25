@@ -52,8 +52,8 @@ const handleEditSubmission = async (submissionId: string, navigate: any) => {
     // Store submission data in localStorage for form prefill
     localStorage.setItem('editing_submission', JSON.stringify(submissionData));
     
-    // Navigate to submission form
-    navigate('/submissions');
+    // Navigate to edit page (same as handleEditSubmissionForEdit)
+    navigate(`/data-submission/edit/${submissionId}`);
     
     notificationService.success(
       "Submission loaded for editing",
