@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageSquare, Upload, Plus, Clock } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { useState, useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -11,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
 import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
@@ -26,11 +26,13 @@ interface InfraDevelopmentReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
-export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: InfraDevelopmentReviewReviewProps) => {
+export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: InfraDevelopmentReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
+  const [submissionState, setSubmissionState] = useState(submission);
+  const [formDataState, setFormDataState] = useState(formData);
 
   
   // Real-time update listener
@@ -40,7 +42,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       if (eventSubmissionId === submissionId) {
         // Force re-render by updating a dummy state
         // 1. Update submission with fresh comments data
-        setSubmission(prev => ({
+        setSubmissionState(prev => ({
           ...prev,
           indicatorComment: comments,
           updatedAt: new Date().toISOString()
@@ -53,11 +55,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           
           if (freshSubmission) {
             // Update submission state with fresh data
-            setSubmission(freshSubmission);
+            setSubmissionState(freshSubmission);
             
             // Update form data with fresh data
             if (freshSubmission.formData) {
-              setFormData(freshSubmission.formData);
+              setFormDataState(freshSubmission.formData);
             }
             
             console.log("✅ Fresh submission data loaded:", freshSubmission);
@@ -74,8 +76,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
     };
   }, [submissionId]);// Check if this section has any data
-  const hasData = hasInfraDevelopmentData({ infraDevelopment: formData });
-  const sectionsWithData = getSectionsWithData({ infraDevelopment: formData }, 'infraDevelopment');
+  const hasData = hasInfraDevelopmentData({ infraDevelopment: formDataState });
+  const sectionsWithData = getSectionsWithData({ infraDevelopment: formDataState }, 'infraDevelopment');
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -207,7 +209,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section2_1?.map((item: any, index: number) => (
+              {formDataState?.section2_1?.map((item: any, index: number) => (
                 <div key={item.id || index} className="">
                   <div className="space-y-4">
                     <div>
@@ -254,7 +256,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </tr>
                   </thead>
                   <tbody>
-                    {formData?.section2_1?.map((item: any, index: number) => (
+                    {formDataState?.section2_1?.map((item: any, index: number) => (
                       <tr key={index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || 'N/A'}</td>
                         <td className="py-3 px-4 text-sm font-normal">
@@ -323,7 +325,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section2_2?.map((item: any, index: number) => (
+              {formDataState?.section2_2?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -394,7 +396,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section2_3?.map((item: any, index: number) => (
+              {formDataState?.section2_3?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -465,7 +467,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section2_4?.map((item: any, index: number) => (
+              {formDataState?.section2_4?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -545,7 +547,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </tr>
                   </thead>
                   <tbody>
-                    {formData?.section2_5?.map((item: any, index: number) => (
+                    {formDataState?.section2_5?.map((item: any, index: number) => (
                       <tr key={item.id || index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>

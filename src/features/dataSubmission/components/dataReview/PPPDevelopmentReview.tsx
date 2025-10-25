@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MessageSquare, Upload, Plus, Clock } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -12,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
 import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
@@ -27,11 +27,13 @@ interface PPPDevelopmentReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
-export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: PPPDevelopmentReviewReviewProps) => {
+export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: PPPDevelopmentReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
-  const [submissionData, setSubmissionData] = useState(formData);
+  const [submissionData, setSubmissionStateData] = useState(formData);
+  const [submissionState, setSubmissionStateState] = useState(submission);
+  const [formDataState, setFormDataStateState] = useState(formData);
 
   
   // Real-time update listener
@@ -41,7 +43,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       if (eventSubmissionId === submissionId) {
         // Force re-render by updating a dummy state
         // 1. Update submission with fresh comments data
-        setSubmission(prev => ({
+        setSubmissionState(prev => ({
           ...prev,
           indicatorComment: comments,
           updatedAt: new Date().toISOString()
@@ -54,11 +56,11 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           
           if (freshSubmission) {
             // Update submission state with fresh data
-            setSubmission(freshSubmission);
+            setSubmissionState(freshSubmission);
             
             // Update form data with fresh data
             if (freshSubmission.formData) {
-              setFormData(freshSubmission.formData);
+              setFormDataState(freshSubmission.formData);
             }
             
             console.log("✅ Fresh submission data loaded:", freshSubmission);
@@ -100,7 +102,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         const updatedSubmission = await saveMessage(activeSection, message);
         if (updatedSubmission) {
           // Update form data with fresh API response
-          setSubmissionData(updatedSubmission);
+          setSubmissionStateData(updatedSubmission);
           
           // Force timeline refresh if modal is open for same section
           if (timelineSection === activeSection) {
@@ -218,11 +220,11 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             <div>
               <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
               <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm ${formData?.section3_1?.available === "yes"
+                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section3_1?.available === "yes"
                   ? "bg-green-100 text-green-800"
                   : "bg-red-100 text-red-800"
                   }`}>
-                  {formData?.section3_1?.available === "yes" ? "Yes" : "No"}
+                  {formDataState?.section3_1?.available === "yes" ? "Yes" : "No"}
                 </span>
               </div>
             </div>
@@ -230,7 +232,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <Label>Uploaded File</Label>
-                {formData?.section3_1?.file ? (
+                {formDataState?.section3_1?.file ? (
                   <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                     <Upload className="w-4 h-4" />
                     <span className="text-sm">{formData.section3_1.file.fileName || "Act/Policy document"}</span>
@@ -294,11 +296,11 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               <div>
                 <Label className="mb-3 block">Functional State/UT PPP Cell/Unit*</Label>
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${formData?.section3_2?.available === "yes"
+                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section3_2?.available === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                     }`}>
-                    {formData?.section3_2?.available === "yes" ? "Yes" : "No"}
+                    {formDataState?.section3_2?.available === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               </div>
@@ -306,7 +308,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <Label>Uploaded File</Label>
-                  {formData?.section3_2?.file ? (
+                  {formDataState?.section3_2?.file ? (
                     <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                       <Upload className="w-4 h-4" />
                       <span className="text-sm">{formData.section3_2.file.fileName || "PPP Cell document"}</span>
@@ -379,7 +381,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                     </tr>
                   </thead>
                   <tbody>
-                    {formData?.section3_3?.map((item: any, index: number) => (
+                    {formDataState?.section3_3?.map((item: any, index: number) => (
                       <tr key={item.id || index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
@@ -463,7 +465,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section3_4 ? (
+              {formDataState?.section3_4 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-[70%]">
                     <div>
                       <Label>Total TPC of PPP Projects</Label>
