@@ -337,57 +337,8 @@ export const InfraFinancingStep = () => {
     // eslint-disable-next-line
   }, [formData]);
 
-  // Validation: Check all fields before proceeding
+  // Validation disabled - always return true to allow form progression
   const validateFields = () => {
-    // Section 1.1 - Check if calculation fields are valid
-    const s1 = formData.section1_1;
-    if (
-      !s1.year ||
-      !s1.capitalAllocation ||
-      !s1.gsdpForFY ||
-      s1.marksObtained === undefined
-    ) {
-      return false;
-    }
-
-    // Check for division by zero
-    const gsdpValue = parseFloat(s1.gsdpForFY.replace(/[₹,]/g, ''));
-    if (gsdpValue === 0) {
-      return false;
-    }
-
-    // Section 1.2 - Check if calculation fields are valid
-    const s2 = formData.section1_2;
-    if (
-      !s2.year ||
-      !s2.actualCapex ||
-      !s2.budgetaryCapex ||
-      s2.marksObtained === undefined
-    ) {
-      return false;
-    }
-
-    // Check for division by zero
-    const budgetaryCapexValue = parseFloat(s2.budgetaryCapex.replace(/[₹,]/g, ''));
-    if (budgetaryCapexValue === 0) {
-      return false;
-    }
-
-    // Section 1.3 - Check if at least one ULB is added
-    if (formData.section1_3.length === 0) {
-      return false;
-    }
-
-    // Section 1.4 - Check if at least one bond is added
-    if (formData.section1_4.length === 0) {
-      return false;
-    }
-
-    // Section 1.5 - Check if at least one intermediary is added
-    if (formData.section1_5.length === 0) {
-      return false;
-    }
-
     return true;
   };
 

@@ -298,86 +298,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   };
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    // For NODAL_OFFICER, only validate assigned indicators
-    if (isNodalOfficer && assignedIndicators.length > 0) {
-      // Validate form data access
-      const accessValidation = validateFormDataAccess(formData, assignedIndicators);
-      if (!accessValidation.isValid) {
-        toast({
-          title: "Access Denied",
-          description: `You don't have access to indicators: ${accessValidation.unauthorizedFields.join(', ')}`,
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      // Only validate assigned indicator fields
-      const fieldToIndicatorMap: Record<string, string> = {
-        'capexToGsdpRatio': '1.1',
-        'capexUtilization': '1.2',
-        'creditRatedULBs': '1.3',
-        'ulbsIssuingBonds': '1.4',
-        'functionalFinancialIntermediary': '1.5',
-        'infrastructureActPolicy': '2.1',
-        'specializedEntity': '2.2',
-        'sectorInfraPlan': '2.3',
-        'investmentReadyPipeline': '2.4',
-        'assetMonetizationPipeline': '2.5',
-        'pppActPolicy': '3.1',
-        'pppCell': '3.2',
-        'vgfIipdfProposals': '3.3',
-        'pppBankableProjects': '3.4',
-        'pmgPortalEligible': '4.1',
-        'statePmgPortal': '4.2',
-        'pmGatiShaktiAdoption': '4.3',
-        'adrAdoption': '4.4',
-        'innovativePractices': '4.5',
-        'capacityBuilding': '4.6'
-      };
-
-      // Only validate fields that user has access to
-      Object.entries(fieldToIndicatorMap).forEach(([field, indicator]) => {
-        if (assignedIndicators.includes(indicator)) {
-          if (!formData[field] || formData[field] === '') {
-            newErrors[field] = 'This field is required';
-          }
-        }
-      });
-    } else {
-      // For other roles, validate all fields
-      const requiredFields = [
-        'capexToGsdpRatio', 'capexUtilization', 'creditRatedULBs', 'ulbsIssuingBonds',
-        'functionalFinancialIntermediary', 'infrastructureActPolicy', 'specializedEntity',
-        'sectorInfraPlan', 'investmentReadyPipeline', 'assetMonetizationPipeline',
-        'pppActPolicy', 'pppCell', 'vgfIipdfProposals', 'pppBankableProjects',
-        'pmgPortalEligible', 'statePmgPortal', 'pmGatiShaktiAdoption', 'adrAdoption',
-        'innovativePractices', 'capacityBuilding'
-      ];
-      
-      requiredFields.forEach(field => {
-        if (!formData[field] || formData[field] === '') {
-          newErrors[field] = 'This field is required';
-        }
-      });
-    }
-    
-    // Number validation for numeric fields
-    const numericFields = [
-      'capexToGsdpRatio', 'capexUtilization', 'creditRatedULBs', 'ulbsIssuingBonds',
-      'sectorInfraPlan', 'vgfIipdfProposals', 'pppBankableProjects', 'pmGatiShaktiAdoption',
-      'innovativePractices', 'capacityBuilding'
-    ];
-    
-    numericFields.forEach(field => {
-      if (formData[field] && isNaN(Number(formData[field]))) {
-        newErrors[field] = 'Please enter a valid number';
-      }
-    });
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    // Validation disabled - always return true to allow form submission
+    setErrors({});
+    return true;
   };
 
   const handlePrefillData = () => {

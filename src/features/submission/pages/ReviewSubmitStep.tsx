@@ -14,7 +14,6 @@ import { notificationService } from '@/services/NotificationBus';
 import { apiV2 } from '@/services/ApiService';
 import { config } from '@/config/environment';
 import { transformFormDataForSubmission, getFormDataSummary, debugFormData } from '@/utils/formDataTransformer';
-import { useFormValidation } from '../hooks/useFormValidation';
 import { SectionCard } from "../components/SectionCard";
 import { Plus, Trash2, Info } from "lucide-react";
 
@@ -44,15 +43,7 @@ export const ReviewSubmitStep = () => {
     }
   }, []);
 
-  // Use validation hook
-  const { validateAndProceed, isValidating } = useFormValidation({
-    onValidationSuccess: () => {
-      setShowConfirmModal(true);
-    },
-    onValidationError: (missingSections) => {
-      // Validation error handled by notification service
-    }
-  });
+  // Validation disabled - no validation hook needed
 
   // Debug form data on component mount only
   useEffect(() => {
@@ -107,14 +98,12 @@ export const ReviewSubmitStep = () => {
       e.stopPropagation();
     }
 
-    if (isSubmitting || isValidating) {
+    if (isSubmitting) {
       return;
     }
 
-    // Use validation hook to validate and proceed
-    await validateAndProceed(formData, () => {
-      // This callback will only run if validation passes
-    });
+    // Validation disabled - directly proceed to confirmation modal
+    setShowConfirmModal(true);
   };
 
   const handleConfirmSubmit = async () => {
@@ -259,9 +248,9 @@ export const ReviewSubmitStep = () => {
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || isValidating}
+            disabled={isSubmitting}
           >
-            {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : isValidating ? 'Validating...' : (isEditMode || isResubmit ? 'Resubmit Data' : 'Submit Data')}
+            {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : (isEditMode || isResubmit ? 'Resubmit Data' : 'Submit Data')}
           </Button>
         </div>
       </div>
