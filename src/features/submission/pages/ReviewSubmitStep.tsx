@@ -249,6 +249,7 @@ export const ReviewSubmitStep = () => {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : (isEditMode || isResubmit ? 'Resubmit Data' : 'Submit Data')}
           </Button>

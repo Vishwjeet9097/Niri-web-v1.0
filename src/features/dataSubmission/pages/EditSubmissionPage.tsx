@@ -388,7 +388,7 @@ export const EditSubmissionPage = () => {
             <Button
               onClick={handleResubmitClick}
               disabled={isResubmitting}
-              className="gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               {isResubmitting ? "Submitting..." : "Resubmit with Updated Data"}
@@ -459,7 +459,7 @@ export const EditSubmissionPage = () => {
               <Button
                 onClick={handleConfirmResubmit}
                 disabled={isResubmitting}
-                className="bg-green-600 hover:bg-green-700"
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {isResubmitting ? "Submitting..." : "Confirm Resubmit"}
               </Button>

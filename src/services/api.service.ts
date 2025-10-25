@@ -713,11 +713,23 @@ class ApiService implements HttpClient {
     }
   }
 
-  async forwardToMospi(id: string, comment: string): Promise<NiriSubmission> {
+  async forwardToMospi(
+    id: string,
+    comment: string,
+    currentStatus?: string
+  ): Promise<NiriSubmission> {
     try {
+      // Prepare payload based on current status
+      const payload: any = { comment };
+
+      // If current status is RETURNED_FROM_MOSPI, include status in payload
+      if (currentStatus === "RETURNED_FROM_MOSPI") {
+        payload.status = "SUBMITTED_TO_MOSPI_REVIEWER";
+      }
+
       const response = await this.axios.post(
         `/submission/forward-to-mospi/${id}`,
-        { comment }
+        payload
       );
       console.log(
         "🔍 API Service - Forward to MoSPI Response Status:",
@@ -1739,8 +1751,8 @@ class ApiService implements HttpClient {
             financing: 195,
             development: 230,
             ppp: 195,
-            enablers: 195
-          }
+            enablers: 195,
+          },
         },
         {
           rank: 2,
@@ -1753,8 +1765,8 @@ class ApiService implements HttpClient {
             financing: 175,
             development: 210,
             ppp: 165,
-            enablers: 148
-          }
+            enablers: 148,
+          },
         },
         {
           rank: 3,
@@ -1767,8 +1779,8 @@ class ApiService implements HttpClient {
             financing: 168,
             development: 205,
             ppp: 172,
-            enablers: 140
-          }
+            enablers: 140,
+          },
         },
       ];
     }

@@ -58,6 +58,7 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   let hasAnyAccess = () => true;
   let getFirstAvailableSection = () => "infra-financing";
   let isNodalOfficer = false;
+  let isStateApprover = false;
 
   try {
     const indicatorAccess = useIndicatorAccess();
@@ -67,11 +68,62 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
     hasAnyAccess = indicatorAccess.hasAnyAccess;
     getFirstAvailableSection = indicatorAccess.getFirstAvailableSection;
     isNodalOfficer = indicatorAccess.isNodalOfficer;
+    isStateApprover = user?.role === "STATE_APPROVER";
     // Debug logging removed for performance
 
   } catch (error) {
     console.error("🔍 NiriSubmissionForm: useIndicatorAccess hook failed:", error);
   }
+
+  // Helper function to check if section has data for STATE_APPROVER
+  const hasSectionData = (sectionId: string): boolean => {
+    if (!isStateApprover) return true; // For non-state approvers, show all sections
+    
+    // Check formData structure based on sectionId
+    let sectionData = null;
+    
+    switch (sectionId) {
+      case 'infra-financing':
+        sectionData = formData.infraFinancing || formData;
+        break;
+      case 'infra-development':
+        sectionData = formData.infraDevelopment || formData;
+        break;
+      case 'ppp-development':
+        sectionData = formData.pppDevelopment || formData;
+        break;
+      case 'infra-enablers':
+        sectionData = formData.infraEnablers || formData;
+        break;
+      default:
+        sectionData = formData[sectionId] || formData;
+    }
+    
+    if (!sectionData) return false;
+    
+    // Check if any field in the section has meaningful data
+    const hasData = Object.values(sectionData).some(value => {
+      if (value === null || value === undefined || value === '') return false;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === 'object' && value !== null) {
+        // Check if object has any meaningful properties
+        return Object.values(value).some(subValue => {
+          if (subValue === null || subValue === undefined || subValue === '') return false;
+          if (Array.isArray(subValue)) return subValue.length > 0;
+          return true;
+        });
+      }
+      return true;
+    });
+    
+    console.log(`🔍 hasSectionData for ${sectionId}:`, {
+      sectionData,
+      hasData,
+      isStateApprover
+    });
+    
+    return hasData;
+  };
 
   // Immediate debug logging
     // Debug logging removed for performance
@@ -385,6 +437,184 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
 
   const renderSection = (sectionId: string, title: string, fields: string[]) => {
     // Debug logging removed for performance
+
+    // For STATE_APPROVER, check if section has data
+    if (isStateApprover) {
+      if (!hasSectionData(sectionId)) {
+        return null; // Hide section if no data
+      }
+      
+      // Show section with all fields for STATE_APPROVER
+      return (
+        <IndicatorSection sectionId={sectionId} title={title}>
+          <div className="space-y-4">
+            {/* Section 1: Infrastructure Financing */}
+            {sectionId === 'infra-financing' && (
+              <>
+                <Section1_1_CapexToGSDP
+                  value={formData.capexToGsdpRatio}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, capexToGsdpRatio: value }))
+                  }
+                  error={errors.capexToGsdpRatio}
+                />
+                <Section1_2_CapexUtilization
+                  value={formData.capexUtilization}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, capexUtilization: value }))
+                  }
+                  error={errors.capexUtilization}
+                />
+                <Section1_3_CreditRatedULBs
+                  value={formData.creditRatedULBs}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, creditRatedULBs: value }))
+                  }
+                  error={errors.creditRatedULBs}
+                />
+                <Section1_4_ULBsIssuingBonds
+                  value={formData.ulbsIssuingBonds}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, ulbsIssuingBonds: value }))
+                  }
+                  error={errors.ulbsIssuingBonds}
+                />
+                <Section1_5_FunctionalFinancialIntermediary
+                  value={formData.functionalFinancialIntermediary}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, functionalFinancialIntermediary: value }))
+                  }
+                  error={errors.functionalFinancialIntermediary}
+                />
+              </>
+            )}
+
+            {/* Section 2: Infrastructure Development */}
+            {sectionId === 'infra-development' && (
+              <>
+                <Section2_1_InfrastructureActPolicy
+                  value={formData.infrastructureActPolicy}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, infrastructureActPolicy: value }))
+                  }
+                  error={errors.infrastructureActPolicy}
+                />
+                <Section2_2_SpecializedEntity
+                  value={formData.specializedEntity}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, specializedEntity: value }))
+                  }
+                  error={errors.specializedEntity}
+                />
+                <Section2_3_SectorInfraPlan
+                  value={formData.sectorInfraPlan}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, sectorInfraPlan: value }))
+                  }
+                  error={errors.sectorInfraPlan}
+                />
+                <Section2_4_InvestmentReadyPipeline
+                  value={formData.investmentReadyPipeline}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, investmentReadyPipeline: value }))
+                  }
+                  error={errors.investmentReadyPipeline}
+                />
+                <Section2_5_AssetMonetizationPipeline
+                  value={formData.assetMonetizationPipeline}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, assetMonetizationPipeline: value }))
+                  }
+                  error={errors.assetMonetizationPipeline}
+                />
+              </>
+            )}
+
+            {/* Section 3: PPP Development */}
+            {sectionId === 'ppp-development' && (
+              <>
+                <Section3_1_PPPActPolicy
+                  value={formData.pppActPolicy}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, pppActPolicy: value }))
+                  }
+                  error={errors.pppActPolicy}
+                />
+                <Section3_2_FunctionalPPPCell
+                  value={formData.pppCell}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, pppCell: value }))
+                  }
+                  error={errors.pppCell}
+                />
+                <Section3_3_VGFIIPDFProposals
+                  value={formData.vgfIipdfProposals}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, vgfIipdfProposals: value }))
+                  }
+                  error={errors.vgfIipdfProposals}
+                />
+                <Section3_4_PPPBankableProjects
+                  value={formData.pppBankableProjects}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, pppBankableProjects: value }))
+                  }
+                  error={errors.pppBankableProjects}
+                />
+              </>
+            )}
+
+            {/* Section 4: Infrastructure Enablers */}
+            {sectionId === 'infra-enablers' && (
+              <>
+                <Section4_1_PMGPortalEligible
+                  value={formData.pmgPortalEligible}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, pmgPortalEligible: value }))
+                  }
+                  error={errors.pmgPortalEligible}
+                />
+                <Section4_2_StatePMGPortal
+                  value={formData.statePmgPortal}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, statePmgPortal: value }))
+                  }
+                  error={errors.statePmgPortal}
+                />
+                <Section4_3_PMGatiShaktiAdoption
+                  value={formData.pmGatiShaktiAdoption}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, pmGatiShaktiAdoption: value }))
+                  }
+                  error={errors.pmGatiShaktiAdoption}
+                />
+                <Section4_4_ADRAdoption
+                  value={formData.adrAdoption}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, adrAdoption: value }))
+                  }
+                  error={errors.adrAdoption}
+                />
+                <Section4_5_InnovativePractices
+                  value={formData.innovativePractices}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, innovativePractices: value }))
+                  }
+                  error={errors.innovativePractices}
+                />
+                <Section4_6_CapacityBuilding
+                  value={formData.capacityBuilding}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, capacityBuilding: value }))
+                  }
+                  error={errors.capacityBuilding}
+                />
+              </>
+            )}
+          </div>
+        </IndicatorSection>
+      );
+    }
 
     // For NODAL_OFFICER, check if user has access to any field in this section
     if (isNodalOfficer) {

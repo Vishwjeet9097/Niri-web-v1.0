@@ -239,7 +239,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
               notificationService.error("Failed to load submission data", "Edit Error");
             }
           }}
-          className="gap-2"
+          className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
         >
           <Edit3 className="w-4 h-4" />
           Edit
@@ -273,7 +273,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
           key="send-back"
           variant="outline"
           onClick={() => setSendBackModalOpen(true)}
-          className="gap-2"
+          className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
         >
           <Send className="w-4 h-4" />
           Send Back
@@ -288,7 +288,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
         <Button
           key="approve"
           onClick={() => setApproveModalOpen(true)}
-          className="gap-2 bg-green-600 hover:bg-green-700"
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <CheckCircle className="w-4 h-4" />
           Approve
@@ -303,7 +303,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
           key="send-to-approver"
           variant="outline"
           onClick={() => setSendToApproverModalOpen(true)}
-          className="gap-2"
+          className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
         >
           <Send className="w-4 h-4" />
           Send to Approver
