@@ -30,7 +30,7 @@ const StateRankingTable = ({
     { label: "PPP", key: "ppp", width: 80 },
     { label: "Enablers", key: "enablers", width: 90 },
     { label: "Category", key: "category", width: 120 },
-    { label: "YoY Change", key: "yoyChange", width: 90 },
+    // { label: "YoY Change", key: "yoyChange", width: 90 },
   ];
 
   // Helper to get category badge color
@@ -319,9 +319,9 @@ const StateRankingTable = ({
                   </div>
                 </td>
                 {/* YoY Change */}
-                <td style={{ padding: "14px 12px" }}>
+                {/* <td style={{ padding: "14px 12px" }}>
                   {getYoYChange(state.yoyChange)}
-                </td>
+                </td> */}
               </tr>
             ))
           )}
