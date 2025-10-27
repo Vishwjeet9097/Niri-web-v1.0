@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiService } from "@/services/api.service";
 import { useToast } from "@/hooks/use-toast";
+import { storageService } from "@/services/storage.service";
 
 interface SectionComment {
   role: string;
@@ -27,7 +28,7 @@ export const useSectionMessages = (
 
   // Initialize messages from submission data
   useEffect(() => {
-    console.log("🔍 useSectionMessages - submissionData:", submissionData);
+    // Debug logging removed for performance
 
     if (submissionData && typeof submissionData === "object") {
       const data = submissionData as Record<string, unknown>;
@@ -39,49 +40,124 @@ export const useSectionMessages = (
       // Check if indicatorComment exists and is an object
       if (data.indicatorComment && typeof data.indicatorComment === "object") {
         const indicatorComments = data.indicatorComment as SectionMessages;
-        console.log(
-          "🔍 Initializing messages from indicatorComment:",
-          indicatorComments
-        );
-        console.log(
-          "🔍 Section 1.5 comments from init:",
-          indicatorComments["1.5"]
-        );
+        // Debug logging removed for performance
+
+        // Debug logging removed for performance
+
         setMessages(indicatorComments);
       } else {
-        console.log("🔍 No indicatorComment found in submissionData");
+        // Debug logging removed for performance
       }
     } else {
-      console.log("🔍 submissionData is not an object or is null/undefined");
+      // Debug logging removed for performance
     }
   }, [submissionData]);
 
+  // Real-time update listener for comments
+  useEffect(() => {
+    const handleCommentUpdate = async (event: CustomEvent) => {
+      console.log("🔍 Event received:", event);
+      console.log("🔍 Event detail:", event.detail);
+
+      const { submissionId: eventSubmissionId, comments } = event.detail;
+      console.log("🔍 Event submissionId:", eventSubmissionId);
+      console.log("🔍 Current submissionId:", submissionId);
+      console.log("🔍 IDs match:", eventSubmissionId === submissionId);
+
+      if (eventSubmissionId === submissionId) {
+        console.log("🔄 Real-time comment update received:", comments);
+
+        // 1. Update local state immediately
+        setMessages(comments);
+        const allCommentsArray = Object.values(comments).flat();
+        setAllComments(allCommentsArray);
+        console.log("✅ Local state updated immediately");
+
+        // 2. Refresh complete submission data (same as first load)
+        try {
+          console.log("🔄 Refreshing complete submission data...");
+          console.log(
+            "🔄 API call: apiService.getSubmission(",
+            submissionId,
+            ")"
+          );
+
+          const freshSubmission = await apiService.getSubmission(submissionId);
+          console.log("🔄 API response received:", freshSubmission);
+
+          if (freshSubmission && typeof freshSubmission === "object") {
+            const data = freshSubmission as Record<string, unknown>;
+            console.log("🔄 Fresh submission data keys:", Object.keys(data));
+
+            // Update current submission state
+            setCurrentSubmission(freshSubmission);
+            console.log("✅ Current submission state updated");
+
+            // Update messages with fresh data (same as first load)
+            if (
+              data.indicatorComment &&
+              typeof data.indicatorComment === "object"
+            ) {
+              const indicatorComments =
+                data.indicatorComment as SectionMessages;
+              console.log("✅ Fresh comments loaded:", indicatorComments);
+              console.log(
+                "✅ Fresh comments count:",
+                Object.keys(indicatorComments).length
+              );
+
+              setMessages(indicatorComments);
+              const allCommentsArray = Object.values(indicatorComments).flat();
+              setAllComments(allCommentsArray);
+              console.log("✅ Messages state updated with fresh data");
+            } else {
+              console.log("⚠️ No indicatorComment in fresh submission");
+            }
+
+            console.log("✅ Complete submission data refreshed successfully");
+          } else {
+            console.log("❌ Fresh submission is null or not an object");
+          }
+        } catch (error) {
+          console.error("❌ Failed to refresh submission data:", error);
+        }
+      } else {
+        console.log("⚠️ Event submissionId doesn't match current submissionId");
+      }
+    };
+
+    window.addEventListener(
+      "niri-comment-updated",
+      handleCommentUpdate as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "niri-comment-updated",
+        handleCommentUpdate as EventListener
+      );
+    };
+  }, [submissionId]);
+
   // Also listen for changes in the submission prop (for real-time updates)
   useEffect(() => {
-    console.log(
-      "🔍 useSectionMessages - submission prop changed:",
-      submissionData
-    );
+    // Debug logging removed for performance
 
     if (submissionData && typeof submissionData === "object") {
       const data = submissionData as Record<string, unknown>;
 
       if (data.indicatorComment && typeof data.indicatorComment === "object") {
         const indicatorComments = data.indicatorComment as SectionMessages;
-        console.log(
-          "🔍 Updating messages from submission prop:",
-          indicatorComments
-        );
-        console.log(
-          "🔍 Section 1.5 comments from submission prop:",
-          indicatorComments["1.5"]
-        );
+        // Debug logging removed for performance
+
+        // Debug logging removed for performance
+
         setMessages(indicatorComments);
       } else {
-        console.log("🔍 No indicatorComment in submission prop");
+        // Debug logging removed for performance
       }
     } else {
-      console.log("🔍 submissionData is not an object or is null/undefined");
+      // Debug logging removed for performance
     }
   }, [submissionData]);
 
@@ -91,12 +167,22 @@ export const useSectionMessages = (
     Object.values(messages).forEach((sectionComments) => {
       allCommentsArray.push(...sectionComments);
     });
-    console.log("🔍 Updating allComments state:", allCommentsArray);
+    // Debug logging removed for performance
+
     setAllComments(allCommentsArray);
   }, [messages]);
 
   const saveMessage = useCallback(
     async (sectionId: string, message: string) => {
+      // Validate parameters
+      if (!message || typeof message !== "string") {
+        console.error(
+          "❌ useSectionMessages - Invalid message parameter:",
+          message
+        );
+        return;
+      }
+
       if (!message.trim()) return;
 
       setIsLoading(true);
@@ -121,17 +207,43 @@ export const useSectionMessages = (
             typeof data.indicatorComment === "object"
           ) {
             const indicatorComments = data.indicatorComment as SectionMessages;
-            console.log(
-              "🔍 Updating messages from API response:",
-              indicatorComments
-            );
-            console.log("🔍 Section 1.5 comments:", indicatorComments["1.5"]);
+            // Debug logging removed for performance
+
+            // Debug logging removed for performance
+
             setMessages(indicatorComments);
+
+            // Real-time update: Store in localStorage for persistence
+            try {
+              localStorage.setItem(
+                `niri_comments_${submissionId}`,
+                JSON.stringify(indicatorComments)
+              );
+            } catch (error) {
+              console.warn("Failed to cache comments:", error);
+            }
+
+            // Real-time update: Trigger custom event for other components
+            window.dispatchEvent(
+              new CustomEvent("niri-comment-updated", {
+                detail: {
+                  submissionId,
+                  sectionId,
+                  comments: indicatorComments,
+                  timestamp: new Date().toISOString(),
+                },
+              })
+            );
           } else {
-            console.log("🔍 No indicatorComment in API response");
+            // Debug logging removed for performance
           }
+
+          // Clear localStorage to prevent stale data issues
+          const reviewFormKey = `review_form_data_${submissionId}`;
+          storageService.remove(reviewFormKey);
+          console.log("🧹 Cleared localStorage to prevent stale data");
         } else {
-          console.log("🔍 Invalid API response:", updatedSubmission);
+          // Debug logging removed for performance
         }
 
         toast({
@@ -171,17 +283,16 @@ export const useSectionMessages = (
   const getComments = useCallback(
     (sectionId: string) => {
       const sectionComments = messages[sectionId] || [];
-      console.log(`🔍 getComments for ${sectionId}:`, sectionComments);
+      // Debug logging removed for performance
+
       return sectionComments;
     },
     [messages]
   );
 
   const getAllComments = useCallback(() => {
-    console.log(
-      "🔍 getAllComments - Returning allComments state:",
-      allComments
-    );
+    // Debug logging removed for performance
+
     return allComments;
   }, [allComments]);
 

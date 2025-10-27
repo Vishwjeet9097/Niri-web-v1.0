@@ -72,9 +72,12 @@ export function StateApproverDashboardPage() {
         const submissionsData = submittedToStateData;
 
         // Transform KPIs data with fallback
-        console.log("🔍 State Approver - Received KPI Data:", kpiData);
-        console.log("🔍 State Approver - Received Submissions Data:", submissionsData);
-        console.log("🔍 State Approver - First Submission ReviewComments:", submissionsData?.submissions?.[0]?.reviewComments);
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
         console.log("🔍 State Approver - All Submissions:", submissionsData?.submissions?.map(s => ({
           id: s.id,
           submissionId: s.submissionId,
@@ -123,13 +126,13 @@ export function StateApproverDashboardPage() {
             icon: FileText,
             variant: "blue" as const,
           },
-          {
-            title: "Overdue",
-            value: calculatedKPIs.overdue.toString() || "1",
-            subtitle: "Critical Attention Needed",
-            icon: AlertTriangle,
-            variant: "red" as const,
-          },
+          // {
+          //   title: "Overdue",
+          //   value: calculatedKPIs.overdue.toString() || "1",
+          //   subtitle: "Critical Attention Needed",
+          //   icon: AlertTriangle,
+          //   variant: "red" as const,
+          // },
           {
             title: "Pending Submission",
             value: calculatedKPIs.pendingReview.toString() || kpiData?.pendingReview?.toString() || "6",
@@ -144,13 +147,13 @@ export function StateApproverDashboardPage() {
             icon: CheckCircle,
             variant: "green" as const,
           },
-          {
-            title: "Sent Back to Nodal Officer",
-            value: calculatedKPIs.sentBack.toString() || "2",
-            subtitle: "Need Revision",
-            icon: ArrowLeft,
-            variant: "yellow" as const,
-          },
+          // {
+          //   title: "Sent Back to Nodal Officer",
+          //   value: calculatedKPIs.sentBack.toString() || "2",
+          //   subtitle: "Need Revision",
+          //   icon: ArrowLeft,
+          //   variant: "yellow" as const,
+          // },
           {
             title: "Returned back from MoSPI",
             value: calculatedKPIs.returnedFromMospi.toString() || "4",
@@ -177,8 +180,8 @@ export function StateApproverDashboardPage() {
         ]);
 
         // Transform submissions data with fallback
-        console.log("🔍 State Approver - Submissions Data Structure:", submissionsData);
-        
+    // Debug logging removed for performance
+
         // Handle different response structures
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
@@ -209,14 +212,8 @@ export function StateApproverDashboardPage() {
           
           // Debug log for submittedBy
           const submittedByName = sub.user ? `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
-          console.log("🔍 StateApprover - Mapping submission:", {
-            id: sub.id,
-            user: sub.user,
-            submittedByName,
-            firstName: sub.user?.firstName,
-            lastName: sub.user?.lastName
-          });
-          
+    // Debug logging removed for performance
+
           return {
             id: sub.id,
             title: sub.submissionId || `Submission ${sub.id}`,

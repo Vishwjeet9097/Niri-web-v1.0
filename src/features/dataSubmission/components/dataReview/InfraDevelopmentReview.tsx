@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageSquare, Upload, Plus, Clock } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { useState, useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -11,23 +12,72 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
 import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
+import { hasInfraDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
+import { apiService } from "@/services/api.service";
 
 interface InfraDevelopmentReviewProps {
   submissionId: string;
   formData?: unknown;
   submission?: unknown; // Complete submission object
+  isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
-export const InfraDevelopmentReview = ({ submissionId, formData, submission }: InfraDevelopmentReviewProps) => {
+export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: InfraDevelopmentReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
+  const [submissionState, setSubmissionState] = useState(submission);
+  const [formDataState, setFormDataState] = useState(formData);
+
+  
+  // Real-time update listener
+  useEffect(() => {
+    const handleCommentUpdate = async (event: CustomEvent) => {
+      const { submissionId: eventSubmissionId, comments } = event.detail;
+      if (eventSubmissionId === submissionId) {
+        // Force re-render by updating a dummy state
+        // 1. Update submission with fresh comments data
+        setSubmissionState(prev => ({
+          ...prev,
+          indicatorComment: comments,
+          updatedAt: new Date().toISOString()
+        }));
+        
+        // 2. Refresh complete submission data (same as first load)
+        try {
+          console.log("🔄 Refreshing complete submission data...");
+          const freshSubmission = await apiService.getSubmission(submissionId);
+          
+          if (freshSubmission) {
+            // Update submission state with fresh data
+            setSubmissionState(freshSubmission);
+            
+            // Update form data with fresh data
+            if (freshSubmission.formData) {
+              setFormDataState(freshSubmission.formData);
+            }
+            
+            console.log("✅ Fresh submission data loaded:", freshSubmission);
+          }
+        } catch (error) {
+          console.error("❌ Failed to refresh submission data:", error);
+        }
+      }
+    };
+
+    window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    };
+  }, [submissionId]);// Check if this section has any data
+  const hasData = hasInfraDevelopmentData({ infraDevelopment: formDataState });
+  const sectionsWithData = getSectionsWithData({ infraDevelopment: formDataState }, 'infraDevelopment');
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -50,7 +100,16 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
       try {
         const updatedSubmission = await saveMessage(activeSection, message);
         if (updatedSubmission) {
+          // Update form data with fresh API response
           setSubmissionData(updatedSubmission);
+          
+          // Force timeline refresh if modal is open for same section
+          if (timelineSection === activeSection) {
+            setTimelineSection(null);
+            setTimeout(() => {
+              setTimelineSection(activeSection);
+            }, 100);
+          }
         }
       } catch (error) {
         console.error("Error saving message:", error);
@@ -71,12 +130,19 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
 
 
   const renderActionButtons = (sectionId: string) => {
+    // Don't show action buttons in preview mode
+    if (isPreview) {
+      return null;
+    }
+    
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
+    // Debug logging removed for performance
 
     return (
       <div className="flex gap-2">
-        <Button
+        {!isPreview && (
+          <Button
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
@@ -85,6 +151,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
           <MessageSquare className="w-4 h-4" />
           Add Comment
         </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -97,10 +164,20 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
       </div>
     );
   };
+  // If no data, show message
+  if (!hasData) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No Infra Development data available for review</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="space-y-6">
         {/* Section 2.1 */}
+        {sectionsWithData.includes('section2_1') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -118,7 +195,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
 
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -127,10 +205,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section2_1?.map((item: any, index: number) => (
+              {formDataState?.section2_1?.map((item: any, index: number) => (
                 <div key={item.id || index} className="">
                   <div className="space-y-4">
                     <div>
@@ -177,7 +256,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                     </tr>
                   </thead>
                   <tbody>
-                    {formData?.section2_1?.map((item: any, index: number) => (
+                    {formDataState?.section2_1?.map((item: any, index: number) => (
                       <tr key={index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || 'N/A'}</td>
                         <td className="py-3 px-4 text-sm font-normal">
@@ -211,8 +290,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 2.2 */}
+        {sectionsWithData.includes('section2_2') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -230,7 +311,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -239,10 +321,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section2_2?.map((item: any, index: number) => (
+              {formDataState?.section2_2?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -278,8 +361,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 2.3 */}
+        {sectionsWithData.includes('section2_3') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -297,7 +382,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -306,10 +392,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section2_3?.map((item: any, index: number) => (
+              {formDataState?.section2_3?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -345,8 +432,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 2.4 */}
+        {sectionsWithData.includes('section2_4') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -364,7 +453,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
                 2.4 - Availability of Investment Ready Project Pipeline
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -373,10 +463,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formData?.section2_4?.map((item: any, index: number) => (
+              {formDataState?.section2_4?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -410,8 +501,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 2.5 */}
+        {sectionsWithData.includes('section2_5') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -429,7 +522,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               <CardTitle className="text-base">
                  Availability of Asset Monetization Pipeline
               </CardTitle>
-              <Button
+              {!isPreview && (
+                <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
@@ -438,6 +532,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                 <MessageSquare className="w-4 h-4" />
                 Add Comment
               </Button>
+              )}
             </div>
           </CardHeader> */}
               <div className="overflow-x-auto rounded-xl">
@@ -452,7 +547,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
                     </tr>
                   </thead>
                   <tbody>
-                    {formData?.section2_5?.map((item: any, index: number) => (
+                    {formDataState?.section2_5?.map((item: any, index: number) => (
                       <tr key={item.id || index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
@@ -472,6 +567,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
               </div>
 
         </SectionCard>
+        )}
       </div>
 
       <MessageModal
@@ -481,7 +577,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
         sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
         sectionId={activeSection || ""}
         submissionId={submissionId}
-        existingMessage={activeSection ? getMessage(activeSection) : ""}
+        existingMessage=""
       />
 
       <TimelineModal
@@ -490,7 +586,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission }: I
         sectionId={timelineSection || ""}
         sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
         comments={getAllComments()}
-        key={`timeline-${timelineSection}-${getAllComments().length}`} // Force re-render when comments change
+        key={`timeline-${timelineSection}-${getAllComments().length}-${Date.now()}`} // Force re-render when comments change
       />
     </>
   );

@@ -14,7 +14,8 @@ export const useReviewFormPersistence = (submissionId: string) => {
     const saved = storageService.get<Partial<SubmissionFormData>>(
       getStorageKey(submissionId)
     );
-    console.log("🔍 Initial form data from localStorage:", saved);
+    // Debug logging removed for performance
+
     return saved || {};
   });
 

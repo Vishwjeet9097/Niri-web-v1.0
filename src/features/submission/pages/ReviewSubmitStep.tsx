@@ -14,12 +14,11 @@ import { notificationService } from '@/services/NotificationBus';
 import { apiV2 } from '@/services/ApiService';
 import { config } from '@/config/environment';
 import { transformFormDataForSubmission, getFormDataSummary, debugFormData } from '@/utils/formDataTransformer';
-import { useFormValidation } from '../hooks/useFormValidation';
 import { SectionCard } from "../components/SectionCard";
 import { Plus, Trash2, Info } from "lucide-react";
 
 export const ReviewSubmitStep = () => {
-  const { currentStep, goToPrevious } = useStepNavigation(5);
+  const { currentStep, goToStep, goToPrevious } = useStepNavigation(5);
   const { formData, clearFormData, isResubmit } = useFormPersistence();
   const navigate = useNavigate();
   const [showPreview, setShowPreview] = useState(false);
@@ -44,15 +43,7 @@ export const ReviewSubmitStep = () => {
     }
   }, []);
 
-  // Use validation hook
-  const { validateAndProceed, isValidating } = useFormValidation({
-    onValidationSuccess: () => {
-      setShowConfirmModal(true);
-    },
-    onValidationError: (missingSections) => {
-      // Validation error handled by notification service
-    }
-  });
+  // Validation disabled - no validation hook needed
 
   // Debug form data on component mount only
   useEffect(() => {
@@ -107,14 +98,12 @@ export const ReviewSubmitStep = () => {
       e.stopPropagation();
     }
 
-    if (isSubmitting || isValidating) {
+    if (isSubmitting) {
       return;
     }
 
-    // Use validation hook to validate and proceed
-    await validateAndProceed(formData, () => {
-      // This callback will only run if validation passes
-    });
+    // Validation disabled - directly proceed to confirmation modal
+    setShowConfirmModal(true);
   };
 
   const handleConfirmSubmit = async () => {
@@ -170,8 +159,9 @@ export const ReviewSubmitStep = () => {
   }
 
   return (
-    <div className="">
-      <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+    <div className="w-full -mx-6 lg:-mx-8">
+      <div className="px-6 lg:px-8">
+        <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
 
       <div className="mb-6 bg-[#1E40AF14] p-6 rounded-lg border border-[#1E40AF52]">
         <div className="flex items-start gap-4 ">
@@ -258,9 +248,10 @@ export const ReviewSubmitStep = () => {
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || isValidating}
+            disabled={isSubmitting}
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : isValidating ? 'Validating...' : (isEditMode || isResubmit ? 'Resubmit Data' : 'Submit Data')}
+            {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : (isEditMode || isResubmit ? 'Resubmit Data' : 'Submit Data')}
           </Button>
         </div>
       </div>
@@ -307,6 +298,7 @@ export const ReviewSubmitStep = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 };

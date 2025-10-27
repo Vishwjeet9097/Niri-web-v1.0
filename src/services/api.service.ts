@@ -356,7 +356,8 @@ class ApiService implements HttpClient {
     contactNumber: string,
     role: string,
     stateUt: string,
-    stateId?: string
+    stateId?: string,
+    indicatorCodes?: string[]
   ): Promise<{ user: NiriUser; accessToken: string }> {
     try {
       const userData = {
@@ -368,6 +369,7 @@ class ApiService implements HttpClient {
         role,
         stateUt,
         stateId: stateId || stateUt, // Use stateId if provided, otherwise use stateUt
+        ...(indicatorCodes && indicatorCodes.length > 0 && { indicatorCodes }), // Include indicators if provided
       };
 
       console.log("🔍 API Service - Register Request Data:", userData);
@@ -711,11 +713,23 @@ class ApiService implements HttpClient {
     }
   }
 
-  async forwardToMospi(id: string, comment: string): Promise<NiriSubmission> {
+  async forwardToMospi(
+    id: string,
+    comment: string,
+    currentStatus?: string
+  ): Promise<NiriSubmission> {
     try {
+      // Prepare payload based on current status
+      const payload: any = { comment };
+
+      // If current status is RETURNED_FROM_MOSPI, include status in payload
+      if (currentStatus === "RETURNED_FROM_MOSPI") {
+        payload.status = "SUBMITTED_TO_MOSPI_REVIEWER";
+      }
+
       const response = await this.axios.post(
         `/submission/forward-to-mospi/${id}`,
-        { comment }
+        payload
       );
       console.log(
         "🔍 API Service - Forward to MoSPI Response Status:",
@@ -956,7 +970,7 @@ class ApiService implements HttpClient {
   async uploadFile(
     submissionId: string,
     file: File
-  ): Promise<FileUploadResponse> {
+  ): Promise<{ url: string; filename: string; size: number }> {
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -994,7 +1008,10 @@ class ApiService implements HttpClient {
   async uploadMultipleFiles(
     submissionId: string,
     files: File[]
-  ): Promise<{ files: FileUploadResponse[]; count: number }> {
+  ): Promise<{
+    files: { url: string; filename: string; size: number }[];
+    count: number;
+  }> {
     try {
       const formData = new FormData();
       files.forEach((file) => formData.append("files", file));
@@ -1730,6 +1747,12 @@ class ApiService implements HttpClient {
           percentage: 74.2,
           approvedAt: "2024-01-01T00:00:00.000Z",
           submissionId: "uuid-1",
+          categoryScores: {
+            financing: 195,
+            development: 230,
+            ppp: 195,
+            enablers: 195,
+          },
         },
         {
           rank: 2,
@@ -1738,6 +1761,12 @@ class ApiService implements HttpClient {
           percentage: 69.8,
           approvedAt: "2024-01-01T00:00:00.000Z",
           submissionId: "uuid-2",
+          categoryScores: {
+            financing: 175,
+            development: 210,
+            ppp: 165,
+            enablers: 148,
+          },
         },
         {
           rank: 3,
@@ -1746,6 +1775,12 @@ class ApiService implements HttpClient {
           percentage: 68.5,
           approvedAt: "2024-01-01T00:00:00.000Z",
           submissionId: "uuid-3",
+          categoryScores: {
+            financing: 168,
+            development: 205,
+            ppp: 172,
+            enablers: 140,
+          },
         },
       ];
     }
@@ -1771,41 +1806,34 @@ class ApiService implements HttpClient {
       const user = authService.getUser();
       console.log(`🔍 API Service - Current user:`, user);
 
-      // Role-based endpoint selection
-      if (userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER") {
-        // MOSPI users can access scoring endpoints
-        try {
-          const response = await this.axios.get("/scoring/rankings");
-          console.log(
-            "🔍 API Service - Get Score Rankings Response Status:",
-            response.status
-          );
-          console.log(
-            "🔍 API Service - Get Score Rankings Response Data:",
-            response.data
-          );
+      // ALL user roles use the same /scoring/rankings endpoint for consistent data
+      try {
+        const response = await this.axios.get("/scoring/rankings");
+        console.log(
+          "🔍 API Service - Get Score Rankings Response Status:",
+          response.status
+        );
+        console.log(
+          "🔍 API Service - Get Score Rankings Response Data:",
+          response.data
+        );
 
-          const rankingsData =
-            response.data?.data !== undefined
-              ? response.data.data
-              : response.data;
-          console.log(
-            "🔍 API Service - Processed Get Score Rankings Data:",
-            rankingsData
-          );
+        const rankingsData =
+          response.data?.data !== undefined
+            ? response.data.data
+            : response.data;
+        console.log(
+          "🔍 API Service - Processed Get Score Rankings Data:",
+          rankingsData
+        );
 
-          return rankingsData;
-        } catch (scoringError: any) {
-          console.warn(
-            "⚠️ Scoring rankings failed for MOSPI user, trying regular rankings:",
-            scoringError.message
-          );
-          // Fallback to regular rankings
-          return this.getRegularRankings();
-        }
-      } else {
-        // NODAL_OFFICER and STATE_APPROVER use regular rankings endpoint
-        console.log(`🔍 Using regular rankings endpoint for ${userRole}`);
+        return rankingsData;
+      } catch (scoringError: any) {
+        console.warn(
+          "⚠️ Scoring rankings failed, trying regular rankings:",
+          scoringError.message
+        );
+        // Fallback to regular rankings but ensure consistent format
         return this.getRegularRankings();
       }
     } catch (error: any) {
@@ -1903,40 +1931,33 @@ class ApiService implements HttpClient {
         `🔍 API Service - Get Score Statistics for role: ${userRole}`
       );
 
-      // Role-based endpoint selection
-      if (userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER") {
-        // MOSPI users can access scoring statistics
-        try {
-          const response = await this.axios.get("/scoring/statistics");
-          console.log(
-            "🔍 API Service - Get Score Statistics Response Status:",
-            response.status
-          );
-          console.log(
-            "🔍 API Service - Get Score Statistics Response Data:",
-            response.data
-          );
+      // ALL user roles use the same /scoring/statistics endpoint for consistent data
+      try {
+        const response = await this.axios.get("/scoring/statistics");
+        console.log(
+          "🔍 API Service - Get Score Statistics Response Status:",
+          response.status
+        );
+        console.log(
+          "🔍 API Service - Get Score Statistics Response Data:",
+          response.data
+        );
 
-          const statisticsData =
-            response.data?.data !== undefined
-              ? response.data.data
-              : response.data;
-          console.log(
-            "🔍 API Service - Processed Get Score Statistics Data:",
-            statisticsData
-          );
+        const statisticsData =
+          response.data?.data !== undefined
+            ? response.data.data
+            : response.data;
+        console.log(
+          "🔍 API Service - Processed Get Score Statistics Data:",
+          statisticsData
+        );
 
-          return statisticsData;
-        } catch (scoringError: any) {
-          console.warn(
-            "⚠️ Scoring statistics failed for MOSPI user, using dummy data:",
-            scoringError.message
-          );
-          return this.getDummyStatisticsData();
-        }
-      } else {
-        // NODAL_OFFICER and STATE_APPROVER use dummy statistics
-        console.log(`🔍 Using dummy statistics for ${userRole}`);
+        return statisticsData;
+      } catch (scoringError: any) {
+        console.warn(
+          "⚠️ Scoring statistics failed, using dummy data:",
+          scoringError.message
+        );
         return this.getDummyStatisticsData();
       }
     } catch (error: any) {
@@ -2067,6 +2088,187 @@ class ApiService implements HttpClient {
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }
       console.warn("⚠️ Backend calculate score failed:", error.message);
+      throw error;
+    }
+  }
+
+  // Indicator Access Control Methods
+  async getUserAssignedIndicators(userId: string): Promise<string[]> {
+    console.log(
+      "🔍 API Service - getUserAssignedIndicators called with userId:",
+      userId
+    );
+    try {
+      // Try fallback endpoint
+      console.log(
+        "🔍 API Service - Making request to /users/${userId}/indicators"
+      );
+      const fallbackResponse = await this.axios.get(
+        `/users/${userId}/indicators`
+      );
+      console.log(
+        "🔍 API Service - Fallback Get User Assigned Indicators Response Status:",
+        fallbackResponse.status
+      );
+      console.log(
+        "🔍 API Service - Fallback Get User Assigned Indicators Response Data:",
+        fallbackResponse.data
+      );
+
+      const indicatorsData =
+        fallbackResponse.data?.data !== undefined
+          ? fallbackResponse.data.data
+          : fallbackResponse.data;
+      console.log(
+        "🔍 API Service - Processed Fallback Get User Assigned Indicators Data:",
+        indicatorsData
+      );
+
+      // Extract indicator codes from the response
+      if (Array.isArray(indicatorsData)) {
+        // If response is array of objects with indicator property
+        const indicatorCodes = indicatorsData
+          .map((item: any) => item.indicator?.code || item.code)
+          .filter((code: string) => code); // Remove undefined/null values
+        console.log(
+          "🔍 API Service - Extracted indicator codes:",
+          indicatorCodes
+        );
+        console.log("🔍 API Service - Original response data:", indicatorsData);
+        return indicatorCodes;
+      } else if (indicatorsData.indicators) {
+        // If response has indicators property
+        return indicatorsData.indicators;
+      } else {
+        // If response is already an array of codes
+        return indicatorsData || [];
+      }
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get User Assigned Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        const indicatorsData = cachedData?.data || cachedData;
+
+        if (Array.isArray(indicatorsData)) {
+          const indicatorCodes = indicatorsData
+            .map((item: any) => item.indicator?.code || item.code)
+            .filter((code: string) => code);
+          return indicatorCodes;
+        }
+        return indicatorsData?.indicators || [];
+      }
+      console.warn(
+        "⚠️ Backend get user assigned indicators failed on both endpoints:",
+        error.message
+      );
+      return [];
+    }
+  }
+
+  async getAllIndicators(): Promise<any[]> {
+    try {
+      const response = await this.axios.get("/indicators");
+      console.log(
+        "🔍 API Service - Get All Indicators Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get All Indicators Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const indicatorsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get All Indicators Data:",
+        indicatorsData
+      );
+
+      return indicatorsData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get All Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn("⚠️ Backend get all indicators failed:", error.message);
+      return [];
+    }
+  }
+
+  async getIndicatorsBySection(sectionId: string): Promise<any[]> {
+    try {
+      const response = await this.axios.get(`/indicators/section/${sectionId}`);
+      console.log(
+        "🔍 API Service - Get Indicators By Section Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get Indicators By Section Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const indicatorsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get Indicators By Section Data:",
+        indicatorsData
+      );
+
+      return indicatorsData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Indicators By Section 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn(
+        "⚠️ Backend get indicators by section failed:",
+        error.message
+      );
+      return [];
+    }
+  }
+
+  async updateUserIndicators(
+    userId: string,
+    indicatorCodes: string[]
+  ): Promise<any> {
+    try {
+      const response = await this.axios.patch(`/users/${userId}/indicators`, {
+        indicatorCodes,
+      });
+      console.log(
+        "🔍 API Service - Update User Indicators Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Update User Indicators Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const updateData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Update User Indicators Data:",
+        updateData
+      );
+
+      return updateData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Update User Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn("⚠️ Backend update user indicators failed:", error.message);
       throw error;
     }
   }

@@ -55,9 +55,8 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
 
   // Get data from persistence hook (this will be the source of truth)
   const persistedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
-  
-  console.log("🔍 EditablePPPDevelopment - persistedData:", persistedData);
-  
+    // Debug logging removed for performance
+
   // Create form data by merging persisted data with defaults
   const createFormData = (data: Partial<PPPDevelopmentData>): PPPDevelopmentData => ({
     ...defaultData,

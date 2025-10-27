@@ -9,41 +9,113 @@ import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
+import { hasInfraFinancingData, getSectionsWithData } from "@/utils/sectionDataValidator";
+import { apiService } from "@/services/api.service";
 
 interface InfraFinancingReviewProps {
   submissionId: string;
   formData?: unknown;
   submission?: unknown; // Complete submission object
+  isPreview?: boolean; // Whether this is a preview mode (fresh submission)
 }
 
-export const InfraFinancingReview = ({ submissionId, formData, submission }: InfraFinancingReviewProps) => {
+export const InfraFinancingReview = ({ submissionId, formData, submission, isPreview = false }: InfraFinancingReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
 
+  // Check if this section has any data
+  const hasData = hasInfraFinancingData({ infraFinancing: formData });
+  const sectionsWithData = getSectionsWithData({ infraFinancing: formData }, 'infraFinancing');
+
   // State for real-time calculation
   const [capitalAllocation, setCapitalAllocation] = useState('');
   const [gsdpForFY, setGsdpForFY] = useState('');
 
+  // Real-time update listener
+  useEffect(() => {
+    const handleCommentUpdate = async (event: CustomEvent) => {
+      console.log("🔍 InfraFinancingReview - Event received:", event);
+      console.log("🔍 InfraFinancingReview - Event detail:", event.detail);
+      
+      const { submissionId: eventSubmissionId, comments } = event.detail;
+      console.log("🔍 InfraFinancingReview - Event submissionId:", eventSubmissionId);
+      console.log("🔍 InfraFinancingReview - Current submissionId:", submissionId);
+      console.log("🔍 InfraFinancingReview - IDs match:", eventSubmissionId === submissionId);
+      
+      if (eventSubmissionId === submissionId) {
+        console.log("🔄 Real-time comment update received in InfraFinancingReview");
+        
+        // 1. Update submission with fresh comments data
+        setSubmission(prev => ({
+          ...prev,
+          indicatorComment: comments,
+          updatedAt: new Date().toISOString()
+        }));
+        console.log("✅ InfraFinancingReview - Submission state updated with comments");
+        
+        // 2. Refresh complete submission data (same as first load)
+        try {
+          console.log("🔄 InfraFinancingReview - Refreshing complete submission data...");
+          console.log("🔄 InfraFinancingReview - API call: apiService.getSubmission(", submissionId, ")");
+          
+          const freshSubmission = await apiService.getSubmission(submissionId);
+          console.log("🔄 InfraFinancingReview - API response received:", freshSubmission);
+          
+          if (freshSubmission) {
+            // Update submission state with fresh data
+            setSubmission(freshSubmission);
+            console.log("✅ InfraFinancingReview - Submission state updated with fresh data");
+            
+            // Update form data with fresh data
+            if (freshSubmission.formData) {
+              setFormData(freshSubmission.formData);
+              console.log("✅ InfraFinancingReview - Form data updated with fresh data");
+            }
+            
+            console.log("✅ InfraFinancingReview - Fresh submission data loaded:", freshSubmission);
+          } else {
+            console.log("❌ InfraFinancingReview - Fresh submission is null");
+          }
+        } catch (error) {
+          console.error("❌ InfraFinancingReview - Failed to refresh submission data:", error);
+        }
+      } else {
+        console.log("⚠️ InfraFinancingReview - Event submissionId doesn't match current submissionId");
+      }
+    };
+
+    window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    };
+  }, [submissionId]);
+
   // Initialize values from formData when availableimage.png
   useEffect(() => {
-    console.log("🔍 useEffect - formData structure:", formData);
+    // Debug logging removed for performance
+
     if (formData && typeof formData === 'object' && 'section1_1' in formData) {
       const data = formData as { section1_1?: { capitalAllocation?: string; gsdpForFY?: string } };
-      console.log("🔍 Found section1_1 data:", data.section1_1);
+    // Debug logging removed for performance
+
       setCapitalAllocation(data.section1_1?.capitalAllocation || '');
       setGsdpForFY(data.section1_1?.gsdpForFY || '');
     } else {
-      console.log("🔍 No section1_1 found in formData");
+    // Debug logging removed for performance
+
     }
   }, [formData]);
 
   // Debug formData structure
-  console.log("🔍 InfraFinancingReview - Full formData:", formData);
+    // Debug logging removed for performance
+
   if (formData && typeof formData === 'object' && 'section1_1' in formData) {
     const data = formData as { section1_1?: unknown };
-    console.log("🔍 InfraFinancingReview - section1_1:", data.section1_1);
+    // Debug logging removed for performance
+
   }
 
   const handleOpenModal = (sectionId: string) => {
@@ -63,15 +135,36 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
   };
 
   const handleSaveMessage = async (message: string) => {
+    // Validate parameters
+    if (!message || typeof message !== 'string') {
+      console.error("❌ InfraFinancingReview - Invalid message parameter:", message);
+      return;
+    }
+    
     if (activeSection) {
       try {
+        console.log("🔄 InfraFinancingReview - Calling saveMessage with:", { activeSection, message });
         const updatedSubmission = await saveMessage(activeSection, message);
+        console.log("🔄 InfraFinancingReview - saveMessage response:", updatedSubmission);
+        
         if (updatedSubmission) {
-          setSubmissionData(updatedSubmission);
+          // Update form data with fresh API response
+          setSubmissionData(updatedSubmission as unknown as FormData);
+          console.log("✅ InfraFinancingReview - Form data updated");
+          
+          // Force timeline refresh if modal is open for same section
+          if (timelineSection === activeSection) {
+            setTimelineSection(null);
+            setTimeout(() => {
+              setTimelineSection(activeSection);
+            }, 100);
+          }
         }
       } catch (error) {
-        console.error("Error saving message:", error);
+        console.error("❌ InfraFinancingReview - Error saving message:", error);
       }
+    } else {
+      console.log("⚠️ InfraFinancingReview - No active section");
     }
   };
 
@@ -94,14 +187,14 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
 
 
   const renderActionButtons = (sectionId: string) => {
+    // Don't show action buttons in preview mode
+    if (isPreview) {
+      return null;
+    }
+    
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
-    
-    console.log(`🔍 renderActionButtons for ${sectionId}:`, {
-      comments,
-      commentCount,
-      sectionId
-    });
+    // Debug logging removed for performance
 
     return (
       <div className="flex gap-2">
@@ -143,18 +236,30 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
     if (!isNaN(capValue) && !isNaN(gsdpValue) && capValue > 0 && gsdpValue > 0) {
       const percentage = (capValue / gsdpValue) * 100;
       const result = percentage.toFixed(1) + '%';
-      console.log("🔍 Calculated Percentage:", result);
+    // Debug logging removed for performance
+
       return result;
     }
 
     // Return empty string if no valid calculation
-    console.log("🔍 No valid calculation - returning empty string");
+    // Debug logging removed for performance
+
     return '';
   };
+  // If no data, show message
+  if (!hasData) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No Infra Financing data available for review</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="space-y-6">
         {/* Section 1.1 */}
+        {sectionsWithData.includes('section1_1') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -173,15 +278,17 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
               <CardTitle className="text-base">
                  
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => handleOpenModal("1.1")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
+              {!isPreview && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => handleOpenModal("1.1")}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Add Comment
+                </Button>
+              )}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               Annex 1: Verified with NBRP.csv / Budgeted Estimates for Capital Expenditure
@@ -200,7 +307,8 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
               <Input
                 value={capitalAllocation}
                 onChange={(e) => {
-                  console.log("🔍 Capital Allocation changed:", e.target.value);
+    // Debug logging removed for performance
+
                   setCapitalAllocation(e.target.value);
                 }}
                 placeholder="Enter Capital Allocation value"
@@ -215,7 +323,8 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
               <Input
                 value={gsdpForFY}
                 onChange={(e) => {
-                  console.log("🔍 GSDP changed:", e.target.value);
+    // Debug logging removed for performance
+
                   setGsdpForFY(e.target.value);
                 }}
                 placeholder="Enter GSDP value"
@@ -248,8 +357,10 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
 
 
         </SectionCard>
+        )}
 
         {/* Section 1.2 7 */}
+        {sectionsWithData.includes('section1_2') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -297,8 +408,10 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
             </div>
 
         </SectionCard>
+        )}
 
         {/* Section 1.3 */}
+        {sectionsWithData.includes('section1_3') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -341,8 +454,10 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
 
             </div>
         </SectionCard>
+        )}
 
         {/* Section 1.4 */}
+        {sectionsWithData.includes('section1_4') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -360,15 +475,17 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
               <CardTitle className="text-base">
                  % of ULBs Issuing Bonds
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => handleOpenModal("1.4")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
+              {!isPreview && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => handleOpenModal("1.4")}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Add Comment
+                </Button>
+              )}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               Annex 4: Provide Bond Details
@@ -404,8 +521,10 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
 
             </div>
         </SectionCard>
+        )}
 
         {/* Section 1.5 */}
+        {sectionsWithData.includes('section1_5') && (
         <SectionCard
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
@@ -453,6 +572,7 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
 
             </div>
         </SectionCard>
+        )}
       </div>
 
       <MessageModal
@@ -462,7 +582,7 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
         sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
         sectionId={activeSection || ""}
         submissionId={submissionId}
-        existingMessage={activeSection ? getMessage(activeSection) : ""}
+        existingMessage=""
       />
 
       <TimelineModal
@@ -471,7 +591,7 @@ export const InfraFinancingReview = ({ submissionId, formData, submission }: Inf
         sectionId={timelineSection || ""}
         sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
         comments={getAllComments()}
-        key={`timeline-${timelineSection}-${getAllComments().length}`} // Force re-render when comments change
+        key={`timeline-${timelineSection}-${getAllComments().length}-${Date.now()}`} // Force re-render when comments change
       />
     </>
   );

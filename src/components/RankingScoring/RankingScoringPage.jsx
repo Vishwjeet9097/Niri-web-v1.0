@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../../features/auth/AuthProvider";
-import { rankingData } from "../../api/rankingData";
 import { scoringService } from "../../services/scoring.service";
 import StateRankingTable from "./StateRankingTable";
 import Filters from "./Filters";
@@ -11,7 +10,8 @@ import ExportButton from "./ExportButton";
 
 /**
  * Main Ranking & Scoring Page
- * - Loads data from real API with fallback to dummy data
+ * - Loads data from real API only
+ * - Shows no data message when API data is not available
  * - Handles filter, search, pagination, export
  * - Renders info cards, category legend, table, benchmarking, methodology
  */
@@ -30,10 +30,108 @@ const RankingScoringPage = () => {
   const [apiStatistics, setApiStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hasData, setHasData] = useState(false);
 
-  // Extract data from dummy API as fallback
-  const { infoCards, categories, states, benchmarking, methodology } =
-    rankingData;
+  // Static data for UI elements (not ranking data)
+  const infoCards = [
+    {
+      label: "Total States/UTs",
+      value: apiStates.length > 0 ? apiStates.length.toString() : "0",
+      sub: "With ranking data",
+      icon: "trophy",
+    },
+    {
+      label: "Average Score",
+      value: apiStatistics?.averageScore ? apiStatistics.averageScore.toFixed(1) : "N/A",
+      sub: "Across all states",
+      icon: "score",
+    },
+    {
+      label: "Highest Score",
+      value: apiStatistics?.highestScore ? apiStatistics.highestScore.toString() : "N/A",
+      sub: "Top performing state",
+      icon: "category",
+    },
+  ];
+
+  const categories = [
+    {
+      name: "Leaders",
+      range: ">600",
+      color: "#E6F0FF",
+      description: "Top performing states",
+    },
+    {
+      name: "Performers", 
+      range: "400-600 pts",
+      color: "#E6F9F0",
+      description: "Good performance",
+    },
+    {
+      name: "Challengers",
+      range: "200-400 pts", 
+      color: "#F3E6FF",
+      description: "Needs improvement",
+    },
+    {
+      name: "Strivers",
+      range: "<200 pts",
+      color: "#FFF3E6", 
+      description: "Requires support",
+    },
+  ];
+
+  const benchmarking = {
+    vsTopPerformer: {
+      label: "vs Top Performer",
+      performer: "Karnataka",
+      value: apiStatistics?.averageScore ? `${apiStatistics.averageScore.toFixed(1)} pts` : "N/A",
+      description: "Compared to best performing state",
+      color: "blue"
+    },
+    vsAllStates: {
+      label: "vs All States",
+      performer: "National Average",
+      value: apiStatistics?.averageScore ? `${apiStatistics.averageScore.toFixed(1)} pts` : "N/A",
+      description: "Compared to national average",
+      color: "green"
+    },
+    vsPrevQuarter: {
+      label: "vs Previous Quarter",
+      performer: "Growth",
+      value: "+5.2%",
+      description: "Quarter-over-quarter improvement",
+      color: "green"
+    }
+  };
+
+  const methodology = {
+    description: "The NIRI (National Infrastructure Ranking Index) evaluates states based on four key pillars of infrastructure development.",
+    pillars: [
+      {
+        name: "Infrastructure Financing",
+        points: "250",
+        details: "Measures the state's ability to mobilize financial resources for infrastructure development.",
+      },
+      {
+        name: "Infrastructure Development", 
+        points: "250",
+        details: "Evaluates the actual infrastructure assets and their quality across various sectors.",
+      },
+      {
+        name: "Public-Private Partnerships",
+        points: "250", 
+        details: "Assesses the state's effectiveness in leveraging private sector participation.",
+      },
+      {
+        name: "Enablers",
+        points: "250",
+        details: "Measures the policy and regulatory environment that supports infrastructure development.",
+      },
+    ],
+    note: "Each pillar is scored out of 250 points, with a total possible score of 1000 points.",
+    period: "Data is updated quarterly based on the latest available information from state governments.",
+  };
 
   // Load data from API on component mount
   useEffect(() => {
@@ -41,6 +139,7 @@ const RankingScoringPage = () => {
       try {
         setLoading(true);
         setError(null);
+        setHasData(false);
 
         console.log("🔍 Ranking Page - Loading data for user role:", user?.role);
 
@@ -53,19 +152,27 @@ const RankingScoringPage = () => {
         console.log("🔍 Ranking Page - Received rankings data:", rankingsData);
         console.log("🔍 Ranking Page - Received statistics data:", statisticsData);
 
-        // Transform API data to match expected format using scoring service
-        const transformedStates = scoringService.transformRankingData(rankingsData);
-
-        console.log("🔍 Ranking Page - Transformed states:", transformedStates);
-
-        setApiStates(transformedStates);
-        setApiStatistics(statisticsData);
+        // Check if we have valid data
+        if (rankingsData && rankingsData.length > 0) {
+          // Transform API data to match expected format using scoring service
+          const transformedStates = scoringService.transformRankingData(rankingsData);
+          console.log("🔍 Ranking Page - Transformed states:", transformedStates);
+          
+          setApiStates(transformedStates);
+          setApiStatistics(statisticsData);
+          setHasData(true);
+        } else {
+          console.log("🔍 Ranking Page - No ranking data available");
+          setApiStates([]);
+          setApiStatistics(null);
+          setHasData(false);
+        }
       } catch (err) {
         console.error("Error loading scoring data:", err);
         setError(err.message);
-        // Fallback to dummy data
-        console.log("🔍 Ranking Page - Using fallback dummy data");
-        setApiStates(states);
+        setApiStates([]);
+        setApiStatistics(null);
+        setHasData(false);
       } finally {
         setLoading(false);
       }
@@ -77,8 +184,8 @@ const RankingScoringPage = () => {
   }, [user]);
 
 
-  // Use API data if available, otherwise fallback to dummy data
-  const currentStates = apiStates.length > 0 ? apiStates : states;
+  // Use API data only
+  const currentStates = apiStates;
 
   // Unique region list for filter dropdown
   const regionOptions = useMemo(() => {
@@ -166,6 +273,39 @@ const RankingScoringPage = () => {
             className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
           >
             Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show no data state
+  if (!loading && !hasData) {
+    return (
+      <div className="ranking-scoring-page" style={{ padding: "32px 0" }}>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+          <div className="text-gray-400 mb-4">
+            <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">No Ranking & Scoring Data Available</h3>
+          <p className="text-gray-600 mb-4 max-w-md mx-auto">
+            Currently, there is no ranking and scoring data available. The data will be displayed here once it becomes available from the API.
+          </p>
+          <div className="text-sm text-gray-500">
+            <p>This could be because:</p>
+            <ul className="mt-2 space-y-1">
+              <li>• No states have submitted their data yet</li>
+              <li>• Data is still being processed</li>
+              <li>• The ranking calculation is in progress</li>
+            </ul>
+          </div>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Refresh Page
           </button>
         </div>
       </div>

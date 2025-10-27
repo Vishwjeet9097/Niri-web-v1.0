@@ -88,12 +88,18 @@ class AuthService {
     // Create normalized user object with legacy fields
     const normalizedUser: User = {
       ...user,
-      id: user._id, // Legacy field
+      id: user._id || user.id, // Use _id first, fallback to id
       name: `${user.firstName} ${user.lastName}`.trim(), // Legacy field
       // Map stateUt to state if stateUt exists but state doesn't
       state: user.state || user.stateUt || "",
       stateName: user.stateName || user.stateUt || "",
     };
+
+    // Ensure we have a valid ID
+    if (!normalizedUser.id) {
+      console.error("❌ No valid user ID found in login response:", user);
+      throw new Error("Invalid user data: missing user ID");
+    }
 
     this.setAuth(normalizedUser, normalizedTokens);
     return { user: normalizedUser, tokens: normalizedTokens };
@@ -177,6 +183,8 @@ class AuthService {
     this.user = null;
     storageService.remove(TOKEN_KEY);
     storageService.remove(USER_KEY);
+    // Clear all localStorage data on logout
+    storageService.clear();
   }
 
   setAuth(user: User, tokens: AuthTokens): void {
@@ -187,12 +195,7 @@ class AuthService {
     storageService.set(USER_KEY, user);
     storageService.set(TOKEN_KEY, tokens);
 
-    console.log("🔐 Auth set successfully:", {
-      userId: user._id || user.id,
-      userRole: user.role,
-      tokenExpiresAt: new Date(tokens.expiresAt).toISOString(),
-      tokenType: tokens.tokenType,
-    });
+    // Debug logging removed for performance
   }
 
   getAuthHeaders(): Record<string, string> {

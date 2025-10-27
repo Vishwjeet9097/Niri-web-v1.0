@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,8 @@ import { FileUploadSection } from "../components/FileUploadSection";
 import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 
 const defaultData: PPPDevelopmentData = {
   section3_1: {
@@ -51,9 +53,18 @@ const defaultData: PPPDevelopmentData = {
 };
 
 export const PPPDevelopmentStep = () => {
-  const { currentStep, goToNext, goToPrevious, isFirstStep, isLastStep } = useStepNavigation(3);
+  const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } = useStepNavigation(3);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+  
+  // Indicator access control
+  const { 
+    loading: indicatorLoading, 
+    error: indicatorError, 
+    assignedIndicators, 
+    hasIndicatorAccess, 
+    isNodalOfficer 
+  } = useIndicatorAccess();
 
   // Note: Editing submission data is handled by useFormPersistence hook
 
@@ -142,7 +153,7 @@ export const PPPDevelopmentStep = () => {
   }, [formData]);
 
   // Calculation functions
-  const calculateSection3_3 = () => {
+  const calculateSection3_3 = useCallback(() => {
     // For section 3.3, marks = MIN(number of proposals × 5, 50)
     const numberOfProposals = formData.section3_3.length;
     const marksObtained = Math.min(numberOfProposals * 5, 50);
@@ -150,9 +161,9 @@ export const PPPDevelopmentStep = () => {
     return {
       marksObtained: Math.round(marksObtained * 100) / 100
     };
-  };
+  }, [formData.section3_3.length]);
 
-  const calculateSection3_4 = () => {
+  const calculateSection3_4 = useCallback(() => {
     // A₁: TPC of PPP projects, A₂: Total TPC
     const tpcOfPPPProjects = parseFloat(formData.section3_4.tpcOfPPPProjects);
     const totalTPC = parseFloat(formData.section3_4.totalTPC);
@@ -170,7 +181,7 @@ export const PPPDevelopmentStep = () => {
       proportion: Math.round(proportion * 100) / 100, // Round to 2 decimal places
       marksObtained: Math.round(marksObtained * 100) / 100
     };
-  };
+  }, [formData.section3_4.tpcOfPPPProjects, formData.section3_4.totalTPC]);
 
   // Update calculations when form data changes
   // useEffect(() => {
@@ -268,64 +279,76 @@ export const PPPDevelopmentStep = () => {
 
 
   const handleSaveDraft = async () => {
-    try {
-      // Save to localStorage first
+    // Save to localStorage with toast message
+    const success = saveDraftToLocalStorage("pppDevelopment", formData);
+    
+    if (success) {
+      // Also update form data in persistence hook
       updateFormData("pppDevelopment", formData);
-
-      // Generate submission ID if not exists
-      const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-      // Save to backend
-      const success = await draftService.saveDraft(
-        submissionId,
-        formData,
-        "pppDevelopment",
-        user?.id,
-        user?.state
-      );
-
-      if (success) {
-        toast({
-          title: "Draft Saved",
-          description: "Your data has been saved as a draft.",
-          duration: 2000,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to save draft:", error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save draft. Please try again.",
-        variant: "destructive",
-        duration: 3000,
-      });
     }
   };
 
+  // Access control for NODAL_OFFICER
+  if (isNodalOfficer) {
+    // Check if user has access to any indicator in this section
+    const hasAccessToSection = hasIndicatorAccess('3.1') || hasIndicatorAccess('3.2') || 
+                              hasIndicatorAccess('3.3') || hasIndicatorAccess('3.4');
+    
+    // Debug logging removed for performance
+
+    if (!hasAccessToSection) {
+      return (
+        <div className="w-full -mx-6 lg:-mx-8">
+          <div className="px-6 lg:px-8">
+            <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+          </div>
+          <div className="px-6 lg:px-8">
+            <ProgressHeader
+              title="PPP Development"
+              description="Public-Private Partnership projects and initiatives"
+              points={250}
+              completed={0}
+              total={4}
+              progress={0}
+            />
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
+              <p className="text-gray-600 mb-4">
+                This section is not applicable for your submission. No data entry required here.
+              </p>
+              <Button onClick={goToNext} className="bg-primary text-white">
+                Continue to Next Step
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
-    <div className="">
-      <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
-      <ProgressHeader
+    <div className="w-full -mx-6 lg:-mx-8">
+      <div className="px-6 lg:px-8">
+        <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+              <ProgressHeader
         title="PPP Development"
         description="Public-Private Partnership projects and initiatives"
         points={250}
         completed={0}
         total={4}
         progress={0}
-      />
+      />        {/* Section 3.1 */}
+      {(!isNodalOfficer || hasIndicatorAccess('3.1')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">3.1 - </span> Availability of Infrastructure Act/Policy{" "}
+            </span>
+          </div>}
 
-
-      {/* Section 3.1 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">3.1 - </span> Availability of Infrastructure Act/Policy{" "}
-          </span>
-        </div>}
-
-        subtitle=""
-        className="mb-6"
-      >
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           <div>
             <Label>
@@ -386,18 +409,18 @@ export const PPPDevelopmentStep = () => {
             </p>
           </div>
         </div>
-      </SectionCard>
-
-      {/* Section 3.2 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">3.2 - </span> Functional PPP Cell/Unit{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+        </SectionCard>
+      )}        {/* Section 3.2 */}
+      {(!isNodalOfficer || hasIndicatorAccess('3.2')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">3.2 - </span> Functional PPP Cell/Unit{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           <div>
             <Label>
@@ -460,18 +483,18 @@ export const PPPDevelopmentStep = () => {
             </p>
           </div>
         </div>
-      </SectionCard>
-
-      {/* Section 3.3 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">3.3 - </span> Proposals Submitted under VGF/IIPDF{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+        </SectionCard>
+      )}        {/* Section 3.3 */}
+      {(!isNodalOfficer || hasIndicatorAccess('3.3')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">3.3 - </span> Proposals Submitted under VGF/IIPDF{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section3_3.map((entry, idx) => (
             <div key={entry.id} className="mb-2">
@@ -606,18 +629,18 @@ export const PPPDevelopmentStep = () => {
           </div>
 
         </div>
-      </SectionCard>
-
-      {/* Section 3.4 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">3.4 - </span> Proportion of TPC of PPP Projects{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+        </SectionCard>
+      )}        {/* Section 3.4 */}
+      {(!isNodalOfficer || hasIndicatorAccess('3.4')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">3.4 - </span> Proportion of TPC of PPP Projects{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="grid grid-cols-2 gap-4 w-[70%]">
           <div>
             <Label>A₁ - TPC of PPP Projects*</Label>
@@ -654,10 +677,10 @@ export const PPPDevelopmentStep = () => {
             />
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
-      {/* Navigation Buttons */}
-      <FormActions
+      {/* Navigation Buttons */}        <FormActions
         onPrevious={goToPrevious}
         onNext={handleNext}
         onSaveDraft={handleSaveDraft}
@@ -665,7 +688,8 @@ export const PPPDevelopmentStep = () => {
         isLastStep={isLastStep}
         nextLabel={isLastStep ? "Review & Submit" : "Next"}
         showSaveDraft={true}
-      />
-    </div>
+        />
+        </div>
+      </div>
   );
 };

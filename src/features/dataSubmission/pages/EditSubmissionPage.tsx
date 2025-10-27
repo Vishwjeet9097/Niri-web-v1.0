@@ -43,8 +43,10 @@ export const EditSubmissionPage = () => {
       try {
         setLoading(true);
         const submissionData = await apiService.getSubmission(id);
-        console.log("🔍 EditSubmissionPage - Loaded submission data:", submissionData);
-        console.log("🔍 EditSubmissionPage - Form data:", submissionData?.formData);
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
         setSubmission(submissionData);
         
         // Save submission data to localStorage for normal form
@@ -161,24 +163,26 @@ export const EditSubmissionPage = () => {
       
       // Collect complete data from all sections
       const storageKey = `review_form_data_${id}`;
-      console.log("🔍 Looking for localStorage key:", storageKey);
-      
+    // Debug logging removed for performance
+
       // Check all localStorage keys that start with review_form_data
       const allKeys = Object.keys(localStorage).filter(key => key.startsWith('review_form_data_'));
-      console.log("🔍 All review_form_data keys in localStorage:", allKeys);
-      
+    // Debug logging removed for performance
+
       const savedFormData = localStorage.getItem(storageKey);
-      console.log("🔍 Raw saved form data:", savedFormData);
-      
+    // Debug logging removed for performance
+
       // Professional merge: Use edited data where changed, original data where not changed
       const originalData = submission?.formData || {};
       const updatedFormData = getMergedData(originalData);
-      
-      console.log("🔍 Original submission data:", originalData);
-      console.log("🔍 Current form data:", currentFormData);
-      console.log("🔍 Change tracker:", changeTracker);
-      console.log("🔍 Professional merged data:", updatedFormData);
-      
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
       // Get auth token from correct localStorage key
       const authData = localStorage.getItem('niri_app:auth_tokens');
       if (!authData) {
@@ -199,8 +203,8 @@ export const EditSubmissionPage = () => {
         formData: updatedFormData,
         comment: "Resubmitted after editing"
       };
-      
-      console.log("🔍 Resubmit payload:", resubmitPayload);
+    // Debug logging removed for performance
+
       console.log("🔍 FormData structure:", {
         infraFinancing: Object.keys(updatedFormData.infraFinancing || {}),
         infraDevelopment: Object.keys(updatedFormData.infraDevelopment || {}),
@@ -309,8 +313,8 @@ export const EditSubmissionPage = () => {
                   
                   // Get current form data from the persistence hook
                   const currentData = getFormData();
-                  console.log("🔍 Current form data before save:", currentData);
-                  
+    // Debug logging removed for performance
+
                   // Save the current data
                   saveFormData();
                   
@@ -362,8 +366,8 @@ export const EditSubmissionPage = () => {
               
               // Get current form data from the persistence hook
               const currentData = getFormData();
-              console.log("🔍 Current form data before save:", currentData);
-              
+    // Debug logging removed for performance
+
               // Save the current data
               saveFormData();
               
@@ -384,7 +388,7 @@ export const EditSubmissionPage = () => {
             <Button
               onClick={handleResubmitClick}
               disabled={isResubmitting}
-              className="gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               {isResubmitting ? "Submitting..." : "Resubmit with Updated Data"}
@@ -399,8 +403,8 @@ export const EditSubmissionPage = () => {
                 
                 // Get current form data from the persistence hook
                 const currentData = getFormData();
-                console.log("🔍 Current form data before save:", currentData);
-                
+    // Debug logging removed for performance
+
                 // Save the current data
                 saveFormData();
                 
@@ -455,7 +459,7 @@ export const EditSubmissionPage = () => {
               <Button
                 onClick={handleConfirmResubmit}
                 disabled={isResubmitting}
-                className="bg-green-600 hover:bg-green-700"
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {isResubmitting ? "Submitting..." : "Confirm Resubmit"}
               </Button>

@@ -29,9 +29,10 @@ interface ApproveModalProps {
   open: boolean;
   onClose: () => void;
   submissionId: string;
+  submissionStatus?: string;
 }
 
-export const ApproveModal = ({ open, onClose, submissionId }: ApproveModalProps) => {
+export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: ApproveModalProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -83,7 +84,7 @@ export const ApproveModal = ({ open, onClose, submissionId }: ApproveModalProps)
       // Call backend API based on role
       if (isStateApprover) {
         // State Approver should forward to MoSPI Reviewer, not approve
-        await apiService.forwardToMospi(submissionId, comments);
+        await apiService.forwardToMospi(submissionId, comments, submissionStatus);
         toast({
           title: "Sent to MoSPI Reviewer Successfully",
           description: "Submission has been forwarded to MoSPI Reviewer for review.",

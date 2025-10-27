@@ -29,13 +29,8 @@ export function UserManagementPage() {
 
   const loadStates = async () => {
     try {
-      console.log("🔍 Loading states for state resolution...");
       const statesData = await statesService.getStates();
       setStates(statesData);
-      console.log("🔍 States loaded in UserManagementPage:", {
-        statesCount: statesData.length,
-        firstState: statesData[0]
-      });
     } catch (error) {
       console.error("❌ Error loading states:", error);
     }
@@ -44,22 +39,24 @@ export function UserManagementPage() {
   const loadOfficers = useCallback(async () => {
     try {
       setIsLoading(true);
-      console.log("🔍 Loading officers for user:", { role: user?.role, state: user?.state });
+      // Debug logging removed for performance
       
       // Try to load from backend API first
       // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
       let backendUsers;
       if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
         // Admin and MOSPI Approver can see all users across all states
-        console.log(`🔍 ${user?.role} - Loading all users`);
+    // Debug logging removed for performance
+
         backendUsers = await apiService.getAllUsers();
       } else {
         // State Approver can only see users from their state
-        console.log("🔍 STATE_APPROVER - Loading users for state:", user?.state);
+    // Debug logging removed for performance
+
         backendUsers = await apiService.getUsersByState(user?.state || "");
       }
-      console.log("🔍 Backend Users:", backendUsers);
-      
+    // Debug logging removed for performance
+
       // Transform backend users to NodalOfficer format
       const transformedOfficers: NodalOfficer[] = backendUsers.map((user: any) => ({
         id: user.id,
@@ -71,6 +68,7 @@ export function UserManagementPage() {
         state: user.stateUt || user.state || "",
         stateId: user.stateId || "", // Will be set later when states are loaded
         assignedIndicator: user.assignedIndicator,
+        assignedIndicators: user.assignedIndicators || [],
         isActive: user.isActive,
         createdAt: new Date(user.createdAt).getTime(),
       }));
@@ -102,7 +100,7 @@ export function UserManagementPage() {
     setShowForm(true);
   };
 
-  const handleSaveUser = async (officerData: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string }) => {
+  const handleSaveUser = async (officerData: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => {
     try {
       if (editingOfficer) {
         // Update existing user via backend API
@@ -122,10 +120,8 @@ export function UserManagementPage() {
               const state = states.find(s => s.id === officerData.stateId);
               if (state) {
                 selectedState = state.name;
-                console.log("🔍 Converted state ID to name for update:", {
-                  stateId: officerData.stateId,
-                  stateName: selectedState
-                });
+    // Debug logging removed for performance
+
               } else {
                 selectedState = officerData.stateId; // Fallback to ID if not found
                 console.warn("⚠️ State not found in states array for update:", officerData.stateId);
@@ -135,21 +131,15 @@ export function UserManagementPage() {
               const state = states.find(s => s.name === officerData.stateId);
               if (state) {
                 selectedState = state.name;
-                console.log("🔍 Using state name for update:", {
-                  stateName: selectedState
-                });
+    // Debug logging removed for performance
+
               } else {
                 selectedState = officerData.stateId; // Fallback
                 console.warn("⚠️ State not found in states array for update:", officerData.stateId);
               }
             }
-            
-            console.log("🔍 ADMIN - Using selected state for update:", {
-              stateId: officerData.stateId,
-              stateName: selectedState,
-              stateIdType: typeof officerData.stateId,
-              stateIdLength: officerData.stateId.length
-            });
+    // Debug logging removed for performance
+
           } else {
             throw new Error("State selection is required for Admin");
           }
@@ -157,11 +147,8 @@ export function UserManagementPage() {
           // STATE_APPROVER and MOSPI_APPROVER use their own state
           // For these roles, both stateId and stateUt should be the same (state name)
           selectedState = user?.state || "";
-          console.log("🔍 Using current user state for update:", {
-            userRole: user?.role,
-            userState: user?.state,
-            selectedState: selectedState
-          });
+    // Debug logging removed for performance
+
         }
         
         // ✅ Validate state
@@ -172,10 +159,10 @@ export function UserManagementPage() {
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
-          email: officerData.email,
           contactNumber: officerData.contactNumber,
           role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
-          stateUt: selectedState // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
+          indicatorCodes: officerData.assignedIndicators || [] // Include assigned indicators in update payload with correct key
+          // Note: email and stateUt are not included in update payload as they should not be changed
         } as any);
         
         notificationService.success(
@@ -184,14 +171,8 @@ export function UserManagementPage() {
         );
       } else {
         // Create new user via backend API
-        console.log("🔍 Debug State Selection:", {
-          currentUserRole: user?.role,
-          currentUserState: user?.state,
-          selectedStateId: officerData.stateId,
-          stateIdType: typeof officerData.stateId,
-          officerData: officerData
-        });
-        
+    // Debug logging removed for performance
+
         let selectedStateId = "";
         let selectedStateName = "";
         
@@ -210,10 +191,8 @@ export function UserManagementPage() {
               if (state) {
                 selectedStateId = state.id; // Keep original ID
                 selectedStateName = state.name; // Get state name
-                console.log("🔍 Converted state ID to name:", {
-                  stateId: selectedStateId,
-                  stateName: selectedStateName
-                });
+    // Debug logging removed for performance
+
               } else {
                 selectedStateId = officerData.stateId; // Fallback to ID if not found
                 selectedStateName = officerData.stateId; // Fallback to ID if not found
@@ -225,10 +204,8 @@ export function UserManagementPage() {
               if (state) {
                 selectedStateId = state.id; // Use state ID
                 selectedStateName = state.name; // Use state name
-                console.log("🔍 Converted state name to ID:", {
-                  stateName: selectedStateName,
-                  stateId: selectedStateId
-                });
+    // Debug logging removed for performance
+
               } else {
                 selectedStateId = officerData.stateId; // Fallback
                 selectedStateName = officerData.stateId; // Fallback
@@ -252,43 +229,20 @@ export function UserManagementPage() {
           // For these roles, both stateId and stateUt should be the same (state name)
           selectedStateId = user?.state || "";
           selectedStateName = user?.state || "";
-          console.log("🔍 Using current user state for both roles:", {
-            userRole: user?.role,
-            userState: user?.state,
-            selectedStateId: selectedStateId,
-            selectedStateName: selectedStateName
-          });
+    // Debug logging removed for performance
+
         }
         
         // ✅ Validate state
         if (!selectedStateId || !selectedStateName) {
           throw new Error("State is required but not provided");
         }
-          
-        console.log("🔍 State Resolution Result:", {
-          selectedStateId,
-          selectedStateName,
-          originalStateId: officerData.stateId
-        });
-          
+    // Debug logging removed for performance
+
         // ✅ Final validation before API call
         if (!selectedStateId || !selectedStateName || selectedStateName.trim() === "") {
           throw new Error("State is required but not provided");
         }
-        
-        console.log("🔍 Creating user with data:", {
-          email: officerData.email,
-          password: officerData.password,
-          firstName: officerData.firstName,
-          lastName: officerData.lastName,
-          contactNumber: officerData.contactNumber,
-          role: officerData.role,
-          stateUt: selectedStateName, // State NAME (e.g., "Bihar", "Delhi")
-          stateId: selectedStateId, // State ID (e.g., "9", "28")
-          currentUserRole: user?.role,
-          selectedStateId: selectedStateId,
-          selectedStateName: selectedStateName
-        });
         
         const newUser = await apiService.register(
           officerData.email,
@@ -297,9 +251,17 @@ export function UserManagementPage() {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          selectedStateName // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
+          selectedStateName, // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
+          selectedStateId, // State ID for reference
+          officerData.assignedIndicators // Pass indicators directly in register call
         );
-        console.log("🔍 New User Created:", newUser);
+    // Debug logging removed for performance
+
+        // Note: Indicators are now included in the register call, no separate API call needed
+        if (officerData.role === "NODAL_OFFICER" && officerData.assignedIndicators && officerData.assignedIndicators.length > 0) {
+    // Debug logging removed for performance
+
+        }
         
         notificationService.success(
           "Officer added successfully",
@@ -540,16 +502,11 @@ export function UserManagementPage() {
     setShowForm(false);
     setEditingOfficer(null);
   };
-
-  console.log("🔍 UserManagementPage Render State:", {
-    showForm,
-    officersCount: officers.length,
-    userRole: user?.role,
-    editingOfficer: editingOfficer?.id
-  });
+    // Debug logging removed for performance
 
   if (showForm) {
-    console.log("🔍 Rendering UserForm");
+    // Debug logging removed for performance
+
     return (
       <div className="p-6 space-y-6">
         <UserForm
@@ -562,7 +519,8 @@ export function UserManagementPage() {
   }
 
   if (officers.length === 0) {
-    console.log("🔍 Rendering EmptyState - No officers found");
+    // Debug logging removed for performance
+
     return (
       <div className="p-6">
         <div className="mb-6 flex items-center gap-4">
@@ -580,8 +538,7 @@ export function UserManagementPage() {
       </div>
     );
   }
-
-  console.log("🔍 Rendering UserTable with officers:", officers.length);
+    // Debug logging removed for performance
 
   // Access control - Only STATE_APPROVER, MOSPI_APPROVER, and ADMIN can access user management
   if (user?.role !== "STATE_APPROVER" && user?.role !== "MOSPI_APPROVER" && user?.role !== "ADMIN") {

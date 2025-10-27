@@ -45,9 +45,8 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
 
   // Get data from persistence hook (this will be the source of truth)
   const persistedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
-  
-  console.log("🔍 EditableInfraDevelopment - persistedData:", persistedData);
-  
+    // Debug logging removed for performance
+
   // Create form data by merging persisted data with defaults
   const createFormData = (data: Partial<InfraDevelopmentData>): InfraDevelopmentData => ({
     ...defaultData,

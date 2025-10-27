@@ -10,105 +10,60 @@ interface StepperProps {
 
 export const Stepper = ({ steps, currentStep, onStepClick }: StepperProps) => {
   return (
-    <div className="w-full bg-card rounded-lg p-6 mb-6 border border-[#DDD]">
-      <div className="flex items-center justify-between relative">
+    <div className="w-full mb-6 bg-white rounded-lg shadow-sm border p-4">
+      {/* Stepper Nav */}
+      <ul className="relative flex flex-row gap-x-2">
         {steps.map((step, index) => {
           const stepNumber = index + 1;
-          const isCompleted = step.completed;
+          // Auto-complete previous steps when moving to next step
+          const isCompleted = step.completed || stepNumber < currentStep;
           const isCurrent = stepNumber === currentStep;
           const isPast = stepNumber < currentStep;
           const isClickable = isPast || isCurrent;
 
           return (
-            <div
+            <li
               key={step.id}
-              className="flex flex-col items-center justify-start flex-1 relative"
+              className="flex items-center gap-x-2 shrink basis-0 flex-1 group"
               onClick={() => isClickable && onStepClick?.(stepNumber)}
             >
-              {/* Step circle */}
-              <div className="relative w-12 h-12 flex items-center justify-center">
-                <svg
-                  className="absolute inset-0 -rotate-90"
-                  viewBox="0 0 36 36"
-                >
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="16"
-                    fill="none"
-                    stroke="#E5E7EB"
-                    strokeWidth="3"
-                  />
-                  {isCurrent && (
-                    <circle
-                      cx="18"
-                      cy="18"
-                      r="16"
-                      fill="none"
-                      stroke="url(#grad)"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeDasharray="100"
-                      strokeDashoffset="0"
-                    />
-                  )}
-                  <defs>
-                    <linearGradient
-                      id="grad"
-                      x1="0%"
-                      y1="0%"
-                      x2="100%"
-                      y2="0%"
-                    >
-                      <stop offset="0%" stopColor="#3C9718" />
-                      <stop offset="100%" stopColor="#b5e48c" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div
+              <span className="min-w-7 min-h-7 group inline-flex items-center text-xs align-middle">
+                <span
                   className={cn(
-                    "w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium z-10",
+                    'size-7 flex justify-center items-center shrink-0 font-medium rounded-full transition-colors',
                     {
-                      "bg-[#3C9718] text-white": isCompleted, // solid green, white check
-                      "bg-white text-green-700": isCurrent && !isCompleted, // white for current
-                      "bg-white text-gray-400": !isCurrent && !isCompleted, // gray for future
-                      "cursor-pointer": isClickable,
+                      'bg-gray-100 text-gray-800 group-focus:bg-gray-200': !isCurrent && !isCompleted,
+                      'bg-blue-600 text-white': isCurrent,
+                      'bg-green-500 text-white group-focus:bg-green-600': isCompleted,
+                      'cursor-pointer hover:bg-gray-200': isClickable,
                     }
                   )}
                 >
-                  {isCompleted ? <Check className="w-5 h-5" /> : stepNumber}
-                </div>
-              </div>
-
-              {/* Step label */}
-              <div className="mt-2 text-center max-w-[120px]">
-                <div
-                  className={cn("text-xs font-medium", {
-                    "text-[#3C9718]": isCurrent,
-                    "text-foreground": isCompleted,
-                    "text-muted-foreground": !isCurrent && !isCompleted,
-                  })}
-                >
+                  {isCompleted ? (
+                    <Check className="shrink-0 size-3" />
+                  ) : (
+                    <span>{stepNumber}</span>
+                  )}
+                </span>
+                <span className="ms-2 text-sm font-medium text-gray-800">
                   {step.title}
-                </div>
-              </div>
-
-              {/* Connecting line */}
+                </span>
+              </span>
               {index < steps.length - 1 && (
-  <div
-    className={cn(
-      "h-0.5 w-40 absolute top-6 -right-20 z-0",
-      {
-        "bg-[#3C9718]": steps[index].completed,
-        "bg-[#C6C6C6]": !steps[index].completed,
-      }
-    )}
-  />
-)}
-            </div>
+                <div
+                  className={cn(
+                    'w-full h-px flex-1 bg-gray-200 group-last:hidden transition-colors',
+                    {
+                      'bg-gray-200': !isCompleted && stepNumber >= currentStep,
+                      'bg-green-600': isCompleted || stepNumber < currentStep,
+                    }
+                  )}
+                />
+              )}
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 };

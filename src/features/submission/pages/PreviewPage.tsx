@@ -11,7 +11,7 @@ import { apiV2 } from "@/services/ApiService";
 import { config } from "@/config/environment";
 import { notificationService } from "@/services/NotificationBus";
 import { SectionCard } from "../components/SectionCard";
-import { transformFormDataForSubmission, validateFormData, getFormDataSummary } from "@/utils/formDataTransformer";
+import { transformFormDataForSubmission, getFormDataSummary } from "@/utils/formDataTransformer";
 import { Label } from "@/components/ui/label";
 import { UnifiedReviewPage } from "../../dataSubmission/components/UnifiedReviewPage";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -55,13 +55,7 @@ export const PreviewPage = () => {
       return;
     }
 
-    // Validate form data before submission
-    const validationResult = validateFormData(formData);
-    if (!validationResult.isValid) {
-      notificationService.error(`Please fix the following errors: ${validationResult.missingSections.join(", ")}`);
-      return;
-    }
-
+    // Validation removed - allow submission without validation
     setShowConfirmModal(true);
   };
 

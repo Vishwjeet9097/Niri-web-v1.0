@@ -104,8 +104,8 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
       setError(null);
       
       const response = await apiService.getSubmission(id);
-      console.log("🔍 API Response:", response);
-      
+    // Debug logging removed for performance
+
       if (response) {
         setSubmission(response as unknown as Submission);
       } else {
@@ -223,11 +223,12 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
           variant="outline"
           onClick={async () => {
             try {
-              console.log("🔍 Loading submission data for edit:", submission.id);
+    // Debug logging removed for performance
+
               // Fetch fresh submission data from endpoint
               const freshSubmissionData = await apiService.getSubmission(submission.id);
-              console.log("🔍 Fresh submission data:", freshSubmissionData);
-              
+    // Debug logging removed for performance
+
               // Store in localStorage for edit page
               localStorage.setItem('editing_submission', JSON.stringify(freshSubmissionData));
               
@@ -238,7 +239,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
               notificationService.error("Failed to load submission data", "Edit Error");
             }
           }}
-          className="gap-2"
+          className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
         >
           <Edit3 className="w-4 h-4" />
           Edit
@@ -246,22 +247,23 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
       );
     }
 
-    // Resubmit button for RETURNED_FROM_STATE status
-    if (currentUserRole === "NODAL_OFFICER" && submissionStatus === "RETURNED_FROM_STATE") {
-      buttons.push(
-        <Button
-          key="resubmit"
-          onClick={() => {
-            // Navigate to resubmit page or handle resubmit
-            navigate(`/data-submission/resubmit/${submission.id}`);
-          }}
-          className="gap-2 bg-orange-600 hover:bg-orange-700"
-        >
-          <CheckCircle className="w-4 h-4" />
-          Resubmit
-        </Button>
-      );
-    }
+    // Resubmit button for RETURNED_FROM_STATE status - HIDDEN as per requirement
+    // User should use Edit button instead
+    // if (currentUserRole === "NODAL_OFFICER" && submissionStatus === "RETURNED_FROM_STATE") {
+    //   buttons.push(
+    //     <Button
+    //       key="resubmit"
+    //       onClick={() => {
+    //         // Navigate to resubmit page or handle resubmit
+    //         navigate(`/data-submission/resubmit/${submission.id}`);
+    //       }}
+    //       className="gap-2 bg-orange-600 hover:bg-orange-700"
+    //     >
+    //       <CheckCircle className="w-4 h-4" />
+    //       Resubmit
+    //     </Button>
+    //   );
+    // }
 
     // Send Back button
     if ((currentUserRole === "STATE_APPROVER" && submissionStatus === "SUBMITTED_TO_STATE") ||
@@ -271,7 +273,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
           key="send-back"
           variant="outline"
           onClick={() => setSendBackModalOpen(true)}
-          className="gap-2"
+          className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
         >
           <Send className="w-4 h-4" />
           Send Back
@@ -286,7 +288,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
         <Button
           key="approve"
           onClick={() => setApproveModalOpen(true)}
-          className="gap-2 bg-green-600 hover:bg-green-700"
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <CheckCircle className="w-4 h-4" />
           Approve
@@ -301,7 +303,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
           key="send-to-approver"
           variant="outline"
           onClick={() => setSendToApproverModalOpen(true)}
-          className="gap-2"
+          className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
         >
           <Send className="w-4 h-4" />
           Send to Approver
@@ -439,7 +441,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
                 formData={submission.formData}
               />
             ) : (
-              <DataReviewTab submissionId={submission.id} formData={submission.formData} submission={submission} />
+              <DataReviewTab submissionId={submission.id} formData={submission.formData} submission={submission} isPreview={isPreview} />
             )}
           </TabsContent>
 

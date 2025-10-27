@@ -56,7 +56,7 @@ export const MENU_CONFIG = [
   //   icon: "ranking",
   // },
   {
-    label: "Data Submission",
+    label: "Create New Submission",
     path: "/submissions",
     roles: [ROLES.NODAL_OFFICER],
     // ROLES.ADMIN, // Admin doesn't need data submission

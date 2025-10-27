@@ -33,7 +33,9 @@ import { FileUploadSection } from "../components/FileUploadSection";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
-import { draftService } from "@/services/draft.service";
+// import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 
 const defaultData: InfraDevelopmentData = {
   section2_1: [],
@@ -52,10 +54,25 @@ const getDefaultFileUpload = (): FileUpload => ({
 });
 
 export const InfraDevelopmentStep = () => {
-  const { currentStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
+  const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
     useStepNavigation(2);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+  
+  // Indicator access control
+  const { 
+    loading: indicatorLoading, 
+    error: indicatorError, 
+    assignedIndicators, 
+    hasIndicatorAccess, 
+    isNodalOfficer 
+  } = useIndicatorAccess();
+
+  // Delete file function
+  const onDelete = (fileId: string) => {
+    // Implementation for deleting file
+    console.log("Delete file:", fileId);
+  };
 
   // Note: Editing submission data is handled by useFormPersistence hook
 
@@ -318,48 +335,62 @@ export const InfraDevelopmentStep = () => {
 
 
   const handleSaveDraft = async () => {
-    try {
-      // Save to localStorage first
+    // Save to localStorage with toast message
+    const success = saveDraftToLocalStorage("infraDevelopment", formData);
+    
+    if (success) {
+      // Also update form data in persistence hook
       updateFormData("infraDevelopment", formData);
-
-      // Generate submission ID if not exists
-      const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-      // Save to backend
-      const success = await draftService.saveDraft(
-        submissionId,
-        formData,
-        "infraDevelopment",
-        user?.id,
-        user?.state
-      );
-
-      if (success) {
-        toast({
-          title: "Draft Saved",
-          description: "Your data has been saved as a draft.",
-          duration: 2000,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to save draft:", error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save draft. Please try again.",
-        variant: "destructive",
-        duration: 3000,
-      });
     }
   };
-  const files = [
-    {
-      id: 1,
-      sector: "Roads & Bridges",
-      fileName: "Act/Policy.pdf",
-      fileSize: "40.MB",
-    },
 
-  ]
+  // Access control for NODAL_OFFICER
+  if (isNodalOfficer) {
+    // Check if user has access to any indicator in this section
+    const hasAccessToSection = hasIndicatorAccess('2.1') || hasIndicatorAccess('2.2') || 
+                              hasIndicatorAccess('2.3') || hasIndicatorAccess('2.4') || hasIndicatorAccess('2.5');
+    
+    console.log("🔍 InfraDevelopmentStep: Access control check", {
+      isNodalOfficer,
+      assignedIndicators,
+      hasAccessToSection,
+      hasAccess2_1: hasIndicatorAccess('2.1'),
+      hasAccess2_2: hasIndicatorAccess('2.2'),
+      hasAccess2_3: hasIndicatorAccess('2.3'),
+      hasAccess2_4: hasIndicatorAccess('2.4'),
+      hasAccess2_5: hasIndicatorAccess('2.5')
+    });
+
+    if (!hasAccessToSection) {
+      return (
+        <div className="w-full -mx-6 lg:-mx-8">
+          <div className="px-6 lg:px-8">
+            <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+          </div>
+          <div className="px-6 lg:px-8">
+            <ProgressHeader
+              title="Infrastructure Development"
+              description="Physical infrastructure development and completion metrics"
+              points={250}
+              completed={0}
+              total={5}
+              progress={0}
+            />
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
+              <p className="text-gray-600 mb-4">
+                This section is not applicable for your submission. No data entry required here.
+              </p>
+              <Button onClick={goToNext} className="bg-primary text-white">
+                Continue to Next Step
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   // --- UI ---
   return (
     <div className="">
@@ -373,15 +404,16 @@ export const InfraDevelopmentStep = () => {
         progress={10}
       />
       {/* Section 2.1 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.1 -</span> Availability of Infrastructure Act/Policy{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.1')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.1 -</span> Availability of Infrastructure Act/Policy{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4 ">
           {formData.section2_1.map((entry, idx) => (
             <div key={entry.id} className=" mb-2 relative">
@@ -462,56 +494,62 @@ export const InfraDevelopmentStep = () => {
               <p className="text-xs text-destructive mt-1">{errors.section2_1}</p>
             )}
           </div>
-          <div className="overflow-x-auto rounded-xl">
-            <table className="min-w-full border-separate border-spacing-0 ">
-              <thead>
-                <tr className="bg-[#DDE3F9]">
-                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                    <input type="checkbox" className="accent-indigo-500" />
-                    <span className="ml-2">Sector</span>
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file, idx) => (
-                  <tr key={file.id} className="bg-white">
-                    <td className="py-3 px-4 text-sm font-normal">
-                      <input type="checkbox" className="accent-indigo-500" />
-                      <span className="ml-2 ">{file.sector}</span>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
-                    <td className="py-3 px-4">
-                      <button
-                        type="button"
-                        onClick={() => onDelete(file.id)}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
+          {formData.section2_1.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {formData.section2_1.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_1", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.2 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.2 -</span> Availability of Specialized Entity{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.2')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.2 -</span> Availability of Specialized Entity{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_2.map((entry, idx) => (
             <div key={entry.id} className="mb-2 relative">
@@ -588,56 +626,62 @@ export const InfraDevelopmentStep = () => {
               <p className="text-xs text-destructive mt-1">{errors.section2_2}</p>
             )}
           </div>
-          <div className="overflow-x-auto rounded-xl">
-            <table className="min-w-full border-separate border-spacing-0 ">
-              <thead>
-                <tr className="bg-[#DDE3F9]">
-                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                    <input type="checkbox" className="accent-indigo-500" />
-                    <span className="ml-2">Sector</span>
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file, idx) => (
-                  <tr key={file.id} className="bg-white">
-                    <td className="py-3 px-4 text-sm font-normal">
-                      <input type="checkbox" className="accent-indigo-500" />
-                      <span className="ml-2 ">{file.sector}</span>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
-                    <td className="py-3 px-4">
-                      <button
-                        type="button"
-                        onClick={() => onDelete(file.id)}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
+          {formData.section2_2.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {formData.section2_2.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_2", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.3 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.3 -</span> Availability of Sector Infra Development Plan{" "}
-          </span>
-        </div>}
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.3')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.3 -</span> Availability of Sector Infra Development Plan{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_3.map((entry, idx) => (
             <div key={entry.id} className="mb-2 relative">
@@ -714,56 +758,62 @@ export const InfraDevelopmentStep = () => {
               <p className="text-xs text-destructive mt-1">{errors.section2_3}</p>
             )}
           </div>
-          <div className="overflow-x-auto rounded-xl">
-            <table className="min-w-full border-separate border-spacing-0 ">
-              <thead>
-                <tr className="bg-[#DDE3F9]">
-                  <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                    <input type="checkbox" className="accent-indigo-500" />
-                    <span className="ml-2">Sector</span>
-                  </th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                  <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                  <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((file, idx) => (
-                  <tr key={file.id} className="bg-white">
-                    <td className="py-3 px-4 text-sm font-normal">
-                      <input type="checkbox" className="accent-indigo-500" />
-                      <span className="ml-2 ">{file.sector}</span>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileName}</td>
-                    <td className="py-3 px-4 text-sm font-normal">{file.fileSize}</td>
-                    <td className="py-3 px-4">
-                      <button
-                        type="button"
-                        onClick={() => onDelete(file.id)}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
+          {formData.section2_3.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {formData.section2_3.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_3", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.4 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
-          </span>
-        </div>}
-        subtitle="Annex 5: Upload DPR/Feasibility Report"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.4')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
+            </span>
+          </div>}
+          subtitle="Annex 5: Upload DPR/Feasibility Report"
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_4.map((entry, idx) => (
             <div key={entry.id} className="mb-2 relative">
@@ -820,18 +870,20 @@ export const InfraDevelopmentStep = () => {
             )}
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.5 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
-          </span>
-        </div>}
-        subtitle="Annex 6"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.5')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
+            </span>
+          </div>}
+          subtitle="Annex 6"
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_5.map((entry, idx) => (
             <div key={entry.id} className="mb-2">
@@ -969,7 +1021,8 @@ export const InfraDevelopmentStep = () => {
             )}
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Navigation Buttons */}
       <FormActions

@@ -18,16 +18,40 @@ import { useFormPersistence } from "../hooks/useFormPersistence";
 import {
   SUBMISSION_STEPS,
 } from "../constants/steps";
+import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import type { InfraFinancingData } from "../types";
 
-import { draftService } from "@/services/draft.service";
+// import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
 import { useAuth } from "@/features/auth/AuthProvider";
+import { apiService } from "@/services/api.service";
+import { authService } from "@/services/auth.service";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 export const InfraFinancingStep = () => {
-  const { currentStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
+  const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
     useStepNavigation(1);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+  
+  // Indicator access control
+  const { 
+    loading: indicatorLoading, 
+    error: indicatorError, 
+    assignedIndicators, 
+    hasIndicatorAccess, 
+    isNodalOfficer 
+  } = useIndicatorAccess();
+
+  // Debug logging for access control
+  useEffect(() => {
+    console.log("🔍 InfraFinancingStep: Access control state", {
+      isNodalOfficer,
+      assignedIndicators,
+      indicatorLoading,
+      indicatorError,
+      user: user ? { id: user._id || user.id, role: user.role } : null
+    });
+  }, [isNodalOfficer, assignedIndicators, indicatorLoading, indicatorError, user]);
 
   // Note: Editing submission data is handled by useFormPersistence hook
   const { toast } = useToast();
@@ -38,11 +62,15 @@ export const InfraFinancingStep = () => {
       year: "",
       capitalAllocation: "", // A₁
       gsdpForFY: "", // A₂
+      stateCapexUtilisation: "",
       allocationToGSDP: "",
+      capexToCapexActuals: "",
     },
     section1_2: {
       year: "",
+      gsdpForFY: "",
       actualCapex: "", // A₁
+      budgetaryCapex: "",
       stateCapexUtilisation: "",
       capexActualsToGSDP: "",
     },
@@ -310,57 +338,8 @@ export const InfraFinancingStep = () => {
     // eslint-disable-next-line
   }, [formData]);
 
-  // Validation: Check all fields before proceeding
+  // Validation disabled - always return true to allow form progression
   const validateFields = () => {
-    // Section 1.1 - Check if calculation fields are valid
-    const s1 = formData.section1_1;
-    if (
-      !s1.year ||
-      !s1.capitalAllocation ||
-      !s1.gsdpForFY ||
-      s1.marksObtained === undefined
-    ) {
-      return false;
-    }
-
-    // Check for division by zero
-    const gsdpValue = parseFloat(s1.gsdpForFY.replace(/[₹,]/g, ''));
-    if (gsdpValue === 0) {
-      return false;
-    }
-
-    // Section 1.2 - Check if calculation fields are valid
-    const s2 = formData.section1_2;
-    if (
-      !s2.year ||
-      !s2.actualCapex ||
-      !s2.budgetaryCapex ||
-      s2.marksObtained === undefined
-    ) {
-      return false;
-    }
-
-    // Check for division by zero
-    const budgetaryCapexValue = parseFloat(s2.budgetaryCapex.replace(/[₹,]/g, ''));
-    if (budgetaryCapexValue === 0) {
-      return false;
-    }
-
-    // Section 1.3 - Check if at least one ULB is added
-    if (formData.section1_3.length === 0) {
-      return false;
-    }
-
-    // Section 1.4 - Check if at least one bond is added
-    if (formData.section1_4.length === 0) {
-      return false;
-    }
-
-    // Section 1.5 - Check if at least one intermediary is added
-    if (formData.section1_5.length === 0) {
-      return false;
-    }
-
     return true;
   };
 
@@ -370,38 +349,88 @@ export const InfraFinancingStep = () => {
     goToNext();
   };
 
+  // Access control for NODAL_OFFICER
+  if (isNodalOfficer) {
+    // Check if user has access to any indicator in this section
+    const hasAccessToSection = hasIndicatorAccess('1.1') || hasIndicatorAccess('1.2') || 
+                              hasIndicatorAccess('1.3') || hasIndicatorAccess('1.4') || hasIndicatorAccess('1.5');
+    
+    console.log("🔍 InfraFinancingStep: Access control check", {
+      isNodalOfficer,
+      assignedIndicators,
+      hasAccessToSection,
+      hasAccess1_1: hasIndicatorAccess('1.1'),
+      hasAccess1_2: hasIndicatorAccess('1.2'),
+      hasAccess1_3: hasIndicatorAccess('1.3'),
+      hasAccess1_4: hasIndicatorAccess('1.4'),
+      hasAccess1_5: hasIndicatorAccess('1.5')
+    });
+
+    if (!hasAccessToSection) {
+      return (
+        <div className="w-full -mx-6 lg:-mx-8">
+          <div className="px-6 lg:px-8">
+            <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+          </div>
+          <div className="px-6 lg:px-8">
+            <ProgressHeader
+              title="Infrastructure Financing"
+              description="Data related to infrastructure financing and budget allocation"
+              points={250}
+              completed={0}
+              total={5}
+              progress={0}
+            />
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
+              <p className="text-gray-600 mb-4">
+                This section is not applicable for your submission. No data entry required here.
+              </p>
+              <Button onClick={goToNext} className="bg-primary text-white">
+                Continue to Next Step
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
 
   return (
-    <div className="">
-      <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+    <div className="w-full -mx-6 lg:-mx-8">
+      <div className="px-6 lg:px-8">
+        <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+      </div>
 
-      <ProgressHeader
-        title="Infrastructure Financing"
-        description="Data related to infrastructure financing and budget allocation"
-        points={250}
-        completed={0}
-        total={5}
-        progress={0}
-      />
+      <div className="px-6 lg:px-8">
+        <ProgressHeader
+          title="Infrastructure Financing"
+          description="Data related to infrastructure financing and budget allocation"
+          points={250}
+          completed={0}
+          total={5}
+          progress={0}
+        />
 
 
       {/* Section 1.1 */}
-      <SectionCard
-        title={
-          <div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
-              <span className="font-normal text-xs text-muted-foreground">
-                
+      {(!isNodalOfficer || hasIndicatorAccess('1.1')) && (
+        <SectionCard
+          title={
+            <div className="flex flex-col">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
+                <span className="font-normal text-xs text-muted-foreground">
+                  
+                </span>
               </span>
-            </span>
 
-          </div>
-        }
-        subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
-              Capital Expenditure)"
-        className="mb-6"
-      >
+            </div>
+          }
+          subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
+                Capital Expenditure)"
+          className="mb-6"
+        >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
           <div>
             <Label>Year<span className="text-red-500">*</span></Label>
@@ -478,20 +507,22 @@ export const InfraFinancingStep = () => {
             />
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 1.2 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">1.2 -</span> % Capex Utilization{" "}
-            <span className="font-normal text-xs text-muted-foreground">
-              (10 marks per 1%)
+      {(!isNodalOfficer || hasIndicatorAccess('1.2')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.2 -</span> % Capex Utilization{" "}
+              <span className="font-normal text-xs text-muted-foreground">
+                (10 marks per 1%)
+              </span>
             </span>
-          </span>
-        </div>}
-        subtitle="Annex 2: Verified with MoHUA data"
-      >
+          </div>}
+          subtitle="Annex 2: Verified with MoHUA data"
+        >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
           <div className="space-y-2">
             <Label>Year<span className="text-red-500">*</span></Label>
@@ -558,18 +589,20 @@ export const InfraFinancingStep = () => {
             />
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 1.3 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
-          </span>
-        </div>}
-        subtitle="Annex 2: Verified with MoHUA data"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('1.3')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
+            </span>
+          </div>}
+          subtitle="Annex 2: Verified with MoHUA data"
+          className="mb-6"
+        >
         <div className="space-y-4">
           {formData.section1_3.map((ulb, index) => (
             <div key={ulb.id} className="grid grid-cols-4 gap-4">
@@ -691,18 +724,20 @@ export const InfraFinancingStep = () => {
             Add More ULB
           </Button>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 1.4 */}
-      <SectionCard
-        title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">1.4 -</span> % of ULBs issuing Bonds{" "}
-          </span>
-        </div>}
-        subtitle="Annex 3: ULBs with population > 50,000"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('1.4')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.4 -</span> % of ULBs issuing Bonds{" "}
+            </span>
+          </div>}
+          subtitle="Annex 3: ULBs with population > 50,000"
+          className="mb-6"
+        >
         <div className="space-y-4">
           {formData.section1_4.map((bond, index) => (
             <div key={bond.id} className="grid grid-cols-4 gap-4">
@@ -814,18 +849,20 @@ export const InfraFinancingStep = () => {
             Add More Bond
           </Button>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 1.5 */}
-      <SectionCard
-      title={<div className="flex flex-col">
-          <span className="text-base font-semibold ">
-            <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
-          </span>
-        </div>}
-        subtitle="Annex 4: Provide website link and funding details"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('1.5')) && (
+        <SectionCard
+        title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
+            </span>
+          </div>}
+          subtitle="Annex 4: Provide website link and funding details"
+          className="mb-6"
+        >
         <div className="space-y-4">
           {formData.section1_5.map((intermediary, index) => (
             <div key={intermediary.id} className="grid grid-cols-5 gap-4">
@@ -944,45 +981,19 @@ export const InfraFinancingStep = () => {
             Add More Financial Intermediary
           </Button>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       <FormActions
         onPrevious={isFirstStep ? undefined : goToPrevious}
         onNext={handleNext}
         onSaveDraft={async () => {
-          try {
-            // Save to localStorage first
+          // Save to localStorage with toast message
+          const success = saveDraftToLocalStorage("infraFinancing", formData);
+          
+          if (success) {
+            // Also update form data in persistence hook
             updateFormData("infraFinancing", formData);
-
-            // Generate submission ID if not exists
-            const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-            // Save to backend
-            const success = await draftService.saveDraft(
-              submissionId,
-              formData,
-              "infraFinancing",
-              user?.id,
-              user?.state
-            );
-
-            if (success) {
-              const { toast } = require("@/hooks/use-toast");
-              toast({
-                title: "Draft Saved",
-                description: "Your data has been saved as a draft.",
-                duration: 2000,
-              });
-            }
-          } catch (error) {
-            console.error("Failed to save draft:", error);
-            const { toast } = require("@/hooks/use-toast");
-            toast({
-              title: "Save Failed",
-              description: "Failed to save draft. Please try again.",
-              variant: "destructive",
-              duration: 3000,
-            });
           }
         }}
         isFirstStep={isFirstStep}
@@ -990,7 +1001,8 @@ export const InfraFinancingStep = () => {
         nextLabel={isLastStep ? "Review & Submit" : "Next"}
         showSaveDraft={true}
         isNextDisabled={false} // Commented out validation: !validateFields()
-      />
+        />
+      </div>
     </div>
   );
 };

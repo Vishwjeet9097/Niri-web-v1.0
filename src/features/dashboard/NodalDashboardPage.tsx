@@ -43,18 +43,17 @@ const mapBackendStatusToFrontend = (backendStatus: string): string => {
 // Helper function to handle edit submission
 const handleEditSubmission = async (submissionId: string, navigate: any) => {
   try {
-    console.log("🔍 Loading submission for edit:", submissionId);
-    
+    // Debug logging removed for performance
+
     // Load submission data from backend
     const submissionData = await apiService.getSubmission(submissionId);
-    
-    console.log("🔍 Loaded submission data:", submissionData);
-    
+    // Debug logging removed for performance
+
     // Store submission data in localStorage for form prefill
     localStorage.setItem('editing_submission', JSON.stringify(submissionData));
     
-    // Navigate to submission form
-    navigate('/submissions');
+    // Navigate to edit page (same as handleEditSubmissionForEdit)
+    navigate(`/data-submission/edit/${submissionId}`);
     
     notificationService.success(
       "Submission loaded for editing",
@@ -84,8 +83,8 @@ const handleEditSubmission = async (submissionId: string, navigate: any) => {
 // Helper function to handle edit submission for edit page
 const handleEditSubmissionForEdit = async (submissionId: string, navigate: any) => {
   try {
-    console.log("🔍 Loading submission for edit page:", submissionId);
-    
+    // Debug logging removed for performance
+
     // Navigate to edit page
     navigate(`/data-submission/edit/${submissionId}`);
     
@@ -128,9 +127,10 @@ export function NodalDashboardPage() {
         ]);
 
           // Transform KPIs data with fallback
-          console.log("🔍 Nodal Dashboard - Received KPI Data:", kpiData);
-          console.log("🔍 Nodal Dashboard - Received Submissions Data:", submissionsData);
-          
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
           // Calculate KPIs from submissions data if available
           let calculatedKPIs = {
             totalSubmissions: 0,
@@ -183,8 +183,8 @@ export function NodalDashboardPage() {
         setKpis(kpisData);
 
         // Transform submissions data with fallback
-        console.log("🔍 Nodal Dashboard - Submissions Data Structure:", submissionsData);
-        
+    // Debug logging removed for performance
+
         // Handle different response structures
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
@@ -197,9 +197,8 @@ export function NodalDashboardPage() {
           // Wrapped response with data.submissions property
           submissionsArray = (submissionsData as any).data.submissions;
         }
-        
-        console.log("🔍 Nodal Dashboard - Processed Submissions Array:", submissionsArray);
-        
+    // Debug logging removed for performance
+
         setSubmissions(submissionsArray.map((sub: any) => {
           // Calculate progress based on formData completeness
           const formDataKeys = Object.keys(sub.formData || {});
