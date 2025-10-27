@@ -24,7 +24,7 @@ export default function NodalSubmissionsList() {
         setLoading(true);
   // TODO: Replace 'nodal_officer' with actual user role from auth context/store
   const userRole = "nodal_officer";
-  const submissionsData = await apiService.getSubmissions(1, 20, userRole);
+  const submissionsData = await apiService.getSubmissions(1, 20);
         
         // Handle different response structures
         let submissionsArray = [];

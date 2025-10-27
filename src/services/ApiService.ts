@@ -6,7 +6,7 @@ import axios, {
 } from "axios";
 import { config } from "@/config/environment";
 import { authService } from "./auth.service";
-import { notificationService } from "./NotificationBus";
+import { notificationService } from "./notification.service";
 
 export class ApiService {
   private client: AxiosInstance;
@@ -47,12 +47,22 @@ export class ApiService {
           const errorMsg =
             (error.response as any)?.data?.message ||
             error.message ||
-            (isLoginCall ? "Login failed" : "Token refresh failed");
+            (isLoginCall
+              ? "Login unsuccessful.. Try Again"
+              : "Token refresh failed");
           return Promise.reject(new Error(errorMsg));
         }
 
-        // Handle 401 Unauthorized - No refresh, just logout
+        // Handle 401 Unauthorized - No refresh, just logout (but not for login calls)
         if (status === 401) {
+          const isLoginCall = url.includes("/login");
+
+          if (isLoginCall) {
+            // For login calls, just reject the error without logout/redirect
+            console.log("🚨 401 Unauthorized - Login unsuccessful");
+            return Promise.reject(new Error("Login unsuccessful"));
+          }
+
           console.log("🚨 401 Unauthorized - Session Expired");
 
           // Logout user immediately

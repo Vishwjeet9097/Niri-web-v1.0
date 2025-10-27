@@ -20,7 +20,7 @@ export const MospiApproverDashboardPage = () => {
         setLoading(true);
   // TODO: Replace 'mospi_approver' with actual user role from auth context/store
   const userRole = "mospi_approver";
-  const submissionsData = await apiService.getSubmissionsByRole("mospi_approver", 1, 100);
+  const submissionsData = await apiService.getSubmissions(1, 100);
         
         // Handle different response structures
         let submissionsArray = [];
@@ -53,14 +53,22 @@ export const MospiApproverDashboardPage = () => {
   // Calculate stats
   const totalSubmissions = submissions.length;
   const pendingSubmissions = submissions.filter(
-    (s) => s.status === "SUBMITTED_TO_MOSPI" || s.status === "pending",
+    (s) => s.status === "SUBMITTED_TO_MOSPI_APPROVER",
   ).length;
   const approvedSubmissions = submissions.filter(
     (s) => s.status === "APPROVED" || s.status === "approved",
   ).length;
-  const overdueSubmissions = submissions.filter(
-    (s) => s.status === "overdue" || s.status === "REJECTED_FINAL",
-  ).length;
+  const overdueSubmissions = submissions.filter((s) => {
+    // Check if submission is pending for MOSPI Approver and is overdue
+    if (s.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+      const submittedDate = new Date(s.updatedAt || s.createdAt);
+      const currentDate = new Date();
+      const timeDifference = currentDate.getTime() - submittedDate.getTime();
+      const pendingDays = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
+      return pendingDays > 7; // Consider overdue if pending for more than 7 days
+    }
+    return false;
+  }).length;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -152,7 +160,7 @@ export const MospiApproverDashboardPage = () => {
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 ">
               <CardTitle className="text-sm font-medium">
                 Total Submissions
               </CardTitle>
@@ -167,7 +175,7 @@ export const MospiApproverDashboardPage = () => {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6">
               <CardTitle className="text-sm font-medium">
                 Pending Review
               </CardTitle>
@@ -184,7 +192,7 @@ export const MospiApproverDashboardPage = () => {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6">
               <CardTitle className="text-sm font-medium">Approved</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
@@ -197,7 +205,7 @@ export const MospiApproverDashboardPage = () => {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6">
               <CardTitle className="text-sm font-medium">Overdue</CardTitle>
               <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
@@ -216,7 +224,7 @@ export const MospiApproverDashboardPage = () => {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Recent Submissions for Final Approval</CardTitle>
+              <CardTitle className="p-6">Recent Submissions for Final Approval</CardTitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -247,6 +255,7 @@ export const MospiApproverDashboardPage = () => {
                     reviewerNote={submission.reviewerNote}
                     submission={submission}
                     currentUserRole="MOSPI_APPROVER"
+                    submittedBy={submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown"}
                     onReview={() => navigate(`/data-submission/review/${submission.id}`)}
                     onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                   />
@@ -259,7 +268,7 @@ export const MospiApproverDashboardPage = () => {
         {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle className="p-6">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-4">

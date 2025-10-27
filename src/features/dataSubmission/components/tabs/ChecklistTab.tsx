@@ -45,7 +45,7 @@ export const ChecklistTab = ({ checklist, submissionId }: ChecklistTabProps) => 
                 Complete all mandatory checks before final approval
               </CardDescription>
             </div>
-            <Button
+            {/* <Button
               variant="outline"
               size="sm"
               className="gap-2"
@@ -53,7 +53,7 @@ export const ChecklistTab = ({ checklist, submissionId }: ChecklistTabProps) => 
             >
               <MessageSquare className="w-4 h-4" />
               Add Comment
-            </Button>
+            </Button> */}
           </div>
         </CardHeader>
       <CardContent className="space-y-4">

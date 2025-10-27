@@ -14,6 +14,16 @@ export const MospiOverviewTab = ({ submission }: MospiOverviewTabProps) => {
   const getFinancialImpact = () => submission?.financialImpact || {};
   const getSummary = () => submission?.summary || {};
 
+  // Count review comments
+  const countReviewComments = () => {
+    if (!submission?.reviewComments || !Array.isArray(submission.reviewComments)) {
+      return 0;
+    }
+    return submission.reviewComments.length;
+  };
+
+  const reviewCommentsCount = countReviewComments();
+
   return (
     <div className="space-y-6">
       {/* Three Column Layout */}
@@ -110,7 +120,7 @@ export const MospiOverviewTab = ({ submission }: MospiOverviewTabProps) => {
         <Card>
           <CardContent className="pt-6 text-center">
             <div className="text-4xl font-bold text-green-600 mb-2">
-              {getSummary().reviewed || 0}
+              {reviewCommentsCount}
             </div>
             <p className="text-sm text-muted-foreground">Reviewed</p>
           </CardContent>

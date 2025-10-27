@@ -2,6 +2,7 @@ import { FileText, Clock, File, Calendar, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { hasMospiApproverComment, canReviewSubmission, isReturnedFromMospi } from "@/utils/auditUtils";
+import { getStatusInfo, getStatusPills } from "@/utils/statusUtils";
 
 interface ApproverSubmissionCardProps {
   title: string;
@@ -86,6 +87,9 @@ export function ApproverSubmissionCard({
     },
   };
 
+  // Use centralized status utilities
+  const statusInfo = getStatusInfo(status);
+  
   // Check if status is a submissionId (starts with SUB- or contains submissionId pattern)
   const isSubmissionId = status && (status.startsWith('SUB-') || status.includes('-'));
   const config = isSubmissionId ? {
@@ -93,7 +97,12 @@ export function ApproverSubmissionCard({
     borderClass: "border-l-blue-500",
     bgClass: "bg-blue-50",
     badgeClass: "bg-blue-100 text-blue-700",
-  } : (statusConfig[status] || statusConfig.pending);
+  } : {
+    label: statusInfo.label,
+    borderClass: statusInfo.borderClass,
+    bgClass: statusInfo.bgClass,
+    badgeClass: statusInfo.badgeClass,
+  };
 
   // Production ready - no debug logging
 

@@ -20,6 +20,7 @@ export interface NiriUser {
   email: string;
   firstName: string;
   lastName: string;
+  contactNumber?: string;
   role:
     | "NODAL_OFFICER"
     | "STATE_APPROVER"
@@ -111,8 +112,17 @@ class ApiService implements HttpClient {
 
         const originalRequest = error.config;
 
-        // Handle 401 - token expired
+        // Handle 401 - token expired (but not for login calls)
         if (error.response?.status === 401 && !originalRequest._retry) {
+          const isLoginCall =
+            originalRequest.url?.includes("/auth/login") ||
+            originalRequest.url?.includes("/login");
+
+          // Don't attempt refresh for login calls
+          if (isLoginCall) {
+            return Promise.reject(error);
+          }
+
           originalRequest._retry = true;
 
           try {
@@ -126,7 +136,11 @@ class ApiService implements HttpClient {
               message: "Please log in again",
               type: "warning",
             });
-            window.location.href = "/login";
+            // Use navigate instead of window.location to avoid page refresh
+            if (typeof window !== "undefined" && window.history) {
+              window.history.pushState(null, "", "/login");
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }
             return Promise.reject(refreshError);
           }
         }
@@ -321,6 +335,15 @@ class ApiService implements HttpClient {
         const cachedData = error.response?.data || {};
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }
+
+      // Handle 401 Unauthorized specifically
+      if (error.response?.status === 401) {
+        console.log("🔐 Login 401 - Invalid credentials");
+        const errorData = error.response?.data || {};
+        const errorMessage = errorData.message || "Invalid credentials";
+        throw new Error(errorMessage);
+      }
+
       throw error;
     }
   }
@@ -330,8 +353,11 @@ class ApiService implements HttpClient {
     password: string,
     firstName: string,
     lastName: string,
+    contactNumber: string,
     role: string,
-    stateUt: string
+    stateUt: string,
+    stateId?: string,
+    indicatorCodes?: string[]
   ): Promise<{ user: NiriUser; accessToken: string }> {
     try {
       const userData = {
@@ -339,8 +365,11 @@ class ApiService implements HttpClient {
         password,
         firstName,
         lastName,
+        contactNumber,
         role,
         stateUt,
+        stateId: stateId || stateUt, // Use stateId if provided, otherwise use stateUt
+        ...(indicatorCodes && indicatorCodes.length > 0 && { indicatorCodes }), // Include indicators if provided
       };
 
       console.log("🔍 API Service - Register Request Data:", userData);
@@ -476,46 +505,31 @@ class ApiService implements HttpClient {
     page: number;
     limit: number;
   }> {
-    // Get current user's role for automatic status filtering
-    const currentUserRole = UserService.getRole();
+    // Get all submissions without any role-based filtering
+    console.log("🔍 Getting all submissions without any filtering");
 
-    // If no statusOrRole provided, use current user's role for automatic filtering
-    if (!statusOrRole && currentUserRole) {
-      const roleToStatusMap: Record<string, string> = {
-        STATE_APPROVER:
-          "SUBMITTED_TO_STATE,RETURNED_FROM_MOSPI,REJECTED,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,APPROVED",
-        NODAL_OFFICER:
-          "DRAFT,REJECTED,APPROVED,SUBMITTED_TO_STATE,SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,RETURNED_FROM_STATE",
-        MOSPI_REVIEWER:
-          "SUBMITTED_TO_MOSPI_REVIEWER,SUBMITTED_TO_MOSPI_APPROVER,REJECTED_FINAL,APPROVED",
-        MOSPI_APPROVER: "SUBMITTED_TO_MOSPI_APPROVER,APPROVED,REJECTED_FINAL",
-      };
+    // If statusOrRole is provided and it's a specific status, filter by that status
+    // Otherwise, get all submissions
+    let url = `/submission?page=${page}&limit=${limit}`;
+    if (statusOrRole && statusOrRole !== "all") {
+      // Check if it's a known role, if so ignore it and get all submissions
+      const knownRoles = [
+        "state_approver",
+        "nodal_officer",
+        "mospi_reviewer",
+        "mospi_approver",
+        "STATE_APPROVER",
+        "NODAL_OFFICER",
+        "MOSPI_REVIEWER",
+        "MOSPI_APPROVER",
+      ];
 
-      const statusForRole = roleToStatusMap[currentUserRole];
-      if (statusForRole) {
-        console.log(
-          `🔍 Auto-filtering submissions for ${currentUserRole} with status: ${statusForRole}`
-        );
-        const url = `/submission?page=${page}&limit=${limit}&status=${statusForRole}`;
-        return this.getSubmissionsUrl(url, page, limit);
+      // Only add status filter if it's not a role
+      if (!knownRoles.includes(statusOrRole)) {
+        url += `&status=${statusOrRole}`;
       }
     }
 
-    // If statusOrRole matches a known role, use byRole; otherwise treat as status
-    const knownRoles = [
-      "state_approver",
-      "nodal_officer",
-      "mospi_reviewer",
-      "mospi_approver",
-    ];
-    if (statusOrRole && knownRoles.includes(statusOrRole.toLowerCase())) {
-      return this.getSubmissionsByRole(statusOrRole, page, limit);
-    }
-    // Otherwise, treat as status param
-    let url = `/submission?page=${page}&limit=${limit}`;
-    if (statusOrRole && statusOrRole !== "all") {
-      url += `&status=${statusOrRole}`;
-    }
     return this.getSubmissionsUrl(url, page, limit);
   }
 
@@ -664,12 +678,14 @@ class ApiService implements HttpClient {
   async addComment(
     id: string,
     text: string,
-    type: "comment" | "rejection" | "approval" = "comment"
-  ): Promise<ReviewComment> {
+    sectionId: string,
+    type: "indicator_comment" | "rejection" | "approval" = "indicator_comment"
+  ): Promise<NiriSubmission> {
     try {
       const response = await this.axios.post(`/submission/${id}/comment`, {
         text,
         type,
+        sectionId,
       });
       console.log(
         "🔍 API Service - Add Comment Response Status:",
@@ -678,11 +694,14 @@ class ApiService implements HttpClient {
       console.log("🔍 API Service - Add Comment Response Data:", response.data);
 
       // Handle response.data.data pattern
-      const commentData =
+      const submissionData =
         response.data?.data !== undefined ? response.data.data : response.data;
-      console.log("🔍 API Service - Processed Add Comment Data:", commentData);
+      console.log(
+        "🔍 API Service - Processed Add Comment Data:",
+        submissionData
+      );
 
-      return commentData;
+      return submissionData;
     } catch (error: any) {
       // Handle 304 as success
       if (error.response?.status === 304) {
@@ -694,11 +713,23 @@ class ApiService implements HttpClient {
     }
   }
 
-  async forwardToMospi(id: string, comment: string): Promise<NiriSubmission> {
+  async forwardToMospi(
+    id: string,
+    comment: string,
+    currentStatus?: string
+  ): Promise<NiriSubmission> {
     try {
+      // Prepare payload based on current status
+      const payload: any = { comment };
+
+      // If current status is RETURNED_FROM_MOSPI, include status in payload
+      if (currentStatus === "RETURNED_FROM_MOSPI") {
+        payload.status = "SUBMITTED_TO_MOSPI_REVIEWER";
+      }
+
       const response = await this.axios.post(
         `/submission/forward-to-mospi/${id}`,
-        { comment }
+        payload
       );
       console.log(
         "🔍 API Service - Forward to MoSPI Response Status:",
@@ -939,7 +970,7 @@ class ApiService implements HttpClient {
   async uploadFile(
     submissionId: string,
     file: File
-  ): Promise<FileUploadResponse> {
+  ): Promise<{ url: string; filename: string; size: number }> {
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -977,7 +1008,10 @@ class ApiService implements HttpClient {
   async uploadMultipleFiles(
     submissionId: string,
     files: File[]
-  ): Promise<{ files: FileUploadResponse[]; count: number }> {
+  ): Promise<{
+    files: { url: string; filename: string; size: number }[];
+    count: number;
+  }> {
     try {
       const formData = new FormData();
       files.forEach((file) => formData.append("files", file));
@@ -1667,6 +1701,574 @@ class ApiService implements HttpClient {
         const cachedData = error.response?.data || {};
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }
+      throw error;
+    }
+  }
+
+  // Scoring Methods
+  async getScoreRankings(): Promise<any[]> {
+    try {
+      const response = await this.axios.get("/scoring/rankings");
+      console.log(
+        "🔍 API Service - Get Score Rankings Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get Score Rankings Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const rankingsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get Score Rankings Data:",
+        rankingsData
+      );
+
+      return rankingsData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Score Rankings 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn(
+        "⚠️ Backend score rankings failed, using dummy data:",
+        error.message
+      );
+      // Return dummy data as fallback
+      return [
+        {
+          rank: 1,
+          stateUt: "Gujarat",
+          totalScore: 742,
+          percentage: 74.2,
+          approvedAt: "2024-01-01T00:00:00.000Z",
+          submissionId: "uuid-1",
+          categoryScores: {
+            financing: 195,
+            development: 230,
+            ppp: 195,
+            enablers: 195,
+          },
+        },
+        {
+          rank: 2,
+          stateUt: "Tamil Nadu",
+          totalScore: 698,
+          percentage: 69.8,
+          approvedAt: "2024-01-01T00:00:00.000Z",
+          submissionId: "uuid-2",
+          categoryScores: {
+            financing: 175,
+            development: 210,
+            ppp: 165,
+            enablers: 148,
+          },
+        },
+        {
+          rank: 3,
+          stateUt: "Karnataka",
+          totalScore: 685,
+          percentage: 68.5,
+          approvedAt: "2024-01-01T00:00:00.000Z",
+          submissionId: "uuid-3",
+          categoryScores: {
+            financing: 168,
+            development: 205,
+            ppp: 172,
+            enablers: 140,
+          },
+        },
+      ];
+    }
+  }
+
+  // Role-based scoring methods
+  async getScoreRankingsByRole(
+    userRole: string,
+    userState?: string
+  ): Promise<any[]> {
+    try {
+      console.log(
+        `🔍 API Service - Get Score Rankings for role: ${userRole}, state: ${userState}`
+      );
+
+      // Check if user is authenticated
+      if (!authService.isAuthenticated()) {
+        console.warn("⚠️ User not authenticated, using dummy data");
+        return this.getDummyRankingsData();
+      }
+
+      // Get current user info
+      const user = authService.getUser();
+      console.log(`🔍 API Service - Current user:`, user);
+
+      // ALL user roles use the same /scoring/rankings endpoint for consistent data
+      try {
+        const response = await this.axios.get("/scoring/rankings");
+        console.log(
+          "🔍 API Service - Get Score Rankings Response Status:",
+          response.status
+        );
+        console.log(
+          "🔍 API Service - Get Score Rankings Response Data:",
+          response.data
+        );
+
+        const rankingsData =
+          response.data?.data !== undefined
+            ? response.data.data
+            : response.data;
+        console.log(
+          "🔍 API Service - Processed Get Score Rankings Data:",
+          rankingsData
+        );
+
+        return rankingsData;
+      } catch (scoringError: any) {
+        console.warn(
+          "⚠️ Scoring rankings failed, trying regular rankings:",
+          scoringError.message
+        );
+        // Fallback to regular rankings but ensure consistent format
+        return this.getRegularRankings();
+      }
+    } catch (error: any) {
+      console.error(`❌ API Error for role ${userRole}:`, error);
+
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Score Rankings 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+
+      // Handle 403 Forbidden - user doesn't have permission
+      if (error.response?.status === 403) {
+        console.warn(
+          `⚠️ 403 Forbidden for role ${userRole} - User doesn't have permission to access ranking data`
+        );
+        console.warn("⚠️ Using dummy data as fallback");
+        return this.getDummyRankingsData();
+      }
+
+      // Handle other errors
+      console.warn(
+        "⚠️ Backend rankings failed, using dummy data:",
+        error.message
+      );
+      return this.getDummyRankingsData();
+    }
+  }
+
+  // Helper method to get regular rankings
+  private async getRegularRankings(): Promise<any[]> {
+    try {
+      const response = await this.axios.get("/report/ranking");
+      console.log(
+        "🔍 API Service - Regular Rankings Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Regular Rankings Response Data:",
+        response.data
+      );
+
+      const rankingsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Regular Rankings Data:",
+        rankingsData
+      );
+
+      return rankingsData;
+    } catch (error: any) {
+      console.error("❌ Regular rankings failed:", error);
+      throw error;
+    }
+  }
+
+  // Helper method to get dummy rankings data
+  private getDummyRankingsData() {
+    return [
+      {
+        rank: 1,
+        stateUt: "Gujarat",
+        totalScore: 742,
+        percentage: 74.2,
+        approvedAt: "2024-01-01T00:00:00.000Z",
+        submissionId: "uuid-1",
+      },
+      {
+        rank: 2,
+        stateUt: "Tamil Nadu",
+        totalScore: 698,
+        percentage: 69.8,
+        approvedAt: "2024-01-01T00:00:00.000Z",
+        submissionId: "uuid-2",
+      },
+      {
+        rank: 3,
+        stateUt: "Karnataka",
+        totalScore: 685,
+        percentage: 68.5,
+        approvedAt: "2024-01-01T00:00:00.000Z",
+        submissionId: "uuid-3",
+      },
+    ];
+  }
+
+  async getScoreStatistics(): Promise<any> {
+    try {
+      // Get current user info for role-based access
+      const user = authService.getUser();
+      const userRole = user?.role;
+
+      console.log(
+        `🔍 API Service - Get Score Statistics for role: ${userRole}`
+      );
+
+      // ALL user roles use the same /scoring/statistics endpoint for consistent data
+      try {
+        const response = await this.axios.get("/scoring/statistics");
+        console.log(
+          "🔍 API Service - Get Score Statistics Response Status:",
+          response.status
+        );
+        console.log(
+          "🔍 API Service - Get Score Statistics Response Data:",
+          response.data
+        );
+
+        const statisticsData =
+          response.data?.data !== undefined
+            ? response.data.data
+            : response.data;
+        console.log(
+          "🔍 API Service - Processed Get Score Statistics Data:",
+          statisticsData
+        );
+
+        return statisticsData;
+      } catch (scoringError: any) {
+        console.warn(
+          "⚠️ Scoring statistics failed, using dummy data:",
+          scoringError.message
+        );
+        return this.getDummyStatisticsData();
+      }
+    } catch (error: any) {
+      console.error("❌ API Error for statistics:", error);
+
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Score Statistics 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+
+      // Handle 403 Forbidden - user doesn't have permission
+      if (error.response?.status === 403) {
+        console.warn(
+          "⚠️ 403 Forbidden for statistics - User doesn't have permission to access scoring statistics"
+        );
+        console.warn("⚠️ Using dummy data as fallback");
+        return this.getDummyStatisticsData();
+      }
+
+      console.warn(
+        "⚠️ Backend score statistics failed, using dummy data:",
+        error.message
+      );
+      return this.getDummyStatisticsData();
+    }
+  }
+
+  // Helper method to get dummy statistics data
+  private getDummyStatisticsData() {
+    return {
+      totalStates: 3,
+      averageScore: 708.33,
+      highestScore: 742,
+      lowestScore: 685,
+      scoreDistribution: {
+        "90-100": 0,
+        "80-89": 0,
+        "70-79": 2,
+        "60-69": 1,
+        "50-59": 0,
+        "Below 50": 0,
+      },
+    };
+  }
+
+  async getStateScore(stateUt: string): Promise<any> {
+    try {
+      const response = await this.axios.get(`/scoring/state/${stateUt}`);
+      console.log(
+        "🔍 API Service - Get State Score Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get State Score Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const stateScoreData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get State Score Data:",
+        stateScoreData
+      );
+
+      return stateScoreData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get State Score 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn(
+        "⚠️ Backend state score failed, using dummy data:",
+        error.message
+      );
+      // Return dummy data as fallback
+      return {
+        id: "uuid",
+        submissionId: "uuid",
+        stateUt: stateUt,
+        totalScore: 742,
+        scoreBreakdown: {
+          totalScore: 742,
+          maxPossibleScore: 1000,
+          percentage: 74.2,
+          calculations: [],
+          methodology: "NIRI Scoring Methodology v2.0",
+        },
+        calculationMethodology: "NIRI Scoring Methodology v2.0",
+        approvedBy: "uuid",
+        createdAt: "2024-01-01T00:00:00.000Z",
+      };
+    }
+  }
+
+  async calculateScore(submissionId: string): Promise<any> {
+    try {
+      const response = await this.axios.get(
+        `/scoring/calculate/${submissionId}`
+      );
+      console.log(
+        "🔍 API Service - Calculate Score Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Calculate Score Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const scoreData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Calculate Score Data:",
+        scoreData
+      );
+
+      return scoreData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Calculate Score 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn("⚠️ Backend calculate score failed:", error.message);
+      throw error;
+    }
+  }
+
+  // Indicator Access Control Methods
+  async getUserAssignedIndicators(userId: string): Promise<string[]> {
+    console.log(
+      "🔍 API Service - getUserAssignedIndicators called with userId:",
+      userId
+    );
+    try {
+      // Try fallback endpoint
+      console.log(
+        "🔍 API Service - Making request to /users/${userId}/indicators"
+      );
+      const fallbackResponse = await this.axios.get(
+        `/users/${userId}/indicators`
+      );
+      console.log(
+        "🔍 API Service - Fallback Get User Assigned Indicators Response Status:",
+        fallbackResponse.status
+      );
+      console.log(
+        "🔍 API Service - Fallback Get User Assigned Indicators Response Data:",
+        fallbackResponse.data
+      );
+
+      const indicatorsData =
+        fallbackResponse.data?.data !== undefined
+          ? fallbackResponse.data.data
+          : fallbackResponse.data;
+      console.log(
+        "🔍 API Service - Processed Fallback Get User Assigned Indicators Data:",
+        indicatorsData
+      );
+
+      // Extract indicator codes from the response
+      if (Array.isArray(indicatorsData)) {
+        // If response is array of objects with indicator property
+        const indicatorCodes = indicatorsData
+          .map((item: any) => item.indicator?.code || item.code)
+          .filter((code: string) => code); // Remove undefined/null values
+        console.log(
+          "🔍 API Service - Extracted indicator codes:",
+          indicatorCodes
+        );
+        console.log("🔍 API Service - Original response data:", indicatorsData);
+        return indicatorCodes;
+      } else if (indicatorsData.indicators) {
+        // If response has indicators property
+        return indicatorsData.indicators;
+      } else {
+        // If response is already an array of codes
+        return indicatorsData || [];
+      }
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get User Assigned Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        const indicatorsData = cachedData?.data || cachedData;
+
+        if (Array.isArray(indicatorsData)) {
+          const indicatorCodes = indicatorsData
+            .map((item: any) => item.indicator?.code || item.code)
+            .filter((code: string) => code);
+          return indicatorCodes;
+        }
+        return indicatorsData?.indicators || [];
+      }
+      console.warn(
+        "⚠️ Backend get user assigned indicators failed on both endpoints:",
+        error.message
+      );
+      return [];
+    }
+  }
+
+  async getAllIndicators(): Promise<any[]> {
+    try {
+      const response = await this.axios.get("/indicators");
+      console.log(
+        "🔍 API Service - Get All Indicators Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get All Indicators Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const indicatorsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get All Indicators Data:",
+        indicatorsData
+      );
+
+      return indicatorsData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get All Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn("⚠️ Backend get all indicators failed:", error.message);
+      return [];
+    }
+  }
+
+  async getIndicatorsBySection(sectionId: string): Promise<any[]> {
+    try {
+      const response = await this.axios.get(`/indicators/section/${sectionId}`);
+      console.log(
+        "🔍 API Service - Get Indicators By Section Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Get Indicators By Section Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const indicatorsData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Get Indicators By Section Data:",
+        indicatorsData
+      );
+
+      return indicatorsData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Get Indicators By Section 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn(
+        "⚠️ Backend get indicators by section failed:",
+        error.message
+      );
+      return [];
+    }
+  }
+
+  async updateUserIndicators(
+    userId: string,
+    indicatorCodes: string[]
+  ): Promise<any> {
+    try {
+      const response = await this.axios.patch(`/users/${userId}/indicators`, {
+        indicatorCodes,
+      });
+      console.log(
+        "🔍 API Service - Update User Indicators Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Update User Indicators Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const updateData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Update User Indicators Data:",
+        updateData
+      );
+
+      return updateData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Update User Indicators 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      console.warn("⚠️ Backend update user indicators failed:", error.message);
       throw error;
     }
   }

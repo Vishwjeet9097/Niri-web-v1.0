@@ -18,11 +18,17 @@ export interface User {
   roleId: string;
   state: string;
   stateName: string;
+  stateUt?: string; // Added for new API format
   ministry: string | null;
   ministryName: string | null;
   type: string;
   isMospiUser: boolean;
   mospiUserType: string | null;
+  isActive?: boolean; // Added for new API format
+  createdAt?: string; // Added for new API format
+  updatedAt?: string; // Added for new API format
+  contactNumber?: string; // Added for new API format
+  assignedIndicators?: string[]; // NODAL_OFFICER के लिए assigned indicators
   // Legacy fields for backward compatibility
   id?: string;
   name?: string;
@@ -39,79 +45,13 @@ export interface AuthTokens {
 
 export interface LoginApiResponse {
   success?: boolean;
-  user: User;
-  tokens: AuthTokens;
-  message?: string;
-}
-
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: "info" | "success" | "warning" | "error";
-  timestamp: number;
-  read: boolean;
-  actionUrl?: string;
-}
-
-export interface KPICard {
-  id: string;
-  title: string;
-  value: string | number;
-  change?: number;
-  trend?: "up" | "down" | "neutral";
-  icon: string;
-}
-
-export interface Submission {
-  id: string;
-  referenceNumber: string;
-  category: string;
-  status: "draft" | "pending" | "under_review" | "approved" | "rejected";
-  progress: number;
-  updatedAt: string;
-  dueDate?: string;
-}
-
-export interface ApiResponse<T = any> {
-  data: T;
-  message?: string;
-  success?: boolean;
-}
-
-export interface User {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  role: string;
-  roleId: string;
-  state: string;
-  stateName: string;
-  ministry: string | null;
-  ministryName: string | null;
-  type: string;
-  isMospiUser: boolean;
-  mospiUserType: string | null;
-  // Legacy fields for backward compatibility
-  id?: string;
-  name?: string;
-  avatar?: string;
-}
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  expiresIn: string;
-  expiresAt: number; // Calculated from expiresIn
-}
-
-export interface LoginApiResponse {
-  success?: boolean;
-  user: User;
-  tokens: AuthTokens;
+  status?: boolean;
+  user?: User;
+  data?: {
+    user: User;
+    accessToken: string;
+  };
+  tokens?: AuthTokens;
   message?: string;
 }
 
@@ -249,4 +189,27 @@ export interface ErrorBoundaryState {
   hasError: boolean;
   error?: Error;
   errorInfo?: React.ErrorInfo;
+}
+
+// Indicator Access Control Types
+export interface IndicatorSection {
+  id: string;
+  name: string;
+  indicators: string[];
+  points: number;
+  description?: string;
+}
+
+export interface IndicatorAccess {
+  hasAccess: boolean;
+  assignedIndicators: string[];
+  availableSections: IndicatorSection[];
+  restrictedSections: string[];
+}
+
+export interface SectionAccess {
+  sectionId: string;
+  hasAccess: boolean;
+  assignedIndicators: string[];
+  hiddenIndicators: string[];
 }

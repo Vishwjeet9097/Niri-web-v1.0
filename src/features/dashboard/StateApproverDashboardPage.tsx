@@ -65,16 +65,19 @@ export function StateApproverDashboardPage() {
         // Fetch role-specific KPIs and submissions for State Approver
         const [kpiData, submittedToStateData] = await Promise.all([
           apiService.getRoleKPIs("STATE_APPROVER"),
-          apiService.getSubmissionsByRole("state_approver", 1, 100)
+          apiService.getSubmissions(1, 100)
         ]);
         
         // Use submissions data directly
         const submissionsData = submittedToStateData;
 
         // Transform KPIs data with fallback
-        console.log("🔍 State Approver - Received KPI Data:", kpiData);
-        console.log("🔍 State Approver - Received Submissions Data:", submissionsData);
-        console.log("🔍 State Approver - First Submission ReviewComments:", submissionsData?.submissions?.[0]?.reviewComments);
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
+    // Debug logging removed for performance
+
         console.log("🔍 State Approver - All Submissions:", submissionsData?.submissions?.map(s => ({
           id: s.id,
           submissionId: s.submissionId,
@@ -123,13 +126,13 @@ export function StateApproverDashboardPage() {
             icon: FileText,
             variant: "blue" as const,
           },
-          {
-            title: "Overdue",
-            value: calculatedKPIs.overdue.toString() || "1",
-            subtitle: "Critical Attention Needed",
-            icon: AlertTriangle,
-            variant: "red" as const,
-          },
+          // {
+          //   title: "Overdue",
+          //   value: calculatedKPIs.overdue.toString() || "1",
+          //   subtitle: "Critical Attention Needed",
+          //   icon: AlertTriangle,
+          //   variant: "red" as const,
+          // },
           {
             title: "Pending Submission",
             value: calculatedKPIs.pendingReview.toString() || kpiData?.pendingReview?.toString() || "6",
@@ -144,13 +147,13 @@ export function StateApproverDashboardPage() {
             icon: CheckCircle,
             variant: "green" as const,
           },
-          {
-            title: "Sent Back to Nodal Officer",
-            value: calculatedKPIs.sentBack.toString() || "2",
-            subtitle: "Need Revision",
-            icon: ArrowLeft,
-            variant: "yellow" as const,
-          },
+          // {
+          //   title: "Sent Back to Nodal Officer",
+          //   value: calculatedKPIs.sentBack.toString() || "2",
+          //   subtitle: "Need Revision",
+          //   icon: ArrowLeft,
+          //   variant: "yellow" as const,
+          // },
           {
             title: "Returned back from MoSPI",
             value: calculatedKPIs.returnedFromMospi.toString() || "4",
@@ -177,8 +180,8 @@ export function StateApproverDashboardPage() {
         ]);
 
         // Transform submissions data with fallback
-        console.log("🔍 State Approver - Submissions Data Structure:", submissionsData);
-        
+    // Debug logging removed for performance
+
         // Handle different response structures
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
@@ -207,11 +210,15 @@ export function StateApproverDashboardPage() {
           // Determine if overdue (more than 7 days)
           const isOverdue = pendingDays > 7;
           
+          // Debug log for submittedBy
+          const submittedByName = sub.user ? `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
+    // Debug logging removed for performance
+
           return {
             id: sub.id,
             title: sub.submissionId || `Submission ${sub.id}`,
             status: sub.status || sub.submissionId || `SUB-${sub.id.slice(-6)}`, // Use actual status field
-            submittedBy: sub.user ? `${sub.user.firstName} ${sub.user.lastName}` : "Unknown",
+            submittedBy: submittedByName,
             submissionDate: new Date(sub.createdAt).toLocaleDateString(),
             deadline: sub.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
             category: "Infrastructure",
@@ -356,6 +363,7 @@ export function StateApproverDashboardPage() {
                     reviewerNote={submission.reviewerNote}
                     submission={submission}
                     currentUserRole="STATE_APPROVER"
+                    submittedBy={submission.submittedBy}
                     onReview={() => navigate(`/data-submission/review/${submission.id}`)}
                     onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                   />

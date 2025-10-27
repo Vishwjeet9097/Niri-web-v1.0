@@ -8,27 +8,28 @@ import React from "react";
 const BenchmarkingAnalysis = ({ benchmarking }) => {
   if (!benchmarking) return null;
 
+  // Safely access properties with fallbacks
   const cards = [
     {
-      title: benchmarking.vsTopPerformer.label,
-      performer: benchmarking.vsTopPerformer.performer,
-      value: benchmarking.vsTopPerformer.value,
-      description: benchmarking.vsTopPerformer.description,
-      color: benchmarking.vsTopPerformer.color,
+      title: benchmarking.vsTopPerformer?.label || "vs Top Performer",
+      performer: benchmarking.vsTopPerformer?.performer || "N/A",
+      value: benchmarking.vsTopPerformer?.value || "N/A",
+      description: benchmarking.vsTopPerformer?.description || "No data available",
+      color: benchmarking.vsTopPerformer?.color || "blue",
     },
     {
-      title: benchmarking.vsAllStates.label,
-      performer: benchmarking.vsAllStates.performer,
-      value: benchmarking.vsAllStates.value,
-      description: benchmarking.vsAllStates.description,
-      color: benchmarking.vsAllStates.color,
+      title: benchmarking.vsAllStates?.label || "vs All States",
+      performer: benchmarking.vsAllStates?.performer || "N/A",
+      value: benchmarking.vsAllStates?.value || "N/A",
+      description: benchmarking.vsAllStates?.description || "No data available",
+      color: benchmarking.vsAllStates?.color || "green",
     },
     {
-      title: benchmarking.vsPrevQuarter.label,
-      performer: benchmarking.vsPrevQuarter.performer,
-      value: benchmarking.vsPrevQuarter.value,
-      description: benchmarking.vsPrevQuarter.description,
-      color: benchmarking.vsPrevQuarter.color,
+      title: benchmarking.vsPrevQuarter?.label || "vs Previous Quarter",
+      performer: benchmarking.vsPrevQuarter?.performer || "N/A",
+      value: benchmarking.vsPrevQuarter?.value || "N/A",
+      description: benchmarking.vsPrevQuarter?.description || "No data available",
+      color: benchmarking.vsPrevQuarter?.color || "green",
     },
   ];
 

@@ -3,7 +3,7 @@ import { authService } from "./auth.service";
 import { config } from "@/config/environment";
 import type { User, AuthTokens, LoginApiResponse } from "@/types";
 import type { AxiosResponse } from "axios";
-import { notificationService } from "./NotificationBus";
+import { notificationService } from "./notification.service";
 
 export const UserService = {
   async login(
@@ -27,33 +27,50 @@ export const UserService = {
 
       const response: any = res.data;
       console.log("🔐 Login response received:", response);
-      console.log("🔐 Response success:", response.success);
-      console.log("🔐 Response status:", response.status);
-      console.log("🔐 Response data:", response.data);
 
-      // Check for both success and status fields, and data structure
-      if (
-        (response.success || response.status) &&
-        response.data &&
-        response.data.user &&
-        response.data.accessToken
-      ) {
-        // Transform the response to match expected format
-        const transformedResponse = {
-          success: true,
-          user: response.data.user,
-          tokens: {
-            accessToken: response.data.accessToken,
-            refreshToken: "",
-            tokenType: "Bearer",
-            expiresIn: "3600",
-            expiresAt: Date.now() + 3600000, // 1 hour
-          },
+      // Handle both response formats: new format (status/data) and old format (success/user/tokens)
+      let processedResponse: LoginApiResponse;
+
+      if (response.status && response.data) {
+        // New format: { status: true, data: { user, accessToken }, message }
+        const { user, accessToken } = response.data;
+
+        // Calculate expiration time from JWT token
+        const calculateExpirationTime = (token: string): number => {
+          try {
+            const payload = JSON.parse(atob(token.split(".")[1]));
+            return payload.exp * 1000; // Convert to milliseconds
+          } catch (error) {
+            console.warn("Failed to parse JWT expiration:", error);
+            return Date.now() + 24 * 60 * 60 * 1000; // Default 24 hours
+          }
         };
 
+        processedResponse = {
+          success: response.status,
+          user: user,
+          tokens: {
+            accessToken: accessToken,
+            refreshToken: "", // Not provided in new format
+            tokenType: "Bearer",
+            expiresIn: "24h", // Default expiration
+            expiresAt: calculateExpirationTime(accessToken),
+          },
+          message: response.message,
+        };
+      } else {
+        // Old format: { success, user, tokens }
+        processedResponse = response;
+      }
+
+      if (
+        processedResponse.success &&
+        processedResponse.user &&
+        processedResponse.tokens
+      ) {
         // Process the login response using AuthService
         const { user, tokens } =
-          authService.processLoginResponse(transformedResponse);
+          authService.processLoginResponse(processedResponse);
 
         // Show success notification
         notificationService.success(
@@ -64,15 +81,78 @@ export const UserService = {
         return { success: true, user, tokens };
       } else {
         const errorMessage =
-          response.message || "Login failed. Please check your credentials.";
+          processedResponse.message ||
+          "Login failed. Please check your credentials.";
         notificationService.error(errorMessage, "Login Failed");
         return { success: false, message: errorMessage };
       }
     } catch (e: unknown) {
       const err = e as {
-        response?: { data?: { message?: string } };
+        response?: {
+          status?: number;
+          data?: {
+            message?: string;
+            error?: string;
+            statusCode?: number;
+          };
+        };
         message?: string;
       };
+
+      // Handle specific 401 Unauthorized error
+      if (
+        err?.response?.status === 401 ||
+        err?.response?.data?.statusCode === 401
+      ) {
+        const serverMessage = err?.response?.data?.message;
+        let userFriendlyMessage = "Invalid credentials";
+        let toastTitle = "Login Failed";
+
+        // Map server messages to user-friendly messages
+        if (serverMessage) {
+          switch (serverMessage.toLowerCase()) {
+            case "invalid credentials":
+            case "unauthorized":
+              userFriendlyMessage =
+                "Login unsuccessful. Please recheck your credentials.";
+              toastTitle = "Login Failed";
+              break;
+            case "user not found":
+              userFriendlyMessage =
+                "No account found with this email address. Please verify your email or contact your administrator.";
+              toastTitle = "Account Not Found";
+              break;
+            case "account disabled":
+            case "user disabled":
+              userFriendlyMessage =
+                "Your account has been disabled. Please contact your administrator for assistance.";
+              toastTitle = "Account Disabled";
+              break;
+            case "account locked":
+              userFriendlyMessage =
+                "Your account has been temporarily locked due to multiple failed login attempts. Please try again later or contact support.";
+              toastTitle = "Account Locked";
+              break;
+            default:
+              userFriendlyMessage =
+                "Login unsuccessful. Please recheck your credentials.";
+              toastTitle = "Login Failed";
+          }
+        } else {
+          userFriendlyMessage =
+            "Login unsuccessful. Please recheck your credentials.";
+          toastTitle = "Login Failed";
+        }
+
+        console.error(
+          "🔐 Login error (401):",
+          serverMessage || "No server message"
+        );
+        notificationService.error(userFriendlyMessage, toastTitle);
+        return { success: false, message: userFriendlyMessage };
+      }
+
+      // Handle other errors
       const serverMsg = err?.response?.data?.message;
       const message =
         serverMsg ||

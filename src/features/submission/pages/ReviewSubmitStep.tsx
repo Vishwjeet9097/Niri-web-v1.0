@@ -14,11 +14,12 @@ import { notificationService } from '@/services/NotificationBus';
 import { apiV2 } from '@/services/ApiService';
 import { config } from '@/config/environment';
 import { transformFormDataForSubmission, getFormDataSummary, debugFormData } from '@/utils/formDataTransformer';
-import { useFormValidation } from '../hooks/useFormValidation';
+import { SectionCard } from "../components/SectionCard";
+import { Plus, Trash2, Info } from "lucide-react";
 
 export const ReviewSubmitStep = () => {
-  const { currentStep, goToPrevious } = useStepNavigation(5);
-  const { formData, clearFormData } = useFormPersistence();
+  const { currentStep, goToStep, goToPrevious } = useStepNavigation(5);
+  const { formData, clearFormData, isResubmit } = useFormPersistence();
   const navigate = useNavigate();
   const [showPreview, setShowPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,16 +27,23 @@ export const ReviewSubmitStep = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submissionMessage, setSubmissionMessage] = useState('');
+  
+  // Check for edit mode
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(null);
 
-  // Use validation hook
-  const { validateAndProceed, isValidating } = useFormValidation({
-    onValidationSuccess: () => {
-      setShowConfirmModal(true);
-    },
-    onValidationError: (missingSections) => {
-      // Validation error handled by notification service
+  // Check for edit mode on mount
+  useEffect(() => {
+    const editingSubmissionId = localStorage.getItem('editing_submission_id');
+    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
+    
+    if (editingSubmissionId && isEditModeFlag) {
+      setIsEditMode(true);
+      setEditingSubmissionId(editingSubmissionId);
     }
-  });
+  }, []);
+
+  // Validation disabled - no validation hook needed
 
   // Debug form data on component mount only
   useEffect(() => {
@@ -59,28 +67,28 @@ export const ReviewSubmitStep = () => {
       icon: FileText,
       completed: 5,
       total: 5,
-      color: 'bg-blue-500/10 text-blue-600',
+      color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'Infrastructure Development',
       icon: Building2,
-      completed: 4,
+      completed: 5,
       total: 5,
-      color: 'bg-green-500/10 text-green-600',
+      color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'PPP Development',
       icon: Briefcase,
       completed: 1,
       total: 2,
-      color: 'bg-purple-500/10 text-purple-600',
+      color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'Infra Enablers',
       icon: Settings,
       completed: 3,
       total: 4,
-      color: 'bg-orange-500/10 text-orange-600',
+      color: 'bg-[#D3DCF8] text-primary',
     },
   ];
 
@@ -89,43 +97,51 @@ export const ReviewSubmitStep = () => {
       e.preventDefault();
       e.stopPropagation();
     }
-    
-    if (isSubmitting || isValidating) {
+
+    if (isSubmitting) {
       return;
     }
 
-    // Use validation hook to validate and proceed
-    await validateAndProceed(formData, () => {
-      // This callback will only run if validation passes
-    });
+    // Validation disabled - directly proceed to confirmation modal
+    setShowConfirmModal(true);
   };
 
   const handleConfirmSubmit = async () => {
     setIsSubmitting(true);
     setShowConfirmModal(false);
-    
+
     try {
       // Transform form data to required API format ONLY for submission
       const transformedPayload = transformFormDataForSubmission(formData, "SUBMITTED_TO_STATE");
       
-      const res = await apiV2.post(config.formsPath, transformedPayload);
+      let res;
+      
+      if (isEditMode && editingSubmissionId) {
+        // Edit mode - use resubmit API
+        res = await apiV2.post(`${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`, transformedPayload);
+      } else {
+        // Normal mode - create new submission
+        res = await apiV2.post(config.formsPath, transformedPayload);
+      }
       
       // Dynamic success message from response
       const successMessage = res.data?.message || 
-        'Your submission has been sent to the State Approver for review. You will be notified of its status.';
+        (isEditMode ? 'Your changes have been resubmitted successfully!' : 'Your submission has been sent to the State Approver for review. You will be notified of its status.');
       
       setSubmissionMessage(successMessage);
       setShowSuccessModal(true);
-      
+
       // Clear form data AFTER successful submission
-      // clearFormData(); // Commented out - don't clear localStorage for now
+      clearFormData(); // Clear localStorage after successful submission
+      localStorage.removeItem("editing_submission_id"); // Clear editing submission ID
+      localStorage.removeItem("is_edit_mode"); // Clear edit mode flag
     } catch (e: unknown) {
       // Dynamic error message from response
       const error = e as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = error?.response?.data?.message || 
-        error?.message || 
+      const errorMessage = error?.response?.data?.message ||
+        error?.message ||
         'Failed to submit. Please try again.';
-      
+
       notificationService.error(errorMessage, 'Submission Failed');
     } finally {
       setIsSubmitting(false);
@@ -143,38 +159,43 @@ export const ReviewSubmitStep = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+    <div className="w-full -mx-6 lg:-mx-8">
+      <div className="px-6 lg:px-8">
+        <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-primary" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold mb-2">Review & Submit</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Please review all the information you've provided before submitting your NIRI data. Once submitted, you can track the approval status in your dashboard.
-              </p>
-              <Badge variant="outline" className="font-mono">
-                Reference: NIRI321883
-              </Badge>
-            </div>
+      <div className="mb-6 bg-[#1E40AF14] p-6 rounded-lg border border-[#1E40AF52]">
+        <div className="flex items-start gap-4 ">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 className="w-6 h-6 text-primary" />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold mb-2">Review & Submit</h2>
+            <p className="text-sm text-[#727272] mb-4">
+              Please review all the information you've provided before submitting your NIRI data. Once submitted, you can track the approval status in your dashboard.
+            </p>
+            <Badge variant="outline" className="bg-[#1E40AF29] rounded-lg border p-2 border-[#7C96E9] text-primary">
+              Reference: NIRI321883
+            </Badge>
+          </div>
+        </div>
+      </div>
 
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-4">Submission Summary - Overview of your data submission</h3>
-
+      <SectionCard
+        title={<div className="flex flex-col">
+          <span className="text-base font-semibold ">
+            <span className="text-primary">Submission Summary - </span> Overview of your data submission{" "}
+          </span>
+        </div>}
+        subtitle=""
+        className="mb-6"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {sections.map((section, index) => {
             const Icon = section.icon;
             return (
-              <Card key={index} className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className={`w-12 h-12 rounded-lg ${section.color} flex items-center justify-center mb-4`}>
+              <div key={index} className="">
+                <CardContent className="pt-6 text-center">
+                  <div className={`w-12 h-12 rounded-lg ${section.color} flex items-center justify-center mb-4 mx-auto`}>
                     <Icon className="w-6 h-6" />
                   </div>
                   <h4 className="font-medium mb-2">{section.title}</h4>
@@ -185,38 +206,52 @@ export const ReviewSubmitStep = () => {
                     Edit
                   </Button>
                 </CardContent>
-              </Card>
+              </div>
             );
           })}
         </div>
-      </div>
+      </SectionCard>
 
-      <Alert className="mb-6 border-blue-200 bg-blue-50/50">
+      {/* <Alert className="mb-6 border-blue-200 bg-blue-50/50">
         <AlertDescription className="text-sm">
           <strong className="font-semibold">Important:</strong> After submission, your data will go through a multi-tier approval process. You will receive notifications at each stage and can track progress in your dashboard.
         </AlertDescription>
-      </Alert>
+      </Alert> */}
+      <div className="mb-6 bg-[#1E40AF14] p-6 rounded-lg border border-[#1E40AF52]">
+        <div className="flex items-start gap-4 ">
+          <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Info className="w-6 h-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-primary mb-2">Important</h2>
+            <p className="text-sm text-primary mb-4">
+              After submission, your data will go through a multi-tier approval process. You will receive notifications at each stage and can track progress in your dashboard.
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <div className="flex items-center justify-between pt-6 border-t">
+      <div className="flex items-center justify-between pt-6">
         <Button variant="outline" onClick={goToPrevious}>
           ← Previous
         </Button>
 
         <div className="flex gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setShowPreview(true)}
             disabled={isSubmitting}
           >
             <Eye className="w-4 h-4 mr-2" />
             Preview Submission
           </Button>
-          <Button 
+          <Button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || isValidating}
+            disabled={isSubmitting}
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            {isSubmitting ? 'Submitting...' : isValidating ? 'Validating...' : 'Submit Data'}
+            {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : (isEditMode || isResubmit ? 'Resubmit Data' : 'Submit Data')}
           </Button>
         </div>
       </div>
@@ -225,15 +260,18 @@ export const ReviewSubmitStep = () => {
       <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to submit?</AlertDialogTitle>
+            <AlertDialogTitle>{isEditMode || isResubmit ? 'Are you sure you want to resubmit?' : 'Are you sure you want to submit?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              Once submitted, your data will be locked for editing and sent to the State Approver for review.
+              {isEditMode || isResubmit
+                ? 'Once resubmitted, your updated data will be sent to the State Approver for review.'
+                : 'Once submitted, your data will be locked for editing and sent to the State Approver for review.'
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Send to State Approver'}
+              {isSubmitting ? (isEditMode || isResubmit ? 'Resubmitting...' : 'Submitting...') : (isEditMode || isResubmit ? 'Resubmit to State Approver' : 'Send to State Approver')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -247,7 +285,7 @@ export const ReviewSubmitStep = () => {
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
-              <AlertDialogTitle className="text-green-800">Data Submitted Successfully!</AlertDialogTitle>
+              <AlertDialogTitle className="text-green-800">{isResubmit ? 'Data Resubmitted Successfully!' : 'Data Submitted Successfully!'}</AlertDialogTitle>
             </div>
             <AlertDialogDescription className="text-gray-600">
               {submissionMessage}
@@ -260,6 +298,7 @@ export const ReviewSubmitStep = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 };

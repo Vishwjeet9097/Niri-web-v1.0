@@ -33,7 +33,9 @@ import { FileUploadSection } from "../components/FileUploadSection";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
-import { draftService } from "@/services/draft.service";
+// import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 
 const defaultData: InfraDevelopmentData = {
   section2_1: [],
@@ -52,10 +54,25 @@ const getDefaultFileUpload = (): FileUpload => ({
 });
 
 export const InfraDevelopmentStep = () => {
-  const { currentStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
+  const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
     useStepNavigation(2);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
   const { user } = useAuth();
+  
+  // Indicator access control
+  const { 
+    loading: indicatorLoading, 
+    error: indicatorError, 
+    assignedIndicators, 
+    hasIndicatorAccess, 
+    isNodalOfficer 
+  } = useIndicatorAccess();
+
+  // Delete file function
+  const onDelete = (fileId: string) => {
+    // Implementation for deleting file
+    console.log("Delete file:", fileId);
+  };
 
   // Note: Editing submission data is handled by useFormPersistence hook
 
@@ -75,14 +92,32 @@ export const InfraDevelopmentStep = () => {
   const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Also check for editing submission data directly
+  // Sync with localStorage data when component mounts or data changes
+  useEffect(() => {
+    const currentStepData = getStepData("infraDevelopment") as Partial<InfraDevelopmentData>;
+    if (currentStepData && Object.keys(currentStepData).length > 0) {
+      const syncedData: InfraDevelopmentData = {
+        ...defaultData,
+        ...currentStepData,
+        section2_1: currentStepData.section2_1 || [],
+        section2_2: currentStepData.section2_2 || [],
+        section2_3: currentStepData.section2_3 || [],
+        section2_4: currentStepData.section2_4 || [],
+        section2_5: currentStepData.section2_5 || [],
+      };
+      setFormData(syncedData);
+      console.log("🔄 Synced infraDevelopment data from localStorage in normal flow:", syncedData);
+    }
+  }, [getStepData]);
+
+  // Initialize form data only once when component mounts
   useEffect(() => {
     const editingSubmission = localStorage.getItem("editing_submission");
     if (editingSubmission) {
       try {
         const submissionData = JSON.parse(editingSubmission);
         console.log("🔍 Direct editing submission check in InfraDevelopmentStep:", submissionData);
-        
+
         if (submissionData.formData && submissionData.formData.infraDevelopment) {
           const stepData = submissionData.formData.infraDevelopment as Partial<InfraDevelopmentData>;
           const updatedData: InfraDevelopmentData = {
@@ -96,7 +131,7 @@ export const InfraDevelopmentStep = () => {
           };
           setFormData(updatedData);
           console.log("✅ Direct prefill from editing submission:", updatedData);
-          
+
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
         }
@@ -105,7 +140,7 @@ export const InfraDevelopmentStep = () => {
         localStorage.removeItem("editing_submission");
       }
     }
-  }, []);
+  }, []); // Empty dependency array to run only once
 
   // Autosave to localStorage with debouncing (avoid infinite loop)
   useEffect(() => {
@@ -300,43 +335,65 @@ export const InfraDevelopmentStep = () => {
 
 
   const handleSaveDraft = async () => {
-    try {
-      // Save to localStorage first
+    // Save to localStorage with toast message
+    const success = saveDraftToLocalStorage("infraDevelopment", formData);
+    
+    if (success) {
+      // Also update form data in persistence hook
       updateFormData("infraDevelopment", formData);
-      
-      // Generate submission ID if not exists
-      const submissionId = `DRAFT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-      
-      // Save to backend
-      const success = await draftService.saveDraft(
-        submissionId, 
-        formData, 
-        "infraDevelopment",
-        user?.id,
-        user?.state
-      );
-      
-      if (success) {
-        toast({
-          title: "Draft Saved",
-          description: "Your data has been saved as a draft.",
-          duration: 2000,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to save draft:", error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save draft. Please try again.",
-        variant: "destructive",
-        duration: 3000,
-      });
     }
   };
 
+  // Access control for NODAL_OFFICER
+  if (isNodalOfficer) {
+    // Check if user has access to any indicator in this section
+    const hasAccessToSection = hasIndicatorAccess('2.1') || hasIndicatorAccess('2.2') || 
+                              hasIndicatorAccess('2.3') || hasIndicatorAccess('2.4') || hasIndicatorAccess('2.5');
+    
+    console.log("🔍 InfraDevelopmentStep: Access control check", {
+      isNodalOfficer,
+      assignedIndicators,
+      hasAccessToSection,
+      hasAccess2_1: hasIndicatorAccess('2.1'),
+      hasAccess2_2: hasIndicatorAccess('2.2'),
+      hasAccess2_3: hasIndicatorAccess('2.3'),
+      hasAccess2_4: hasIndicatorAccess('2.4'),
+      hasAccess2_5: hasIndicatorAccess('2.5')
+    });
+
+    if (!hasAccessToSection) {
+      return (
+        <div className="w-full -mx-6 lg:-mx-8">
+          <div className="px-6 lg:px-8">
+            <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+          </div>
+          <div className="px-6 lg:px-8">
+            <ProgressHeader
+              title="Infrastructure Development"
+              description="Physical infrastructure development and completion metrics"
+              points={250}
+              completed={0}
+              total={5}
+              progress={0}
+            />
+            <div className="text-center py-12">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
+              <p className="text-gray-600 mb-4">
+                This section is not applicable for your submission. No data entry required here.
+              </p>
+              <Button onClick={goToNext} className="bg-primary text-white">
+                Continue to Next Step
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   // --- UI ---
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
       <ProgressHeader
         title="Infrastructure Development"
@@ -346,18 +403,21 @@ export const InfraDevelopmentStep = () => {
         total={5}
         progress={10}
       />
-
-
       {/* Section 2.1 */}
-      <SectionCard
-        title="2.1 - Availability of Infrastructure Act/Policy"
-        subtitle=""
-        className="mb-6"
-      >
-        <div className="flex flex-col gap-4">
+      {(!isNodalOfficer || hasIndicatorAccess('2.1')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.1 -</span> Availability of Infrastructure Act/Policy{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+        <div className="flex flex-col gap-4 ">
           {formData.section2_1.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div key={entry.id} className=" mb-2 relative">
+              <div className="flex flex-col gap-4 max-w-[70%]">
                 <div className="flex-1 w-full">
                   <Label>
                     Select Sector <span className="text-destructive">*</span>
@@ -405,44 +465,95 @@ export const InfraDevelopmentStep = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="self-start mt-6"
+                  className="self-start absolute top-2 right-2"
                   onClick={() => removeEntry("section2_1", entry.id)}
                   aria-label="Remove"
                 >
                   <Trash2 className="w-5 h-5 text-destructive" />
                 </Button>
               </div>
+
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addEntry("section2_1")}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add More Entry
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Upload copy of Act/Policy
-          </p>
-          {errors.section2_1 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_1}</p>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addEntry("section2_1")}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add More Entry
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload copy of Act/Policy
+            </p>
+
+            {errors.section2_1 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_1}</p>
+            )}
+          </div>
+          {formData.section2_1.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.section2_1.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_1", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.2 */}
-      <SectionCard
-        title="2.2 - Availability of Specialized Entity"
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.2')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.2 -</span> Availability of Specialized Entity{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_2.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div key={entry.id} className="mb-2 relative">
+              <div className="flex flex-col gap-4 max-w-[70%]">
                 <div className="flex-1 w-full">
                   <Label>
                     Select Sector <span className="text-destructive">*</span>
@@ -490,7 +601,7 @@ export const InfraDevelopmentStep = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="self-start mt-6"
+                  className="absolute top-2 right-2"
                   onClick={() => removeEntry("section2_2", entry.id)}
                   aria-label="Remove"
                 >
@@ -499,33 +610,82 @@ export const InfraDevelopmentStep = () => {
               </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addEntry("section2_2")}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add More Entry
-          </Button>
-          <p className="text-xs text-muted-foreground">Upload evidence</p>
-          {errors.section2_2 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_2}</p>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addEntry("section2_2")}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add More Entry
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">Upload evidence</p>
+            {errors.section2_2 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_2}</p>
+            )}
+          </div>
+          {formData.section2_2.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.section2_2.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_2", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.3 */}
-      <SectionCard
-        title="2.3 - Availability of Sector Infra Development Plan"
-        subtitle=""
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.3')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.3 -</span> Availability of Sector Infra Development Plan{" "}
+            </span>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_3.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div key={entry.id} className="mb-2 relative">
+              <div className="flex flex-col gap-4 max-w-[70%]">
                 <div className="flex-1 w-full">
                   <Label>
                     Select Sector <span className="text-destructive">*</span>
@@ -573,7 +733,7 @@ export const InfraDevelopmentStep = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="self-start mt-6"
+                  className="absolute top-2 right-2"
                   onClick={() => removeEntry("section2_3", entry.id)}
                   aria-label="Remove"
                 >
@@ -582,33 +742,82 @@ export const InfraDevelopmentStep = () => {
               </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addEntry("section2_3")}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add More Entry
-          </Button>
-          <p className="text-xs text-muted-foreground">Upload plan</p>
-          {errors.section2_3 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_3}</p>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addEntry("section2_3")}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add More Entry
+            </Button>
+            <p className="text-xs text-muted-foreground mt-1">Upload plan</p>
+            {errors.section2_3 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_3}</p>
+            )}
+          </div>
+          {formData.section2_3.length > 0 && (
+            <div className="overflow-x-auto rounded-xl">
+              <table className="min-w-full border-separate border-spacing-0 ">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.section2_3.map((entry, idx) => (
+                    <tr key={entry.id} className="bg-white">
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.sector}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileName || "No file uploaded"}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-normal">
+                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => removeEntry("section2_3", entry.id)}
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.4 */}
-      <SectionCard
-        title="2.4 - Availability of Investment Ready Project Pipeline"
-        subtitle="Annex 5: Upload DPR/Feasibility Report"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.4')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
+            </span>
+          </div>}
+          subtitle="Annex 5: Upload DPR/Feasibility Report"
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_4.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div key={entry.id} className="mb-2 relative">
+              <div className="flex flex-col gap-4 max-w-[70%]">
                 <div className="flex-1 w-full">
                   <Label>
                     Project Name <span className="text-destructive">*</span>
@@ -636,7 +845,7 @@ export const InfraDevelopmentStep = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="self-start mt-6"
+                  className="absolute top-2 right-2"
                   onClick={() => removeProject(entry.id)}
                   aria-label="Remove"
                 >
@@ -645,32 +854,40 @@ export const InfraDevelopmentStep = () => {
               </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addProject}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Project
-          </Button>
-          {errors.section2_4 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_4}</p>
-          )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addProject}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Project
+            </Button>
+            {errors.section2_4 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_4}</p>
+            )}
+          </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Section 2.5 */}
-      <SectionCard
-        title="2.5 - Availability of Asset Monetization Pipeline"
-        subtitle="Annex 6"
-        className="mb-6"
-      >
+      {(!isNodalOfficer || hasIndicatorAccess('2.5')) && (
+        <SectionCard
+          title={<div className="flex flex-col">
+            <span className="text-base font-semibold ">
+              <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
+            </span>
+          </div>}
+          subtitle="Annex 6"
+          className="mb-6"
+        >
         <div className="flex flex-col gap-4">
           {formData.section2_5.map((entry, idx) => (
-            <div key={entry.id} className="border rounded-lg p-4 bg-white mb-2">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+            <div key={entry.id} className="mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                 <div>
                   <Label>
                     Project/Asset Name{" "}
@@ -757,49 +974,55 @@ export const InfraDevelopmentStep = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Estimated Monetization</Label>
-                  <Input
-                    type="number"
-                    placeholder="Estimated Monetization"
-                    value={entry.estimatedMonetization}
-                    onChange={(e) =>
-                      updateAsset(
-                        entry.id,
-                        "estimatedMonetization",
-                        e.target.value,
-                      )
-                    }
-                  />
+                <div className="flex items-center gap-2">
+                  <div>
+                    <Label>Estimated Monetization</Label>
+                    <Input
+                      type="number"
+                      placeholder="Estimated Monetization"
+                      value={entry.estimatedMonetization}
+                      onChange={(e) =>
+                        updateAsset(
+                          entry.id,
+                          "estimatedMonetization",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="self-start mt-6"
+                    onClick={() => removeAsset(entry.id)}
+                    aria-label="Remove"
+                  >
+                    <Trash2 className="w-5 h-5 text-destructive" />
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="self-start mt-6"
-                  onClick={() => removeAsset(entry.id)}
-                  aria-label="Remove"
-                >
-                  <Trash2 className="w-5 h-5 text-destructive" />
-                </Button>
+
               </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addAsset}
-            className="w-fit"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add More Asset
-          </Button>
-          {errors.section2_5 && (
-            <p className="text-xs text-destructive mt-1">{errors.section2_5}</p>
-          )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addAsset}
+              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4 " />
+              Add More Asset
+            </Button>
+            {errors.section2_5 && (
+              <p className="text-xs text-destructive mt-1">{errors.section2_5}</p>
+            )}
+          </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      )}
 
       {/* Navigation Buttons */}
       <FormActions

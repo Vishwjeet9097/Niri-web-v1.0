@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { getRoleDisplayName } from "@/utils/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { InfoIcon } from "lucide-react";
+import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
+import { Badge } from "@/components/ui/badge";
+import { InfoIcon, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import {
   Tooltip,
@@ -18,15 +21,27 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { statesService, State } from "@/services/states.service";
+import { apiService } from "@/services/api.service";
+import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
-  onSave: (data: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string }) => void;
+  onSave: (data: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => void;
   onCancel: () => void;
 }
 
 export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   const { user } = useAuth();
+  
+  // Debug user info (temporarily enabled)
+  console.log("🔍 UserForm - User info:", {
+    userRole: user?.role,
+    userState: user?.state,
+    userEmail: user?.email,
+    isAdmin: user?.role === "ADMIN"
+  });
+  
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -34,22 +49,174 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     email: "",
     password: "",
     role: "NODAL_OFFICER",
+    stateId: "",
+    assignedIndicators: [] as string[],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [states, setStates] = useState<State[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showAllSelectedIndicators, setShowAllSelectedIndicators] = useState(false);
+
+  // Create indicator options for multi-select
+  const indicatorOptions: MultiSelectOption[] = INDICATOR_SECTIONS.flatMap(section =>
+    section.indicators.map(indicator => ({
+      value: indicator,
+      label: `${indicator} - ${getIndicatorDisplayName(indicator)}`,
+      section: section.name,
+      description: section.description
+    }))
+  );
+
+  // Handle indicator selection change
+  const handleIndicatorChange = (selectedIndicators: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      assignedIndicators: selectedIndicators
+    }));
+  };
+
+  // Get available roles based on current user's role
+  const getAvailableRoles = useCallback(() => {
+    const currentUserRole = user?.role;
+    
+    console.log("🔍 getAvailableRoles - Current user role:", currentUserRole);
+    
+    switch (currentUserRole) {
+      case "STATE_APPROVER":
+        // State Approver can only create Nodal Officers
+        return [
+          { value: "NODAL_OFFICER", label: getRoleDisplayName("NODAL_OFFICER") },
+        ];
+      case "MOSPI_APPROVER":
+        // MoSPI Approver can create MoSPI Reviewers and State Approvers
+        return [
+          { value: "MOSPI_REVIEWER", label: getRoleDisplayName("MOSPI_REVIEWER") },
+          { value: "STATE_APPROVER", label: getRoleDisplayName("STATE_APPROVER") },
+        ];
+      case "ADMIN":
+        // Admin can create all roles (for system administration)
+        return [
+          { value: "NODAL_OFFICER", label: getRoleDisplayName("NODAL_OFFICER") },
+          { value: "STATE_APPROVER", label: getRoleDisplayName("STATE_APPROVER") },
+          { value: "MOSPI_REVIEWER", label: getRoleDisplayName("MOSPI_REVIEWER") },
+          { value: "MOSPI_APPROVER", label: getRoleDisplayName("MOSPI_APPROVER") },
+          { value: "ADMIN", label: getRoleDisplayName("ADMIN") },
+        ];
+      default:
+        // Default fallback - no roles available
+        return [];
+    }
+  }, [user?.role]);
 
   useEffect(() => {
     if (officer) {
+      console.log("🔍 Setting form data for officer:", {
+        officer,
+        stateId: officer.stateId,
+        state: officer.state
+      });
       setFormData({
-        firstName: officer.firstName,
-        lastName: officer.lastName,
-        contactNumber: officer.contactNumber,
-        email: officer.email,
+        firstName: officer.firstName || "",
+        lastName: officer.lastName || "",
+        contactNumber: officer.contactNumber || "",
+        email: officer.email || "",
         password: "", // Don't show password for existing users
-        role: officer.role,
+        role: officer.role || "NODAL_OFFICER",
+        stateId: "", // Will be set after states are loaded
+        assignedIndicators: Array.isArray(officer.assignedIndicators) 
+          ? officer.assignedIndicators 
+          : (officer.assignedIndicators?.map((ai: any) => ai.indicator?.code || ai.indicatorId) || []),
+      });
+    } else {
+      // Reset form when no officer (new user)
+      // Set default role based on current user's permissions
+      const availableRoles = getAvailableRoles();
+      const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
+      
+      setFormData({
+        firstName: "",
+        lastName: "",
+        contactNumber: "",
+        email: "",
+        password: "",
+        role: defaultRole,
+        stateId: user?.role === "ADMIN" ? "" : (user?.state || ""), // ✅ Admin can select any state, others use current state
+        assignedIndicators: [],
       });
     }
-  }, [officer]);
+  }, [officer, user?.state, user?.role, getAvailableRoles]);
+
+  // Load states on component mount
+  useEffect(() => {
+    const loadStates = async () => {
+      setLoadingStates(true);
+      try {
+        const statesData = await statesService.getStates();
+        console.log("🔍 States loaded in UserForm:", {
+          statesCount: statesData.length,
+          firstState: statesData[0],
+          userRole: user?.role
+        });
+        setStates(statesData);
+        
+        // If we have an officer but no stateId, try to find it by stateUt/state name
+        if (officer && (!officer.stateId || officer.stateId === "") && officer.state) {
+          console.log("🔍 Looking for state match:", {
+            officerState: officer.state,
+            statesData: statesData.length
+          });
+          
+          const foundState = statesData.find(state => 
+            state.name.toLowerCase() === officer.state.toLowerCase() ||
+            state.code.toLowerCase() === officer.state.toLowerCase()
+          );
+          
+          if (foundState) {
+            console.log("🔍 Found matching state:", foundState);
+            setFormData(prev => ({
+              ...prev,
+              stateId: foundState.id
+            }));
+          } else {
+            console.warn("⚠️ No matching state found for:", officer.state);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading states:", error);
+      } finally {
+        setLoadingStates(false);
+      }
+    };
+
+    loadStates();
+  }, [officer, user?.role]);
+
+  // Set stateId after states are loaded and officer is available
+  useEffect(() => {
+    if (officer && states.length > 0 && !formData.stateId) {
+      console.log("🔍 Setting stateId after states loaded:", {
+        officerState: officer.state,
+        statesCount: states.length
+      });
+      
+      const foundState = states.find(state => 
+        state.name.toLowerCase() === officer.state.toLowerCase() ||
+        state.code.toLowerCase() === officer.state.toLowerCase()
+      );
+      
+      if (foundState) {
+        console.log("🔍 Found matching state for form:", foundState);
+        setFormData(prev => ({
+          ...prev,
+          stateId: foundState.id
+        }));
+      } else {
+        console.warn("⚠️ No matching state found for form:", officer.state);
+      }
+    }
+  }, [officer, states, formData.stateId]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -72,6 +239,8 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
+    } else if (!/@(gov\.in|nic\.in)$/i.test(formData.email)) {
+      newErrors.email = "Only @gov.in and @nic.in email addresses are allowed";
     }
 
     // Password is required only for new users
@@ -85,52 +254,18 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       newErrors.role = "Role is required";
     }
 
+    // ✅ State validation for ADMIN only
+    if (user?.role === "ADMIN" && !formData.stateId) {
+      newErrors.stateId = "State is required";
+    }
+
+    // ✅ Indicator validation for NODAL_OFFICER
+    if (formData.role === "NODAL_OFFICER" && formData.assignedIndicators.length === 0) {
+      newErrors.assignedIndicators = "At least one indicator must be assigned to Nodal Officer";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  // Get available roles based on current user's role
-  const getAvailableRoles = () => {
-    const currentUserRole = user?.role;
-    
-    switch (currentUserRole) {
-      case "STATE_APPROVER":
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-        ];
-      case "ADMIN":
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-          { value: "ADMIN", label: "Admin" },
-        ];
-      case "MOSPI_REVIEWER":
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-        ];
-      case "MOSPI_APPROVER":
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-        ];
-      default:
-        return [
-          { value: "NODAL_OFFICER", label: "Nodal Officer" },
-          { value: "STATE_APPROVER", label: "State Approver" },
-          { value: "MOSPI_REVIEWER", label: "MoSPI Reviewer" },
-          { value: "MOSPI_APPROVER", label: "MoSPI Approver" },
-        ];
-    }
   };
 
   const handleSubmit = () => {
@@ -138,6 +273,13 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       console.log("🔍 Form data being submitted:", formData);
       onSave(formData);
     }
+  };
+
+  // Get selected state name for display
+  const getSelectedStateName = () => {
+    if (!formData.stateId) return "";
+    const selectedState = states.find(state => state.id === formData.stateId);
+    return selectedState ? selectedState.name : formData.stateId; // Fallback to stateId if not found
   };
 
   return (
@@ -247,7 +389,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Enter official email address</p>
+                  <p>Only @gov.in and @nic.in email addresses are allowed</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -255,11 +397,35 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
           <Input
             id="email"
             type="email"
-            placeholder="e.g. example@email.com"
+            placeholder="e.g. user@gujarat.gov.in or user@nic.in"
             value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
+            onChange={(e) => {
+              const email = e.target.value;
+              setFormData({ ...formData, email });
+              
+              // Real-time validation for email domain
+              if (email.trim() === "") {
+                // Clear error if field is empty
+                setErrors(prev => {
+                  const newErrors = { ...prev };
+                  delete newErrors.email;
+                  return newErrors;
+                });
+              } else if (!/@(gov\.in|nic\.in)$/i.test(email)) {
+                // Show error if domain is not @gov.in or @nic.in
+                setErrors(prev => ({
+                  ...prev,
+                  email: "Only @gov.in and @nic.in email addresses are allowed"
+                }));
+              } else {
+                // Clear error if domain is correct
+                setErrors(prev => {
+                  const newErrors = { ...prev };
+                  delete newErrors.email;
+                  return newErrors;
+                });
+              }
+            }}
             className={errors.email ? "border-destructive" : ""}
           />
           {errors.email && (
@@ -283,23 +449,36 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                 </Tooltip>
               </TooltipProvider>
             </Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter password (min 6 characters)"
-              value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
-              className={errors.password ? "border-destructive" : ""}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter password (min 6 characters)"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                className={errors.password ? "border-destructive pr-10" : "pr-10"}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password}</p>
             )}
           </div>
         )}
 
-        <div className="space-y-2 col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="role" className="flex items-center gap-2">
             Role
             <span className="text-destructive">*</span>
@@ -338,7 +517,180 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
             <p className="text-sm text-destructive">{errors.role}</p>
           )}
         </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="stateId" className="flex items-center gap-2">
+            State/UT
+            <span className="text-destructive">*</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {user?.role === "ADMIN" 
+                      ? "Select the state/union territory for the user" 
+                      : "State will be automatically set to your current state"
+                    }
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </Label>
+          
+          {user?.role === "ADMIN" ? (
+            <Select
+              value={formData.stateId}
+              onValueChange={(value) => {
+                console.log("🔍 State selected in UserForm:", {
+                  selectedValue: value,
+                  valueType: typeof value,
+                  valueLength: value.length,
+                  currentUserRole: user?.role,
+                  currentUserState: user?.state,
+                  formDataBefore: formData,
+                  availableStates: states.length,
+                  matchingState: states.find(s => s.id === value)
+                });
+                
+                // Temporarily disable validation to allow state selection
+                // if (value && (value.includes('q') || value.length < 3 || /\d.*[a-zA-Z]/.test(value))) {
+                //   console.error("❌ Invalid state selected:", value);
+                //   return;
+                // }
+                
+                setFormData({ ...formData, stateId: value });
+              }}
+              disabled={loadingStates}
+            >
+              <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
+                <SelectValue 
+                  placeholder={loadingStates ? "Loading states..." : "Select state/UT"}
+                >
+                  {formData.stateId ? getSelectedStateName() : (loadingStates ? "Loading states..." : "Select state/UT")}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {loadingStates ? (
+                  <div className="flex items-center justify-center p-2">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Loading states...
+                  </div>
+                ) : (
+                  states.map((state) => (
+                    <SelectItem 
+                      key={state.id} 
+                      value={state.id}
+                      disabled={!state.isActive}
+                    >
+                      {state.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              id="stateId"
+              value={user?.state || "Loading..."}
+              disabled={true}
+              className="bg-muted"
+              placeholder="Your current state"
+            />
+          )}
+          
+          {user?.role === "ADMIN" ? (
+            <p className="text-sm text-muted-foreground">
+              Select the state where you want to create the user
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Users will be created in your current state: <strong>{user?.state}</strong>
+            </p>
+          )}
+          
+          {errors.stateId && (
+            <p className="text-sm text-destructive">{errors.stateId}</p>
+          )}
+        </div>
+
+        {/* Indicator Assignment Section - Only for NODAL_OFFICER */}
+        {formData.role === "NODAL_OFFICER" && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Assign Indicators
+              <span className="text-destructive">*</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Select indicators that this Nodal Officer will be responsible for</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
+            
+            <MultiSelect
+              options={indicatorOptions}
+              value={formData.assignedIndicators}
+              onChange={handleIndicatorChange}
+              placeholder="Search and select indicators..."
+              searchPlaceholder="Type to search indicators..."
+              showSearch={true}
+              showSelectAll={true}
+              showSectionHeaders={true}
+              groupBySection={true}
+              className="w-full"
+              maxHeight="250px"
+            />
+            
+            {errors.assignedIndicators && (
+              <p className="text-sm text-destructive">{errors.assignedIndicators}</p>
+            )}
+            
+            {/* Selected Indicators Summary */}
+            {formData.assignedIndicators.length > 0 && (
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">
+                    Selected ({formData.assignedIndicators.length})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {(showAllSelectedIndicators ? formData.assignedIndicators : formData.assignedIndicators.slice(0, 3)).map((indicator, index) => (
+                    <Badge key={`indicator-${index}-${indicator}`} variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                      {indicator}
+                    </Badge>
+                  ))}
+                  {formData.assignedIndicators.length > 3 && !showAllSelectedIndicators && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSelectedIndicators(true)}
+                      className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+                    >
+                      +{formData.assignedIndicators.length - 3} more
+                    </button>
+                  )}
+                  {showAllSelectedIndicators && formData.assignedIndicators.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSelectedIndicators(false)}
+                      className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+                    >
+                      Show less
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
 
       <div className="flex justify-end gap-3 pt-6">
         <Button variant="outline" onClick={onCancel}>
@@ -348,4 +700,32 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       </div>
     </div>
   );
+}
+
+// Helper function to get indicator display name
+function getIndicatorDisplayName(indicatorCode: string): string {
+  const indicatorNames: Record<string, string> = {
+    "1.1": "Capex to GSDP Ratio",
+    "1.2": "Capex Utilization",
+    "1.3": "Credit Rated ULBs",
+    "1.4": "ULBs Issuing Bonds",
+    "1.5": "Functional Financial Intermediary",
+    "2.1": "Infrastructure Act/Policy",
+    "2.2": "Specialized Entity",
+    "2.3": "Sector Infrastructure Plan",
+    "2.4": "Investment Ready Pipeline",
+    "2.5": "Asset Monetization Pipeline",
+    "3.1": "PPP Act/Policy",
+    "3.2": "PPP Cell",
+    "3.3": "VGF/IIPDF Proposals",
+    "3.4": "PPP Bankable Projects",
+    "3.5": "PPP Project Monitoring",
+    "4.1": "PMG Portal Eligible",
+    "4.2": "State PMG Portal",
+    "4.3": "PM Gati Shakti Adoption",
+    "4.4": "ADR Adoption",
+    "4.5": "Innovative Practices",
+  };
+
+  return indicatorNames[indicatorCode] || indicatorCode;
 }

@@ -13,10 +13,10 @@ export const SectionCard = ({ title, subtitle, children, className }: SectionCar
   return (
     <Card className={cn('mb-6', className)}>
       <CardHeader className="bg-muted/30">
-        <CardTitle className="text-base font-semibold text-primary">{title}</CardTitle>
-        {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
+        <CardTitle className="text-base font-semibold bg-[#E9EDFB] px-6 py-2">{title}</CardTitle>
+        {subtitle && <p className="mt-1 text-xs text-muted-foreground font-normal px-6">{subtitle}</p>}
       </CardHeader>
-      <CardContent className="pt-6">{children}</CardContent>
+      <CardContent className="">{children}</CardContent>
     </Card>
   );
 };

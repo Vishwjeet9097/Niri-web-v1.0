@@ -30,7 +30,7 @@ const StateRankingTable = ({
     { label: "PPP", key: "ppp", width: 80 },
     { label: "Enablers", key: "enablers", width: 90 },
     { label: "Category", key: "category", width: 120 },
-    { label: "YoY Change", key: "yoyChange", width: 90 },
+    // { label: "YoY Change", key: "yoyChange", width: 90 },
   ];
 
   // Helper to get category badge color
@@ -89,15 +89,16 @@ const StateRankingTable = ({
   const getRowStyle = (isUserState) =>
     isUserState
       ? {
-          background: "#2B5CB8",
-          color: "#fff",
+          background: "#fff",
+          color: "#000",
           fontWeight: 600,
+          borderLeft: "4px solid #2B5CB8",
         }
       : {};
 
   // Helper to get text color for user state row
   const getCellTextColor = (isUserState) =>
-    isUserState ? { color: "#fff" } : {};
+    isUserState ? { color: "#000" } : {};
 
   // Helper to get score percent string
   const getScorePercent = (scorePercent) =>
@@ -200,7 +201,7 @@ const StateRankingTable = ({
                   <div
                     style={{
                       fontSize: 13,
-                      color: state.isUserState ? "#fff" : "#888",
+                      color: state.isUserState ? "#666" : "#888",
                       marginTop: 2,
                     }}
                   >
@@ -220,7 +221,7 @@ const StateRankingTable = ({
                   <span
                     style={{
                       fontSize: 13,
-                      color: state.isUserState ? "#fff" : "#888",
+                      color: state.isUserState ? "#666" : "#888",
                       marginLeft: 4,
                     }}
                   >
@@ -238,7 +239,7 @@ const StateRankingTable = ({
                   <span
                     style={{
                       fontSize: 13,
-                      color: state.isUserState ? "#fff" : "#888",
+                      color: state.isUserState ? "#666" : "#888",
                       marginLeft: 2,
                     }}
                   >
@@ -256,7 +257,7 @@ const StateRankingTable = ({
                   <span
                     style={{
                       fontSize: 13,
-                      color: state.isUserState ? "#fff" : "#888",
+                      color: state.isUserState ? "#666" : "#888",
                       marginLeft: 2,
                     }}
                   >
@@ -274,7 +275,7 @@ const StateRankingTable = ({
                   <span
                     style={{
                       fontSize: 13,
-                      color: state.isUserState ? "#fff" : "#888",
+                      color: state.isUserState ? "#666" : "#888",
                       marginLeft: 2,
                     }}
                   >
@@ -292,7 +293,7 @@ const StateRankingTable = ({
                   <span
                     style={{
                       fontSize: 13,
-                      color: state.isUserState ? "#fff" : "#888",
+                      color: state.isUserState ? "#666" : "#888",
                       marginLeft: 2,
                     }}
                   >
@@ -318,9 +319,9 @@ const StateRankingTable = ({
                   </div>
                 </td>
                 {/* YoY Change */}
-                <td style={{ padding: "14px 12px" }}>
+                {/* <td style={{ padding: "14px 12px" }}>
                   {getYoYChange(state.yoyChange)}
-                </td>
+                </td> */}
               </tr>
             ))
           )}
