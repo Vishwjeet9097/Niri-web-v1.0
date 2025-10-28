@@ -53,6 +53,8 @@ export default function ReviewerSubmissionsTable() {
 
   const filteredSubmissions = submissions.filter((submission) => {
     // State filter
+
+    console.log(submission.stateUt, selectedState);
     const stateMatch = selectedState === "All" || submission.stateUt === selectedState;
     
     // Search filter
