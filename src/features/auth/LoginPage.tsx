@@ -181,7 +181,7 @@ export function LoginPage() {
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-white transition-colors duration-300">
       {/* --- Top Bar (edge-to-edge) --- */}
-      <header className="w-full bg-[#003366] text-white dark:bg-gray-950 dark:text-white py-2 px-6 flex justify-between items-center text-sm transition-colors duration-300">
+      <header className="w-full bg-[#003366] text-white dark:bg-gray-950 dark:text-white py-2 px-6 flex justify-between items-center text-sm transition-colors duration-300 sticky top-0 z-50">
         <div className="flex items-center space-x-3">
           <img
             src="https://doc.ux4g.gov.in/assets/img/icon/in-flag.png"
