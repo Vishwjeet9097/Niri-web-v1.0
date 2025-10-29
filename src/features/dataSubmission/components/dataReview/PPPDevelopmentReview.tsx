@@ -465,31 +465,45 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formDataState?.section3_4 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-[70%]">
-                    <div>
-                      <Label>Total TPC of PPP Projects</Label>
-                      <Input value={formData.section3_4.totalTPC || ""} readOnly />
+              {formDataState?.section3_4?.projects && formDataState.section3_4.projects.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {formDataState.section3_4.projects.map((project: any, idx: number) => (
+                    <div key={project.id || idx} className="border rounded-lg p-4">
+                      <h4 className="font-medium mb-3">Project {idx + 1}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Name of PPP/Bankable Projects</Label>
+                          <Input value={project.nameOfProject || ""} readOnly />
+                        </div>
+                        <div>
+                          <Label>NIP ID</Label>
+                          <Input value={project.nipId || ""} readOnly />
+                        </div>
+                        <div>
+                          <Label>Funding Source</Label>
+                          <Input value={project.fundingSource || ""} readOnly />
+                        </div>
+                        <div>
+                          <Label>Infrastructure Sector</Label>
+                          <Input value={project.infrastructureSector || ""} readOnly />
+                        </div>
+                        <div>
+                          <Label>Date of Award</Label>
+                          <Input value={project.dateOfAward ? new Date(project.dateOfAward).toLocaleDateString() : ""} readOnly />
+                        </div>
+                        <div>
+                          <Label>% of Capex funded by non-Govt sources</Label>
+                          <Input value={project.capexPercentage || ""} readOnly />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <Label>Proportion</Label>
-                      <Input value={formData.section3_4.proportion ? `${formData.section3_4.proportion}%` : ""} readOnly />
-                    </div>
-                    <div>
-                      <Label>Marks Obtained</Label>
-                      <Input value={formData.section3_4.marksObtained ? `${formData.section3_4.marksObtained} marks` : ""} readOnly />
-                    </div>
-                    <div>
-                      <Label>TPC of PPP Projects</Label>
-                      <Input value={formData.section3_4.tpcOfPPPProjects || ""} readOnly />
-                    </div>
-                  </div>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center text-muted-foreground py-4">
-                  No TPC of PPP Projects data available
+                  No PPP Projects data available
                 </div>
               )}
-
             </div>
         </SectionCard>
         )}
