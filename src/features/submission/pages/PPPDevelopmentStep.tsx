@@ -4,7 +4,6 @@ import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -206,19 +205,13 @@ export const PPPDevelopmentStep = () => {
     const section3_3Calc = calculateSection3_3();
     const section3_4Calc = calculateSection3_4();
 
-    setFormData(prev => ({
-      ...prev,
-      section3_3: prev.section3_3.map(project => ({
-        ...project,
-        marksObtained: section3_3Calc.marksObtained
-      })),
-      section3_4: {
-        ...prev.section3_4,
-        proportion: section3_4Calc.proportion,
-        marksObtained: section3_4Calc.marksObtained
-      }
-    }));
-  }, [formData.section3_3.length, formData.section3_4.projects.length]);
+    // Check if update is needed
+    const shouldUpdate3_3 = formData.section3_3.some(
+      project => project.marksObtained !== section3_3Calc.marksObtained
+    );
+    const shouldUpdate3_4 =
+      formData.section3_4.proportion !== section3_4Calc.proportion ||
+      formData.section3_4.marksObtained !== section3_4Calc.marksObtained;
 
     if (shouldUpdate3_3 || shouldUpdate3_4) {
       setFormData(prev => ({
@@ -607,34 +600,46 @@ export const PPPDevelopmentStep = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-full">
-                  <Label>Submission Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                          !entry.submissionDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "DD-MM-YYYY"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={entry.submissionDate ? new Date(entry.submissionDate) : undefined}
-                        onSelect={(date) =>
-                          updateProject(entry.id, "submissionDate", date ? date.toISOString() : "")
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="flex justify-end">
+                <div className="flex items-center gap-2 w-full">
+                  <div className="w-full">
+                    <Label>Submission Date</Label>
+                    <Input
+                      type="date"
+                      value={entry.submissionDate}
+                      onChange={(e) =>
+                        updateProject(entry.id, "submissionDate", e.target.value)
+                      }
+                    />
+                    {/* <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={updateProject(
+                            "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
+                            !entry.submissionDatee && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={entry.submissionDate ? new Date(entry.submissionDate) : undefined}
+                          onSelect={(date) =>
+                            setFormData(prev => ({
+                              ...prev,
+                              section1_3: prev.section1_3.map(item =>
+                                item.id === entry.id ? { ...item, submissionDate: date ? date.toISOString() : "" } : item
+                              )
+                            }))
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover> */}
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
