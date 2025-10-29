@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { transformFormDataToNiriSubmission, validateNiriSubmission, transformNiriSubmissionToFormData } from '@/utils/submissionTransformer';
+import { transformFormDataToNiriSubmission, transformFormDataToSectionSubmission, validateNiriSubmission, transformNiriSubmissionToFormData } from '@/utils/submissionTransformer';
 import { apiService } from '@/services/api.service';
 import { authService } from '@/services/auth.service';
 import { useToast } from '@/hooks/use-toast';
@@ -14,7 +14,7 @@ import { useIndicatorAccess } from '@/hooks/useIndicatorAccess';
 import { IndicatorSection } from '@/components/IndicatorSection';
 import { filterFormDataByIndicators, validateFormDataAccess } from '@/utils/indicatorUtils';
 import { Download, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
-
+import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 // Import all indicator components
 import { Section1_1_CapexToGSDP } from '@/components/IndicatorSections/Section1_1_CapexToGSDP';
 import { Section1_2_CapexUtilization } from '@/components/IndicatorSections/Section1_2_CapexUtilization';
@@ -373,9 +373,32 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       });
     }
   };
+function appendFilesRecursively(formDataObj: FormData, data: any, prefix = '') {
+  if (!data || typeof data !== 'object') return;
 
-  const handleSubmit = async () => {
-    if (!validateForm()) {
+  for (const key in data) {
+    const value = data[key];
+    const path = prefix ? `${prefix}.${key}` : key;
+
+    // Case 1: Single file object
+    if (value && value.file instanceof File) {
+      formDataObj.append('files', value.file, value.file.name);
+    }
+
+    // Case 2: Array of files (like section2_1.files)
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        appendFilesRecursively(formDataObj, item, `${path}[${index}]`);
+      });
+    }
+    // Case 3: Nested object
+    else if (typeof value === 'object') {
+      appendFilesRecursively(formDataObj, value, path);
+    }
+  }
+}
+const handleSubmit = async () => {
+   if (!validateForm()) {
       toast({
         title: "Validation Error",
         description: "Please fix the errors before submitting",
@@ -383,24 +406,19 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       });
       return;
     }
-
-    setLoading(true);
-    try {
-      // For NODAL_OFFICER, filter form data to only include assigned indicators
-      let submissionData = formData;
-      if (isNodalOfficer && assignedIndicators.length > 0) {
+  setLoading(true);
+  try {
+    console.log("🚀 Creating NIRI submission...");  
+    let submissionData = formData;
+if (isNodalOfficer && assignedIndicators.length > 0) {
         submissionData = filterFormDataByIndicators(formData, assignedIndicators);
     // Debug logging removed for performance
 
-      }
-
-      // Transform form data to NIRI format
-      const niriSubmission = transformFormDataToNiriSubmission(
-        submissionData,
-        user?.id || '',
-        user?.state || ''
-      );
-    // Debug logging removed for performance
+      }    const niriSubmission = transformFormDataToSectionSubmission(
+      formData,
+      user?.id || '',
+      user?.state || ''
+    );
 
       // Validate NIRI submission
       const validation = validateNiriSubmission(niriSubmission);
@@ -413,28 +431,32 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
         });
         return;
       }
-      
-      // Submit to backend
-      const response = await apiService.createSubmission(niriSubmission);
-      
-      toast({
-        title: "Success",
-        description: "Submission created successfully",
-      });
-      
-      onSuccess?.(response);
-    } catch (error: any) {
-      console.error("❌ Submission Error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create submission",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    const formDataObj = new FormData();
+    formDataObj.append("submission", JSON.stringify(niriSubmission));
 
+    appendFilesRecursively(formDataObj, formData);
+
+    console.group("🧾 Final FormData to be sent:");
+    for (const [key, value] of formDataObj.entries()) {
+      console.log(key, value instanceof File ? value.name : value);
+    }
+    console.groupEnd();
+
+    const response = await apiService.postMultipart("/submission", formDataObj);
+
+    console.log("✅ Submission response:", response);
+    toast({ title: "Success", description: "Submission created successfully" });
+  } catch (error: any) {
+    console.error("❌ Submission failed:", error);
+    toast({
+      title: "Error",
+      description: error.message || "Failed to create submission",
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
   const renderSection = (sectionId: string, title: string, fields: string[]) => {
     // Debug logging removed for performance
 
@@ -1112,6 +1134,7 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
         'pmgPortalEligible', 'statePmgPortal', 'pmGatiShaktiAdoption',
         'adrAdoption', 'innovativePractices', 'capacityBuilding'
       ])}
+
 
       <div className="flex justify-end gap-4">
         {onCancel && (
