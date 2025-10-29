@@ -17,6 +17,7 @@ export interface SubmissionCardProps {
   reviewerNote?: string;
   submission?: any; // Full submission object for isReturnedFromMospi check
   currentUserRole?: string;
+  submittedBy?: string; // Added submitted by field
   onEdit?: () => void;
   onViewDetails?: () => void;
   onRevise?: () => void;
@@ -114,6 +115,7 @@ export function SubmissionCard({
   reviewerNote,
   submission,
   currentUserRole,
+  submittedBy,
   onEdit,
   onViewDetails,
   onRevise,
@@ -145,6 +147,7 @@ export function SubmissionCard({
             <span>ID: {referenceId}</span>
             <span>Updated: {updatedDate}</span>
             <span>Due: {dueDate}</span>
+            {submittedBy && <span>Submitted by: {submittedBy}</span>}
           </div>
           {isWaiting && waitingMessage && (
             <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
@@ -161,13 +164,22 @@ export function SubmissionCard({
               <XCircle className="w-4 h-4 mr-1" />
               Rejected
             </Button>
-          ) : submission && isReturnedFromMospi(submission) && currentUserRole === "STATE_APPROVER" && status !== "APPROVED" ? (
+          ) : submission && isReturnedFromMospi(submission) && currentUserRole === "STATE_APPROVER" && status !== "APPROVED" && status !== "RETURNED_FROM_STATE" ? (
             <Button size="sm" variant="outline" className="text-yellow-600 border-yellow-300 bg-yellow-50 hover:bg-yellow-100" onClick={onViewDetails}>
               <AlertCircle className="w-4 h-4 mr-1" />
               Action Required
             </Button>
           ) : (status === "need_revision" || status === "RETURNED_FROM_MOSPI" || status === "RETURNED_FROM_STATE") && onRevise ? (
-            <Button size="sm" variant="outline" className="text-blue-600 border-blue-300" onClick={onRevise}>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className={`${
+                status === "RETURNED_FROM_STATE" 
+                  ? "text-orange-600 border-orange-300 bg-orange-50 hover:bg-orange-100" 
+                  : "text-blue-600 border-blue-300"
+              }`} 
+              onClick={onRevise}
+            >
               Revise
             </Button>
           ) : (

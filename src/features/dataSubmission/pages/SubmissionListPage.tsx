@@ -293,6 +293,7 @@ export const SubmissionListPage = () => {
                     reviewerNote={reviewerNote}
                     submission={submission}
                     currentUserRole={user?.role}
+                    submittedBy={submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown"}
                     onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                     onReview={() => navigate(`/data-submission/review/${submission.id}`)}
                   />
@@ -350,6 +351,7 @@ export const SubmissionListPage = () => {
                     reviewerNote={reviewerNote}
                     submission={submission}
                     currentUserRole={user?.role}
+                    submittedBy={submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown"}
                     onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                     onReview={() => navigate(`/data-submission/review/${submission.id}`)}
                   />

@@ -83,7 +83,7 @@ const App = () => (
               <Route 
                 path="/user-management" 
                 element={
-                  <ProtectedRoute allowedRoles={["STATE_APPROVER", "ADMIN"]}>
+                  <ProtectedRoute allowedRoles={["STATE_APPROVER", "MOSPI_APPROVER", "ADMIN"]}>
                     <UserManagementPage />
                   </ProtectedRoute>
                 } 

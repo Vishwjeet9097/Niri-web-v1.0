@@ -10,13 +10,21 @@ export const useFormPersistence = () => {
     const saved = storageService.get<Partial<SubmissionFormData>>(STORAGE_KEY);
     return saved || {};
   });
+  const [isResubmit, setIsResubmit] = useState(false);
 
   // Check for editing submission data on mount
   useEffect(() => {
     const editingSubmission = localStorage.getItem("editing_submission");
+    const isEditMode = localStorage.getItem("is_edit_mode") === "true";
+
     if (editingSubmission) {
       try {
         const submissionData = JSON.parse(editingSubmission);
+
+        // Check if this is edit mode or resubmit
+        if (isEditMode || submissionData.status === "RETURNED_FROM_STATE") {
+          setIsResubmit(true);
+        }
 
         // Transform backend data to form data format
         if (submissionData.formData) {
@@ -26,7 +34,7 @@ export const useFormPersistence = () => {
         // Don't remove editing_submission here - let individual components handle it
         // localStorage.removeItem("editing_submission");
       } catch (error) {
-        localStorage.removeItem("editing_submission");
+        console.error("Error parsing editing submission data:", error);
       }
     }
   }, []);
@@ -69,6 +77,17 @@ export const useFormPersistence = () => {
         [stepKey]: data,
       };
 
+      // Immediately save to localStorage to prevent data loss
+      const completeFormData = {
+        infraFinancing: updated.infraFinancing || {},
+        infraDevelopment: updated.infraDevelopment || {},
+        pppDevelopment: updated.pppDevelopment || {},
+        infraEnablers: updated.infraEnablers || {},
+        ...updated,
+      };
+      storageService.set(STORAGE_KEY, completeFormData);
+      console.log(`Immediately saved ${stepKey} data in normal flow:`, data);
+
       return updated;
     });
   }, []);
@@ -90,5 +109,6 @@ export const useFormPersistence = () => {
     updateFormData,
     clearFormData,
     getStepData,
+    isResubmit,
   };
 };

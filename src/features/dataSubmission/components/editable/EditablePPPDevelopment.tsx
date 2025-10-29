@@ -27,6 +27,7 @@ import type { PPPDevelopmentData, FileUpload } from "@/features/submission/types
 
 interface EditablePPPDevelopmentProps {
   submissionId: string;
+  submission?: any;
 }
 
 const defaultData: PPPDevelopmentData = {
@@ -49,21 +50,38 @@ const defaultData: PPPDevelopmentData = {
   },
 };
 
-export const EditablePPPDevelopment = ({ submissionId }: EditablePPPDevelopmentProps) => {
+export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPPDevelopmentProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
 
-  // Load data from localStorage or use defaults
-  const loadedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
-  const initialData: PPPDevelopmentData = {
-    ...defaultData,
-    ...loadedData,
-    section3_1: { ...defaultData.section3_1, ...(loadedData.section3_1 || {}) },
-    section3_2: { ...defaultData.section3_2, ...(loadedData.section3_2 || {}) },
-    section3_3: loadedData.section3_3 || [],
-    section3_4: { ...defaultData.section3_4, ...(loadedData.section3_4 || {}) },
-  };
+  // Get data from persistence hook (this will be the source of truth)
+  const persistedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
+    // Debug logging removed for performance
 
-  const [formData, setFormData] = useState<PPPDevelopmentData>(initialData);
+  // Create form data by merging persisted data with defaults
+  const createFormData = (data: Partial<PPPDevelopmentData>): PPPDevelopmentData => ({
+    ...defaultData,
+    ...data,
+    section3_1: { ...defaultData.section3_1, ...(data.section3_1 || {}) },
+    section3_2: { ...defaultData.section3_2, ...(data.section3_2 || {}) },
+    section3_3: data.section3_3 || [],
+    section3_4: { ...defaultData.section3_4, ...(data.section3_4 || {}) },
+  });
+
+  const [formData, setFormData] = useState<PPPDevelopmentData>(() => 
+    createFormData(persistedData)
+  );
+
+  // Sync with persisted data when it changes
+  useEffect(() => {
+    const currentPersistedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
+    const newFormData = createFormData(currentPersistedData);
+    
+    // Only update if data has actually changed
+    if (JSON.stringify(formData) !== JSON.stringify(newFormData)) {
+      console.log("🔄 Syncing form data with persisted data:", newFormData);
+      setFormData(newFormData);
+    }
+  }, [persistedData]); // Depend on persistedData from hook
 
   // Auto-save to localStorage on every change
   useEffect(() => {

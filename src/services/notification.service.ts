@@ -56,7 +56,27 @@ class NotificationService {
   }
 
   toast(notification: Pick<Notification, "title" | "message" | "type">): void {
-    const variant = notification.type === "error" ? "destructive" : "default";
+    let variant: "default" | "destructive" | "success" | "warning" | "info" =
+      "default";
+
+    // Map notification types to toast variants
+    switch (notification.type) {
+      case "error":
+        variant = "destructive";
+        break;
+      case "success":
+        variant = "success";
+        break;
+      case "warning":
+        variant = "warning";
+        break;
+      case "info":
+        variant = "info";
+        break;
+      default:
+        variant = "default";
+        break;
+    }
 
     toast({
       title: notification.title,
@@ -111,22 +131,38 @@ class NotificationService {
   // Toast notification methods
   success(message: string, title?: string, details?: any): void {
     console.log(`✅ ${title || "Success"}: ${message}`, details);
-    // You can integrate with your toast library here
+    this.toast({
+      title: title || "Success",
+      message: message,
+      type: "success",
+    });
   }
 
   error(message: string, title?: string, details?: any): void {
     console.error(`❌ ${title || "Error"}: ${message}`, details);
-    // You can integrate with your toast library here
+    this.toast({
+      title: title || "Error",
+      message: message,
+      type: "error",
+    });
   }
 
   warning(message: string, title?: string, details?: any): void {
     console.warn(`⚠️ ${title || "Warning"}: ${message}`, details);
-    // You can integrate with your toast library here
+    this.toast({
+      title: title || "Warning",
+      message: message,
+      type: "warning",
+    });
   }
 
   info(message: string, title?: string, details?: any): void {
     console.info(`ℹ️ ${title || "Info"}: ${message}`, details);
-    // You can integrate with your toast library here
+    this.toast({
+      title: title || "Info",
+      message: message,
+      type: "info",
+    });
   }
 }
 

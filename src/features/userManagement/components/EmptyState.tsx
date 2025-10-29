@@ -11,13 +11,13 @@ export function EmptyState({ onAddClick }: EmptyStateProps) {
       <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
         <Inbox className="w-12 h-12 text-muted-foreground" />
       </div>
-      <h3 className="text-xl font-semibold text-foreground mb-2">No Officers found!</h3>
+      <h3 className="text-xl font-semibold text-foreground mb-2">No Users Found!</h3>
       <p className="text-muted-foreground mb-8">
-        No Nodal Officers have been added yet.
+        No users have been added yet. Start by adding your first user.
       </p>
       <Button onClick={onAddClick} size="lg">
         <Plus className="w-4 h-4 mr-2" />
-        Add New Nodal Officer
+        Add New User
       </Button>
     </div>
   );

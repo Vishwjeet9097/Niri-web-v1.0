@@ -8,6 +8,7 @@ import { FileText, CheckCircle, Clock, AlertCircle, Eye } from "lucide-react";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
+import ReviewerKPICards from "./components/reviewer/ReviewerKPICards";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export const MospiApproverDashboardPage = () => {
         setLoading(true);
   // TODO: Replace 'mospi_approver' with actual user role from auth context/store
   const userRole = "mospi_approver";
-  const submissionsData = await apiService.getSubmissionsByRole("mospi_approver", 1, 100);
+  const submissionsData = await apiService.getSubmissions(1, 100);
         
         // Handle different response structures
         let submissionsArray = [];
@@ -49,18 +50,6 @@ export const MospiApproverDashboardPage = () => {
 
     loadSubmissions();
   }, []);
-
-  // Calculate stats
-  const totalSubmissions = submissions.length;
-  const pendingSubmissions = submissions.filter(
-    (s) => s.status === "SUBMITTED_TO_MOSPI" || s.status === "pending",
-  ).length;
-  const approvedSubmissions = submissions.filter(
-    (s) => s.status === "APPROVED" || s.status === "approved",
-  ).length;
-  const overdueSubmissions = submissions.filter(
-    (s) => s.status === "overdue" || s.status === "REJECTED_FINAL",
-  ).length;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -150,73 +139,13 @@ export const MospiApproverDashboardPage = () => {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Submissions
-              </CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalSubmissions}</div>
-              <p className="text-xs text-muted-foreground">
-                Awaiting final approval
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Pending Review
-              </CardTitle>
-              <Clock className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {pendingSubmissions}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Need your decision
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Approved</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {approvedSubmissions}
-              </div>
-              <p className="text-xs text-muted-foreground">This quarter</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Overdue</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {overdueSubmissions}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Require urgent action
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <ReviewerKPICards />
 
         {/* Recent Submissions */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Recent Submissions for Final Approval</CardTitle>
+              <CardTitle className="p-6">Recent Submissions for Final Approval</CardTitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -247,6 +176,7 @@ export const MospiApproverDashboardPage = () => {
                     reviewerNote={submission.reviewerNote}
                     submission={submission}
                     currentUserRole="MOSPI_APPROVER"
+                    submittedBy={submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown"}
                     onReview={() => navigate(`/data-submission/review/${submission.id}`)}
                     onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                   />
@@ -259,7 +189,7 @@ export const MospiApproverDashboardPage = () => {
         {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle className="p-6">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-4">

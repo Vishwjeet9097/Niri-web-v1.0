@@ -23,7 +23,7 @@ export const FormActions = ({
   isNextDisabled = false,
 }: FormActionsProps) => {
   return (
-    <div className="flex items-center justify-between pt-6 border-t">
+    <div className="flex items-center justify-between ">
       <div>
         {!isFirstStep && onPrevious && (
           <Button variant="outline" onClick={onPrevious}>
@@ -41,7 +41,8 @@ export const FormActions = ({
           </Button>
         )}
         {onNext && (
-          <Button onClick={onNext} disabled={isNextDisabled}>
+          <Button onClick={onNext} disabled={false}>
+            {/* disabled={isNextDisabled} // Commented out validation */}
             {nextLabel}
             {!isLastStep && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>

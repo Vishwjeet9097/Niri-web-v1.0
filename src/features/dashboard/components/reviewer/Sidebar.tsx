@@ -1,5 +1,6 @@
 import React from "react";
 import { MENU_CONFIG } from "@/utils/roles";
+import { getRoleDisplayName } from "@/utils/roles";
 
 interface SidebarProps {
   user?: {
@@ -29,7 +30,7 @@ export default function Sidebar({ user }: SidebarProps) {
         <div className="mt-4">
           <div className="font-semibold">{user?.name || "Reviewer"}</div>
           <div className="text-xs text-muted-foreground">
-            {user?.role || "MosPI Reviewer"}
+            {getRoleDisplayName(user?.role) || "MoSPI Reviewer"}
             {user?.location ? `, ${user.location}` : ""}
           </div>
         </div>

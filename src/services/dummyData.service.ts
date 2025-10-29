@@ -315,7 +315,8 @@ class DummyDataService {
 
   // Check if dummy data is enabled
   isDummyDataEnabled(): boolean {
-    console.log("🔍 Dummy Data Service - USE_DUMMY_DATA:", USE_DUMMY_DATA);
+    // Debug logging removed for performance
+
     return USE_DUMMY_DATA;
   }
 }

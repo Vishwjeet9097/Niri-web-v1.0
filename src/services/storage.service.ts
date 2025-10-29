@@ -27,18 +27,12 @@ class StorageService {
       expiresAt: ttlSeconds ? Date.now() + ttlSeconds * 1000 : undefined,
     };
 
-    console.log(`💾 StorageService.set() - Key: ${storageKey}`, {
-      value,
-      ttlSeconds,
-      expiresAt: item.expiresAt
-        ? new Date(item.expiresAt).toISOString()
-        : "never",
-    });
+    // Debug logging removed for performance
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(item));
       this.cache.set(storageKey, value);
-      console.log(`✅ Successfully stored in localStorage: ${storageKey}`);
+      // Debug logging removed for performance
     } catch (error) {
       console.error("Storage write error:", error);
     }
@@ -80,9 +74,13 @@ class StorageService {
   }
 
   clear(): void {
-    // Only clear items with our namespace
+    // Clear all NIRI-related data from localStorage
     Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith(`${this.namespace}:`)) {
+      if (
+        key.startsWith(`${this.namespace}:`) ||
+        key.startsWith("niri_") ||
+        key.includes("niri_")
+      ) {
         localStorage.removeItem(key);
       }
     });

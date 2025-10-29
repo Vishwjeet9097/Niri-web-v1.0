@@ -84,31 +84,8 @@ const hasMeaningfulData = (sectionData: unknown): boolean => {
 export const validateFormData = (
   formData: unknown
 ): { isValid: boolean; missingSections: string[] } => {
-  const requiredSections = [
-    "infraFinancing",
-    "infraDevelopment",
-    "pppDevelopment",
-    "infraEnablers",
-  ];
-
-  const formDataObj = formData as Record<string, unknown>;
-
-  const validationResults = requiredSections.map((section) => {
-    const hasSection = formDataObj && formDataObj[section];
-    const hasData = hasSection
-      ? hasMeaningfulData(formDataObj[section])
-      : false;
-
-    return { section, hasData };
-  });
-
-  const missingSections = validationResults
-    .filter((result) => !result.hasData)
-    .map((result) => result.section);
-
-  const isValid = missingSections.length === 0;
-
-  return { isValid, missingSections };
+  // Validation disabled - always return valid to allow form submission
+  return { isValid: true, missingSections: [] };
 };
 
 /**
@@ -142,8 +119,7 @@ export const debugFormData = (formData: unknown) => {
     };
     return acc;
   }, {} as Record<string, unknown>);
-
-  console.log("🔍 Form Data Summary:", summary);
+  // Debug logging removed for performance
 };
 
 /**

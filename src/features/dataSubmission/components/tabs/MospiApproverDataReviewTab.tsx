@@ -19,6 +19,7 @@ interface Section {
 interface MospiApproverDataReviewTabProps {
   submissionId: string;
   sections: Section[];
+  formData?: any;
 }
 
 const sectionData = [

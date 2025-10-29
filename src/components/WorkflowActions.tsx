@@ -49,8 +49,8 @@ export const WorkflowActions: React.FC<WorkflowActionsProps> = ({
     // Actions that require confirmation or additional data
     const actionsWithDialog = [
       'forward_to_mospi',
-      'state_reject',
-      'final_reject',
+      // 'state_reject', // Commented out
+      // 'final_reject', // Commented out
       'resubmit'
     ];
 
@@ -142,20 +142,21 @@ export const WorkflowActions: React.FC<WorkflowActionsProps> = ({
           variant: 'default' as const,
           className: 'bg-blue-600 hover:bg-blue-700'
         };
-      case 'state_reject':
-        return {
-          label: 'Reject',
-          icon: <XCircle className="w-4 h-4 mr-2" />,
-          variant: 'destructive' as const,
-          className: ''
-        };
-      case 'final_reject':
-        return {
-          label: 'Final Reject',
-          icon: <XCircle className="w-4 h-4 mr-2" />,
-          variant: 'destructive' as const,
-          className: ''
-        };
+      // Reject buttons commented out for all roles
+      // case 'state_reject':
+      //   return {
+      //     label: 'Reject',
+      //     icon: <XCircle className="w-4 h-4 mr-2" />,
+      //     variant: 'destructive' as const,
+      //     className: ''
+      //   };
+      // case 'final_reject':
+      //   return {
+      //     label: 'Final Reject',
+      //     icon: <XCircle className="w-4 h-4 mr-2" />,
+      //     variant: 'destructive' as const,
+      //     className: ''
+      //   };
       case 'resubmit':
         return {
           label: 'Resubmit',
@@ -191,10 +192,10 @@ export const WorkflowActions: React.FC<WorkflowActionsProps> = ({
     switch (action) {
       case 'forward_to_mospi':
         return 'Forward to MoSPI';
-      case 'state_reject':
-        return 'Reject Submission';
-      case 'final_reject':
-        return 'Final Rejection';
+      // case 'state_reject':
+      //   return 'Reject Submission';
+      // case 'final_reject':
+      //   return 'Final Rejection';
       case 'resubmit':
         return 'Resubmit Submission';
       default:
@@ -206,12 +207,12 @@ export const WorkflowActions: React.FC<WorkflowActionsProps> = ({
     switch (action) {
       case 'forward_to_mospi':
         return 'Forward this submission to MoSPI for final review and approval.';
-      case 'state_reject':
-        return 'Reject this submission and send it back to the Nodal Officer for corrections.';
-      case 'final_reject':
-        return submission.rejectionCount >= 1 
-          ? 'Finally reject this submission. This action cannot be undone.'
-          : 'Reject this submission. The Nodal Officer can resubmit with corrections.';
+      // case 'state_reject':
+      //   return 'Reject this submission and send it back to the Nodal Officer for corrections.';
+      // case 'final_reject':
+      //   return submission.rejectionCount >= 1 
+      //     ? 'Finally reject this submission. This action cannot be undone.'
+      //     : 'Reject this submission. The Nodal Officer can resubmit with corrections.';
       case 'resubmit':
         return 'Resubmit this submission with corrections to the State Approver.';
       default:
