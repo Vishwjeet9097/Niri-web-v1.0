@@ -261,8 +261,8 @@ export function LoginPage() {
             {/* SSO Login Step */}
             {step === "sso" && (
               <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-10 transition-colors duration-300">
-                <div className="text-center mb-6">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-10">
+                <div className="text-left mb-6">
+                  <h1 className="text-4xl font-semibold text-[#222222] mb-10">
                     Login to your account
                   </h1>
                 </div>
