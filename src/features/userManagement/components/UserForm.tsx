@@ -77,6 +77,25 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     }));
   };
 
+  // Fetch assigned indicators from API for editing
+  const fetchAssignedIndicators = async (userId: string) => {
+    try {
+      console.log("🔍 Fetching assigned indicators for user:", userId);
+      const indicators = await apiService.getUserAssignedIndicators(userId);
+      console.log("🔍 Fetched indicators:", indicators);
+      
+      if (Array.isArray(indicators) && indicators.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          assignedIndicators: indicators
+        }));
+      }
+    } catch (error) {
+      console.error("❌ Failed to fetch assigned indicators:", error);
+      // Don't show error to user as this is for edit mode
+    }
+  };
+
   // Get available roles based on current user's role
   const getAvailableRoles = useCallback(() => {
     const currentUserRole = user?.role;
@@ -129,6 +148,11 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
           ? officer.assignedIndicators 
           : (officer.assignedIndicators?.map((ai: any) => ai.indicator?.code || ai.indicatorId) || []),
       });
+      
+      // Fetch assigned indicators from API for NODAL_OFFICER
+      if (officer.role === "NODAL_OFFICER" && officer.id) {
+        fetchAssignedIndicators(officer.id);
+      }
     } else {
       // Reset form when no officer (new user)
       // Set default role based on current user's permissions

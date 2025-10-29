@@ -524,19 +524,21 @@ export const InfraEnablersStep = () => {
               </label>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <FileUploadSection
-              label="Upload File"
-              value={formData.section4_2.file || null}
-              onChange={(file) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  section4_2: { ...prev.section4_2, file },
-                }))
-              }
-            />
-            <p className="text-xs text-muted-foreground">Description</p>
-          </div>
+          {formData.section4_2.available === "yes" && (
+            <div className="flex flex-col gap-2">
+              <FileUploadSection
+                label="Upload File"
+                value={formData.section4_2.file || null}
+                onChange={(file) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    section4_2: { ...prev.section4_2, file },
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">Description</p>
+            </div>
+          )}
         </div>
         </SectionCard>
       )}
@@ -635,21 +637,23 @@ export const InfraEnablersStep = () => {
               </label>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <FileUploadSection
-              label="Upload File"
-              value={formData.section4_4.file || null}
-              onChange={(file) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  section4_4: { ...prev.section4_4, file },
-                }))
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              Upload ADR orders/notifications
-            </p>
-          </div>
+          {formData.section4_4.adopted === "yes" && (
+            <div className="flex flex-col gap-2">
+              <FileUploadSection
+                label="Upload File"
+                value={formData.section4_4.file || null}
+                onChange={(file) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    section4_4: { ...prev.section4_4, file },
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload ADR orders/notifications
+              </p>
+            </div>
+          )}
 
         </div>
         </SectionCard>
@@ -763,19 +767,21 @@ export const InfraEnablersStep = () => {
               </Select>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <FileUploadSection
-              label="Upload File"
-              value={formData.section4_5.file || null}
-              onChange={(file) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  section4_5: { ...prev.section4_5, file },
-                }))
-              }
-            />
-            <p className="text-xs text-muted-foreground">Upload evidence</p>
-          </div>
+          {formData.section4_5.implemented === "yes" && (
+            <div className="flex flex-col gap-2">
+              <FileUploadSection
+                label="Upload File"
+                value={formData.section4_5.file || null}
+                onChange={(file) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    section4_5: { ...prev.section4_5, file },
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">Upload evidence</p>
+            </div>
+          )}
         </div>
         </SectionCard>
       )}

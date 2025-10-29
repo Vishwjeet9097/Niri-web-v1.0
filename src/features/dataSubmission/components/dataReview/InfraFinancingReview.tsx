@@ -438,7 +438,29 @@ export const InfraFinancingReview = ({ submissionId, formData, submission, isPre
                     </div>
                     <div>
                       <Label>Rating Date</Label>
-                      <Input type="date" value={item.ratingDate || ""} readOnly />
+                      <Input 
+                        type="text" 
+                        value={
+                          item.ratingDate 
+                            ? (() => {
+                                try {
+                                  const dateStr = typeof item.ratingDate === 'string' ? item.ratingDate : '';
+                                  if (dateStr.includes('T')) {
+                                    const date = new Date(dateStr);
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    return `${year}-${month}-${day}`;
+                                  }
+                                  return dateStr.split('T')[0] || dateStr;
+                                } catch (e) {
+                                  return item.ratingDate || "";
+                                }
+                              })()
+                            : ""
+                        } 
+                        readOnly 
+                      />
                     </div>
                     <div>
                       <Label>Rating</Label>
