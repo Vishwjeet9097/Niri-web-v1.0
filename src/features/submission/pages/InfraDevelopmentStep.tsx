@@ -811,7 +811,7 @@ export const InfraDevelopmentStep = () => {
               <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
             </span>
           </div>}
-          subtitle="Annex 5: Upload DPR/Feasibility Report"
+          // subtitle="Annex 5: Upload DPR/Feasibility Report"
           className="mb-6"
         >
         <div className="flex flex-col gap-4">
@@ -881,7 +881,7 @@ export const InfraDevelopmentStep = () => {
               <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
             </span>
           </div>}
-          subtitle="Annex 6"
+          // subtitle="Annex 6"
           className="mb-6"
         >
         <div className="flex flex-col gap-4">

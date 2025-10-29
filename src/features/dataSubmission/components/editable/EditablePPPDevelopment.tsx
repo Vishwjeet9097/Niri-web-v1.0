@@ -413,7 +413,7 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
               Add More Project
             </Button>
             <p className="text-xs text-muted-foreground">
-              Annex 7: Provide VGF/IIPDF details
+              {/* Annex 7: Provide VGF/IIPDF details */}
             </p>
           </div>
         </SectionCard>

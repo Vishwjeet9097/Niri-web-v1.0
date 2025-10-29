@@ -513,7 +513,7 @@ export const PPPDevelopmentStep = () => {
         <div className="flex flex-col gap-4">
           {formData.section3_3.map((entry, idx) => (
             <div key={entry.id} className="mb-2">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                 <div>
                   <Label>Project Name</Label>
                   <Input
@@ -597,14 +597,13 @@ export const PPPDevelopmentStep = () => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="mt-6"
                     onClick={() => removeProject(entry.id)}
                     aria-label="Remove"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    <Trash2 className="w-5 h-5 text-destructive" />
+                    <Trash2 className="w-5 h-5" />
                   </Button>
                 </div>
-                
               </div>
               <div className="mt-4">
                 <FileUploadSection
@@ -627,7 +626,7 @@ export const PPPDevelopmentStep = () => {
             Add More Project
           </Button>
           <p className="text-xs text-muted-foreground mt-1">
-            Annex 7: Provide VGF/IIPDF details
+            {/* Annex 7: Provide VGF/IIPDF details */}
           </p>
           </div>
 
