@@ -416,9 +416,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 </Button>
               )}
 
-              <p className="text-xs text-muted-foreground">
+              {/* <p className="text-xs text-muted-foreground">
                 Annex 7: Provide VGF/IIPDF details
-              </p>
+              </p> */}
             </div>
 
         </SectionCard>

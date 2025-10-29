@@ -814,25 +814,57 @@ export const InfraEnablersStep = () => {
               </Tooltip>
             </Label>
             <div className="flex gap-6">
-              <label className="flex items-center gap-2">
-                <Input
+              <label 
+                htmlFor="capacity-yes-step"
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => {
+                  if (formData.section4_6.length === 0) {
+                    addTraining();
+                  }
+                }}
+              >
+                <input
+                  id="capacity-yes-step"
                   type="radio"
-                  name="capacity-building"
+                  name="capacity-building-step"
                   value="yes"
                   checked={formData.section4_6.length > 0}
-                  readOnly
+                  onChange={() => {
+                    if (formData.section4_6.length === 0) {
+                      addTraining();
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 cursor-pointer"
                 />
-                Yes
+                <span className="cursor-pointer select-none">Yes</span>
               </label>
-              <label className="flex items-center gap-2">
-                <Input
+              <label 
+                htmlFor="capacity-no-step"
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => {
+                  if (formData.section4_6.length > 0) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_6: [],
+                    }));
+                  }
+                }}
+              >
+                <input
+                  id="capacity-no-step"
                   type="radio"
-                  name="capacity-building"
+                  name="capacity-building-step"
                   value="no"
                   checked={formData.section4_6.length === 0}
-                  readOnly
+                  onChange={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_6: [],
+                    }));
+                  }}
+                  className="w-4 h-4 text-blue-600 cursor-pointer"
                 />
-                No
+                <span className="cursor-pointer select-none">No</span>
               </label>
             </div>
           </div>
@@ -852,63 +884,36 @@ export const InfraEnablersStep = () => {
                 </div>
                 <div>
                   <Label>Designation</Label>
-                  <Select
+                  <Input
+                    type="text"
+                    placeholder="Enter designation"
                     value={entry.designation}
-                    onValueChange={(value) =>
-                      updateTraining(entry.id, "designation", value)
+                    onChange={(e) =>
+                      updateTraining(entry.id, "designation", e.target.value)
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an Option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div>
                   <Label>Program Name</Label>
-                  <Select
+                  <Input
+                    type="text"
+                    placeholder="Enter program name"
                     value={entry.programName}
-                    onValueChange={(value) =>
-                      updateTraining(entry.id, "programName", value)
+                    onChange={(e) =>
+                      updateTraining(entry.id, "programName", e.target.value)
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an Option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div>
                   <Label>Organiser</Label>
-                  <Select
+                  <Input
+                    type="text"
+                    placeholder="Enter organiser"
                     value={entry.organiser}
-                    onValueChange={(value) =>
-                      updateTraining(entry.id, "organiser", value)
+                    onChange={(e) =>
+                      updateTraining(entry.id, "organiser", e.target.value)
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Asset ownership" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OWNERSHIP_OPTIONS.map((own) => (
-                        <SelectItem key={own} value={own}>
-                          {own}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div className="flex flex-col md:flex-row gap-2 md:gap-4">
                   <div className="w-full">
@@ -956,7 +961,7 @@ export const InfraEnablersStep = () => {
             <Plus className="w-4 h-4" />
             Add More Training
           </Button>
-          <p className="text-xs text-muted-foreground">Annex 11</p>
+          {/* <p className="text-xs text-muted-foreground">Annex 11</p> */}
 
         </div>
         </SectionCard>

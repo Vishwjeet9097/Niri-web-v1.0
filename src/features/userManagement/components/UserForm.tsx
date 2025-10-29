@@ -69,6 +69,12 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     }))
   );
 
+  // Debug: Log indicator options to verify 4.6 is included
+  useEffect(() => {
+    console.log("🔍 Indicator Options:", indicatorOptions);
+    console.log("🔍 4.6 in options:", indicatorOptions.find(opt => opt.value === "4.6"));
+  }, []);
+
   // Handle indicator selection change
   const handleIndicatorChange = (selectedIndicators: string[]) => {
     setFormData(prev => ({
@@ -144,9 +150,22 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         password: "", // Don't show password for existing users
         role: officer.role || "NODAL_OFFICER",
         stateId: "", // Will be set after states are loaded
-        assignedIndicators: Array.isArray(officer.assignedIndicators) 
-          ? officer.assignedIndicators 
-          : (officer.assignedIndicators?.map((ai: any) => ai.indicator?.code || ai.indicatorId) || []),
+        assignedIndicators: (() => {
+          if (Array.isArray(officer.assignedIndicators)) {
+            return officer.assignedIndicators as string[];
+          }
+          if (officer.assignedIndicators && typeof officer.assignedIndicators === 'object') {
+            try {
+              const arr = officer.assignedIndicators as any;
+              if (Array.isArray(arr)) {
+                return arr.map((ai: any) => ai.indicator?.code || ai.indicatorId || ai).filter(Boolean) as string[];
+              }
+            } catch (e) {
+              // Ignore
+            }
+          }
+          return [];
+        })(),
       });
       
       // Fetch assigned indicators from API for NODAL_OFFICER
@@ -749,6 +768,7 @@ function getIndicatorDisplayName(indicatorCode: string): string {
     "4.3": "PM Gati Shakti Adoption",
     "4.4": "ADR Adoption",
     "4.5": "Innovative Practices",
+    "4.6": "Capacity Building - Officer Participation",
   };
 
   return indicatorNames[indicatorCode] || indicatorCode;

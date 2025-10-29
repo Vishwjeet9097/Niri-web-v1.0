@@ -427,8 +427,8 @@ export const InfraFinancingStep = () => {
 
             </div>
           }
-          subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
-                Capital Expenditure)"
+          // subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
+          //       Capital Expenditure)"
           className="mb-6"
         >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
@@ -436,7 +436,7 @@ export const InfraFinancingStep = () => {
             <Label>Year<span className="text-red-500">*</span></Label>
             <Input
               type="text"
-              placeholder="2024-25"
+              placeholder="Enter Year"
               value={formData.section1_1.year}
               onChange={(e) =>
                 setFormData({
@@ -452,7 +452,7 @@ export const InfraFinancingStep = () => {
               <Info className="h-4 w-4 text-gray-500 inline-block ml-2" />
             </Label>
             <Input
-              placeholder="₹1,50,000 crores"
+              placeholder="Enter Capital Allocation"
               value={formData.section1_1.capitalAllocation}
               onChange={(e) =>
                 setFormData({
@@ -471,7 +471,7 @@ export const InfraFinancingStep = () => {
               <Info className="h-4 w-4 text-gray-500 ml-2" />
             </Label>
             <Input
-              placeholder="₹25,00,000 crores"
+              placeholder="Enter GSDP for FY"
               value={formData.section1_1.gsdpForFY}
               onChange={(e) =>
                 setFormData({
@@ -521,7 +521,7 @@ export const InfraFinancingStep = () => {
               </span>
             </span>
           </div>}
-          subtitle="Annex 2: Verified with MoHUA data"
+          // subtitle="Annex 2: Verified with MoHUA data"
         >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
           <div className="space-y-2">
@@ -540,7 +540,7 @@ export const InfraFinancingStep = () => {
           <div className="space-y-2">
             <Label>A₁ - Actual Capex (INR)<span className="text-red-500">*</span></Label>
             <Input
-              placeholder="₹2,15,400 Crores"
+              placeholder="Enter Actual Capex"
               value={formData.section1_2.actualCapex}
               onChange={(e) =>
                 setFormData({
@@ -556,7 +556,7 @@ export const InfraFinancingStep = () => {
           <div className="space-y-2">
             <Label>State Capex Utilisation (INR)</Label>
             <Input
-              placeholder="₹15,40,250 Crores"
+              placeholder="Enter State Capex Utilisation"
               value={formData.section1_2.stateCapexUtilisation}
               onChange={(e) =>
                 setFormData({
@@ -600,7 +600,7 @@ export const InfraFinancingStep = () => {
               <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
             </span>
           </div>}
-          subtitle="Annex 2: Verified with MoHUA data"
+          // subtitle="Annex 2: Verified with MoHUA data"
           className="mb-6"
         >
         <div className="space-y-4">
@@ -735,7 +735,7 @@ export const InfraFinancingStep = () => {
               <span className="text-primary">1.4 -</span> % of ULBs issuing Bonds{" "}
             </span>
           </div>}
-          subtitle="Annex 3: ULBs with population > 50,000"
+          // subtitle="Annex 3: ULBs with population > 50,000"
           className="mb-6"
         >
         <div className="space-y-4">
@@ -815,7 +815,7 @@ export const InfraFinancingStep = () => {
                 <div className="flex-1">
                   <Label>Value (INR crore)<span className="text-red-500">*</span></Label>
                   <Input
-                    placeholder="₹500 crores"
+                    placeholder="Enter Value"
                     value={bond.value}
                     onChange={(e) =>
                       setFormData(prev => ({
@@ -860,7 +860,7 @@ export const InfraFinancingStep = () => {
               <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
             </span>
           </div>}
-          subtitle="Annex 4: Provide website link and funding details"
+          // subtitle="Annex 4: Provide website link and funding details"
           className="mb-6"
         >
         <div className="space-y-4">
