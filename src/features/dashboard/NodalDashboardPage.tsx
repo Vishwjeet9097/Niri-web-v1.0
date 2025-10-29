@@ -23,7 +23,7 @@ import {
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
   const statusMap: Record<string, string> = {
     "DRAFT": "DRAFT",
-    "SUBMITTED_TO_STATE": "SUBMITTED_TO_STATE", 
+    "SUBMITTED_TO_STATE": "SUBMITTED_TO_STATE",
     "APPROVED": "APPROVED",
     "REJECTED": "REJECTED",
     "SUBMITTED_TO_MOSPI": "SUBMITTED_TO_MOSPI",
@@ -36,7 +36,7 @@ const mapBackendStatusToFrontend = (backendStatus: string): string => {
     "approved": "APPROVED",
     "need_revision": "REJECTED",
   };
-  
+
   return statusMap[backendStatus] || backendStatus;
 };
 
@@ -51,10 +51,10 @@ const handleEditSubmission = async (submissionId: string, navigate: any) => {
 
     // Store submission data in localStorage for form prefill
     localStorage.setItem('editing_submission', JSON.stringify(submissionData));
-    
+
     // Navigate to edit page (same as handleEditSubmissionForEdit)
     navigate(`/data-submission/edit/${submissionId}`);
-    
+
     notificationService.success(
       "Submission loaded for editing",
       "Edit Mode",
@@ -87,7 +87,7 @@ const handleEditSubmissionForEdit = async (submissionId: string, navigate: any) 
 
     // Navigate to edit page
     navigate(`/data-submission/edit/${submissionId}`);
-    
+
     notificationService.success(
       "Opening edit page",
       "Edit Mode",
@@ -118,7 +118,7 @@ export function NodalDashboardPage() {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch role-specific KPIs and submissions
         const userRole = "nodal_officer";
         const [kpiData, submissionsData] = await Promise.all([
@@ -126,64 +126,64 @@ export function NodalDashboardPage() {
           apiService.getSubmissions(1, 20)
         ]);
 
-          // Transform KPIs data with fallback
-    // Debug logging removed for performance
+        // Transform KPIs data with fallback
+        // Debug logging removed for performance
 
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
-          // Calculate KPIs from submissions data if available
-          let calculatedKPIs = {
-            totalSubmissions: 0,
-            pendingSubmissions: 0,
-            underReview: 0,
-            approved: 0,
+        // Calculate KPIs from submissions data if available
+        let calculatedKPIs = {
+          totalSubmissions: 0,
+          pendingSubmissions: 0,
+          underReview: 0,
+          approved: 0,
+        };
+
+        if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+          const submissions = submissionsData.submissions;
+          calculatedKPIs = {
+            totalSubmissions: submissions.length,
+            pendingSubmissions: submissions.filter(s => s.status === "DRAFT").length,
+            underReview: submissions.filter(s => s.status === "SUBMITTED_TO_STATE").length,
+            approved: submissions.filter(s => s.status === "APPROVED").length,
           };
-          
-          if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
-            const submissions = submissionsData.submissions;
-            calculatedKPIs = {
-              totalSubmissions: submissions.length,
-              pendingSubmissions: submissions.filter(s => s.status === "DRAFT").length,
-              underReview: submissions.filter(s => s.status === "SUBMITTED_TO_STATE").length,
-              approved: submissions.filter(s => s.status === "APPROVED").length,
-            };
-          }
-          
-          const kpisData = [
-            {
-              title: "Total Submissions",
-              value: calculatedKPIs.totalSubmissions.toString() || kpiData?.mySubmissions?.toString() || "7",
-              subtitle: "This Month",
-              icon: FileText,
-              variant: "blue" as const,
-            },
-            {
-              title: "Pending Submission",
-              value: calculatedKPIs.pendingSubmissions.toString() || "1",
-              subtitle: `${calculatedKPIs.pendingSubmissions} drafts`,
-              icon: Clock,
-              variant: "orange" as const,
-            },
-            {
-              title: "Under Review",
-              value: calculatedKPIs.underReview.toString() || kpiData?.pendingReview?.toString() || "6",
-              subtitle: "Average review time: 3 days",
-              icon: Search,
-              variant: "blue" as const,
-            },
-            {
-              title: "Approved",
-              value: calculatedKPIs.approved.toString() || kpiData?.approved?.toString() || "0",
-              subtitle: "This fiscal year",
-              icon: CheckCircle,
-              variant: "green" as const,
-            },
-          ];
+        }
+
+        const kpisData = [
+          {
+            title: "Total Submissions",
+            value: calculatedKPIs.totalSubmissions.toString() || kpiData?.mySubmissions?.toString() || "7",
+            subtitle: "This Month",
+            icon: FileText,
+            variant: "blue" as const,
+          },
+          {
+            title: "Pending Submission",
+            value: calculatedKPIs.pendingSubmissions.toString() || "1",
+            subtitle: `${calculatedKPIs.pendingSubmissions} drafts`,
+            icon: Clock,
+            variant: "orange" as const,
+          },
+          {
+            title: "Under Review",
+            value: calculatedKPIs.underReview.toString() || kpiData?.pendingReview?.toString() || "6",
+            subtitle: "Average review time: 3 days",
+            icon: Search,
+            variant: "blue" as const,
+          },
+          {
+            title: "Approved",
+            value: calculatedKPIs.approved.toString() || kpiData?.approved?.toString() || "0",
+            subtitle: "This fiscal year",
+            icon: CheckCircle,
+            variant: "green" as const,
+          },
+        ];
 
         setKpis(kpisData);
 
         // Transform submissions data with fallback
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         // Handle different response structures
         let submissionsArray = [];
@@ -197,13 +197,13 @@ export function NodalDashboardPage() {
           // Wrapped response with data.submissions property
           submissionsArray = (submissionsData as any).data.submissions;
         }
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         setSubmissions(submissionsArray.map((sub: any) => {
           // Calculate progress based on formData completeness
           const formDataKeys = Object.keys(sub.formData || {});
           const progress = formDataKeys.length > 0 ? Math.min(100, (formDataKeys.length / 10) * 100) : 0;
-          
+
           // Determine next step based on status
           let nextStep = "Complete submission";
           if (sub.status === "DRAFT") {
@@ -215,12 +215,12 @@ export function NodalDashboardPage() {
           } else if (sub.status === "REJECTED") {
             nextStep = "Address reviewer feedback";
           }
-          
+
           // Get reviewer note from reviewComments
-          const reviewerNote = sub.reviewComments && sub.reviewComments.length > 0 
-            ? sub.reviewComments[sub.reviewComments.length - 1]?.text 
+          const reviewerNote = sub.reviewComments && sub.reviewComments.length > 0
+            ? sub.reviewComments[sub.reviewComments.length - 1]?.text
             : undefined;
-          
+
           return {
             id: sub.id,
             title: sub.submissionId || `Submission ${sub.id}`,
@@ -247,7 +247,7 @@ export function NodalDashboardPage() {
           error.message || "Failed to load dashboard data",
           "Dashboard Error"
         );
-        
+
         // Set empty state instead of dummy data
         setKpis([]);
         setSubmissions([]);
@@ -276,13 +276,13 @@ export function NodalDashboardPage() {
   const filteredSubmissions = submissions.filter((submission) => {
     // Status filter
     const statusMatch = activeTab === "all" || submission.status === activeTab;
-    
+
     // Search filter
-    const searchMatch = !searchQuery || 
+    const searchMatch = !searchQuery ||
       submission.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       submission.submissionId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       submission.stateUt?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     return statusMatch && searchMatch;
   });
 
@@ -292,18 +292,21 @@ export function NodalDashboardPage() {
   return (
   <div className="space-y-6" >
       {/* Header */}
+      <div className="bg-[#fff] p-6 rounded-lg relative">
         <div>
-        <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
-        <p className="text-muted-foreground">
-          Manage your NIRI data submissions and track approval status
-        </p>
+          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome back</h1>
+          <p className="text-[#212121]">
+            Manage your NIRI data submissions and track approval status
+          </p>
+        </div>
+        <img src="/images/dashboard.png" alt="Dashboard" className="absolute right-6 top-0"/>
       </div>
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {kpis?.map((kpi, index) => (
-          <NodalKpiCard 
-            key={index} 
+          <NodalKpiCard
+            key={index}
             title={kpi.title}
             value={kpi.value}
             subtitle={kpi.subtitle}
@@ -450,7 +453,7 @@ export function NodalDashboardPage() {
               description: "Auto-save feature keeps your progress safe"
             },
             {
-              id: "2", 
+              id: "2",
               title: "Use the replication feature",
               description: "Copy data from previous submissions to save time"
             },

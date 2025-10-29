@@ -25,7 +25,7 @@ export function QuickTips({ tips = [] }: QuickTipsProps) {
                 <Lightbulb className="w-4 h-4 text-orange-600" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900 mb-1">{tip.title}</p>
+                <p className="text-xs font-semibold text-[#212121] ">{tip.title}</p>
                 <p className="text-xs text-gray-500">{tip.description}</p>
               </div>
             </div>
