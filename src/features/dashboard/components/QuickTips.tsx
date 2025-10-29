@@ -13,14 +13,14 @@ interface QuickTipsProps {
 
 export function QuickTips({ tips = [] }: QuickTipsProps) {
   return (
-    <Card className="p-6 bg-white">
+  <Card className="p-6 shadow-xl rounded-xl" style={{ backgroundColor: '#EAF6FB' }}>
       <h3 className="text-lg font-semibold mb-2">Quick Tips</h3>
       <p className="text-sm text-gray-500 mb-4">Helpful hints to improve your workflow</p>
       
       <div className="space-y-4">
         {tips.length > 0 ? (
           tips.map((tip) => (
-            <div key={tip.id} className="flex gap-3">
+            <div key={tip.id} className="border rounded-lg flex gap-3 p-4 bg-white">
               <div className="p-2 bg-orange-50 rounded h-fit">
                 <Lightbulb className="w-4 h-4 text-orange-600" />
               </div>

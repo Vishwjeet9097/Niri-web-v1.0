@@ -13,7 +13,7 @@ interface UpcomingDeadlinesProps {
 
 export function UpcomingDeadlines({ deadlines = [] }: UpcomingDeadlinesProps) {
   return (
-    <Card className="bg-[#1e3a8a] text-white p-6">
+  <Card className="bg-[#1e3a8a] text-white p-6 shadow-xl rounded-xl">
       <h3 className="text-lg font-semibold mb-2">Upcoming Deadlines</h3>
       <p className="text-sm text-blue-100 mb-4">Stay on track with your submission schedule</p>
       
