@@ -367,7 +367,10 @@ export function UserManagementPage() {
         officer.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         officer.email.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesRole = roleFilter === "all" || officer.role === roleFilter;
+      // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
+      const isStateApprover = user?.role === "STATE_APPROVER";
+      const effectiveRoleFilter = isStateApprover && roleFilter === "all" ? "NODAL_OFFICER" : roleFilter;
+      const matchesRole = effectiveRoleFilter === "all" || officer.role === effectiveRoleFilter;
       
       
       return matchesSearch && matchesRole;
@@ -628,10 +631,14 @@ export function UserManagementPage() {
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
               <SelectItem value="NODAL_OFFICER">{getRoleDisplayName("NODAL_OFFICER")}</SelectItem>
-              <SelectItem value="STATE_APPROVER">{getRoleDisplayName("STATE_APPROVER")}</SelectItem>
-              <SelectItem value="MOSPI_REVIEWER">{getRoleDisplayName("MOSPI_REVIEWER")}</SelectItem>
-              <SelectItem value="MOSPI_APPROVER">{getRoleDisplayName("MOSPI_APPROVER")}</SelectItem>
-              <SelectItem value="ADMIN">{getRoleDisplayName("ADMIN")}</SelectItem>
+              {user?.role !== "STATE_APPROVER" && (
+                <>
+                  <SelectItem value="STATE_APPROVER">{getRoleDisplayName("STATE_APPROVER")}</SelectItem>
+                  <SelectItem value="MOSPI_REVIEWER">{getRoleDisplayName("MOSPI_REVIEWER")}</SelectItem>
+                  <SelectItem value="MOSPI_APPROVER">{getRoleDisplayName("MOSPI_APPROVER")}</SelectItem>
+                  <SelectItem value="ADMIN">{getRoleDisplayName("ADMIN")}</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>
