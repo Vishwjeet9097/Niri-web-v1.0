@@ -477,14 +477,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
-                        <Label>DPR File</Label>
+                        <Label>Upload DPR/Feasibility Report</Label>
                         {item.dprFile ? (
                           <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                             <Upload className="w-4 h-4" />
-                            <span className="text-sm">{item.dprFile.fileName || "DPR File"}</span>
+                            <span className="text-sm">{item.dprFile.fileName || "DPR/Feasibility Report"}</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">No DPR file uploaded</span>
+                          <span className="text-sm text-muted-foreground">No DPR/Feasibility Report uploaded</span>
                         )}
                       </div>
                     </div>
@@ -540,9 +540,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                   <thead>
                     <tr className="bg-[#DDE3F9]">
                       <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project/Asset Name</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Type</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Ownership</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Select Sector</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Select Type</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Asset Ownership</th>
                       <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Estimated Monetization</th>
                     </tr>
                   </thead>
