@@ -36,6 +36,7 @@ import { FormActions } from "../components/FormActions";
 // import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
+import { computeStepProgress } from "../utils/progress";
 
 const defaultData: InfraDevelopmentData = {
   section2_1: [],
@@ -395,14 +396,23 @@ export const InfraDevelopmentStep = () => {
   return (
     <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
-      <ProgressHeader
-        title="Infrastructure Development"
-        description="Physical infrastructure development and completion metrics. (10 marks per sector, min. 3 sectors)"
-        points={250}
-        completed={1}
-        total={5}
-        progress={10}
-      />
+      {(() => {
+        const { completed, total, progress } = computeStepProgress(
+          { infraDevelopment: formData } as Record<string, unknown>,
+          "infraDevelopment",
+          { assignedIndicators, isNodalOfficer }
+        );
+        return (
+          <ProgressHeader
+            title="Infrastructure Development"
+            description="Physical infrastructure development and completion metrics. (10 marks per sector, min. 3 sectors)"
+            points={250}
+            completed={completed}
+            total={total}
+            progress={progress}
+          />
+        );
+      })()}
       {/* Section 2.1 */}
       {(!isNodalOfficer || hasIndicatorAccess('2.1')) && (
         <SectionCard
@@ -811,7 +821,7 @@ export const InfraDevelopmentStep = () => {
               <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
             </span>
           </div>}
-          subtitle="Annex 5: Upload DPR/Feasibility Report"
+          // subtitle="Annex 5: Upload DPR/Feasibility Report"
           className="mb-6"
         >
         <div className="flex flex-col gap-4">
@@ -881,7 +891,7 @@ export const InfraDevelopmentStep = () => {
               <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
             </span>
           </div>}
-          subtitle="Annex 6"
+          // subtitle="Annex 6"
           className="mb-6"
         >
         <div className="flex flex-col gap-4">

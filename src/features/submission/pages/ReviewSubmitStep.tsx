@@ -11,6 +11,8 @@ import { Stepper } from '../components/Stepper';
 import { useStepNavigation } from '../hooks/useStepNavigation';
 import { useFormPersistence } from '../hooks/useFormPersistence';
 import { SUBMISSION_STEPS } from '../constants/steps';
+import { computeAllStepsSummary } from "../utils/progress";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { useNavigate } from 'react-router-dom';
 import { notificationService } from '@/services/NotificationBus';
 import { apiV2 } from '@/services/ApiService';
@@ -22,6 +24,7 @@ import { Plus, Trash2, Info } from "lucide-react";
 export const ReviewSubmitStep = () => {
   const { currentStep, goToStep, goToPrevious } = useStepNavigation(5);
   const { formData, clearFormData, isResubmit } = useFormPersistence();
+  const { assignedIndicators, isNodalOfficer } = useIndicatorAccess();
   const navigate = useNavigate();
   const [showPreview, setShowPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,33 +66,34 @@ export const ReviewSubmitStep = () => {
     }
   }, [shouldNavigate, navigate]);
 
+  const summary = computeAllStepsSummary(formData || {}, { assignedIndicators, isNodalOfficer });
   const sections = [
     {
       title: 'Infrastructure Financing',
       icon: FileText,
-      completed: 5,
-      total: 5,
+      completed: summary.infraFinancing.completed,
+      total: summary.infraFinancing.total,
       color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'Infrastructure Development',
       icon: Building2,
-      completed: 5,
-      total: 5,
+      completed: summary.infraDevelopment.completed,
+      total: summary.infraDevelopment.total,
       color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'PPP Development',
       icon: Briefcase,
-      completed: 1,
-      total: 2,
+      completed: summary.pppDevelopment.completed,
+      total: summary.pppDevelopment.total,
       color: 'bg-[#D3DCF8] text-primary',
     },
     {
       title: 'Infra Enablers',
       icon: Settings,
-      completed: 3,
-      total: 4,
+      completed: summary.infraEnablers.completed,
+      total: summary.infraEnablers.total,
       color: 'bg-[#D3DCF8] text-primary',
     },
   ];
