@@ -80,18 +80,23 @@ const performSubmission = async () => {
     }
     console.groupEnd();
 
-    const token = localStorage.getItem("access_token");
+    // Resolve token from multiple sources (new and legacy)
+    const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+    const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
+    const tokenFromNewKey = tokenData?.value?.accessToken;
+    const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
+    const token = tokenFromNewKey || tokenFromLegacyKey || "";
     let response;
 
     if (isEditMode && editingSubmissionId) {
       response = await axios.post(
         `${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`,
         multipartData,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
       );
     } else {
       response = await axios.post(`${config.apiBaseUrl}/submission`, multipartData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       });
     }
 
@@ -107,10 +112,11 @@ const performSubmission = async () => {
     setShowSuccessModal(true);
 
     setTimeout(() => navigate("/dashboard"), 3000);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Submission failed:", error);
+    const err = error as { response?: { data?: { message?: string } }; message?: string };
     const errorMessage =
-      error?.response?.data?.message || error?.message || "Failed to submit form.";
+      err?.response?.data?.message || err?.message || "Failed to submit form.";
     notificationService.error(errorMessage, "Submission Error");
   } finally {
     setIsSubmitting(false);
