@@ -19,6 +19,8 @@ import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { hasPPPDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
+import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
+import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 
 interface PPPDevelopmentReviewProps {
   submissionId: string;
@@ -176,6 +178,27 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   return (
     <>
       <div className="space-y-6">
+        {(() => {
+          const sections = getSectionsWithData({ pppDevelopment: formData }, 'pppDevelopment');
+          const assignedIndicators = STEP_SECTIONS.pppDevelopment
+            .filter((s) => sections.includes(s.sectionKey))
+            .map((s) => s.indicator);
+          const { completed, total, progress } = computeStepProgress(
+            { pppDevelopment: formData } as any,
+            "pppDevelopment",
+            { assignedIndicators }
+          );
+          return (
+            <ProgressHeader
+              title="PPP Development"
+              description="PPP policy, proposals and project pipeline status"
+              points={250}
+              completed={completed}
+              total={total}
+              progress={progress}
+            />
+          );
+        })()}
         {/* Section 3.1 */}
         {sectionsWithData.includes('section3_1') && (
         <SectionCard

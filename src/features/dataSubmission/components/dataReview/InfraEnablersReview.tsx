@@ -28,6 +28,8 @@ import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { hasInfraEnablersData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
+import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
+import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -187,6 +189,27 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   return (
     <>
       <div className="space-y-6">
+        {(() => {
+          const sections = getSectionsWithData({ infraEnablers: formDataState }, 'infraEnablers');
+          const assignedIndicators = STEP_SECTIONS.infraEnablers
+            .filter((s) => sections.includes(s.sectionKey))
+            .map((s) => s.indicator);
+          const { completed, total, progress } = computeStepProgress(
+            { infraEnablers: formDataState } as any,
+            "infraEnablers",
+            { assignedIndicators }
+          );
+          return (
+            <ProgressHeader
+              title="Infra Enablers"
+              description="Data related to infra enablers and budget allocation"
+              points={250}
+              completed={completed}
+              total={total}
+              progress={progress}
+            />
+          );
+        })()}
         {/* Section 4.1 */}
         {sectionsWithData.includes('section4_1') && (
         <SectionCard

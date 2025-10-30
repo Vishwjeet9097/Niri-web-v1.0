@@ -18,6 +18,8 @@ import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { hasInfraDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
+import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
+import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 
 interface InfraDevelopmentReviewProps {
   submissionId: string;
@@ -176,6 +178,27 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   return (
     <>
       <div className="space-y-6">
+        {(() => {
+          const sections = getSectionsWithData({ infraDevelopment: formDataState }, 'infraDevelopment');
+          const assignedIndicators = STEP_SECTIONS.infraDevelopment
+            .filter((s) => sections.includes(s.sectionKey))
+            .map((s) => s.indicator);
+          const { completed, total, progress } = computeStepProgress(
+            { infraDevelopment: formDataState } as any,
+            "infraDevelopment",
+            { assignedIndicators }
+          );
+          return (
+            <ProgressHeader
+              title="Infrastructure Development"
+              description="Physical infrastructure development and completion metrics."
+              points={250}
+              completed={completed}
+              total={total}
+              progress={progress}
+            />
+          );
+        })()}
         {/* Section 2.1 */}
         {sectionsWithData.includes('section2_1') && (
         <SectionCard
