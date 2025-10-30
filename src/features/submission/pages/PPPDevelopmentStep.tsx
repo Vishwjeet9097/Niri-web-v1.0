@@ -603,24 +603,17 @@ export const PPPDevelopmentStep = () => {
                 <div className="flex items-center gap-2 w-full">
                   <div className="w-full">
                     <Label>Submission Date</Label>
-                    <Input
-                      type="date"
-                      value={entry.submissionDate}
-                      onChange={(e) =>
-                        updateProject(entry.id, "submissionDate", e.target.value)
-                      }
-                    />
-                    {/* <Popover>
+                    <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          className={updateProject(
+                          className={cn(
                             "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                            !entry.submissionDatee && "text-muted-foreground"
+                            !entry.submissionDate && "text-muted-foreground"
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "Select date"}
+                          {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "DD-MM-YYYY"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
@@ -628,17 +621,12 @@ export const PPPDevelopmentStep = () => {
                           mode="single"
                           selected={entry.submissionDate ? new Date(entry.submissionDate) : undefined}
                           onSelect={(date) =>
-                            setFormData(prev => ({
-                              ...prev,
-                              section1_3: prev.section1_3.map(item =>
-                                item.id === entry.id ? { ...item, submissionDate: date ? date.toISOString() : "" } : item
-                              )
-                            }))
+                            updateProject(entry.id, "submissionDate", date ? date.toISOString() : "")
                           }
                           initialFocus
                         />
                       </PopoverContent>
-                    </Popover> */}
+                    </Popover>
                   </div>
                   <Button
                     type="button"

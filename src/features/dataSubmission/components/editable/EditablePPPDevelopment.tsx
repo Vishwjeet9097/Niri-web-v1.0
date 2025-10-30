@@ -384,13 +384,30 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
                   </div>
                   <div>
                     <Label>Submission Date*</Label>
-                    <Input
-                      type="date"
-                      value={entry.submissionDate}
-                      onChange={(e) =>
-                        updateProject(entry.id, "submissionDate", e.target.value)
-                      }
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
+                            !entry.submissionDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "DD-MM-YYYY"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={entry.submissionDate ? new Date(entry.submissionDate) : undefined}
+                          onSelect={(date) =>
+                            updateProject(entry.id, "submissionDate", date ? date.toISOString() : "")
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <div className="mt-4">
