@@ -203,20 +203,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         {sectionsWithData.includes('section3_1') && (
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">3.1 -</span> Availability of Infrastructure Act/Policy{" "}
-            </span>
-            {!isPreview && (
-              <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("3.1")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
-            )}
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">3.1 -</span> Availability of Infrastructure Act/Policy{" "}
+              </span>
+              {renderActionButtons("3.1")}
+            </div>
           </div>}
           subtitle=""
           className="mb-6"
@@ -279,20 +271,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         {sectionsWithData.includes('section3_2') && (
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">3.2 -</span> Availability of Functional PPP Cell/Unit{" "}
-            </span>
-            {!isPreview && (
-              <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("3.2")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
-            )}
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">3.2 -</span> Availability of Functional PPP Cell/Unit{" "}
+              </span>
+              {renderActionButtons("3.2")}
+            </div>
           </div>}
           subtitle=""
           className="mb-6"
@@ -355,20 +339,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         {sectionsWithData.includes('section3_3') && (
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">3.3 -</span> Proposals Submitted under VGF/IIPDF{" "}
-            </span>
-            {!isPreview && (
-              <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center justify-between absolute right-0 -top-[6px]"
-              onClick={() => handleOpenModal("3.3")}
-            >
-              <MessageSquare className="w-4 h-4" />
-              Add Comment
-            </Button>
-            )}
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">3.3 -</span> Proposals Submitted under VGF/IIPDF{" "}
+              </span>
+              {renderActionButtons("3.3")}
+            </div>
           </div>}
           subtitle=""
           className="mb-6"
@@ -451,20 +427,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         {sectionsWithData.includes('section3_4') && (
         <SectionCard
           title={<div className="flex flex-col relative">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">3.4 -</span> Proportion of TPC of PPP Projects{" "}
-            </span>
-            {!isPreview && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center justify-between absolute right-0 -top-[6px]"
-                onClick={() => handleOpenModal("3.4")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
-            )}
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">3.4 -</span> Proportion of TPC of PPP Projects{" "}
+              </span>
+              {renderActionButtons("3.4")}
+            </div>
           </div>}
           subtitle=""
           className="mb-6"
