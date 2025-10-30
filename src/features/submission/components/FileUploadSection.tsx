@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Upload, X, File, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import { apiService, type FileUploadResponse } from "@/services/api.service";
-import { notificationService } from "@/services/notification.service";
-import type { FileUpload } from "../types";
+import { useState } from 'react';
+import { Upload, X, File, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { apiService, type FileUploadResponse } from '@/services/api.service';
+import { notificationService } from '@/services/notification.service';
+import type { FileUpload } from '../types';
 
 interface FileUploadSectionProps {
   label: string;
@@ -24,7 +24,7 @@ export const FileUploadSection = ({
   description,
   value,
   onChange,
-  accept = ".pdf,.doc,.docx",
+  accept = '.pdf,.doc,.docx',
   maxSize = 10,
   required = false,
   submissionId,
@@ -36,28 +36,18 @@ export const FileUploadSection = ({
 
   const handleFile = async (file: File) => {
     if (file.size > maxSize * 1024 * 1024) {
-      notificationService.warning(
-        `File size must be less than ${maxSize}MB`,
-        "File Too Large"
-      );
+      notificationService.warning(`File size must be less than ${maxSize}MB`, 'File Too Large');
       return;
     }
-
-    // Log actual file details for verification
-    console.log("📂 Captured real file:", {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    });
 
     // If submissionId is provided, upload to backend
     if (submissionId) {
       await uploadToBackend(file);
     } else {
-      // Local file handling (keep actual File instance)
+      // Local file handling (existing behavior)
       const fileUpload: FileUpload = {
         id: crypto.randomUUID(),
-        file, // ✅ real File instance retained
+        file,
         fileName: file.name,
         fileSize: file.size,
         uploadedAt: Date.now(),
@@ -68,21 +58,25 @@ export const FileUploadSection = ({
 
   const uploadToBackend = async (file: File) => {
     if (!submissionId) return;
+
     setUploading(true);
     setUploadProgress(0);
 
     try {
+      // Simulate progress
       const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
+        setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
       const response = await apiService.uploadFile(submissionId, file);
+
       clearInterval(progressInterval);
       setUploadProgress(100);
 
+      // Create file upload object with backend response
       const fileUpload: FileUpload = {
         id: crypto.randomUUID(),
-        file: null, // File not stored locally when backend handles upload
+        file: null, // File not stored locally
         fileName: response.data.fileName,
         fileSize: response.data.fileSize,
         uploadedAt: Date.now(),
@@ -94,11 +88,12 @@ export const FileUploadSection = ({
       onChange(fileUpload);
       onUploadComplete?.(response);
 
-      notificationService.success("File uploaded successfully", "Upload Complete");
+      notificationService.success('File uploaded successfully', 'Upload Complete');
+
     } catch (error: any) {
       notificationService.error(
-        error.message || "Failed to upload file. Please try again.",
-        "Upload Failed"
+        error.message || 'Failed to upload file. Please try again.',
+        'Upload Failed'
       );
     } finally {
       setUploading(false);
@@ -110,11 +105,11 @@ export const FileUploadSection = ({
     if (value?.filePath && submissionId) {
       try {
         await apiService.deleteFile(value.filePath);
-        notificationService.success("File deleted successfully", "File Removed");
+        notificationService.success('File deleted successfully', 'File Removed');
       } catch (error: any) {
         notificationService.error(
-          error.message || "Failed to delete file.",
-          "Delete Failed"
+          error.message || 'Failed to delete file.',
+          'Delete Failed'
         );
       }
     }
@@ -124,20 +119,22 @@ export const FileUploadSection = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   return (
@@ -150,36 +147,79 @@ export const FileUploadSection = ({
       {uploading ? (
         <div className="border-2 border-dashed rounded-lg p-8 text-center">
           <Loader2 className="w-8 h-8 mx-auto mb-3 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground mb-3">Uploading file...</p>
+          <p className="text-sm text-muted-foreground mb-3">
+            Uploading file...
+          </p>
           <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
             <div
               className="bg-primary h-2 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-xs text-muted-foreground">{uploadProgress}% complete</p>
+          <p className="text-xs text-muted-foreground">
+            {uploadProgress}% complete
+          </p>
         </div>
       ) : !value ? (
-        <div className="flex items-center gap-3">
-          <label
-            htmlFor={`file-${label}`}
-            className="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-md cursor-pointer font-medium text-sm hover:bg-indigo-200 transition"
+        <>
+          {/* <div
+            className={cn(
+              'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
+              dragActive
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50 hover:bg-muted/30'
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDrop}
           >
-            Upload File
-          </label>
 
-          <input
-            id={`file-${label}`}
-            type="file"
-            accept={accept}
-            onChange={handleChange}
-            className="hidden"
-          />
+            <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground mb-3">
+              Drag and drop your file here, or click to browse
+            </p>
+            <input
+              type="file"
+              accept={accept}
+              onChange={handleChange}
+              className="hidden"
+              id={`file-${label}`}
+              disabled={uploading}
+            />
+            <Button type="button" variant="outline" size="sm" asChild disabled={uploading}>
+              <label htmlFor={`file-${label}`} className="cursor-pointer">
+                Choose File
+              </label>
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              Maximum file size: {maxSize}MB
+            </p>
+          </div> */}
+          <div className="flex items-center gap-3">
+            <label
+              htmlFor={`file-${label}`} className="cursor-pointer"
+              className="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-md cursor-pointer font-medium text-sm hover:bg-indigo-200 transition"
+            >
+              Upload File
+            </label>
 
-          <span className="text-gray-600 text-sm truncate max-w-[200px]">
-            {value ? value.fileName : "No file chosen"}
-          </span>
-        </div>
+            <input
+               type="file"
+              accept={accept}
+              onChange={handleChange}
+              className="hidden"
+              id={`file-${label}`}
+              disabled={uploading}
+            />
+
+            <span className="text-gray-600 text-sm truncate max-w-[200px]">
+              {value ? value.fileName : 'No file chosen'}
+            </span>
+          </div>
+        </>
       ) : (
         <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/30">
           <File className="w-8 h-8 text-primary flex-shrink-0" />

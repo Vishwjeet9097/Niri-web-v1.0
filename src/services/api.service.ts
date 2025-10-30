@@ -81,7 +81,7 @@ class ApiService implements HttpClient {
         return config;
       },
       (error) => Promise.reject(error)
-    )
+    );
 
     // Response interceptor - handle errors and token refresh
     this.axios.interceptors.response.use(
@@ -458,97 +458,42 @@ class ApiService implements HttpClient {
     }
   }
 
-async postMultipart<T = any>(
-  url: string,
-  data: FormData,
-  config: AxiosRequestConfig = {}
-): Promise<T> {
-  // 🔍 Get stored token
-   const storedToken = localStorage.getItem("niri_app:auth_tokens");
-  let token: string | null = null;
+  // Submission methods
+  async createSubmission(submissionData: any): Promise<NiriSubmission> {
+    try {
+      console.log(
+        "🔍 API Service - Create Submission Request Data:",
+        submissionData
+      );
+      const response = await this.axios.post("/submission", submissionData);
+      console.log(
+        "🔍 API Service - Create Submission Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Create Submission Response Data:",
+        response.data
+      );
 
-  try {
-    if (storedToken) {
-      const parsed = JSON.parse(storedToken);
-      token = parsed?.value?.accessToken || parsed?.accessToken || null;
+      // Handle response.data.data pattern
+      const submissionData_response =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Create Submission Data:",
+        submissionData_response
+      );
+
+      return submissionData_response;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Create Submission 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      throw error;
     }
-  } catch (error) {
-    console.error("❌ Failed to parse token from localStorage:", error);
   }
-
-  if (!token) {
-    console.warn("⚠️ No access token found in localStorage!");
-  }
-
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "multipart/form-data",
-  };
-
-  console.log("🚀 Sending multipart request:", { url, headers });
-
-  return axios.post(url, data, { headers, ...config });
-}
-
-
-async createSubmission(submissionData: any): Promise<any> {
-  try {
-    console.log("🧩 Building multipart FormData payload...");
-
-    const formData = new FormData();
-    formData.append("submission", JSON.stringify(submissionData));
-
-    const appendFiles = (obj: any, parentKey = "") => {
-      if (!obj || typeof obj !== "object") return;
-
-      Object.entries(obj).forEach(([key, value]) => {
-        const fullKey = parentKey ? `${parentKey}.${key}` : key;
-
-        // Case 1: Direct File
-        if (value instanceof File) {
-          formData.append(fullKey, value);
-        }
-
-        // Case 2: FileUpload object
-        else if (value && typeof value === "object" && "file" in value && value.file instanceof File) {
-          formData.append(fullKey, value.file);
-        }
-
-        // Case 3: Array of files
-        else if (Array.isArray(value)) {
-          value.forEach((item, index) => {
-            if (item instanceof File) {
-              formData.append(`${fullKey}[${index}]`, item);
-            } else if (item && typeof item === "object" && "file" in item && item.file instanceof File) {
-              formData.append(`${fullKey}[${index}]`, item.file);
-            } else {
-              appendFiles(item, `${fullKey}[${index}]`);
-            }
-          });
-        }
-
-        // Case 4: Nested object
-        else if (typeof value === "object") {
-          appendFiles(value, fullKey);
-        }
-      });
-    };
-
-    appendFiles(submissionData);
-
-    const token = authService.getAuthHeaders()?.Authorization;
-
-    const response = await axios.post(`${config.apiBaseUrl}/submission`, formData, {
-      headers: { Authorization: token },
-    });
-
-    console.log("✅ Submission successful:", response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error("❌ Submission error:", error);
-    throw error;
-  }
-}
 
   async getSubmissions(
     page = 1,
@@ -954,7 +899,7 @@ async createSubmission(submissionData: any): Promise<any> {
     comment: string
   ): Promise<NiriSubmission> {
     try {
-      const response = await this.axios.post(`submission/resubmit/${id}`, {
+      const response = await this.axios.post(`/submission/resubmit/${id}`, {
         formData,
         comment,
       });

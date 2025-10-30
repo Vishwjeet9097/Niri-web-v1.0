@@ -198,27 +198,22 @@ class AuthService {
     // Debug logging removed for performance
   }
 
-  getAuthHeaders(isMultipart: boolean = false): Record<string, string> {
-  const headers: Record<string, string> = {
-    "X-Request-Id": `req_${Date.now()}_${Math.random()
-      .toString(36)
-      .substr(2, 9)}`,
-  };
+  getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-Request-Id": `req_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`,
+    };
 
-  // ✅ Only set JSON content type if not multipart
-  if (!isMultipart) {
-    headers["Content-Type"] = "application/json";
+    // Add Authorization header with proper token type
+    if (this.tokens?.accessToken && this.tokens.accessToken.trim() !== "") {
+      const tokenType = this.tokens.tokenType || "Bearer";
+      headers["Authorization"] = `${tokenType} ${this.tokens.accessToken}`;
+    }
+
+    return headers;
   }
-
-  // ✅ Add Authorization header if token exists
-  if (this.tokens?.accessToken && this.tokens.accessToken.trim() !== "") {
-    const tokenType = this.tokens.tokenType || "Bearer";
-    headers["Authorization"] = `${tokenType} ${this.tokens.accessToken}`;
-  }
-
-  return headers;
-}
-
 
   isAuthenticated(): boolean {
     if (!this.tokens || !this.user) return false;

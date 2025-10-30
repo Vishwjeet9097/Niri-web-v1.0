@@ -1,6 +1,5 @@
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -16,7 +15,7 @@ import { transformFormDataForSubmission, getFormDataSummary } from "@/utils/form
 import { Label } from "@/components/ui/label";
 import { UnifiedReviewPage } from "../../dataSubmission/components/UnifiedReviewPage";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
+
 const PREVIEW_FLAG_KEY = "submission_has_previewed";
 
 export const PreviewPage = () => {
@@ -61,61 +60,65 @@ export const PreviewPage = () => {
   };
 
   // Actual submission logic
-const performSubmission = async () => {
-  if (!formData) return;
+  const performSubmission = async () => {
+    if (!formData) return;
 
-  try {
-    setIsSubmitting(true);
-    setShowConfirmModal(false);
+    try {
+      setIsSubmitting(true);
+      setShowConfirmModal(false);
 
-    const transformedData = transformFormDataForSubmission(formData, "SUBMITTED_TO_STATE");
-    const multipartData = new FormData();
-    multipartData.append("submission", JSON.stringify(transformedData));
+      // Transform form data for API submission
+      const transformedData = transformFormDataForSubmission(formData);
 
-    appendFilesRecursively(multipartData, formData);
+      let response;
 
-    console.group("🧾 FormData entries being sent:");
-    for (const [key, val] of multipartData.entries()) {
-      console.log("➡️", key, val instanceof File ? val.name : val);
+      if (isEditMode && editingSubmissionId) {
+        // Edit mode - use resubmit API
+        response = await apiV2.post(`${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`, transformedData);
+      } else if (isResubmit) {
+        // Resubmit mode - use resubmit API with submission ID from localStorage
+        const editingSubmissionId = localStorage.getItem('editing_submission_id');
+        if (editingSubmissionId) {
+          response = await apiV2.post(`${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`, transformedData);
+        } else {
+          response = await apiV2.post(`${config.apiBaseUrl}/submission`, transformedData);
+        }
+      } else {
+        // Normal mode - create new submission
+        response = await apiV2.post(`${config.apiBaseUrl}/submission`, transformedData);
+      }
+
+      console.log("✅ Submission successful:", response);
+
+      // Clear form data from localStorage
+      clearFormData();
+      localStorage.removeItem("editing_submission_id");
+      localStorage.removeItem("is_edit_mode");
+
+      // Show success message
+      const successMessage = isEditMode
+        ? "Form resubmitted successfully! Your changes have been sent for review."
+        : isResubmit
+          ? "Form resubmitted successfully! Your updated submission has been sent for review."
+          : "Form submitted successfully! Your submission has been sent for review.";
+
+      setSubmissionMessage(successMessage);
+      setShowSuccessModal(true);
+
+      // Redirect after a delay
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 3000);
+
+    } catch (error: unknown) {
+      console.error("❌ Submission failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to submit form. Please try again.";
+      notificationService.error(errorMessage, "Submission Error");
+    } finally {
+      setIsSubmitting(false);
     }
-    console.groupEnd();
+  };
 
-    const token = localStorage.getItem("access_token");
-    let response;
-
-    if (isEditMode && editingSubmissionId) {
-      response = await axios.post(
-        `${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`,
-        multipartData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    } else {
-      response = await axios.post(`${config.apiBaseUrl}/submission`, multipartData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    }
-
-    console.log("✅ Submission successful:", response);
-    clearFormData();
-    localStorage.removeItem("editing_submission_id");
-    localStorage.removeItem("is_edit_mode");
-
-    const successMessage = isEditMode
-      ? "Form resubmitted successfully!"
-      : "Form submitted successfully!";
-    setSubmissionMessage(successMessage);
-    setShowSuccessModal(true);
-
-    setTimeout(() => navigate("/dashboard"), 3000);
-  } catch (error: any) {
-    console.error("❌ Submission failed:", error);
-    const errorMessage =
-      error?.response?.data?.message || error?.message || "Failed to submit form.";
-    notificationService.error(errorMessage, "Submission Error");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
   // Create a mock submission object for UnifiedReviewPage
   const mockSubmission = formData ? {
     id: "preview-submission",
