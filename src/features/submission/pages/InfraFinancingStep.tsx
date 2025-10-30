@@ -26,7 +26,6 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
 import { authService } from "@/services/auth.service";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { computeStepProgress } from "../utils/progress";
 
 export const InfraFinancingStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
@@ -404,23 +403,14 @@ export const InfraFinancingStep = () => {
       </div>
 
       <div className="px-6 lg:px-8">
-        {(() => {
-          const { completed, total, progress } = computeStepProgress(
-            { infraFinancing: formData },
-            "infraFinancing",
-            { assignedIndicators, isNodalOfficer }
-          );
-          return (
-            <ProgressHeader
-              title="Infrastructure Financing"
-              description="Data related to infrastructure financing and budget allocation"
-              points={250}
-              completed={completed}
-              total={total}
-              progress={progress}
-            />
-          );
-        })()}
+        <ProgressHeader
+          title="Infrastructure Financing"
+          description="Data related to infrastructure financing and budget allocation"
+          points={250}
+          completed={0}
+          total={5}
+          progress={0}
+        />
 
 
       {/* Section 1.1 */}
@@ -437,8 +427,8 @@ export const InfraFinancingStep = () => {
 
             </div>
           }
-          // subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
-          //       Capital Expenditure)"
+          subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
+                Capital Expenditure)"
           className="mb-6"
         >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
@@ -446,7 +436,7 @@ export const InfraFinancingStep = () => {
             <Label>Year<span className="text-red-500">*</span></Label>
             <Input
               type="text"
-              placeholder="Enter Year"
+              placeholder="2024-25"
               value={formData.section1_1.year}
               onChange={(e) =>
                 setFormData({
@@ -462,7 +452,7 @@ export const InfraFinancingStep = () => {
               <Info className="h-4 w-4 text-gray-500 inline-block ml-2" />
             </Label>
             <Input
-              placeholder="Enter Capital Allocation"
+              placeholder="₹1,50,000 crores"
               value={formData.section1_1.capitalAllocation}
               onChange={(e) =>
                 setFormData({
@@ -481,7 +471,7 @@ export const InfraFinancingStep = () => {
               <Info className="h-4 w-4 text-gray-500 ml-2" />
             </Label>
             <Input
-              placeholder="Enter GSDP for FY"
+              placeholder="₹25,00,000 crores"
               value={formData.section1_1.gsdpForFY}
               onChange={(e) =>
                 setFormData({
@@ -531,7 +521,7 @@ export const InfraFinancingStep = () => {
               </span>
             </span>
           </div>}
-          // subtitle="Annex 2: Verified with MoHUA data"
+          subtitle="Annex 2: Verified with MoHUA data"
         >
         <div className="grid grid-cols-2 gap-4 max-w-[70%]">
           <div className="space-y-2">
@@ -550,7 +540,7 @@ export const InfraFinancingStep = () => {
           <div className="space-y-2">
             <Label>A₁ - Actual Capex (INR)<span className="text-red-500">*</span></Label>
             <Input
-              placeholder="Enter Actual Capex"
+              placeholder="₹2,15,400 Crores"
               value={formData.section1_2.actualCapex}
               onChange={(e) =>
                 setFormData({
@@ -566,7 +556,7 @@ export const InfraFinancingStep = () => {
           <div className="space-y-2">
             <Label>State Capex Utilisation (INR)</Label>
             <Input
-              placeholder="Enter State Capex Utilisation"
+              placeholder="₹15,40,250 Crores"
               value={formData.section1_2.stateCapexUtilisation}
               onChange={(e) =>
                 setFormData({
@@ -610,7 +600,7 @@ export const InfraFinancingStep = () => {
               <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
             </span>
           </div>}
-          // subtitle="Annex 2: Verified with MoHUA data"
+          subtitle="Annex 2: Verified with MoHUA data"
           className="mb-6"
         >
         <div className="space-y-4">
@@ -619,7 +609,7 @@ export const InfraFinancingStep = () => {
               <div>
                 <Label>City name<span className="text-red-500">*</span></Label>
                 <Input
-                  placeholder="Enter City Name"
+                  placeholder="Mumbai"
                   value={ulb.cityName}
                   onChange={(e) =>
                     setFormData(prev => ({
@@ -745,7 +735,7 @@ export const InfraFinancingStep = () => {
               <span className="text-primary">1.4 -</span> % of ULBs issuing Bonds{" "}
             </span>
           </div>}
-          // subtitle="Annex 3: ULBs with population > 50,000"
+          subtitle="Annex 3: ULBs with population > 50,000"
           className="mb-6"
         >
         <div className="space-y-4">
@@ -825,7 +815,7 @@ export const InfraFinancingStep = () => {
                 <div className="flex-1">
                   <Label>Value (INR crore)<span className="text-red-500">*</span></Label>
                   <Input
-                    placeholder="Enter Value"
+                    placeholder="₹500 crores"
                     value={bond.value}
                     onChange={(e) =>
                       setFormData(prev => ({
@@ -870,7 +860,7 @@ export const InfraFinancingStep = () => {
               <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
             </span>
           </div>}
-          // subtitle="Annex 4: Provide website link and funding details"
+          subtitle="Annex 4: Provide website link and funding details"
           className="mb-6"
         >
         <div className="space-y-4">
@@ -941,7 +931,7 @@ export const InfraFinancingStep = () => {
               <div>
                 <Label>Total Funding (INR)</Label>
                 <Input
-                  placeholder="Enter total funding in INR"
+                  placeholder="Enter total finding in INR"
                   value={intermediary.totalFunding}
                   onChange={(e) =>
                     setFormData(prev => ({

@@ -26,7 +26,7 @@ import { getStatusInfo, getStatusPills, getWaitingMessage as getStatusWaitingMes
 export interface UnifiedSubmissionCardProps {
   id: string;
   title: string;
-  status: "draft" | "under_review" | "approved" | "need_revision" | "DRAFT" | "SUBMITTED_TO_STATE" | "APPROVED" | "REJECTED" | "SUBMITTED_TO_MOSPI" | "MOSPI_APPROVED" | "MOSPI_REJECTED" | "RETURNED_FROM_MOSPI" | "RETURNED_FROM_MOSPI_APPROVER" | "RETURNED_FROM_STATE" | "SUBMITTED_TO_MOSPI_REVIEWER" | "SUBMITTED_TO_MOSPI_APPROVER" | "REJECTED_FINAL";
+  status: "draft" | "under_review" | "approved" | "need_revision" | "DRAFT" | "SUBMITTED_TO_STATE" | "APPROVED" | "REJECTED" | "SUBMITTED_TO_MOSPI" | "MOSPI_APPROVED" | "MOSPI_REJECTED" | "RETURNED_FROM_MOSPI" | "RETURNED_FROM_STATE" | "SUBMITTED_TO_MOSPI_REVIEWER" | "SUBMITTED_TO_MOSPI_APPROVER" | "REJECTED_FINAL";
   referenceId: string;
   updatedDate: string;
   dueDate: string;
@@ -129,12 +129,6 @@ const statusConfig = {
     borderClass: "border-l-orange-500",
     bgClass: "bg-white",
   },
-  RETURNED_FROM_MOSPI_APPROVER: {
-    label: "Returned from MoSPI Approver",
-    badgeClass: "bg-orange-100 text-orange-800 border-orange-200",
-    borderClass: "border-l-orange-500",
-    bgClass: "bg-white",
-  },
   RETURNED_FROM_STATE: {
     label: "Returned from State",
     badgeClass: "bg-orange-100 text-orange-800 border-orange-200",
@@ -226,7 +220,7 @@ export function UnifiedSubmissionCard({
               <AlertCircle className="w-4 h-4 mr-1" />
               Action Required
             </Button>
-          ) : (status === "need_revision" || status === "RETURNED_FROM_MOSPI" || status === "RETURNED_FROM_STATE") && onRevise && !(currentUserRole === "NODAL_OFFICER" && status === "RETURNED_FROM_MOSPI_APPROVER") ? (
+          ) : (status === "need_revision" || status === "RETURNED_FROM_MOSPI" || status === "RETURNED_FROM_STATE") && onRevise ? (
             <Button size="sm" variant="outline" className="text-blue-600 border-blue-300" onClick={onRevise}>
               Revise
             </Button>

@@ -85,7 +85,27 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
         </div>
       )}
 
-      {/* Section Header shown inside each review component now (dynamic) */}
+      {/* Section Header */}
+      {availableSections.length > 0 && (
+        <div className="flex flex-col items-center gap-8 self-stretch rounded-lg border border-[#DDD] bg-white p-5 mb-6">
+          <div className="flex items-start justify-between w-full">
+          <div>
+            <h3 className="text-[18px] font-semibold text-[#212121]">
+              {availableSections[currentSection]?.label} | {availableSections[currentSection]?.points} Points
+            </h3>
+            <p className="text-sm text-[#727272] mt-1">
+              Data related to {availableSections[currentSection]?.label.toLowerCase()} and budget allocation
+            </p>
+          </div>
+          <div className="text-right">
+            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+              5/5 completed
+            </Badge>
+            <p className="text-xs text-muted-foreground mt-1">100% Progress</p>
+          </div>
+          </div>
+        </div>
+      )}
 
 
       {/* Section Content */}

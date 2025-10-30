@@ -259,7 +259,7 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
 
       case "section3_4":
         return (
-          hasArrayData(section.projects) ||
+          hasMeaningfulValue(section.totalTPC) ||
           hasMeaningfulValue(section.proportion) ||
           hasMeaningfulValue(section.marksObtained) ||
           hasMeaningfulValue(section.tpcOfPPPProjects)
@@ -473,7 +473,7 @@ const hasSectionData = (
           return hasArrayData(section);
         case "section3_4":
           return (
-            hasArrayData(section.projects) ||
+            hasMeaningfulValue(section.totalTPC) ||
             hasMeaningfulValue(section.proportion) ||
             hasMeaningfulValue(section.marksObtained) ||
             hasMeaningfulValue(section.tpcOfPPPProjects)

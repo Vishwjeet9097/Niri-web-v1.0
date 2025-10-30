@@ -18,8 +18,6 @@ import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { hasInfraDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
-import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
-import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 
 interface InfraDevelopmentReviewProps {
   submissionId: string;
@@ -178,27 +176,6 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   return (
     <>
       <div className="space-y-6">
-        {(() => {
-          const sections = getSectionsWithData({ infraDevelopment: formDataState }, 'infraDevelopment');
-          const assignedIndicators = STEP_SECTIONS.infraDevelopment
-            .filter((s) => sections.includes(s.sectionKey))
-            .map((s) => s.indicator);
-          const { completed, total, progress } = computeStepProgress(
-            { infraDevelopment: formDataState } as any,
-            "infraDevelopment",
-            { assignedIndicators }
-          );
-          return (
-            <ProgressHeader
-              title="Infrastructure Development"
-              description="Physical infrastructure development and completion metrics."
-              points={250}
-              completed={completed}
-              total={total}
-              progress={progress}
-            />
-          );
-        })()}
         {/* Section 2.1 */}
         {sectionsWithData.includes('section2_1') && (
         <SectionCard
@@ -500,14 +477,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
-                        <Label>Upload DPR/Feasibility Report</Label>
+                        <Label>DPR File</Label>
                         {item.dprFile ? (
                           <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                             <Upload className="w-4 h-4" />
-                            <span className="text-sm">{item.dprFile.fileName || "DPR/Feasibility Report"}</span>
+                            <span className="text-sm">{item.dprFile.fileName || "DPR File"}</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">No DPR/Feasibility Report uploaded</span>
+                          <span className="text-sm text-muted-foreground">No DPR file uploaded</span>
                         )}
                       </div>
                     </div>
@@ -563,9 +540,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                   <thead>
                     <tr className="bg-[#DDE3F9]">
                       <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project/Asset Name</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Select Sector</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Select Type</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Asset Ownership</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Type</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Ownership</th>
                       <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Estimated Monetization</th>
                     </tr>
                   </thead>

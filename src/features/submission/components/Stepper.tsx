@@ -1,6 +1,6 @@
-import { Check } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { SubmissionStep } from "../types";
+import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { SubmissionStep } from '../types';
 
 interface StepperProps {
   steps: SubmissionStep[];

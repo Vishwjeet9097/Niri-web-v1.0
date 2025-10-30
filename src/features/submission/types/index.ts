@@ -115,17 +115,9 @@ export interface PPPDevelopmentData {
     marksObtained?: number;
   }>;
   section3_4: {
-    projects: Array<{
-      id: string;
-      nameOfProject: string; // Name of PPP/Bankable Projects
-      nipId: string; // NIP ID
-      fundingSource: string; // Funding Source (In case of bankable project)
-      infrastructureSector: string; // Infrastructure Sector
-      dateOfAward: string; // Date of Award
-      capexPercentage: string; // % of Capex funded by non-Govt sources
-    }>;
+    tpcOfPPPProjects: string; // A₁
+    totalTPC: string; // A₂
     // Calculation fields
-    tpcOfPPPProjects?: string; // A₁ - Calculated total from projects
     proportion?: number;
     marksObtained?: number;
   };

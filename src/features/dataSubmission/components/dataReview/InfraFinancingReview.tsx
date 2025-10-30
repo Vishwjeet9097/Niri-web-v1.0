@@ -11,8 +11,6 @@ import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { hasInfraFinancingData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
-import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
-import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 
 interface InfraFinancingReviewProps {
   submissionId: string;
@@ -260,27 +258,6 @@ export const InfraFinancingReview = ({ submissionId, formData, submission, isPre
   return (
     <>
       <div className="space-y-6">
-        {(() => {
-          const sections = getSectionsWithData({ infraFinancing: formData }, 'infraFinancing');
-          const assignedIndicators = STEP_SECTIONS.infraFinancing
-            .filter((s) => sections.includes(s.sectionKey))
-            .map((s) => s.indicator);
-          const { completed, total, progress } = computeStepProgress(
-            { infraFinancing: formData } as any,
-            "infraFinancing",
-            { assignedIndicators }
-          );
-          return (
-            <ProgressHeader
-              title="Infra Financing"
-              description="Data related to infrastructure financing and budget allocation"
-              points={250}
-              completed={completed}
-              total={total}
-              progress={progress}
-            />
-          );
-        })()}
         {/* Section 1.1 */}
         {sectionsWithData.includes('section1_1') && (
         <SectionCard
@@ -461,29 +438,7 @@ export const InfraFinancingReview = ({ submissionId, formData, submission, isPre
                     </div>
                     <div>
                       <Label>Rating Date</Label>
-                      <Input 
-                        type="text" 
-                        value={
-                          item.ratingDate 
-                            ? (() => {
-                                try {
-                                  const dateStr = typeof item.ratingDate === 'string' ? item.ratingDate : '';
-                                  if (dateStr.includes('T')) {
-                                    const date = new Date(dateStr);
-                                    const year = date.getFullYear();
-                                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                                    const day = String(date.getDate()).padStart(2, '0');
-                                    return `${year}-${month}-${day}`;
-                                  }
-                                  return dateStr.split('T')[0] || dateStr;
-                                } catch (e) {
-                                  return item.ratingDate || "";
-                                }
-                              })()
-                            : ""
-                        } 
-                        readOnly 
-                      />
+                      <Input type="date" value={item.ratingDate || ""} readOnly />
                     </div>
                     <div>
                       <Label>Rating</Label>
