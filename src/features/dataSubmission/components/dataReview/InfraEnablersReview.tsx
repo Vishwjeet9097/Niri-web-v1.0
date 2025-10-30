@@ -1,4 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -570,14 +578,43 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           subtitle=""
           className="mb-6"
         >
-          <CardContent className="pt-6">
-            <div className="text-center text-muted-foreground py-4">
-              No capacity building data available
-            </div>
+          <CardContent className="pt-6 space-y-3">
+            {Array.isArray(formDataState?.section4_6) && formDataState.section4_6.length > 0 ? (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead>Officer Name</TableHead>
+                      <TableHead>Designation</TableHead>
+                      <TableHead>Program Name</TableHead>
+                      <TableHead>Training Type</TableHead>
+                      <TableHead>Organiser</TableHead>
+                      <TableHead className="text-right">Marks</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {formDataState.section4_6.map((item: any) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.officerName || "-"}</TableCell>
+                        <TableCell>{item.designation || "-"}</TableCell>
+                        <TableCell>{item.programName || "-"}</TableCell>
+                        <TableCell>{item.trainingType || "-"}</TableCell>
+                        <TableCell>{item.organiser || "-"}</TableCell>
+                        <TableCell className="text-right">{item.marksObtained ?? "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-4">
+                No capacity building data available
+              </div>
+            )}
+
             <p className="text-xs text-muted-foreground">
               Upload capacity building participation data
             </p>
-
           </CardContent>
         </SectionCard>
         )}
