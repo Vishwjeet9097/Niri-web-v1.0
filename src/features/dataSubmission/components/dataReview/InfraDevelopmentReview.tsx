@@ -57,9 +57,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             // Update submission state with fresh data
             setSubmissionState(freshSubmission);
             
-            // Update form data with fresh data
+            // Update form data with fresh data (only this section's slice)
             if (freshSubmission.formData) {
-              setFormDataState(freshSubmission.formData);
+              setFormDataState(freshSubmission.formData.infraDevelopment);
             }
             
             console.log("✅ Fresh submission data loaded:", freshSubmission);
@@ -98,11 +98,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const handleSaveMessage = async (message: string) => {
     if (activeSection) {
       try {
-        const updatedSubmission = await saveMessage(activeSection, message);
+        const updatedSubmission: unknown = await saveMessage(activeSection, message);
         if (updatedSubmission) {
-          // Update form data with fresh API response
-          setSubmissionData(updatedSubmission);
-          
+          // Update submission and form data so UI remains intact
+          setSubmissionState(updatedSubmission);
+          if ((updatedSubmission as any).formData) {
+            setFormDataState((updatedSubmission as any).formData.infraDevelopment);
+          }
+
           // Force timeline refresh if modal is open for same section
           if (timelineSection === activeSection) {
             setTimelineSection(null);
