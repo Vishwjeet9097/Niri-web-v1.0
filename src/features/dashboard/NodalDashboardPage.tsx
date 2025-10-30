@@ -290,7 +290,7 @@ export function NodalDashboardPage() {
   const deadlines: any[] = [];
 
   return (
-    <div className="space-y-6">
+  <div className="space-y-6" >
       {/* Header */}
       <div className="bg-[#fff] p-6 rounded-lg relative">
         <div>
@@ -320,97 +320,127 @@ export function NodalDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column - Submissions */}
         <div className="lg:col-span-2 space-y-6">
-          
+          {/* Quick Actions */}
+          {/* <QuickActions actions={[
+    {
+      id: "1",
+      title: "New Data Submission",
+      subtitle: "Start fresh data entry",
+      icon: "file" as const,
+              onClick: () => navigate('/submissions')
+    },
+    {
+      id: "2",
+      title: "Copy from Previous",
+      subtitle: "Replicate last submission",
+      icon: "copy" as const,
+              onClick: () => console.log("Copy from previous")
+    },
+    {
+      id: "3",
+      title: "View Reports",
+      subtitle: "Performance analytics",
+      icon: "chart" as const,
+              onClick: () => console.log("View reports")
+    },
+    {
+      id: "4",
+      title: "Help Center",
+      subtitle: "Guides & documentation",
+      icon: "help" as const,
+              onClick: () => console.log("Help center")
+            }
+          ]} /> */}
 
           {/* Submissions Tabs */}
-          <div className="space-y-4 bg-[#fff] border border-[#0000001A] p-6 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Latest Submissions</h2>
-                <p className="text-sm text-muted-foreground">Your latest NIRI data submissions and their status</p>
+          <div className="space-y-4">
+            <div className="bg-white shadow-xl rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold">Latest Submissions</h2>
+                  <p className="text-sm text-muted-foreground">Your latest NIRI data submissions and their status</p>
+                </div>
+                <Button onClick={() => navigate('/submissions')}>+ New Submission</Button>
               </div>
-              <Button onClick={() => navigate('/submissions')}>+ New Submission</Button>
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="flex justify-start items-center gap-6 px-1">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
+                  <TabsTrigger value="SUBMITTED_TO_STATE">Under Review</TabsTrigger>
+                  <TabsTrigger value="APPROVED">Approved</TabsTrigger>
+                  <TabsTrigger value="DRAFT">Draft</TabsTrigger>
+                </TabsList>
+                <TabsContent value={activeTab} className="mt-4">
+                  <div className="space-y-4">
+                    {filteredSubmissions.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No submissions found for this status.
+                      </div>
+                    ) : (
+                      filteredSubmissions?.map((submission) => (
+                        <UnifiedSubmissionCard 
+                          key={submission.id} 
+                          id={submission.id}
+                          title={submission.title}
+                          status={submission.status}
+                          referenceId={submission.referenceId}
+                          updatedDate={submission.updatedDate}
+                          dueDate={submission.dueDate}
+                          progress={submission.progress}
+                          nextStep={submission.nextStep}
+                          reviewerNote={submission.reviewerNote}
+                          submission={submission.submission}
+                          currentUserRole="NODAL_OFFICER"
+                          submittedBy={submission.submittedBy}
+                          onEdit={() => handleEditSubmissionForEdit(submission.id, navigate)}
+                          onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
+                          onRevise={() => handleEditSubmission(submission.id, navigate)}
+                        />
+                      ))
+                    )}
+                  </div>
+                  <div className="mt-4 text-center">
+                    <Button variant="outline">View All</Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
-
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="flex gap-4 justify-start px-0 border-none">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
-                <TabsTrigger value="SUBMITTED_TO_STATE">Under Review</TabsTrigger>
-                <TabsTrigger value="APPROVED">Approved</TabsTrigger>
-                <TabsTrigger value="DRAFT">Draft</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value={activeTab} className="mt-4">
-                <div className="space-y-4">
-                  {filteredSubmissions.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No submissions found for this status.
-                    </div>
-                  ) : (
-                    filteredSubmissions?.map((submission) => (
-                      <UnifiedSubmissionCard
-                        key={submission.id}
-                        id={submission.id}
-                        title={submission.title}
-                        status={submission.status}
-                        referenceId={submission.referenceId}
-                        updatedDate={submission.updatedDate}
-                        dueDate={submission.dueDate}
-                        progress={submission.progress}
-                        nextStep={submission.nextStep}
-                        reviewerNote={submission.reviewerNote}
-                        submission={submission.submission}
-                        currentUserRole="NODAL_OFFICER"
-                        submittedBy={submission.submittedBy}
-                        onEdit={() => handleEditSubmissionForEdit(submission.id, navigate)}
-                        onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
-                        onRevise={() => handleEditSubmission(submission.id, navigate)}
-                      />
-                    ))
-                  )}
-                </div>
-                <div className="mt-4 text-center">
-                  <Button variant="outline">View All</Button>
-                </div>
-              </TabsContent>
-            </Tabs>
           </div>
         </div>
 
         {/* Right Column - Sidebar */}
-        <div className="space-y-6">
+  <div className="space-y-6 lg:w-[300px] ">
           {/* Upcoming Deadlines */}
           <UpcomingDeadlines deadlines={deadlines} />
-          
-          {/* Quick Actions */}
+
+            {/* Quick Actions */}
           <QuickActions actions={[
-            {
-              id: "1",
-              title: "New Data Submission",
-              subtitle: "Start fresh data entry",
-              icon: "file" as const,
+    {
+      id: "1",
+      title: "New Data Submission",
+      subtitle: "Start fresh data entry",
+      icon: "file" as const,
               onClick: () => navigate('/submissions')
-            },
-            {
-              id: "2",
-              title: "Copy from Previous",
-              subtitle: "Replicate last submission",
-              icon: "copy" as const,
+    },
+    {
+      id: "2",
+      title: "Copy from Previous",
+      subtitle: "Replicate last submission",
+      icon: "copy" as const,
               onClick: () => console.log("Copy from previous")
-            },
-            {
-              id: "3",
-              title: "View Reports",
-              subtitle: "Performance analytics",
-              icon: "chart" as const,
+    },
+    {
+      id: "3",
+      title: "View Reports",
+      subtitle: "Performance analytics",
+      icon: "chart" as const,
               onClick: () => console.log("View reports")
-            },
-            {
-              id: "4",
-              title: "Help Center",
-              subtitle: "Guides & documentation",
-              icon: "help" as const,
+    },
+    {
+      id: "4",
+      title: "Help Center",
+      subtitle: "Guides & documentation",
+      icon: "help" as const,
               onClick: () => console.log("Help center")
             }
           ]} />

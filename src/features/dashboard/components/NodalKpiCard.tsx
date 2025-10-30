@@ -26,7 +26,7 @@ const iconBgStyles = {
 
 export function NodalKpiCard({ title, value, subtitle, icon: Icon, variant }: NodalKpiCardProps) {
   return (
-    <Card className={`py-2 px-4 ${variantStyles[variant]} shadow-sm hover:shadow-md transition-shadow`}>
+    <Card className={`p-4 ${variantStyles[variant]} shadow-md hover:shadow-lg transition-shadow`}>
       <div className="flex items-start justify-between mb-3">
         <div className={`p-2 rounded-lg ${iconBgStyles[variant]}`}>
           <Icon className="w-5 h-5" />

@@ -22,7 +22,7 @@ interface QuickActionsProps {
 
 export function QuickActions({ actions = [] }: QuickActionsProps) {
   return (
-    <Card className="p-6 bg-white shadow-xl">
+  <Card className="p-6 bg-white shadow-xl rounded-xl">
       <h3 className="text-lg font-semibold mb-2">Quick Actions</h3>
       <p className="text-sm text-gray-500 mb-4">Common tasks and shortcuts</p>
       
@@ -33,7 +33,7 @@ export function QuickActions({ actions = [] }: QuickActionsProps) {
             return (
               <div
                 key={action.id}
-                className="flex items-center gap-3 p-3 hover:bg-gray-50 border border-[#D3DCF8] rounded-lg cursor-pointer transition-colors"
+                className="border flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
                 onClick={action.onClick}
               >
                 <div className="p-2 bg-orange-50 rounded">
