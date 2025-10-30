@@ -564,7 +564,7 @@ export const PPPDevelopmentStep = () => {
                   <Label>Project Name</Label>
                   <Input
                     type="text"
-                    placeholder="Enter practice name"
+                    placeholder="Enter project name"
                     value={entry.projectName}
                     onChange={(e) =>
                       updateProject(entry.id, "projectName", e.target.value)

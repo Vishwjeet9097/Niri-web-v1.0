@@ -156,7 +156,7 @@ export function StateApproverDashboardPage() {
           // },
           {
             title: "Returned back from MoSPI",
-            value: calculatedKPIs.returnedFromMospi.toString() || "4",
+            value: calculatedKPIs.sentBack.toString() || "4",
             subtitle: "Need Revision",
             icon: RotateCcw,
             variant: "purple" as const,
