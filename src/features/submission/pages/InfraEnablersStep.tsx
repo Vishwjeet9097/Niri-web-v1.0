@@ -35,6 +35,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
+import { computeStepProgress } from "../utils/progress";
 
 const defaultData: InfraEnablersData = {
   section4_1: {
@@ -353,14 +354,23 @@ export const InfraEnablersStep = () => {
             <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
           </div>
           <div className="px-6 lg:px-8">
-            <ProgressHeader
-              title="Infrastructure Enablers"
-              description="Supporting infrastructure and policy enablers"
-              points={250}
-              completed={0}
-              total={6}
-              progress={0}
-            />
+            {(() => {
+              const { completed, total, progress } = computeStepProgress(
+                { infraEnablers: formData } as any,
+                "infraEnablers",
+                { assignedIndicators, isNodalOfficer }
+              );
+              return (
+                <ProgressHeader
+                  title="Infrastructure Enablers"
+                  description="Supporting infrastructure and policy enablers"
+                  points={250}
+                  completed={completed}
+                  total={total}
+                  progress={progress}
+                />
+              );
+            })()}
             <div className="text-center py-12">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
               <p className="text-gray-600 mb-4">
@@ -379,14 +389,23 @@ export const InfraEnablersStep = () => {
   return (
     <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
-      <ProgressHeader
-        title="Infrastructure Enablers"
-        description="Regulatory and institutional frameworks supporting infrastructure"
-        points={250}
-        completed={0}
-        total={6}
-        progress={0}
-      />
+      {(() => {
+        const { completed, total, progress } = computeStepProgress(
+          { infraEnablers: formData } as any,
+          "infraEnablers",
+          { assignedIndicators, isNodalOfficer }
+        );
+        return (
+          <ProgressHeader
+            title="Infrastructure Enablers"
+            description="Regulatory and institutional frameworks supporting infrastructure"
+            points={250}
+            completed={completed}
+            total={total}
+            progress={progress}
+          />
+        );
+      })()}
 
 
       {/* Section 4.1 */}

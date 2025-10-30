@@ -26,6 +26,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
 import { authService } from "@/services/auth.service";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { computeStepProgress } from "../utils/progress";
 
 export const InfraFinancingStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
@@ -403,14 +404,23 @@ export const InfraFinancingStep = () => {
       </div>
 
       <div className="px-6 lg:px-8">
-        <ProgressHeader
-          title="Infrastructure Financing"
-          description="Data related to infrastructure financing and budget allocation"
-          points={250}
-          completed={0}
-          total={5}
-          progress={0}
-        />
+        {(() => {
+          const { completed, total, progress } = computeStepProgress(
+            { infraFinancing: formData },
+            "infraFinancing",
+            { assignedIndicators, isNodalOfficer }
+          );
+          return (
+            <ProgressHeader
+              title="Infrastructure Financing"
+              description="Data related to infrastructure financing and budget allocation"
+              points={250}
+              completed={completed}
+              total={total}
+              progress={progress}
+            />
+          );
+        })()}
 
 
       {/* Section 1.1 */}

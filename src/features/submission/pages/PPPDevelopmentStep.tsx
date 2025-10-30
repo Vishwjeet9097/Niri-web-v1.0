@@ -36,6 +36,7 @@ import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { computeStepProgress } from "../utils/progress";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 
 const defaultData: PPPDevelopmentData = {
@@ -180,7 +181,7 @@ export const PPPDevelopmentStep = () => {
       proportion: 0,
       marksObtained: 0
     };
-  }, [formData.section3_4.projects.length]);
+  }, [formData.section3_4.projects]);
 
   // Update calculations when form data changes
   // useEffect(() => {
@@ -227,7 +228,7 @@ export const PPPDevelopmentStep = () => {
         }
       }));
     }
-  }, [formData.section3_3.length, formData.section3_4.tpcOfPPPProjects, formData.section3_4.totalTPC]);
+  }, [calculateSection3_3, calculateSection3_4, formData.section3_3.length, formData.section3_4.projects.length, formData.section3_4.proportion, formData.section3_4.marksObtained]);
   // --- Section 3.3: Add/Remove Project ---
   const addProject = () => {
     setFormData((prev) => ({
@@ -376,14 +377,24 @@ export const PPPDevelopmentStep = () => {
     <div className="w-full -mx-6 lg:-mx-8">
       <div className="px-6 lg:px-8">
         <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
-              <ProgressHeader
-        title="PPP Development"
-        description="Public-Private Partnership projects and initiatives"
-        points={250}
-        completed={0}
-        total={4}
-        progress={0}
-      />        {/* Section 3.1 */}
+        {(() => {
+          const { completed, total, progress } = computeStepProgress(
+            { pppDevelopment: formData } as Record<string, unknown>,
+            "pppDevelopment",
+            { assignedIndicators, isNodalOfficer }
+          );
+          return (
+            <ProgressHeader
+              title="PPP Development"
+              description="Public-Private Partnership projects and initiatives"
+              points={250}
+              completed={completed}
+              total={total}
+              progress={progress}
+            />
+          );
+        })()}
+        {/* Section 3.1 */}
       {(!isNodalOfficer || hasIndicatorAccess('3.1')) && (
         <SectionCard
           title={<div className="flex flex-col">
