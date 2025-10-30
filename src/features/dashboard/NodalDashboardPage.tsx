@@ -299,7 +299,7 @@ export function NodalDashboardPage() {
             Manage your NIRI data submissions and track approval status
           </p>
         </div>
-        <img src="/images/dashboard.png" alt="Dashboard" className="absolute right-6 top-0"/>
+        {/* <img src="/images/dashboard.png" alt="Dashboard" className="absolute right-6 top-0"/> */}
       </div>
 
       {/* KPI Cards */}
