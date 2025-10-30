@@ -609,7 +609,7 @@ export const InfraFinancingStep = () => {
               <div>
                 <Label>City name<span className="text-red-500">*</span></Label>
                 <Input
-                  placeholder="Mumbai"
+                  placeholder="Enter City Name"
                   value={ulb.cityName}
                   onChange={(e) =>
                     setFormData(prev => ({
@@ -931,7 +931,7 @@ export const InfraFinancingStep = () => {
               <div>
                 <Label>Total Funding (INR)</Label>
                 <Input
-                  placeholder="Enter total finding in INR"
+                  placeholder="Enter total funding in INR"
                   value={intermediary.totalFunding}
                   onChange={(e) =>
                     setFormData(prev => ({
