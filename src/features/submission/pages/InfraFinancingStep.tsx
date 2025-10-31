@@ -31,6 +31,8 @@ export const InfraFinancingStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
     useStepNavigation(1);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
+  // Detect edit mode to decide hiding of empty indicators
+  const isEditMode = typeof window !== 'undefined' && localStorage.getItem('is_edit_mode') === 'true';
   const { user } = useAuth();
   
   // Indicator access control
@@ -414,7 +416,18 @@ export const InfraFinancingStep = () => {
 
 
       {/* Section 1.1 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.1')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('1.1')) && (!isEditMode || (
+        // Hide if edit mode and no meaningful data present in section1_1
+        !!(
+          formData.section1_1 && (
+            formData.section1_1.year ||
+            formData.section1_1.capitalAllocation ||
+            formData.section1_1.gsdpForFY ||
+            formData.section1_1.allocationToGSDP ||
+            formData.section1_1.capexToCapexActuals
+          )
+        )
+      )) && (
         <SectionCard
           title={
             <div className="flex flex-col">
@@ -511,7 +524,17 @@ export const InfraFinancingStep = () => {
       )}
 
       {/* Section 1.2 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.2')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('1.2')) && (!isEditMode || (
+        // Hide if edit mode and no meaningful data present in section1_2
+        !!(
+          formData.section1_2 && (
+            formData.section1_2.year ||
+            formData.section1_2.actualCapex ||
+            formData.section1_2.stateCapexUtilisation ||
+            formData.section1_2.capexActualsToGSDP
+          )
+        )
+      )) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -593,7 +616,7 @@ export const InfraFinancingStep = () => {
       )}
 
       {/* Section 1.3 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.3')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('1.3')) && (!isEditMode || (Array.isArray(formData.section1_3) && formData.section1_3.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -728,7 +751,7 @@ export const InfraFinancingStep = () => {
       )}
 
       {/* Section 1.4 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.4')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('1.4')) && (!isEditMode || (Array.isArray(formData.section1_4) && formData.section1_4.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -853,7 +876,7 @@ export const InfraFinancingStep = () => {
       )}
 
       {/* Section 1.5 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.5')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('1.5')) && (!isEditMode || (Array.isArray(formData.section1_5) && formData.section1_5.length > 0)) && (
         <SectionCard
         title={<div className="flex flex-col">
             <span className="text-base font-semibold ">

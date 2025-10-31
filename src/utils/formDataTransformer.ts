@@ -25,16 +25,48 @@ export const transformFormDataForSubmission = (
     Date.now()
   ).slice(-6)}`;
 
-  const formDataObj = formData as Record<string, unknown>;
+  const formDataObj = formData as Record<string, any>;
+
+  // Helper: deep prune empty values ("", null, undefined) and empty arrays/objects
+  const prune = (value: any): any => {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value === "string") return value.trim() === "" ? undefined : value;
+
+    if (Array.isArray(value)) {
+      const prunedArray = value
+        .map((item) => prune(item))
+        .filter((item) => item !== undefined && !(Array.isArray(item) && item.length === 0) && !(typeof item === "object" && item !== null && Object.keys(item).length === 0));
+      return prunedArray.length > 0 ? prunedArray : undefined;
+    }
+
+    if (typeof value === "object") {
+      const prunedObj: Record<string, any> = {};
+      Object.keys(value).forEach((key) => {
+        const prunedVal = prune(value[key]);
+        if (
+          prunedVal !== undefined &&
+          !(Array.isArray(prunedVal) && prunedVal.length === 0) &&
+          !(typeof prunedVal === "object" && prunedVal !== null && Object.keys(prunedVal).length === 0)
+        ) {
+          prunedObj[key] = prunedVal;
+        }
+      });
+      return Object.keys(prunedObj).length > 0 ? prunedObj : undefined;
+    }
+
+    return value;
+  };
+
+  const cleaned = {
+    infraFinancing: prune(formDataObj.infraFinancing) || {},
+    infraDevelopment: prune(formDataObj.infraDevelopment) || {},
+    pppDevelopment: prune(formDataObj.pppDevelopment) || {},
+    infraEnablers: prune(formDataObj.infraEnablers) || {},
+  };
 
   return {
     submissionId,
-    formData: {
-      infraFinancing: formDataObj.infraFinancing || {},
-      infraDevelopment: formDataObj.infraDevelopment || {},
-      pppDevelopment: formDataObj.pppDevelopment || {},
-      infraEnablers: formDataObj.infraEnablers || {},
-    },
+    formData: cleaned,
     status,
   };
 };

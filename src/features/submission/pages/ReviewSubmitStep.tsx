@@ -191,16 +191,20 @@ const handleConfirmSubmit = async () => {
     // 5️⃣ Send
     const tokenData = JSON.parse(localStorage.getItem("niri_app:auth_tokens") || "{}");
     const token = tokenData?.value?.accessToken;
-console.log("Api base url:", config.apiBaseUrl);
-    const response = await axios.post(`${config.apiBaseUrl}/submission`, formDataObj, {
+    const url = isEditMode && editingSubmissionId
+      ? `${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`
+      : `${config.apiBaseUrl}/submission`;
+    const response = await axios.post(url, formDataObj, {
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "multipart/form-data",
       },
     });
 
     console.log("✅ Backend response:", response);
-    notificationService.success("Submission successful!", "Form submitted successfully");
+    notificationService.success(
+      isEditMode ? "Resubmission successful!" : "Submission successful!",
+      isEditMode ? "Form resubmitted successfully" : "Form submitted successfully"
+    );
     clearFormData();
     setShowSuccessModal(true);
 
@@ -219,7 +223,8 @@ console.log("Api base url:", config.apiBaseUrl);
   };
 
   if (showPreview) {
-    navigate('submissions/preview');
+    // Use absolute path to avoid nested duplicate segments in edit mode
+    navigate('/submissions/preview');
     return null;
   }
 

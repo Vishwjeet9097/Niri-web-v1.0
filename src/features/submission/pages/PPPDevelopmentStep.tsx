@@ -53,6 +53,8 @@ const defaultData: PPPDevelopmentData = {
 export const PPPDevelopmentStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } = useStepNavigation(3);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
+  // Detect edit mode to hide empty indicators
+  const isEditMode = typeof window !== 'undefined' && localStorage.getItem('is_edit_mode') === 'true';
   const { user } = useAuth();
   
   // Indicator access control
@@ -290,15 +292,27 @@ export const PPPDevelopmentStep = () => {
     <div className="w-full -mx-6 lg:-mx-8">
       <div className="px-6 lg:px-8">
         <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
-              <ProgressHeader
-        title="PPP Development"
-        description="Public-Private Partnership projects and initiatives"
-        points={250}
-        completed={0}
-        total={4}
-        progress={0}
-      />        {/* Section 3.1 */}
-      {(!isNodalOfficer || hasIndicatorAccess('3.1')) && (
+        {(() => {
+          const { completed, total, progress } = computeStepProgress(
+            { pppDevelopment: formData } as Record<string, unknown>,
+            "pppDevelopment",
+            { assignedIndicators, isNodalOfficer }
+          );
+          return (
+            <ProgressHeader
+              title="PPP Development"
+              description="Public-Private Partnership projects and initiatives"
+              points={250}
+              completed={completed}
+              total={total}
+              progress={progress}
+            />
+          );
+        })()}
+      {/* Section 3.1 */}
+      {(!isNodalOfficer || hasIndicatorAccess('3.1')) && (!isEditMode || (
+        (formData.section3_1?.available && formData.section3_1.available !== "") || !!formData.section3_1?.file
+      )) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -371,7 +385,9 @@ export const PPPDevelopmentStep = () => {
         </div>
         </SectionCard>
       )}        {/* Section 3.2 */}
-      {(!isNodalOfficer || hasIndicatorAccess('3.2')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('3.2')) && (!isEditMode || (
+        (formData.section3_2?.available && formData.section3_2.available !== "") || !!formData.section3_2?.file
+      )) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -445,7 +461,7 @@ export const PPPDevelopmentStep = () => {
         </div>
         </SectionCard>
       )}        {/* Section 3.3 */}
-      {(!isNodalOfficer || hasIndicatorAccess('3.3')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('3.3')) && (!isEditMode || (Array.isArray(formData.section3_3) && formData.section3_3.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -562,7 +578,7 @@ export const PPPDevelopmentStep = () => {
         </div>
         </SectionCard>
       )}        {/* Section 3.4 */}
-      {(!isNodalOfficer || hasIndicatorAccess('3.4')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('3.4')) && (!isEditMode || (Array.isArray(formData.section3_4?.projects) && formData.section3_4.projects.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">

@@ -57,6 +57,8 @@ export const InfraDevelopmentStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
     useStepNavigation(2);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
+  // Detect edit mode to hide empty indicators
+  const isEditMode = typeof window !== 'undefined' && localStorage.getItem('is_edit_mode') === 'true';
   const { user } = useAuth();
   
   // Indicator access control
@@ -404,7 +406,7 @@ export const InfraDevelopmentStep = () => {
         progress={10}
       />
       {/* Section 2.1 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.1')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('2.1')) && (!isEditMode || (Array.isArray(formData.section2_1) && formData.section2_1.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -540,7 +542,7 @@ export const InfraDevelopmentStep = () => {
       )}
 
       {/* Section 2.2 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.2')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('2.2')) && (!isEditMode || (Array.isArray(formData.section2_2) && formData.section2_2.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -672,7 +674,7 @@ export const InfraDevelopmentStep = () => {
       )}
 
       {/* Section 2.3 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.3')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('2.3')) && (!isEditMode || (Array.isArray(formData.section2_3) && formData.section2_3.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -804,7 +806,7 @@ export const InfraDevelopmentStep = () => {
       )}
 
       {/* Section 2.4 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.4')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('2.4')) && (!isEditMode || (Array.isArray(formData.section2_4) && formData.section2_4.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -874,7 +876,7 @@ export const InfraDevelopmentStep = () => {
       )}
 
       {/* Section 2.5 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.5')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('2.5')) && (!isEditMode || (Array.isArray(formData.section2_5) && formData.section2_5.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
