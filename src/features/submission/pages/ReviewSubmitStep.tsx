@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import axios from "axios";
+import { apiService } from "@/services/api.service";
 import { Eye, CheckCircle2, FileText, Building2, Briefcase, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -110,47 +112,114 @@ export const ReviewSubmitStep = () => {
     setShowConfirmModal(true);
   };
 
-  const handleConfirmSubmit = async () => {
-    setIsSubmitting(true);
-    setShowConfirmModal(false);
+  function appendFilesRecursively(formDataObj: FormData, data: any, prefix = '') {
+  if (!data || typeof data !== 'object') return;
 
-    try {
-      // Transform form data to required API format ONLY for submission
-      const transformedPayload = transformFormDataForSubmission(formData, "SUBMITTED_TO_STATE");
-      
-      let res;
-      
-      if (isEditMode && editingSubmissionId) {
-        // Edit mode - use resubmit API
-        res = await apiV2.post(`${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`, transformedPayload);
-      } else {
-        // Normal mode - create new submission
-        res = await apiV2.post(config.formsPath, transformedPayload);
-      }
-      
-      // Dynamic success message from response
-      const successMessage = res.data?.message || 
-        (isEditMode ? 'Your changes have been resubmitted successfully!' : 'Your submission has been sent to the State Approver for review. You will be notified of its status.');
-      
-      setSubmissionMessage(successMessage);
-      setShowSuccessModal(true);
+  for (const key in data) {
+    const value = data[key];
+    const path = prefix ? `${prefix}.${key}` : key;
 
-      // Clear form data AFTER successful submission
-      clearFormData(); // Clear localStorage after successful submission
-      localStorage.removeItem("editing_submission_id"); // Clear editing submission ID
-      localStorage.removeItem("is_edit_mode"); // Clear edit mode flag
-    } catch (e: unknown) {
-      // Dynamic error message from response
-      const error = e as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = error?.response?.data?.message ||
-        error?.message ||
-        'Failed to submit. Please try again.';
-
-      notificationService.error(errorMessage, 'Submission Failed');
-    } finally {
-      setIsSubmitting(false);
+    // Case 1: Single file object
+    if (value && value.file instanceof File) {
+      formDataObj.append('files', value.file, value.file.name);
     }
-  };
+
+    // Case 2: Array of files (like section2_1.files)
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        appendFilesRecursively(formDataObj, item, `${path}[${index}]`);
+      });
+    }
+    // Case 3: Nested object
+    else if (typeof value === 'object') {
+      appendFilesRecursively(formDataObj, value, path);
+    }
+  }
+}
+const handleConfirmSubmit = async () => {
+  setIsSubmitting(true);
+  setShowConfirmModal(false);
+
+  try {
+    console.log("🚀 Preparing NIRI submission...");
+
+    // 1️⃣ Transform the data
+    const transformedSubmission = transformFormDataForSubmission(formData, "SUBMITTED_TO_STATE");
+
+    // 2️⃣ Prepare FormData
+    const formDataObj = new FormData();
+    formDataObj.append("submission", JSON.stringify(transformedSubmission));
+
+    // 3️⃣ Append all files properly for Multer
+    const appendAllFiles = (obj: any, parentKey = "") => {
+      if (!obj || typeof obj !== "object") return;
+
+      Object.entries(obj).forEach(([key, value]) => {
+        const fullKey = parentKey ? `${parentKey}.${key}` : key;
+
+        // Case 1️⃣: direct File
+        if (value instanceof File) {
+          console.log("📎 Appending file:", fullKey, value.name);
+          formDataObj.append(fullKey, value);
+        }
+
+        // Case 2️⃣: nested file.file
+        else if (value?.file instanceof File) {
+          console.log("📎 Appending nested file:", fullKey, value.file.name);
+          formDataObj.append(fullKey, value.file);
+        }
+
+        else if (value?.file?.file instanceof File) {
+          console.log("📎 Appending deeply nested file:", fullKey, value.file.file.name);
+          formDataObj.append(fullKey, value.file.file);
+        }
+
+        // Recurse deeper for arrays/objects
+        else if (Array.isArray(value)) {
+          value.forEach((item, i) => appendAllFiles(item, `${fullKey}[${i}]`));
+        } else if (typeof value === "object") {
+          appendAllFiles(value, fullKey);
+        }
+      });
+    };
+
+    appendAllFiles(formData);
+
+    // 4️⃣ Debug: confirm files attached
+    console.group("🧾 Final FormData contents:");
+    for (const [key, val] of formDataObj.entries()) {
+      console.log(`➡️ ${key}:`, val instanceof File ? `File(${val.name})` : val);
+    }
+    console.groupEnd();
+
+    // 5️⃣ Send
+    const tokenData = JSON.parse(localStorage.getItem("niri_app:auth_tokens") || "{}");
+    const token = tokenData?.value?.accessToken;
+    const url = isEditMode && editingSubmissionId
+      ? `${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`
+      : `${config.apiBaseUrl}/submission`;
+    const response = await axios.post(url, formDataObj, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log("✅ Backend response:", response);
+    notificationService.success(
+      isEditMode ? "Resubmission successful!" : "Submission successful!",
+      isEditMode ? "Form resubmitted successfully" : "Form submitted successfully"
+    );
+    clearFormData();
+    setShowSuccessModal(true);
+
+  } catch (error) {
+    console.error("❌ Submission failed:", error);
+    notificationService.error("Failed to submit form", "Submission Error");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false);
@@ -158,6 +227,7 @@ export const ReviewSubmitStep = () => {
   };
 
   if (showPreview) {
+    // Use absolute path to avoid nested duplicate segments in edit mode
     navigate('/submissions/preview');
     return null;
   }

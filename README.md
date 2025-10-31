@@ -2,7 +2,7 @@
 
 A fully responsive, enterprise-grade React dashboard application for the National Infrastructure Readiness Index (NIRI). Built with modern best practices, modular architecture, and seamless mock-to-real API switching.
 
-## 🏗️ Architecture Overview
+### 🏗️ Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -88,12 +88,14 @@ The app will be available at `http://localhost:8080`
 The application uses a centralized environment configuration to toggle between mock data and real API endpoints.
 
 **Mock Mode (Default)**
+
 ```bash
 # .env or .env.local
 VITE_USE_MOCK=true
 ```
 
 **Real API Mode**
+
 ```bash
 # .env or .env.local
 VITE_USE_MOCK=false
@@ -101,31 +103,34 @@ VITE_API_BASE_URL=https://api.your-backend.com
 ```
 
 The `httpClient` in `src/services/http-client.ts` automatically switches between:
+
 - `mockAdapter` - Uses JSON files from `/src/mock/`
 - `apiService` - Makes real HTTP requests via Axios
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VITE_USE_MOCK` | Enable mock data mode | `true` |
-| `VITE_API_BASE_URL` | Backend API base URL | `https://api.example.com` |
+| Variable            | Description           | Default                   |
+| ------------------- | --------------------- | ------------------------- |
+| `VITE_USE_MOCK`     | Enable mock data mode | `true`                    |
+| `VITE_API_BASE_URL` | Backend API base URL  | `https://api.example.com` |
 
 ## 🏛️ Core Services
 
 ### 1. HTTP Client (`httpClient`)
+
 - **Location**: `src/services/http-client.ts`
 - **Purpose**: Unified interface for API calls
 - **Features**: Automatic switching between mock/real based on environment
 
 ```typescript
-import { httpClient } from '@/services/http-client';
+import { httpClient } from "@/services/http-client";
 
 // Works with both mock and real API
-const data = await httpClient.get('/api/dashboard');
+const data = await httpClient.get("/api/dashboard");
 ```
 
 ### 2. Auth Service (`authService`)
+
 - **Location**: `src/services/auth.service.ts`
 - **Features**:
   - Token storage and management
@@ -134,7 +139,7 @@ const data = await httpClient.get('/api/dashboard');
   - Auth header generation
 
 ```typescript
-import { authService } from '@/services/auth.service';
+import { authService } from "@/services/auth.service";
 
 // Login
 await authService.login(email, password);
@@ -150,6 +155,7 @@ authService.logout();
 ```
 
 ### 3. Storage Service (`storageService`)
+
 - **Location**: `src/services/storage.service.ts`
 - **Features**:
   - Namespaced localStorage keys
@@ -158,19 +164,20 @@ authService.logout();
   - In-memory cache for performance
 
 ```typescript
-import { storageService } from '@/services/storage.service';
+import { storageService } from "@/services/storage.service";
 
 // Set with TTL (30 minutes)
-storageService.set('user-prefs', data, 1800);
+storageService.set("user-prefs", data, 1800);
 
 // Get
-const prefs = storageService.get('user-prefs');
+const prefs = storageService.get("user-prefs");
 
 // Remove
-storageService.remove('user-prefs');
+storageService.remove("user-prefs");
 ```
 
 ### 4. Notification Service (`notificationService`)
+
 - **Location**: `src/services/notification.service.ts`
 - **Features**:
   - Toast notifications
@@ -179,25 +186,25 @@ storageService.remove('user-prefs');
   - Subscribe to notification updates
 
 ```typescript
-import { notificationService } from '@/services/notification.service';
+import { notificationService } from "@/services/notification.service";
 
 // Show toast only
 notificationService.toast({
-  title: 'Success',
-  message: 'Data saved',
-  type: 'success'
+  title: "Success",
+  message: "Data saved",
+  type: "success",
 });
 
 // Create notification and show toast
 notificationService.createAndToast({
-  title: 'New submission',
-  message: 'Infrastructure data approved',
-  type: 'success'
+  title: "New submission",
+  message: "Infrastructure data approved",
+  type: "success",
 });
 
 // Subscribe to notifications
 const unsubscribe = notificationService.subscribe((notifications) => {
-  console.log('New notifications:', notifications);
+  console.log("New notifications:", notifications);
 });
 ```
 
@@ -206,16 +213,19 @@ const unsubscribe = notificationService.subscribe((notifications) => {
 The application uses a professional design system inspired by government portals:
 
 **Color Palette**
+
 - Primary: Government Blue (#1B3A8B / hsl(220 65% 32%))
 - Success: Green (#45A049)
 - Warning: Amber
 - Destructive: Red
 
 **Typography**
+
 - System font stack optimized for readability
 - Consistent sizing and spacing
 
 **Components**
+
 - Built with shadcn/ui
 - Fully customizable with Tailwind CSS
 - Accessible by default
@@ -229,7 +239,7 @@ The project includes an example test demonstrating dependency injection:
 **Location**: `src/services/__tests__/example.test.ts`
 
 ```typescript
-import type { HttpClient } from '@/services/api.service';
+import type { HttpClient } from "@/services/api.service";
 
 // Mock the httpClient
 const mockHttpClient: HttpClient = {
@@ -256,33 +266,39 @@ npm run test
 ## 📦 Key Features
 
 ✅ **Production-Ready Architecture**
+
 - Feature-based folder structure
 - Separation of concerns
 - Dependency injection patterns
 
 ✅ **Seamless Mock/Real API Switching**
+
 - Environment variable toggle
 - Shared HTTP client interface
 - No code changes required
 
 ✅ **Enterprise Auth System**
+
 - Token storage and refresh
 - Request/response interceptors
 - Auto-logout on expiry
 
 ✅ **Notification System**
+
 - Toast notifications
 - In-app notification center
 - Persistent storage
 - Unread badge
 
 ✅ **Storage Abstraction**
+
 - TTL support
 - Namespacing
 - In-memory cache
 - Type-safe
 
 ✅ **Responsive Dashboard**
+
 - KPI cards with trends
 - Recent activity feed
 - Data table with status badges
@@ -351,12 +367,14 @@ src/features/my-feature/
 ## 🔄 Migrating to Real Backend
 
 1. **Update environment**:
+
    ```bash
    VITE_USE_MOCK=false
    VITE_API_BASE_URL=https://your-api.com
    ```
 
 2. **Ensure API matches mock structure**:
+
    - Same endpoint paths
    - Same response format
    - Authentication headers
