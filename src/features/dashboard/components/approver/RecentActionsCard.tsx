@@ -14,7 +14,7 @@ interface RecentActionsCardProps {
 
 export function RecentActionsCard({ actions = [] }: RecentActionsCardProps) {
   return (
-    <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-lg shadow-lg p-6 text-white">
+    <div className="bg-[#0F2057] rounded-lg shadow-lg p-6 text-white">
       <h2 className="text-lg font-semibold mb-1">Recent Actions</h2>
       <p className="text-sm text-blue-200 mb-4">Your latest review activities</p>
 
@@ -23,7 +23,7 @@ export function RecentActionsCard({ actions = [] }: RecentActionsCardProps) {
           actions.map((action) => (
             <div
               key={action.id}
-              className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-colors cursor-pointer"
+              className="bg-[#163083] rounded-lg p-4 cursor-pointer"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">

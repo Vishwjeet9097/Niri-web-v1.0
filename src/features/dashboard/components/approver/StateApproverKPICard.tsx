@@ -35,7 +35,7 @@ export function StateApproverKPICard({
 }: StateApproverKPICardProps) {
   return (
     <div
-      className={`bg-white rounded-lg border-l-4 shadow-sm p-4 lg:p-6 ${variantStyles[variant]} min-h-[120px] flex flex-col`}
+      className={`bg-white rounded-lg border-l-4 shadow-sm px-4 py-2 ${variantStyles[variant]} min-h-[120px] flex flex-col`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className={`p-2 rounded ${iconStyles[variant]}`}>
@@ -58,9 +58,9 @@ export function StateApproverKPICard({
         </button>
       </div>
       <div className="flex-1">
-        <h3 className="text-xs lg:text-sm font-medium text-gray-700 mb-2 line-clamp-2">{title}</h3>
-        <p className="text-2xl lg:text-3xl font-bold text-gray-900 mb-1">{value}</p>
-        <p className="text-xs text-gray-600 line-clamp-2">{subtitle}</p>
+        <h3 className="text-xs lg:text-sm font-semibold text-[#212121] mb-2 line-clamp-2">{title}</h3>
+        <p className="text-xl lg:text-xl font-bold text-[#212121] mb-1">{value}</p>
+        <p className="text-xs text-[#727272] line-clamp-2">{subtitle}</p>
       </div>
     </div>
   );

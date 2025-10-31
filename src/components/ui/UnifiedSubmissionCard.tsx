@@ -184,7 +184,7 @@ export function UnifiedSubmissionCard({
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-3">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <h3 className="text-base font-semibold text-[#0F2057]">{title}</h3>
             <div className="flex items-center gap-2 flex-wrap">
               {/* Status pills */}
               {statusPills.map((pill, index) => (
@@ -196,7 +196,7 @@ export function UnifiedSubmissionCard({
           </div>
           
           {/* Submission details */}
-          <div className="flex items-center gap-6 text-sm text-gray-500 mb-3">
+          <div className="flex items-center gap-6 text-xs text-gray-500 mb-3">
             <span className="font-medium">ID: {referenceId}</span>
             <span>Updated: {updatedDate}</span>
             <span>Due: {dueDate}</span>
