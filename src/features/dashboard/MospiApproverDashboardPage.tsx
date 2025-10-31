@@ -8,7 +8,6 @@ import { FileText, CheckCircle, Clock, AlertCircle, Eye } from "lucide-react";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
-import ReviewerKPICards from "./components/reviewer/ReviewerKPICards";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
@@ -50,6 +49,26 @@ export const MospiApproverDashboardPage = () => {
 
     loadSubmissions();
   }, []);
+
+  // Calculate stats
+  const totalSubmissions = submissions.length;
+  const pendingSubmissions = submissions.filter(
+    (s) => s.status === "SUBMITTED_TO_MOSPI_APPROVER",
+  ).length;
+  const approvedSubmissions = submissions.filter(
+    (s) => s.status === "APPROVED" || s.status === "approved",
+  ).length;
+  const overdueSubmissions = submissions.filter((s) => {
+    // Check if submission is pending for MOSPI Approver and is overdue
+    if (s.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+      const submittedDate = new Date(s.updatedAt || s.createdAt);
+      const currentDate = new Date();
+      const timeDifference = currentDate.getTime() - submittedDate.getTime();
+      const pendingDays = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
+      return pendingDays > 7; // Consider overdue if pending for more than 7 days
+    }
+    return false;
+  }).length;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -139,7 +158,67 @@ export const MospiApproverDashboardPage = () => {
         </div>
 
         {/* KPI Cards */}
-        <ReviewerKPICards />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 ">
+              <CardTitle className="text-sm font-medium">
+                Total Submissions
+              </CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalSubmissions}</div>
+              <p className="text-xs text-muted-foreground">
+                Awaiting final approval
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6">
+              <CardTitle className="text-sm font-medium">
+                Pending Review
+              </CardTitle>
+              <Clock className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">
+                {pendingSubmissions}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Need your decision
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6">
+              <CardTitle className="text-sm font-medium">Approved</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {approvedSubmissions}
+              </div>
+              <p className="text-xs text-muted-foreground">This quarter</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6">
+              <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {overdueSubmissions}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Require urgent action
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Recent Submissions */}
         <Card>

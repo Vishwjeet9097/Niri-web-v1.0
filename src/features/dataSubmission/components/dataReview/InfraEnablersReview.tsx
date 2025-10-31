@@ -1,12 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,8 +20,6 @@ import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { hasInfraEnablersData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
-import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
-import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -192,27 +182,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   return (
     <>
       <div className="space-y-6">
-        {(() => {
-          const sections = getSectionsWithData({ infraEnablers: formDataState }, 'infraEnablers');
-          const assignedIndicators = STEP_SECTIONS.infraEnablers
-            .filter((s) => sections.includes(s.sectionKey))
-            .map((s) => s.indicator);
-          const { completed, total, progress } = computeStepProgress(
-            { infraEnablers: formDataState } as any,
-            "infraEnablers",
-            { assignedIndicators }
-          );
-          return (
-            <ProgressHeader
-              title="Infra Enablers"
-              description="Data related to infra enablers and budget allocation"
-              points={250}
-              completed={completed}
-              total={total}
-              progress={progress}
-            />
-          );
-        })()}
         {/* Section 4.1 */}
         {sectionsWithData.includes('section4_1') && (
         <SectionCard
@@ -589,6 +558,79 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         </SectionCard>
         )}
 
+        {/* Section 4.4 */}
+        {sectionsWithData.includes('section4_4') && (
+        <SectionCard
+          title={<div className="flex flex-col relative">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-semibold ">
+                <span className="text-primary">4.4 -</span>Capacity Building - Officer Participation <span className="font-normal text-xs text-muted-foreground ml-1">(1 marks per officer)</span>{" "}
+              </span>
+              {renderActionButtons("4.4")}
+            </div>
+          </div>}
+          subtitle=""
+          className="mb-6"
+        >
+          {/* <CardHeader className="bg-muted/30">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                4.4 - Capacity Building - Officer Participation (1 marks per officer)
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => handleOpenModal("4.4")}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Add Comment
+              </Button>
+
+            )}
+            </div>
+          </CardHeader> */}
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              {formDataState?.section4_6?.map((item: any, index: number) => (
+                <div key={item.id || index} className="border rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label>Officer Name</Label>
+                      <Input value={item.officerName || ""} readOnly />
+                    </div>
+                    <div>
+                      <Label>Designation</Label>
+                      <Input value={item.designation || ""} readOnly />
+                    </div>
+                    <div>
+                      <Label>Program Name</Label>
+                      <Input value={item.programName || ""} readOnly />
+                    </div>
+                    <div>
+                      <Label>Organiser</Label>
+                      <Input value={item.organiser || ""} readOnly />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Label>Training Type</Label>
+                    <Input value={item.trainingType || ""} readOnly />
+                  </div>
+                </div>
+              )) || (
+                  <div className="text-center text-muted-foreground py-4">
+                    No capacity building data available
+                  </div>
+                )}
+
+              <p className="text-xs text-muted-foreground">
+                Annex 11
+              </p>
+
+            </div>
+          </CardContent>
+        </SectionCard>
+        )}
 
         {/* Section 4.6 */}
         {sectionsWithData.includes('section4_6') && (
@@ -604,43 +646,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           subtitle=""
           className="mb-6"
         >
-          <CardContent className="pt-6 space-y-3">
-            {Array.isArray(formDataState?.section4_6) && formDataState.section4_6.length > 0 ? (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead>Officer Name</TableHead>
-                      <TableHead>Designation</TableHead>
-                      <TableHead>Program Name</TableHead>
-                      <TableHead>Training Type</TableHead>
-                      <TableHead>Organiser</TableHead>
-                      <TableHead className="text-right">Marks</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {formDataState.section4_6.map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.officerName || "-"}</TableCell>
-                        <TableCell>{item.designation || "-"}</TableCell>
-                        <TableCell>{item.programName || "-"}</TableCell>
-                        <TableCell>{item.trainingType || "-"}</TableCell>
-                        <TableCell>{item.organiser || "-"}</TableCell>
-                        <TableCell className="text-right">{item.marksObtained ?? "-"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground py-4">
-                No capacity building data available
-              </div>
-            )}
-
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground py-4">
+              No capacity building data available
+            </div>
             <p className="text-xs text-muted-foreground">
               Upload capacity building participation data
             </p>
+
           </CardContent>
         </SectionCard>
         )}

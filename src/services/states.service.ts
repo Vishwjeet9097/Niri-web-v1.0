@@ -21,7 +21,7 @@ class StatesService {
 
     try {
       console.log("🌍 Fetching states from API...");
-      const response = await fetch(`${config.apiBaseUrl}states`);
+      const response = await fetch(`${config.apiBaseUrl}/states`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch states: ${response.status}`);

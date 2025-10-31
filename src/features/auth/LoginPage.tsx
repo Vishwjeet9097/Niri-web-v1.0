@@ -53,7 +53,7 @@ export function LoginPage() {
       notificationService.error("Please use your official government email address (@nic.in or @gov.in) to access this system.", "Invalid Email Domain");
       return;
     }
-
+    
     setLoading(true);
     // Simulate SSO process
     setTimeout(() => {
@@ -71,10 +71,10 @@ export function LoginPage() {
       notificationService.error("Please enter the complete 6-digit verification code sent to your email.", "Incomplete Verification Code");
       return;
     }
-
+    
     setLoading(true);
     setStep("loading");
-
+    
     // Simulate OTP verification and profile preparation
     setTimeout(async () => {
       try {
@@ -107,13 +107,13 @@ export function LoginPage() {
         // Use actual auth service to set user
         const { authService } = await import("@/services/auth.service");
         authService.setAuth(mockUser, tokens);
-
+        
         // Update auth context
         setUser(mockUser);
         setIsAuthenticated(true);
-
+        
         notificationService.success(`Welcome back, ${mockUser.firstName}! You have been successfully signed in.`, "Sign In Successful");
-
+        
         // Navigate to dashboard
         const from = location.state?.from?.pathname || "/dashboard";
         navigate(from, { replace: true });
@@ -134,11 +134,11 @@ export function LoginPage() {
       notificationService.error("Please enter both your email address and password to continue.", "Missing Information");
       return;
     }
-
+    
     setLoading(true);
     try {
       const result = await login(email, password);
-
+      
       if (result.success) {
         notificationService.success(`Welcome back, ${result.user.firstName}! You have been successfully signed in.`, "Sign In Successful");
         // Admin redirects to user management, others to dashboard
@@ -179,9 +179,9 @@ export function LoginPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-white transition-colors duration-300">
+  <div className="h-screen flex flex-col bg-white dark:bg-gray-900 dark:text-white transition-colors duration-300 overflow-hidden">
       {/* --- Top Bar (edge-to-edge) --- */}
-      <header className="w-full bg-[#003366] text-white dark:bg-gray-950 dark:text-white py-2 px-6 flex justify-between items-center text-sm transition-colors duration-300 sticky top-0 z-50">
+  <header className="w-full bg-[#003366] text-white dark:bg-gray-950 dark:text-white py-2 px-6 flex justify-between items-center text-sm transition-colors duration-300">
         <div className="flex items-center space-x-3">
           <img
             src="https://doc.ux4g.gov.in/assets/img/icon/in-flag.png"
@@ -196,7 +196,7 @@ export function LoginPage() {
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
+  <div className="flex items-center space-x-4">
           <a href="#main" className="hover:underline">Skip to Main Content</a>
           <div className="flex items-center space-x-1 rounded px-2 py-1">
             <button
@@ -243,26 +243,26 @@ export function LoginPage() {
       </header>
 
       {/* Main Content Row: Left banner + Right auth card */}
-      <div className="flex">
+  <div className="flex flex-1">
         {/* Left Banner Section */}
-        <div className="w-[45%]">
+  <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-gray-100 dark:bg-gray-800 transition-colors duration-300">
           <img
             src="/images/login-banner.jpeg"
             alt="Login Banner"
-            className=""
-           
+            className="object-contain h-full w-full  shadow-lg"
+            style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
             loading="lazy"
           />
         </div>
 
         {/* Right Login Section */}
-        <div id="main" className="flex-1 flex items-center justify-center w-[55%]">
+        <div id="main" className="flex-1 flex items-start justify-center p-4 pt-16">
           <div className="w-full max-w-xl">
             {/* SSO Login Step */}
             {step === "sso" && (
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-10 transition-colors duration-300">
-                <div className="text-left mb-6">
-                  <h1 className="text-4xl font-semibold text-[#222222] mb-10">
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-10  py-28 transition-colors duration-300">
+                <div className="text-center mb-6">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-10">
                     Login to your account
                   </h1>
                 </div>
@@ -416,7 +416,7 @@ export function LoginPage() {
                             const newOtp = otp.split("");
                             newOtp[index] = e.target.value;
                             setOtp(newOtp.join(""));
-
+                            
                             // Auto-focus next input
                             if (e.target.value && index < 5) {
                               const nextInput = e.target.parentElement?.parentElement?.children[index + 1] as HTMLInputElement;

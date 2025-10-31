@@ -35,7 +35,6 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
-import { computeStepProgress } from "../utils/progress";
 
 const defaultData: InfraEnablersData = {
   section4_1: {
@@ -356,23 +355,14 @@ export const InfraEnablersStep = () => {
             <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
           </div>
           <div className="px-6 lg:px-8">
-            {(() => {
-              const { completed, total, progress } = computeStepProgress(
-                { infraEnablers: formData } as any,
-                "infraEnablers",
-                { assignedIndicators, isNodalOfficer }
-              );
-              return (
-                <ProgressHeader
-                  title="Infrastructure Enablers"
-                  description="Supporting infrastructure and policy enablers"
-                  points={250}
-                  completed={completed}
-                  total={total}
-                  progress={progress}
-                />
-              );
-            })()}
+            <ProgressHeader
+              title="Infrastructure Enablers"
+              description="Supporting infrastructure and policy enablers"
+              points={250}
+              completed={0}
+              total={6}
+              progress={0}
+            />
             <div className="text-center py-12">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
               <p className="text-gray-600 mb-4">
@@ -391,23 +381,14 @@ export const InfraEnablersStep = () => {
   return (
     <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
-      {(() => {
-        const { completed, total, progress } = computeStepProgress(
-          { infraEnablers: formData } as any,
-          "infraEnablers",
-          { assignedIndicators, isNodalOfficer }
-        );
-        return (
-          <ProgressHeader
-            title="Infrastructure Enablers"
-            description="Regulatory and institutional frameworks supporting infrastructure"
-            points={250}
-            completed={completed}
-            total={total}
-            progress={progress}
-          />
-        );
-      })()}
+      <ProgressHeader
+        title="Infrastructure Enablers"
+        description="Regulatory and institutional frameworks supporting infrastructure"
+        points={250}
+        completed={0}
+        total={6}
+        progress={0}
+      />
 
 
       {/* Section 4.1 */}
@@ -550,21 +531,19 @@ export const InfraEnablersStep = () => {
               </label>
             </div>
           </div>
-          {formData.section4_2.available === "yes" && (
-            <div className="flex flex-col gap-2">
-              <FileUploadSection
-                label="Upload File"
-                value={formData.section4_2.file || null}
-                onChange={(file) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_2: { ...prev.section4_2, file },
-                  }))
-                }
-              />
-              <p className="text-xs text-muted-foreground">Description</p>
-            </div>
-          )}
+          <div className="flex flex-col gap-2">
+            <FileUploadSection
+              label="Upload File"
+              value={formData.section4_2.file || null}
+              onChange={(file) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  section4_2: { ...prev.section4_2, file },
+                }))
+              }
+            />
+            <p className="text-xs text-muted-foreground">Description</p>
+          </div>
         </div>
         </SectionCard>
       )}
@@ -667,23 +646,21 @@ export const InfraEnablersStep = () => {
               </label>
             </div>
           </div>
-          {formData.section4_4.adopted === "yes" && (
-            <div className="flex flex-col gap-2">
-              <FileUploadSection
-                label="Upload File"
-                value={formData.section4_4.file || null}
-                onChange={(file) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_4: { ...prev.section4_4, file },
-                  }))
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload ADR orders/notifications
-              </p>
-            </div>
-          )}
+          <div className="flex flex-col gap-2">
+            <FileUploadSection
+              label="Upload File"
+              value={formData.section4_4.file || null}
+              onChange={(file) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  section4_4: { ...prev.section4_4, file },
+                }))
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Upload ADR orders/notifications
+            </p>
+          </div>
 
         </div>
         </SectionCard>
@@ -802,21 +779,19 @@ export const InfraEnablersStep = () => {
               </Select>
             </div>
           </div>
-          {formData.section4_5.implemented === "yes" && (
-            <div className="flex flex-col gap-2">
-              <FileUploadSection
-                label="Upload File"
-                value={formData.section4_5.file || null}
-                onChange={(file) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_5: { ...prev.section4_5, file },
-                  }))
-                }
-              />
-              <p className="text-xs text-muted-foreground">Upload evidence</p>
-            </div>
-          )}
+          <div className="flex flex-col gap-2">
+            <FileUploadSection
+              label="Upload File"
+              value={formData.section4_5.file || null}
+              onChange={(file) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  section4_5: { ...prev.section4_5, file },
+                }))
+              }
+            />
+            <p className="text-xs text-muted-foreground">Upload evidence</p>
+          </div>
         </div>
         </SectionCard>
       )}
@@ -849,57 +824,25 @@ export const InfraEnablersStep = () => {
               </Tooltip>
             </Label>
             <div className="flex gap-6">
-              <label 
-                htmlFor="capacity-yes-step"
-                className="flex items-center gap-2 cursor-pointer"
-                onClick={() => {
-                  if (formData.section4_6.length === 0) {
-                    addTraining();
-                  }
-                }}
-              >
-                <input
-                  id="capacity-yes-step"
+              <label className="flex items-center gap-2">
+                <Input
                   type="radio"
-                  name="capacity-building-step"
+                  name="capacity-building"
                   value="yes"
                   checked={formData.section4_6.length > 0}
-                  onChange={() => {
-                    if (formData.section4_6.length === 0) {
-                      addTraining();
-                    }
-                  }}
-                  className="w-4 h-4 text-blue-600 cursor-pointer"
+                  readOnly
                 />
-                <span className="cursor-pointer select-none">Yes</span>
+                Yes
               </label>
-              <label 
-                htmlFor="capacity-no-step"
-                className="flex items-center gap-2 cursor-pointer"
-                onClick={() => {
-                  if (formData.section4_6.length > 0) {
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_6: [],
-                    }));
-                  }
-                }}
-              >
-                <input
-                  id="capacity-no-step"
+              <label className="flex items-center gap-2">
+                <Input
                   type="radio"
-                  name="capacity-building-step"
+                  name="capacity-building"
                   value="no"
                   checked={formData.section4_6.length === 0}
-                  onChange={() => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_6: [],
-                    }));
-                  }}
-                  className="w-4 h-4 text-blue-600 cursor-pointer"
+                  readOnly
                 />
-                <span className="cursor-pointer select-none">No</span>
+                No
               </label>
             </div>
           </div>
@@ -919,36 +862,63 @@ export const InfraEnablersStep = () => {
                 </div>
                 <div>
                   <Label>Designation</Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter designation"
+                  <Select
                     value={entry.designation}
-                    onChange={(e) =>
-                      updateTraining(entry.id, "designation", e.target.value)
+                    onValueChange={(value) =>
+                      updateTraining(entry.id, "designation", value)
                     }
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an Option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SECTOR_OPTIONS.map((sector) => (
+                        <SelectItem key={sector} value={sector}>
+                          {sector}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label>Program Name</Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter program name"
+                  <Select
                     value={entry.programName}
-                    onChange={(e) =>
-                      updateTraining(entry.id, "programName", e.target.value)
+                    onValueChange={(value) =>
+                      updateTraining(entry.id, "programName", value)
                     }
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an Option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SECTOR_OPTIONS.map((sector) => (
+                        <SelectItem key={sector} value={sector}>
+                          {sector}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label>Organiser</Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter organiser"
+                  <Select
                     value={entry.organiser}
-                    onChange={(e) =>
-                      updateTraining(entry.id, "organiser", e.target.value)
+                    onValueChange={(value) =>
+                      updateTraining(entry.id, "organiser", value)
                     }
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Asset ownership" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OWNERSHIP_OPTIONS.map((own) => (
+                        <SelectItem key={own} value={own}>
+                          {own}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex flex-col md:flex-row gap-2 md:gap-4">
                   <div className="w-full">
@@ -996,7 +966,7 @@ export const InfraEnablersStep = () => {
             <Plus className="w-4 h-4" />
             Add More Training
           </Button>
-          {/* <p className="text-xs text-muted-foreground">Annex 11</p> */}
+          <p className="text-xs text-muted-foreground">Annex 11</p>
 
         </div>
         </SectionCard>
