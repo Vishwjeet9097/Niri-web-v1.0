@@ -32,6 +32,7 @@ import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { computeStepProgress } from "../utils/progress";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 
 const defaultData: PPPDevelopmentData = {
