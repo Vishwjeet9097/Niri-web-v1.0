@@ -574,15 +574,15 @@ export function UserManagementPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6 space-y-6">
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center">
             <Users className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Enter officer details</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-lg font-semibold text-foreground">Enter officer details</h1>
+            <p className="text-[#000]">
               Add or remove Nodal Officers for your State/UT and assign them specific indicators for data submission.
             </p>
           </div>
