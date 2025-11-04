@@ -73,18 +73,19 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
       hasMeaningfulValue(d?.stateCapexUtilisation)
     );
   },
-  section1_3: (data) =>
-    anyValid(
-      data,
-      (r) =>
-        hasMeaningfulValue(r.cityName) &&
-        hasMeaningfulValue(r.ulb) &&
-        hasMeaningfulValue(r.ratingDate) &&
-        hasMeaningfulValue(r.rating)
-    ),
-  section1_4: (data) =>
-    anyValid(
-      data,
+  section1_3: (data: any) =>
+  Array.isArray(data?.ulbList) &&
+  anyValid(
+    data.ulbList,
+    (r) =>
+      hasMeaningfulValue(r.cityName) &&
+      hasMeaningfulValue(r.ulb) &&
+      hasMeaningfulValue(r.ratingDate) &&
+      hasMeaningfulValue(r.rating)
+  ),
+  section1_4: (data: any) =>
+    Array.isArray(data?.bondList) && anyValid(
+      data.bondList,
       (r) =>
         hasMeaningfulValue(r.bondType) &&
         hasMeaningfulValue(r.cityName) &&

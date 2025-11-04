@@ -58,22 +58,25 @@ export class PrefillDataService {
           rating: "AA",
         },
       ],
-      section1_4: [
-        {
-          id: crypto.randomUUID(),
-          bondType: "Municipal Bond",
-          cityName: "Mumbai",
-          issuingAuthority: "BMC",
-          value: "500",
-        },
-        {
-          id: crypto.randomUUID(),
-          bondType: "Infrastructure Bond",
-          cityName: "Pune",
-          issuingAuthority: "PMC",
-          value: "300",
-        },
-      ],
+      section1_4: {
+        totalULBs: 0,
+        bondList: [
+          {
+            id: crypto.randomUUID(),
+            bondType: "Municipal Bond",
+            cityName: "Mumbai",
+            issuingAuthority: "BMC",
+            value: "500",
+          },
+          {
+            id: crypto.randomUUID(),
+            bondType: "Infrastructure Bond",
+            cityName: "Pune",
+            issuingAuthority: "PMC",
+            value: "300",
+          },
+        ],
+      },
       section1_5: [
         {
           id: crypto.randomUUID(),

@@ -40,20 +40,27 @@ export interface InfraFinancingData {
     percentage?: number;
     marksObtained?: number;
   };
-  section1_3: Array<{
-    id: string;
-    cityName: string;
-    ulb: string;
-    ratingDate: string;
-    rating: string;
-  }>;
-  section1_4: Array<{
-    id: string;
-    bondType: string;
-    cityName: string;
-    issuingAuthority: string;
-    value: string;
-  }>;
+  section1_3: {
+    totalULBs: number; //  A₂
+    ulbList: Array<{
+      // A₁
+      id: string;
+      cityName: string;
+      ulb: string;
+      ratingDate: string;
+      rating: string;
+    }>;
+  };
+  section1_4: {
+    totalULBs: number;
+    bondList: Array<{
+      id: string;
+      bondType: string;
+      cityName: string;
+      issuingAuthority: string;
+      value: string;
+    }>;
+  };
   section1_5: Array<{
     id: string;
     organisationName: string;

@@ -448,7 +448,7 @@ export const InfraFinancingReview = ({ submissionId, formData, submission, isPre
           className="mb-6"
         >   
             <div className="space-y-4">
-              {formData?.section1_3?.map((item: any, index: number) => (
+              {formData?.section1_3.ulbList?.map((item: any, index: number) => (
                 <div key={item.id || index} className="">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>

@@ -85,8 +85,8 @@ export function transformFormDataToSectionSubmission(
       infraFinancing: {
         section1_1: formData.section1_1 || {},
         section1_2: formData.section1_2 || {},
-        section1_3: formData.section1_3 || [],
-        section1_4: formData.section1_4 || [],
+        section1_3: formData.section1_3 || {},
+        section1_4: formData.section1_4 || {},
         section1_5: formData.section1_5 || [],
       },
       infraDevelopment: {
