@@ -4,6 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -1252,155 +1258,239 @@ export const InfraFinancingStep = () => {
                   </span>
                 </div>
               }
-              // subtitle="Annex 4: Provide website link and funding details"
               className="mb-6"
             >
-              <div className="space-y-4">
-                {formData.section1_5.map((intermediary, index) => (
-                  <div key={intermediary.id} className="grid grid-cols-5 gap-4">
-                    <div>
-                      <Label>
-                        Organisation Name<span className="text-red-500">*</span>
-                      </Label>
+              <div className="space-y-6">
+                {/* ✅ Radio Button Selection */}
+                <div>
+                  <Label>
+                    Functional Financial Intermediary Available?{" "}
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="inline w-3 h-3 ml-1" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Select “Yes” if there is a functional financial
+                        intermediary
+                      </TooltipContent>
+                    </Tooltip>
+                  </Label>
+                  <div className="flex gap-6 mt-2">
+                    <label className="flex items-center gap-2">
                       <Input
-                        placeholder="Enter organisation name"
-                        value={intermediary.organisationName}
-                        onChange={(e) =>
+                        type="radio"
+                        name="functional-financial-intermediary"
+                        value="yes"
+                        checked={formData.section1_5_available === "yes"}
+                        onChange={() =>
                           setFormData((prev) => ({
                             ...prev,
-                            section1_5: prev.section1_5.map((item) =>
-                              item.id === intermediary.id
-                                ? { ...item, organisationName: e.target.value }
-                                : item
-                            ),
+                            section1_5_available: "yes",
+                            section1_5_comment: "", // clear comment when switching
                           }))
                         }
                       />
-                    </div>
-                    <div>
-                      <Label>
-                        Organisation Type<span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={intermediary.organisationType}
-                        onValueChange={(value) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_5: prev.section1_5.map((item) =>
-                              item.id === intermediary.id
-                                ? { ...item, organisationType: value }
-                                : item
-                            ),
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Government Corporation">
-                            Government Corporation
-                          </SelectItem>
-                          <SelectItem value="Development Authority">
-                            Development Authority
-                          </SelectItem>
-                          <SelectItem value="Financial Institution">
-                            Financial Institution
-                          </SelectItem>
-                          <SelectItem value="Private Entity">
-                            Private Entity
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>
-                        Year of Establishment
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={intermediary.yearEstablished}
-                        onValueChange={(value) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_5: prev.section1_5.map((item) =>
-                              item.id === intermediary.id
-                                ? { ...item, yearEstablished: value }
-                                : item
-                            ),
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Enter year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 30 }, (_, i) => 2024 - i).map(
-                            (year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            )
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Total Funding (INR)</Label>
+                      Yes
+                    </label>
+                    <label className="flex items-center gap-2">
                       <Input
-                        placeholder="Enter total funding in INR"
-                        value={intermediary.totalFunding}
-                        onChange={(e) =>
+                        type="radio"
+                        name="functional-financial-intermediary"
+                        value="no"
+                        checked={formData.section1_5_available === "no"}
+                        onChange={() =>
                           setFormData((prev) => ({
                             ...prev,
-                            section1_5: prev.section1_5.map((item) =>
-                              item.id === intermediary.id
-                                ? { ...item, totalFunding: e.target.value }
-                                : item
-                            ),
+                            section1_5_available: "no",
+                            section1_5: [], // clear intermediary list when no
                           }))
                         }
                       />
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label>Website (Optional)</Label>
-                        <Input
-                          placeholder="Website link"
-                          value={intermediary.website}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              section1_5: prev.section1_5.map((item) =>
-                                item.id === intermediary.id
-                                  ? { ...item, website: e.target.value }
-                                  : item
-                              ),
-                            }))
-                          }
-                        />
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => removeIntermediary(intermediary.id)}
-                        className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
-                      >
-                        <Trash2 className="h-6 w-6" />
-                      </Button>
-                    </div>
+                      No
+                    </label>
                   </div>
-                ))}
+                </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addIntermediary}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add More Financial Intermediary
-                </Button>
+                {/* ✅ If Yes → show intermediary fields */}
+                {formData.section1_5_available === "yes" && (
+                  <div className="space-y-4">
+                    {formData.section1_5.map((intermediary, index) => (
+                      <div
+                        key={intermediary.id}
+                        className="grid grid-cols-5 gap-4"
+                      >
+                        <div>
+                          <Label>
+                            Organisation Name
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            placeholder="Enter organisation name"
+                            value={intermediary.organisationName}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: prev.section1_5.map((item) =>
+                                  item.id === intermediary.id
+                                    ? {
+                                        ...item,
+                                        organisationName: e.target.value,
+                                      }
+                                    : item
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div>
+                          <Label>
+                            Organisation Type
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={intermediary.organisationType}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: prev.section1_5.map((item) =>
+                                  item.id === intermediary.id
+                                    ? { ...item, organisationType: value }
+                                    : item
+                                ),
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Government Corporation">
+                                Government Corporation
+                              </SelectItem>
+                              <SelectItem value="Development Authority">
+                                Development Authority
+                              </SelectItem>
+                              <SelectItem value="Financial Institution">
+                                Financial Institution
+                              </SelectItem>
+                              <SelectItem value="Private Entity">
+                                Private Entity
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>
+                            Year of Establishment
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={intermediary.yearEstablished}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: prev.section1_5.map((item) =>
+                                  item.id === intermediary.id
+                                    ? { ...item, yearEstablished: value }
+                                    : item
+                                ),
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Enter year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from(
+                                { length: 30 },
+                                (_, i) => 2024 - i
+                              ).map((year) => (
+                                <SelectItem key={year} value={year.toString()}>
+                                  {year}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>Total Funding (INR)</Label>
+                          <Input
+                            placeholder="Enter total funding in INR"
+                            value={intermediary.totalFunding}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: prev.section1_5.map((item) =>
+                                  item.id === intermediary.id
+                                    ? { ...item, totalFunding: e.target.value }
+                                    : item
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Label>Website (Optional)</Label>
+                            <Input
+                              placeholder="Website link"
+                              value={intermediary.website}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section1_5: prev.section1_5.map((item) =>
+                                    item.id === intermediary.id
+                                      ? { ...item, website: e.target.value }
+                                      : item
+                                  ),
+                                }))
+                              }
+                            />
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => removeIntermediary(intermediary.id)}
+                            className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
+                          >
+                            <Trash2 className="h-6 w-6" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addIntermediary}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add More Financial Intermediary
+                    </Button>
+                  </div>
+                )}
+
+                {/* ✅ If No → show Comment Box */}
+                {formData.section1_5_available === "no" && (
+                  <div>
+                    <Label>Comments (Reason)</Label>
+                    <Input
+                      placeholder="Enter comments or reason"
+                      value={formData.section1_5_comment || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          section1_5_comment: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}

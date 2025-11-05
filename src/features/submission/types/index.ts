@@ -63,11 +63,13 @@ export interface InfraFinancingData {
   };
   section1_5: Array<{
     id: string;
+    hasIntermediary?: boolean;
     organisationName: string;
     organisationType: string;
     yearEstablished: string;
     totalFunding: string;
     website: string;
+    comment?: string;
   }>;
 }
 
