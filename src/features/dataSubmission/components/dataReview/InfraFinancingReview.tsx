@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Plus, Trash2, Clock, Edit3, Check, X } from "lucide-react";
+import { MessageSquare, Plus, Trash2, Clock, Edit3, Check, X, CheckCircle, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
 import { MessageModal } from "../modals/MessageModal";
@@ -491,24 +491,28 @@ const renderActionButtons = (sectionId: string) => {
           </Button>
         </>
       )}
-      <Button
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-1"
-        onClick={() => onIndicatorStatus(sectionId, true)}
-      >
-        <MessageSquare className="w-4 h-4" />
-        Accept
-      </Button>
+
+
       <Button
         variant="outline"
         size="sm"
         className="flex items-center gap-1"
         onClick={() => handleOpenTimeline(sectionId)}
       >
-        <Clock className="w-4 h-4" />
+        <RotateCcw className="w-4 h-4" />
         Send Back ({commentCount})
       </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+        onClick={() => onIndicatorStatus(sectionId, true)}
+      >
+        <CheckCircle className="w-4 h-4" />
+        Accept
+      </Button>
+      
 
     </div>
   );
