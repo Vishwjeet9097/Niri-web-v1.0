@@ -20,6 +20,7 @@ import { hasInfraDevelopmentData, getSectionsWithData } from "@/utils/sectionDat
 import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
+import { useEditableSectionStore } from '@/utils/EditableSection';
 
 interface InfraDevelopmentReviewProps {
   submissionId: string;
@@ -35,7 +36,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
-
+ 
+  //State for edit button 
+  const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
   
   // Real-time update listener
   useEffect(() => {
