@@ -60,12 +60,12 @@ export default function NodalSubmissionsList() {
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Latest Submissions</h2>
-        <button 
+        {/* <button 
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
           onClick={() => navigate('/submissions')}
         >
           + New Submission
-        </button>
+        </button> */}
       </div>
       <div className="flex gap-2 mb-4">
         {submissionTabs.map((tab) => (
