@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
+import { useMemo } from "react";
 
 export function UserManagementPage() {
   const { user } = useAuth();
@@ -26,6 +28,8 @@ export function UserManagementPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [states, setStates] = useState<any[]>([]);
+  const [allIndicators, setAllIndicators] = useState<any[]>([]);
+const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
 
   const loadStates = async () => {
     try {
@@ -84,12 +88,54 @@ export function UserManagementPage() {
     }
   }, [user?.role, user?.state]); // Add dependencies
 
+  // New function to load indicators
+const loadIndicators = async () => {
+  try {
+    setIsIndicatorsLoading(true);
+    const indicators = await apiService.getAllIndicators();
+    // Expect each indicator object to have a unique `code` (or `id`) and `name`
+    setAllIndicators(indicators || []);
+  } catch (err) {
+    console.error("❌ Error loading indicators:", err);
+    setAllIndicators([]);
+  } finally {
+    setIsIndicatorsLoading(false);
+  }
+};
+
+useEffect(() => {
+  loadIndicators();
+}, []);
+
   useEffect(() => {
     loadOfficers();
     // Load states to ensure cache is available
     loadStates();
   }, [loadOfficers]); // Add loadOfficers dependency back
 
+  const computeAvailableIndicatorsForState = (stateName: string, editingOfficerId?: string) => {
+  // Build a set of codes that are already assigned in this state to all users (except editingOfficerId)
+  const assignedSet = new Set<string>();
+
+  // Officers array already contains users for the current scope (for Admin it may contain all states)
+  officers.forEach((o) => {
+    // Only consider assigned indicators of users in the same state
+    const officerState = o.state || o.stateId || "";
+    if (!stateName || officerState === stateName) {
+      // assignedIndicators may be an array of codes
+      const assigned = o.assignedIndicators || (o.assignedIndicator ? [o.assignedIndicator] : []);
+      if (o.id !== editingOfficerId) {
+        assigned.forEach((code) => {
+          if (code) assignedSet.add(code);
+        });
+      }
+    }
+  });
+
+  // Return indicators whose code is NOT in assignedSet
+  // Keep indicators that belong to other states out (we assumed codes globally unique and assignments by state)
+  return allIndicators.filter((ind: any) => !assignedSet.has(ind.code));
+};
   const handleAddUser = () => {
     setEditingOfficer(null);
     setShowForm(true);
@@ -505,21 +551,24 @@ export function UserManagementPage() {
     setShowForm(false);
     setEditingOfficer(null);
   };
-    // Debug logging removed for performance
+ if (showForm) {
+  // Debug logging removed for performance
 
-  if (showForm) {
-    // Debug logging removed for performance
+  // Determine stateName to pass if needed (UserForm computes availability itself)
+  return (
+    <div className="p-6 space-y-6">
+      <UserForm
+        officer={editingOfficer}
+        onSave={handleSaveUser}
+        onCancel={handleCancel}
+        allIndicators={allIndicators}
+        officers={officers}
+        loadingIndicators={isIndicatorsLoading}
+      />
+    </div>
+  );
+}
 
-    return (
-      <div className="p-6 space-y-6">
-        <UserForm
-          officer={editingOfficer}
-          onSave={handleSaveUser}
-          onCancel={handleCancel}
-        />
-      </div>
-    );
-  }
 
   if (officers.length === 0) {
     // Debug logging removed for performance
