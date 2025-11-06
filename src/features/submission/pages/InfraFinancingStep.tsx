@@ -3,9 +3,25 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { CalendarIcon, Plus, Trash2, Info } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -15,9 +31,7 @@ import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
-import {
-  SUBMISSION_STEPS,
-} from "../constants/steps";
+import { SUBMISSION_STEPS } from "../constants/steps";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import type { InfraFinancingData } from "../types";
 
@@ -29,20 +43,32 @@ import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { computeStepProgress } from "../utils/progress";
 
 export const InfraFinancingStep = () => {
-  const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
-    useStepNavigation(1);
-  const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
+  const {
+    currentStep,
+    goToStep,
+    goToNext,
+    goToPrevious,
+    isFirstStep,
+    isLastStep,
+  } = useStepNavigation(1);
+  const {
+    formData: persistedFormData,
+    getStepData,
+    updateFormData,
+  } = useFormPersistence();
   // Detect edit mode to decide hiding of empty indicators
-  const isEditMode = typeof window !== 'undefined' && localStorage.getItem('is_edit_mode') === 'true';
+  const isEditMode =
+    typeof window !== "undefined" &&
+    localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
-  
+
   // Indicator access control
-  const { 
-    loading: indicatorLoading, 
-    error: indicatorError, 
-    assignedIndicators, 
-    hasIndicatorAccess, 
-    isNodalOfficer 
+  const {
+    loading: indicatorLoading,
+    error: indicatorError,
+    assignedIndicators,
+    hasIndicatorAccess,
+    isNodalOfficer,
   } = useIndicatorAccess();
 
   // Debug logging for access control
@@ -52,9 +78,15 @@ export const InfraFinancingStep = () => {
       assignedIndicators,
       indicatorLoading,
       indicatorError,
-      user: user ? { id: user._id || user.id, role: user.role } : null
+      user: user ? { id: user._id || user.id, role: user.role } : null,
     });
-  }, [isNodalOfficer, assignedIndicators, indicatorLoading, indicatorError, user]);
+  }, [
+    isNodalOfficer,
+    assignedIndicators,
+    indicatorLoading,
+    indicatorError,
+    user,
+  ]);
 
   // Note: Editing submission data is handled by useFormPersistence hook
   const { toast } = useToast();
@@ -77,8 +109,8 @@ export const InfraFinancingStep = () => {
       stateCapexUtilisation: "",
       capexActualsToGSDP: "",
     },
-    section1_3: [],
-    section1_4: [],
+    section1_3: { totalULBs: 0, ulbList: [] },
+    section1_4: { totalULBs: 0, bondList: [] },
     section1_5: [],
   };
 
@@ -89,28 +121,69 @@ export const InfraFinancingStep = () => {
     ...loadedData,
     section1_1: { ...defaultData.section1_1, ...(loadedData.section1_1 || {}) },
     section1_2: { ...defaultData.section1_2, ...(loadedData.section1_2 || {}) },
-    section1_3: Array.isArray(loadedData.section1_3) ? loadedData.section1_3 : [],
-    section1_4: Array.isArray(loadedData.section1_4) ? loadedData.section1_4 : [],
-    section1_5: Array.isArray(loadedData.section1_5) ? loadedData.section1_5 : [],
+    section1_3: {
+      totalULBs:
+        loadedData.section1_3?.totalULBs ?? defaultData.section1_3.totalULBs,
+      ulbList: Array.isArray(loadedData.section1_3?.ulbList)
+        ? [...loadedData.section1_3.ulbList]
+        : [...defaultData.section1_3.ulbList],
+    },
+    section1_4: {
+      totalULBs:
+        loadedData.section1_4?.totalULBs ?? defaultData.section1_4.totalULBs,
+      bondList: Array.isArray(loadedData.section1_4?.bondList)
+        ? [...loadedData.section1_4.bondList]
+        : [...defaultData.section1_4.bondList],
+    },
+    section1_5: Array.isArray(loadedData.section1_5)
+      ? loadedData.section1_5
+      : [],
   };
 
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
 
   // Sync with localStorage data when component mounts or data changes
   useEffect(() => {
-    const currentStepData = getStepData("infraFinancing") as Partial<InfraFinancingData>;
+    const currentStepData = getStepData(
+      "infraFinancing"
+    ) as Partial<InfraFinancingData>;
     if (currentStepData && Object.keys(currentStepData).length > 0) {
       const syncedData: InfraFinancingData = {
         ...defaultData,
         ...currentStepData,
-        section1_1: { ...defaultData.section1_1, ...(currentStepData.section1_1 || {}) },
-        section1_2: { ...defaultData.section1_2, ...(currentStepData.section1_2 || {}) },
-        section1_3: Array.isArray(currentStepData.section1_3) ? currentStepData.section1_3 : [],
-        section1_4: Array.isArray(currentStepData.section1_4) ? currentStepData.section1_4 : [],
-        section1_5: Array.isArray(currentStepData.section1_5) ? currentStepData.section1_5 : [],
+        section1_1: {
+          ...defaultData.section1_1,
+          ...(currentStepData.section1_1 || {}),
+        },
+        section1_2: {
+          ...defaultData.section1_2,
+          ...(currentStepData.section1_2 || {}),
+        },
+        section1_3: {
+          totalULBs:
+            currentStepData.section1_3?.totalULBs ??
+            defaultData.section1_3.totalULBs,
+          ulbList: Array.isArray(currentStepData.section1_3?.ulbList)
+            ? currentStepData.section1_3.ulbList
+            : [],
+        },
+        section1_4: {
+          totalULBs:
+            currentStepData.section1_4?.totalULBs ??
+            defaultData.section1_4.totalULBs,
+          bondList: Array.isArray(currentStepData.section1_4?.bondList)
+            ? currentStepData.section1_4.bondList
+            : [],
+        },
+        section1_5: Array.isArray(currentStepData.section1_5)
+          ? currentStepData.section1_5
+          : [],
       };
       setFormData(syncedData);
-      console.log("🔄 Synced infraFinancing data from localStorage in normal flow:", syncedData);
+      console.log(
+        "🔄 Synced infraFinancing data from localStorage in normal flow:",
+        syncedData
+      );
     }
   }, [getStepData]);
 
@@ -125,36 +198,82 @@ export const InfraFinancingStep = () => {
       try {
         const submissionData = JSON.parse(editingSubmission);
         if (submissionData.formData && submissionData.formData.infraFinancing) {
-          const stepData = submissionData.formData.infraFinancing as Partial<InfraFinancingData>;
+          const stepData = submissionData.formData
+            .infraFinancing as Partial<InfraFinancingData>;
           updatedData = {
             ...defaultData,
             ...stepData,
-            section1_1: { ...defaultData.section1_1, ...(stepData.section1_1 || {}) },
-            section1_2: { ...defaultData.section1_2, ...(stepData.section1_2 || {}) },
-            section1_3: Array.isArray(stepData.section1_3) ? stepData.section1_3 : [],
-            section1_4: Array.isArray(stepData.section1_4) ? stepData.section1_4 : [],
-            section1_5: Array.isArray(stepData.section1_5) ? stepData.section1_5 : [],
+            section1_1: {
+              ...defaultData.section1_1,
+              ...(stepData.section1_1 || {}),
+            },
+            section1_2: {
+              ...defaultData.section1_2,
+              ...(stepData.section1_2 || {}),
+            },
+            section1_3: {
+              totalULBs: stepData.section1_3?.totalULBs ?? 0,
+              ulbList: Array.isArray(stepData.section1_3?.ulbList)
+                ? stepData.section1_3.ulbList
+                : [],
+            },
+            section1_4: {
+              totalULBs: stepData.section1_4?.totalULBs ?? 0,
+              bondList: Array.isArray(stepData.section1_4?.bondList)
+                ? stepData.section1_4.bondList
+                : [],
+            },
+            section1_5: Array.isArray(stepData.section1_5)
+              ? stepData.section1_5
+              : [],
           };
           shouldUpdate = true;
-          console.log("✅ Direct prefill from editing submission:", updatedData);
+          console.log(
+            "✅ Direct prefill from editing submission:",
+            updatedData
+          );
           localStorage.removeItem("editing_submission");
         }
       } catch (error) {
-        console.error("❌ Failed to parse editing submission in InfraFinancingStep:", error);
+        console.error(
+          "❌ Failed to parse editing submission in InfraFinancingStep:",
+          error
+        );
         localStorage.removeItem("editing_submission");
       }
     } else {
       // Check for persisted form data using getStepData instead of persistedFormData
-      const currentStepData = getStepData("infraFinancing") as Partial<InfraFinancingData>;
+      const currentStepData = getStepData(
+        "infraFinancing"
+      ) as Partial<InfraFinancingData>;
       if (currentStepData && Object.keys(currentStepData).length > 0) {
         updatedData = {
           ...defaultData,
           ...currentStepData,
-          section1_1: { ...defaultData.section1_1, ...(currentStepData.section1_1 || {}) },
-          section1_2: { ...defaultData.section1_2, ...(currentStepData.section1_2 || {}) },
-          section1_3: Array.isArray(currentStepData.section1_3) ? currentStepData.section1_3 : [],
-          section1_4: Array.isArray(currentStepData.section1_4) ? currentStepData.section1_4 : [],
-          section1_5: Array.isArray(currentStepData.section1_5) ? currentStepData.section1_5 : [],
+          section1_1: {
+            ...defaultData.section1_1,
+            ...(currentStepData.section1_1 || {}),
+          },
+          section1_2: {
+            ...defaultData.section1_2,
+            ...(currentStepData.section1_2 || {}),
+          },
+          section1_3: {
+            totalULBs: currentStepData.section1_3?.totalULBs ?? 0,
+            ulbList: Array.isArray(currentStepData.section1_3?.ulbList)
+              ? currentStepData.section1_3.ulbList
+              : [],
+          },
+          section1_4: {
+            totalULBs: currentStepData.section1_4?.totalULBs ?? 0,
+            bondList: Array.isArray(currentStepData.section1_4?.bondList)
+              ? currentStepData.section1_4.bondList
+              : [],
+          },
+
+          section1_5: Array.isArray(currentStepData.section1_5)
+            ? currentStepData.section1_5
+            : [],
         };
         shouldUpdate = true;
         console.log("🔄 Synced form data from persisted data:", updatedData);
@@ -168,8 +287,12 @@ export const InfraFinancingStep = () => {
 
   // Calculation functions
   const calculateSection1_1 = useCallback(() => {
-    const capitalAllocation = parseFloat(formData.section1_1.capitalAllocation.replace(/[₹,]/g, ''));
-    const gsdpForFY = parseFloat(formData.section1_1.gsdpForFY.replace(/[₹,]/g, ''));
+    const capitalAllocation = parseFloat(
+      formData.section1_1.capitalAllocation.replace(/[₹,]/g, "")
+    );
+    const gsdpForFY = parseFloat(
+      formData.section1_1.gsdpForFY.replace(/[₹,]/g, "")
+    );
 
     if (isNaN(capitalAllocation) || isNaN(gsdpForFY) || gsdpForFY === 0) {
       return { percentage: 0, marksObtained: 0 };
@@ -180,26 +303,37 @@ export const InfraFinancingStep = () => {
 
     return {
       percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
-      marksObtained: Math.round(marksObtained * 100) / 100
+      marksObtained: Math.round(marksObtained * 100) / 100,
     };
   }, [formData.section1_1.capitalAllocation, formData.section1_1.gsdpForFY]);
 
   const calculateSection1_2 = useCallback(() => {
-    const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
-    const stateCapexUtilisation = parseFloat(formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, ''));
-    
-    if (isNaN(actualCapex) || isNaN(stateCapexUtilisation) || stateCapexUtilisation === 0) {
+    const actualCapex = parseFloat(
+      formData.section1_2.actualCapex.replace(/[₹,]/g, "")
+    );
+    const stateCapexUtilisation = parseFloat(
+      formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, "")
+    );
+
+    if (
+      isNaN(actualCapex) ||
+      isNaN(stateCapexUtilisation) ||
+      stateCapexUtilisation === 0
+    ) {
       return { percentage: 0, marksObtained: 0 };
     }
-    
+
     const percentage = (actualCapex / stateCapexUtilisation) * 100;
     const marksObtained = Math.min(percentage / 2, 50); // Max 50 marks
 
     return {
       percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
-      marksObtained: Math.round(marksObtained * 100) / 100
+      marksObtained: Math.round(marksObtained * 100) / 100,
     };
-  }, [formData.section1_2.actualCapex, formData.section1_2.stateCapexUtilisation]);
+  }, [
+    formData.section1_2.actualCapex,
+    formData.section1_2.stateCapexUtilisation,
+  ]);
 
   // Helper functions for array management
   const addULB = () => {
@@ -208,18 +342,25 @@ export const InfraFinancingStep = () => {
       cityName: "",
       ulb: "",
       ratingDate: "",
-      rating: ""
+      rating: "",
     };
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      section1_3: [...prev.section1_3, newULB]
+      section1_3: {
+        ...prev.section1_3,
+        ulbList: [...prev.section1_3.ulbList, newULB],
+      },
     }));
   };
 
   const removeULB = (id: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      section1_3: prev.section1_3.filter(item => item.id !== id)
+      section1_3: {
+        ...prev.section1_3,
+        ulbList: prev.section1_3.ulbList.filter((ulb) => ulb.id !== id),
+      },
     }));
   };
 
@@ -229,18 +370,24 @@ export const InfraFinancingStep = () => {
       bondType: "",
       cityName: "",
       issuingAuthority: "",
-      value: ""
+      value: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      section1_4: [...prev.section1_4, newBond]
+      section1_4: {
+        ...prev.section1_4,
+        bondList: [...prev.section1_4.bondList, newBond],
+      },
     }));
   };
 
   const removeBond = (id: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      section1_4: prev.section1_4.filter(item => item.id !== id)
+      section1_4: {
+        ...prev.section1_4,
+        bondList: prev.section1_4.bondList.filter((item) => item.id !== id),
+      },
     }));
   };
 
@@ -251,21 +398,20 @@ export const InfraFinancingStep = () => {
       organisationType: "",
       yearEstablished: "",
       totalFunding: "",
-      website: ""
+      website: "",
     };
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      section1_5: [...prev.section1_5, newIntermediary]
+      section1_5: [...prev.section1_5, newIntermediary],
     }));
   };
 
   const removeIntermediary = (id: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      section1_5: prev.section1_5.filter(item => item.id !== id)
+      section1_5: prev.section1_5.filter((item) => item.id !== id),
     }));
   };
-
 
   // Update formData with calculated values when they change
   useEffect(() => {
@@ -273,33 +419,45 @@ export const InfraFinancingStep = () => {
     const section1_2Calc = calculateSection1_2();
 
     // Calculate % Allocation to GSDP
-    const capitalAllocation = parseFloat(formData.section1_1.capitalAllocation.replace(/[₹,]/g, ''));
-    const gsdpForFY = parseFloat(formData.section1_1.gsdpForFY.replace(/[₹,]/g, ''));
-    let allocationToGSDP = '';
-    
+    const capitalAllocation = parseFloat(
+      formData.section1_1.capitalAllocation.replace(/[₹,]/g, "")
+    );
+    const gsdpForFY = parseFloat(
+      formData.section1_1.gsdpForFY.replace(/[₹,]/g, "")
+    );
+    let allocationToGSDP = "";
+
     if (!isNaN(capitalAllocation) && !isNaN(gsdpForFY) && gsdpForFY > 0) {
       const percentage = (capitalAllocation / gsdpForFY) * 100;
-      allocationToGSDP = percentage.toFixed(1) + '%';
+      allocationToGSDP = percentage.toFixed(1) + "%";
     }
 
     // Calculate % Capex Actuals to GSDP
-    const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
-    const stateCapexUtilisation = parseFloat(formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, ''));
-    let capexActualsToGSDP = '';
-    
-    if (!isNaN(actualCapex) && !isNaN(stateCapexUtilisation) && stateCapexUtilisation > 0) {
+    const actualCapex = parseFloat(
+      formData.section1_2.actualCapex.replace(/[₹,]/g, "")
+    );
+    const stateCapexUtilisation = parseFloat(
+      formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, "")
+    );
+    let capexActualsToGSDP = "";
+
+    if (
+      !isNaN(actualCapex) &&
+      !isNaN(stateCapexUtilisation) &&
+      stateCapexUtilisation > 0
+    ) {
       const percentage = (actualCapex / stateCapexUtilisation) * 100;
-      capexActualsToGSDP = percentage.toFixed(1) + '%';
+      capexActualsToGSDP = percentage.toFixed(1) + "%";
     }
 
-    setFormData(prev => {
+    setFormData((prev) => {
       // Check if values actually changed to prevent infinite loop
       const section1_1Changed =
         prev.section1_1.percentage !== section1_1Calc.percentage ||
         prev.section1_1.marksObtained !== section1_1Calc.marksObtained ||
         prev.section1_1.allocationToGSDP !== allocationToGSDP;
-      
-      const section1_2Changed = 
+
+      const section1_2Changed =
         prev.section1_2.percentage !== section1_2Calc.percentage ||
         prev.section1_2.marksObtained !== section1_2Calc.marksObtained ||
         prev.section1_2.capexActualsToGSDP !== capexActualsToGSDP;
@@ -314,21 +472,22 @@ export const InfraFinancingStep = () => {
           ...prev.section1_1,
           percentage: section1_1Calc.percentage,
           marksObtained: section1_1Calc.marksObtained,
-          allocationToGSDP: allocationToGSDP
+          allocationToGSDP: allocationToGSDP,
         },
         section1_2: {
           ...prev.section1_2,
           percentage: section1_2Calc.percentage,
           marksObtained: section1_2Calc.marksObtained,
-          capexActualsToGSDP: capexActualsToGSDP
-        }
+          capexActualsToGSDP: capexActualsToGSDP,
+        },
       };
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     formData.section1_1.capitalAllocation,
     formData.section1_1.gsdpForFY,
     formData.section1_2.actualCapex,
-    formData.section1_2.stateCapexUtilisation
+    formData.section1_2.stateCapexUtilisation,
   ]);
 
   // Autosave to localStorage with debouncing (avoid infinite loop)
@@ -355,25 +514,33 @@ export const InfraFinancingStep = () => {
   // Access control for NODAL_OFFICER
   if (isNodalOfficer) {
     // Check if user has access to any indicator in this section
-    const hasAccessToSection = hasIndicatorAccess('1.1') || hasIndicatorAccess('1.2') || 
-                              hasIndicatorAccess('1.3') || hasIndicatorAccess('1.4') || hasIndicatorAccess('1.5');
-    
+    const hasAccessToSection =
+      hasIndicatorAccess("1.1") ||
+      hasIndicatorAccess("1.2") ||
+      hasIndicatorAccess("1.3") ||
+      hasIndicatorAccess("1.4") ||
+      hasIndicatorAccess("1.5");
+
     console.log("🔍 InfraFinancingStep: Access control check", {
       isNodalOfficer,
       assignedIndicators,
       hasAccessToSection,
-      hasAccess1_1: hasIndicatorAccess('1.1'),
-      hasAccess1_2: hasIndicatorAccess('1.2'),
-      hasAccess1_3: hasIndicatorAccess('1.3'),
-      hasAccess1_4: hasIndicatorAccess('1.4'),
-      hasAccess1_5: hasIndicatorAccess('1.5')
+      hasAccess1_1: hasIndicatorAccess("1.1"),
+      hasAccess1_2: hasIndicatorAccess("1.2"),
+      hasAccess1_3: hasIndicatorAccess("1.3"),
+      hasAccess1_4: hasIndicatorAccess("1.4"),
+      hasAccess1_5: hasIndicatorAccess("1.5"),
     });
 
     if (!hasAccessToSection) {
       return (
         <div className="w-full -mx-6 lg:-mx-8">
           <div className="px-6 lg:px-8">
-            <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+            <Stepper
+              steps={SUBMISSION_STEPS}
+              currentStep={currentStep}
+              onStepClick={goToStep}
+            />
           </div>
           <div className="px-6 lg:px-8">
             <ProgressHeader
@@ -385,9 +552,12 @@ export const InfraFinancingStep = () => {
               progress={0}
             />
             <div className="text-center py-12">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Data Required
+              </h3>
               <p className="text-gray-600 mb-4">
-                This section is not applicable for your submission. No data entry required here.
+                This section is not applicable for your submission. No data
+                entry required here.
               </p>
               <Button onClick={goToNext} className="bg-primary text-white">
                 Continue to Next Step
@@ -402,7 +572,11 @@ export const InfraFinancingStep = () => {
   return (
     <div className="w-full -mx-6 lg:-mx-8">
       <div className="px-6 lg:px-8">
-        <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+        <Stepper
+          steps={SUBMISSION_STEPS}
+          currentStep={currentStep}
+          onStepClick={goToStep}
+        />
       </div>
 
       <div className="px-6 lg:px-8">
@@ -424,616 +598,920 @@ export const InfraFinancingStep = () => {
           );
         })()}
 
+        {/* Section 1.1 */}
+        {(!isNodalOfficer || hasIndicatorAccess("1.1")) &&
+          (!isEditMode ||
+            // Hide if edit mode and no meaningful data present in section1_1
+            !!(
+              formData.section1_1 &&
+              (formData.section1_1.year ||
+                formData.section1_1.capitalAllocation ||
+                formData.section1_1.gsdpForFY ||
+                formData.section1_1.allocationToGSDP ||
+                formData.section1_1.capexToCapexActuals)
+            )) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
+                    <span className="font-normal text-xs text-muted-foreground"></span>
+                  </span>
+                </div>
+              }
+              // subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
+              //       Capital Expenditure)"
+              className="mb-6"
+            >
+              <div className="grid grid-cols-2 gap-4 max-w-[70%]">
+                <div>
+                  <Label>
+                    Year<span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter Year"
+                    value={formData.section1_1.year}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        section1_1: {
+                          ...formData.section1_1,
+                          year: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="">
+                    Capital Allocation for FY (INR)
+                    <span className="text-red-500">*</span>
+                    <Info className="h-4 w-4 text-gray-500 inline-block ml-2" />
+                  </Label>
+                  <Input
+                    placeholder="Enter Capital Allocation"
+                    value={formData.section1_1.capitalAllocation}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        section1_1: {
+                          ...formData.section1_1,
+                          capitalAllocation: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="">
+                    GSDP for FY (INR)<span className="text-red-500">*</span>
+                    <Info className="h-4 w-4 text-gray-500 ml-2" />
+                  </Label>
+                  <Input
+                    placeholder="Enter GSDP for FY"
+                    value={formData.section1_1.gsdpForFY}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        section1_1: {
+                          ...formData.section1_1,
+                          gsdpForFY: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className=" ">
+                    % Allocation to GSDP<span className="text-red-500">*</span>
+                    <Info className="h-4 w-4 text-gray-500 ml-2" />
+                  </Label>
+                  <Input
+                    placeholder="Auto-calculated"
+                    value={(() => {
+                      const capitalAllocation = parseFloat(
+                        formData.section1_1.capitalAllocation.replace(
+                          /[₹,]/g,
+                          ""
+                        )
+                      );
+                      const gsdpForFY = parseFloat(
+                        formData.section1_1.gsdpForFY.replace(/[₹,]/g, "")
+                      );
 
-      {/* Section 1.1 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.1')) && (!isEditMode || (
-        // Hide if edit mode and no meaningful data present in section1_1
-        !!(
-          formData.section1_1 && (
-            formData.section1_1.year ||
-            formData.section1_1.capitalAllocation ||
-            formData.section1_1.gsdpForFY ||
-            formData.section1_1.allocationToGSDP ||
-            formData.section1_1.capexToCapexActuals
-          )
-        )
-      )) && (
-        <SectionCard
-          title={
-            <div className="flex flex-col">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
-                <span className="font-normal text-xs text-muted-foreground">
-                  
-                </span>
-              </span>
+                      if (
+                        isNaN(capitalAllocation) ||
+                        isNaN(gsdpForFY) ||
+                        gsdpForFY === 0
+                      ) {
+                        return "";
+                      }
 
-            </div>
-          }
-          // subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
-          //       Capital Expenditure)"
-          className="mb-6"
-        >
-        <div className="grid grid-cols-2 gap-4 max-w-[70%]">
-          <div>
-            <Label>Year<span className="text-red-500">*</span></Label>
-            <Input
-              type="text"
-              placeholder="Enter Year"
-              value={formData.section1_1.year}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_1: { ...formData.section1_1, year: e.target.value },
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label className="">
-              Capital Allocation for FY (INR)<span className="text-red-500">*</span>
-              <Info className="h-4 w-4 text-gray-500 inline-block ml-2" />
-            </Label>
-            <Input
-              placeholder="Enter Capital Allocation"
-              value={formData.section1_1.capitalAllocation}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_1: {
-                    ...formData.section1_1,
-                    capitalAllocation: e.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label className="">
-              GSDP for FY (INR)<span className="text-red-500">*</span>
-              <Info className="h-4 w-4 text-gray-500 ml-2" />
-            </Label>
-            <Input
-              placeholder="Enter GSDP for FY"
-              value={formData.section1_1.gsdpForFY}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_1: {
-                    ...formData.section1_1,
-                    gsdpForFY: e.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label className=" ">
-              % Allocation to GSDP<span className="text-red-500">*</span>
-              <Info className="h-4 w-4 text-gray-500 ml-2" />
-            </Label>
-            <Input
-              placeholder="Auto-calculated"
-              value={(() => {
-                const capitalAllocation = parseFloat(formData.section1_1.capitalAllocation.replace(/[₹,]/g, ''));
-                const gsdpForFY = parseFloat(formData.section1_1.gsdpForFY.replace(/[₹,]/g, ''));
-                
-                if (isNaN(capitalAllocation) || isNaN(gsdpForFY) || gsdpForFY === 0) {
-                  return '';
-                }
-                
-                const percentage = (capitalAllocation / gsdpForFY) * 100;
-                return percentage.toFixed(1) + '%';
-              })()}
-              readOnly
-              className="bg-gray-50 cursor-not-allowed"
-            />
-          </div>
-        </div>
-        </SectionCard>
-      )}
-
-      {/* Section 1.2 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.2')) && (!isEditMode || (
-        // Hide if edit mode and no meaningful data present in section1_2
-        !!(
-          formData.section1_2 && (
-            formData.section1_2.year ||
-            formData.section1_2.actualCapex ||
-            formData.section1_2.stateCapexUtilisation ||
-            formData.section1_2.capexActualsToGSDP
-          )
-        )
-      )) && (
-        <SectionCard
-          title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.2 -</span> % Capex Utilization{" "}
-              <span className="font-normal text-xs text-muted-foreground">
-                (10 marks per 1%)
-              </span>
-            </span>
-          </div>}
-          // subtitle="Annex 2: Verified with MoHUA data"
-        >
-        <div className="grid grid-cols-2 gap-4 max-w-[70%]">
-          <div className="space-y-2">
-            <Label>Year<span className="text-red-500">*</span></Label>
-            <Input
-              placeholder="Year"
-              value={formData.section1_2.year}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_2: { ...formData.section1_2, year: e.target.value },
-                })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>A₁ - Actual Capex (INR)<span className="text-red-500">*</span></Label>
-            <Input
-              placeholder="Enter Actual Capex"
-              value={formData.section1_2.actualCapex}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_2: {
-                    ...formData.section1_2,
-                    actualCapex: e.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>State Capex Utilisation (INR)</Label>
-            <Input
-              placeholder="Enter State Capex Utilisation"
-              value={formData.section1_2.stateCapexUtilisation}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  section1_2: {
-                    ...formData.section1_2,
-                    stateCapexUtilisation: e.target.value,
-                  },
-                })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>% Capex Actuals to GSDP</Label>
-            <Input
-              placeholder="Auto-calculated"
-              value={(() => {
-                const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
-                const stateCapexUtilisation = parseFloat(formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, ''));
-                
-                if (isNaN(actualCapex) || isNaN(stateCapexUtilisation) || stateCapexUtilisation === 0) {
-                  return '';
-                }
-                
-                const percentage = (actualCapex / stateCapexUtilisation) * 100;
-                return percentage.toFixed(1) + '%';
-              })()}
-              readOnly
-              className="bg-gray-50 cursor-not-allowed"
-            />
-          </div>
-        </div>
-        </SectionCard>
-      )}
-
-      {/* Section 1.3 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.3')) && (!isEditMode || (Array.isArray(formData.section1_3) && formData.section1_3.length > 0)) && (
-        <SectionCard
-          title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.3 -</span> % of Credit Rated ULBs{" "}
-            </span>
-          </div>}
-          // subtitle="Annex 2: Verified with MoHUA data"
-          className="mb-6"
-        >
-        <div className="space-y-4">
-          {formData.section1_3.map((ulb, index) => (
-            <div key={ulb.id} className="grid grid-cols-4 gap-4">
-              <div>
-                <Label>City name<span className="text-red-500">*</span></Label>
-                <Input
-                  placeholder="Enter City Name"
-                  value={ulb.cityName}
-                  onChange={(e) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_3: prev.section1_3.map(item =>
-                        item.id === ulb.id ? { ...item, cityName: e.target.value } : item
-                      )
-                    }))
-                  }
-                />
+                      const percentage = (capitalAllocation / gsdpForFY) * 100;
+                      return percentage.toFixed(1) + "%";
+                    })()}
+                    readOnly
+                    className="bg-gray-50 cursor-not-allowed"
+                  />
+                </div>
               </div>
-              <div>
-                <Label>ULB<span className="text-red-500">*</span></Label>
-                <Select
-                  value={ulb.ulb}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_3: prev.section1_3.map(item =>
-                        item.id === ulb.id ? { ...item, ulb: value } : item
-                      )
-                    }))
-                  }
+            </SectionCard>
+          )}
+
+        {/* Section 1.2 */}
+        {(!isNodalOfficer || hasIndicatorAccess("1.2")) &&
+          (!isEditMode ||
+            // Hide if edit mode and no meaningful data present in section1_2
+            !!(
+              formData.section1_2 &&
+              (formData.section1_2.year ||
+                formData.section1_2.actualCapex ||
+                formData.section1_2.stateCapexUtilisation ||
+                formData.section1_2.capexActualsToGSDP)
+            )) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">1.2 -</span> % Capex
+                    Utilization{" "}
+                    <span className="font-normal text-xs text-muted-foreground">
+                      (10 marks per 1%)
+                    </span>
+                  </span>
+                </div>
+              }
+              // subtitle="Annex 2: Verified with MoHUA data"
+            >
+              <div className="grid grid-cols-2 gap-4 max-w-[70%]">
+                <div className="space-y-2">
+                  <Label>
+                    Year<span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    placeholder="Year"
+                    value={formData.section1_2.year}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        section1_2: {
+                          ...formData.section1_2,
+                          year: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    A₁ - Actual Capex (INR)
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    placeholder="Enter Actual Capex"
+                    value={formData.section1_2.actualCapex}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        section1_2: {
+                          ...formData.section1_2,
+                          actualCapex: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>State Capex Utilisation (INR)</Label>
+                  <Input
+                    placeholder="Enter State Capex Utilisation"
+                    value={formData.section1_2.stateCapexUtilisation}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        section1_2: {
+                          ...formData.section1_2,
+                          stateCapexUtilisation: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>% Capex Actuals to GSDP</Label>
+                  <Input
+                    placeholder="Auto-calculated"
+                    value={(() => {
+                      const actualCapex = parseFloat(
+                        formData.section1_2.actualCapex.replace(/[₹,]/g, "")
+                      );
+                      const stateCapexUtilisation = parseFloat(
+                        formData.section1_2.stateCapexUtilisation.replace(
+                          /[₹,]/g,
+                          ""
+                        )
+                      );
+
+                      if (
+                        isNaN(actualCapex) ||
+                        isNaN(stateCapexUtilisation) ||
+                        stateCapexUtilisation === 0
+                      ) {
+                        return "";
+                      }
+
+                      const percentage =
+                        (actualCapex / stateCapexUtilisation) * 100;
+                      return percentage.toFixed(1) + "%";
+                    })()}
+                    readOnly
+                    className="bg-gray-50 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
+        {/* Section 1.3 */}
+        {(!isNodalOfficer || hasIndicatorAccess("1.3")) &&
+          (!isEditMode ||
+            (Array.isArray(formData.section1_3.ulbList) &&
+              formData.section1_3.ulbList.length > 0)) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold">
+                    <span className="text-primary">1.3 -</span> % of Credit
+                    Rated ULBs{" "}
+                  </span>
+                </div>
+              }
+              className="mb-6"
+            >
+              <div className="space-y-4">
+                {/* ✅ New Field: Total Number of ULBs */}
+                <div className="w-1/4">
+                  <Label>
+                    Total Number of ULBs <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="Enter total number of ULBs"
+                    min="0"
+                    value={formData.section1_3.totalULBs || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        section1_3: {
+                          ...prev.section1_3,
+                          totalULBs: e.target.value
+                            ? parseInt(e.target.value, 10)
+                            : 0,
+                        },
+                      }))
+                    }
+                    required
+                  />
+                </div>
+
+                {/* Existing ULB List */}
+                {formData.section1_3.ulbList.map((ulb, index) => (
+                  <div key={ulb.id} className="grid grid-cols-4 gap-4">
+                    <div>
+                      <Label>
+                        City name<span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        placeholder="Enter City Name"
+                        value={ulb.cityName}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              ulbList: prev.section1_3.ulbList.map((item) =>
+                                item.id === ulb.id
+                                  ? { ...item, cityName: e.target.value }
+                                  : item
+                              ),
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>
+                        ULB<span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={ulb.ulb}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              ulbList: prev.section1_3.ulbList.map((item) =>
+                                item.id === ulb.id
+                                  ? { ...item, ulb: value }
+                                  : item
+                              ),
+                            },
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select ULB" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Pune Municipal Corporation">
+                            Pune Municipal Corporation
+                          </SelectItem>
+                          <SelectItem value="Mumbai Municipal Corporation">
+                            Mumbai Municipal Corporation
+                          </SelectItem>
+                          <SelectItem value="Nagpur Municipal Corporation">
+                            Nagpur Municipal Corporation
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>
+                        Rating date<span className="text-red-500">*</span>
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
+                              !ulb.ratingDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {ulb.ratingDate
+                              ? format(new Date(ulb.ratingDate), "dd-MM-yyyy")
+                              : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={
+                              ulb.ratingDate
+                                ? new Date(ulb.ratingDate)
+                                : undefined
+                            }
+                            onSelect={(date) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_3: {
+                                  ...prev.section1_3,
+                                  ulbList: prev.section1_3.ulbList.map((item) =>
+                                    item.id === ulb.id
+                                      ? {
+                                          ...item,
+                                          ratingDate: date
+                                            ? date.toISOString()
+                                            : "",
+                                        }
+                                      : item
+                                  ),
+                                },
+                              }))
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label>
+                          Select Rating<span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={ulb.rating}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_3: {
+                                ...prev.section1_3,
+                                ulbList: prev.section1_3.ulbList.map((item) =>
+                                  item.id === ulb.id
+                                    ? { ...item, rating: value }
+                                    : item
+                                ),
+                              },
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select rating" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="AA+">AA+</SelectItem>
+                            <SelectItem value="AA">AA</SelectItem>
+                            <SelectItem value="A+">A+</SelectItem>
+                            <SelectItem value="A">A</SelectItem>
+                            <SelectItem value="BBB+">BBB+</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => removeULB(ulb.id)}
+                        className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
+                      >
+                        <Trash2 className="h-6 w-6" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addULB}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 "
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select ULB" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Pune Municipal Corporation">Pune Municipal Corporation</SelectItem>
-                    <SelectItem value="Mumbai Municipal Corporation">Mumbai Municipal Corporation</SelectItem>
-                    <SelectItem value="Nagpur Municipal Corporation">Nagpur Municipal Corporation</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Plus className="h-4 w-4" />
+                  Add More ULB
+                </Button>
               </div>
-              <div>
-                <Label>Rating date<span className="text-red-500">*</span></Label>
-                <Popover>
-                  <PopoverTrigger asChild>
+            </SectionCard>
+          )}
+
+        {/* Section 1.4 */}
+        {(!isNodalOfficer || hasIndicatorAccess("1.4")) &&
+          (!isEditMode ||
+            (Array.isArray(formData.section1_4.bondList) &&
+              formData.section1_4.bondList.length > 0)) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">1.4 -</span> % of ULBs
+                    issuing Bonds{" "}
+                  </span>
+                </div>
+              }
+              className="mb-6"
+            >
+              <div className="space-y-4">
+                {/* ✅ New Field: Total Number of ULBs */}
+                <div className="w-1/4">
+                  <Label>
+                    Total Number of ULBs <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="Enter total number of ULBs"
+                    min="0"
+                    value={formData.section1_4.totalULBs || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        section1_4: {
+                          ...prev.section1_4,
+                          totalULBs: e.target.value
+                            ? parseInt(e.target.value, 10)
+                            : 0,
+                        },
+                      }))
+                    }
+                    required
+                  />
+                </div>
+
+                {/* Existing Bond List */}
+                {formData.section1_4.bondList.map((bond) => (
+                  <div key={bond.id} className="grid grid-cols-4 gap-4">
+                    <div>
+                      <Label>
+                        Select Bond Type<span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={bond.bondType}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_4: {
+                              ...prev.section1_4,
+                              bondList: prev.section1_4.bondList.map((item) =>
+                                item.id === bond.id
+                                  ? { ...item, bondType: value }
+                                  : item
+                              ),
+                            },
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select bond type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Municipal bond">
+                            Municipal bond
+                          </SelectItem>
+                          <SelectItem value="Infrastructure bond">
+                            Infrastructure bond
+                          </SelectItem>
+                          <SelectItem value="Revenue bond">
+                            Revenue bond
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>
+                        City Name<span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={bond.cityName}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_4: {
+                              ...prev.section1_4,
+                              bondList: prev.section1_4.bondList.map((item) =>
+                                item.id === bond.id
+                                  ? { ...item, cityName: value }
+                                  : item
+                              ),
+                            },
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select city" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Mumbai">Mumbai</SelectItem>
+                          <SelectItem value="Pune">Pune</SelectItem>
+                          <SelectItem value="Nagpur">Nagpur</SelectItem>
+                          <SelectItem value="Nashik">Nashik</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>
+                        Issuing Authority<span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={bond.issuingAuthority}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_4: {
+                              ...prev.section1_4,
+                              bondList: prev.section1_4.bondList.map((item) =>
+                                item.id === bond.id
+                                  ? { ...item, issuingAuthority: value }
+                                  : item
+                              ),
+                            },
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select authority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Authority Name">
+                            Authority Name
+                          </SelectItem>
+                          <SelectItem value="Municipal Corporation">
+                            Municipal Corporation
+                          </SelectItem>
+                          <SelectItem value="Development Authority">
+                            Development Authority
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label>
+                          Value (INR crore)
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          placeholder="Enter Value"
+                          value={bond.value}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_4: {
+                                ...prev.section1_4,
+                                bondList: prev.section1_4.bondList.map((item) =>
+                                  item.id === bond.id
+                                    ? { ...item, value: e.target.value }
+                                    : item
+                                ),
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => removeBond(bond.id)}
+                        className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addBond}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add More Bond
+                </Button>
+              </div>
+            </SectionCard>
+          )}
+
+        {/* Section 1.5 */}
+        {(!isNodalOfficer || hasIndicatorAccess("1.5")) &&
+          (!isEditMode ||
+            (Array.isArray(formData.section1_5) &&
+              formData.section1_5.length > 0)) && (
+            <SectionCard
+              title={
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">1.5 -</span> Functional
+                    Financial Intermediary{" "}
+                  </span>
+                </div>
+              }
+              className="mb-6"
+            >
+              <div className="space-y-6">
+                {/* ✅ Radio Button Selection */}
+                <div>
+                  <Label>
+                    Functional Financial Intermediary Available?{" "}
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="inline w-3 h-3 ml-1" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Select “Yes” if there is a functional financial
+                        intermediary
+                      </TooltipContent>
+                    </Tooltip>
+                  </Label>
+                  <div className="flex gap-6 mt-2">
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="functional-financial-intermediary"
+                        value="yes"
+                        checked={formData.section1_5_available === "yes"}
+                        onChange={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_5_available: "yes",
+                            section1_5_comment: "", // clear comment when switching
+                          }))
+                        }
+                      />
+                      Yes
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <Input
+                        type="radio"
+                        name="functional-financial-intermediary"
+                        value="no"
+                        checked={formData.section1_5_available === "no"}
+                        onChange={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_5_available: "no",
+                            section1_5: [], // clear intermediary list when no
+                          }))
+                        }
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+
+                {/* ✅ If Yes → show intermediary fields */}
+                {formData.section1_5_available === "yes" && (
+                  <div className="space-y-4">
+                    {formData.section1_5.map((intermediary, index) => (
+                      <div
+                        key={intermediary.id}
+                        className="grid grid-cols-5 gap-4"
+                      >
+                        <div>
+                          <Label>
+                            Organisation Name
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            placeholder="Enter organisation name"
+                            value={intermediary.organisationName}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: prev.section1_5.map((item) =>
+                                  item.id === intermediary.id
+                                    ? {
+                                        ...item,
+                                        organisationName: e.target.value,
+                                      }
+                                    : item
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div>
+                          <Label>
+                            Organisation Type
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={intermediary.organisationType}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: prev.section1_5.map((item) =>
+                                  item.id === intermediary.id
+                                    ? { ...item, organisationType: value }
+                                    : item
+                                ),
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Government Corporation">
+                                Government Corporation
+                              </SelectItem>
+                              <SelectItem value="Development Authority">
+                                Development Authority
+                              </SelectItem>
+                              <SelectItem value="Financial Institution">
+                                Financial Institution
+                              </SelectItem>
+                              <SelectItem value="Private Entity">
+                                Private Entity
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>
+                            Year of Establishment
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={intermediary.yearEstablished}
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: prev.section1_5.map((item) =>
+                                  item.id === intermediary.id
+                                    ? { ...item, yearEstablished: value }
+                                    : item
+                                ),
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Enter year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from(
+                                { length: 30 },
+                                (_, i) => 2024 - i
+                              ).map((year) => (
+                                <SelectItem key={year} value={year.toString()}>
+                                  {year}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>Total Funding (INR)</Label>
+                          <Input
+                            placeholder="Enter total funding in INR"
+                            value={intermediary.totalFunding}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: prev.section1_5.map((item) =>
+                                  item.id === intermediary.id
+                                    ? { ...item, totalFunding: e.target.value }
+                                    : item
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Label>Website (Optional)</Label>
+                            <Input
+                              placeholder="Website link"
+                              value={intermediary.website}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section1_5: prev.section1_5.map((item) =>
+                                    item.id === intermediary.id
+                                      ? { ...item, website: e.target.value }
+                                      : item
+                                  ),
+                                }))
+                              }
+                            />
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => removeIntermediary(intermediary.id)}
+                            className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
+                          >
+                            <Trash2 className="h-6 w-6" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
                     <Button
+                      type="button"
                       variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                        !ulb.ratingDate && "text-muted-foreground"
-                      )}
+                      onClick={addIntermediary}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {ulb.ratingDate ? format(new Date(ulb.ratingDate), "dd-MM-yyyy") : "Select date"}
+                      <Plus className="h-4 w-4" />
+                      Add More Financial Intermediary
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={ulb.ratingDate ? new Date(ulb.ratingDate) : undefined}
-                      onSelect={(date) =>
-                        setFormData(prev => ({
+                  </div>
+                )}
+
+                {/* ✅ If No → show Comment Box */}
+                {formData.section1_5_available === "no" && (
+                  <div>
+                    <Label>Comments (Reason)</Label>
+                    <Input
+                      placeholder="Enter comments or reason"
+                      value={formData.section1_5_comment || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
                           ...prev,
-                          section1_3: prev.section1_3.map(item =>
-                            item.id === ulb.id ? { ...item, ratingDate: date ? date.toISOString() : "" } : item
-                          )
+                          section1_5_comment: e.target.value,
                         }))
                       }
-                      initialFocus
                     />
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                )}
               </div>
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Label>Select Rating<span className="text-red-500">*</span></Label>
-                  <Select
-                    value={ulb.rating}
-                    onValueChange={(value) =>
-                      setFormData(prev => ({
-                        ...prev,
-                        section1_3: prev.section1_3.map(item =>
-                          item.id === ulb.id ? { ...item, rating: value } : item
-                        )
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select rating" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AA+">AA+</SelectItem>
-                      <SelectItem value="AA">AA</SelectItem>
-                      <SelectItem value="A+">A+</SelectItem>
-                      <SelectItem value="A">A</SelectItem>
-                      <SelectItem value="BBB+">BBB+</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removeULB(ulb.id)}
-                  className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
-                >
-                  <Trash2 className="h-6 w-6" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            </SectionCard>
+          )}
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addULB}
-            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 "
-          >
-            <Plus className="h-4 w-4" />
-            Add More ULB
-          </Button>
-        </div>
-        </SectionCard>
-      )}
+        <FormActions
+          onPrevious={isFirstStep ? undefined : goToPrevious}
+          onNext={handleNext}
+          onSaveDraft={async () => {
+            // Save to localStorage with toast message
+            const success = saveDraftToLocalStorage("infraFinancing", formData);
 
-      {/* Section 1.4 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.4')) && (!isEditMode || (Array.isArray(formData.section1_4) && formData.section1_4.length > 0)) && (
-        <SectionCard
-          title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.4 -</span> % of ULBs issuing Bonds{" "}
-            </span>
-          </div>}
-          // subtitle="Annex 3: ULBs with population > 50,000"
-          className="mb-6"
-        >
-        <div className="space-y-4">
-          {formData.section1_4.map((bond, index) => (
-            <div key={bond.id} className="grid grid-cols-4 gap-4">
-              <div>
-                <Label>Select Bond Type<span className="text-red-500">*</span></Label>
-                <Select
-                  value={bond.bondType}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_4: prev.section1_4.map(item =>
-                        item.id === bond.id ? { ...item, bondType: value } : item
-                      )
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select bond type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Municipal bond">Municipal bond</SelectItem>
-                    <SelectItem value="Infrastructure bond">Infrastructure bond</SelectItem>
-                    <SelectItem value="Revenue bond">Revenue bond</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>City Name<span className="text-red-500">*</span></Label>
-                <Select
-                  value={bond.cityName}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_4: prev.section1_4.map(item =>
-                        item.id === bond.id ? { ...item, cityName: value } : item
-                      )
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select city" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Mumbai">Mumbai</SelectItem>
-                    <SelectItem value="Pune">Pune</SelectItem>
-                    <SelectItem value="Nagpur">Nagpur</SelectItem>
-                    <SelectItem value="Nashik">Nashik</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Issuing Authority<span className="text-red-500">*</span></Label>
-                <Select
-                  value={bond.issuingAuthority}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_4: prev.section1_4.map(item =>
-                        item.id === bond.id ? { ...item, issuingAuthority: value } : item
-                      )
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select authority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Authority Name">Authority Name</SelectItem>
-                    <SelectItem value="Municipal Corporation">Municipal Corporation</SelectItem>
-                    <SelectItem value="Development Authority">Development Authority</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Label>Value (INR crore)<span className="text-red-500">*</span></Label>
-                  <Input
-                    placeholder="Enter Value"
-                    value={bond.value}
-                    onChange={(e) =>
-                      setFormData(prev => ({
-                        ...prev,
-                        section1_4: prev.section1_4.map(item =>
-                          item.id === bond.id ? { ...item, value: e.target.value } : item
-                        )
-                      }))
-                    }
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removeBond(bond.id)}
-                  className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addBond}
-            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add More Bond
-          </Button>
-        </div>
-        </SectionCard>
-      )}
-
-      {/* Section 1.5 */}
-      {(!isNodalOfficer || hasIndicatorAccess('1.5')) && (!isEditMode || (Array.isArray(formData.section1_5) && formData.section1_5.length > 0)) && (
-        <SectionCard
-        title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">1.5 -</span> Functional Financial Intermediary{" "}
-            </span>
-          </div>}
-          // subtitle="Annex 4: Provide website link and funding details"
-          className="mb-6"
-        >
-        <div className="space-y-4">
-          {formData.section1_5.map((intermediary, index) => (
-            <div key={intermediary.id} className="grid grid-cols-5 gap-4">
-              <div>
-                <Label>Organisation Name<span className="text-red-500">*</span></Label>
-                <Input
-                  placeholder="Enter organisation name"
-                  value={intermediary.organisationName}
-                  onChange={(e) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_5: prev.section1_5.map(item =>
-                        item.id === intermediary.id ? { ...item, organisationName: e.target.value } : item
-                      )
-                    }))
-                  }
-                />
-              </div>
-              <div>
-                <Label>Organisation Type<span className="text-red-500">*</span></Label>
-                <Select
-                  value={intermediary.organisationType}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_5: prev.section1_5.map(item =>
-                        item.id === intermediary.id ? { ...item, organisationType: value } : item
-                      )
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Government Corporation">Government Corporation</SelectItem>
-                    <SelectItem value="Development Authority">Development Authority</SelectItem>
-                    <SelectItem value="Financial Institution">Financial Institution</SelectItem>
-                    <SelectItem value="Private Entity">Private Entity</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Year of Establishment<span className="text-red-500">*</span></Label>
-                <Select
-                  value={intermediary.yearEstablished}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_5: prev.section1_5.map(item =>
-                        item.id === intermediary.id ? { ...item, yearEstablished: value } : item
-                      )
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Enter year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 30 }, (_, i) => 2024 - i).map(year => (
-                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Total Funding (INR)</Label>
-                <Input
-                  placeholder="Enter total funding in INR"
-                  value={intermediary.totalFunding}
-                  onChange={(e) =>
-                    setFormData(prev => ({
-                      ...prev,
-                      section1_5: prev.section1_5.map(item =>
-                        item.id === intermediary.id ? { ...item, totalFunding: e.target.value } : item
-                      )
-                    }))
-                  }
-                />
-              </div>
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Label>Website (Optional)</Label>
-                  <Input
-                    placeholder="Website link"
-                    value={intermediary.website}
-                    onChange={(e) =>
-                      setFormData(prev => ({
-                        ...prev,
-                        section1_5: prev.section1_5.map(item =>
-                          item.id === intermediary.id ? { ...item, website: e.target.value } : item
-                        )
-                      }))
-                    }
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removeIntermediary(intermediary.id)}
-                  className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
-                >
-                  <Trash2 className="h-6 w-6" />
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addIntermediary}
-            className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add More Financial Intermediary
-          </Button>
-        </div>
-        </SectionCard>
-      )}
-
-      <FormActions
-        onPrevious={isFirstStep ? undefined : goToPrevious}
-        onNext={handleNext}
-        onSaveDraft={async () => {
-          // Save to localStorage with toast message
-          const success = saveDraftToLocalStorage("infraFinancing", formData);
-          
-          if (success) {
-            // Also update form data in persistence hook
-            updateFormData("infraFinancing", formData);
-          }
-        }}
-        isFirstStep={isFirstStep}
-        isLastStep={isLastStep}
-        nextLabel={isLastStep ? "Review & Submit" : "Next"}
-        showSaveDraft={true}
-        isNextDisabled={false} // Commented out validation: !validateFields()
+            if (success) {
+              // Also update form data in persistence hook
+              updateFormData("infraFinancing", formData);
+            }
+          }}
+          isFirstStep={isFirstStep}
+          isLastStep={isLastStep}
+          nextLabel={isLastStep ? "Review & Submit" : "Next"}
+          showSaveDraft={true}
+          isNextDisabled={false} // Commented out validation: !validateFields()
         />
       </div>
     </div>

@@ -63,9 +63,24 @@ export const MENU_CONFIG = [
     icon: "submission",
   },
   {
+    label: "Data Submission",       // dropdown label
+    roles: [ROLES.STATE_APPROVER],  // only visible to State Approver
+    icon: "submission",
+    children: [
+      {
+        label: "Create new Submission",
+        path: "/submissions", 
+      },
+      {
+        label: "Review Submission",
+        path: "/data-submission/review", // will navigate to http://localhost:8080/data-submission/review
+      },
+    ],
+  },
+  {
     label: "Review Submission",
     path: "/data-submission/review",
-    roles: [ROLES.STATE_APPROVER, ROLES.MOSPI_REVIEWER, ROLES.MOSPI_APPROVER],
+    roles: [ROLES.MOSPI_REVIEWER, ROLES.MOSPI_APPROVER],
     // ROLES.ADMIN, // Admin doesn't need review submission
     icon: "submission",
   },

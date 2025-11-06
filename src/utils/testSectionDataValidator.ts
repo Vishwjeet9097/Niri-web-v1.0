@@ -61,8 +61,14 @@ const testFormData = {
       capexActualsToGSDP: "",
       stateCapexUtilisation: "",
     },
-    section1_3: [],
-    section1_4: [],
+    section1_3: {
+      totalULBs: 0,
+      ulbList: [],
+    },
+    section1_4: {
+      totalULBs: 0,
+      bondList: [],
+    },
     section1_5: [],
   },
   pppDevelopment: {
