@@ -938,9 +938,10 @@ export const InfraEnablersStep = () => {
           </SectionCard>
         )}
 
-      {/* Section 4.6 */}
-      {(!isNodalOfficer || hasIndicatorAccess("4.6")) &&
-        (!isEditMode ||
+      {/* Section 4.6 */} 
+      {((!isNodalOfficer && !isStateApprover) ||
+        assignedIndicators.includes("4.6") ||
+        availableIndicators.includes("4.6")) && (!isEditMode ||
           (Array.isArray(formData.section4_6) &&
             formData.section4_6.length > 0)) && (
           <SectionCard
