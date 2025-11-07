@@ -242,6 +242,7 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       console.log("✅ Submission response:", response);
       toast({ title: "Success", description: "Submission created successfully" });
       if (onSuccess) onSuccess(response);
+      
     } catch (error: any) {
       console.error("❌ Submission failed:", error);
       toast({

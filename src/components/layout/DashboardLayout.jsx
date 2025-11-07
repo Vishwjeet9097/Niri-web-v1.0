@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationCenter } from "@/features/notifications/NotificationCenter";
 import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 
 import { MENU_CONFIG } from "../../utils/roles";
 
@@ -35,6 +36,7 @@ export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
   const [openDropdown, setOpenDropdown] = useState(null);
+  const { hasSubmission } = useUserSubmissionStatus();
 
   const navigation = MENU_CONFIG.filter((item) =>
     item.roles.includes(user?.role)
@@ -181,25 +183,33 @@ export function DashboardLayout() {
                       {isOpen && (
                         <div className="ml-4 mt-1 flex flex-col space-y-1">
                           {item.children.map((child) => {
-                            const childActive = isActive(child.path);
-                            return (
-                              <Link
-                                key={child.label}
-                                to={child.path}
-                                onClick={() => {
-                                  setSidebarOpen(false); // close mobile sidebar if open
-                                  setOpenDropdown(null); // collapse dropdown
-                                }}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                                  childActive
-                                    ? "bg-blue-50 text-blue-600"
-                                    : "text-foreground hover:bg-blue-50 hover:text-blue-600"
-                                }`}
-                              >
-                                {child.label}
-                              </Link>
-                            );
-                          })}
+  const childActive = isActive(child.path);
+  const isCreateSubmission = child.path === "/submissions"; // hook added at top of component
+
+  const disabled =
+    user?.role === "STATE_APPROVER" && isCreateSubmission && hasSubmission;
+
+  return (
+    <button
+      key={child.label}
+      onClick={() => {
+        if (disabled) return; // prevent navigation
+        navigate(child.path);
+        setSidebarOpen(false);
+        setOpenDropdown(null);
+      }}
+      disabled={disabled}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 w-full text-left ${
+        childActive
+          ? "bg-blue-50 text-blue-600"
+          : "text-foreground hover:bg-blue-50 hover:text-blue-600"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+    >
+      {child.label}
+    </button>
+  );
+})}
+
                         </div>
                       )}
                     </div>
