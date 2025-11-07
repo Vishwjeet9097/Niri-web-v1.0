@@ -38,6 +38,7 @@ import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import { computeStepProgress } from "../utils/progress";
 
+
 const defaultData: InfraEnablersData = {
   section4_1: {
     allEligible: "",
@@ -872,7 +873,7 @@ export const InfraEnablersStep = () => {
                   <Label>Practice Name</Label>
                   <Input
                     type="text"
-                    placeholder="Year"
+                    placeholder="Practice Name"
                     value={formData.section4_5.practiceName}
                     onChange={(e) =>
                       setFormData((prev) => ({
