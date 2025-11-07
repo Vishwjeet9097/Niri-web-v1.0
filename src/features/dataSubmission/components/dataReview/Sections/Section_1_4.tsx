@@ -6,28 +6,42 @@ import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 interface Section1_4Props {
   formData: any;
   isEditable: (sectionId: string) => boolean;
+  setBondTypes?: (types: string[]) => void;
+  setCityNames?: (names: string[]) => void;
+  setIssuingAuthorities?: (auths: string[]) => void;
+  setBondValues?: (values: number[]) => void;
+  setTotalULBs?: (val: number) => void;
 }
 
-export const Section_1_4 = ({ formData, isEditable }: Section1_4Props) => {
-  const [bondList, setBondList] = useState<any[]>(formData?.section1_4?.bondList || []);
-  const [totalULBs, setTotalULBs] = useState<number>(formData?.section1_4?.totalULBs || 0);
 
-  useEffect(() => {
-    setBondList(formData?.section1_4?.bondList || []);
-    setTotalULBs(formData?.section1_4?.totalULBs || 0);
-  }, [formData]);
+export const Section_1_4 = ({ formData, isEditable, setBondTypes, setCityNames, setIssuingAuthorities, setBondValues, setTotalULBs }: Section1_4Props) => {
+  const bondList = formData?.section1_4?.bondList || [];
+  const totalULBs = formData?.section1_4?.totalULBs || 0;
 
-  const handleBondChange = (index: number, field: string, value: any) => {
-    const updatedBondList = [...bondList];
-    updatedBondList[index] = { ...updatedBondList[index], [field]: value };
-    setBondList(updatedBondList);
+  // Handlers for each field
+  const handleBondTypeChange = (index: number, value: string) => {
+    const updated = [...bondList.map((item: any) => item.bondType || "")];
+    updated[index] = value;
+    setBondTypes && setBondTypes(updated);
   };
-
-  // Assume you have:
-// - formData: parent state
-// - setFormData: parent state setter
-// - formDataState: local state for editing (optional)
-// - setFormDataState: local state setter (optional)
+  const handleCityNameChange = (index: number, value: string) => {
+    const updated = [...bondList.map((item: any) => item.cityName || "")];
+    updated[index] = value;
+    setCityNames && setCityNames(updated);
+  };
+  const handleIssuingAuthorityChange = (index: number, value: string) => {
+    const updated = [...bondList.map((item: any) => item.issuingAuthority || "")];
+    updated[index] = value;
+    setIssuingAuthorities && setIssuingAuthorities(updated);
+  };
+  const handleBondValueChange = (index: number, value: number) => {
+    const updated = [...bondList.map((item: any) => item.value || 0)];
+    updated[index] = value;
+    setBondValues && setBondValues(updated);
+  };
+  const handleTotalULBsChange = (value: number) => {
+    setTotalULBs && setTotalULBs(value);
+  };
 
   return (
     <div className="space-y-4">
@@ -39,6 +53,7 @@ export const Section_1_4 = ({ formData, isEditable }: Section1_4Props) => {
           value={totalULBs}
           readOnly={!isEditable("1.4")}
           className={isEditable("1.4") ? "bg-white" : "bg-gray-50"}
+          onChange={(e) => handleTotalULBsChange(Number(e.target.value))}
         />
       </div>
 
@@ -52,7 +67,7 @@ export const Section_1_4 = ({ formData, isEditable }: Section1_4Props) => {
                 <Dropdown
                   options={dropdownValues.bondTypeList}
                   value={item.bondType || ""}
-                  onChange={(value) => handleBondChange(index, "bondType", value)}
+                  onChange={(value) => handleBondTypeChange(index, value)}
                   placeholder="Select Bond Type"
                   isEditable={isEditable("1.4")}
                 />
@@ -63,7 +78,7 @@ export const Section_1_4 = ({ formData, isEditable }: Section1_4Props) => {
                 <Dropdown
                   options={dropdownValues.cityList}
                   value={item.cityName || ""}
-                  onChange={(value) => handleBondChange(index, "cityName", value)}
+                  onChange={(value) => handleCityNameChange(index, value)}
                   placeholder="Select City"
                   isEditable={isEditable("1.4")}
                 />
@@ -74,7 +89,7 @@ export const Section_1_4 = ({ formData, isEditable }: Section1_4Props) => {
                 <Dropdown
                   options={dropdownValues.issuingAuthorityList}
                   value={item.issuingAuthority || ""}
-                  onChange={(value) => handleBondChange(index, "issuingAuthority", value)}
+                  onChange={(value) => handleIssuingAuthorityChange(index, value)}
                   placeholder="Select Authority"
                   isEditable={isEditable("1.4")}
                 />
@@ -87,7 +102,7 @@ export const Section_1_4 = ({ formData, isEditable }: Section1_4Props) => {
                   value={item.value || ""}
                   readOnly={!isEditable("1.4")}
                   className={isEditable("1.4") ? "bg-white" : "bg-gray-50"}
-                  onChange={(e) => handleBondChange(index, "value", Number(e.target.value))}
+                  onChange={(e) => handleBondValueChange(index, Number(e.target.value))}
                 />
               </div>
             </div>

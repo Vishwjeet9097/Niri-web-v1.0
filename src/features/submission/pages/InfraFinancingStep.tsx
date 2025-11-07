@@ -34,6 +34,7 @@ import { useFormPersistence } from "../hooks/useFormPersistence";
 import { SUBMISSION_STEPS } from "../constants/steps";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import type { InfraFinancingData } from "../types";
+import { getCurrentFinancialYear } from "@/utils/dateUtils";
 
 // import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -74,6 +75,15 @@ export const InfraFinancingStep = () => {
     refresh,
   } = useIndicatorAccess();
 
+  const currentFY = getCurrentFinancialYear();
+  console.log("🔍 InfraFinancingStep: Current FY detected:", currentFY);
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      section1_1: { ...prev.section1_1, year: currentFY },
+      section1_2: { ...prev.section1_2, year: currentFY },
+    }));
+  }, [currentFY]);
   // Diagnostic: ensure component sees what hook loaded
   useEffect(() => {
     console.log("🔍 InfraFinancingStep: Access control state", {
@@ -699,17 +709,10 @@ export const InfraFinancingStep = () => {
                   </Label>
                   <Input
                     type="text"
-                    placeholder="Enter Year"
                     value={formData.section1_1.year}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        section1_1: {
-                          ...formData.section1_1,
-                          year: e.target.value,
-                        },
-                      })
-                    }
+                    readOnly
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -817,17 +820,11 @@ export const InfraFinancingStep = () => {
                     Year<span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    placeholder="Year"
+                    type="text"
                     value={formData.section1_2.year}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        section1_2: {
-                          ...formData.section1_2,
-                          year: e.target.value,
-                        },
-                      })
-                    }
+                    readOnly
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">

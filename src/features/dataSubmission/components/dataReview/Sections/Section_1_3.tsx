@@ -6,26 +6,27 @@ import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 interface Section1_3Props {
   formData: any;
   isEditable: (sectionId: string) => boolean;
+  setSectionState?: (state: { totalULBs: number; ulbList: any[] }) => void;
 }
 
-export const Section_1_3 = ({ formData, isEditable }: Section1_3Props) => {
-  const [ulbList, setUlbList] = useState<any[]>(formData?.section1_3?.ulbList || []);
-  const [totalULBs, setTotalULBs] = useState<number>(formData?.section1_3?.totalULBs || 0);
 
-  useEffect(() => {
-    // console.log("formData updated in Section_1_3:", formData?.section1_3);
-    setUlbList(formData?.section1_3?.ulbList || []);
-    setTotalULBs(formData?.section1_3?.totalULBs || 0);
-  }, [formData]);
+export const Section_1_3 = ({ formData, isEditable, setSectionState }: Section1_3Props) => {
+  const ulbList = formData?.section1_3?.ulbList || [];
+  const totalULBs = formData?.section1_3?.totalULBs || 0;
 
+  // Update parent state on change
   const handleUlbChange = (index: number, field: string, value: any) => {
     const updatedUlbList = [...ulbList];
     updatedUlbList[index] = { ...updatedUlbList[index], [field]: value };
-    setUlbList(updatedUlbList);
+    if (setSectionState) {
+      setSectionState({ totalULBs, ulbList: updatedUlbList });
+    }
   };
 
   const handleTotalULBsChange = (value: number) => {
-    setTotalULBs(value);
+    if (setSectionState) {
+      setSectionState({ totalULBs: value, ulbList });
+    }
   };
 
   return (

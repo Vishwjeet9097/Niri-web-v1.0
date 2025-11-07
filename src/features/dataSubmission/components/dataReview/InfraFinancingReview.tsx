@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,12 +41,39 @@ export const InfraFinancingReview = ({
   submission,
   isPreview = false,
 }: InfraFinancingReviewProps) => {
+  // Section 1.4 state management
+  const [bondTypes, setBondTypes] = useState<string[]>(formData?.section1_4?.bondList?.map((item: any) => item.bondType || "") || []);
+  const [cityNames, setCityNames] = useState<string[]>(formData?.section1_4?.bondList?.map((item: any) => item.cityName || "") || []);
+  const [issuingAuthorities, setIssuingAuthorities] = useState<string[]>(formData?.section1_4?.bondList?.map((item: any) => item.issuingAuthority || "") || []);
+  const [bondValues, setBondValues] = useState<number[]>(formData?.section1_4?.bondList?.map((item: any) => item.value || 0) || []);
+  const [totalULBs14, setTotalULBs14] = useState<number>(formData?.section1_4?.totalULBs || 0);
+
+  useEffect(() => {
+    setBondTypes(formData?.section1_4?.bondList?.map((item: any) => item.bondType || "") || []);
+    setCityNames(formData?.section1_4?.bondList?.map((item: any) => item.cityName || "") || []);
+    setIssuingAuthorities(formData?.section1_4?.bondList?.map((item: any) => item.issuingAuthority || "") || []);
+    setBondValues(formData?.section1_4?.bondList?.map((item: any) => item.value || 0) || []);
+    setTotalULBs14(formData?.section1_4?.totalULBs || 0);
+  }, [formData?.section1_4]);
   const { saveMessage, getMessage, getComments, getAllComments } =
     useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
   const { setFormDataForSection, updateSectionField, getSectionData } = useFormDataStore();
+
+  // Section 1.3 state management
+  const [section13State, setSection13State] = useState({
+    totalULBs: formData?.section1_3?.totalULBs || 0,
+    ulbList: formData?.section1_3?.ulbList || [],
+  });
+
+  useEffect(() => {
+    setSection13State({
+      totalULBs: formData?.section1_3?.totalULBs || 0,
+      ulbList: formData?.section1_3?.ulbList || [],
+    });
+  }, [formData?.section1_3]);
 
   // Check if this section has any data
   console.log("💡 InfraFinancing formData (raw):", formData);
@@ -366,23 +394,27 @@ const sectionsWithData = useMemo(() => {
           break;
 
         case '1.3':
-          // Handle ULB ratings data
-          fields = (formData?.section1_3 || []).map((item: any) => ({
+          // Use local state for ULB ratings data
+          console.log("Section_1_3 state", section13State)
+          fields = [{ulbList: (section13State.ulbList || []).map((item: any) => ({
             cityName: item.cityName,
             ulb: item.ulb,
             ratingDate: item.ratingDate,
             rating: item.rating
-          }));
+          }))}];
           break;
 
         case '1.4':
-          // Handle bond data
-          fields = (formData?.section1_4 || []).map((item: any) => ({
-            bondType: item.bondType,
-            cityName: item.cityName,
-            issuingAuthority: item.issuingAuthority,
-            value: item.value
-          }));
+          // Use local state for bond data
+          fields = [{
+            bondList: bondTypes.map((bondType, idx) => ({
+              bondType,
+              cityName: cityNames[idx],
+              issuingAuthority: issuingAuthorities[idx],
+              value: bondValues[idx],
+            })),
+            totalULBs: totalULBs14
+          }];
           break;
 
         case '1.5':
@@ -919,9 +951,9 @@ const calculateAllocationPercentage = () => {
              {/* </div> */} 
 
             <Section_1_3 
-            formData={formData}
-            isEditable={isEditable}
-            // setFormData={setFormData}
+              formData={{ section1_3: section13State }}
+              isEditable={isEditable}
+              setSectionState={setSection13State}
             />
           </SectionCard>
         )}
@@ -1006,10 +1038,19 @@ const calculateAllocationPercentage = () => {
 
             </div>
 
-             <Section_1_4 
-            formData={formData}
-            isEditable={isEditable}
-            // setFormData={setFormData}
+            <Section_1_4
+              formData={{ section1_4: { bondList: bondTypes.map((bondType, idx) => ({
+                bondType,
+                cityName: cityNames[idx],
+                issuingAuthority: issuingAuthorities[idx],
+                value: bondValues[idx],
+              })), totalULBs: totalULBs14 } }}
+              isEditable={isEditable}
+              setBondTypes={setBondTypes}
+              setCityNames={setCityNames}
+              setIssuingAuthorities={setIssuingAuthorities}
+              setBondValues={setBondValues}
+              setTotalULBs={setTotalULBs14}
             />
           </SectionCard>
         )}
