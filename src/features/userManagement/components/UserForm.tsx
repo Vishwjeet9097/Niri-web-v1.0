@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { getRoleDisplayName } from "@/utils/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,21 +28,38 @@ import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
-  onSave: (data: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => void;
+  onSave: (
+    data: Omit<
+      NodalOfficer,
+      "id" | "state" | "createdAt" | "assignedIndicator"
+    > & { password?: string; assignedIndicators?: string[] }
+  ) => void;
   onCancel: () => void;
+  // parent passes full indicator objects (or at least objects with `.code`)
+  allIndicators?: { code?: string }[];
+  officers?: NodalOfficer[];
+  loadingIndicators?: boolean;
 }
 
-export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
+
+export function UserForm({
+  officer,
+  onSave,
+  onCancel,
+  allIndicators = [],
+  officers = [],
+  loadingIndicators = false,
+}: UserFormProps) {
   const { user } = useAuth();
-  
+
   // Debug user info (temporarily enabled)
   console.log("🔍 UserForm - User info:", {
     userRole: user?.role,
     userState: user?.state,
     userEmail: user?.email,
-    isAdmin: user?.role === "ADMIN"
+    isAdmin: user?.role === "ADMIN",
   });
-  
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -57,51 +75,152 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showAllSelectedIndicators, setShowAllSelectedIndicators] = useState(false);
+  const [showAllSelectedIndicators, setShowAllSelectedIndicators] =
+    useState(false);
 
-  // Create indicator options for multi-select
-  const indicatorOptions: MultiSelectOption[] = INDICATOR_SECTIONS.flatMap(section =>
-    section.indicators.map(indicator => ({
-      value: indicator,
-      label: `${indicator} - ${getIndicatorDisplayName(indicator)}`,
-      section: section.name,
-      description: section.description
-    }))
-  );
+  // Compute available indicator codes for the selected state (or globally for non-admin)
+  const availableIndicatorCodes = useMemo(() => {
+    // Build set of assigned indicator codes in the same state (excluding the officer being edited)
+    const assignedSet = new Set<string>();
+
+    // Resolve selected state NAME (state name used in officers[].state)
+    const selectedStateName = (() => {
+      if (user?.role === "ADMIN") {
+        // Admin sets state via stateId; convert to name if possible
+        if (!formData.stateId) return ""; // empty means admin hasn't chosen -> treat as "all"
+        const found = states.find((s) => s.id === formData.stateId);
+        return found ? found.name : formData.stateId;
+      } else {
+        // Non-admin use current user's state
+        return user?.state || "";
+      }
+    })();
+
+    (officers || []).forEach((o) => {
+      const officerState = (o.state || o.stateId || "").toString();
+      // If selectedStateName is empty, treat as global (admin hasn't chosen state) -> don't block options
+      if (!selectedStateName || officerState === selectedStateName) {
+        const assigned = (o.assignedIndicators && Array.isArray(o.assignedIndicators))
+          ? o.assignedIndicators
+          : o.assignedIndicator ? [o.assignedIndicator] : [];
+        if (o.id !== officer?.id) {
+          assigned.forEach((code) => {
+            if (code) assignedSet.add(code);
+          });
+        }
+      }
+    });
+
+    // Build list of all indicator codes from allIndicators (fallback: if allIndicators items are strings)
+    const allCodes = (allIndicators || []).map((i: any) => (typeof i === "string" ? i : i.code)).filter(Boolean);
+
+    // Return set of available codes (those that are not in assignedSet)
+    return new Set(allCodes.filter((c: string) => !assignedSet.has(c)));
+  }, [allIndicators, officers, formData.stateId, officer, user?.role, states]);
+
+  // Build the options list from INDICATOR_SECTIONS but only include:
+  //  - indicators present in availableIndicatorCodes OR
+  //  - indicators already selected for this form (so editing doesn't drop them)
+  const indicatorOptions: MultiSelectOption[] = useMemo(() => {
+    const selectedSet = new Set(formData.assignedIndicators || []);
+    return INDICATOR_SECTIONS.flatMap((section) =>
+      section.indicators
+        .filter((indicator) => {
+          // include if available OR currently selected for this officer
+          return availableIndicatorCodes.has(indicator) || selectedSet.has(indicator);
+        })
+        .map((indicator) => ({
+          value: indicator,
+          label: `${indicator} - ${getIndicatorDisplayName(indicator)}`,
+          section: section.name,
+          description: section.description,
+        }))
+    );
+  }, [availableIndicatorCodes, formData.assignedIndicators]);
+
+
+  // Debug: Log indicator options to verify 4.6 is included
+  useEffect(() => {
+    console.log("🔍 Indicator Options:", indicatorOptions);
+    console.log(
+      "🔍 4.6 in options:",
+      indicatorOptions.find((opt) => opt.value === "4.6")
+    );
+  }, []);
 
   // Handle indicator selection change
   const handleIndicatorChange = (selectedIndicators: string[]) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      assignedIndicators: selectedIndicators
+      assignedIndicators: selectedIndicators,
     }));
+  };
+
+  // Fetch assigned indicators from API for editing
+  const fetchAssignedIndicators = async (userId: string) => {
+    try {
+      console.log("🔍 Fetching assigned indicators for user:", userId);
+      const indicators = await apiService.getUserAssignedIndicators(userId);
+      console.log("🔍 Fetched indicators:", indicators);
+
+      if (Array.isArray(indicators) && indicators.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          assignedIndicators: indicators,
+        }));
+      }
+    } catch (error) {
+      console.error("❌ Failed to fetch assigned indicators:", error);
+      // Don't show error to user as this is for edit mode
+    }
   };
 
   // Get available roles based on current user's role
   const getAvailableRoles = useCallback(() => {
     const currentUserRole = user?.role;
-    
+
     console.log("🔍 getAvailableRoles - Current user role:", currentUserRole);
-    
+
     switch (currentUserRole) {
       case "STATE_APPROVER":
         // State Approver can only create Nodal Officers
         return [
-          { value: "NODAL_OFFICER", label: getRoleDisplayName("NODAL_OFFICER") },
+          {
+            value: "NODAL_OFFICER",
+            label: getRoleDisplayName("NODAL_OFFICER"),
+          },
         ];
       case "MOSPI_APPROVER":
         // MoSPI Approver can create MoSPI Reviewers and State Approvers
         return [
-          { value: "MOSPI_REVIEWER", label: getRoleDisplayName("MOSPI_REVIEWER") },
-          { value: "STATE_APPROVER", label: getRoleDisplayName("STATE_APPROVER") },
+          {
+            value: "MOSPI_REVIEWER",
+            label: getRoleDisplayName("MOSPI_REVIEWER"),
+          },
+          {
+            value: "STATE_APPROVER",
+            label: getRoleDisplayName("STATE_APPROVER"),
+          },
         ];
       case "ADMIN":
         // Admin can create all roles (for system administration)
         return [
-          { value: "NODAL_OFFICER", label: getRoleDisplayName("NODAL_OFFICER") },
-          { value: "STATE_APPROVER", label: getRoleDisplayName("STATE_APPROVER") },
-          { value: "MOSPI_REVIEWER", label: getRoleDisplayName("MOSPI_REVIEWER") },
-          { value: "MOSPI_APPROVER", label: getRoleDisplayName("MOSPI_APPROVER") },
+          {
+            value: "NODAL_OFFICER",
+            label: getRoleDisplayName("NODAL_OFFICER"),
+          },
+          {
+            value: "STATE_APPROVER",
+            label: getRoleDisplayName("STATE_APPROVER"),
+          },
+          {
+            value: "MOSPI_REVIEWER",
+            label: getRoleDisplayName("MOSPI_REVIEWER"),
+          },
+          {
+            value: "MOSPI_APPROVER",
+            label: getRoleDisplayName("MOSPI_APPROVER"),
+          },
           { value: "ADMIN", label: getRoleDisplayName("ADMIN") },
         ];
       default:
@@ -115,7 +234,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
       console.log("🔍 Setting form data for officer:", {
         officer,
         stateId: officer.stateId,
-        state: officer.state
+        state: officer.state,
       });
       setFormData({
         firstName: officer.firstName || "",
@@ -125,16 +244,40 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         password: "", // Don't show password for existing users
         role: officer.role || "NODAL_OFFICER",
         stateId: "", // Will be set after states are loaded
-        assignedIndicators: Array.isArray(officer.assignedIndicators) 
-          ? officer.assignedIndicators 
-          : (officer.assignedIndicators?.map((ai: any) => ai.indicator?.code || ai.indicatorId) || []),
+        assignedIndicators: (() => {
+          if (Array.isArray(officer.assignedIndicators)) {
+            return officer.assignedIndicators as string[];
+          }
+          if (
+            officer.assignedIndicators &&
+            typeof officer.assignedIndicators === "object"
+          ) {
+            try {
+              const arr = officer.assignedIndicators as any;
+              if (Array.isArray(arr)) {
+                return arr
+                  .map((ai: any) => ai.indicator?.code || ai.indicatorId || ai)
+                  .filter(Boolean) as string[];
+              }
+            } catch (e) {
+              // Ignore
+            }
+          }
+          return [];
+        })(),
       });
+
+      // Fetch assigned indicators from API for NODAL_OFFICER
+      if (officer.role === "NODAL_OFFICER" && officer.id) {
+        fetchAssignedIndicators(officer.id);
+      }
     } else {
       // Reset form when no officer (new user)
       // Set default role based on current user's permissions
       const availableRoles = getAvailableRoles();
-      const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
-      
+      const defaultRole =
+        availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
+
       setFormData({
         firstName: "",
         lastName: "",
@@ -142,7 +285,7 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         email: "",
         password: "",
         role: defaultRole,
-        stateId: user?.role === "ADMIN" ? "" : (user?.state || ""), // ✅ Admin can select any state, others use current state
+        stateId: user?.role === "ADMIN" ? "" : user?.state || "", // ✅ Admin can select any state, others use current state
         assignedIndicators: [],
       });
     }
@@ -157,27 +300,32 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
         console.log("🔍 States loaded in UserForm:", {
           statesCount: statesData.length,
           firstState: statesData[0],
-          userRole: user?.role
+          userRole: user?.role,
         });
         setStates(statesData);
-        
+
         // If we have an officer but no stateId, try to find it by stateUt/state name
-        if (officer && (!officer.stateId || officer.stateId === "") && officer.state) {
+        if (
+          officer &&
+          (!officer.stateId || officer.stateId === "") &&
+          officer.state
+        ) {
           console.log("🔍 Looking for state match:", {
             officerState: officer.state,
-            statesData: statesData.length
+            statesData: statesData.length,
           });
-          
-          const foundState = statesData.find(state => 
-            state.name.toLowerCase() === officer.state.toLowerCase() ||
-            state.code.toLowerCase() === officer.state.toLowerCase()
+
+          const foundState = statesData.find(
+            (state) =>
+              state.name.toLowerCase() === officer.state.toLowerCase() ||
+              state.code.toLowerCase() === officer.state.toLowerCase()
           );
-          
+
           if (foundState) {
             console.log("🔍 Found matching state:", foundState);
-            setFormData(prev => ({
+            setFormData((prev) => ({
               ...prev,
-              stateId: foundState.id
+              stateId: foundState.id,
             }));
           } else {
             console.warn("⚠️ No matching state found for:", officer.state);
@@ -198,19 +346,20 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     if (officer && states.length > 0 && !formData.stateId) {
       console.log("🔍 Setting stateId after states loaded:", {
         officerState: officer.state,
-        statesCount: states.length
+        statesCount: states.length,
       });
-      
-      const foundState = states.find(state => 
-        state.name.toLowerCase() === officer.state.toLowerCase() ||
-        state.code.toLowerCase() === officer.state.toLowerCase()
+
+      const foundState = states.find(
+        (state) =>
+          state.name.toLowerCase() === officer.state.toLowerCase() ||
+          state.code.toLowerCase() === officer.state.toLowerCase()
       );
-      
+
       if (foundState) {
         console.log("🔍 Found matching state for form:", foundState);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          stateId: foundState.id
+          stateId: foundState.id,
         }));
       } else {
         console.warn("⚠️ No matching state found for form:", officer.state);
@@ -260,8 +409,12 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
     }
 
     // ✅ Indicator validation for NODAL_OFFICER
-    if (formData.role === "NODAL_OFFICER" && formData.assignedIndicators.length === 0) {
-      newErrors.assignedIndicators = "At least one indicator must be assigned to Nodal Officer";
+    if (
+      formData.role === "NODAL_OFFICER" &&
+      formData.assignedIndicators.length === 0
+    ) {
+      newErrors.assignedIndicators =
+        "At least one indicator must be assigned to Nodal Officer";
     }
 
     setErrors(newErrors);
@@ -278,16 +431,19 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
   // Get selected state name for display
   const getSelectedStateName = () => {
     if (!formData.stateId) return "";
-    const selectedState = states.find(state => state.id === formData.stateId);
+    const selectedState = states.find((state) => state.id === formData.stateId);
     return selectedState ? selectedState.name : formData.stateId; // Fallback to stateId if not found
   };
 
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">Enter officer details</h2>
+        <h2 className="text-2xl font-bold text-foreground mb-2">
+          Enter officer details
+        </h2>
         <p className="text-muted-foreground">
-          Add Nodal Officers for your State/UT and assign them specific indicators for data submission.
+          Add Nodal Officers for your State/UT and assign them specific
+          indicators for data submission.
         </p>
       </div>
 
@@ -402,24 +558,24 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
             onChange={(e) => {
               const email = e.target.value;
               setFormData({ ...formData, email });
-              
+
               // Real-time validation for email domain
               if (email.trim() === "") {
                 // Clear error if field is empty
-                setErrors(prev => {
+                setErrors((prev) => {
                   const newErrors = { ...prev };
                   delete newErrors.email;
                   return newErrors;
                 });
               } else if (!/@(gov\.in|nic\.in)$/i.test(email)) {
                 // Show error if domain is not @gov.in or @nic.in
-                setErrors(prev => ({
+                setErrors((prev) => ({
                   ...prev,
-                  email: "Only @gov.in and @nic.in email addresses are allowed"
+                  email: "Only @gov.in and @nic.in email addresses are allowed",
                 }));
               } else {
                 // Clear error if domain is correct
-                setErrors(prev => {
+                setErrors((prev) => {
                   const newErrors = { ...prev };
                   delete newErrors.email;
                   return newErrors;
@@ -458,7 +614,9 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
                 }
-                className={errors.password ? "border-destructive pr-10" : "pr-10"}
+                className={
+                  errors.password ? "border-destructive pr-10" : "pr-10"
+                }
               />
               <button
                 type="button"
@@ -495,19 +653,14 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
           </Label>
           <Select
             value={formData.role}
-            onValueChange={(value) =>
-              setFormData({ ...formData, role: value })
-            }
+            onValueChange={(value) => setFormData({ ...formData, role: value })}
           >
             <SelectTrigger className={errors.role ? "border-destructive" : ""}>
               <SelectValue placeholder="Select role" />
             </SelectTrigger>
             <SelectContent>
               {getAvailableRoles().map((role) => (
-                <SelectItem 
-                  key={role.value} 
-                  value={role.value}
-                >
+                <SelectItem key={role.value} value={role.value}>
                   {role.label}
                 </SelectItem>
               ))}
@@ -529,16 +682,15 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>
-                    {user?.role === "ADMIN" 
-                      ? "Select the state/union territory for the user" 
-                      : "State will be automatically set to your current state"
-                    }
+                    {user?.role === "ADMIN"
+                      ? "Select the state/union territory for the user"
+                      : "State will be automatically set to your current state"}
                   </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </Label>
-          
+
           {user?.role === "ADMIN" ? (
             <Select
               value={formData.stateId}
@@ -551,24 +703,32 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   currentUserState: user?.state,
                   formDataBefore: formData,
                   availableStates: states.length,
-                  matchingState: states.find(s => s.id === value)
+                  matchingState: states.find((s) => s.id === value),
                 });
-                
+
                 // Temporarily disable validation to allow state selection
                 // if (value && (value.includes('q') || value.length < 3 || /\d.*[a-zA-Z]/.test(value))) {
                 //   console.error("❌ Invalid state selected:", value);
                 //   return;
                 // }
-                
+
                 setFormData({ ...formData, stateId: value });
               }}
               disabled={loadingStates}
             >
-              <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
-                <SelectValue 
-                  placeholder={loadingStates ? "Loading states..." : "Select state/UT"}
+              <SelectTrigger
+                className={errors.stateId ? "border-destructive" : ""}
+              >
+                <SelectValue
+                  placeholder={
+                    loadingStates ? "Loading states..." : "Select state/UT"
+                  }
                 >
-                  {formData.stateId ? getSelectedStateName() : (loadingStates ? "Loading states..." : "Select state/UT")}
+                  {formData.stateId
+                    ? getSelectedStateName()
+                    : loadingStates
+                    ? "Loading states..."
+                    : "Select state/UT"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -579,8 +739,8 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   </div>
                 ) : (
                   states.map((state) => (
-                    <SelectItem 
-                      key={state.id} 
+                    <SelectItem
+                      key={state.id}
                       value={state.id}
                       disabled={!state.isActive}
                     >
@@ -599,17 +759,18 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
               placeholder="Your current state"
             />
           )}
-          
+
           {user?.role === "ADMIN" ? (
             <p className="text-sm text-muted-foreground">
               Select the state where you want to create the user
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Users will be created in your current state: <strong>{user?.state}</strong>
+              Users will be created in your current state:{" "}
+              <strong>{user?.state}</strong>
             </p>
           )}
-          
+
           {errors.stateId && (
             <p className="text-sm text-destructive">{errors.stateId}</p>
           )}
@@ -627,30 +788,45 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                     <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Select indicators that this Nodal Officer will be responsible for</p>
+                    <p>
+                      Select indicators that this Nodal Officer will be
+                      responsible for
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </Label>
-            
+
             <MultiSelect
               options={indicatorOptions}
               value={formData.assignedIndicators}
               onChange={handleIndicatorChange}
-              placeholder="Search and select indicators..."
+              placeholder={
+                loadingIndicators
+                  ? "Loading indicators..."
+                  : "Search and select indicators..."
+              }
               searchPlaceholder="Type to search indicators..."
               showSearch={true}
-              showSelectAll={true}
+              showSelectAll={!loadingIndicators}
               showSectionHeaders={true}
               groupBySection={true}
               className="w-full"
               maxHeight="250px"
+              disabled={loadingIndicators}
             />
-            
-            {errors.assignedIndicators && (
-              <p className="text-sm text-destructive">{errors.assignedIndicators}</p>
+            {loadingIndicators && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Fetching available indicators...
+              </p>
             )}
-            
+
+            {errors.assignedIndicators && (
+              <p className="text-sm text-destructive">
+                {errors.assignedIndicators}
+              </p>
+            )}
+
             {/* Selected Indicators Summary */}
             {formData.assignedIndicators.length > 0 && (
               <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -661,36 +837,44 @@ export function UserForm({ officer, onSave, onCancel }: UserFormProps) {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {(showAllSelectedIndicators ? formData.assignedIndicators : formData.assignedIndicators.slice(0, 3)).map((indicator, index) => (
-                    <Badge key={`indicator-${index}-${indicator}`} variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                  {(showAllSelectedIndicators
+                    ? formData.assignedIndicators
+                    : formData.assignedIndicators.slice(0, 3)
+                  ).map((indicator, index) => (
+                    <Badge
+                      key={`indicator-${index}-${indicator}`}
+                      variant="secondary"
+                      className="text-xs bg-blue-100 text-blue-800"
+                    >
                       {indicator}
                     </Badge>
                   ))}
-                  {formData.assignedIndicators.length > 3 && !showAllSelectedIndicators && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllSelectedIndicators(true)}
-                      className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
-                    >
-                      +{formData.assignedIndicators.length - 3} more
-                    </button>
-                  )}
-                  {showAllSelectedIndicators && formData.assignedIndicators.length > 3 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllSelectedIndicators(false)}
-                      className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
-                    >
-                      Show less
-                    </button>
-                  )}
+                  {formData.assignedIndicators.length > 3 &&
+                    !showAllSelectedIndicators && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSelectedIndicators(true)}
+                        className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+                      >
+                        +{formData.assignedIndicators.length - 3} more
+                      </button>
+                    )}
+                  {showAllSelectedIndicators &&
+                    formData.assignedIndicators.length > 3 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSelectedIndicators(false)}
+                        className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 rounded transition-colors"
+                      >
+                        Show less
+                      </button>
+                    )}
                 </div>
               </div>
             )}
           </div>
         )}
       </div>
-
 
       <div className="flex justify-end gap-3 pt-6">
         <Button variant="outline" onClick={onCancel}>
@@ -725,6 +909,7 @@ function getIndicatorDisplayName(indicatorCode: string): string {
     "4.3": "PM Gati Shakti Adoption",
     "4.4": "ADR Adoption",
     "4.5": "Innovative Practices",
+    "4.6": "Capacity Building - Officer Participation",
   };
 
   return indicatorNames[indicatorCode] || indicatorCode;

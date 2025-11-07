@@ -33,7 +33,7 @@ import { hasMospiApproverComment, isReturnedFromMospi } from "@/utils/auditUtils
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
   const statusMap: Record<string, string> = {
     "DRAFT": "DRAFT",
-    "SUBMITTED_TO_STATE": "SUBMITTED_TO_STATE", 
+    "SUBMITTED_TO_STATE": "SUBMITTED_TO_STATE",
     "APPROVED": "APPROVED",
     "REJECTED": "REJECTED",
     "SUBMITTED_TO_MOSPI": "SUBMITTED_TO_MOSPI",
@@ -46,7 +46,7 @@ const mapBackendStatusToFrontend = (backendStatus: string): string => {
     "approved": "APPROVED",
     "need_revision": "REJECTED",
   };
-  
+
   return statusMap[backendStatus] || backendStatus;
 };
 
@@ -67,16 +67,16 @@ export function StateApproverDashboardPage() {
           apiService.getRoleKPIs("STATE_APPROVER"),
           apiService.getSubmissions(1, 100)
         ]);
-        
+
         // Use submissions data directly
         const submissionsData = submittedToStateData;
 
         // Transform KPIs data with fallback
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         console.log("🔍 State Approver - All Submissions:", submissionsData?.submissions?.map(s => ({
           id: s.id,
@@ -156,7 +156,7 @@ export function StateApproverDashboardPage() {
           // },
           {
             title: "Returned back from MoSPI",
-            value: calculatedKPIs.returnedFromMospi.toString() || "4",
+            value: calculatedKPIs.sentBack.toString() || "4",
             subtitle: "Need Revision",
             icon: RotateCcw,
             variant: "purple" as const,
@@ -170,7 +170,7 @@ export function StateApproverDashboardPage() {
           },
           {
             title: "Success Rate",
-            value: (calculatedKPIs.pendingReview + calculatedKPIs.approved + calculatedKPIs.rejected) > 0 
+            value: (calculatedKPIs.pendingReview + calculatedKPIs.approved + calculatedKPIs.rejected) > 0
               ? Math.round((calculatedKPIs.approved / (calculatedKPIs.pendingReview + calculatedKPIs.approved + calculatedKPIs.rejected)) * 100).toString() + "%"
               : "0%",
             subtitle: "Approval Rate",
@@ -180,7 +180,7 @@ export function StateApproverDashboardPage() {
         ]);
 
         // Transform submissions data with fallback
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         // Handle different response structures
         let submissionsArray = [];
@@ -193,26 +193,26 @@ export function StateApproverDashboardPage() {
         }
 
         // Using actual API data only
-        
+
         setSubmissions(submissionsArray.map((sub: any) => {
           // Calculate progress based on formData completeness
           const formDataKeys = Object.keys(sub.formData || {});
           const progress = formDataKeys.length > 0 ? Math.min(100, (formDataKeys.length / 10) * 100) : 0;
-          
+
           // Calculate pending days based on submitted date and current date
           const submittedDate = new Date(sub.createdAt);
           const currentDate = new Date();
-          
+
           // Calculate difference in days
           const timeDifference = currentDate.getTime() - submittedDate.getTime();
           const pendingDays = Math.max(0, Math.floor(timeDifference / (1000 * 60 * 60 * 24)));
-          
+
           // Determine if overdue (more than 7 days)
           const isOverdue = pendingDays > 7;
-          
+
           // Debug log for submittedBy
           const submittedByName = sub.user ? `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
-    // Debug logging removed for performance
+          // Debug logging removed for performance
 
           return {
             id: sub.id,
@@ -237,7 +237,7 @@ export function StateApproverDashboardPage() {
           error.message || "Failed to load dashboard data",
           "Dashboard Error"
         );
-        
+
         // Set empty state instead of dummy data
         setKpis([]);
         setSubmissions([]);
@@ -266,32 +266,33 @@ export function StateApproverDashboardPage() {
   const filteredSubmissions = submissions.filter((submission) => {
     // Status filter
     const statusMatch = statusFilter === "all" || submission.status === statusFilter;
-    
+
     // Search filter
-    const searchMatch = !searchQuery || 
+    const searchMatch = !searchQuery ||
       submission.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       submission.submittedBy?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       submission.submissionId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       submission.stateUt?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     return statusMatch && searchMatch;
   });
 
   return (
     <div className="space-y-6">
       {/* Header */}
-        <div>
-        <h1 className="text-3xl font-bold text-foreground">State Approver Dashboard</h1>
-        <p className="text-muted-foreground">
+      <div className="bg-[#fff] p-6 rounded-lg relative">
+        <h1 className="text-xl font-semibold text-[#1E40AF]">State Approver Dashboard</h1>
+        <p className="text-[#212121]">
           Review and approve infrastructure data submissions from nodal officers
         </p>
+        <img src="/images/dashboard.png" alt="Dashboard" className="absolute right-6 top-0"/>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
         {kpis?.map((kpi, index) => (
-          <StateApproverKPICard 
-            key={index} 
+          <StateApproverKPICard
+            key={index}
             title={kpi.title}
             value={kpi.value}
             subtitle={kpi.subtitle}
@@ -305,18 +306,15 @@ export function StateApproverDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column - Submissions */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Quick Actions */}
-          <QuickActionsCard 
-            reviewedThisMonth={6}
-            totalThisMonth={8}
-            averageReviewTime={2}
-            targetReviewTime={3}
-          />
+          
 
           {/* Submissions Section */}
-          <div className="space-y-4">
+          <div className="space-y-4 bg-[#fff] border border-[#0000001A] rounded-lg p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Submissions for Review</h2>
+              <div>
+                <h2 className="text-lg text-[#212121] font-semibold">Latest Submission</h2>
+                <p className="text-sm text-[#727272]">Review submissions requiring your approval</p>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -350,8 +348,8 @@ export function StateApproverDashboardPage() {
                 </div>
               ) : (
                 filteredSubmissions?.map((submission) => (
-                  <UnifiedSubmissionCard 
-                    key={submission.id} 
+                  <UnifiedSubmissionCard
+                    key={submission.id}
                     id={submission.id}
                     title={submission.title}
                     status={submission.status}
@@ -385,13 +383,20 @@ export function StateApproverDashboardPage() {
               submittedBy: "Mumbai Nodal Officer"
             },
             {
-              id: "2", 
+              id: "2",
               status: "Returned",
               date: "13-01-2025",
               title: "PPP Project Assessment",
               submittedBy: "Pune Nodal Officer"
             }
           ]} />
+          {/* Quick Actions */}
+          <QuickActionsCard
+            reviewedThisMonth={6}
+            totalThisMonth={8}
+            averageReviewTime={2}
+            targetReviewTime={3}
+          />
         </div>
       </div>
     </div>

@@ -26,7 +26,7 @@ import { getStatusInfo, getStatusPills, getWaitingMessage as getStatusWaitingMes
 export interface UnifiedSubmissionCardProps {
   id: string;
   title: string;
-  status: "draft" | "under_review" | "approved" | "need_revision" | "DRAFT" | "SUBMITTED_TO_STATE" | "APPROVED" | "REJECTED" | "SUBMITTED_TO_MOSPI" | "MOSPI_APPROVED" | "MOSPI_REJECTED" | "RETURNED_FROM_MOSPI" | "RETURNED_FROM_STATE" | "SUBMITTED_TO_MOSPI_REVIEWER" | "SUBMITTED_TO_MOSPI_APPROVER" | "REJECTED_FINAL";
+  status: "draft" | "under_review" | "approved" | "need_revision" | "DRAFT" | "SUBMITTED_TO_STATE" | "APPROVED" | "REJECTED" | "SUBMITTED_TO_MOSPI" | "MOSPI_APPROVED" | "MOSPI_REJECTED" | "RETURNED_FROM_MOSPI" | "RETURNED_FROM_MOSPI_APPROVER" | "RETURNED_FROM_STATE" | "SUBMITTED_TO_MOSPI_REVIEWER" | "SUBMITTED_TO_MOSPI_APPROVER" | "REJECTED_FINAL";
   referenceId: string;
   updatedDate: string;
   dueDate: string;
@@ -129,6 +129,12 @@ const statusConfig = {
     borderClass: "border-l-orange-500",
     bgClass: "bg-white",
   },
+  RETURNED_FROM_MOSPI_APPROVER: {
+    label: "Returned from MoSPI Approver",
+    badgeClass: "bg-orange-100 text-orange-800 border-orange-200",
+    borderClass: "border-l-orange-500",
+    bgClass: "bg-white",
+  },
   RETURNED_FROM_STATE: {
     label: "Returned from State",
     badgeClass: "bg-orange-100 text-orange-800 border-orange-200",
@@ -178,7 +184,7 @@ export function UnifiedSubmissionCard({
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-3">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <h3 className="text-base font-semibold text-[#0F2057]">{title}</h3>
             <div className="flex items-center gap-2 flex-wrap">
               {/* Status pills */}
               {statusPills.map((pill, index) => (
@@ -190,7 +196,7 @@ export function UnifiedSubmissionCard({
           </div>
           
           {/* Submission details */}
-          <div className="flex items-center gap-6 text-sm text-gray-500 mb-3">
+          <div className="flex items-center gap-6 text-xs text-gray-500 mb-3">
             <span className="font-medium">ID: {referenceId}</span>
             <span>Updated: {updatedDate}</span>
             <span>Due: {dueDate}</span>
@@ -220,7 +226,7 @@ export function UnifiedSubmissionCard({
               <AlertCircle className="w-4 h-4 mr-1" />
               Action Required
             </Button>
-          ) : (status === "need_revision" || status === "RETURNED_FROM_MOSPI" || status === "RETURNED_FROM_STATE") && onRevise ? (
+          ) : (status === "need_revision" || status === "RETURNED_FROM_MOSPI" || status === "RETURNED_FROM_STATE") && onRevise && !(currentUserRole === "NODAL_OFFICER" && status === "RETURNED_FROM_MOSPI_APPROVER") ? (
             <Button size="sm" variant="outline" className="text-blue-600 border-blue-300" onClick={onRevise}>
               Revise
             </Button>

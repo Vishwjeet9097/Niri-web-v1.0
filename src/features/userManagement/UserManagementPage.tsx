@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
+import { useMemo } from "react";
 
 export function UserManagementPage() {
   const { user } = useAuth();
@@ -26,6 +28,8 @@ export function UserManagementPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [states, setStates] = useState<any[]>([]);
+  const [allIndicators, setAllIndicators] = useState<any[]>([]);
+const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
 
   const loadStates = async () => {
     try {
@@ -84,12 +88,54 @@ export function UserManagementPage() {
     }
   }, [user?.role, user?.state]); // Add dependencies
 
+  // New function to load indicators
+const loadIndicators = async () => {
+  try {
+    setIsIndicatorsLoading(true);
+    const indicators = await apiService.getAllIndicators();
+    // Expect each indicator object to have a unique `code` (or `id`) and `name`
+    setAllIndicators(indicators || []);
+  } catch (err) {
+    console.error("❌ Error loading indicators:", err);
+    setAllIndicators([]);
+  } finally {
+    setIsIndicatorsLoading(false);
+  }
+};
+
+useEffect(() => {
+  loadIndicators();
+}, []);
+
   useEffect(() => {
     loadOfficers();
     // Load states to ensure cache is available
     loadStates();
   }, [loadOfficers]); // Add loadOfficers dependency back
 
+  const computeAvailableIndicatorsForState = (stateName: string, editingOfficerId?: string) => {
+  // Build a set of codes that are already assigned in this state to all users (except editingOfficerId)
+  const assignedSet = new Set<string>();
+
+  // Officers array already contains users for the current scope (for Admin it may contain all states)
+  officers.forEach((o) => {
+    // Only consider assigned indicators of users in the same state
+    const officerState = o.state || o.stateId || "";
+    if (!stateName || officerState === stateName) {
+      // assignedIndicators may be an array of codes
+      const assigned = o.assignedIndicators || (o.assignedIndicator ? [o.assignedIndicator] : []);
+      if (o.id !== editingOfficerId) {
+        assigned.forEach((code) => {
+          if (code) assignedSet.add(code);
+        });
+      }
+    }
+  });
+
+  // Return indicators whose code is NOT in assignedSet
+  // Keep indicators that belong to other states out (we assumed codes globally unique and assignments by state)
+  return allIndicators.filter((ind: any) => !assignedSet.has(ind.code));
+};
   const handleAddUser = () => {
     setEditingOfficer(null);
     setShowForm(true);
@@ -367,7 +413,10 @@ export function UserManagementPage() {
         officer.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         officer.email.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesRole = roleFilter === "all" || officer.role === roleFilter;
+      // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
+      const isStateApprover = user?.role === "STATE_APPROVER";
+      const effectiveRoleFilter = isStateApprover && roleFilter === "all" ? "NODAL_OFFICER" : roleFilter;
+      const matchesRole = effectiveRoleFilter === "all" || officer.role === effectiveRoleFilter;
       
       
       return matchesSearch && matchesRole;
@@ -502,21 +551,24 @@ export function UserManagementPage() {
     setShowForm(false);
     setEditingOfficer(null);
   };
-    // Debug logging removed for performance
+ if (showForm) {
+  // Debug logging removed for performance
 
-  if (showForm) {
-    // Debug logging removed for performance
+  // Determine stateName to pass if needed (UserForm computes availability itself)
+  return (
+    <div className="p-6 space-y-6">
+      <UserForm
+        officer={editingOfficer}
+        onSave={handleSaveUser}
+        onCancel={handleCancel}
+        allIndicators={allIndicators}
+        officers={officers}
+        loadingIndicators={isIndicatorsLoading}
+      />
+    </div>
+  );
+}
 
-    return (
-      <div className="p-6 space-y-6">
-        <UserForm
-          officer={editingOfficer}
-          onSave={handleSaveUser}
-          onCancel={handleCancel}
-        />
-      </div>
-    );
-  }
 
   if (officers.length === 0) {
     // Debug logging removed for performance
@@ -574,15 +626,15 @@ export function UserManagementPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6 space-y-6">
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center">
             <Users className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Enter officer details</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-lg font-semibold text-foreground">Enter officer details</h1>
+            <p className="text-[#000]">
               Add or remove Nodal Officers for your State/UT and assign them specific indicators for data submission.
             </p>
           </div>
@@ -628,10 +680,14 @@ export function UserManagementPage() {
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
               <SelectItem value="NODAL_OFFICER">{getRoleDisplayName("NODAL_OFFICER")}</SelectItem>
-              <SelectItem value="STATE_APPROVER">{getRoleDisplayName("STATE_APPROVER")}</SelectItem>
-              <SelectItem value="MOSPI_REVIEWER">{getRoleDisplayName("MOSPI_REVIEWER")}</SelectItem>
-              <SelectItem value="MOSPI_APPROVER">{getRoleDisplayName("MOSPI_APPROVER")}</SelectItem>
-              <SelectItem value="ADMIN">{getRoleDisplayName("ADMIN")}</SelectItem>
+              {user?.role !== "STATE_APPROVER" && (
+                <>
+                  <SelectItem value="STATE_APPROVER">{getRoleDisplayName("STATE_APPROVER")}</SelectItem>
+                  <SelectItem value="MOSPI_REVIEWER">{getRoleDisplayName("MOSPI_REVIEWER")}</SelectItem>
+                  <SelectItem value="MOSPI_APPROVER">{getRoleDisplayName("MOSPI_APPROVER")}</SelectItem>
+                  <SelectItem value="ADMIN">{getRoleDisplayName("ADMIN")}</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

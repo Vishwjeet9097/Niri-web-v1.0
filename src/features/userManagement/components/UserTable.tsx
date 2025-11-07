@@ -76,7 +76,7 @@ export function UserTable({
     
     return (
       <TableHead 
-        className="cursor-pointer hover:bg-muted/50 select-none"
+        className="cursor-pointer hover:bg-muted/50 select-none text-[#212121] text-xs font-semibold"  
         onClick={() => onSort(field)}
       >
         <div className="flex items-center gap-1">
@@ -92,7 +92,7 @@ export function UserTable({
   return (
     <div className="border rounded-lg bg-card">
       <Table>
-        <TableHeader>
+        <TableHeader className="bg-[#F3F3F3]">
           <TableRow>
             <TableHead className="w-12">
               <Checkbox
@@ -100,20 +100,20 @@ export function UserTable({
                 onCheckedChange={handleSelectAll}
               />
             </TableHead>
-            <TableHead className="w-20">S.no.</TableHead>
+            <TableHead className="w-20 text-[#212121] text-xs font-semibold">S.no.</TableHead>
             <SortableHeader field="firstName">Officer Name</SortableHeader>
             <SortableHeader field="role">Role</SortableHeader>
             <SortableHeader field="state">State/UT</SortableHeader>
-            <TableHead>Contact Number</TableHead>
+            <TableHead className="text-[#212121] text-xs font-semibold">Contact Number</TableHead>
             <SortableHeader field="email">Email</SortableHeader>
             {/* <TableHead>Assigned Indicator</TableHead> */}
-            <TableHead className="w-24">Action</TableHead>
+            <TableHead className="w-24 text-[#212121] text-xs font-semibold">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {officers.map((officer, index) => (
             <TableRow key={officer.id}>
-              <TableCell>
+              <TableCell className="text-xs text-[#212121]">
                 <Checkbox
                   checked={selectedIds.has(officer.id)}
                   onCheckedChange={(checked) =>
@@ -121,18 +121,18 @@ export function UserTable({
                   }
                 />
               </TableCell>
-              <TableCell className="font-medium">{index + 1}</TableCell>
-              <TableCell className="font-medium">
+              <TableCell className="font-medium text-xs text-[#212121]">{index + 1}</TableCell>
+              <TableCell className="font-medium text-xs text-[#212121]">
                 {officer.firstName} {officer.lastName}
               </TableCell>
-              <TableCell>
+              <TableCell className="text-xs text-[#212121]">
                 <Badge variant="secondary">
                   {getRoleDisplayName(officer.role)}
                 </Badge>
               </TableCell>
-              <TableCell>{officer.stateId || officer.state}</TableCell>
-              <TableCell>+91 {officer.contactNumber}</TableCell>
-              <TableCell>{officer.email}</TableCell>
+              <TableCell className="text-xs text-[#212121]">{officer.stateId || officer.state}</TableCell>
+              <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
+              <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
               {/* <TableCell>
                 {officer.assignedIndicator ? (
                   <div className="flex items-center gap-2">

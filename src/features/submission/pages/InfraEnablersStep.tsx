@@ -35,6 +35,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
+import { computeStepProgress } from "../utils/progress";
 
 const defaultData: InfraEnablersData = {
   section4_1: {
@@ -64,6 +65,8 @@ const defaultData: InfraEnablersData = {
 export const InfraEnablersStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isLastStep } = useStepNavigation(4);
   const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
+  // Detect edit mode to hide empty indicators
+  const isEditMode = typeof window !== 'undefined' && localStorage.getItem('is_edit_mode') === 'true';
   const { user } = useAuth();
   
   // Indicator access control
@@ -353,14 +356,23 @@ export const InfraEnablersStep = () => {
             <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
           </div>
           <div className="px-6 lg:px-8">
-            <ProgressHeader
-              title="Infrastructure Enablers"
-              description="Supporting infrastructure and policy enablers"
-              points={250}
-              completed={0}
-              total={6}
-              progress={0}
-            />
+            {(() => {
+              const { completed, total, progress } = computeStepProgress(
+                { infraEnablers: formData } as any,
+                "infraEnablers",
+                { assignedIndicators, isNodalOfficer }
+              );
+              return (
+                <ProgressHeader
+                  title="Infrastructure Enablers"
+                  description="Supporting infrastructure and policy enablers"
+                  points={250}
+                  completed={completed}
+                  total={total}
+                  progress={progress}
+                />
+              );
+            })()}
             <div className="text-center py-12">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
               <p className="text-gray-600 mb-4">
@@ -379,18 +391,30 @@ export const InfraEnablersStep = () => {
   return (
     <div className="">
       <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
-      <ProgressHeader
-        title="Infrastructure Enablers"
-        description="Regulatory and institutional frameworks supporting infrastructure"
-        points={250}
-        completed={0}
-        total={6}
-        progress={0}
-      />
+      {(() => {
+        const { completed, total, progress } = computeStepProgress(
+          { infraEnablers: formData } as any,
+          "infraEnablers",
+          { assignedIndicators, isNodalOfficer }
+        );
+        return (
+          <ProgressHeader
+            title="Infrastructure Enablers"
+            description="Regulatory and institutional frameworks supporting infrastructure"
+            points={250}
+            completed={completed}
+            total={total}
+            progress={progress}
+          />
+        );
+      })()}
 
 
       {/* Section 4.1 */}
-      {(!isNodalOfficer || hasIndicatorAccess('4.1')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('4.1')) && (!isEditMode || (
+        (formData.section4_1?.allEligible && formData.section4_1.allEligible !== "") ||
+        (formData.section4_1?.websiteLink && formData.section4_1.websiteLink !== "")
+      )) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -468,7 +492,9 @@ export const InfraEnablersStep = () => {
       )}
 
       {/* Section 4.2 */}
-      {(!isNodalOfficer || hasIndicatorAccess('4.2')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('4.2')) && (!isEditMode || (
+        (formData.section4_2?.available && formData.section4_2.available !== "") || !!formData.section4_2?.file
+      )) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -524,25 +550,29 @@ export const InfraEnablersStep = () => {
               </label>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <FileUploadSection
-              label="Upload File"
-              value={formData.section4_2.file || null}
-              onChange={(file) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  section4_2: { ...prev.section4_2, file },
-                }))
-              }
-            />
-            <p className="text-xs text-muted-foreground">Description</p>
-          </div>
+          {formData.section4_2.available === "yes" && (
+            <div className="flex flex-col gap-2">
+              <FileUploadSection
+                label="Upload File"
+                value={formData.section4_2.file || null}
+                onChange={(file) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    section4_2: { ...prev.section4_2, file },
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">Description</p>
+            </div>
+          )}
         </div>
         </SectionCard>
       )}
 
       {/* Section 4.3 */}
-      {(!isNodalOfficer || hasIndicatorAccess('4.3')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('4.3')) && (!isEditMode || (
+        formData.section4_3?.numberOfProjects !== undefined && formData.section4_3.numberOfProjects !== ""
+      )) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -578,7 +608,9 @@ export const InfraEnablersStep = () => {
       )}
 
       {/* Section 4.4 */}
-      {(!isNodalOfficer || hasIndicatorAccess('4.4')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('4.4')) && (!isEditMode || (
+        (formData.section4_4?.adopted && formData.section4_4.adopted !== "") || !!formData.section4_4?.file
+      )) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -635,28 +667,35 @@ export const InfraEnablersStep = () => {
               </label>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <FileUploadSection
-              label="Upload File"
-              value={formData.section4_4.file || null}
-              onChange={(file) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  section4_4: { ...prev.section4_4, file },
-                }))
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              Upload ADR orders/notifications
-            </p>
-          </div>
+          {formData.section4_4.adopted === "yes" && (
+            <div className="flex flex-col gap-2">
+              <FileUploadSection
+                label="Upload File"
+                value={formData.section4_4.file || null}
+                onChange={(file) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    section4_4: { ...prev.section4_4, file },
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload ADR orders/notifications
+              </p>
+            </div>
+          )}
 
         </div>
         </SectionCard>
       )}
 
       {/* Section 4.5 */}
-      {(!isNodalOfficer || hasIndicatorAccess('4.5')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('4.5')) && (!isEditMode || (
+        (formData.section4_5?.implemented && formData.section4_5.implemented !== "") ||
+        (formData.section4_5?.practiceName && formData.section4_5.practiceName !== "") ||
+        (formData.section4_5?.impact && formData.section4_5.impact !== "") ||
+        !!formData.section4_5?.file
+      )) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -763,25 +802,27 @@ export const InfraEnablersStep = () => {
               </Select>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <FileUploadSection
-              label="Upload File"
-              value={formData.section4_5.file || null}
-              onChange={(file) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  section4_5: { ...prev.section4_5, file },
-                }))
-              }
-            />
-            <p className="text-xs text-muted-foreground">Upload evidence</p>
-          </div>
+          {formData.section4_5.implemented === "yes" && (
+            <div className="flex flex-col gap-2">
+              <FileUploadSection
+                label="Upload File"
+                value={formData.section4_5.file || null}
+                onChange={(file) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    section4_5: { ...prev.section4_5, file },
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">Upload evidence</p>
+            </div>
+          )}
         </div>
         </SectionCard>
       )}
 
       {/* Section 4.6 */}
-      {(!isNodalOfficer || hasIndicatorAccess('4.6')) && (
+      {(!isNodalOfficer || hasIndicatorAccess('4.6')) && (!isEditMode || (Array.isArray(formData.section4_6) && formData.section4_6.length > 0)) && (
         <SectionCard
           title={<div className="flex flex-col">
             <span className="text-base font-semibold ">
@@ -808,25 +849,57 @@ export const InfraEnablersStep = () => {
               </Tooltip>
             </Label>
             <div className="flex gap-6">
-              <label className="flex items-center gap-2">
-                <Input
+              <label 
+                htmlFor="capacity-yes-step"
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => {
+                  if (formData.section4_6.length === 0) {
+                    addTraining();
+                  }
+                }}
+              >
+                <input
+                  id="capacity-yes-step"
                   type="radio"
-                  name="capacity-building"
+                  name="capacity-building-step"
                   value="yes"
                   checked={formData.section4_6.length > 0}
-                  readOnly
+                  onChange={() => {
+                    if (formData.section4_6.length === 0) {
+                      addTraining();
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 cursor-pointer"
                 />
-                Yes
+                <span className="cursor-pointer select-none">Yes</span>
               </label>
-              <label className="flex items-center gap-2">
-                <Input
+              <label 
+                htmlFor="capacity-no-step"
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => {
+                  if (formData.section4_6.length > 0) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_6: [],
+                    }));
+                  }
+                }}
+              >
+                <input
+                  id="capacity-no-step"
                   type="radio"
-                  name="capacity-building"
+                  name="capacity-building-step"
                   value="no"
                   checked={formData.section4_6.length === 0}
-                  readOnly
+                  onChange={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_6: [],
+                    }));
+                  }}
+                  className="w-4 h-4 text-blue-600 cursor-pointer"
                 />
-                No
+                <span className="cursor-pointer select-none">No</span>
               </label>
             </div>
           </div>
@@ -846,63 +919,36 @@ export const InfraEnablersStep = () => {
                 </div>
                 <div>
                   <Label>Designation</Label>
-                  <Select
+                  <Input
+                    type="text"
+                    placeholder="Enter designation"
                     value={entry.designation}
-                    onValueChange={(value) =>
-                      updateTraining(entry.id, "designation", value)
+                    onChange={(e) =>
+                      updateTraining(entry.id, "designation", e.target.value)
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an Option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div>
                   <Label>Program Name</Label>
-                  <Select
+                  <Input
+                    type="text"
+                    placeholder="Enter program name"
                     value={entry.programName}
-                    onValueChange={(value) =>
-                      updateTraining(entry.id, "programName", value)
+                    onChange={(e) =>
+                      updateTraining(entry.id, "programName", e.target.value)
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an Option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div>
                   <Label>Organiser</Label>
-                  <Select
+                  <Input
+                    type="text"
+                    placeholder="Enter organiser"
                     value={entry.organiser}
-                    onValueChange={(value) =>
-                      updateTraining(entry.id, "organiser", value)
+                    onChange={(e) =>
+                      updateTraining(entry.id, "organiser", e.target.value)
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Asset ownership" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OWNERSHIP_OPTIONS.map((own) => (
-                        <SelectItem key={own} value={own}>
-                          {own}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div className="flex flex-col md:flex-row gap-2 md:gap-4">
                   <div className="w-full">
@@ -950,7 +996,7 @@ export const InfraEnablersStep = () => {
             <Plus className="w-4 h-4" />
             Add More Training
           </Button>
-          <p className="text-xs text-muted-foreground">Annex 11</p>
+          {/* <p className="text-xs text-muted-foreground">Annex 11</p> */}
 
         </div>
         </SectionCard>

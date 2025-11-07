@@ -6,9 +6,6 @@ import {
   FORM_FIELD_MAPPING,
 } from "@/types/submission";
 
-/**
- * Transform UI form data to NIRI submission format
- */
 export function transformFormDataToNiriSubmission(
   formData: Record<string, any>,
   userId: string,
@@ -67,6 +64,65 @@ export function transformFormDataToNiriSubmission(
     submission_data: submissionData,
   };
 }
+/**
+ * Transform UI form data to NIRI submission format
+ */
+export function transformFormDataToSectionSubmission(
+  formData: Record<string, any>,
+  userId: string,
+  stateUt: string
+): any {
+  const now = new Date().toISOString();
+
+  // Build submission payload in backend’s expected structure
+  const submissionId = `SUB-${new Date().getFullYear()}-${Math.floor(
+    Math.random() * 1_000_000
+  )}`;
+
+  const transformedSubmission = {
+    submissionId,
+    formData: {
+      infraFinancing: {
+        section1_1: formData.section1_1 || {},
+        section1_2: formData.section1_2 || {},
+        section1_3: formData.section1_3 || {},
+        section1_4: formData.section1_4 || {},
+        section1_5: formData.section1_5 || [],
+      },
+      infraDevelopment: {
+        section2_1: formData.section2_1 || [],
+        section2_2: formData.section2_2 || [],
+        section2_3: formData.section2_3 || [],
+        section2_4: formData.section2_4 || [],
+        section2_5: formData.section2_5 || [],
+      },
+      pppDevelopment: {
+        section3_1: formData.section3_1 || {},
+        section3_2: formData.section3_2 || {},
+        section3_3: formData.section3_3 || [],
+        section3_4: formData.section3_4 || {},
+      },
+      infraEnablers: {
+        section4_1: formData.section4_1 || {},
+        section4_2: formData.section4_2 || {},
+        section4_3: formData.section4_3 || {},
+        section4_4: formData.section4_4 || {},
+        section4_5: formData.section4_5 || {},
+        section4_6: formData.section4_6 || [],
+      },
+    },
+    status: "SUBMITTED_TO_STATE",
+    submittedBy: userId,
+    stateUt,
+    submittedOn: now,
+  };
+
+  // Debug log for clarity
+  console.log("🧩 Transformed NIRI Submission:", transformedSubmission);
+
+  return transformedSubmission;
+}
+
 
 /**
  * Transform NIRI submission format back to UI form data
