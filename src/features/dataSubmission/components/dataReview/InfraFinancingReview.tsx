@@ -595,7 +595,7 @@ const calculateAllocationPercentage = () => {
           const { completed, total, progress } = computeStepProgress(
             { infraFinancing: formData } as any,
             "infraFinancing",
-            { assignedIndicators }
+            { assignedIndicators, }
           );
           return (
             <ProgressHeader

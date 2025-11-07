@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { authService } from "./auth.service";
 import { notificationService } from "./notification.service";
@@ -2232,6 +2233,20 @@ class ApiService implements HttpClient {
       return [];
     }
   }
+
+  // ✅ Fetch indicators available for a STATE_APPROVER
+async getAvailableIndicatorsForApprover(stateUt: string) {
+  try {
+    const response = await this.axios.get(
+      `/indicators/available-for-approver`,
+      { params: { stateUt} }
+    );
+    return response.data; // array of {id, code, name, category}
+  } catch (error) {
+    console.error("Failed to get available indicators for approver", error);
+    throw error;
+  }
+}
 
   async getAllIndicators(): Promise<any[]> {
     try {

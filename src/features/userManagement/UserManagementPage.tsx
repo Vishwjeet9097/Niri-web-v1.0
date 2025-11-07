@@ -15,6 +15,7 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess"; 
 import { useMemo } from "react";
 
 export function UserManagementPage() {
@@ -31,6 +32,7 @@ export function UserManagementPage() {
   const [allIndicators, setAllIndicators] = useState<any[]>([]);
 const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
 
+ const { refresh } = useIndicatorAccess(); 
   const loadStates = async () => {
     try {
       const statesData = await statesService.getStates();
@@ -317,6 +319,15 @@ useEffect(() => {
       await loadOfficers();
       setShowForm(false);
       setEditingOfficer(null);
+
+       // >>> REFRESH: force indicator hook to re-fetch so approver UI sees updated availableIndicators
+      try {
+        console.log("🔁 Triggering indicator refresh after save user");
+        await refresh?.({ clearCache: true });
+      } catch (err) {
+        console.warn("⚠️ Indicator refresh failed after save user:", err);
+      }
+      // <<< REFRESH
     } catch (error: any) {
       console.error("❌ Error saving user:", error);
       
@@ -376,7 +387,14 @@ useEffect(() => {
       
       // Refresh data
       await loadOfficers();
-      
+       // >>> REFRESH: refresh available indicators for approver
+      try {
+        console.log("🔁 Triggering indicator refresh after delete user");
+        await refresh?.({ clearCache: true });
+      } catch (err) {
+        console.warn("⚠️ Indicator refresh failed after delete user:", err);
+      }
+      // <<< REFRESH
       // Close modal
       setDeleteModalOpen(false);
       setUserToDelete(null);
