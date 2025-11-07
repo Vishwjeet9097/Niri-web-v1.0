@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Upload, Plus, Trash2, Clock } from "lucide-react";
+import { MessageSquare, Upload, Plus, Trash2, Clock, RotateCcw, CheckCircle, X, Check, Edit3 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -30,6 +30,10 @@ import { hasInfraEnablersData, getSectionsWithData } from "@/utils/sectionDataVa
 import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
+import { useEditableSectionStore } from '@/utils/EditableSection';
+import { handleSaveSection } from "@/utils/ReviewActionHandelers";
+import { EditableFileDisplay } from "../EditableFileDisplay";
+import type { FileUpload } from "@/types";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -45,6 +49,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
+
+  //State for edit button 
+  const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
 
   
   // Real-time update listener
@@ -144,6 +151,146 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     return titles[sectionId] || sectionId;
   };
 
+  const onSaveSection = async (sectionId: string) => {
+    try {
+      // Map visual section id to payload section key (e.g. "4.1" -> "section4_1")
+      const payloadSection = `section${sectionId.replace('.', '_')}`;
+
+      // Use the local formData state (formDataState) to build fields for this section
+      let fields: Record<string, any>[] = [];
+
+      switch (sectionId) {
+        case '4.1':
+          // section4_1: { allEligible, websiteLink, file? }
+          fields = [{
+            allEligible: formDataState?.section4_1?.allEligible ?? null,
+            websiteLink: formDataState?.section4_1?.websiteLink ?? null,
+            file: formDataState?.section4_1?.file ?? null
+          }];
+          break;
+
+        case '4.2':
+          // section4_2: { available, file? }
+          fields = [{
+            available: formDataState?.section4_2?.available ?? null,
+            file: formDataState?.section4_2?.file ?? null
+          }];
+          break;
+
+        case '4.3':
+          // section4_3: { numberOfProjects, adopted, file? }
+          fields = [{
+            numberOfProjects: formDataState?.section4_3?.numberOfProjects ?? null,
+            adopted: formDataState?.section4_3?.adopted ?? null,
+            file: formDataState?.section4_3?.file ?? null
+          }];
+          break;
+
+        case '4.4':
+          // section4_4: { adopted, file? }
+          fields = [{
+            adopted: formDataState?.section4_4?.adopted ?? null,
+            file: formDataState?.section4_4?.file ?? null
+          }];
+          break;
+
+        case '4.5':
+          // section4_5: { practiceName, impact, implemented, file? }
+          fields = [{
+            practiceName: formDataState?.section4_5?.practiceName ?? null,
+            impact: formDataState?.section4_5?.impact ?? null,
+            implemented: formDataState?.section4_5?.implemented ?? null,
+            file: formDataState?.section4_5?.file ?? null
+          }];
+          break;
+
+        case '4.6':
+          // section4_6: array of { officerName, designation, programName, trainingType, organiser }
+          fields = (formDataState?.section4_6 || []).map((item: any) => ({
+            officerName: item?.officerName ?? null,
+            designation: item?.designation ?? null,
+            programName: item?.programName ?? null,
+            trainingType: item?.trainingType ?? null,
+            organiser: item?.organiser ?? null
+          }));
+          break;
+
+        default:
+          console.warn(`Unhandled section: ${sectionId}`);
+          return;
+      }
+
+      await handleSaveSection({
+        submissionId,
+        category: 'infraEnablers',
+        section: payloadSection,
+        fields
+      });
+
+      // Disable editing after successful save
+      setEditable(sectionId, false);
+    } catch (error) {
+      console.error('Error saving section:', error);
+    }
+  };
+
+  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+    const payload = {
+      submissionId,
+      category: 'infraEnablers',
+      section: `section${sectionId.replace('.', '_')}`,
+      status: status,
+    };
+    try {
+      await apiService.indicatorStatus(payload);
+      console.log("✅ Indicator status updated successfully");
+    } catch (error) {
+      console.error("❌ Failed to update indicator status:", error);
+    }
+  };
+
+  // Helper functions to handle file updates
+  const handleFileUpdate = (sectionId: string, updatedFile: FileUpload | null) => {
+    setFormDataState((prev: any) => {
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      return {
+        ...prev,
+        [sectionKey]: {
+          ...prev?.[sectionKey],
+          file: updatedFile
+        }
+      };
+    });
+  };
+
+  // Helper functions to handle field updates
+  const handleFieldUpdate = (sectionId: string, fieldName: string, value: any) => {
+    setFormDataState((prev: any) => {
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      return {
+        ...prev,
+        [sectionKey]: {
+          ...prev?.[sectionKey],
+          [fieldName]: value
+        }
+      };
+    });
+  };
+
+  // Helper to update table row items for section 4.6
+  const handleTableFieldUpdate = (rowIndex: number, fieldName: string, value: any) => {
+    setFormDataState((prev: any) => {
+      const rows = Array.isArray(prev?.section4_6) ? [...prev.section4_6] : [];
+      const currentRow = { ...(rows[rowIndex] || {}) };
+      currentRow[fieldName] = value;
+      rows[rowIndex] = currentRow;
+      return {
+        ...prev,
+        section4_6: rows,
+      };
+    });
+  };
+
 
   const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
@@ -153,29 +300,60 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
-    // Debug logging removed for performance
 
     return (
       <div className="flex gap-2">
-        {!isPreview && (
+        {!isEditable(sectionId) ? (
           <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenModal(sectionId)}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Add Comment
-        </Button>
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => setEditable(sectionId, true)}
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => onSaveSection(sectionId)}
+            >
+              <Check className="w-4 h-4" />
+              Save
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => setEditable(sectionId, false)}
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </Button>
+          </>
         )}
+
         <Button
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
           onClick={() => handleOpenTimeline(sectionId)}
         >
-          <Clock className="w-4 h-4" />
-          Timeline ({commentCount})
+          <RotateCcw className="w-4 h-4" />
+          Send Back ({commentCount})
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={() => onIndicatorStatus(sectionId, true)}
+        >
+          <CheckCircle className="w-4 h-4" />
+          Accept
         </Button>
       </div>
     );
@@ -248,69 +426,58 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           <div className="flex flex-col gap-4 w-[40%]">
             <div>
               <Label className="mb-3 block">All Eligible Infra Projects on NIP Portal?*</Label>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_1?.allEligible === "yes"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-                  }`}>
-                  {formDataState?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
-                </span>
-              </div>
+              {isEditable('4.1') ? (
+                <RadioGroup
+                  value={formDataState?.section4_1?.allEligible || ""}
+                  onValueChange={(value) => handleFieldUpdate('4.1', 'allEligible', value)}
+                  className="flex flex-row gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="4.1-yes" />
+                    <Label htmlFor="4.1-yes">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="4.1-no" />
+                    <Label htmlFor="4.1-no">No</Label>
+                  </div>
+                </RadioGroup>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_1?.allEligible === "yes"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                    }`}>
+                    {formDataState?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div>
               <Label>Website Link</Label>
-              <Input value={formDataState?.section4_1?.websiteLink || ""} readOnly />
+              <Input 
+                value={formDataState?.section4_1?.websiteLink || ""} 
+                readOnly={!isEditable('4.1')}
+                className={isEditable('4.1') ? 'bg-white' : 'bg-gray-50'}
+                onChange={(e) => handleFieldUpdate('4.1', 'websiteLink', e.target.value)}
+              />
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label>Uploaded File</Label>
-                {formDataState?.section4_1?.file ? (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm">{formData.section4_1.file.fileName || "Self-certification document"}</span>
-                    <span className="text-sm text-green-600">✓</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">No file uploaded</span>
-                )}
+            {/* {(formDataState?.section4_1?.allEligible === "yes") && (
+              <div>
+                <EditableFileDisplay
+                  files={formDataState?.section4_1?.file || null}
+                  isEditable={isEditable('4.1')}
+                  submissionId={submissionId}
+                  onFilesChange={(updatedFile) => handleFileUpdate('4.1', updatedFile as FileUpload | null)}
+                  label="Uploaded File"
+                  multiple={false}
+                />
               </div>
-            </div>
+            )} */}
 
             <p className="text-xs text-muted-foreground">
               Annex 9: Self-certification required
-            </p>
-
-            <div>
-              <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_2?.available === "yes"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-                  }`}>
-                  {formDataState?.section4_2?.available === "yes" ? "Yes" : "No"}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label>Uploaded File</Label>
-                {formDataState?.section4_2?.file ? (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm">{formData.section4_2.file.fileName || "Evidence document"}</span>
-                    <span className="text-sm text-green-600">✓</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">No file uploaded</span>
-                )}
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              Upload Evidence/Certificate/File
             </p>
             </div>
 
@@ -334,30 +501,45 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_2?.available === "yes"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-                  }`}>
-                  {formDataState?.section4_2?.available === "yes" ? "Yes" : "No"}
-                </span>
-              </div>
+              {isEditable('4.2') ? (
+                <RadioGroup
+                  value={formDataState?.section4_2?.available || ""}
+                  onValueChange={(value) => handleFieldUpdate('4.2', 'available', value)}
+                  className="flex flex-row gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="4.2-yes" />
+                    <Label htmlFor="4.2-yes">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="4.2-no" />
+                    <Label htmlFor="4.2-no">No</Label>
+                  </div>
+                </RadioGroup>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_2?.available === "yes"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                    }`}>
+                    {formDataState?.section4_2?.available === "yes" ? "Yes" : "No"}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label>Uploaded File</Label>
-                {formDataState?.section4_2?.file ? (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm">{formDataState.section4_2.file.fileName || "Evidence document"}</span>
-                    <span className="text-sm text-green-600">✓</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">No file uploaded</span>
-                )}
+            {(formDataState?.section4_2?.available === "yes") && (
+              <div>
+                <EditableFileDisplay
+                  files={formDataState?.section4_2?.file || null}
+                  isEditable={isEditable('4.2')}
+                  submissionId={submissionId}
+                  onFilesChange={(updatedFile) => handleFileUpdate('4.2', updatedFile as FileUpload | null)}
+                  label="Uploaded File"
+                  multiple={false}
+                />
               </div>
-            </div>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Upload Evidence/Certificate/File
@@ -404,36 +586,50 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <Label className="mb-3 block">A₁ - Number of Projects*</Label>
               <Input 
                 value={formDataState?.section4_3?.numberOfProjects || ""} 
-                readOnly 
-                className="w-[200px]"
+                readOnly={!isEditable('4.3')}
+                className={`w-[200px] ${isEditable('4.3') ? 'bg-white' : 'bg-gray-50'}`}
+                onChange={(e) => handleFieldUpdate('4.3', 'numberOfProjects', e.target.value)}
               />
             </div>
 
             <div>
               <Label className="mb-3 block">Adoption of PM GatiShakti?*</Label>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_3?.adopted === "yes"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-                  }`}>
-                  {formDataState?.section4_3?.adopted === "yes" ? "Yes" : "No"}
-                </span>
-              </div>
+              {isEditable('4.3') ? (
+                <RadioGroup
+                  value={formDataState?.section4_3?.adopted || ""}
+                  onValueChange={(value) => handleFieldUpdate('4.3', 'adopted', value)}
+                  className="flex flex-row gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="4.3-yes" />
+                    <Label htmlFor="4.3-yes">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="4.3-no" />
+                    <Label htmlFor="4.3-no">No</Label>
+                  </div>
+                </RadioGroup>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_3?.adopted === "yes"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                    }`}>
+                    {formDataState?.section4_3?.adopted === "yes" ? "Yes" : "No"}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label>Uploaded File</Label>
-                {formDataState?.section4_3?.file ? (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm">{formDataState.section4_3.file.fileName || "PM GatiShakti document"}</span>
-                    <span className="text-sm text-green-600">✓</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">No file uploaded</span>
-                )}
-              </div>
+            <div>
+              <EditableFileDisplay
+                files={formDataState?.section4_3?.file || null}
+                isEditable={isEditable('4.3')}
+                submissionId={submissionId}
+                onFilesChange={(updatedFile) => handleFileUpdate('4.3', updatedFile as FileUpload | null)}
+                label="Uploaded File"
+                multiple={false}
+              />
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -461,29 +657,42 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">Adoption of Alternate Dispute Resolution (ADR)?*</Label>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_4?.adopted === "yes"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-                  }`}>
-                  {formDataState?.section4_4?.adopted === "yes" ? "Yes" : "No"}
-                </span>
-              </div>
+              {isEditable('4.4') ? (
+                <RadioGroup
+                  value={formDataState?.section4_4?.adopted || ""}
+                  onValueChange={(value) => handleFieldUpdate('4.4', 'adopted', value)}
+                  className="flex flex-row gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="4.4-yes" />
+                    <Label htmlFor="4.4-yes">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="4.4-no" />
+                    <Label htmlFor="4.4-no">No</Label>
+                  </div>
+                </RadioGroup>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_4?.adopted === "yes"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                    }`}>
+                    {formDataState?.section4_4?.adopted === "yes" ? "Yes" : "No"}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label>Uploaded File</Label>
-                {formDataState?.section4_4?.file ? (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm">{formDataState.section4_4.file.fileName || "ADR document"}</span>
-                    <span className="text-sm text-green-600">✓</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">No file uploaded</span>
-                )}
-              </div>
+            <div>
+              <EditableFileDisplay
+                files={formDataState?.section4_4?.file || null}
+                isEditable={isEditable('4.4')}
+                submissionId={submissionId}
+                onFilesChange={(updatedFile) => handleFileUpdate('4.4', updatedFile as FileUpload | null)}
+                label="Uploaded File"
+                multiple={false}
+              />
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -531,36 +740,60 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Practice Name</Label>
-                      <Input value={formDataState.section4_5.practiceName || ""} readOnly />
+                      <Input 
+                        value={formDataState.section4_5.practiceName || ""} 
+                        readOnly={!isEditable('4.5')}
+                        className={isEditable('4.5') ? 'bg-white' : 'bg-gray-50'}
+                        onChange={(e) => handleFieldUpdate('4.5', 'practiceName', e.target.value)}
+                      />
                     </div>
                     <div>
                       <Label>Impact</Label>
-                      <Input value={formDataState.section4_5.impact || ""} readOnly />
+                      <Input 
+                        value={formDataState.section4_5.impact || ""} 
+                        readOnly={!isEditable('4.5')}
+                        className={isEditable('4.5') ? 'bg-white' : 'bg-gray-50'}
+                        onChange={(e) => handleFieldUpdate('4.5', 'impact', e.target.value)}
+                      />
                     </div>
                   </div>
                   <div>
                     <Label>Implemented</Label>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-3 py-1 rounded-full text-sm ${formDataState.section4_5.implemented === "yes"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                        }`}>
-                        {formDataState.section4_5.implemented === "yes" ? "Yes" : "No"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <Label>Uploaded File</Label>
-                      {formDataState.section4_5.file ? (
-                        <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                          <Upload className="w-4 h-4" />
-                          <span className="text-sm">{formDataState.section4_5.file.fileName || "Practice document"}</span>
+                    {isEditable('4.5') ? (
+                      <RadioGroup
+                        value={formDataState.section4_5.implemented || ""}
+                        onValueChange={(value) => handleFieldUpdate('4.5', 'implemented', value)}
+                        className="flex flex-row gap-6"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="yes" id="4.5-yes" />
+                          <Label htmlFor="4.5-yes">Yes</Label>
                         </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">No file uploaded</span>
-                      )}
-                    </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="no" id="4.5-no" />
+                          <Label htmlFor="4.5-no">No</Label>
+                        </div>
+                      </RadioGroup>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-3 py-1 rounded-full text-sm ${formDataState.section4_5.implemented === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                          }`}>
+                          {formDataState.section4_5.implemented === "yes" ? "Yes" : "No"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <EditableFileDisplay
+                      files={formDataState.section4_5.file || null}
+                      isEditable={isEditable('4.5')}
+                      submissionId={submissionId}
+                      onFilesChange={(updatedFile) => handleFileUpdate('4.5', updatedFile as FileUpload | null)}
+                      label="Uploaded File"
+                      multiple={false}
+                    />
                   </div>
                 </div>
               </div>
@@ -619,13 +852,58 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {formDataState.section4_6.map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.officerName || "-"}</TableCell>
-                        <TableCell>{item.designation || "-"}</TableCell>
-                        <TableCell>{item.programName || "-"}</TableCell>
-                        <TableCell>{item.trainingType || "-"}</TableCell>
-                        <TableCell>{item.organiser || "-"}</TableCell>
+                    {formDataState.section4_6.map((item: any, index: number) => (
+                      <TableRow key={item.id || index}>
+                        <TableCell className="font-medium">
+                          {isEditable('4.6') ? (
+                            <Input
+                              value={item.officerName || ""}
+                              onChange={(e) => handleTableFieldUpdate(index, 'officerName', e.target.value)}
+                            />
+                          ) : (
+                            item.officerName || "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditable('4.6') ? (
+                            <Input
+                              value={item.designation || ""}
+                              onChange={(e) => handleTableFieldUpdate(index, 'designation', e.target.value)}
+                            />
+                          ) : (
+                            item.designation || "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditable('4.6') ? (
+                            <Input
+                              value={item.programName || ""}
+                              onChange={(e) => handleTableFieldUpdate(index, 'programName', e.target.value)}
+                            />
+                          ) : (
+                            item.programName || "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditable('4.6') ? (
+                            <Input
+                              value={item.trainingType || ""}
+                              onChange={(e) => handleTableFieldUpdate(index, 'trainingType', e.target.value)}
+                            />
+                          ) : (
+                            item.trainingType || "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditable('4.6') ? (
+                            <Input
+                              value={item.organiser || ""}
+                              onChange={(e) => handleTableFieldUpdate(index, 'organiser', e.target.value)}
+                            />
+                          ) : (
+                            item.organiser || "-"
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">{item.marksObtained ?? "-"}</TableCell>
                       </TableRow>
                     ))}
