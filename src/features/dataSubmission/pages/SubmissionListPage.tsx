@@ -371,7 +371,7 @@ const handleFinalSubmit = async () => {
             : "border-amber-200 bg-amber-50/50"
           }`}>
           <div className="mb-4">
-            <h2 className="text-xl font-semibold">Data Submission for FY 2025 - 2026</h2>
+            <h2 className="text-xl font-semibold">Approved Indicator for FY 2025 - 2026</h2>
             <div className="flex items-center gap-2 text-sm mt-1">
               <span className={`font-medium ${stateProgress.percentage === 100 ? "text-green-600" : "text-amber-800"}`}>
                 {stateProgress.approved}/{stateProgress.total}
