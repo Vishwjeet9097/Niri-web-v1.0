@@ -646,7 +646,7 @@ export const InfraFinancingStep = () => {
               isStateApprover,
             }
           );
-          console.log("📊 InfraEnablersStep Progress Debug:", {
+          console.log("InfraFinancing Progress Debug:", {
             isNodalOfficer,
             isStateApprover,
             assignedIndicators,

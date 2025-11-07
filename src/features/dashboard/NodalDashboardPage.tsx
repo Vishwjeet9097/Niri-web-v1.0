@@ -417,8 +417,8 @@ export function NodalDashboardPage() {
           <QuickActions actions={[
     {
       id: "1",
-      title: "New Data Submission",
-      subtitle: "Start fresh data entry",
+      title: "Data Submission",
+      subtitle: "Start data entry",
       icon: "file" as const,
               onClick: () => navigate('/submissions')
     },

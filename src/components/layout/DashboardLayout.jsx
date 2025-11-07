@@ -54,9 +54,16 @@ export function DashboardLayout() {
   };
 
   const isActive = (path) => {
+    // Handle array of paths (like ["/submissions", "/data-submission/review"])
+    if (Array.isArray(path)) {
+      return path.some((p) => location.pathname.startsWith(p));
+    }
+
+    // Default single string path
     if (path === "/") {
       return location.pathname === "/";
     }
+
     return location.pathname.startsWith(path);
   };
 
@@ -133,10 +140,10 @@ export function DashboardLayout() {
               {navigation.map((item) => {
                 const Icon = item.icon;
                 // use item.path (not item.href). Also handle Dashboard special path
-                let path = item.path;
-               
-
-                const active = isActive(path);
+                const path = Array.isArray(item.path)
+                  ? item.path[0]
+                  : item.path;
+                const active = isActive(item.path);
 
                 // If item has children -> render dropdown
                 if (item.children && item.children.length > 0) {
