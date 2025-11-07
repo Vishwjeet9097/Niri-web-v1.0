@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -29,6 +29,7 @@ import { hasMospiApproverComment, getMospiApproverComment, canReviewSubmission }
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { calculateStateProgressFromApi, ProgressStats } from "@/utils/progressUtils";
 
 export const SubmissionListPage = () => {
   const navigate = useNavigate();
@@ -40,6 +41,15 @@ export const SubmissionListPage = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+ 
+
+  const [stateProgress, setStateProgress] = useState<ProgressStats | null>(null);
+const [progressLoading, setProgressLoading] = useState(false);
+const [submittingFinal, setSubmittingFinal] = useState(false);
+
+
+ const isFetchingProgress = useRef(false);
 
   useEffect(() => {
     const loadSubmissions = async () => {
@@ -72,6 +82,115 @@ export const SubmissionListPage = () => {
 
     loadSubmissions();
   }, []);
+
+//   useEffect(() => {
+//   if (user?.role !== "STATE_APPROVER") return;
+
+//   (async () => {
+//     try {
+//       setProgressLoading(true);
+//       const resp = await apiService.getStateIndicatorStatuses();
+//       const stats = calculateStateProgressFromApi(resp);
+//       setStateProgress(stats);
+//     } catch (e) {
+//       console.error("Failed to load state indicator statuses", e);
+//       setStateProgress(null);
+//     } finally {
+//       setProgressLoading(false);
+//     }
+//   })();
+// }, [user?.role]);
+
+useEffect(() => {
+  if (user?.role !== "STATE_APPROVER") return;
+
+  let intervalId: number | undefined;
+
+  const loadProgressOnce = async () => {
+    // avoid duplicate calls or running in background tab
+    if (document?.hidden || isFetchingProgress.current) return;
+
+    try {
+      isFetchingProgress.current = true;
+      setProgressLoading(true);
+
+      const resp = await apiService.getStateIndicatorStatuses();
+      const stats = calculateStateProgressFromApi(resp);
+      setStateProgress(stats);
+    } catch (e) {
+      console.error("Failed to load state indicator statuses", e);
+      setStateProgress(null);
+    } finally {
+      setProgressLoading(false);
+      isFetchingProgress.current = false;
+    }
+  };
+
+  // run immediately on mount
+  loadProgressOnce();
+
+  // auto-refresh every 60 seconds
+  intervalId = window.setInterval(loadProgressOnce, 60_000);
+
+  // clean up on unmount
+  return () => {
+    if (intervalId) clearInterval(intervalId);
+  };
+}, [user?.role]);
+
+const handleFinalSubmit = async () => {
+  try {
+    // Gate: must have progress and must be 100% approved
+    if (!stateProgress || stateProgress.approved !== stateProgress.total) {
+      notificationService.warning("All indicators must be approved before final submission.");
+      return;
+    }
+
+    // Find the submission the state approver is forwarding
+    // Prefer a submission that’s currently with the state
+    const candidate =
+      filteredSubmissions.find(
+        (s) => s.status === "SUBMITTED_TO_STATE" || s.status === "RETURNED_FROM_MOSPI"
+      ) || filteredSubmissions[0];
+
+    if (!candidate) {
+      notificationService.error("No eligible submission found to forward.");
+      return;
+    }
+
+    setSubmittingFinal(true);
+
+    // Optional note to MoSPI + pass current status for backend logic
+    const comment = "All indicators approved. Submitting to MoSPI for review.";
+    await apiService.forwardToMospi(candidate.id, comment, candidate.status);
+
+    notificationService.success("Submission sent to MoSPI reviewer.");
+
+    // Refresh list + progress so UI reflects the new state
+    const updated = await apiService.getSubmissions(1, 100);
+    let submissionsArray: any[] = [];
+    if (Array.isArray(updated)) submissionsArray = updated;
+    else if (updated?.submissions) submissionsArray = updated.submissions;
+    else if ((updated as any)?.data && Array.isArray((updated as any).data)) {
+      submissionsArray = (updated as any).data;
+    }
+    setSubmissions(submissionsArray);
+
+    // Refresh state progress
+    if (user?.role === "STATE_APPROVER") {
+      const resp = await apiService.getStateIndicatorStatuses();
+      const stats = calculateStateProgressFromApi(resp);
+      setStateProgress(stats);
+    }
+  } catch (e: any) {
+    notificationService.error(e?.message || "Error forwarding submission.");
+  } finally {
+    setSubmittingFinal(false);
+  }
+};
+
+
+
 
   // Filter submissions based on search and filters
   const filteredSubmissions = useMemo(() => {
@@ -168,22 +287,149 @@ export const SubmissionListPage = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 bg-white rounded-lg shadow-sm border p-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Latest Submission
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {filteredSubmissions.length} Submission
-              {filteredSubmissions.length !== 1 ? "s" : ""} Found
-            </p>
+        {/* Header - Latest Submission */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                Latest Submission
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                {filteredSubmissions.length} Submission
+                {filteredSubmissions.length !== 1 ? "s" : ""} Found
+              </p>
+            </div>
+            <Button variant="outline" className="gap-2" onClick={handleExport}>
+              <Download className="w-4 h-4" />
+              Export
+            </Button>
           </div>
-          <Button variant="outline" className="gap-2" onClick={handleExport}>
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
         </div>
+
+        {/* Progress Overview Section - Only for STATE_APPROVER */}
+        {/* {user?.role === "STATE_APPROVER" && filteredSubmissions.length > 0 && (() => {
+          const latestSubmission = filteredSubmissions.find(s => s.status === "SUBMITTED_TO_STATE");
+          if (latestSubmission && latestSubmission.formData) {
+            const progress = calculateIndicatorProgress(latestSubmission.formData);
+            return (
+              <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+                <div className="mb-4">
+                  <h2 className="text-xl font-semibold text-foreground mb-1">Progress Overview</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Track the approval status of indicators for {latestSubmission.stateUt || "your state"}
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-sm font-semibold text-[#212121]">Indicators Progress</p>
+                      <p className="text-sm text-[#727272]">
+                        {progress.approved} of {progress.total} Approved ({progress.percentage}%)
+                      </p>
+                    </div>
+                    <Progress value={progress.percentage} className="h-2" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mt-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-2xl font-bold text-primary">{progress.total}</p>
+                      <p className="text-sm text-muted-foreground">Total Indicators</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-2xl font-bold text-green-600">{progress.approved}</p>
+                      <p className="text-sm text-muted-foreground">Approved</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-2xl font-bold text-orange-600">{progress.total - progress.approved}</p>
+                      <p className="text-sm text-muted-foreground">Pending Review</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()} */}
+
+        {user?.role === "STATE_APPROVER" && (
+  <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+    <div className="mb-4 flex items-start justify-between gap-4">
+      <div>
+      <h2 className="text-xl font-semibold text-foreground mb-1">Progress Overview</h2>
+      <p className="text-sm text-muted-foreground">
+        Track the approval status of indicators for your state
+      </p>
+      </div>
+    </div>
+
+    {progressLoading ? (
+      <div className="text-sm text-muted-foreground">Loading progress…</div>
+    ) : stateProgress ? (
+      <div className="space-y-6">
+        <div className={`border rounded-lg p-4 ${
+            stateProgress.percentage === 100 
+            ? "border-green-200 bg-green-50/50" 
+            : "border-amber-200 bg-amber-50/50"
+          }`}>
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold">Data Submission for FY 2025 - 2026</h2>
+            <div className="flex items-center gap-2 text-sm mt-1">
+              <span className={`font-medium ${stateProgress.percentage === 100 ? "text-green-600" : "text-amber-800"}`}>
+                {stateProgress.approved}/{stateProgress.total}
+              </span>
+              <span className={stateProgress.percentage === 100 ? "text-green-600" : "text-amber-800"}>
+                {Math.round(stateProgress.percentage)}% Submitted
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <Progress 
+                value={stateProgress.percentage} 
+                className={`h-3 ${
+                  stateProgress.percentage === 100 
+                  ? "[&>div]:bg-green-600" 
+                  : "[&>div]:bg-amber-700"
+                }`}
+              />
+            </div>
+            <Button
+              className="shrink-0 text-white px-6 bg-[#7888E3] hover:bg-[#6574CC]"
+              onClick={handleFinalSubmit}
+              disabled={
+                submittingFinal ||
+                progressLoading ||
+                !stateProgress ||
+                stateProgress.approved !== stateProgress.total
+              }
+            >
+              {submittingFinal ? "Submitting…" : "Submit Now"}
+            </Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4 mt-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-2xl font-bold text-primary">{stateProgress.total}</p>
+            <p className="text-sm text-muted-foreground">Total Indicators</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-2xl font-bold text-green-600">{stateProgress.approved}</p>
+            <p className="text-sm text-muted-foreground">Approved</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-2xl font-bold text-orange-600">
+              {stateProgress.total - stateProgress.approved}
+            </p>
+            <p className="text-sm text-muted-foreground">Pending Review</p>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div className="text-sm text-muted-foreground">
+        No indicator statuses found yet.
+      </div>
+    )}
+  </div>
+)}
 
         {/* Search and Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white rounded-lg shadow-sm border p-6">

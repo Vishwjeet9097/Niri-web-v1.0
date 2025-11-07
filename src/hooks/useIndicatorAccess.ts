@@ -4,7 +4,7 @@ import { apiService } from "@/services/api.service";
 import type { IndicatorAccess, IndicatorSection, SectionAccess } from "@/types";
 
 // NIRI Indicator Sections Configuration
-const INDICATOR_SECTIONS: IndicatorSection[] = [
+export const INDICATOR_SECTIONS: IndicatorSection[] = [
   {
     id: "infra-financing",
     name: "Infrastructure Financing",

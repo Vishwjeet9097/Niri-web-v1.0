@@ -113,7 +113,7 @@ class ApiService implements HttpClient {
             : response.data;
         }
 
-        return response.data;
+        return response;
       },
       async (error) => {
         // Handle 304 Not Modified as success, not error
@@ -2407,6 +2407,25 @@ class ApiService implements HttpClient {
     }
   }
 
+  async getStateIndicatorStatuses(): Promise<any> {
+  try {
+    const response = await this.axios.get("/indicators/state-statuses", {
+      headers: { Accept: "application/json" },
+    });
+
+    console.log(response.status);
+    // normalize like you do elsewhere
+    return response.data?.data !== undefined ? response.data.data : response.data;
+    // If your backend shape is { status: true, data: {...} }, return response.data is fine,
+    // since your calculator reads payload?.data?.submissions.
+  } catch (error: any) {
+    if (error.response?.status === 304) {
+      const cached = error.response?.data || {};
+      return cached?.data !== undefined ? cached.data : cached;
+    }
+    throw error;
+  }
+}
 
 
 }
