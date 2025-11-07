@@ -537,7 +537,8 @@ export const InfraFinancingStep = () => {
             Loading indicator access...
           </h3>
           <p className="text-gray-600">
-            Fetching which indicators are available for you. Please wait a moment.
+            Fetching which indicators are available for you. Please wait a
+            moment.
           </p>
         </div>
       </div>
@@ -638,8 +639,22 @@ export const InfraFinancingStep = () => {
           const { completed, total, progress } = computeStepProgress(
             { infraFinancing: formData },
             "infraFinancing",
-            accessForProgress
+            {
+              assignedIndicators,
+              availableIndicators,
+              isNodalOfficer,
+              isStateApprover,
+            }
           );
+          console.log("📊 InfraEnablersStep Progress Debug:", {
+            isNodalOfficer,
+            isStateApprover,
+            assignedIndicators,
+            availableIndicators,
+            completed,
+            total,
+            progress,
+          });
           return (
             <ProgressHeader
               title="Infrastructure Financing"

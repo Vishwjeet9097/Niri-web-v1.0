@@ -489,8 +489,20 @@ export const PPPDevelopmentStep = () => {
           const { completed, total, progress } = computeStepProgress(
             { pppDevelopment: formData } as Record<string, unknown>,
             "pppDevelopment",
-            { assignedIndicators, isNodalOfficer }
+            { assignedIndicators,
+              availableIndicators,
+              isNodalOfficer,
+              isStateApprover, }
           );
+           console.log("📊 PPP Development Progress Debug:", {
+            isNodalOfficer,
+            isStateApprover,
+            assignedIndicators,
+            availableIndicators,
+            completed,
+            total,
+            progress,
+          });
           return (
             <ProgressHeader
               title="PPP Development"

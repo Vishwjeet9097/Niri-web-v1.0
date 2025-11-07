@@ -464,8 +464,18 @@ export const InfraDevelopmentStep = () => {
         const { completed, total, progress } = computeStepProgress(
           { infraDevelopment: formData } as Record<string, unknown>,
           "infraDevelopment",
-          { assignedIndicators, isNodalOfficer }
+          { assignedIndicators, availableIndicators, isNodalOfficer, isStateApprover: user?.role === "STATE_APPROVER" }
         );
+        console.log("Infra Development Progress Debug:", {
+          role: user?.role,
+          isNodalOfficer,
+          isStateApprover: user?.role === "STATE_APPROVER",
+          assignedIndicators,
+          availableIndicators,
+          completed,
+          total,
+          progress,
+        });
         return (
           <ProgressHeader
             title="Infrastructure Development"

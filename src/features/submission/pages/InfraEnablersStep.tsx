@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -456,8 +457,22 @@ export const InfraEnablersStep = () => {
         const { completed, total, progress } = computeStepProgress(
           { infraEnablers: formData } as any,
           "infraEnablers",
-          { assignedIndicators, isNodalOfficer }
+          {
+            assignedIndicators,
+            availableIndicators,
+            isNodalOfficer,
+            isStateApprover,
+          }
         );
+        console.log("Infra Enablers Progress Debug:", {
+          isNodalOfficer,
+          isStateApprover,
+          assignedIndicators,
+          availableIndicators,
+          completed,
+          total,
+          progress,
+        });
         return (
           <ProgressHeader
             title="Infrastructure Enablers"

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
   Shared utilities to compute dynamic section completion and step progress.
   These functions are intentionally liberal in determining whether a section
@@ -242,23 +243,38 @@ export function isSectionFilled(
 export function computeStepProgress(
   allFormData: Record<string, unknown>,
   stepKey: StepKey,
-  options: { assignedIndicators?: string[]; isNodalOfficer?: boolean } = {}
+  options: {
+    assignedIndicators?: string[];
+    availableIndicators?: string[];
+    isNodalOfficer?: boolean;
+    isStateApprover?: boolean;
+  } = {}
 ) {
-  const { assignedIndicators = [], isNodalOfficer = false } = options;
+  const {
+    assignedIndicators = [],
+    availableIndicators = [],
+    isNodalOfficer = false,
+    isStateApprover = false,
+  } = options;
+
   const sections = STEP_SECTIONS[stepKey];
   const stepData: Record<string, unknown> | undefined = (
     allFormData as Record<string, unknown>
   )?.[stepKey] as Record<string, unknown> | undefined;
 
-  // For Nodal Officer, only count assigned indicators within this step
+  // 🎯 Role-based filtering logic
   const applicable = isNodalOfficer
     ? sections.filter((s) => assignedIndicators.includes(s.indicator))
+    : isStateApprover
+    ? sections.filter((s) => availableIndicators.includes(s.indicator))
     : sections;
 
   const total = applicable.length;
+
   const completed = applicable.filter((s) =>
     isSectionFilled(stepData, s.sectionKey)
   ).length;
+
   const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
 
   return { completed, total, progress };
@@ -266,7 +282,12 @@ export function computeStepProgress(
 
 export function computeAllStepsSummary(
   allFormData: Record<string, unknown>,
-  options: { assignedIndicators?: string[]; isNodalOfficer?: boolean } = {}
+  options: {
+    assignedIndicators?: string[];
+    availableIndicators?: string[];
+    isNodalOfficer?: boolean;
+    isStateApprover?: boolean;
+  } = {}
 ) {
   return {
     infraFinancing: computeStepProgress(allFormData, "infraFinancing", options),
@@ -279,5 +300,6 @@ export function computeAllStepsSummary(
     infraEnablers: computeStepProgress(allFormData, "infraEnablers", options),
   };
 }
+
 
 export { STEP_SECTIONS };
