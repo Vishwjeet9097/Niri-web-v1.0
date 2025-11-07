@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Info } from "lucide-react";
@@ -55,21 +56,59 @@ const getDefaultFileUpload = (): FileUpload => ({
 });
 
 export const InfraDevelopmentStep = () => {
-  const { currentStep, goToStep, goToNext, goToPrevious, isFirstStep, isLastStep } =
-    useStepNavigation(2);
-  const { formData: persistedFormData, getStepData, updateFormData } = useFormPersistence();
+  const {
+    currentStep,
+    goToStep,
+    goToNext,
+    goToPrevious,
+    isFirstStep,
+    isLastStep,
+  } = useStepNavigation(2);
+  const {
+    formData: persistedFormData,
+    getStepData,
+    updateFormData,
+  } = useFormPersistence();
   // Detect edit mode to hide empty indicators
-  const isEditMode = typeof window !== 'undefined' && localStorage.getItem('is_edit_mode') === 'true';
+  const isEditMode =
+    typeof window !== "undefined" &&
+    localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
-  
+
   // Indicator access control
-  const { 
-    loading: indicatorLoading, 
-    error: indicatorError, 
-    assignedIndicators, 
-    hasIndicatorAccess, 
-    isNodalOfficer 
+  const {
+    isNodalOfficer,
+    availableIndicators,
+    assignedIndicators,
+    refresh,
+    hasIndicatorAccess,
+    loading: indicatorLoading,
+    error: indicatorError,
   } = useIndicatorAccess();
+
+  // Debug info
+  useEffect(() => {
+    console.log("🔍 InfraDevelopmentStep: Access control state", {
+      isNodalOfficer,
+      assignedIndicators,
+      availableIndicators,
+      indicatorLoading,
+      indicatorError,
+      user,
+    });
+  }, [
+    isNodalOfficer,
+    assignedIndicators,
+    availableIndicators,
+    indicatorLoading,
+    indicatorError,
+    user,
+  ]);
+
+  // Refresh indicators when component mounts (to ensure latest availability)
+  // useEffect(() => {
+  //   refresh?.({ clearCache: true });
+  // }, []);
 
   // Delete file function
   const onDelete = (fileId: string) => {
@@ -97,7 +136,9 @@ export const InfraDevelopmentStep = () => {
 
   // Sync with localStorage data when component mounts or data changes
   useEffect(() => {
-    const currentStepData = getStepData("infraDevelopment") as Partial<InfraDevelopmentData>;
+    const currentStepData = getStepData(
+      "infraDevelopment"
+    ) as Partial<InfraDevelopmentData>;
     if (currentStepData && Object.keys(currentStepData).length > 0) {
       const syncedData: InfraDevelopmentData = {
         ...defaultData,
@@ -109,7 +150,10 @@ export const InfraDevelopmentStep = () => {
         section2_5: currentStepData.section2_5 || [],
       };
       setFormData(syncedData);
-      console.log("🔄 Synced infraDevelopment data from localStorage in normal flow:", syncedData);
+      console.log(
+        "🔄 Synced infraDevelopment data from localStorage in normal flow:",
+        syncedData
+      );
     }
   }, [getStepData]);
 
@@ -119,10 +163,17 @@ export const InfraDevelopmentStep = () => {
     if (editingSubmission) {
       try {
         const submissionData = JSON.parse(editingSubmission);
-        console.log("🔍 Direct editing submission check in InfraDevelopmentStep:", submissionData);
+        console.log(
+          "🔍 Direct editing submission check in InfraDevelopmentStep:",
+          submissionData
+        );
 
-        if (submissionData.formData && submissionData.formData.infraDevelopment) {
-          const stepData = submissionData.formData.infraDevelopment as Partial<InfraDevelopmentData>;
+        if (
+          submissionData.formData &&
+          submissionData.formData.infraDevelopment
+        ) {
+          const stepData = submissionData.formData
+            .infraDevelopment as Partial<InfraDevelopmentData>;
           const updatedData: InfraDevelopmentData = {
             ...defaultData,
             ...stepData,
@@ -133,13 +184,19 @@ export const InfraDevelopmentStep = () => {
             section2_5: stepData.section2_5 || [],
           };
           setFormData(updatedData);
-          console.log("✅ Direct prefill from editing submission:", updatedData);
+          console.log(
+            "✅ Direct prefill from editing submission:",
+            updatedData
+          );
 
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
         }
       } catch (error) {
-        console.error("❌ Failed to parse editing submission in InfraDevelopmentStep:", error);
+        console.error(
+          "❌ Failed to parse editing submission in InfraDevelopmentStep:",
+          error
+        );
         localStorage.removeItem("editing_submission");
       }
     }
@@ -168,7 +225,7 @@ export const InfraDevelopmentStep = () => {
 
   const removeEntry = (
     section: "section2_1" | "section2_2" | "section2_3",
-    id: string,
+    id: string
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -180,12 +237,12 @@ export const InfraDevelopmentStep = () => {
     section: "section2_1" | "section2_2" | "section2_3",
     id: string,
     field: "sector" | "files",
-    value: any,
+    value: any
   ) => {
     setFormData((prev) => ({
       ...prev,
       [section]: prev[section].map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry,
+        entry.id === id ? { ...entry, [field]: value } : entry
       ),
     }));
   };
@@ -211,12 +268,12 @@ export const InfraDevelopmentStep = () => {
   const updateProject = (
     id: string,
     field: "projectName" | "dprFile",
-    value: any,
+    value: any
   ) => {
     setFormData((prev) => ({
       ...prev,
       section2_4: prev.section2_4.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry,
+        entry.id === id ? { ...entry, [field]: value } : entry
       ),
     }));
   };
@@ -254,12 +311,12 @@ export const InfraDevelopmentStep = () => {
       | "type"
       | "ownership"
       | "estimatedMonetization",
-    value: any,
+    value: any
   ) => {
     setFormData((prev) => ({
       ...prev,
       section2_5: prev.section2_5.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry,
+        entry.id === id ? { ...entry, [field]: value } : entry
       ),
     }));
   };
@@ -336,11 +393,10 @@ export const InfraDevelopmentStep = () => {
 
   const { toast } = useToast();
 
-
   const handleSaveDraft = async () => {
     // Save to localStorage with toast message
     const success = saveDraftToLocalStorage("infraDevelopment", formData);
-    
+
     if (success) {
       // Also update form data in persistence hook
       updateFormData("infraDevelopment", formData);
@@ -348,27 +404,30 @@ export const InfraDevelopmentStep = () => {
   };
 
   // Access control for NODAL_OFFICER
-  if (isNodalOfficer) {
-    // Check if user has access to any indicator in this section
-    const hasAccessToSection = hasIndicatorAccess('2.1') || hasIndicatorAccess('2.2') || 
-                              hasIndicatorAccess('2.3') || hasIndicatorAccess('2.4') || hasIndicatorAccess('2.5');
-    
-    console.log("🔍 InfraDevelopmentStep: Access control check", {
+  // Access control for NODAL_OFFICER and STATE_APPROVER
+  if (isNodalOfficer || user?.role === "STATE_APPROVER") {
+    const sectionIndicators = ["2.1", "2.2", "2.3", "2.4", "2.5"];
+    const allowed = (
+      isNodalOfficer ? assignedIndicators : availableIndicators
+    )?.filter((ind) => sectionIndicators.includes(ind));
+
+    console.log("🔍 InfraDevelopmentStep: Section indicator access", {
+      role: user?.role,
       isNodalOfficer,
       assignedIndicators,
-      hasAccessToSection,
-      hasAccess2_1: hasIndicatorAccess('2.1'),
-      hasAccess2_2: hasIndicatorAccess('2.2'),
-      hasAccess2_3: hasIndicatorAccess('2.3'),
-      hasAccess2_4: hasIndicatorAccess('2.4'),
-      hasAccess2_5: hasIndicatorAccess('2.5')
+      availableIndicators,
+      allowed,
     });
 
-    if (!hasAccessToSection) {
+    if (!allowed?.length) {
       return (
         <div className="w-full -mx-6 lg:-mx-8">
           <div className="px-6 lg:px-8">
-            <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} onStepClick={goToStep} />
+            <Stepper
+              steps={SUBMISSION_STEPS}
+              currentStep={currentStep}
+              onStepClick={goToStep}
+            />
           </div>
           <div className="px-6 lg:px-8">
             <ProgressHeader
@@ -380,9 +439,12 @@ export const InfraDevelopmentStep = () => {
               progress={0}
             />
             <div className="text-center py-12">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Required</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Data Required
+              </h3>
               <p className="text-gray-600 mb-4">
-                This section is not applicable for your submission. No data entry required here.
+                This section is not applicable for your submission. No data
+                entry required here.
               </p>
               <Button onClick={goToNext} className="bg-primary text-white">
                 Continue to Next Step
@@ -402,8 +464,18 @@ export const InfraDevelopmentStep = () => {
         const { completed, total, progress } = computeStepProgress(
           { infraDevelopment: formData } as Record<string, unknown>,
           "infraDevelopment",
-          { assignedIndicators, isNodalOfficer }
+          { assignedIndicators, availableIndicators, isNodalOfficer, isStateApprover: user?.role === "STATE_APPROVER" }
         );
+        console.log("Infra Development Progress Debug:", {
+          role: user?.role,
+          isNodalOfficer,
+          isStateApprover: user?.role === "STATE_APPROVER",
+          assignedIndicators,
+          availableIndicators,
+          completed,
+          total,
+          progress,
+        });
         return (
           <ProgressHeader
             title="Infrastructure Development"
@@ -416,625 +488,724 @@ export const InfraDevelopmentStep = () => {
         );
       })()}
       {/* Section 2.1 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.1')) && (!isEditMode || (Array.isArray(formData.section2_1) && formData.section2_1.length > 0)) && (
-        <SectionCard
-          title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">2.1 -</span> Availability of Infrastructure Act/Policy{" "}
-            </span>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-        <div className="flex flex-col gap-4 ">
-          {formData.section2_1.map((entry, idx) => (
-            <div key={entry.id} className=" mb-2 relative">
-              <div className="flex flex-col gap-4 max-w-[70%]">
-                <div className="flex-1 w-full">
-                  <Label>
-                    Select Sector <span className="text-destructive">*</span>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="inline w-3 h-3 ml-1" />
-                      </TooltipTrigger>
-                      <TooltipContent>Select the sector</TooltipContent>
-                    </Tooltip>
-                  </Label>
-                  <Select
-                    value={entry.sector}
-                    onValueChange={(value) =>
-                      updateEntry("section2_1", entry.id, "sector", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
+        availableIndicators.includes("2.1") ||
+        assignedIndicators.includes("2.1")) &&
+        (!isEditMode ||
+          (Array.isArray(formData.section2_1) &&
+            formData.section2_1.length > 0)) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.1 -</span> Availability of
+                  Infrastructure Act/Policy{" "}
+                </span>
+              </div>
+            }
+            subtitle=""
+            className="mb-6"
+          >
+            <div className="flex flex-col gap-4 ">
+              {formData.section2_1.map((entry, idx) => (
+                <div key={entry.id} className=" mb-2 relative">
+                  <div className="flex flex-col gap-4 max-w-[70%]">
+                    <div className="flex-1 w-full">
+                      <Label>
+                        Select Sector{" "}
+                        <span className="text-destructive">*</span>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="inline w-3 h-3 ml-1" />
+                          </TooltipTrigger>
+                          <TooltipContent>Select the sector</TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <Select
+                        value={entry.sector}
+                        onValueChange={(value) =>
+                          updateEntry("section2_1", entry.id, "sector", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1 w-full">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={entry.files?.[0] || null}
+                        onChange={(file) =>
+                          updateEntry(
+                            "section2_1",
+                            entry.id,
+                            "files",
+                            file ? [file] : []
+                          )
+                        }
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="self-start absolute top-2 right-2"
+                      onClick={() => removeEntry("section2_1", entry.id)}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-5 h-5 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1 w-full">
-                  <FileUploadSection
-                    label="Upload File"
-                    value={entry.files?.[0] || null}
-                    onChange={(file) =>
-                      updateEntry(
-                        "section2_1",
-                        entry.id,
-                        "files",
-                        file ? [file] : [],
-                      )
-                    }
-                    required
-                  />
-                </div>
+              ))}
+              <div>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="self-start absolute top-2 right-2"
-                  onClick={() => removeEntry("section2_1", entry.id)}
-                  aria-label="Remove"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addEntry("section2_1")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                 >
-                  <Trash2 className="w-5 h-5 text-destructive" />
+                  <Plus className="w-4 h-4" />
+                  Add More Entry
                 </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload copy of Act/Policy
+                </p>
+
+                {errors.section2_1 && (
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.section2_1}
+                  </p>
+                )}
               </div>
-
+              {formData.section2_1.length > 0 && (
+                <div className="overflow-x-auto rounded-xl">
+                  <table className="min-w-full border-separate border-spacing-0 ">
+                    <thead>
+                      <tr className="bg-[#DDE3F9]">
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Sector
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Uploaded File
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          File Size
+                        </th>
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formData.section2_1.map((entry, idx) => (
+                        <tr key={entry.id} className="bg-white">
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.sector}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.files?.[0]?.fileName || "No file uploaded"}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.files?.[0]?.fileSize
+                              ? `${(
+                                  entry.files[0].fileSize /
+                                  1024 /
+                                  1024
+                                ).toFixed(1)} MB`
+                              : "N/A"}
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeEntry("section2_1", entry.id)
+                              }
+                              className="text-red-600 hover:text-red-800"
+                              aria-label="Delete"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          ))}
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addEntry("section2_1")}
-              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add More Entry
-            </Button>
-            <p className="text-xs text-muted-foreground mt-1">
-              Upload copy of Act/Policy
-            </p>
-
-            {errors.section2_1 && (
-              <p className="text-xs text-destructive mt-1">{errors.section2_1}</p>
-            )}
-          </div>
-          {formData.section2_1.length > 0 && (
-            <div className="overflow-x-auto rounded-xl">
-              <table className="min-w-full border-separate border-spacing-0 ">
-                <thead>
-                  <tr className="bg-[#DDE3F9]">
-                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                      Sector
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formData.section2_1.map((entry, idx) => (
-                    <tr key={entry.id} className="bg-white">
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.sector}
-                      </td>
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.files?.[0]?.fileName || "No file uploaded"}
-                      </td>
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          type="button"
-                          onClick={() => removeEntry("section2_1", entry.id)}
-                          className="text-red-600 hover:text-red-800"
-                          aria-label="Delete"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        </SectionCard>
-      )}
+          </SectionCard>
+        )}
 
       {/* Section 2.2 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.2')) && (!isEditMode || (Array.isArray(formData.section2_2) && formData.section2_2.length > 0)) && (
-        <SectionCard
-          title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">2.2 -</span> Availability of Specialized Entity{" "}
-            </span>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-        <div className="flex flex-col gap-4">
-          {formData.section2_2.map((entry, idx) => (
-            <div key={entry.id} className="mb-2 relative">
-              <div className="flex flex-col gap-4 max-w-[70%]">
-                <div className="flex-1 w-full">
-                  <Label>
-                    Select Sector <span className="text-destructive">*</span>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="inline w-3 h-3 ml-1" />
-                      </TooltipTrigger>
-                      <TooltipContent>Select the sector</TooltipContent>
-                    </Tooltip>
-                  </Label>
-                  <Select
-                    value={entry.sector}
-                    onValueChange={(value) =>
-                      updateEntry("section2_2", entry.id, "sector", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
+        availableIndicators.includes("2.2") ||
+        assignedIndicators.includes("2.2")) &&
+        (!isEditMode ||
+          (Array.isArray(formData.section2_2) &&
+            formData.section2_2.length > 0)) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.2 -</span> Availability of
+                  Specialized Entity{" "}
+                </span>
+              </div>
+            }
+            subtitle=""
+            className="mb-6"
+          >
+            <div className="flex flex-col gap-4">
+              {formData.section2_2.map((entry, idx) => (
+                <div key={entry.id} className="mb-2 relative">
+                  <div className="flex flex-col gap-4 max-w-[70%]">
+                    <div className="flex-1 w-full">
+                      <Label>
+                        Select Sector{" "}
+                        <span className="text-destructive">*</span>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="inline w-3 h-3 ml-1" />
+                          </TooltipTrigger>
+                          <TooltipContent>Select the sector</TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <Select
+                        value={entry.sector}
+                        onValueChange={(value) =>
+                          updateEntry("section2_2", entry.id, "sector", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1 w-full">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={entry.files?.[0] || null}
+                        onChange={(file) =>
+                          updateEntry(
+                            "section2_2",
+                            entry.id,
+                            "files",
+                            file ? [file] : []
+                          )
+                        }
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() => removeEntry("section2_2", entry.id)}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-5 h-5 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1 w-full">
-                  <FileUploadSection
-                    label="Upload File"
-                    value={entry.files?.[0] || null}
-                    onChange={(file) =>
-                      updateEntry(
-                        "section2_2",
-                        entry.id,
-                        "files",
-                        file ? [file] : [],
-                      )
-                    }
-                    required
-                  />
-                </div>
+              ))}
+              <div>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => removeEntry("section2_2", entry.id)}
-                  aria-label="Remove"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addEntry("section2_2")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                 >
-                  <Trash2 className="w-5 h-5 text-destructive" />
+                  <Plus className="w-4 h-4" />
+                  Add More Entry
                 </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload evidence
+                </p>
+                {errors.section2_2 && (
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.section2_2}
+                  </p>
+                )}
               </div>
+              {formData.section2_2.length > 0 && (
+                <div className="overflow-x-auto rounded-xl">
+                  <table className="min-w-full border-separate border-spacing-0 ">
+                    <thead>
+                      <tr className="bg-[#DDE3F9]">
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Sector
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Uploaded File
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          File Size
+                        </th>
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formData.section2_2.map((entry, idx) => (
+                        <tr key={entry.id} className="bg-white">
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.sector}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.files?.[0]?.fileName || "No file uploaded"}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.files?.[0]?.fileSize
+                              ? `${(
+                                  entry.files[0].fileSize /
+                                  1024 /
+                                  1024
+                                ).toFixed(1)} MB`
+                              : "N/A"}
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeEntry("section2_2", entry.id)
+                              }
+                              className="text-red-600 hover:text-red-800"
+                              aria-label="Delete"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          ))}
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addEntry("section2_2")}
-              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add More Entry
-            </Button>
-            <p className="text-xs text-muted-foreground mt-1">Upload evidence</p>
-            {errors.section2_2 && (
-              <p className="text-xs text-destructive mt-1">{errors.section2_2}</p>
-            )}
-          </div>
-          {formData.section2_2.length > 0 && (
-            <div className="overflow-x-auto rounded-xl">
-              <table className="min-w-full border-separate border-spacing-0 ">
-                <thead>
-                  <tr className="bg-[#DDE3F9]">
-                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                      Sector
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formData.section2_2.map((entry, idx) => (
-                    <tr key={entry.id} className="bg-white">
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.sector}
-                      </td>
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.files?.[0]?.fileName || "No file uploaded"}
-                      </td>
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          type="button"
-                          onClick={() => removeEntry("section2_2", entry.id)}
-                          className="text-red-600 hover:text-red-800"
-                          aria-label="Delete"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        </SectionCard>
-      )}
+          </SectionCard>
+        )}
 
       {/* Section 2.3 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.3')) && (!isEditMode || (Array.isArray(formData.section2_3) && formData.section2_3.length > 0)) && (
-        <SectionCard
-          title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">2.3 -</span> Availability of Sector Infra Development Plan{" "}
-            </span>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-        <div className="flex flex-col gap-4">
-          {formData.section2_3.map((entry, idx) => (
-            <div key={entry.id} className="mb-2 relative">
-              <div className="flex flex-col gap-4 max-w-[70%]">
-                <div className="flex-1 w-full">
-                  <Label>
-                    Select Sector <span className="text-destructive">*</span>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="inline w-3 h-3 ml-1" />
-                      </TooltipTrigger>
-                      <TooltipContent>Select the sector</TooltipContent>
-                    </Tooltip>
-                  </Label>
-                  <Select
-                    value={entry.sector}
-                    onValueChange={(value) =>
-                      updateEntry("section2_3", entry.id, "sector", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
+        availableIndicators.includes("2.3") ||
+        assignedIndicators.includes("2.3")) &&
+        (!isEditMode ||
+          (Array.isArray(formData.section2_3) &&
+            formData.section2_3.length > 0)) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.3 -</span> Availability of
+                  Sector Infra Development Plan{" "}
+                </span>
+              </div>
+            }
+            subtitle=""
+            className="mb-6"
+          >
+            <div className="flex flex-col gap-4">
+              {formData.section2_3.map((entry, idx) => (
+                <div key={entry.id} className="mb-2 relative">
+                  <div className="flex flex-col gap-4 max-w-[70%]">
+                    <div className="flex-1 w-full">
+                      <Label>
+                        Select Sector{" "}
+                        <span className="text-destructive">*</span>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="inline w-3 h-3 ml-1" />
+                          </TooltipTrigger>
+                          <TooltipContent>Select the sector</TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <Select
+                        value={entry.sector}
+                        onValueChange={(value) =>
+                          updateEntry("section2_3", entry.id, "sector", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1 w-full">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={entry.files?.[0] || null}
+                        onChange={(file) =>
+                          updateEntry(
+                            "section2_3",
+                            entry.id,
+                            "files",
+                            file ? [file] : []
+                          )
+                        }
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() => removeEntry("section2_3", entry.id)}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-5 h-5 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1 w-full">
-                  <FileUploadSection
-                    label="Upload File"
-                    value={entry.files?.[0] || null}
-                    onChange={(file) =>
-                      updateEntry(
-                        "section2_3",
-                        entry.id,
-                        "files",
-                        file ? [file] : [],
-                      )
-                    }
-                    required
-                  />
-                </div>
+              ))}
+              <div>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => removeEntry("section2_3", entry.id)}
-                  aria-label="Remove"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addEntry("section2_3")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                 >
-                  <Trash2 className="w-5 h-5 text-destructive" />
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add More Entry
                 </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload plan
+                </p>
+                {errors.section2_3 && (
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.section2_3}
+                  </p>
+                )}
               </div>
+              {formData.section2_3.length > 0 && (
+                <div className="overflow-x-auto rounded-xl">
+                  <table className="min-w-full border-separate border-spacing-0 ">
+                    <thead>
+                      <tr className="bg-[#DDE3F9]">
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Sector
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Uploaded File
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          File Size
+                        </th>
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formData.section2_3.map((entry, idx) => (
+                        <tr key={entry.id} className="bg-white">
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.sector}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.files?.[0]?.fileName || "No file uploaded"}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {entry.files?.[0]?.fileSize
+                              ? `${(
+                                  entry.files[0].fileSize /
+                                  1024 /
+                                  1024
+                                ).toFixed(1)} MB`
+                              : "N/A"}
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeEntry("section2_3", entry.id)
+                              }
+                              className="text-red-600 hover:text-red-800"
+                              aria-label="Delete"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          ))}
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addEntry("section2_3")}
-              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add More Entry
-            </Button>
-            <p className="text-xs text-muted-foreground mt-1">Upload plan</p>
-            {errors.section2_3 && (
-              <p className="text-xs text-destructive mt-1">{errors.section2_3}</p>
-            )}
-          </div>
-          {formData.section2_3.length > 0 && (
-            <div className="overflow-x-auto rounded-xl">
-              <table className="min-w-full border-separate border-spacing-0 ">
-                <thead>
-                  <tr className="bg-[#DDE3F9]">
-                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                      Sector
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">File Size</th>
-                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formData.section2_3.map((entry, idx) => (
-                    <tr key={entry.id} className="bg-white">
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.sector}
-                      </td>
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.files?.[0]?.fileName || "No file uploaded"}
-                      </td>
-                      <td className="py-3 px-4 text-sm font-normal">
-                        {entry.files?.[0]?.fileSize ? `${(entry.files[0].fileSize / 1024 / 1024).toFixed(1)} MB` : "N/A"}
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          type="button"
-                          onClick={() => removeEntry("section2_3", entry.id)}
-                          className="text-red-600 hover:text-red-800"
-                          aria-label="Delete"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        </SectionCard>
-      )}
+          </SectionCard>
+        )}
 
       {/* Section 2.4 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.4')) && (!isEditMode || (Array.isArray(formData.section2_4) && formData.section2_4.length > 0)) && (
-        <SectionCard
-          title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">2.4 -</span> Availability of Investment Ready Project Pipeline{" "}
-            </span>
-          </div>}
-          // subtitle="Annex 5: Upload DPR/Feasibility Report"
-          className="mb-6"
-        >
-        <div className="flex flex-col gap-4">
-          {formData.section2_4.map((entry, idx) => (
-            <div key={entry.id} className="mb-2 relative">
-              <div className="flex flex-col gap-4 max-w-[70%]">
-                <div className="flex-1 w-full">
-                  <Label>
-                    Project Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter project name"
-                    value={entry.projectName}
-                    onChange={(e) =>
-                      updateProject(entry.id, "projectName", e.target.value)
-                    }
-                  />
+      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
+        availableIndicators.includes("2.4") ||
+        assignedIndicators.includes("2.4")) &&
+        (!isEditMode ||
+          (Array.isArray(formData.section2_4) &&
+            formData.section2_4.length > 0)) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.4 -</span> Availability of
+                  Investment Ready Project Pipeline{" "}
+                </span>
+              </div>
+            }
+            // subtitle="Annex 5: Upload DPR/Feasibility Report"
+            className="mb-6"
+          >
+            <div className="flex flex-col gap-4">
+              {formData.section2_4.map((entry, idx) => (
+                <div key={entry.id} className="mb-2 relative">
+                  <div className="flex flex-col gap-4 max-w-[70%]">
+                    <div className="flex-1 w-full">
+                      <Label>
+                        Project Name <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter project name"
+                        value={entry.projectName}
+                        onChange={(e) =>
+                          updateProject(entry.id, "projectName", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="flex-1 w-full">
+                      <FileUploadSection
+                        label="Upload DPR/Feasibility Report"
+                        value={entry.dprFile}
+                        onChange={(file) =>
+                          updateProject(entry.id, "dprFile", file)
+                        }
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() => removeProject(entry.id)}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-5 h-5 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1 w-full">
-                  <FileUploadSection
-                    label="Upload DPR/Feasibility Report"
-                    value={entry.dprFile}
-                    onChange={(file) =>
-                      updateProject(entry.id, "dprFile", file)
-                    }
-                    required
-                  />
-                </div>
+              ))}
+              <div>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => removeProject(entry.id)}
-                  aria-label="Remove"
+                  variant="outline"
+                  size="sm"
+                  onClick={addProject}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                 >
-                  <Trash2 className="w-5 h-5 text-destructive" />
+                  <Plus className="w-4 h-4" />
+                  Add Project
                 </Button>
+                {errors.section2_4 && (
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.section2_4}
+                  </p>
+                )}
               </div>
             </div>
-          ))}
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addProject}
-              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Project
-            </Button>
-            {errors.section2_4 && (
-              <p className="text-xs text-destructive mt-1">{errors.section2_4}</p>
-            )}
-          </div>
-        </div>
-        </SectionCard>
-      )}
+          </SectionCard>
+        )}
 
       {/* Section 2.5 */}
-      {(!isNodalOfficer || hasIndicatorAccess('2.5')) && (!isEditMode || (Array.isArray(formData.section2_5) && formData.section2_5.length > 0)) && (
-        <SectionCard
-          title={<div className="flex flex-col">
-            <span className="text-base font-semibold ">
-              <span className="text-primary">2.5 -</span> Availability of Asset Monetization Pipeline{" "}
-            </span>
-          </div>}
-          // subtitle="Annex 6"
-          className="mb-6"
-        >
-        <div className="flex flex-col gap-4">
-          {formData.section2_5.map((entry, idx) => (
-            <div key={entry.id} className="mb-2">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-                <div>
-                  <Label>
-                    Project/Asset Name{" "}
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter project/asset name"
-                    value={entry.projectName}
-                    onChange={(e) =>
-                      updateAsset(entry.id, "projectName", e.target.value)
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>
-                    Select Sector <span className="text-destructive">*</span>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="inline w-3 h-3 ml-1" />
-                      </TooltipTrigger>
-                      <TooltipContent>Select the sector</TooltipContent>
-                    </Tooltip>
-                  </Label>
-                  <Select
-                    value={entry.sector}
-                    onValueChange={(value) =>
-                      updateAsset(entry.id, "sector", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an Option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <SelectItem key={sector} value={sector}>
-                          {sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>
-                    Select Type <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={entry.type}
-                    onValueChange={(value) =>
-                      updateAsset(entry.id, "type", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an Option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROJECT_TYPE_OPTIONS.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>
-                    Asset Ownership <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={entry.ownership}
-                    onValueChange={(value) =>
-                      updateAsset(entry.id, "ownership", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Asset ownership" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OWNERSHIP_OPTIONS.map((own) => (
-                        <SelectItem key={own} value={own}>
-                          {own}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div>
-                    <Label>Estimated Monetization</Label>
-                    <Input
-                      type="number"
-                      placeholder="Estimated Monetization"
-                      value={entry.estimatedMonetization}
-                      onChange={(e) =>
-                        updateAsset(
-                          entry.id,
-                          "estimatedMonetization",
-                          e.target.value,
-                        )
-                      }
-                    />
+      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
+        availableIndicators.includes("2.5") ||
+        assignedIndicators.includes("2.5")) &&
+        (!isEditMode ||
+          (Array.isArray(formData.section2_5) &&
+            formData.section2_5.length > 0)) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.5 -</span> Availability of
+                  Asset Monetization Pipeline{" "}
+                </span>
+              </div>
+            }
+            // subtitle="Annex 6"
+            className="mb-6"
+          >
+            <div className="flex flex-col gap-4">
+              {formData.section2_5.map((entry, idx) => (
+                <div key={entry.id} className="mb-2">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                    <div>
+                      <Label>
+                        Project/Asset Name{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter project/asset name"
+                        value={entry.projectName}
+                        onChange={(e) =>
+                          updateAsset(entry.id, "projectName", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>
+                        Select Sector{" "}
+                        <span className="text-destructive">*</span>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="inline w-3 h-3 ml-1" />
+                          </TooltipTrigger>
+                          <TooltipContent>Select the sector</TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <Select
+                        value={entry.sector}
+                        onValueChange={(value) =>
+                          updateAsset(entry.id, "sector", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an Option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>
+                        Select Type <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={entry.type}
+                        onValueChange={(value) =>
+                          updateAsset(entry.id, "type", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an Option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROJECT_TYPE_OPTIONS.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>
+                        Asset Ownership{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={entry.ownership}
+                        onValueChange={(value) =>
+                          updateAsset(entry.id, "ownership", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Asset ownership" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OWNERSHIP_OPTIONS.map((own) => (
+                            <SelectItem key={own} value={own}>
+                              {own}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <Label>Estimated Monetization</Label>
+                        <Input
+                          type="number"
+                          placeholder="Estimated Monetization"
+                          value={entry.estimatedMonetization}
+                          onChange={(e) =>
+                            updateAsset(
+                              entry.id,
+                              "estimatedMonetization",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="self-start mt-6"
+                        onClick={() => removeAsset(entry.id)}
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="w-5 h-5 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="self-start mt-6"
-                    onClick={() => removeAsset(entry.id)}
-                    aria-label="Remove"
-                  >
-                    <Trash2 className="w-5 h-5 text-destructive" />
-                  </Button>
                 </div>
-
+              ))}
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addAsset}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4 " />
+                  Add More Asset
+                </Button>
+                {errors.section2_5 && (
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.section2_5}
+                  </p>
+                )}
               </div>
             </div>
-          ))}
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addAsset}
-              className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4 " />
-              Add More Asset
-            </Button>
-            {errors.section2_5 && (
-              <p className="text-xs text-destructive mt-1">{errors.section2_5}</p>
-            )}
-          </div>
-        </div>
-        </SectionCard>
-      )}
+          </SectionCard>
+        )}
 
       {/* Navigation Buttons */}
       <FormActions

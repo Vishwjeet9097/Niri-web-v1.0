@@ -32,6 +32,7 @@ import { SubmissionListPage } from "./features/dataSubmission/pages/SubmissionLi
 import { SubmissionDetailPage } from "./features/dataSubmission/pages/SubmissionDetailPage";
 import { EditSubmissionPage } from "./features/dataSubmission/pages/EditSubmissionPage";
 import { UserManagementPage } from "./features/userManagement/UserManagementPage";
+import { CheckSubmissionRedirect } from "./features/submission/pages/CheckSubmissionRedirect";
 
 const queryClient = new QueryClient();
 
@@ -44,85 +45,112 @@ const App = () => (
         <TestDataIndicator />
         <AuthProvider>
           <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<RoleBasedDashboard />} />
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
               <Route
-                path="/reviewer-dashboard"
-                element={<Navigate to="/dashboard" replace />}
-              />
-              <Route path="/submissions/*" element={<SubmissionLayout />}>
-                <Route index element={<InfraFinancingStep />} />
-                <Route
-                  path="infra-financing"
-                  element={<InfraFinancingStep />}
-                />
-                <Route
-                  path="infra-development"
-                  element={<InfraDevelopmentStep />}
-                />
-                <Route
-                  path="ppp-development"
-                  element={<PPPDevelopmentStep />}
-                />
-                <Route path="infra-enablers" element={<InfraEnablersStep />} />
-                <Route path="review-submit" element={<ReviewSubmitStep />} />
-                <Route path="preview" element={<PreviewPage />} />
-              </Route>
-              <Route path="/data-submission/review" element={<SubmissionListPage />} />
-              <Route path="/data-submission/review/:id" element={<SubmissionDetailPage />} />
-              <Route path="/data-submission/edit/:id" element={<EditSubmissionPage />} />
-              <Route 
-                path="/user-management" 
                 element={
-                  <ProtectedRoute allowedRoles={["STATE_APPROVER", "MOSPI_APPROVER", "ADMIN"]}>
-                    <UserManagementPage />
+                  <ProtectedRoute>
+                    <DashboardLayout />
                   </ProtectedRoute>
-                } 
-              />
-              <Route path="/ranking" element={<RankingScoringPage />} />
-              <Route
-                path="/support"
-                element={
-                  <PlaceholderPage
-                    title="Support & Help"
-                    description="Get help and support resources"
-                  />
                 }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <PlaceholderPage
-                    title="Settings"
-                    description="Manage your account settings"
-                  />
-                }
-              />
-              <Route
-                path="/unauthorized"
-                element={
-                  <PlaceholderPage
-                    title="Unauthorized"
-                    description="You do not have access to this page."
-                  />
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+              >
+                <Route
+                  path="/"
+                  element={<Navigate to="/dashboard" replace />}
+                />
+                <Route path="/dashboard" element={<RoleBasedDashboard />} />
+                <Route
+                  path="/reviewer-dashboard"
+                  element={<Navigate to="/dashboard" replace />}
+                />
+                <Route element={<CheckSubmissionRedirect />}>
+                  <Route path="/submissions/*" element={<SubmissionLayout />}>
+                    <Route index element={<InfraFinancingStep />} />
+                    <Route
+                      path="infra-financing"
+                      element={<InfraFinancingStep />}
+                    />
+                    <Route
+                      path="infra-development"
+                      element={<InfraDevelopmentStep />}
+                    />
+                    <Route
+                      path="ppp-development"
+                      element={<PPPDevelopmentStep />}
+                    />
+                    <Route
+                      path="infra-enablers"
+                      element={<InfraEnablersStep />}
+                    />
+                    <Route
+                      path="review-submit"
+                      element={<ReviewSubmitStep />}
+                    />
+                    <Route path="preview" element={<PreviewPage />} />
+                  </Route>
+                </Route>
+
+                <Route
+                  path="/data-submission/review"
+                  element={<SubmissionListPage />}
+                />
+                <Route
+                  path="/data-submission/review/:id"
+                  element={<SubmissionDetailPage />}
+                />
+                <Route
+                  path="/data-submission/edit/:id"
+                  element={<EditSubmissionPage />}
+                />
+                <Route
+                  path="/user-management"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        "STATE_APPROVER",
+                        "MOSPI_APPROVER",
+                        "ADMIN",
+                      ]}
+                    >
+                      <UserManagementPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/ranking" element={<RankingScoringPage />} />
+                <Route
+                  path="/support"
+                  element={
+                    <PlaceholderPage
+                      title="Support & Help"
+                      description="Get help and support resources"
+                    />
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <PlaceholderPage
+                      title="Settings"
+                      description="Manage your account settings"
+                    />
+                  }
+                />
+                <Route
+                  path="/unauthorized"
+                  element={
+                    <PlaceholderPage
+                      title="Unauthorized"
+                      description="You do not have access to this page."
+                    />
+                  }
+                />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
   </ErrorBoundary>
 );
 

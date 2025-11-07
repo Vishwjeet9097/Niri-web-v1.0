@@ -34,6 +34,7 @@ import { useFormPersistence } from "../hooks/useFormPersistence";
 import { SUBMISSION_STEPS } from "../constants/steps";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import type { InfraFinancingData } from "../types";
+import { getCurrentFinancialYear } from "@/utils/dateUtils";
 
 // import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -62,32 +63,51 @@ export const InfraFinancingStep = () => {
     localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
 
-  // Indicator access control
+  // Indicator access control - now includes availableIndicators and isStateApprover
   const {
     loading: indicatorLoading,
     error: indicatorError,
     assignedIndicators,
+    availableIndicators,
     hasIndicatorAccess,
     isNodalOfficer,
+    isStateApprover,
+    refresh,
   } = useIndicatorAccess();
 
-  // Debug logging for access control
+  const currentFY = getCurrentFinancialYear();
+  console.log("🔍 InfraFinancingStep: Current FY detected:", currentFY);
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      section1_1: { ...prev.section1_1, year: currentFY },
+      section1_2: { ...prev.section1_2, year: currentFY },
+    }));
+  }, [currentFY]);
+  // Diagnostic: ensure component sees what hook loaded
   useEffect(() => {
     console.log("🔍 InfraFinancingStep: Access control state", {
       isNodalOfficer,
+      isStateApprover,
       assignedIndicators,
+      availableIndicators,
       indicatorLoading,
       indicatorError,
       user: user ? { id: user._id || user.id, role: user.role } : null,
     });
   }, [
     isNodalOfficer,
+    isStateApprover,
     assignedIndicators,
+    availableIndicators,
     indicatorLoading,
     indicatorError,
     user,
   ]);
 
+  // useEffect(() => {
+  //   refresh?.({ clearCache: true });
+  // }, [refresh]);
   // Note: Editing submission data is handled by useFormPersistence hook
   const { toast } = useToast();
 
@@ -511,7 +531,31 @@ export const InfraFinancingStep = () => {
     goToNext();
   };
 
-  // Access control for NODAL_OFFICER
+  // If indicators still loading -> show a small loading placeholder so we don't render all fields prematurely
+  if (indicatorLoading) {
+    return (
+      <div className="w-full -mx-6 lg:-mx-8">
+        <div className="px-6 lg:px-8">
+          <Stepper
+            steps={SUBMISSION_STEPS}
+            currentStep={currentStep}
+            onStepClick={goToStep}
+          />
+        </div>
+        <div className="px-6 lg:px-8 text-center py-12">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Loading indicator access...
+          </h3>
+          <p className="text-gray-600">
+            Fetching which indicators are available for you. Please wait a
+            moment.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Access control for NODAL_OFFICER (unchanged)
   if (isNodalOfficer) {
     // Check if user has access to any indicator in this section
     const hasAccessToSection =
@@ -569,6 +613,27 @@ export const InfraFinancingStep = () => {
     }
   }
 
+  // Decide which codes we use to determine visibility:
+  // - nodal -> assignedIndicators
+  // - state approver -> availableIndicators
+  // - other roles -> show all (codes === null)
+  const codesForVisibility = isNodalOfficer
+    ? assignedIndicators
+    : isStateApprover
+    ? availableIndicators
+    : null;
+
+  // helper to check per-indicator visibility
+  const showIndicator = (indicatorCode: string) => {
+    if (codesForVisibility === null) return true;
+    return codesForVisibility.includes(indicatorCode);
+  };
+
+  // Build access object for progress calculation: use availableIndicators for approver so progress matches visible fields
+  const accessForProgress = isStateApprover
+    ? { assignedIndicators: availableIndicators, isNodalOfficer: false }
+    : { assignedIndicators, isNodalOfficer };
+
   return (
     <div className="w-full -mx-6 lg:-mx-8">
       <div className="px-6 lg:px-8">
@@ -584,8 +649,22 @@ export const InfraFinancingStep = () => {
           const { completed, total, progress } = computeStepProgress(
             { infraFinancing: formData },
             "infraFinancing",
-            { assignedIndicators, isNodalOfficer }
+            {
+              assignedIndicators,
+              availableIndicators,
+              isNodalOfficer,
+              isStateApprover,
+            }
           );
+          console.log("InfraFinancing Progress Debug:", {
+            isNodalOfficer,
+            isStateApprover,
+            assignedIndicators,
+            availableIndicators,
+            completed,
+            total,
+            progress,
+          });
           return (
             <ProgressHeader
               title="Infrastructure Financing"
@@ -599,7 +678,7 @@ export const InfraFinancingStep = () => {
         })()}
 
         {/* Section 1.1 */}
-        {(!isNodalOfficer || hasIndicatorAccess("1.1")) &&
+        {showIndicator("1.1") &&
           (!isEditMode ||
             // Hide if edit mode and no meaningful data present in section1_1
             !!(
@@ -630,17 +709,10 @@ export const InfraFinancingStep = () => {
                   </Label>
                   <Input
                     type="text"
-                    placeholder="Enter Year"
                     value={formData.section1_1.year}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        section1_1: {
-                          ...formData.section1_1,
-                          year: e.target.value,
-                        },
-                      })
-                    }
+                    readOnly
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -720,9 +792,8 @@ export const InfraFinancingStep = () => {
           )}
 
         {/* Section 1.2 */}
-        {(!isNodalOfficer || hasIndicatorAccess("1.2")) &&
+        {showIndicator("1.2") &&
           (!isEditMode ||
-            // Hide if edit mode and no meaningful data present in section1_2
             !!(
               formData.section1_2 &&
               (formData.section1_2.year ||
@@ -742,7 +813,6 @@ export const InfraFinancingStep = () => {
                   </span>
                 </div>
               }
-              // subtitle="Annex 2: Verified with MoHUA data"
             >
               <div className="grid grid-cols-2 gap-4 max-w-[70%]">
                 <div className="space-y-2">
@@ -750,17 +820,11 @@ export const InfraFinancingStep = () => {
                     Year<span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    placeholder="Year"
+                    type="text"
                     value={formData.section1_2.year}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        section1_2: {
-                          ...formData.section1_2,
-                          year: e.target.value,
-                        },
-                      })
-                    }
+                    readOnly
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">
@@ -834,7 +898,7 @@ export const InfraFinancingStep = () => {
           )}
 
         {/* Section 1.3 */}
-        {(!isNodalOfficer || hasIndicatorAccess("1.3")) &&
+        {showIndicator("1.3") &&
           (!isEditMode ||
             (Array.isArray(formData.section1_3.ulbList) &&
               formData.section1_3.ulbList.length > 0)) && (
@@ -1045,7 +1109,7 @@ export const InfraFinancingStep = () => {
           )}
 
         {/* Section 1.4 */}
-        {(!isNodalOfficer || hasIndicatorAccess("1.4")) &&
+        {showIndicator("1.4") &&
           (!isEditMode ||
             (Array.isArray(formData.section1_4.bondList) &&
               formData.section1_4.bondList.length > 0)) && (
@@ -1245,7 +1309,7 @@ export const InfraFinancingStep = () => {
           )}
 
         {/* Section 1.5 */}
-        {(!isNodalOfficer || hasIndicatorAccess("1.5")) &&
+        {showIndicator("1.5") &&
           (!isEditMode ||
             (Array.isArray(formData.section1_5) &&
               formData.section1_5.length > 0)) && (

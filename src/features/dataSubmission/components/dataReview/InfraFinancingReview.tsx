@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,11 @@ import {
 } from "@/features/submission/utils/progress";
 import { useEditableSectionStore } from '@/utils/EditableSection';
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
+// import { getDropdown } from '@/utils/getDropDowns';
+import { useFormDataStore } from '@/utils/FormDataStore';
+import { Section_1_3 } from "./Sections/Section_1_3";
+import { Section_1_4 } from "./Sections/Section_1_4";
+import {Section_1_5} from "./Sections/Section_1_5";
 
 
 interface InfraFinancingReviewProps {
@@ -35,11 +41,39 @@ export const InfraFinancingReview = ({
   submission,
   isPreview = false,
 }: InfraFinancingReviewProps) => {
+  // Section 1.4 state management
+  const [bondTypes, setBondTypes] = useState<string[]>(formData?.section1_4?.bondList?.map((item: any) => item.bondType || "") || []);
+  const [cityNames, setCityNames] = useState<string[]>(formData?.section1_4?.bondList?.map((item: any) => item.cityName || "") || []);
+  const [issuingAuthorities, setIssuingAuthorities] = useState<string[]>(formData?.section1_4?.bondList?.map((item: any) => item.issuingAuthority || "") || []);
+  const [bondValues, setBondValues] = useState<number[]>(formData?.section1_4?.bondList?.map((item: any) => item.value || 0) || []);
+  const [totalULBs14, setTotalULBs14] = useState<number>(formData?.section1_4?.totalULBs || 0);
+
+  useEffect(() => {
+    setBondTypes(formData?.section1_4?.bondList?.map((item: any) => item.bondType || "") || []);
+    setCityNames(formData?.section1_4?.bondList?.map((item: any) => item.cityName || "") || []);
+    setIssuingAuthorities(formData?.section1_4?.bondList?.map((item: any) => item.issuingAuthority || "") || []);
+    setBondValues(formData?.section1_4?.bondList?.map((item: any) => item.value || 0) || []);
+    setTotalULBs14(formData?.section1_4?.totalULBs || 0);
+  }, [formData?.section1_4]);
   const { saveMessage, getMessage, getComments, getAllComments } =
     useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
+  const { setFormDataForSection, updateSectionField, getSectionData } = useFormDataStore();
+
+  // Section 1.3 state management
+  const [section13State, setSection13State] = useState({
+    totalULBs: formData?.section1_3?.totalULBs || 0,
+    ulbList: formData?.section1_3?.ulbList || [],
+  });
+
+  useEffect(() => {
+    setSection13State({
+      totalULBs: formData?.section1_3?.totalULBs || 0,
+      ulbList: formData?.section1_3?.ulbList || [],
+    });
+  }, [formData?.section1_3]);
 
   // Check if this section has any data
   console.log("💡 InfraFinancing formData (raw):", formData);
@@ -233,6 +267,17 @@ const sectionsWithData = useMemo(() => {
     }
   }, [formData]);
 
+  //🧑‍💻Initialize Section
+  useEffect(() => {
+    if (formData) {
+      Object.keys(formData).forEach(sectionKey => {
+        if (sectionKey.startsWith('section')) {
+          setFormDataForSection(formData[sectionKey], sectionKey);
+        }
+      });
+    }
+  }, [formData]);
+
   // Debug formData structure
   // Debug logging removed for performance
 
@@ -340,32 +385,36 @@ const sectionsWithData = useMemo(() => {
 
         case '1.2':
           fields = [
-            {
-              year: formData?.section1_2?.year || "2024-25",
-              actualCapex: formData?.section1_2?.actualCapex,
-              stateCapexUtilisation: formData?.section1_2?.stateCapexUtilisation
-            }
+            
+              {year: formData?.section1_2?.year || "2024-25"},
+              {actualCapex: formData?.section1_2?.actualCapex},
+              {stateCapexUtilisation: formData?.section1_2?.stateCapexUtilisation}
+            
           ];
           break;
 
         case '1.3':
-          // Handle ULB ratings data
-          fields = (formData?.section1_3 || []).map((item: any) => ({
+          // Use local state for ULB ratings data
+          console.log("Section_1_3 state", section13State)
+          fields = [{ulbList: (section13State.ulbList || []).map((item: any) => ({
             cityName: item.cityName,
             ulb: item.ulb,
             ratingDate: item.ratingDate,
             rating: item.rating
-          }));
+          }))}];
           break;
 
         case '1.4':
-          // Handle bond data
-          fields = (formData?.section1_4 || []).map((item: any) => ({
-            bondType: item.bondType,
-            cityName: item.cityName,
-            issuingAuthority: item.issuingAuthority,
-            value: item.value
-          }));
+          // Use local state for bond data
+          fields = [{
+            bondList: bondTypes.map((bondType, idx) => ({
+              bondType,
+              cityName: cityNames[idx],
+              issuingAuthority: issuingAuthorities[idx],
+              value: bondValues[idx],
+            })),
+            totalULBs: totalULBs14
+          }];
           break;
 
         case '1.5':
@@ -383,6 +432,8 @@ const sectionsWithData = useMemo(() => {
           console.warn(`Unhandled section: ${sectionId}`);
           return;
       }
+
+      console.log('🔄 payload section:',  payloadSection)
 
       await handleSaveSection({
         submissionId,
@@ -414,6 +465,17 @@ const sectionsWithData = useMemo(() => {
     };
     try {
       await apiService.indicatorStatus(payload);
+      // Update local formData to trigger re-render of action buttons
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      // Defensive: clone formData if possible
+      if (formData && formData[sectionKey]) {
+        formData[sectionKey] = {
+          ...formData[sectionKey],
+          status: status ? 'ACCEPTED' : formData[sectionKey].status,
+        };
+        // Force update by setting submissionData (or use a dedicated state if needed)
+        setSubmissionData({ ...formData });
+      }
       console.log("✅ Indicator status updated successfully");
     } catch (error) {
       console.error("❌ Failed to update indicator status:", error);
@@ -428,34 +490,27 @@ const renderActionButtons = (sectionId: string) => {
     return null;
   }
 
+  // Check if section status is ACCEPTED
+  const sectionKey = `section${sectionId.replace('.', '_')}`;
+  const sectionData = formData && formData[sectionKey];
+  if (sectionData && sectionData.status === 'ACCEPTED') {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+          disabled
+        >
+          <CheckCircle className="w-4 h-4" />
+          Accepted
+        </Button>
+      </div>
+    );
+  }
+
   const comments = getComments(sectionId);
   const commentCount = comments ? comments.length : 0;
-  // Debug logging removed for performance
-
-  // Old Code
-  // return (
-  //   <div className="flex gap-2">
-  //     <Button
-  //       variant="outline"
-  //       size="sm"
-  //       className="flex items-center gap-1"
-  //       onClick={() => handleOpenModal(sectionId)}
-  //     >
-  //       <MessageSquare className="w-4 h-4" />
-  //       Add Comment
-  //     </Button>
-  //     <Button
-  //       variant="outline"
-  //       size="sm"
-  //       className="flex items-center gap-1"
-  //       onClick={() => handleOpenTimeline(sectionId)}
-  //     >
-  //       <Clock className="w-4 h-4" />
-  //       Timeline ({commentCount})
-  //     </Button>
-  //   </div>
-  // );
-
 
   return (
     <div className="flex gap-2">
@@ -492,7 +547,6 @@ const renderActionButtons = (sectionId: string) => {
         </>
       )}
 
-
       <Button
         variant="outline"
         size="sm"
@@ -512,8 +566,6 @@ const renderActionButtons = (sectionId: string) => {
         <CheckCircle className="w-4 h-4" />
         Accept
       </Button>
-      
-
     </div>
   );
 };
@@ -575,7 +627,7 @@ const calculateAllocationPercentage = () => {
           const { completed, total, progress } = computeStepProgress(
             { infraFinancing: formData } as any,
             "infraFinancing",
-            { assignedIndicators }
+            { assignedIndicators, }
           );
           return (
             <ProgressHeader
@@ -725,7 +777,8 @@ const calculateAllocationPercentage = () => {
                       ? `₹${formData.section1_2.actualCapex} Crores`
                       : ""
                   }
-                  readOnly
+                  readOnly={!isEditable('1.2')}
+                  className={isEditable('1.2') ? 'bg-white' : 'bg-gray-50'}
                 />
               </div>
               <div>
@@ -736,7 +789,8 @@ const calculateAllocationPercentage = () => {
                       ? `₹${formData.section1_2.stateCapexUtilisation} Crores`
                       : ""
                   }
-                  readOnly
+                readOnly={!isEditable('1.2')}
+                className={isEditable('1.2') ? 'bg-white' : 'bg-gray-50'}
                 />
               </div>
               <div className="">
@@ -792,9 +846,9 @@ const calculateAllocationPercentage = () => {
             subtitle="Annex 3: Verified with Muni.GOI"
             className="mb-6"
           >
-            <div className="space-y-4">
+            {/* <div className="space-y-4">
               {/* ✅ Show Total ULBs at the top */}
-              {formData?.section1_3?.totalULBs !== undefined && (
+              {/* {formData?.section1_3?.totalULBs !== undefined && (
                 <div className="max-w-xs">
                   <Label>Total Number of ULBs</Label>
                   <Input
@@ -804,20 +858,45 @@ const calculateAllocationPercentage = () => {
                     className="bg-gray-50 cursor-not-allowed"
                   />
                 </div>
-              )}
+              )} */}
 
               {/* Existing ULB List */}
-              {formData?.section1_3?.ulbList?.length > 0 ? (
+              {/* {formData?.section1_3?.ulbList?.length > 0 ? (
                 formData.section1_3.ulbList.map((item: any, index: number) => (
                   <div key={item.id || index}>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div>
                         <Label>City Name</Label>
-                        <Input value={item.cityName || ""} readOnly />
+                        <Input 
+                         value={item.cityName || ""}
+                         readOnly={!isEditable('1.3')}
+                         className={isEditable('1.3') ? 'bg-white' : 'bg-gray-50'} />
                       </div>
                       <div>
-                        <Label>ULB</Label>
-                        <Input value={item.ulb || ""} readOnly />
+                        <Label>ULB</Label> */}
+                        {/* <Input
+                         value={item.ulb || ""}  
+                         readOnly={!isEditable('1.3')}
+                         className={isEditable('1.3') ? 'bg-white' : 'bg-gray-50'}
+                         /> */}
+                        {/* {getDropdown(
+  dropdownValues.ulbList,
+  item.ulb || "",
+  (value) => {
+    setFormData((prev) => ({
+      ...prev,
+      section1_3: {
+        ...prev.section1_3,
+        ulbList: prev.section1_3.ulbList.map((ulbItem) =>
+          ulbItem.id === item.id ? { ...ulbItem, ulb: value } : ulbItem
+        ),
+      },
+    }));
+  },
+  "Select ULB",
+  isEditable('1.3') // Pass the editable state
+)} */
+/* }
                       </div>
                       <div>
                         <Label>Rating Date</Label>
@@ -849,12 +928,17 @@ const calculateAllocationPercentage = () => {
                                 })()
                               : ""
                           }
-                          readOnly
+                         readOnly={!isEditable('1.3')}
+                         className={isEditable('1.3') ? 'bg-white' : 'bg-gray-50'}
                         />
                       </div>
                       <div>
                         <Label>Rating</Label>
-                        <Input value={item.rating || ""} readOnly />
+                        <Input 
+                        value={item.rating || ""} 
+                        readOnly={!isEditable('1.3')}
+                        className={isEditable('1.3') ? 'bg-white' : 'bg-gray-50'} 
+                        />
                       </div>
                     </div>
                   </div>
@@ -863,8 +947,14 @@ const calculateAllocationPercentage = () => {
                 <div className="text-center text-muted-foreground py-4">
                   No ULB data available
                 </div>
-              )}
-            </div>
+              )} */}
+             {/* </div> */} 
+
+            <Section_1_3 
+              formData={{ section1_3: section13State }}
+              isEditable={isEditable}
+              setSectionState={setSection13State}
+            />
           </SectionCard>
         )}
 
@@ -887,40 +977,53 @@ const calculateAllocationPercentage = () => {
           >
             <div className="space-y-4">
               {/* ✅ Show Total ULBs at top */}
-              {formData?.section1_4?.totalULBs !== undefined && (
+              {/* {formData?.section1_4?.totalULBs !== undefined && (
                 <div className="max-w-xs">
                   <Label>Total Number of ULBs</Label>
                   <Input
                     type="number"
                     value={formData.section1_4.totalULBs || 0}
-                    readOnly
-                    className="bg-gray-50 cursor-not-allowed"
+                    readOnly={!isEditable('1.4')}
+                    className={isEditable('1.4') ? 'bg-white' : 'bg-gray-50'}
                   />
                 </div>
-              )}
+              )} */}
 
               {/* ✅ Bond List */}
-              {formData?.section1_4?.bondList?.length > 0 ? (
+              {/* {formData?.section1_4?.bondList?.length > 0 ? (
                 formData.section1_4.bondList.map((item: any, index: number) => (
                   <div key={item.id || index}>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div>
                         <Label>Bond Type</Label>
-                        <Input value={item.bondType || ""} readOnly />
+                        <Input 
+                        value={item.bondType || ""} 
+                        readOnly={!isEditable('1.4')}
+                        className={isEditable('1.4') ? 'bg-white' : 'bg-gray-50'} 
+                        />
                       </div>
                       <div>
                         <Label>City Name</Label>
-                        <Input value={item.cityName || ""} readOnly />
+                        <Input 
+                        value={item.cityName || ""}
+                        readOnly={!isEditable('1.4')}
+                        className={isEditable('1.4') ? 'bg-white' : 'bg-gray-50'}  
+                         />
                       </div>
                       <div>
                         <Label>Issuing Authority</Label>
-                        <Input value={item.issuingAuthority || ""} readOnly />
+                        <Input 
+                        value={item.issuingAuthority || ""} 
+                        readOnly={!isEditable('1.4')}
+                        className={isEditable('1.4') ? 'bg-white' : 'bg-gray-50'} 
+                         />
                       </div>
                       <div>
                         <Label>Value (INR)</Label>
                         <Input
                           value={item.value ? `₹ ${item.value} Crores` : ""}
-                          readOnly
+                          readOnly={!isEditable('1.4')}
+                        className={isEditable('1.4') ? 'bg-white' : 'bg-gray-50'} 
                         />
                       </div>
                     </div>
@@ -930,8 +1033,25 @@ const calculateAllocationPercentage = () => {
                 <div className="text-center text-muted-foreground py-4">
                   No bond data available
                 </div>
-              )}
+              )} */}
+
+
             </div>
+
+            <Section_1_4
+              formData={{ section1_4: { bondList: bondTypes.map((bondType, idx) => ({
+                bondType,
+                cityName: cityNames[idx],
+                issuingAuthority: issuingAuthorities[idx],
+                value: bondValues[idx],
+              })), totalULBs: totalULBs14 } }}
+              isEditable={isEditable}
+              setBondTypes={setBondTypes}
+              setCityNames={setCityNames}
+              setIssuingAuthorities={setIssuingAuthorities}
+              setBondValues={setBondValues}
+              setTotalULBs={setTotalULBs14}
+            />
           </SectionCard>
         )}
 
@@ -952,21 +1072,33 @@ const calculateAllocationPercentage = () => {
             subtitle="Annex 4: Provide link and funding details"
             className="mb-6"
           >
-            <div className="space-y-4">
+            {/* <div className="space-y-4">
               {formData?.section1_5?.map((item: any, index: number) => (
                 <div key={item.id || index} className="">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
                       <Label>Organisation Name</Label>
-                      <Input value={item.organisationName || ""} readOnly />
+                      <Input 
+                      value={item.organisationName || ""} 
+                      readOnly={!isEditable('1.5')}
+                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'} 
+                      />
                     </div>
                     <div>
                       <Label>Organization Type</Label>
-                      <Input value={item.organisationType || ""} readOnly />
+                      <Input 
+                      value={item.organisationType || ""} 
+                      readOnly={!isEditable('1.5')}
+                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'} 
+                      />
                     </div>
                     <div>
                       <Label>Year of Establishment</Label>
-                      <Input value={item.yearEstablished || ""} readOnly />
+                      <Input
+                       value={item.yearEstablished || ""} 
+                       readOnly={!isEditable('1.5')}
+                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'} 
+                       />
                     </div>
                     <div>
                       <Label>Total Funding (INR)</Label>
@@ -976,12 +1108,17 @@ const calculateAllocationPercentage = () => {
                             ? `₹ ${item.totalFunding} Crores`
                             : ""
                         }
-                        readOnly
+                        readOnly={!isEditable('1.5')}
+                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'}
                       />
                     </div>
                     <div className="">
                       <Label>Website Link</Label>
-                      <Input value={item.website || ""} readOnly />
+                      <Input 
+                      value={item.website || ""} 
+                      readOnly={!isEditable('1.5')}
+                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'}
+                       />
                     </div>
                   </div>
                 </div>
@@ -990,7 +1127,8 @@ const calculateAllocationPercentage = () => {
                   No financial intermediary data available
                 </div>
               )}
-            </div>
+            </div> */}
+            <Section_1_5 formData={formData} isEditable={isEditable} />
           </SectionCard>
         )}
       </div>

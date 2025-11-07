@@ -56,8 +56,8 @@ export const MENU_CONFIG = [
   //   icon: "ranking",
   // },
   {
-    label: "Create New Submission",
-    path: "/submissions",
+    label: "Data Submission",
+    path: ["/submissions", "/data-submission/review"],
     roles: [ROLES.NODAL_OFFICER],
     // ROLES.ADMIN, // Admin doesn't need data submission
     icon: "submission",
@@ -68,12 +68,12 @@ export const MENU_CONFIG = [
     icon: "submission",
     children: [
       {
-        label: "Create new Submission",
+        label: "Create Submission",
         path: "/submissions", 
       },
       {
         label: "Review Submission",
-        path: "/data-submission/review", // will navigate to http://localhost:8080/data-submission/review
+        path: "/data-submission/review", 
       },
     ],
   },

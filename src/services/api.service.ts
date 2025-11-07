@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { authService } from "./auth.service";
 import { notificationService } from "./notification.service";
@@ -113,7 +114,7 @@ class ApiService implements HttpClient {
             : response.data;
         }
 
-        return response.data;
+        return response;
       },
       async (error) => {
         // Handle 304 Not Modified as success, not error
@@ -2233,6 +2234,20 @@ class ApiService implements HttpClient {
     }
   }
 
+  // ✅ Fetch indicators available for a STATE_APPROVER
+async getAvailableIndicatorsForApprover(stateUt: string) {
+  try {
+    const response = await this.axios.get(
+      `/indicators/available-for-approver`,
+      { params: { stateUt} }
+    );
+    return response.data; // array of {id, code, name, category}
+  } catch (error) {
+    console.error("Failed to get available indicators for approver", error);
+    throw error;
+  }
+}
+
   async getAllIndicators(): Promise<any[]> {
     try {
       const response = await this.axios.get("/indicators");
@@ -2407,6 +2422,25 @@ class ApiService implements HttpClient {
     }
   }
 
+  async getStateIndicatorStatuses(): Promise<any> {
+  try {
+    const response = await this.axios.get("/indicators/state-statuses", {
+      headers: { Accept: "application/json" },
+    });
+
+    console.log(response.status);
+    // normalize like you do elsewhere
+    return response.data?.data !== undefined ? response.data.data : response.data;
+    // If your backend shape is { status: true, data: {...} }, return response.data is fine,
+    // since your calculator reads payload?.data?.submissions.
+  } catch (error: any) {
+    if (error.response?.status === 304) {
+      const cached = error.response?.data || {};
+      return cached?.data !== undefined ? cached.data : cached;
+    }
+    throw error;
+  }
+}
 
 
 }
