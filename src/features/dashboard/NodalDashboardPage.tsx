@@ -112,6 +112,7 @@ export function NodalDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [kpis, setKpis] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [totalSubmissions, setTotalSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -137,6 +138,7 @@ export function NodalDashboardPage() {
           pendingSubmissions: 0,
           underReview: 0,
           approved: 0,
+          sentBack: 0
         };
 
         if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
@@ -146,41 +148,56 @@ export function NodalDashboardPage() {
             pendingSubmissions: submissions.filter(s => s.status === "DRAFT").length,
             underReview: submissions.filter(s => s.status === "SUBMITTED_TO_STATE").length,
             approved: submissions.filter(s => s.status === "APPROVED").length,
+            sentBack: submissions.filter(s => s.status === "RETURNED_FROM_MOSPI").length,
           };
         }
 
+        const totalSubmissionsData = calculatedKPIs.totalSubmissions.toString() || kpiData?.mySubmissions?.toString() || "0";
+
         const kpisData = [
           {
-            title: "Total Submissions",
-            value: calculatedKPIs.totalSubmissions.toString() || kpiData?.mySubmissions?.toString() || "7",
-            subtitle: "This Month",
+            title: "Total Allocated Indicators",
+            value: totalSubmissionsData,
+            subtitle: "Critical Attention Needed",
             icon: FileText,
-            variant: "blue" as const,
+            variant: "red" as const,
           },
           {
             title: "Pending Submission",
-            value: calculatedKPIs.pendingSubmissions.toString() || "1",
+            value: (Number(calculatedKPIs.pendingSubmissions) || 0) + "/" + totalSubmissionsData,
             subtitle: `${calculatedKPIs.pendingSubmissions} drafts`,
             icon: Clock,
             variant: "orange" as const,
           },
           {
             title: "Under Review",
-            value: calculatedKPIs.underReview.toString() || kpiData?.pendingReview?.toString() || "6",
+            value: (
+              Number(calculatedKPIs.underReview) ||
+              Number(kpiData?.pendingReview) ||
+              0
+            ) + "/" + totalSubmissionsData,
             subtitle: "Average review time: 3 days",
             icon: Search,
             variant: "blue" as const,
           },
           {
             title: "Approved",
-            value: calculatedKPIs.approved.toString() || kpiData?.approved?.toString() || "0",
+            value: (Number(calculatedKPIs.approved) || Number(kpiData?.approved) || 0) + "/" + totalSubmissionsData,
             subtitle: "This fiscal year",
             icon: CheckCircle,
+            variant: "green" as const,
+          },
+          {
+            title: "Sent Back",
+            value: (Number(calculatedKPIs.sentBack) || Number(kpiData?.sentBack) || 0)+ "/" +totalSubmissionsData,
+            subtitle: "Need Revision",
+            icon: XCircle,
             variant: "green" as const,
           },
         ];
 
         setKpis(kpisData);
+        setTotalSubmissions(totalSubmissionsData);
 
         // Transform submissions data with fallback
         // Debug logging removed for performance
@@ -303,8 +320,37 @@ export function NodalDashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {kpis?.map((kpi, index) => (
+      <div className="space-y-6">
+  {/* Top Row (2 cards) */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    {kpis.slice(0, 2).map((kpi, index) => (
+      <NodalKpiCard
+        key={index}
+        title={kpi.title}
+        value={kpi.value}
+        subtitle={kpi.subtitle}
+        icon={kpi.icon}
+        variant={kpi.variant}
+      />
+    ))}
+  </div>
+   {/* Bottom Row (3 cards) */}
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    {kpis.slice(2, 5).map((kpi, index) => (
+      <NodalKpiCard
+        key={index + 2}
+        title={kpi.title}
+        value={kpi.value}
+        subtitle={kpi.subtitle}
+        icon={kpi.icon}
+        variant={kpi.variant}
+      />
+    ))}
+  </div>
+</div>
+
+      {/* <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {kpis?.map((kpi, index) => (<>
           <NodalKpiCard
             key={index}
             title={kpi.title}
@@ -313,8 +359,10 @@ export function NodalDashboardPage() {
             icon={kpi.icon}
             variant={kpi.variant}
           />
+
+          </>
         ))}
-      </div>
+      </div> */}
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
