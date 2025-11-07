@@ -2235,11 +2235,11 @@ class ApiService implements HttpClient {
   }
 
   // ✅ Fetch indicators available for a STATE_APPROVER
-async getAvailableIndicatorsForApprover(stateUt: string, approverUserId: string) {
+async getAvailableIndicatorsForApprover(stateUt: string) {
   try {
     const response = await this.axios.get(
       `/indicators/available-for-approver`,
-      { params: { stateUt, approverUserId } }
+      { params: { stateUt} }
     );
     return response.data; // array of {id, code, name, category}
   } catch (error) {
