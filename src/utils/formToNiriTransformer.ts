@@ -53,7 +53,7 @@ export function transformFormDataToNiriSubmission(
 
     // 1.3 - Credit Rated ULBs
     if (formData.infraFinancing.section1_3) {
-      const creditRatedULBs = formData.infraFinancing.section1_3.length;
+      const creditRatedULBs = formData.infraFinancing.section1_3.ulbList.length;
 
       submissionData.Infrastructure_Financing.push({
         indicator_id: "1.3",
@@ -61,7 +61,7 @@ export function transformFormDataToNiriSubmission(
         user_fill_value_a1: creditRatedULBs,
         user_fill_value_a2: null,
         details: {
-          planned_sectors: formData.infraFinancing.section1_3.map((ulb) => ({
+          planned_sectors: formData.infraFinancing.section1_3.ulbList.map((ulb) => ({
             sector: ulb.cityName,
             plan_year:
               new Date(ulb.ratingDate).getFullYear() ||
@@ -73,7 +73,7 @@ export function transformFormDataToNiriSubmission(
 
     // 1.4 - ULBs issuing Bonds
     if (formData.infraFinancing.section1_4) {
-      const ulbsIssuingBonds = formData.infraFinancing.section1_4.length;
+      const ulbsIssuingBonds = formData.infraFinancing.section1_4.bondList.length;
 
       submissionData.Infrastructure_Financing.push({
         indicator_id: "1.4",
@@ -81,7 +81,7 @@ export function transformFormDataToNiriSubmission(
         user_fill_value_a1: ulbsIssuingBonds,
         user_fill_value_a2: null,
         details: {
-          projects_submitted: formData.infraFinancing.section1_4.map(
+          projects_submitted: formData.infraFinancing.section1_4.bondList.map(
             (bond) => ({
               project_name: bond.cityName,
               fund_type: bond.bondType,

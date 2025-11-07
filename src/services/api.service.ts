@@ -14,6 +14,18 @@ import type {
   DashboardSummary,
 } from "@/types";
 
+
+// 🧑‍💻Review Section API Interfaces 
+export interface UpdateIndicatorField {
+  [key: string]: any;
+}
+export interface UpdateIndicatorPayload {
+  submissionId: string;
+  category: string;
+  section: string;
+  fields: UpdateIndicatorField[];
+}
+
 // NIRI API Types
 export interface NiriUser {
   id: string;
@@ -22,10 +34,10 @@ export interface NiriUser {
   lastName: string;
   contactNumber?: string;
   role:
-    | "NODAL_OFFICER"
-    | "STATE_APPROVER"
-    | "MOSPI_REVIEWER"
-    | "MOSPI_APPROVER";
+  | "NODAL_OFFICER"
+  | "STATE_APPROVER"
+  | "MOSPI_REVIEWER"
+  | "MOSPI_APPROVER";
   stateUt: string;
   createdAt: string;
   updatedAt: string;
@@ -81,7 +93,7 @@ class ApiService implements HttpClient {
         return config;
       },
       (error) => Promise.reject(error)
-    );
+    )
 
     // Response interceptor - handle errors and token refresh
     this.axios.interceptors.response.use(
@@ -458,39 +470,94 @@ class ApiService implements HttpClient {
     }
   }
 
-  // Submission methods
-  async createSubmission(submissionData: any): Promise<NiriSubmission> {
+  async postMultipart<T = any>(
+    url: string,
+    data: FormData,
+    config: AxiosRequestConfig = {}
+  ): Promise<T> {
+    // 🔍 Get stored token
+    const storedToken = localStorage.getItem("niri_app:auth_tokens");
+    let token: string | null = null;
+
     try {
-      console.log(
-        "🔍 API Service - Create Submission Request Data:",
-        submissionData
-      );
-      const response = await this.axios.post("/submission", submissionData);
-      console.log(
-        "🔍 API Service - Create Submission Response Status:",
-        response.status
-      );
-      console.log(
-        "🔍 API Service - Create Submission Response Data:",
-        response.data
-      );
-
-      // Handle response.data.data pattern
-      const submissionData_response =
-        response.data?.data !== undefined ? response.data.data : response.data;
-      console.log(
-        "🔍 API Service - Processed Create Submission Data:",
-        submissionData_response
-      );
-
-      return submissionData_response;
-    } catch (error: any) {
-      // Handle 304 as success
-      if (error.response?.status === 304) {
-        console.log("📋 Create Submission 304 - Using cached data");
-        const cachedData = error.response?.data || {};
-        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      if (storedToken) {
+        const parsed = JSON.parse(storedToken);
+        token = parsed?.value?.accessToken || parsed?.accessToken || null;
       }
+    } catch (error) {
+      console.error("❌ Failed to parse token from localStorage:", error);
+    }
+
+    if (!token) {
+      console.warn("⚠️ No access token found in localStorage!");
+    }
+
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    };
+
+    console.log("🚀 Sending multipart request:", { url, headers });
+
+    return axios.post(url, data, { headers, ...config });
+  }
+
+
+  async createSubmission(submissionData: any): Promise<any> {
+    try {
+      console.log("🧩 Building multipart FormData payload...");
+
+      const formData = new FormData();
+      formData.append("submission", JSON.stringify(submissionData));
+
+      const appendFiles = (obj: any, parentKey = "") => {
+        if (!obj || typeof obj !== "object") return;
+
+        Object.entries(obj).forEach(([key, value]) => {
+          const fullKey = parentKey ? `${parentKey}.${key}` : key;
+
+          // Case 1: Direct File
+          if (value instanceof File) {
+            formData.append(fullKey, value);
+          }
+
+          // Case 2: FileUpload object
+          else if (value && typeof value === "object" && "file" in value && value.file instanceof File) {
+            formData.append(fullKey, value.file);
+          }
+
+          // Case 3: Array of files
+          else if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+              if (item instanceof File) {
+                formData.append(`${fullKey}[${index}]`, item);
+              } else if (item && typeof item === "object" && "file" in item && item.file instanceof File) {
+                formData.append(`${fullKey}[${index}]`, item.file);
+              } else {
+                appendFiles(item, `${fullKey}[${index}]`);
+              }
+            });
+          }
+
+          // Case 4: Nested object
+          else if (typeof value === "object") {
+            appendFiles(value, fullKey);
+          }
+        });
+      };
+
+      appendFiles(submissionData);
+
+      const token = authService.getAuthHeaders()?.Authorization;
+
+      const response = await axios.post(`${config.apiBaseUrl}/submission`, formData, {
+        headers: { Authorization: token },
+      });
+
+      console.log("✅ Submission successful:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("❌ Submission error:", error);
       throw error;
     }
   }
@@ -899,7 +966,7 @@ class ApiService implements HttpClient {
     comment: string
   ): Promise<NiriSubmission> {
     try {
-      const response = await this.axios.post(`/submission/resubmit/${id}`, {
+      const response = await this.axios.post(`submission/resubmit/${id}`, {
         formData,
         comment,
       });
@@ -1364,8 +1431,8 @@ class ApiService implements HttpClient {
         console.error("❌ API Service - Error Response:", error.response.data);
         throw new Error(
           error.response.data?.message ||
-            error.response.data?.error ||
-            "Failed to deactivate users"
+          error.response.data?.error ||
+          "Failed to deactivate users"
         );
       }
       throw error;
@@ -2272,6 +2339,76 @@ class ApiService implements HttpClient {
       throw error;
     }
   }
+
+
+  /**
+   * Update indicator (generic handler used by components)
+   * payload: { submissionId, category, section, fields }
+   * token: optional auth token (falls back to localStorage if not provided)
+   */
+
+  async updateIndicator(payload: UpdateIndicatorPayload, token?: string) {
+    try {
+      // If caller provided a token, attach it directly in request headers.
+      // Otherwise let axios request interceptor (authService.getAuthHeaders()) attach auth headers.
+      const config: AxiosRequestConfig | undefined = token
+        ? {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
+          },
+        }
+        : undefined;
+
+      const response = await this.axios.post("/submission/update-indicator", payload, config);
+
+      // Follow existing pattern used across the service: prefer response.data.data when present.
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      // Handle 304 as success (consistent with other methods)
+      if (error.response?.status === 304) {
+        const cached = error.response?.data || {};
+        return cached?.data !== undefined ? cached.data : cached;
+      }
+      // Re-throw for centralized error handling in interceptors / callers
+      throw error;
+    }
+  }
+
+
+  /**
+   * Update indicator status (generic handler used by components)
+   * payload: { submissionId, category, section, accepted }
+   * token: optional auth token (falls back to localStorage if not provided)
+   */
+  async indicatorStatus(payload: { submissionId: string; category: string; section: string; status: boolean }, token?: string) {
+    try {
+      const config: AxiosRequestConfig | undefined = token
+        ? {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
+            },
+          }
+        : undefined;
+
+      const response = await this.axios.post("/submission/indicator-submission-status", payload, config);
+
+      // Follow existing pattern used across the service: prefer response.data.data when present.
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      // Handle 304 as success (consistent with other methods)
+      if (error.response?.status === 304) {
+        const cached = error.response?.data || {};
+        return cached?.data !== undefined ? cached.data : cached;
+      }
+      // Re-throw for centralized error handling in interceptors / callers
+      throw error;
+    }
+  }
+
+
+
 }
 
 export const apiService = new ApiService();

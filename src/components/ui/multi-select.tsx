@@ -219,7 +219,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
       {isOpen && (
         <div
           className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg overflow-hidden"
-          style={{ maxHeight }}
+          style={{ maxHeight: '400px' }}
         >
           {/* Search Input */}
           {showSearch && (

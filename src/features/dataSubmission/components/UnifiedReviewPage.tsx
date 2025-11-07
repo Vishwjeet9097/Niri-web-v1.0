@@ -214,38 +214,40 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
 
     const buttons = [];
 
+    // ############################################### EDIT Button Review Page ################
     // Edit button for NODAL_OFFICER and STATE_APPROVER
-    if ((currentUserRole === "NODAL_OFFICER" && (submissionStatus === "DRAFT" || submissionStatus === "RETURNED_FROM_STATE")) ||
-        (currentUserRole === "STATE_APPROVER" && (submissionStatus === "SUBMITTED_TO_STATE" || submissionStatus === "RETURNED_FROM_MOSPI"))) {
-      buttons.push(
-        <Button
-          key="edit"
-          variant="outline"
-          onClick={async () => {
-            try {
-    // Debug logging removed for performance
+    // if ((currentUserRole === "NODAL_OFFICER" && (submissionStatus === "DRAFT" || submissionStatus === "RETURNED_FROM_STATE")) ||
+    //     (currentUserRole === "STATE_APPROVER" && (submissionStatus === "SUBMITTED_TO_STATE" || submissionStatus === "RETURNED_FROM_MOSPI"))) {
+    //   buttons.push(
+    //     <Button
+    //       key="edit"
+    //       variant="outline"
+    //       onClick={async () => {
+    //         try {
+    // // Debug logging removed for performance
 
-              // Fetch fresh submission data from endpoint
-              const freshSubmissionData = await apiService.getSubmission(submission.id);
-    // Debug logging removed for performance
+    //           // Fetch fresh submission data from endpoint
+    //           const freshSubmissionData = await apiService.getSubmission(submission.id);
+    // // Debug logging removed for performance
 
-              // Store in localStorage for edit page
-              localStorage.setItem('editing_submission', JSON.stringify(freshSubmissionData));
+    //           // Store in localStorage for edit page
+    //           localStorage.setItem('editing_submission', JSON.stringify(freshSubmissionData));
               
-              // Navigate to edit page
-              navigate(`/data-submission/edit/${submission.id}`);
-            } catch (error) {
-              console.error("❌ Failed to load submission for edit:", error);
-              notificationService.error("Failed to load submission data", "Edit Error");
-            }
-          }}
-          className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-        >
-          <Edit3 className="w-4 h-4" />
-          Edit
-        </Button>
-      );
-    }
+    //           // Navigate to edit page
+    //           navigate(`/data-submission/edit/${submission.id}`);
+    //         } catch (error) {
+    //           console.error("❌ Failed to load submission for edit:", error);
+    //           notificationService.error("Failed to load submission data", "Edit Error");
+    //         }
+    //       }}
+    //       className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+    //     >
+    //       <Edit3 className="w-4 h-4" />
+    //       Edit
+    //     </Button>
+    //   );
+    // }
+    // ########################################################################Working functionality above for EDIT ###########################
 
     // Resubmit button for RETURNED_FROM_STATE status - HIDDEN as per requirement
     // User should use Edit button instead
@@ -266,35 +268,35 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
     // }
 
     // Send Back button
-    if ((currentUserRole === "STATE_APPROVER" && submissionStatus === "SUBMITTED_TO_STATE") ||
-        (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")) {
-      buttons.push(
-        <Button
-          key="send-back"
-          variant="outline"
-          onClick={() => setSendBackModalOpen(true)}
-          className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-        >
-          <Send className="w-4 h-4" />
-          Send Back
-        </Button>
-      );
-    }
+    // if ((currentUserRole === "STATE_APPROVER" && submissionStatus === "SUBMITTED_TO_STATE") ||
+    //     (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")) {
+    //   buttons.push(
+    //     <Button
+    //       key="send-back"
+    //       variant="outline"
+    //       onClick={() => setSendBackModalOpen(true)}
+    //       className="gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+    //     >
+    //       <Send className="w-4 h-4" />
+    //       Send Back
+    //     </Button>
+    //   );
+    // }
 
     // Approve button
-    if ((currentUserRole === "STATE_APPROVER" && (submissionStatus === "SUBMITTED_TO_STATE" || submissionStatus === "RETURNED_FROM_MOSPI")) ||
-        (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")) {
-      buttons.push(
-        <Button
-          key="approve"
-          onClick={() => setApproveModalOpen(true)}
-          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          <CheckCircle className="w-4 h-4" />
-          Approve
-        </Button>
-      );
-    }
+    // if ((currentUserRole === "STATE_APPROVER" && (submissionStatus === "SUBMITTED_TO_STATE" || submissionStatus === "RETURNED_FROM_MOSPI")) ||
+    //     (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")) {
+    //   buttons.push(
+    //     <Button
+    //       key="approve"
+    //       onClick={() => setApproveModalOpen(true)}
+    //       className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+    //     >
+    //       <CheckCircle className="w-4 h-4" />
+    //       Approve
+    //     </Button>
+    //   );
+    // }
 
     // Send to Approver button
     if (currentUserRole === "MOSPI_REVIEWER" && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {

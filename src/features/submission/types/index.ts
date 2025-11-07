@@ -40,27 +40,36 @@ export interface InfraFinancingData {
     percentage?: number;
     marksObtained?: number;
   };
-  section1_3: Array<{
-    id: string;
-    cityName: string;
-    ulb: string;
-    ratingDate: string;
-    rating: string;
-  }>;
-  section1_4: Array<{
-    id: string;
-    bondType: string;
-    cityName: string;
-    issuingAuthority: string;
-    value: string;
-  }>;
+  section1_3: {
+    totalULBs: number; //  A₂
+    ulbList: Array<{
+      // A₁
+      id: string;
+      cityName: string;
+      ulb: string;
+      ratingDate: string;
+      rating: string;
+    }>;
+  };
+  section1_4: {
+    totalULBs: number;
+    bondList: Array<{
+      id: string;
+      bondType: string;
+      cityName: string;
+      issuingAuthority: string;
+      value: string;
+    }>;
+  };
   section1_5: Array<{
     id: string;
+    hasIntermediary?: boolean;
     organisationName: string;
     organisationType: string;
     yearEstablished: string;
     totalFunding: string;
     website: string;
+    comment?: string;
   }>;
 }
 
@@ -115,9 +124,17 @@ export interface PPPDevelopmentData {
     marksObtained?: number;
   }>;
   section3_4: {
-    tpcOfPPPProjects: string; // A₁
-    totalTPC: string; // A₂
+    projects: Array<{
+      id: string;
+      nameOfProject: string; // Name of PPP/Bankable Projects
+      nipId: string; // NIP ID
+      fundingSource: string; // Funding Source (In case of bankable project)
+      infrastructureSector: string; // Infrastructure Sector
+      dateOfAward: string; // Date of Award
+      capexPercentage: string; // % of Capex funded by non-Govt sources
+    }>;
     // Calculation fields
+    tpcOfPPPProjects?: string; // A₁ - Calculated total from projects
     proportion?: number;
     marksObtained?: number;
   };

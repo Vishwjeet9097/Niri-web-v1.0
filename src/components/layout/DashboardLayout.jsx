@@ -1,5 +1,6 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import { getRoleDisplayName } from "@/utils/roles";
 import {
   LayoutDashboard,
@@ -33,13 +34,13 @@ export function DashboardLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
+  const [openDropdown, setOpenDropdown] = useState(null);
 
   const navigation = MENU_CONFIG.filter((item) =>
     item.roles.includes(user?.role)
   ).map((item) => ({
-    name: item.label,
-    href: item.path,
-    icon: ICONS[item.icon] || LayoutDashboard,
+    ...item, // keep label, path, children, roles
+    icon: ICONS[item.icon] ?? LayoutDashboard, // icon as a component
   }));
 
   const handleLogout = () => {
@@ -131,20 +132,90 @@ export function DashboardLayout() {
             <div className="flex-1 space-y-1 overflow-y-auto">
               {navigation.map((item) => {
                 const Icon = item.icon;
-                const active = isActive(item.href);
+                // use item.path (not item.href). Also handle Dashboard special path
+                let path = item.path;
+               
+
+                const active = isActive(path);
+
+                // If item has children -> render dropdown
+                if (item.children && item.children.length > 0) {
+                  // auto-open if current path matches any child
+                  const matchesChild = item.children.some((c) =>
+                    location.pathname.startsWith(c.path)
+                  );
+                  const isOpen = openDropdown === item.label || matchesChild;
+
+                  return (
+                    <div key={item.label} className="space-y-1">
+                      <button
+                        onClick={() =>
+                          setOpenDropdown(
+                            openDropdown === item.label ? null : item.label
+                          )
+                        }
+                        className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isOpen
+                            ? "bg-primary text-primary-foreground"
+                            : "text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span className="flex items-center gap-3">
+                          {item.icon && <item.icon className="h-5 w-5" />}
+                          {item.label}
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${
+                            isOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {isOpen && (
+                        <div className="ml-4 mt-1 flex flex-col space-y-1">
+                          {item.children.map((child) => {
+                            const childActive = isActive(child.path);
+                            return (
+                              <Link
+                                key={child.label}
+                                to={child.path}
+                                onClick={() => {
+                                  setSidebarOpen(false); // close mobile sidebar if open
+                                  setOpenDropdown(null); // collapse dropdown
+                                }}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
+                                  childActive
+                                    ? "bg-blue-50 text-blue-600"
+                                    : "text-foreground hover:bg-blue-50 hover:text-blue-600"
+                                }`}
+                              >
+                                {child.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                // default single link
                 return (
                   <Link
-                    key={item.name}
-                    to={item.href}
-                    onClick={() => setSidebarOpen(false)}
+                    key={item.label}
+                    to={path}
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      setOpenDropdown(null); // make sure any open dropdown is closed
+                    }}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       active
                         ? "bg-primary text-primary-foreground"
                         : "text-foreground hover:bg-muted"
                     }`}
                   >
-                    <Icon className="h-5 w-5" />
-                    {item.name}
+                    {item.icon && <item.icon className="h-5 w-5" />}
+                    {item.label}
                   </Link>
                 );
               })}

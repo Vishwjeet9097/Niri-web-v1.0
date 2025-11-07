@@ -263,19 +263,21 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                 No
               </label>
             </div>
-            <div className="flex flex-col gap-2">
-              <FileUploadSection
-                label="Upload File"
-                value={formData.section4_2.file}
-                onChange={(file) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_2: { ...prev.section4_2, file },
-                  }))
-                }
-              />
-              <p className="text-xs text-muted-foreground">Upload evidence</p>
-            </div>
+            {formData.section4_2.available === "yes" && (
+              <div className="flex flex-col gap-2">
+                <FileUploadSection
+                  label="Upload File"
+                  value={formData.section4_2.file}
+                  onChange={(file) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_2: { ...prev.section4_2, file },
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">Upload evidence</p>
+              </div>
+            )}
           </div>
         </SectionCard>
 
@@ -328,21 +330,23 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                 No
               </label>
             </div>
-            <div className="flex flex-col gap-2">
-              <FileUploadSection
-                label="Upload File"
-                value={formData.section4_3.file}
-                onChange={(file) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_3: { ...prev.section4_3, file },
-                  }))
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload GatiShakti evidence
-              </p>
-            </div>
+            {formData.section4_3.adopted === "yes" && (
+              <div className="flex flex-col gap-2">
+                <FileUploadSection
+                  label="Upload File"
+                  value={formData.section4_3.file}
+                  onChange={(file) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_3: { ...prev.section4_3, file },
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Upload GatiShakti evidence
+                </p>
+              </div>
+            )}
           </div>
         </SectionCard>
 
@@ -395,21 +399,23 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                 No
               </label>
             </div>
-            <div className="flex flex-col gap-2">
-              <FileUploadSection
-                label="Upload File"
-                value={formData.section4_4.file}
-                onChange={(file) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_4: { ...prev.section4_4, file },
-                  }))
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload ADR orders/notifications
-              </p>
-            </div>
+            {formData.section4_4.adopted === "yes" && (
+              <div className="flex flex-col gap-2">
+                <FileUploadSection
+                  label="Upload File"
+                  value={formData.section4_4.file}
+                  onChange={(file) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_4: { ...prev.section4_4, file },
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Upload ADR orders/notifications
+                </p>
+              </div>
+            )}
           </div>
         </SectionCard>
 
@@ -503,21 +509,23 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                 </Select>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <FileUploadSection
-                label="Upload File"
-                value={formData.section4_5.file}
-                onChange={(file) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_5: { ...prev.section4_5, file },
-                  }))
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Upload documentation of innovative practices
-              </p>
-            </div>
+            {formData.section4_5.implemented === "yes" && (
+              <div className="flex flex-col gap-2">
+                <FileUploadSection
+                  label="Upload File"
+                  value={formData.section4_5.file}
+                  onChange={(file) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_5: { ...prev.section4_5, file },
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Upload documentation of innovative practices
+                </p>
+              </div>
+            )}
           </div>
         </SectionCard>
 
