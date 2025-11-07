@@ -351,14 +351,14 @@ const handleFinalSubmit = async () => {
         })()} */}
 
         {user?.role === "STATE_APPROVER" && (
-  <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+  <div className="max-w-7xl mx-auto mb-6">
     <div className="mb-4 flex items-start justify-between gap-4">
-      <div>
+      {/* <div>
       <h2 className="text-xl font-semibold text-foreground mb-1">Progress Overview</h2>
       <p className="text-sm text-muted-foreground">
         Track the approval status of indicators for your state
       </p>
-      </div>
+      </div> */}
     </div>
 
     {progressLoading ? (
@@ -370,7 +370,7 @@ const handleFinalSubmit = async () => {
             ? "border-green-200 bg-green-50/50" 
             : "border-amber-200 bg-amber-50/50"
           }`}>
-          <div className="mb-4">
+          <div className="mb-6">
             <h2 className="text-xl font-semibold">Approved Indicator for FY 2025 - 2026</h2>
             <div className="flex items-center gap-2 text-sm mt-1">
               <span className={`font-medium ${stateProgress.percentage === 100 ? "text-green-600" : "text-amber-800"}`}>
@@ -406,7 +406,7 @@ const handleFinalSubmit = async () => {
             </Button>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-4 mt-4">
+        {/* <div className="grid grid-cols-3 gap-4 mt-4">
           <div className="bg-gray-50 rounded-lg p-4">
             <p className="text-2xl font-bold text-primary">{stateProgress.total}</p>
             <p className="text-sm text-muted-foreground">Total Indicators</p>
@@ -421,7 +421,7 @@ const handleFinalSubmit = async () => {
             </p>
             <p className="text-sm text-muted-foreground">Pending Review</p>
           </div>
-        </div>
+        </div> */}
       </div>
     ) : (
       <div className="text-sm text-muted-foreground">
