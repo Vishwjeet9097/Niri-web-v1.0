@@ -42,6 +42,16 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
  
   //State for edit button 
   const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+
+  // Type assertion for formDataState to avoid TypeScript errors
+  const state = formDataState as any;
+
+  // Sync formDataState when formData prop changes
+  useEffect(() => {
+    if (formData) {
+      setFormDataState((formData as any)?.infraDevelopment || formData);
+    }
+  }, [formData]);
   
   // Real-time update listener
   useEffect(() => {
@@ -83,9 +93,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     return () => {
       window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
     };
-  }, [submissionId]);// Check if this section has any data
-  const hasData = hasInfraDevelopmentData({ infraDevelopment: formDataState });
-  const sectionsWithData = getSectionsWithData({ infraDevelopment: formDataState }, 'infraDevelopment');
+  }, [submissionId]);
+  
+  // Check if this section has any data
+  const hasData = hasInfraDevelopmentData({ infraDevelopment: state });
+  const sectionsWithData = getSectionsWithData({ infraDevelopment: state }, 'infraDevelopment');
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -153,40 +165,45 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
       switch (sectionId) {
         case '2.1':
-          // section2_1 items: { sector, files[] }
-          fields = (formDataState?.section2_1 || []).map((item: any) => ({
+          // Use local state for section 2.1 data
+          console.log("Section_2_1 state", state?.section2_1)
+          fields = (state?.section2_1 || []).map((item: any) => ({
             sector: item?.sector ?? null,
             files: item?.files ?? []
           }));
           break;
 
         case '2.2':
-          // section2_2 items: { sector, files[] }
-          fields = (formDataState?.section2_2 || []).map((item: any) => ({
+          // Use local state for section 2.2 data
+          console.log("Section_2_2 state", state?.section2_2)
+          fields = (state?.section2_2 || []).map((item: any) => ({
             sector: item?.sector ?? null,
             files: item?.files ?? []
           }));
           break;
 
         case '2.3':
-          // section2_3 items: { sector, files[] }
-          fields = (formDataState?.section2_3 || []).map((item: any) => ({
+          // Use local state for section 2.3 data
+          console.log("Section_2_3 state", state?.section2_3)
+          fields = (state?.section2_3 || []).map((item: any) => ({
             sector: item?.sector ?? null,
             files: item?.files ?? []
           }));
           break;
 
         case '2.4':
-          // section2_4 items: { projectName, dprFile? }
-          fields = (formDataState?.section2_4 || []).map((item: any) => ({
+          // Use local state for section 2.4 data
+          console.log("Section_2_4 state", state?.section2_4)
+          fields = (state?.section2_4 || []).map((item: any) => ({
             projectName: item?.projectName ?? null,
             dprFile: item?.dprFile ?? null
           }));
           break;
 
         case '2.5':
-          // section2_5 table rows: { projectName, sector, type, ownership, estimatedMonetization }
-          fields = (formDataState?.section2_5 || []).map((item: any) => ({
+          // Use local state for section 2.5 data
+          console.log("Section_2_5 state", state?.section2_5)
+          fields = (state?.section2_5 || []).map((item: any) => ({
             projectName: item?.projectName ?? null,
             sector: item?.sector ?? null,
             type: item?.type ?? null,
@@ -368,12 +385,12 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     <>
       <div className="space-y-6">
         {(() => {
-          const sections = getSectionsWithData({ infraDevelopment: formDataState }, 'infraDevelopment');
+          const sections = getSectionsWithData({ infraDevelopment: state }, 'infraDevelopment');
           const assignedIndicators = STEP_SECTIONS.infraDevelopment
             .filter((s) => sections.includes(s.sectionKey))
             .map((s) => s.indicator);
           const { completed, total, progress } = computeStepProgress(
-            { infraDevelopment: formDataState } as any,
+            { infraDevelopment: state } as any,
             "infraDevelopment",
             { assignedIndicators }
           );
@@ -421,7 +438,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formDataState?.section2_1?.map((item: any, index: number) => (
+              {state?.section2_1?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -464,7 +481,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </tr>
                   </thead>
                   <tbody>
-                    {formDataState?.section2_1?.map((item: any, index: number) => (
+                    {state?.section2_1?.map((item: any, index: number) => (
                       <tr key={index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || 'N/A'}</td>
                         <td className="py-3 px-4 text-sm font-normal">
@@ -533,7 +550,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formDataState?.section2_2?.map((item: any, index: number) => (
+              {state?.section2_2?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -601,7 +618,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formDataState?.section2_3?.map((item: any, index: number) => (
+              {state?.section2_3?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -669,7 +686,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formDataState?.section2_4?.map((item: any, index: number) => (
+              {state?.section2_4?.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -750,7 +767,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </tr>
                   </thead>
                   <tbody>
-                    {formDataState?.section2_5?.map((item: any, index: number) => (
+                    {state?.section2_5?.map((item: any, index: number) => (
                       <tr key={item.id || index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
