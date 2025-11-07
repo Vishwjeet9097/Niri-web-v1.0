@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Upload, Plus, Clock } from "lucide-react";
+import { MessageSquare, Upload, Plus, Clock, RotateCcw, CheckCircle, X, Check, Edit3 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import {
@@ -21,6 +21,9 @@ import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 import { useEditableSectionStore } from '@/utils/EditableSection';
+import { handleSaveSection } from "@/utils/ReviewActionHandelers";
+import { EditableFileDisplay } from "../EditableFileDisplay";
+import type { FileUpload } from "@/types";
 
 interface InfraDevelopmentReviewProps {
   submissionId: string;
@@ -136,42 +139,222 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     return titles[sectionId] || sectionId;
   };
 
+// Changes by Harsh
+
+// ...existing code...
+
+  const onSaveSection = async (sectionId: string) => {
+    try {
+      // Map visual section id to payload section key (e.g. "2.1" -> "section2_1")
+      const payloadSection = `section${sectionId.replace('.', '_')}`;
+
+      // Use the local formData state (formDataState) to build fields for this section
+      let fields: Record<string, any>[] = [];
+
+      switch (sectionId) {
+        case '2.1':
+          // section2_1 items: { sector, files[] }
+          fields = (formDataState?.section2_1 || []).map((item: any) => ({
+            sector: item?.sector ?? null,
+            files: item?.files ?? []
+          }));
+          break;
+
+        case '2.2':
+          // section2_2 items: { sector, files[] }
+          fields = (formDataState?.section2_2 || []).map((item: any) => ({
+            sector: item?.sector ?? null,
+            files: item?.files ?? []
+          }));
+          break;
+
+        case '2.3':
+          // section2_3 items: { sector, files[] }
+          fields = (formDataState?.section2_3 || []).map((item: any) => ({
+            sector: item?.sector ?? null,
+            files: item?.files ?? []
+          }));
+          break;
+
+        case '2.4':
+          // section2_4 items: { projectName, dprFile? }
+          fields = (formDataState?.section2_4 || []).map((item: any) => ({
+            projectName: item?.projectName ?? null,
+            dprFile: item?.dprFile ?? null
+          }));
+          break;
+
+        case '2.5':
+          // section2_5 table rows: { projectName, sector, type, ownership, estimatedMonetization }
+          fields = (formDataState?.section2_5 || []).map((item: any) => ({
+            projectName: item?.projectName ?? null,
+            sector: item?.sector ?? null,
+            type: item?.type ?? null,
+            ownership: item?.ownership ?? null,
+            estimatedMonetization: item?.estimatedMonetization ?? null
+          }));
+          break;
+
+        default:
+          console.warn(`Unhandled section: ${sectionId}`);
+          return;
+      }
+
+      await handleSaveSection({
+        submissionId,
+        category: 'infraDevelopment', // updated category for this file
+        section: payloadSection,
+        fields
+      });
+
+      // Disable editing after successful save
+      setEditable(sectionId, false);
+    } catch (error) {
+      console.error('Error saving section:', error);
+    }
+  };
+
+  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+    const payload = {
+      submissionId,
+      category: 'infraDevelopment', // updated category for this file
+      section: `section${sectionId.replace('.', '_')}`,
+      status: status, // API expects `accepted` boolean
+    };
+    try {
+      await apiService.indicatorStatus(payload);
+      console.log("✅ Indicator status updated successfully");
+    } catch (error) {
+      console.error("❌ Failed to update indicator status:", error);
+    }
+  };
+
+  // Helper functions to handle file updates
+  const handleFilesUpdate = (sectionId: string, itemIndex: number, updatedFiles: FileUpload | FileUpload[] | null) => {
+    setFormDataState((prev: any) => {
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const sectionData = [...(prev?.[sectionKey] || [])];
+      
+      if (sectionData[itemIndex]) {
+        if (sectionId === '2.4') {
+          // Section 2.4 has single file (dprFile)
+          sectionData[itemIndex] = {
+            ...sectionData[itemIndex],
+            dprFile: updatedFiles ? (Array.isArray(updatedFiles) ? updatedFiles[0] : updatedFiles) : null
+          };
+        } else {
+          // Sections 2.1, 2.2, 2.3 have files array
+          sectionData[itemIndex] = {
+            ...sectionData[itemIndex],
+            files: Array.isArray(updatedFiles) ? updatedFiles : (updatedFiles ? [updatedFiles] : [])
+          };
+        }
+      }
+      
+      return {
+        ...prev,
+        [sectionKey]: sectionData
+      };
+    });
+  };
+
 
   const renderActionButtons = (sectionId: string) => {
-    // Don't show action buttons in preview mode
-    if (isPreview) {
-      return null;
-    }
-    
-    const comments = getComments(sectionId);
-    const commentCount = comments ? comments.length : 0;
-    // Debug logging removed for performance
+  // Don't show action buttons in preview mode
+  if (isPreview) {
+    return null;
+  }
 
-    return (
-      <div className="flex gap-2">
-        {!isPreview && (
-          <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenModal(sectionId)}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Add Comment
-        </Button>
-        )}
+  const comments = getComments(sectionId);
+  const commentCount = comments ? comments.length : 0;
+  // Debug logging removed for performance
+
+  // Old Code
+  // return (
+  //   <div className="flex gap-2">
+  //     <Button
+  //       variant="outline"
+  //       size="sm"
+  //       className="flex items-center gap-1"
+  //       onClick={() => handleOpenModal(sectionId)}
+  //     >
+  //       <MessageSquare className="w-4 h-4" />
+  //       Add Comment
+  //     </Button>
+  //     <Button
+  //       variant="outline"
+  //       size="sm"
+  //       className="flex items-center gap-1"
+  //       onClick={() => handleOpenTimeline(sectionId)}
+  //     >
+  //       <Clock className="w-4 h-4" />
+  //       Timeline ({commentCount})
+  //     </Button>
+  //   </div>
+  // );
+
+
+  return (
+    <div className="flex gap-2">
+      {!isEditable(sectionId) ? (
         <Button
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
-          onClick={() => handleOpenTimeline(sectionId)}
+          onClick={() => setEditable(sectionId, true)}
         >
-          <Clock className="w-4 h-4" />
-          Timeline ({commentCount})
+          <Edit3 className="w-4 h-4" />
+          Edit
         </Button>
-      </div>
-    );
-  };
+      ) : (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => onSaveSection(sectionId)}
+          >
+            <Check className="w-4 h-4" />
+            Save
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => setEditable(sectionId, false)}
+          >
+            <X className="w-4 h-4" />
+            Cancel
+          </Button>
+        </>
+      )}
+
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="flex items-center gap-1"
+        onClick={() => handleOpenTimeline(sectionId)}
+      >
+        <RotateCcw className="w-4 h-4" />
+        Send Back ({commentCount})
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+        onClick={() => onIndicatorStatus(sectionId, true)}
+      >
+        <CheckCircle className="w-4 h-4" />
+        Accept
+      </Button>
+      
+
+    </div>
+  );
+};
+
   // If no data, show message
   if (!hasData) {
     return (
@@ -239,29 +422,25 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           </CardHeader> */}
             <div className="space-y-4">
               {formDataState?.section2_1?.map((item: any, index: number) => (
-                <div key={item.id || index} className="">
+                <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
                       <Label>Sector</Label>
-                      <Input value={item.sector || ""} readOnly />
+                      <Input value={item.sector || ""} 
+                      readOnly={!isEditable('2.1')}
+                      className={isEditable('2.1') ? 'bg-white' : 'bg-gray-50'}
+                      />
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <Label>Uploaded Files</Label>
-                        {item.files && item.files.length > 0 ? (
-                          <div className="space-y-2">
-                            {item.files.map((file: any, fileIndex: number) => (
-                              <div key={fileIndex} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                                <Upload className="w-4 h-4" />
-                                <span className="text-sm">{file.fileName || "File"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No files uploaded</span>
-                        )}
-                      </div>
+                    <div>
+                      <EditableFileDisplay
+                        files={item.files || []}
+                        isEditable={isEditable('2.1')}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFiles) => handleFilesUpdate('2.1', index, updatedFiles)}
+                        label="Uploaded Files"
+                        multiple={true}
+                      />
                     </div>
                   </div>
                 </div>
@@ -359,25 +538,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                   <div className="space-y-4">
                     <div>
                       <Label>Sector</Label>
-                      <Input value={item.sector || ""} readOnly />
+                      <Input 
+                        value={item.sector || ""} 
+                        readOnly={!isEditable('2.2')}
+                        className={isEditable('2.2') ? 'bg-white' : 'bg-gray-50'}
+                      />
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <Label>Uploaded Files</Label>
-                        {item.files && item.files.length > 0 ? (
-                          <div className="space-y-2">
-                            {item.files.map((file: any, fileIndex: number) => (
-                              <div key={fileIndex} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                                <Upload className="w-4 h-4" />
-                                <span className="text-sm">{file.fileName || "File"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No files uploaded</span>
-                        )}
-                      </div>
+                    <div>
+                      <EditableFileDisplay
+                        files={item.files || []}
+                        isEditable={isEditable('2.2')}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFiles) => handleFilesUpdate('2.2', index, updatedFiles)}
+                        label="Uploaded Files"
+                        multiple={true}
+                      />
                     </div>
                   </div>
                 </div>
@@ -430,25 +606,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                   <div className="space-y-4">
                     <div>
                       <Label>Sector</Label>
-                      <Input value={item.sector || ""} readOnly />
+                      <Input 
+                        value={item.sector || ""} 
+                        readOnly={!isEditable('2.3')}
+                        className={isEditable('2.3') ? 'bg-white' : 'bg-gray-50'}
+                      />
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <Label>Uploaded Files</Label>
-                        {item.files && item.files.length > 0 ? (
-                          <div className="space-y-2">
-                            {item.files.map((file: any, fileIndex: number) => (
-                              <div key={fileIndex} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                                <Upload className="w-4 h-4" />
-                                <span className="text-sm">{file.fileName || "File"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No files uploaded</span>
-                        )}
-                      </div>
+                    <div>
+                      <EditableFileDisplay
+                        files={item.files || []}
+                        isEditable={isEditable('2.3')}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFiles) => handleFilesUpdate('2.3', index, updatedFiles)}
+                        label="Uploaded Files"
+                        multiple={true}
+                      />
                     </div>
                   </div>
                 </div>
@@ -501,21 +674,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                   <div className="space-y-4">
                     <div>
                       <Label>Project Name</Label>
-                      <Input value={item.projectName || ""} readOnly />
+                      <Input 
+                        value={item.projectName || ""} 
+                        readOnly={!isEditable('2.4')}
+                        className={isEditable('2.4') ? 'bg-white' : 'bg-gray-50'}
+                      />
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <Label>Upload DPR/Feasibility Report</Label>
-                        {item.dprFile ? (
-                          <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                            <Upload className="w-4 h-4" />
-                            <span className="text-sm">{item.dprFile.fileName || "DPR/Feasibility Report"}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No DPR/Feasibility Report uploaded</span>
-                        )}
-                      </div>
+                    <div>
+                      <EditableFileDisplay
+                        files={item.dprFile || null}
+                        isEditable={isEditable('2.4')}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFiles) => handleFilesUpdate('2.4', index, updatedFiles)}
+                        label="Upload DPR/Feasibility Report"
+                        multiple={false}
+                      />
                     </div>
                   </div>
                 </div>

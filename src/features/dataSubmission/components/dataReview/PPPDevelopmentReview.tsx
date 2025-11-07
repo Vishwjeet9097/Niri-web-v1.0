@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MessageSquare, Upload, Plus, Clock } from "lucide-react";
+import { MessageSquare, Upload, Plus, Clock, Edit3, Check, X, RotateCcw, CheckCircle } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,8 @@ import { hasPPPDevelopmentData, getSectionsWithData } from "@/utils/sectionDataV
 import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
+import { useEditableSectionStore } from '@/utils/EditableSection';
+
 
 interface PPPDevelopmentReviewProps {
   submissionId: string;
@@ -36,7 +38,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   const [submissionData, setSubmissionStateData] = useState(formData);
   const [submissionState, setSubmissionStateState] = useState(submission);
   const [formDataState, setFormDataStateState] = useState(formData);
-
+ const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
   
   // Real-time update listener
   useEffect(() => {
@@ -131,7 +133,33 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   };
 
 
-  const renderActionButtons = (sectionId: string) => {
+   const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+      const payload = {
+        submissionId,
+        category: 'infraFinancing',
+        section: `section${sectionId.replace('.', '_')}`,
+        status: status,
+      };
+      try {
+        await apiService.indicatorStatus(payload);
+        // Update local formData to trigger re-render of action buttons
+        const sectionKey = `section${sectionId.replace('.', '_')}`;
+        // Defensive: clone formData if possible
+        if (formData && formData[sectionKey]) {
+          formData[sectionKey] = {
+            ...formData[sectionKey],
+            status: status ? 'ACCEPTED' : formData[sectionKey].status,
+          };
+          // Force update by setting submissionData (or use a dedicated state if needed)
+          setSubmissionStateData({ ...formData });
+        }
+        console.log("✅ Indicator status updated successfully");
+      } catch (error) {
+        console.error("❌ Failed to update indicator status:", error);
+      }
+    }
+
+ const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
       return null;
@@ -139,29 +167,60 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
-    // Debug logging removed for performance
 
     return (
       <div className="flex gap-2">
-        {!isPreview && (
+        {!isEditable(sectionId) ? (
           <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenModal(sectionId)}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Add Comment
-        </Button>
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => setEditable(sectionId, true)}
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => onSaveSection(sectionId)}
+            >
+              <Check className="w-4 h-4" />
+              Save
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => setEditable(sectionId, false)}
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </Button>
+          </>
         )}
+
         <Button
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
           onClick={() => handleOpenTimeline(sectionId)}
         >
-          <Clock className="w-4 h-4" />
-          Timeline ({commentCount})
+          <RotateCcw className="w-4 h-4" />
+          Send Back ({commentCount})
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={() => onIndicatorStatus(sectionId, true)}
+        >
+          <CheckCircle className="w-4 h-4" />
+          Accept
         </Button>
       </div>
     );
