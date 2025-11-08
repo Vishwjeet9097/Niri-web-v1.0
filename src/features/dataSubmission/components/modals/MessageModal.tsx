@@ -22,6 +22,7 @@ interface MessageModalProps {
   sectionId: string;
   submissionId: string;
   existingMessage?: string;
+  onSendBack?: (sectionId: string) => Promise<void> | void;
 }
 
 export const MessageModal = ({
@@ -32,6 +33,7 @@ export const MessageModal = ({
   sectionId,
   submissionId,
   existingMessage = "",
+  onSendBack,
 }: MessageModalProps) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -136,6 +138,10 @@ export const MessageModal = ({
       });
       
       onSave(updatedSubmission);
+
+      if (onSendBack) {
+        await onSendBack(sectionId);
+      }
       
       // Close modal after a small delay to ensure form is cleared
       setTimeout(() => {

@@ -329,9 +329,6 @@ const sectionsWithData = useMemo(() => {
           updatedSubmission
         );
 
-        // Call indicatorStatus for send back
-        await onIndicatorStatus(activeSection, false);
-
         if (updatedSubmission) {
           setSubmissionData(updatedSubmission as unknown as FormData);
           console.log("✅ InfraFinancingReview - Form data updated");
@@ -507,7 +504,13 @@ const renderActionButtons = (sectionId: string) => {
   // Check if section status is ACCEPTED
   const sectionKey = `section${sectionId.replace('.', '_')}`;
   const sectionData = formData && formData[sectionKey];
-  if (sectionData && sectionData.status === 'ACCEPTED') {
+  const sectionStatus = sectionData
+    ? Array.isArray(sectionData)
+      ? (sectionData as any).status
+      : sectionData.status
+    : undefined;
+
+  if (sectionStatus === 'ACCEPTED') {
     return (
       <div className="flex gap-2">
         <Button
@@ -525,6 +528,21 @@ const renderActionButtons = (sectionId: string) => {
 
   const comments = getComments(sectionId);
   const commentCount = comments ? comments.length : 0;
+  if (sectionStatus === 'REVERTED') {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+          disabled
+        >
+          <RotateCcw className="w-4 h-4" />
+          Sent Back
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-2">
@@ -1151,6 +1169,7 @@ const calculateAllocationPercentage = () => {
       sectionId={activeSection || ""}
       submissionId={submissionId}
       existingMessage=""
+        onSendBack={(sectionId) => onIndicatorStatus(sectionId, false)}
     />
 
       <TimelineModal

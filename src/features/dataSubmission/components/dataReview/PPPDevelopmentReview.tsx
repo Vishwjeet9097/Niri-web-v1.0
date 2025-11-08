@@ -35,9 +35,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
-  const [submissionData, setSubmissionStateData] = useState(formData);
-  const [submissionState, setSubmissionStateState] = useState(submission);
-  const [formDataState, setFormDataStateState] = useState(formData);
+  const initialFormData =
+    formData && typeof formData === "object" && (formData as any)?.section3_1 !== undefined
+      ? formData
+      : (formData as any)?.pppDevelopment ?? formData;
+
+  const [submissionState, setSubmissionState] = useState(submission);
+  const [formDataState, setFormDataState] = useState(initialFormData);
  const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
   
   // Real-time update listener
@@ -64,7 +68,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             
             // Update form data with fresh data
             if (freshSubmission.formData) {
-              setFormDataState(freshSubmission.formData);
+              setFormDataState(
+                freshSubmission.formData.pppDevelopment ??
+                freshSubmission.formData
+              );
             }
             
             console.log("✅ Fresh submission data loaded:", freshSubmission);
@@ -81,8 +88,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
     };
   }, [submissionId]);// Check if this section has any data
-  const hasData = hasPPPDevelopmentData({ pppDevelopment: formData });
-  const sectionsWithData = getSectionsWithData({ pppDevelopment: formData }, 'pppDevelopment');
+  const hasData = hasPPPDevelopmentData({ pppDevelopment: formDataState });
+  const sectionsWithData = getSectionsWithData({ pppDevelopment: formDataState }, 'pppDevelopment');
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -101,13 +108,30 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   };
 
   const handleSaveMessage = async (message: string) => {
+    if (!message || typeof message !== "string") {
+      console.error("❌ PPPDevelopmentReview - Invalid message parameter:", message);
+      return;
+    }
+
     if (activeSection) {
       try {
+        console.log("🔄 PPPDevelopmentReview - Calling saveMessage with:", {
+          activeSection,
+          message,
+        });
         const updatedSubmission = await saveMessage(activeSection, message);
-        if (updatedSubmission) {
-          // Update form data with fresh API response
-          setSubmissionStateData(updatedSubmission);
-          
+        console.log("🔄 PPPDevelopmentReview - saveMessage response:", updatedSubmission);
+
+        if (updatedSubmission && typeof updatedSubmission === "object") {
+          setSubmissionState(updatedSubmission);
+          const updatedFormData =
+            (updatedSubmission as any)?.formData?.pppDevelopment ??
+            (updatedSubmission as any)?.formData ??
+            formDataState;
+          if (updatedFormData) {
+            setFormDataState(updatedFormData);
+          }
+
           // Force timeline refresh if modal is open for same section
           if (timelineSection === activeSection) {
             setTimelineSection(null);
@@ -117,8 +141,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           }
         }
       } catch (error) {
-        console.error("Error saving message:", error);
+        console.error("❌ PPPDevelopmentReview - Error saving message:", error);
       }
+    } else {
+      console.log("⚠️ PPPDevelopmentReview - No active section");
     }
   };
 
@@ -132,41 +158,89 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     return titles[sectionId] || sectionId;
   };
 
+  const onSaveSection = async (sectionId: string) => {
+    // TODO: Implement save logic for PPP sections when editable workflow is defined.
+    console.warn(`Save operation for section ${sectionId} is not implemented yet.`);
+    setEditable(sectionId, false);
+  };
 
-   const onIndicatorStatus = async (sectionId: string, status: boolean) => {
-      const payload = {
-        submissionId,
-        category: 'infraFinancing',
-        section: `section${sectionId.replace('.', '_')}`,
-        status: status,
-      };
-      try {
-        await apiService.indicatorStatus(payload);
-        // Update local formData to trigger re-render of action buttons
-        const sectionKey = `section${sectionId.replace('.', '_')}`;
-        // Defensive: clone formData if possible
-        if (formData && formData[sectionKey]) {
-          formData[sectionKey] = {
-            ...formData[sectionKey],
-            status: status ? 'ACCEPTED' : formData[sectionKey].status,
+
+  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+    const payload = {
+      submissionId,
+      category: 'pppDevelopment',
+      section: `section${sectionId.replace('.', '_')}`,
+      status,
+    };
+    try {
+      await apiService.indicatorStatus(payload);
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      setFormDataState((prev: any) => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        if (next && next[sectionKey]) {
+          next[sectionKey] = {
+            ...next[sectionKey],
+            status: status ? 'ACCEPTED' : 'REVERTED',
           };
-          // Force update by setting submissionData (or use a dedicated state if needed)
-          setSubmissionStateData({ ...formData });
         }
-        console.log("✅ Indicator status updated successfully");
-      } catch (error) {
-        console.error("❌ Failed to update indicator status:", error);
-      }
+        return next;
+      });
+      console.log("✅ Indicator status updated successfully");
+    } catch (error) {
+      console.error("❌ Failed to update indicator status:", error);
     }
+  };
 
  const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
       return null;
     }
+
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionData = formDataState
+      ? (formDataState as any)[sectionKey]
+      : undefined;
+    const sectionStatus = sectionData
+      ? Array.isArray(sectionData)
+        ? (sectionData as any).status
+        : sectionData.status
+      : undefined;
+
+    if (sectionStatus === 'ACCEPTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accepted
+          </Button>
+        </div>
+      );
+    }
     
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
+    if (sectionStatus === 'REVERTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Sent Back
+          </Button>
+        </div>
+      );
+    }
 
     return (
       <div className="flex gap-2">
@@ -207,11 +281,21 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
-          onClick={() => handleOpenTimeline(sectionId)}
+          onClick={() => handleOpenModal(sectionId)}
         >
           <RotateCcw className="w-4 h-4" />
-          Send Back ({commentCount})
+          Send Back
         </Button>
+
+        {/* <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
+        </Button> */}
 
         <Button
           variant="outline"
@@ -309,7 +393,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 {formDataState?.section3_1?.file ? (
                   <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                     <Upload className="w-4 h-4" />
-                    <span className="text-sm">{formData.section3_1.file.fileName || "Act/Policy document"}</span>
+                    <span className="text-sm">{formDataState?.section3_1?.file?.fileName || "Act/Policy document"}</span>
                     <span className="text-sm text-green-600">✓</span>
                   </div>
                 ) : (
@@ -377,7 +461,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                   {formDataState?.section3_2?.file ? (
                     <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                       <Upload className="w-4 h-4" />
-                      <span className="text-sm">{formData.section3_2.file.fileName || "PPP Cell document"}</span>
+                      <span className="text-sm">{formDataState?.section3_2?.file?.fileName || "PPP Cell document"}</span>
                       <span className="text-sm text-green-600">✓</span>
                     </div>
                   ) : (
@@ -567,6 +651,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         sectionId={activeSection || ""}
         submissionId={submissionId}
         existingMessage=""
+        onSendBack={(sectionId) => onIndicatorStatus(sectionId, false)}
       />
 
       <TimelineModal

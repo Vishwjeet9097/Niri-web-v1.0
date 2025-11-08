@@ -250,7 +250,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           if (Array.isArray(sectionData)) {
             // For array sections, add status property to the array (JavaScript allows this)
             const updatedArray = [...sectionData];
-            (updatedArray as any).status = status ? 'ACCEPTED' : (sectionData as any)?.status;
+            (updatedArray as any).status = status ? 'ACCEPTED' : 'REVERTED';
             return {
               ...prev,
               [sectionKey]: updatedArray,
@@ -261,7 +261,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
               ...prev,
               [sectionKey]: {
                 ...sectionData,
-                status: status ? 'ACCEPTED' : sectionData?.status,
+                status: status ? 'ACCEPTED' : 'REVERTED',
               },
             };
           }
@@ -317,7 +317,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const sectionStatus = Array.isArray(sectionData) 
     ? (sectionData as any)?.status 
     : sectionData?.status;
-  if (sectionData && sectionStatus === 'ACCEPTED') {
+  if (sectionStatus === 'ACCEPTED') {
     return (
       <div className="flex gap-2">
         <Button
@@ -335,32 +335,23 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
   const comments = getComments(sectionId);
   const commentCount = comments ? comments.length : 0;
+  if (sectionStatus === 'REVERTED') {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+          disabled
+        >
+          <RotateCcw className="w-4 h-4" />
+          Sent Back
+        </Button>
+      </div>
+    );
+  }
+
   // Debug logging removed for performance
-
-  // Old Code
-  // return (
-  //   <div className="flex gap-2">
-  //     <Button
-  //       variant="outline"
-  //       size="sm"
-  //       className="flex items-center gap-1"
-  //       onClick={() => handleOpenModal(sectionId)}
-  //     >
-  //       <MessageSquare className="w-4 h-4" />
-  //       Add Comment
-  //     </Button>
-  //     <Button
-  //       variant="outline"
-  //       size="sm"
-  //       className="flex items-center gap-1"
-  //       onClick={() => handleOpenTimeline(sectionId)}
-  //     >
-  //       <Clock className="w-4 h-4" />
-  //       Timeline ({commentCount})
-  //     </Button>
-  //   </div>
-  // );
-
 
   return (
     <div className="flex gap-2">
@@ -402,11 +393,21 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         variant="outline"
         size="sm"
         className="flex items-center gap-1"
-        onClick={() => handleOpenTimeline(sectionId)}
+        onClick={() => handleOpenModal(sectionId)}
       >
         <RotateCcw className="w-4 h-4" />
-        Send Back ({commentCount})
+        Send Back
       </Button>
+
+      {/* <Button
+        variant="outline"
+        size="sm"
+        className="flex items-center gap-1"
+        onClick={() => handleOpenTimeline(sectionId)}
+      >
+        <Clock className="w-4 h-4" />
+        Timeline ({commentCount})
+      </Button> */}
 
       <Button
         variant="outline"
@@ -849,6 +850,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         sectionId={activeSection || ""}
         submissionId={submissionId}
         existingMessage=""
+        onSendBack={(sectionId) => onIndicatorStatus(sectionId, false)}
       />
 
       <TimelineModal

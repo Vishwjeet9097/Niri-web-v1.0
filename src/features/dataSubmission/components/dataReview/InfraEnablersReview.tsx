@@ -268,7 +268,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           if (Array.isArray(sectionData)) {
             // For array sections, add status property to the array (JavaScript allows this)
             const updatedArray = [...sectionData];
-            (updatedArray as any).status = status ? 'ACCEPTED' : (sectionData as any)?.status;
+            (updatedArray as any).status = status ? 'ACCEPTED' : 'REVERTED';
             return {
               ...prev,
               [sectionKey]: updatedArray,
@@ -279,7 +279,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               ...prev,
               [sectionKey]: {
                 ...sectionData,
-                status: status ? 'ACCEPTED' : sectionData?.status,
+                status: status ? 'ACCEPTED' : 'REVERTED',
               },
             };
           }
@@ -348,7 +348,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const sectionStatus = Array.isArray(sectionData) 
       ? (sectionData as any)?.status 
       : sectionData?.status;
-    if (sectionData && sectionStatus === 'ACCEPTED') {
+    if (sectionStatus === 'ACCEPTED') {
       return (
         <div className="flex gap-2">
           <Button
@@ -366,6 +366,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
+    if (sectionStatus === 'REVERTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Sent Back
+          </Button>
+        </div>
+      );
+    }
 
     return (
       <div className="flex gap-2">
@@ -406,11 +421,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           variant="outline"
           size="sm"
           className="flex items-center gap-1"
-          onClick={() => handleOpenTimeline(sectionId)}
+          onClick={() => handleOpenModal(sectionId)}
         >
           <RotateCcw className="w-4 h-4" />
-          Send Back ({commentCount})
+          Send Back
         </Button>
+
+        {/* <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
+        </Button> */}
 
         <Button
           variant="outline"
@@ -998,6 +1023,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         sectionId={activeSection || ""}
         submissionId={submissionId}
         existingMessage=""
+        onSendBack={(sectionId) => onIndicatorStatus(sectionId, false)}
       />
 
       <TimelineModal
