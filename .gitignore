@@ -285,3 +285,7 @@ temp/
 *.sln
 *.sw?
 .env
+
+# Allow dashboard image to be tracked
+!public/images/
+!public/images/dashboard.png
