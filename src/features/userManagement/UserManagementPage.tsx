@@ -288,7 +288,7 @@ useEffect(() => {
     // Debug logging removed for performance
 
         // ✅ Final validation before API call
-        if (!selectedStateId || !selectedStateName || selectedStateName.trim() === "") {
+        if (!selectedStateId || !selectedStateName) {
           throw new Error("State is required but not provided");
         }
         

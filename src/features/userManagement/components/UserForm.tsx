@@ -430,9 +430,14 @@ export function UserForm({
     }
 
     // ✅ State validation for ADMIN only
-    if (user?.role === "ADMIN" && !formData.stateId) {
-      newErrors.stateId = "State is required";
-    }
+   
+
+    if (formData.role !== "MOSPI_APPROVER") {
+      if (user?.role === "ADMIN" && !formData.stateId) {
+        newErrors.stateId = "State is required";
+      } 
+   }
+
 
     // ✅ Indicator validation for NODAL_OFFICER
     if (
@@ -451,9 +456,12 @@ export function UserForm({
         newErrors.stateId = "Please select at least one state";
       }
     } else {
+
+      if (formData.role !== "MOSPI_APPROVER") {
       // Validate single state for other roles
       if (!formData.stateId || (Array.isArray(formData.stateId) && formData.stateId.length === 0)) {
         newErrors.stateId = "State is required";
+      }
       }
     }
   }
@@ -508,11 +516,17 @@ export function UserForm({
  
 
   // Get selected state name for display
-  const getSelectedStateName = () => {
+  const getSelectedStateName1 = () => {
     if (!formData.stateId) return "";
     const selectedState = states.find((state) => state.id === formData.stateId);
     return selectedState ? selectedState.name : formData.stateId; // Fallback to stateId if not found
   };
+const getSelectedStateName = () => {
+  if (!formData.stateId) return "";
+  const id = Array.isArray(formData.stateId) ? formData.stateId[0] : formData.stateId;
+  const state = states.find((s) => s.id === id);
+  return state ? state.name : id; // fallback to ID if name not found
+};
 
   
 const handleStateChange = (values: string | string[]) => {
