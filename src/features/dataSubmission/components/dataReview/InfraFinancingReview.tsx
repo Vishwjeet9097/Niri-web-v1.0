@@ -324,8 +324,10 @@ const sectionsWithData = useMemo(() => {
           updatedSubmission
         );
 
+        // Call indicatorStatus for send back
+        await onIndicatorStatus(activeSection, false);
+
         if (updatedSubmission) {
-          // Update form data with fresh API response
           setSubmissionData(updatedSubmission as unknown as FormData);
           console.log("✅ InfraFinancingReview - Form data updated");
 
@@ -406,15 +408,15 @@ const sectionsWithData = useMemo(() => {
 
         case '1.4':
           // Use local state for bond data
-          fields = [{
-            bondList: bondTypes.map((bondType, idx) => ({
+          fields = [
+           { bondList: bondTypes.map((bondType, idx) => ({
               bondType,
               cityName: cityNames[idx],
               issuingAuthority: issuingAuthorities[idx],
               value: bondValues[idx],
             })),
-            totalULBs: totalULBs14
-          }];
+            totalULBs: totalULBs14}
+          ];
           break;
 
         case '1.5':
@@ -471,9 +473,8 @@ const sectionsWithData = useMemo(() => {
       if (formData && formData[sectionKey]) {
         formData[sectionKey] = {
           ...formData[sectionKey],
-          status: status ? 'ACCEPTED' : formData[sectionKey].status,
+          status: status ? 'ACCEPTED' : 'REVERTED',
         };
-        // Force update by setting submissionData (or use a dedicated state if needed)
         setSubmissionData({ ...formData });
       }
       console.log("✅ Indicator status updated successfully");
@@ -551,10 +552,11 @@ const renderActionButtons = (sectionId: string) => {
         variant="outline"
         size="sm"
         className="flex items-center gap-1"
-        onClick={() => handleOpenTimeline(sectionId)}
+        onClick={() => handleOpenModal(sectionId)}
       >
         <RotateCcw className="w-4 h-4" />
-        Send Back ({commentCount})
+        Send Back 
+        {/* ({commentCount}) */}
       </Button>
 
       <Button

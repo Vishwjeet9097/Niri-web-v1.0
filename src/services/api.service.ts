@@ -2407,7 +2407,7 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
           }
         : undefined;
 
-      const response = await this.axios.post("/submission/indicator-submission-status", payload, config);
+      const response = await this.axios.post("/submission/  ", payload, config);
 
       // Follow existing pattern used across the service: prefer response.data.data when present.
       return response.data?.data !== undefined ? response.data.data : response.data;
