@@ -184,7 +184,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           console.log("Section_4_2 state", state?.section4_2)
           fields = [{
             available: state?.section4_2?.available ?? null,
-            file: state?.section4_2?.file ?? null
+            files: state?.section4_2?.files ?? null
           }];
           break;
 
@@ -203,7 +203,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           console.log("Section_4_4 state", state?.section4_4)
           fields = [{
             adopted: state?.section4_4?.adopted ?? null,
-            file: state?.section4_4?.file ?? null
+            files: state?.section4_4?.files ?? null,
+            marksObtained: state?.section4_4?.marksObtained ?? null,
           }];
           break;
 
@@ -220,14 +221,19 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
         case '4.6':
           // Use local state for section 4.6 data
-          console.log("Section_4_6 state", state?.section4_6)
-          fields = (state?.section4_6 || []).map((item: any) => ({
-            officerName: item?.officerName ?? null,
-            designation: item?.designation ?? null,
-            programName: item?.programName ?? null,
-            trainingType: item?.trainingType ?? null,
-            organiser: item?.organiser ?? null
-          }));
+          console.log("Section_4_6 state", state?.section4_6);
+          fields = [
+            {
+              capacityArray: (state?.section4_6?.capacityArray || []).map((item: any) => ({
+                officerName: item?.officerName ?? null,
+                designation: item?.designation ?? null,
+                programName: item?.programName ?? null,
+                trainingType: item?.trainingType ?? null,
+                organiser: item?.organiser ?? null,
+                marksObtained: item?.marksObtained ?? null,
+              })),
+            },
+          ];
           break;
 
         default:
@@ -293,17 +299,56 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Helper functions to handle file updates
-  const handleFileUpdate = (sectionId: string, updatedFile: FileUpload | null) => {
-    setFormDataState((prev: any) => {
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
-      return {
-        ...prev,
-        [sectionKey]: {
-          ...prev?.[sectionKey],
-          file: updatedFile
-        }
-      };
-    });
+  const handleFileUpdate = async (sectionId: string, updatedValue: FileUpload | FileUpload[] | null) => {
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const previousSection = state?.[sectionKey] || {};
+    const targetKey = ['4.2', '4.4'].includes(sectionId) ? 'files' : 'file';
+    const normalizedValue =
+      targetKey === 'files'
+        ? updatedValue == null
+          ? []
+          : Array.isArray(updatedValue)
+          ? updatedValue
+          : [updatedValue]
+        : updatedValue;
+    const updatedSection = {
+      ...previousSection,
+      [targetKey]: normalizedValue,
+    };
+
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: updatedSection,
+    }));
+
+    if (['4.2', '4.4'].includes(sectionId)) {
+      try {
+        const fields =
+          sectionId === '4.2'
+            ? [
+                {
+                  available: updatedSection?.available ?? null,
+                  files: updatedSection?.files ?? [],
+                },
+              ]
+            : [
+                {
+                  adopted: updatedSection?.adopted ?? null,
+                  files: updatedSection?.files ?? [],
+                  marksObtained: updatedSection?.marksObtained ?? null,
+                },
+              ];
+
+        await handleSaveSection({
+          submissionId,
+          category: 'infraEnablers',
+          section: sectionKey,
+          fields,
+        });
+      } catch (error) {
+        console.error('Failed to auto-save files for section', sectionId, error);
+      }
+    }
   };
 
   // Helper functions to handle field updates
@@ -323,13 +368,17 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Helper to update table row items for section 4.6
   const handleTableFieldUpdate = (rowIndex: number, fieldName: string, value: any) => {
     setFormDataState((prev: any) => {
-      const rows = Array.isArray(prev?.section4_6) ? [...prev.section4_6] : [];
+      const current = prev?.section4_6?.capacityArray;
+      const rows = Array.isArray(current) ? [...current] : [];
       const currentRow = { ...(rows[rowIndex] || {}) };
       currentRow[fieldName] = value;
       rows[rowIndex] = currentRow;
       return {
         ...prev,
-        section4_6: rows,
+        section4_6: {
+          ...(prev?.section4_6 || {}),
+          capacityArray: rows,
+        },
       };
     });
   };
@@ -560,7 +609,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   files={formDataState?.section4_1?.file || null}
                   isEditable={isEditable('4.1')}
                   submissionId={submissionId}
-                  onFilesChange={(updatedFile) => handleFileUpdate('4.1', updatedFile as FileUpload | null)}
+                  onFilesChange={(updatedFile) => handleFileUpdate('4.1', updatedFile)}
                   label="Uploaded File"
                   multiple={false}
                 />
@@ -622,10 +671,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             {(state?.section4_2?.available === "yes") && (
               <div>
                 <EditableFileDisplay
-                  files={state?.section4_2?.file || null}
+                  files={state?.section4_2?.files || null}
                   isEditable={isEditable('4.2')}
                   submissionId={submissionId}
-                  onFilesChange={(updatedFile) => handleFileUpdate('4.2', updatedFile as FileUpload | null)}
+                  onFilesChange={(updatedFile) => handleFileUpdate('4.2', updatedFile)}
                   label="Uploaded File"
                   multiple={false}
                 />
@@ -717,7 +766,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 files={state?.section4_3?.file || null}
                 isEditable={isEditable('4.3')}
                 submissionId={submissionId}
-                onFilesChange={(updatedFile) => handleFileUpdate('4.3', updatedFile as FileUpload | null)}
+                onFilesChange={(updatedFile) => handleFileUpdate('4.3', updatedFile)}
                 label="Uploaded File"
                 multiple={false}
               />
@@ -775,16 +824,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               )}
             </div>
 
-            <div>
-              <EditableFileDisplay
-                files={state?.section4_4?.file || null}
-                isEditable={isEditable('4.4')}
-                submissionId={submissionId}
-                onFilesChange={(updatedFile) => handleFileUpdate('4.4', updatedFile as FileUpload | null)}
-                label="Uploaded File"
-                multiple={false}
-              />
-            </div>
+            {state?.section4_4?.adopted === "yes" && (
+              <div>
+                <EditableFileDisplay
+                  files={state?.section4_4?.files || null}
+                  isEditable={isEditable('4.4')}
+                  submissionId={submissionId}
+                  onFilesChange={(updatedFile) => handleFileUpdate('4.4', updatedFile)}
+                  label="Uploaded File"
+                  multiple={false}
+                />
+              </div>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Upload ADR orders/notification
@@ -881,7 +932,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                       files={state.section4_5.file || null}
                       isEditable={isEditable('4.5')}
                       submissionId={submissionId}
-                      onFilesChange={(updatedFile) => handleFileUpdate('4.5', updatedFile as FileUpload | null)}
+                      onFilesChange={(updatedFile) => handleFileUpdate('4.5', updatedFile)}
                       label="Uploaded File"
                       multiple={false}
                     />
@@ -929,7 +980,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           className="mb-6"
         >
           <CardContent className="pt-6 space-y-3">
-            {Array.isArray(state?.section4_6) && state.section4_6.length > 0 ? (
+            {Array.isArray(state?.section4_6?.capacityArray) && state.section4_6.capacityArray.length > 0 ? (
               <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -943,7 +994,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {state.section4_6.map((item: any, index: number) => (
+                    {state.section4_6.capacityArray.map((item: any, index: number) => (
                       <TableRow key={item.id || index}>
                         <TableCell className="font-medium">
                           {isEditable('4.6') ? (

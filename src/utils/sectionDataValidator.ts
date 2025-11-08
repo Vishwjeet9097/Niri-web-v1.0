@@ -76,7 +76,7 @@ export const hasInfraEnablersData = (formData: any): boolean => {
 
       case "section4_2":
         return (
-          hasMeaningfulValue(section.available) || hasFileData(section.file)
+          hasMeaningfulValue(section.available) || hasFileData(section.files)
         );
 
       case "section4_3":
@@ -101,7 +101,7 @@ export const hasInfraEnablersData = (formData: any): boolean => {
         );
 
       case "section4_6":
-        return hasArrayData(section);
+        return hasArrayData(section?.capacityArray);
 
       default:
         return false;
@@ -394,7 +394,7 @@ const hasSectionData = (
           );
         case "section4_4":
           return (
-            hasFileData(section.file) ||
+            hasFileData(section.files) ||
             hasMeaningfulValue(section.adopted) ||
             hasMeaningfulValue(section.marksObtained)
           );
@@ -406,7 +406,7 @@ const hasSectionData = (
             hasMeaningfulValue(section.practiceName)
           );
         case "section4_6":
-          return hasArrayData(section);
+          return hasArrayData(section?.capacityArray);
         default:
           return false;
       }
