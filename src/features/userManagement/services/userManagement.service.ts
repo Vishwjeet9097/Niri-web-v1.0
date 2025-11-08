@@ -12,6 +12,7 @@ export interface NodalOfficer {
   assignedIndicators?: string[]; // Added for multiple indicator assignment
   isActive?: boolean; // Added for API compatibility
   createdAt: number;
+  stateUt?: string; // Added for state/UT distinction
 }
 
 const STORAGE_KEY = "niri_nodal_officers";
