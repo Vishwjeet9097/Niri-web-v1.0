@@ -53,7 +53,16 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   //State for edit button 
   const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
 
-  
+  // Type assertion for formDataState to avoid TypeScript errors
+  const state = formDataState as any;
+
+  // Sync formDataState when formData prop changes
+  useEffect(() => {
+    if (formData) {
+      setFormDataState((formData as any)?.infraEnablers || formData);
+    }
+  }, [formData]);
+
   // Real-time update listener
   useEffect(() => {
     const handleCommentUpdate = async (event: CustomEvent) => {
@@ -94,9 +103,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     return () => {
       window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
     };
-  }, [submissionId]);// Check if this section has any data
-  const hasData = hasInfraEnablersData({ infraEnablers: formDataState });
-  const sectionsWithData = getSectionsWithData({ infraEnablers: formDataState }, 'infraEnablers');
+  }, [submissionId]);  // Check if this section has any data
+  const hasData = hasInfraEnablersData({ infraEnablers: state });
+  const sectionsWithData = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -161,52 +170,58 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
       switch (sectionId) {
         case '4.1':
-          // section4_1: { allEligible, websiteLink, file? }
+          // Use local state for section 4.1 data
+          console.log("Section_4_1 state", state?.section4_1)
           fields = [{
-            allEligible: formDataState?.section4_1?.allEligible ?? null,
-            websiteLink: formDataState?.section4_1?.websiteLink ?? null,
-            file: formDataState?.section4_1?.file ?? null
+            allEligible: state?.section4_1?.allEligible ?? null,
+            websiteLink: state?.section4_1?.websiteLink ?? null,
+            file: state?.section4_1?.file ?? null
           }];
           break;
 
         case '4.2':
-          // section4_2: { available, file? }
+          // Use local state for section 4.2 data
+          console.log("Section_4_2 state", state?.section4_2)
           fields = [{
-            available: formDataState?.section4_2?.available ?? null,
-            file: formDataState?.section4_2?.file ?? null
+            available: state?.section4_2?.available ?? null,
+            file: state?.section4_2?.file ?? null
           }];
           break;
 
         case '4.3':
-          // section4_3: { numberOfProjects, adopted, file? }
+          // Use local state for section 4.3 data
+          console.log("Section_4_3 state", state?.section4_3)
           fields = [{
-            numberOfProjects: formDataState?.section4_3?.numberOfProjects ?? null,
-            adopted: formDataState?.section4_3?.adopted ?? null,
-            file: formDataState?.section4_3?.file ?? null
+            numberOfProjects: state?.section4_3?.numberOfProjects ?? null,
+            adopted: state?.section4_3?.adopted ?? null,
+            file: state?.section4_3?.file ?? null
           }];
           break;
 
         case '4.4':
-          // section4_4: { adopted, file? }
+          // Use local state for section 4.4 data
+          console.log("Section_4_4 state", state?.section4_4)
           fields = [{
-            adopted: formDataState?.section4_4?.adopted ?? null,
-            file: formDataState?.section4_4?.file ?? null
+            adopted: state?.section4_4?.adopted ?? null,
+            file: state?.section4_4?.file ?? null
           }];
           break;
 
         case '4.5':
-          // section4_5: { practiceName, impact, implemented, file? }
+          // Use local state for section 4.5 data
+          console.log("Section_4_5 state", state?.section4_5)
           fields = [{
-            practiceName: formDataState?.section4_5?.practiceName ?? null,
-            impact: formDataState?.section4_5?.impact ?? null,
-            implemented: formDataState?.section4_5?.implemented ?? null,
-            file: formDataState?.section4_5?.file ?? null
+            practiceName: state?.section4_5?.practiceName ?? null,
+            impact: state?.section4_5?.impact ?? null,
+            implemented: state?.section4_5?.implemented ?? null,
+            file: state?.section4_5?.file ?? null
           }];
           break;
 
         case '4.6':
-          // section4_6: array of { officerName, designation, programName, trainingType, organiser }
-          fields = (formDataState?.section4_6 || []).map((item: any) => ({
+          // Use local state for section 4.6 data
+          console.log("Section_4_6 state", state?.section4_6)
+          fields = (state?.section4_6 || []).map((item: any) => ({
             officerName: item?.officerName ?? null,
             designation: item?.designation ?? null,
             programName: item?.programName ?? null,
@@ -243,6 +258,34 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     };
     try {
       await apiService.indicatorStatus(payload);
+      // Update local formData to trigger re-render of action buttons
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      // Defensive: update formDataState if section exists
+      if (formDataState && (formDataState as any)[sectionKey] !== undefined) {
+        setFormDataState((prev: any) => {
+          const sectionData = prev?.[sectionKey];
+          // Handle both array and object sections
+          if (Array.isArray(sectionData)) {
+            // For array sections, add status property to the array (JavaScript allows this)
+            const updatedArray = [...sectionData];
+            (updatedArray as any).status = status ? 'ACCEPTED' : (sectionData as any)?.status;
+            return {
+              ...prev,
+              [sectionKey]: updatedArray,
+            };
+          } else if (sectionData && typeof sectionData === 'object') {
+            // For object sections, add/update status property
+            return {
+              ...prev,
+              [sectionKey]: {
+                ...sectionData,
+                status: status ? 'ACCEPTED' : sectionData?.status,
+              },
+            };
+          }
+          return prev;
+        });
+      }
       console.log("✅ Indicator status updated successfully");
     } catch (error) {
       console.error("❌ Failed to update indicator status:", error);
@@ -296,6 +339,29 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // Don't show action buttons in preview mode
     if (isPreview) {
       return null;
+    }
+
+    // Check if section status is ACCEPTED
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionData = state && state[sectionKey];
+    // Handle both array and object sections
+    const sectionStatus = Array.isArray(sectionData) 
+      ? (sectionData as any)?.status 
+      : sectionData?.status;
+    if (sectionData && sectionStatus === 'ACCEPTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accepted
+          </Button>
+        </div>
+      );
     }
     
     const comments = getComments(sectionId);
@@ -371,12 +437,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     <>
       <div className="space-y-6">
         {(() => {
-          const sections = getSectionsWithData({ infraEnablers: formDataState }, 'infraEnablers');
+          const sections = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
           const assignedIndicators = STEP_SECTIONS.infraEnablers
             .filter((s) => sections.includes(s.sectionKey))
             .map((s) => s.indicator);
           const { completed, total, progress } = computeStepProgress(
-            { infraEnablers: formDataState } as any,
+            { infraEnablers: state } as any,
             "infraEnablers",
             { assignedIndicators }
           );
@@ -428,7 +494,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <Label className="mb-3 block">All Eligible Infra Projects on NIP Portal?*</Label>
               {isEditable('4.1') ? (
                 <RadioGroup
-                  value={formDataState?.section4_1?.allEligible || ""}
+                  value={state?.section4_1?.allEligible || ""}
                   onValueChange={(value) => handleFieldUpdate('4.1', 'allEligible', value)}
                   className="flex flex-row gap-6"
                 >
@@ -443,11 +509,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_1?.allEligible === "yes"
+                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_1?.allEligible === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                     }`}>
-                    {formDataState?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
+                    {state?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
@@ -456,7 +522,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <div>
               <Label>Website Link</Label>
               <Input 
-                value={formDataState?.section4_1?.websiteLink || ""} 
+                value={state?.section4_1?.websiteLink || ""} 
                 readOnly={!isEditable('4.1')}
                 className={isEditable('4.1') ? 'bg-white' : 'bg-gray-50'}
                 onChange={(e) => handleFieldUpdate('4.1', 'websiteLink', e.target.value)}
@@ -503,7 +569,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
               {isEditable('4.2') ? (
                 <RadioGroup
-                  value={formDataState?.section4_2?.available || ""}
+                  value={state?.section4_2?.available || ""}
                   onValueChange={(value) => handleFieldUpdate('4.2', 'available', value)}
                   className="flex flex-row gap-6"
                 >
@@ -518,20 +584,20 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_2?.available === "yes"
+                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_2?.available === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                     }`}>
-                    {formDataState?.section4_2?.available === "yes" ? "Yes" : "No"}
+                    {state?.section4_2?.available === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
             </div>
 
-            {(formDataState?.section4_2?.available === "yes") && (
+            {(state?.section4_2?.available === "yes") && (
               <div>
                 <EditableFileDisplay
-                  files={formDataState?.section4_2?.file || null}
+                  files={state?.section4_2?.file || null}
                   isEditable={isEditable('4.2')}
                   submissionId={submissionId}
                   onFilesChange={(updatedFile) => handleFileUpdate('4.2', updatedFile as FileUpload | null)}
@@ -585,7 +651,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <div>
               <Label className="mb-3 block">A₁ - Number of Projects*</Label>
               <Input 
-                value={formDataState?.section4_3?.numberOfProjects || ""} 
+                value={state?.section4_3?.numberOfProjects || ""} 
                 readOnly={!isEditable('4.3')}
                 className={`w-[200px] ${isEditable('4.3') ? 'bg-white' : 'bg-gray-50'}`}
                 onChange={(e) => handleFieldUpdate('4.3', 'numberOfProjects', e.target.value)}
@@ -596,7 +662,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <Label className="mb-3 block">Adoption of PM GatiShakti?*</Label>
               {isEditable('4.3') ? (
                 <RadioGroup
-                  value={formDataState?.section4_3?.adopted || ""}
+                  value={state?.section4_3?.adopted || ""}
                   onValueChange={(value) => handleFieldUpdate('4.3', 'adopted', value)}
                   className="flex flex-row gap-6"
                 >
@@ -611,11 +677,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_3?.adopted === "yes"
+                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_3?.adopted === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                     }`}>
-                    {formDataState?.section4_3?.adopted === "yes" ? "Yes" : "No"}
+                    {state?.section4_3?.adopted === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
@@ -623,7 +689,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
             <div>
               <EditableFileDisplay
-                files={formDataState?.section4_3?.file || null}
+                files={state?.section4_3?.file || null}
                 isEditable={isEditable('4.3')}
                 submissionId={submissionId}
                 onFilesChange={(updatedFile) => handleFileUpdate('4.3', updatedFile as FileUpload | null)}
@@ -659,7 +725,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <Label className="mb-3 block">Adoption of Alternate Dispute Resolution (ADR)?*</Label>
               {isEditable('4.4') ? (
                 <RadioGroup
-                  value={formDataState?.section4_4?.adopted || ""}
+                  value={state?.section4_4?.adopted || ""}
                   onValueChange={(value) => handleFieldUpdate('4.4', 'adopted', value)}
                   className="flex flex-row gap-6"
                 >
@@ -674,11 +740,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section4_4?.adopted === "yes"
+                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_4?.adopted === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                     }`}>
-                    {formDataState?.section4_4?.adopted === "yes" ? "Yes" : "No"}
+                    {state?.section4_4?.adopted === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
@@ -686,7 +752,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
             <div>
               <EditableFileDisplay
-                files={formDataState?.section4_4?.file || null}
+                files={state?.section4_4?.file || null}
                 isEditable={isEditable('4.4')}
                 submissionId={submissionId}
                 onFilesChange={(updatedFile) => handleFileUpdate('4.4', updatedFile as FileUpload | null)}
@@ -734,14 +800,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             </div>
           </CardHeader> */}
           <div className="space-y-4">
-            {formDataState?.section4_5 ? (
+            {state?.section4_5 ? (
               <div className="">
                 <div className="space-y-4 w-[70%]">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Practice Name</Label>
                       <Input 
-                        value={formDataState.section4_5.practiceName || ""} 
+                        value={state.section4_5.practiceName || ""} 
                         readOnly={!isEditable('4.5')}
                         className={isEditable('4.5') ? 'bg-white' : 'bg-gray-50'}
                         onChange={(e) => handleFieldUpdate('4.5', 'practiceName', e.target.value)}
@@ -750,7 +816,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     <div>
                       <Label>Impact</Label>
                       <Input 
-                        value={formDataState.section4_5.impact || ""} 
+                        value={state.section4_5.impact || ""} 
                         readOnly={!isEditable('4.5')}
                         className={isEditable('4.5') ? 'bg-white' : 'bg-gray-50'}
                         onChange={(e) => handleFieldUpdate('4.5', 'impact', e.target.value)}
@@ -761,7 +827,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     <Label>Implemented</Label>
                     {isEditable('4.5') ? (
                       <RadioGroup
-                        value={formDataState.section4_5.implemented || ""}
+                        value={state.section4_5.implemented || ""}
                         onValueChange={(value) => handleFieldUpdate('4.5', 'implemented', value)}
                         className="flex flex-row gap-6"
                       >
@@ -776,18 +842,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                       </RadioGroup>
                     ) : (
                       <div className="flex items-center space-x-2">
-                        <span className={`px-3 py-1 rounded-full text-sm ${formDataState.section4_5.implemented === "yes"
+                        <span className={`px-3 py-1 rounded-full text-sm ${state.section4_5.implemented === "yes"
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                           }`}>
-                          {formDataState.section4_5.implemented === "yes" ? "Yes" : "No"}
+                          {state.section4_5.implemented === "yes" ? "Yes" : "No"}
                         </span>
                       </div>
                     )}
                   </div>
                   <div>
                     <EditableFileDisplay
-                      files={formDataState.section4_5.file || null}
+                      files={state.section4_5.file || null}
                       isEditable={isEditable('4.5')}
                       submissionId={submissionId}
                       onFilesChange={(updatedFile) => handleFileUpdate('4.5', updatedFile as FileUpload | null)}
@@ -838,7 +904,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           className="mb-6"
         >
           <CardContent className="pt-6 space-y-3">
-            {Array.isArray(formDataState?.section4_6) && formDataState.section4_6.length > 0 ? (
+            {Array.isArray(state?.section4_6) && state.section4_6.length > 0 ? (
               <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -852,7 +918,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {formDataState.section4_6.map((item: any, index: number) => (
+                    {state.section4_6.map((item: any, index: number) => (
                       <TableRow key={item.id || index}>
                         <TableCell className="font-medium">
                           {isEditable('4.6') ? (

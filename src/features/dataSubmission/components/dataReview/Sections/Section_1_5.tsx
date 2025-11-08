@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
@@ -6,19 +5,19 @@ import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 interface Section1_5Props {
   formData: any;
   isEditable: (sectionId: string) => boolean;
+  setSectionState?: (state: any[]) => void;
 }
 
-export const Section_1_5 = ({ formData, isEditable }: Section1_5Props) => {
-  const [orgList, setOrgList] = useState<any[]>(formData?.section1_5 || []);
+export const Section_1_5 = ({ formData, isEditable, setSectionState }: Section1_5Props) => {
+  const orgList = formData?.section1_5 || [];
 
-  useEffect(() => {
-    setOrgList(formData?.section1_5 || []);
-  }, [formData]);
-
+  // Update parent state on change
   const handleOrgChange = (index: number, field: string, value: any) => {
     const updatedList = [...orgList];
     updatedList[index] = { ...updatedList[index], [field]: value };
-    setOrgList(updatedList);
+    if (setSectionState) {
+      setSectionState(updatedList);
+    }
   };
 
   return (

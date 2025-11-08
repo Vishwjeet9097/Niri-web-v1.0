@@ -1216,6 +1216,17 @@ class ApiService implements HttpClient {
     }
   }
 
+  // ✅ Fetch dashboard data for State Approver
+async getStateApproverDashboard(): Promise<any> {
+  try {
+    const response = await this.get("/dashboard/state-approver");
+    return response?.data || response;
+  } catch (error: any) {
+    console.error("Failed to fetch State Approver Dashboard:", error);
+    throw error.response?.data || error;
+  }
+}
+
   // User management methods
   async getAllUsers(): Promise<NiriUser[]> {
     try {

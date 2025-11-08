@@ -26,25 +26,31 @@ import {
   ArrowLeft,
   RotateCcw,
   Filter,
+  User,
+  FileCheck2,
+  ClipboardList,
 } from "lucide-react";
-import { hasMospiApproverComment, isReturnedFromMospi } from "@/utils/auditUtils";
+import {
+  hasMospiApproverComment,
+  isReturnedFromMospi,
+} from "@/utils/auditUtils";
 
-// Helper function to map backend status to frontend status
+// Helper function to map backend status to frontend status (kept for compatibility)
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
   const statusMap: Record<string, string> = {
-    "DRAFT": "DRAFT",
-    "SUBMITTED_TO_STATE": "SUBMITTED_TO_STATE",
-    "APPROVED": "APPROVED",
-    "REJECTED": "REJECTED",
-    "SUBMITTED_TO_MOSPI": "SUBMITTED_TO_MOSPI",
-    "MOSPI_APPROVED": "MOSPI_APPROVED",
-    "MOSPI_REJECTED": "MOSPI_REJECTED",
-    "RETURNED_FROM_MOSPI": "RETURNED_FROM_MOSPI",
+    DRAFT: "DRAFT",
+    SUBMITTED_TO_STATE: "SUBMITTED_TO_STATE",
+    APPROVED: "APPROVED",
+    REJECTED: "REJECTED",
+    SUBMITTED_TO_MOSPI: "SUBMITTED_TO_MOSPI",
+    MOSPI_APPROVED: "MOSPI_APPROVED",
+    MOSPI_REJECTED: "MOSPI_REJECTED",
+    RETURNED_FROM_MOSPI: "RETURNED_FROM_MOSPI",
     // Legacy mappings
-    "draft": "DRAFT",
-    "under_review": "SUBMITTED_TO_STATE",
-    "approved": "APPROVED",
-    "need_revision": "REJECTED",
+    draft: "DRAFT",
+    under_review: "SUBMITTED_TO_STATE",
+    approved: "APPROVED",
+    need_revision: "REJECTED",
   };
 
   return statusMap[backendStatus] || backendStatus;
@@ -57,180 +63,169 @@ export function StateApproverDashboardPage() {
   const [kpis, setKpis] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalAssignedState, setTotalAssignedState] = useState<number>(0);
+  const [totalIndicatorsReceivedState, setTotalIndicatorsReceivedState] =
+    useState<number>(0);
 
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        // Fetch role-specific KPIs and submissions for State Approver
-        const [kpiData, submittedToStateData] = await Promise.all([
-          apiService.getRoleKPIs("STATE_APPROVER"),
-          apiService.getSubmissions(1, 100)
+
+        // Fetch dashboard numbers and submissions concurrently
+        const [dashboardData, submittedToStateData] = await Promise.all([
+          apiService.getStateApproverDashboard(),
+          apiService.getSubmissions(1, 100),
         ]);
 
-        // Use submissions data directly
-        const submissionsData = submittedToStateData;
+        // Dashboard structure: prefer top-level keys, else fallback to .data
+        const nodal = dashboardData?.nodal || dashboardData?.data?.nodal || {};
+        const mospi = dashboardData?.mospi || dashboardData?.data?.mospi || {};
 
-        // Transform KPIs data with fallback
-        // Debug logging removed for performance
-
-        // Debug logging removed for performance
-
-        // Debug logging removed for performance
-
-        console.log("🔍 State Approver - All Submissions:", submissionsData?.submissions?.map(s => ({
-          id: s.id,
-          submissionId: s.submissionId,
-          hasReviewComments: !!s.reviewComments,
-          reviewCommentsLength: s.reviewComments?.length || 0,
-          reviewComments: s.reviewComments
-        })));
-
-        // Calculate KPIs from submissions data if available
-        let calculatedKPIs = {
-          totalSubmissions: 0,
-          pendingReview: 0,
-          approved: 0,
-          rejected: 0,
-          overdue: 0,
-          sentBack: 0,
-          returnedFromMospi: 0,
-          averageReviewTime: 0,
-        };
-
-        if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
-          const submissions = submissionsData.submissions;
-          calculatedKPIs = {
-            totalSubmissions: submissions.length,
-            pendingReview: submissions.filter(s => s.status === "SUBMITTED_TO_STATE").length,
-            approved: submissions.filter(s => s.status === "APPROVED").length,
-            rejected: submissions.filter(s => s.status === "REJECTED").length,
-            overdue: submissions.filter(s => {
-              const submittedDate = new Date(s.createdAt);
-              const currentDate = new Date();
-              const timeDifference = currentDate.getTime() - submittedDate.getTime();
-              const pendingDays = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
-              return pendingDays > 7;
-            }).length,
-            sentBack: submissions.filter(s => s.status === "RETURNED_FROM_MOSPI").length,
-            returnedFromMospi: submissions.filter(s => isReturnedFromMospi(s)).length,
-            averageReviewTime: kpiData?.averageReviewTime || 0,
-          };
+        // Normalize submissions response
+        let submissionsArray: any[] = [];
+        if (Array.isArray(submittedToStateData)) {
+          submissionsArray = submittedToStateData;
+        } else if (
+          submittedToStateData?.submissions &&
+          Array.isArray(submittedToStateData.submissions)
+        ) {
+          submissionsArray = submittedToStateData.submissions;
+        } else if (
+          submittedToStateData?.data &&
+          Array.isArray(submittedToStateData.data)
+        ) {
+          submissionsArray = submittedToStateData.data;
         }
 
-        setKpis([
+        // --------------------------
+        // KPI variables (required)
+        // --------------------------
+        const totalAssigned = nodal.totalAssigned ?? 0;
+        const totalIndicatorsReceived =
+          nodal.totalIndicatorsReceived ?? totalAssigned;
+        const pendingSubmission =
+          nodal.pendingSubmission ??
+          Math.max(totalIndicatorsReceived - (nodal.acceptedFromNodal ?? 0), 0);
+        const acceptedFromNodal = nodal.acceptedFromNodal ?? 0;
+        const returnedToNodal = nodal.returnedToNodal ?? 0;
+
+        setTotalAssignedState(totalAssigned);
+        setTotalIndicatorsReceivedState(totalIndicatorsReceived);
+        const mospiSubmittedCount = mospi.submittedToMoSPI ?? 0;
+        const mospiApprovedCount = mospi.approvedByMoSPI ?? 0;
+        const mospiReturnedCount = mospi.returnedFromMoSPI ?? 0;
+
+        // Optional: if you still want to derive some counts from submissions as fallback:
+        // const mospiSubmittedFromSubmissions = submissionsArray.filter(s => mapBackendStatusToFrontend(s.status) === "SUBMITTED_TO_MOSPI").length;
+
+        // Build a lightweight KPIs model for display components
+        const assembledKpis = [
           {
-            title: "Total Submissions",
-            value: calculatedKPIs.totalSubmissions.toString() || "8",
-            subtitle: "This Month",
-            icon: FileText,
-            variant: "blue" as const,
+            title: "Total Assigned",
+            value: String(totalAssigned),
+            subtitle: "Critical Attention Needed",
+            icon: User,
+            variant: "blue",
           },
-          // {
-          //   title: "Overdue",
-          //   value: calculatedKPIs.overdue.toString() || "1",
-          //   subtitle: "Critical Attention Needed",
-          //   icon: AlertTriangle,
-          //   variant: "red" as const,
-          // },
           {
             title: "Pending Submission",
-            value: calculatedKPIs.pendingReview.toString() || kpiData?.pendingReview?.toString() || "6",
+            value: String(pendingSubmission),
             subtitle: "Awaiting your review",
-            icon: Clock,
-            variant: "orange" as const,
+            icon: ClipboardList,
+            variant: "orange",
           },
+
+          // Indicators received group
           {
-            title: "Approved",
-            value: calculatedKPIs.approved.toString() || kpiData?.approved?.toString() || "0",
+            title: "Accepted From Nodal Officer",
+            value: `${acceptedFromNodal}/${Math.max(1, totalAssigned)}`,
             subtitle: "This fiscal year",
             icon: CheckCircle,
-            variant: "green" as const,
+            variant: "green",
           },
-          // {
-          //   title: "Sent Back to Nodal Officer",
-          //   value: calculatedKPIs.sentBack.toString() || "2",
-          //   subtitle: "Need Revision",
-          //   icon: ArrowLeft,
-          //   variant: "yellow" as const,
-          // },
           {
-            title: "Returned back from MoSPI",
-            value: calculatedKPIs.sentBack.toString() || "4",
+            title: "Returned to Nodal Officer",
+            value: `${returnedToNodal}/${Math.max(1, totalAssigned)}`,
+            subtitle: "Need Revision",
+            icon: ArrowLeft,
+            variant: "yellow",
+          },
+
+          // MoSPI group
+          {
+            title: "Submitted to MoSPI",
+            value: String(mospiSubmittedCount),
+            subtitle:
+              "Average review time: " +
+              (dashboardData?.averageReviewTime ??
+                dashboardData?.data?.averageReviewTime ??
+                "3") +
+              " days",
+            icon: FileText,
+            variant: "orange",
+          },
+          {
+            title: "Approved by MoSPI",
+            value: String(mospiApprovedCount),
+            subtitle: "This fiscal year",
+            icon: CheckCircle,
+            variant: "green",
+          },
+          {
+            title: "Returned from MoSPI",
+            value: String(mospiReturnedCount),
             subtitle: "Need Revision",
             icon: RotateCcw,
-            variant: "purple" as const,
+            variant: "red",
           },
-          {
-            title: "Average Review Time",
-            value: calculatedKPIs.averageReviewTime.toString() || kpiData?.averageReviewTime?.toString() || "0",
-            subtitle: "Days",
-            icon: Search,
-            variant: "blue" as const,
-          },
-          {
-            title: "Success Rate",
-            value: (calculatedKPIs.pendingReview + calculatedKPIs.approved + calculatedKPIs.rejected) > 0
-              ? Math.round((calculatedKPIs.approved / (calculatedKPIs.pendingReview + calculatedKPIs.approved + calculatedKPIs.rejected)) * 100).toString() + "%"
-              : "0%",
-            subtitle: "Approval Rate",
-            icon: TrendingUp,
-            variant: "green" as const,
-          },
-        ]);
+        ];
 
-        // Transform submissions data with fallback
-        // Debug logging removed for performance
+        setKpis(assembledKpis);
 
-        // Handle different response structures
-        let submissionsArray = [];
-        if (Array.isArray(submissionsData)) {
-          submissionsArray = submissionsData;
-        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
-          submissionsArray = submissionsData.submissions;
-        } else if (submissionsData?.data && Array.isArray(submissionsData.data)) {
-          submissionsArray = submissionsData.data;
-        }
+        // Prepare submissions list for the unified cards
+        setSubmissions(
+          submissionsArray.map((sub: any) => {
+            const formDataKeys = Object.keys(sub.formData || {});
+            const progress =
+              formDataKeys.length > 0
+                ? Math.min(100, (formDataKeys.length / 10) * 100)
+                : 0;
+            const submittedDate = new Date(sub.createdAt);
+            const currentDate = new Date();
+            const timeDifference =
+              currentDate.getTime() - submittedDate.getTime();
+            const pendingDays = Math.max(
+              0,
+              Math.floor(timeDifference / (1000 * 60 * 60 * 24))
+            );
 
-        // Using actual API data only
+            const submittedByName = sub.user
+              ? `${sub.user.firstName || ""} ${
+                  sub.user.lastName || ""
+                }`.trim() || "Unknown"
+              : "Unknown";
 
-        setSubmissions(submissionsArray.map((sub: any) => {
-          // Calculate progress based on formData completeness
-          const formDataKeys = Object.keys(sub.formData || {});
-          const progress = formDataKeys.length > 0 ? Math.min(100, (formDataKeys.length / 10) * 100) : 0;
-
-          // Calculate pending days based on submitted date and current date
-          const submittedDate = new Date(sub.createdAt);
-          const currentDate = new Date();
-
-          // Calculate difference in days
-          const timeDifference = currentDate.getTime() - submittedDate.getTime();
-          const pendingDays = Math.max(0, Math.floor(timeDifference / (1000 * 60 * 60 * 24)));
-
-          // Determine if overdue (more than 7 days)
-          const isOverdue = pendingDays > 7;
-
-          // Debug log for submittedBy
-          const submittedByName = sub.user ? `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
-          // Debug logging removed for performance
-
-          return {
-            id: sub.id,
-            title: sub.submissionId || `Submission ${sub.id}`,
-            status: sub.status || sub.submissionId || `SUB-${sub.id.slice(-6)}`, // Use actual status field
-            submittedBy: submittedByName,
-            submissionDate: new Date(sub.createdAt).toLocaleDateString(),
-            deadline: sub.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-            category: "Infrastructure",
-            progress: Math.round(progress),
-            documents: sub.attachedFiles?.length || 0,
-            pendingDays: pendingDays,
-            completionPercent: Math.round(progress),
-            // Add submission data for MOSPI_APPROVER comment check
-            submission: sub,
-          };
-        }));
-
+            return {
+              id: sub.id,
+              title: sub.submissionId || `Submission ${sub.id}`,
+              status: mapBackendStatusToFrontend(sub.status || ""),
+              submittedBy: submittedByName,
+              submissionDate: new Date(sub.createdAt).toLocaleDateString(),
+              deadline:
+                sub.dueDate ||
+                new Date(
+                  Date.now() + 7 * 24 * 60 * 60 * 1000
+                ).toLocaleDateString(),
+              category: "Infrastructure",
+              progress: Math.round(progress),
+              documents: sub.attachedFiles?.length || 0,
+              pendingDays: pendingDays,
+              completionPercent: Math.round(progress),
+              submission: sub,
+            };
+          })
+        );
       } catch (error: any) {
         console.error("Failed to load state approver dashboard data:", error);
         notificationService.error(
@@ -238,7 +233,6 @@ export function StateApproverDashboardPage() {
           "Dashboard Error"
         );
 
-        // Set empty state instead of dummy data
         setKpis([]);
         setSubmissions([]);
         setLoading(false);
@@ -262,16 +256,25 @@ export function StateApproverDashboardPage() {
     );
   }
 
+  // Derive specific cards from kpis state (we assembled them in the effect)
+  const overviewCards = kpis.slice(0, 2);
+  const indicatorsReceivedCards = kpis.slice(2, 4);
+  const mospiCards = kpis.slice(4, 7);
+
   // Filter submissions based on status filter and search query
   const filteredSubmissions = submissions.filter((submission) => {
-    // Status filter
-    const statusMatch = statusFilter === "all" || submission.status === statusFilter;
+    const statusMatch =
+      statusFilter === "all" || submission.status === statusFilter;
 
-    // Search filter
-    const searchMatch = !searchQuery ||
+    const searchMatch =
+      !searchQuery ||
       submission.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.submittedBy?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.submissionId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      submission.submittedBy
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      submission.submissionId
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       submission.stateUt?.toLowerCase().includes(searchQuery.toLowerCase());
 
     return statusMatch && searchMatch;
@@ -281,39 +284,97 @@ export function StateApproverDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-[#fff] p-6 rounded-lg relative">
-        <h1 className="text-xl font-semibold text-[#1E40AF]">State Approver Dashboard</h1>
+        <h1 className="text-xl font-semibold text-[#1E40AF]">
+          State Approver Dashboard
+        </h1>
         <p className="text-[#212121]">
           Review and approve infrastructure data submissions from nodal officers
         </p>
-        <img src="/images/dashboard.png" alt="Dashboard" className="absolute right-6 top-0"/>
+        <img
+          src="/images/dashboard.png"
+          alt="Dashboard"
+          className="absolute right-6 top-0"
+        />
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
-        {kpis?.map((kpi, index) => (
-          <StateApproverKPICard
-            key={index}
-            title={kpi.title}
-            value={kpi.value}
-            subtitle={kpi.subtitle}
-            icon={kpi.icon}
-            variant={kpi.variant}
-          />
-        ))}
+      {/* Page Background */}
+      <div className="space-y-6 bg-[#F9FAFB] p-6 rounded-lg">
+        {/* --- Overview + Total Indicators Received Section (Side-by-Side) --- */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* --- Overview Section --- */}
+          <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-[#111827]">Overview</h2>
+            <div className="grid gap-4 grid-cols-1">
+              {overviewCards.map((c: any, i: number) => (
+                <StateApproverKPICard
+                  key={`overview-${i}`}
+                  title={c.title}
+                  value={c.value}
+                  subtitle={c.subtitle}
+                  icon={c.icon}
+                  variant={c.variant}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* --- Total Indicators Received Section --- */}
+          <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Total Indicators Received:&nbsp;
+                <span className="text-black">
+                  {totalIndicatorsReceivedState}/{totalAssignedState || 0}
+                </span>
+              </h2>
+            </div>
+
+            <div className="grid gap-4 grid-cols-1">
+              {indicatorsReceivedCards.map((c: any, i: number) => (
+                <StateApproverKPICard
+                  key={`ind-${i}`}
+                  title={c.title}
+                  value={c.value}
+                  subtitle={c.subtitle}
+                  icon={c.icon}
+                  variant={c.variant}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* --- MoSPI Section (Full width below) --- */}
+        <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-[#111827]">MoSPI</h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            {mospiCards.map((c: any, i: number) => (
+              <StateApproverKPICard
+                key={`mospi-${i}`}
+                title={c.title}
+                value={c.value}
+                subtitle={c.subtitle}
+                icon={c.icon}
+                variant={c.variant}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column - Submissions */}
+        {/* Left Column - Submissions (spans 2 columns) */}
         <div className="lg:col-span-2 space-y-6">
-          
-
-          {/* Submissions Section */}
           <div className="space-y-4 bg-[#fff] border border-[#0000001A] rounded-lg p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg text-[#212121] font-semibold">Latest Submission</h2>
-                <p className="text-sm text-[#727272]">Review submissions requiring your approval</p>
+                <h2 className="text-lg text-[#212121] font-semibold">
+                  Latest Submission
+                </h2>
+                <p className="text-sm text-[#727272]">
+                  Review submissions requiring your approval
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative">
@@ -357,13 +418,23 @@ export function StateApproverDashboardPage() {
                     updatedDate={submission.submissionDate}
                     dueDate={submission.deadline}
                     progress={submission.progress}
-                    nextStep={submission.status === "APPROVED" ? "Submission approved" : submission.status === "REJECTED" ? "Address reviewer feedback" : "Waiting for state approval"}
+                    nextStep={
+                      submission.status === "APPROVED"
+                        ? "Submission approved"
+                        : submission.status === "REJECTED"
+                        ? "Address reviewer feedback"
+                        : "Waiting for state approval"
+                    }
                     reviewerNote={submission.reviewerNote}
                     submission={submission}
                     currentUserRole="STATE_APPROVER"
                     submittedBy={submission.submittedBy}
-                    onReview={() => navigate(`/data-submission/review/${submission.id}`)}
-                    onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
+                    onReview={() =>
+                      navigate(`/data-submission/review/${submission.id}`)
+                    }
+                    onViewDetails={() =>
+                      navigate(`/data-submission/review/${submission.id}`)
+                    }
                   />
                 ))
               )}
@@ -373,24 +444,25 @@ export function StateApproverDashboardPage() {
 
         {/* Right Column - Sidebar */}
         <div className="space-y-6">
-          {/* Recent Actions */}
-          <RecentActionsCard actions={[
-            {
-              id: "1",
-              status: "Approved",
-              date: "14-01-2025",
-              title: "Digital Infrastructure Survey",
-              submittedBy: "Mumbai Nodal Officer"
-            },
-            {
-              id: "2",
-              status: "Returned",
-              date: "13-01-2025",
-              title: "PPP Project Assessment",
-              submittedBy: "Pune Nodal Officer"
-            }
-          ]} />
-          {/* Quick Actions */}
+          <RecentActionsCard
+            actions={[
+              {
+                id: "1",
+                status: "Approved",
+                date: "14-01-2025",
+                title: "Digital Infrastructure Survey",
+                submittedBy: "Mumbai Nodal Officer",
+              },
+              {
+                id: "2",
+                status: "Returned",
+                date: "13-01-2025",
+                title: "PPP Project Assessment",
+                submittedBy: "Pune Nodal Officer",
+              },
+            ]}
+          />
+
           <QuickActionsCard
             reviewedThisMonth={6}
             totalThisMonth={8}
