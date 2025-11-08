@@ -258,6 +258,34 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     };
     try {
       await apiService.indicatorStatus(payload);
+      // Update local formData to trigger re-render of action buttons
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      // Defensive: update formDataState if section exists
+      if (formDataState && (formDataState as any)[sectionKey] !== undefined) {
+        setFormDataState((prev: any) => {
+          const sectionData = prev?.[sectionKey];
+          // Handle both array and object sections
+          if (Array.isArray(sectionData)) {
+            // For array sections, add status property to the array (JavaScript allows this)
+            const updatedArray = [...sectionData];
+            (updatedArray as any).status = status ? 'ACCEPTED' : (sectionData as any)?.status;
+            return {
+              ...prev,
+              [sectionKey]: updatedArray,
+            };
+          } else if (sectionData && typeof sectionData === 'object') {
+            // For object sections, add/update status property
+            return {
+              ...prev,
+              [sectionKey]: {
+                ...sectionData,
+                status: status ? 'ACCEPTED' : sectionData?.status,
+              },
+            };
+          }
+          return prev;
+        });
+      }
       console.log("✅ Indicator status updated successfully");
     } catch (error) {
       console.error("❌ Failed to update indicator status:", error);
@@ -311,6 +339,29 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // Don't show action buttons in preview mode
     if (isPreview) {
       return null;
+    }
+
+    // Check if section status is ACCEPTED
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionData = state && state[sectionKey];
+    // Handle both array and object sections
+    const sectionStatus = Array.isArray(sectionData) 
+      ? (sectionData as any)?.status 
+      : sectionData?.status;
+    if (sectionData && sectionStatus === 'ACCEPTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accepted
+          </Button>
+        </div>
+      );
     }
     
     const comments = getComments(sectionId);
