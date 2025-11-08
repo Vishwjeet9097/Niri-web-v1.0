@@ -393,7 +393,11 @@ const handleFinalSubmit = async () => {
               />
             </div>
             <Button
-              className="shrink-0 text-white px-6 bg-[#7888E3] hover:bg-[#6574CC]"
+              className={`shrink-0 text-white px-6 ${
+                stateProgress.percentage === 100 && !submittingFinal && !progressLoading && stateProgress.approved === stateProgress.total
+                ? "bg-[#1e3a8a] hover:bg-[#1e3299]" // Darker blue when enabled at 100%
+                : "bg-[#7888E3] hover:bg-[#6574CC]"  // Default lighter blue
+              }`}
               onClick={handleFinalSubmit}
               disabled={
                 submittingFinal ||
