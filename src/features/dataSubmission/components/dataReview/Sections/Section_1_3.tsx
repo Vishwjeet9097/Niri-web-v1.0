@@ -72,11 +72,11 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState }: Section1_
               <div>
                 <Label>Rating Date</Label>
                 <Input
-                  type="date"
+                  type={isEditable("1.3") ? "date" : "text"}
                   value={item.ratingDate || ""}
                   readOnly={!isEditable("1.3")}
-                  className={isEditable("1.3") ? "bg-white" : "bg-gray-50"}
-                  onChange={(e) => handleUlbChange(index, "ratingDate", e.target.value)}
+                  className={isEditable("1.3") ? "bg-white" : "bg-gray-50 cursor-not-allowed"}
+                  onChange={isEditable("1.3") ? (e) => handleUlbChange(index, "ratingDate", e.target.value) : undefined}
                 />
               </div>
 
