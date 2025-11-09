@@ -27,7 +27,11 @@ const hasMeaningfulValue = (value: any): boolean => {
  * Check if a file object has meaningful data
  */
 const hasFileData = (file: any): boolean => {
-  if (!file || typeof file !== "object") return false;
+  if (!file) return false;
+  if (Array.isArray(file)) {
+    return file.some((entry) => hasFileData(entry));
+  }
+  if (typeof file !== "object") return false;
   return !!(file.fileName || file.file || file.id);
 };
 
@@ -87,7 +91,7 @@ export const hasInfraEnablersData = (formData: any): boolean => {
 
       case "section4_4":
         return (
-          hasFileData(section.file) ||
+          hasFileData(section.files) ||
           hasMeaningfulValue(section.adopted) ||
           hasMeaningfulValue(section.marksObtained)
         );
@@ -190,29 +194,52 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
     switch (sectionId) {
       case "section2_1":
       case "section2_2":
-      case "section2_3":
+      case "section2_3": {
+        const arrayKey =
+          sectionId === "section2_1"
+            ? "infraActArray"
+            : sectionId === "section2_2"
+            ? "specializedEntityArray"
+            : "infraDevelopmentArray";
+        const items = Array.isArray(section?.[arrayKey])
+          ? section[arrayKey]
+          : Array.isArray(section)
+          ? section
+          : [];
         return (
-          hasArrayData(section) &&
-          section.some(
+          hasArrayData(items) &&
+          items.some(
             (item: any) =>
               hasMeaningfulValue(item.sector) ||
               (item.files && hasArrayData(item.files))
           )
         );
+      }
 
-      case "section2_4":
+      case "section2_4": {
+        const array = Array.isArray(section?.investmentReadyArray)
+          ? section.investmentReadyArray
+          : Array.isArray(section)
+          ? section
+          : [];
         return (
-          hasArrayData(section) &&
-          section.some(
+          hasArrayData(array) &&
+          array.some(
             (item: any) =>
               hasMeaningfulValue(item.projectName) || hasFileData(item.dprFile)
           )
         );
+      }
 
-      case "section2_5":
+      case "section2_5": {
+        const array = Array.isArray(section?.assetMonetizationArray)
+          ? section.assetMonetizationArray
+          : Array.isArray(section)
+          ? section
+          : [];
         return (
-          hasArrayData(section) &&
-          section.some(
+          hasArrayData(array) &&
+          array.some(
             (item: any) =>
               hasMeaningfulValue(item.projectName) ||
               hasMeaningfulValue(item.sector) ||
@@ -221,6 +248,7 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
               hasMeaningfulValue(item.estimatedMonetization)
           )
         );
+      }
 
       default:
         return false;
@@ -246,7 +274,7 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
     switch (sectionId) {
       case "section3_1":
         return (
-          hasFileData(section.file) || hasMeaningfulValue(section.available)
+          hasArrayData(section.files) || hasFileData(section.file) || hasMeaningfulValue(section.available)
         );
 
       case "section3_2":
@@ -255,7 +283,7 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
         );
 
       case "section3_3":
-        return hasArrayData(section);
+        return hasArrayData(section?.VGFArray) || hasArrayData(section);
 
       case "section3_4":
         return (
@@ -385,7 +413,7 @@ const hasSectionData = (
           );
         case "section4_2":
           return (
-            hasMeaningfulValue(section.available) || hasFileData(section.file)
+            hasMeaningfulValue(section.available) || hasFileData(section.files)
           );
         case "section4_3":
           return (
@@ -428,28 +456,51 @@ const hasSectionData = (
       switch (sectionId) {
         case "section2_1":
         case "section2_2":
-        case "section2_3":
+        case "section2_3": {
+          const arrayKey =
+            sectionId === "section2_1"
+              ? "infraActArray"
+              : sectionId === "section2_2"
+              ? "specializedEntityArray"
+              : "infraDevelopmentArray";
+          const items = Array.isArray(section?.[arrayKey])
+            ? section[arrayKey]
+            : Array.isArray(section)
+            ? section
+            : [];
           return (
-            hasArrayData(section) &&
-            section.some(
+            hasArrayData(items) &&
+            items.some(
               (item: any) =>
                 hasMeaningfulValue(item.sector) ||
                 (item.files && hasArrayData(item.files))
             )
           );
-        case "section2_4":
+        }
+        case "section2_4": {
+          const items = Array.isArray(section?.investmentReadyArray)
+            ? section.investmentReadyArray
+            : Array.isArray(section)
+            ? section
+            : [];
           return (
-            hasArrayData(section) &&
-            section.some(
+            hasArrayData(items) &&
+            items.some(
               (item: any) =>
                 hasMeaningfulValue(item.projectName) ||
                 hasFileData(item.dprFile)
             )
           );
-        case "section2_5":
+        }
+        case "section2_5": {
+          const items = Array.isArray(section?.assetMonetizationArray)
+            ? section.assetMonetizationArray
+            : Array.isArray(section)
+            ? section
+            : [];
           return (
-            hasArrayData(section) &&
-            section.some(
+            hasArrayData(items) &&
+            items.some(
               (item: any) =>
                 hasMeaningfulValue(item.projectName) ||
                 hasMeaningfulValue(item.sector) ||
@@ -458,6 +509,7 @@ const hasSectionData = (
                 hasMeaningfulValue(item.estimatedMonetization)
             )
           );
+        }
         default:
           return false;
       }
@@ -465,12 +517,15 @@ const hasSectionData = (
     case "pppDevelopment":
       switch (sectionId) {
         case "section3_1":
+          return (
+            hasArrayData(section.files) || hasFileData(section.file) || hasMeaningfulValue(section.available)
+          );
         case "section3_2":
           return (
             hasFileData(section.file) || hasMeaningfulValue(section.available)
           );
         case "section3_3":
-          return hasArrayData(section);
+          return hasArrayData(section?.VGFArray) || hasArrayData(section);
         case "section3_4":
           return (
             hasArrayData(section.projects) ||

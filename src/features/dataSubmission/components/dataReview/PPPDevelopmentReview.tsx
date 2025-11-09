@@ -35,10 +35,39 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
-  const initialFormData =
+  
+  // Normalization function for PPP Development data
+  const normalizePPPDevelopment = (data: any) => {
+    if (!data) return data;
+    const normalized: any = { ...data };
+
+    // Ensure section3_3 has VGFArray structure
+    if (normalized.section3_3) {
+      const section = normalized.section3_3;
+      const status = (section && section.status) || (Array.isArray(section) ? (section as any).status : undefined);
+      
+      let items: any[] = [];
+      if (Array.isArray(section?.VGFArray)) {
+        items = section.VGFArray;
+      } else if (Array.isArray(section)) {
+        items = section;
+      }
+
+      normalized.section3_3 = {
+        ...(section && !Array.isArray(section) ? section : {}),
+        VGFArray: items,
+        ...(status !== undefined ? { status } : {}),
+      };
+    }
+
+    return normalized;
+  };
+
+  const initialFormData = normalizePPPDevelopment(
     formData && typeof formData === "object" && (formData as any)?.section3_1 !== undefined
       ? formData
-      : (formData as any)?.pppDevelopment ?? formData;
+      : (formData as any)?.pppDevelopment ?? formData
+  );
 
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
@@ -69,8 +98,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             // Update form data with fresh data
             if (freshSubmission.formData) {
               setFormDataState(
-                freshSubmission.formData.pppDevelopment ??
-                freshSubmission.formData
+                normalizePPPDevelopment(
+                  freshSubmission.formData.pppDevelopment ??
+                  freshSubmission.formData
+                )
               );
             }
             
@@ -389,15 +420,19 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <Label>Uploaded File</Label>
-                {formDataState?.section3_1?.file ? (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm">{formDataState?.section3_1?.file?.fileName || "Act/Policy document"}</span>
-                    <span className="text-sm text-green-600">✓</span>
+                <Label>Uploaded Files</Label>
+                {formDataState?.section3_1?.files && formDataState.section3_1.files.length > 0 ? (
+                  <div className="space-y-2">
+                    {formDataState.section3_1.files.map((file: any, index: number) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                        <Upload className="w-4 h-4" />
+                        <span className="text-sm">{file?.fileName || "Act/Policy document"}</span>
+                        <span className="text-sm text-green-600">✓</span>
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <span className="text-sm text-muted-foreground">No file uploaded</span>
+                  <span className="text-sm text-muted-foreground">No files uploaded</span>
                 )}
               </div>
             </div>
@@ -523,35 +558,49 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                     </tr>
                   </thead>
                   <tbody>
-                    {formDataState?.section3_3?.map((item: any, index: number) => (
-                      <tr key={item.id || index} className="border-b">
-                        <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
-                        <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
-                        <td className="py-3 px-4 text-sm font-normal">{item.type || ""}</td>
-                        <td className="py-3 px-4 text-sm font-normal">{item.submissionDate || ""}</td>
-                        <td className="py-3 px-4 text-sm font-normal">
-                          {item.file ? (
-                            <div className="flex items-center gap-2">
-                              <Upload className="w-4 h-4" />
-                              <span className="text-sm">{item.file.fileName || "File"}</span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">No file</span>
-                          )}
-                        </td>
-                      </tr>
-                    )) || (
-                        <tr>
-                          <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                            No VGF/IIPDF proposals data available
+                    {(() => {
+                      const VGFArray = Array.isArray(formDataState?.section3_3?.VGFArray)
+                        ? formDataState.section3_3.VGFArray
+                        : [];
+
+                      if (!VGFArray.length) {
+                        return (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                              No VGF/IIPDF proposals data available
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return VGFArray.map((item: any, index: number) => (
+                        <tr key={item.id || index} className="border-b">
+                          <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
+                          <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
+                          <td className="py-3 px-4 text-sm font-normal">{item.type || ""}</td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {item.submissionDate 
+                              ? new Date(item.submissionDate).toLocaleDateString() 
+                              : ""}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {item.file ? (
+                              <div className="flex items-center gap-2">
+                                <Upload className="w-4 h-4" />
+                                <span className="text-sm">{item.file.fileName || "File"}</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">No file</span>
+                            )}
                           </td>
                         </tr>
-                      )}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
 
-              {!isPreview && (
+              {!isPreview && isEditable('3.3') && (
                 <Button variant="outline" size="sm" className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2">
                   <Plus className="w-4 h-4" />
                   Add More Project

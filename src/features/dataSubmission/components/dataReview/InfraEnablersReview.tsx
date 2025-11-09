@@ -184,7 +184,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           console.log("Section_4_2 state", state?.section4_2)
           fields = [{
             available: state?.section4_2?.available ?? null,
-            files: state?.section4_2?.files ?? null
+            files: Array.isArray(state?.section4_2?.files)
+              ? state.section4_2.files
+              : state?.section4_2?.files
+              ? [state.section4_2.files]
+              : state?.section4_2?.file
+              ? [state.section4_2.file]
+              : [],
+            file: toSingleFile(state?.section4_2?.files ?? state?.section4_2?.file ?? null),
           }];
           break;
 
@@ -203,7 +210,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           console.log("Section_4_4 state", state?.section4_4)
           fields = [{
             adopted: state?.section4_4?.adopted ?? null,
-            files: state?.section4_4?.files ?? null,
+            files: Array.isArray(state?.section4_4?.files)
+              ? state.section4_4.files
+              : state?.section4_4?.files
+              ? [state.section4_4.files]
+              : state?.section4_4?.file
+              ? [state.section4_4.file]
+              : [],
+            file: toSingleFile(state?.section4_4?.files ?? state?.section4_4?.file ?? null),
             marksObtained: state?.section4_4?.marksObtained ?? null,
           }];
           break;
@@ -298,23 +312,43 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
   };
 
+  const toSingleFile = (
+    value: FileUpload | FileUpload[] | null | undefined
+  ): FileUpload | null => {
+    if (Array.isArray(value)) {
+      return value.length > 0 ? (value[0] as FileUpload) : null;
+    }
+    return value ?? null;
+  };
+
+  const toFileArray = (value: FileUpload | FileUpload[] | null | undefined): FileUpload[] => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  };
+
   // Helper functions to handle file updates
-  const handleFileUpdate = async (sectionId: string, updatedValue: FileUpload | FileUpload[] | null) => {
+  const handleFileUpdate = async (
+    sectionId: string,
+    updatedValue: FileUpload | FileUpload[] | null
+  ) => {
     const sectionKey = `section${sectionId.replace('.', '_')}`;
     const previousSection = state?.[sectionKey] || {};
     const targetKey = ['4.2', '4.4'].includes(sectionId) ? 'files' : 'file';
+    const filesArray = toFileArray(updatedValue);
     const normalizedValue =
+      targetKey === 'files' ? filesArray : updatedValue;
+
+    const updatedSection =
       targetKey === 'files'
-        ? updatedValue == null
-          ? []
-          : Array.isArray(updatedValue)
-          ? updatedValue
-          : [updatedValue]
-        : updatedValue;
-    const updatedSection = {
-      ...previousSection,
-      [targetKey]: normalizedValue,
-    };
+        ? {
+            ...previousSection,
+            files: filesArray,
+            file: toSingleFile(filesArray),
+          }
+        : {
+            ...previousSection,
+            [targetKey]: normalizedValue,
+          };
 
     setFormDataState((prev: any) => ({
       ...prev,
@@ -328,13 +362,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             ? [
                 {
                   available: updatedSection?.available ?? null,
-                  files: updatedSection?.files ?? [],
+                files: filesArray,
                 },
               ]
             : [
                 {
                   adopted: updatedSection?.adopted ?? null,
-                  files: updatedSection?.files ?? [],
+                files: filesArray,
                   marksObtained: updatedSection?.marksObtained ?? null,
                 },
               ];
@@ -345,6 +379,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           section: sectionKey,
           fields,
         });
+        if (targetKey === 'files' && filesArray.length === 0) {
+          await onIndicatorStatus(sectionId, false);
+        }
       } catch (error) {
         console.error('Failed to auto-save files for section', sectionId, error);
       }
@@ -671,7 +708,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             {(state?.section4_2?.available === "yes") && (
               <div>
                 <EditableFileDisplay
-                  files={state?.section4_2?.files || null}
+                  files={state?.section4_2?.files ?? state?.section4_2?.file ?? null}
                   isEditable={isEditable('4.2')}
                   submissionId={submissionId}
                   onFilesChange={(updatedFile) => handleFileUpdate('4.2', updatedFile)}
@@ -827,7 +864,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             {state?.section4_4?.adopted === "yes" && (
               <div>
                 <EditableFileDisplay
-                  files={state?.section4_4?.files || null}
+                  files={state?.section4_4?.files ?? state?.section4_4?.file ?? null}
                   isEditable={isEditable('4.4')}
                   submissionId={submissionId}
                   onFilesChange={(updatedFile) => handleFileUpdate('4.4', updatedFile)}

@@ -25,6 +25,18 @@ import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 
+const toFileArray = (value: FileUpload | FileUpload[] | null | undefined): FileUpload[] => {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+};
+
+const toSingleFile = (value: FileUpload | FileUpload[] | null | undefined): FileUpload | null => {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? (value[0] as FileUpload) : null;
+  }
+  return value ?? null;
+};
+
 interface InfraDevelopmentReviewProps {
   submissionId: string;
   formData?: unknown;
@@ -43,13 +55,64 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   //State for edit button 
   const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
 
+  const normalizeInfraDevelopment = (data: any) => {
+    if (!data || typeof data !== "object") return data;
+    const normalized: any = { ...data };
+
+    const ensureArraySection = (
+      sectionKey: string,
+      arrayKey: string,
+      transformItem?: (item: any) => any
+    ) => {
+      const section = normalized[sectionKey];
+      const status =
+        (section && section.status) ||
+        (Array.isArray(section) ? (section as any).status : undefined);
+
+      let items: any[] = [];
+      if (Array.isArray(section?.[arrayKey])) {
+        items = section[arrayKey];
+      } else if (Array.isArray(section)) {
+        items = section;
+      } else if (section && Array.isArray(section[arrayKey])) {
+        items = section[arrayKey];
+      }
+
+      const normalizedItems = Array.isArray(items)
+        ? items.map((item) => (transformItem ? transformItem(item) : item))
+        : [];
+
+      normalized[sectionKey] = {
+        ...(section && !Array.isArray(section) ? section : {}),
+        [arrayKey]: normalizedItems,
+        ...(status !== undefined ? { status } : {}),
+      };
+    };
+
+    const mapFilesArray = (item: any) => ({
+      ...item,
+      files: Array.isArray(item?.files) ? item.files : toFileArray(item?.files),
+    });
+
+    ensureArraySection("section2_1", "infraActArray", mapFilesArray);
+    ensureArraySection("section2_2", "specializedEntityArray", mapFilesArray);
+    ensureArraySection("section2_3", "infraDevelopmentArray", mapFilesArray);
+    ensureArraySection("section2_4", "investmentReadyArray", (item) => ({
+      ...item,
+      dprFile: toSingleFile(item?.dprFile),
+    }));
+    ensureArraySection("section2_5", "assetMonetizationArray");
+
+    return normalized;
+  };
+
   // Type assertion for formDataState to avoid TypeScript errors
-  const state = formDataState as any;
+  const state = (formDataState as any) || {};
 
   // Sync formDataState when formData prop changes
   useEffect(() => {
     if (formData) {
-      setFormDataState((formData as any)?.infraDevelopment || formData);
+      setFormDataState(normalizeInfraDevelopment((formData as any)?.infraDevelopment || formData));
     }
   }, [formData]);
   
@@ -77,7 +140,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             
             // Update form data with fresh data (only this section's slice)
             if (freshSubmission.formData) {
-              setFormDataState(freshSubmission.formData.infraDevelopment);
+              setFormDataState(
+                normalizeInfraDevelopment(freshSubmission.formData.infraDevelopment)
+              );
             }
             
             console.log("✅ Fresh submission data loaded:", freshSubmission);
@@ -151,6 +216,94 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     return titles[sectionId] || sectionId;
   };
 
+  const buildSectionFields = (
+    sectionId: string,
+    sourceState: any = state
+  ): Record<string, any>[] => {
+    switch (sectionId) {
+      case '2.1': {
+        const infraActArray = Array.isArray(sourceState?.section2_1?.infraActArray)
+          ? sourceState.section2_1.infraActArray
+          : [];
+        return [
+          {
+            infraActArray: infraActArray.map((item: any) => ({
+              id: item?.id ?? null,
+              sector: item?.sector ?? null,
+              files: toFileArray(item?.files),
+            })),
+          },
+        ];
+      }
+
+      case '2.2': {
+        const specializedEntityArray = Array.isArray(sourceState?.section2_2?.specializedEntityArray)
+          ? sourceState.section2_2.specializedEntityArray
+          : [];
+        return [
+          {
+            specializedEntityArray: specializedEntityArray.map((item: any) => ({
+              id: item?.id ?? null,
+              sector: item?.sector ?? null,
+              files: toFileArray(item?.files),
+            })),
+          },
+        ];
+      }
+
+      case '2.3': {
+        const infraDevelopmentArray = Array.isArray(sourceState?.section2_3?.infraDevelopmentArray)
+          ? sourceState.section2_3.infraDevelopmentArray
+          : [];
+        return [
+          {
+            infraDevelopmentArray: infraDevelopmentArray.map((item: any) => ({
+              id: item?.id ?? null,
+              sector: item?.sector ?? null,
+              files: toFileArray(item?.files),
+            })),
+          },
+        ];
+      }
+
+      case '2.4': {
+        const investmentReadyArray = Array.isArray(sourceState?.section2_4?.investmentReadyArray)
+          ? sourceState.section2_4.investmentReadyArray
+          : [];
+        return [
+          {
+            investmentReadyArray: investmentReadyArray.map((item: any) => ({
+              id: item?.id ?? null,
+              projectName: item?.projectName ?? null,
+              dprFile: toSingleFile(item?.dprFile),
+            })),
+          },
+        ];
+      }
+
+      case '2.5': {
+        const assetMonetizationArray = Array.isArray(sourceState?.section2_5?.assetMonetizationArray)
+          ? sourceState.section2_5.assetMonetizationArray
+          : [];
+        return [
+          {
+            assetMonetizationArray: assetMonetizationArray.map((item: any) => ({
+              id: item?.id ?? null,
+              projectName: item?.projectName ?? null,
+              sector: item?.sector ?? null,
+              type: item?.type ?? null,
+              ownership: item?.ownership ?? null,
+              estimatedMonetization: item?.estimatedMonetization ?? null,
+            })),
+          },
+        ];
+      }
+
+      default:
+        return [];
+    }
+  };
+
 // Changes by Harsh
 
 // ...existing code...
@@ -161,61 +314,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       const payloadSection = `section${sectionId.replace('.', '_')}`;
 
       // Use the local formData state (formDataState) to build fields for this section
-      let fields: Record<string, any>[] = [];
-
-      switch (sectionId) {
-        case '2.1':
-          // Use local state for section 2.1 data
-          console.log("Section_2_1 state", state?.section2_1)
-          fields = (state?.section2_1 || []).map((item: any) => ({
-            sector: item?.sector ?? null,
-            files: item?.files ?? []
-          }));
-          break;
-
-        case '2.2':
-          // Use local state for section 2.2 data
-          console.log("Section_2_2 state", state?.section2_2)
-          fields = (state?.section2_2 || []).map((item: any) => ({
-            sector: item?.sector ?? null,
-            files: item?.files ?? []
-          }));
-          break;
-
-        case '2.3':
-          // Use local state for section 2.3 data
-          console.log("Section_2_3 state", state?.section2_3)
-          fields = (state?.section2_3 || []).map((item: any) => ({
-            sector: item?.sector ?? null,
-            files: item?.files ?? []
-          }));
-          break;
-
-        case '2.4':
-          // Use local state for section 2.4 data
-          console.log("Section_2_4 state", state?.section2_4)
-          fields = (state?.section2_4 || []).map((item: any) => ({
-            projectName: item?.projectName ?? null,
-            dprFile: item?.dprFile ?? null
-          }));
-          break;
-
-        case '2.5':
-          // Use local state for section 2.5 data
-          console.log("Section_2_5 state", state?.section2_5)
-          fields = (state?.section2_5 || []).map((item: any) => ({
-            projectName: item?.projectName ?? null,
-            sector: item?.sector ?? null,
-            type: item?.type ?? null,
-            ownership: item?.ownership ?? null,
-            estimatedMonetization: item?.estimatedMonetization ?? null
-          }));
-          break;
-
-        default:
-          console.warn(`Unhandled section: ${sectionId}`);
-          return;
-      }
+      const fields = buildSectionFields(sectionId);
 
       await handleSaveSection({
         submissionId,
@@ -275,32 +374,132 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   };
 
   // Helper functions to handle file updates
-  const handleFilesUpdate = (sectionId: string, itemIndex: number, updatedFiles: FileUpload | FileUpload[] | null) => {
-    setFormDataState((prev: any) => {
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
-      const sectionData = [...(prev?.[sectionKey] || [])];
-      
-      if (sectionData[itemIndex]) {
-        if (sectionId === '2.4') {
-          // Section 2.4 has single file (dprFile)
-          sectionData[itemIndex] = {
-            ...sectionData[itemIndex],
-            dprFile: updatedFiles ? (Array.isArray(updatedFiles) ? updatedFiles[0] : updatedFiles) : null
-          };
-        } else {
-          // Sections 2.1, 2.2, 2.3 have files array
-          sectionData[itemIndex] = {
-            ...sectionData[itemIndex],
-            files: Array.isArray(updatedFiles) ? updatedFiles : (updatedFiles ? [updatedFiles] : [])
-          };
-        }
+  const handleFilesUpdate = async (
+    sectionId: string,
+    itemIndex: number,
+    updatedFiles: FileUpload | FileUpload[] | null
+  ) => {
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const currentSection = state?.[sectionKey];
+    const currentStatus = currentSection ? (currentSection as any).status : undefined;
+
+    let nextSection: any = null;
+
+    const buildArrayUpdate = (arrayKey: string) => {
+      const existingArray = Array.isArray(currentSection?.[arrayKey])
+        ? currentSection[arrayKey]
+        : [];
+
+      if (!existingArray[itemIndex]) {
+        return null;
       }
-      
-      return {
-        ...prev,
-        [sectionKey]: sectionData
+
+      const updatedArray = [...existingArray];
+      updatedArray[itemIndex] = {
+        ...updatedArray[itemIndex],
+        files: toFileArray(updatedFiles),
       };
-    });
+
+      return {
+        ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+        [arrayKey]: updatedArray,
+        ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+      };
+    };
+
+    switch (sectionId) {
+      case '2.1':
+        nextSection = buildArrayUpdate('infraActArray');
+        break;
+      case '2.2':
+        nextSection = buildArrayUpdate('specializedEntityArray');
+        break;
+      case '2.3':
+        nextSection = buildArrayUpdate('infraDevelopmentArray');
+        break;
+      case '2.4': {
+        const existingArray = Array.isArray(currentSection?.investmentReadyArray)
+          ? currentSection.investmentReadyArray
+          : [];
+
+        if (!existingArray[itemIndex]) {
+          return;
+        }
+
+        const updatedArray = [...existingArray];
+        updatedArray[itemIndex] = {
+          ...updatedArray[itemIndex],
+          dprFile: toSingleFile(updatedFiles),
+        };
+
+        nextSection = {
+          ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+          investmentReadyArray: updatedArray,
+          ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+        };
+        break;
+      }
+      default:
+        return;
+    }
+
+    if (!nextSection) {
+      return;
+    }
+
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: nextSection,
+    }));
+
+    const nextState = {
+      ...state,
+      [sectionKey]: nextSection,
+    };
+
+    try {
+      const fields = buildSectionFields(sectionId, nextState);
+
+      await handleSaveSection({
+        submissionId,
+        category: 'infraDevelopment',
+        section: sectionKey,
+        fields,
+      });
+
+      let shouldRevert = false;
+
+      switch (sectionId) {
+        case '2.1':
+          shouldRevert = nextSection.infraActArray.every(
+            (item: any) => !Array.isArray(item?.files) || item.files.length === 0
+          );
+          break;
+        case '2.2':
+          shouldRevert = nextSection.specializedEntityArray.every(
+            (item: any) => !Array.isArray(item?.files) || item.files.length === 0
+          );
+          break;
+        case '2.3':
+          shouldRevert = nextSection.infraDevelopmentArray.every(
+            (item: any) => !Array.isArray(item?.files) || item.files.length === 0
+          );
+          break;
+        case '2.4':
+          shouldRevert = nextSection.investmentReadyArray.every(
+            (item: any) => !item?.dprFile
+          );
+          break;
+        default:
+          break;
+      }
+
+      if (shouldRevert) {
+        await onIndicatorStatus(sectionId, false);
+      }
+    } catch (error) {
+      console.error('Failed to auto-save files for section', sectionId, error);
+    }
   };
 
 
@@ -335,7 +534,58 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
   const comments = getComments(sectionId);
   const commentCount = comments ? comments.length : 0;
+  
   if (sectionStatus === 'REVERTED') {
+    // If nodal officer (isPreview = true) and status is REVERTED, show Edit button + Sent Back badge
+    if (isPreview) {
+      return (
+        <div className="flex gap-2">
+          {!isEditable(sectionId) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => setEditable(sectionId, true)}
+            >
+              <Edit3 className="w-4 h-4" />
+              Edit
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => onSaveSection(sectionId)}
+              >
+                <Check className="w-4 h-4" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setEditable(sectionId, false)}
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Sent Back
+          </Button>
+        </div>
+      );
+    }
+    
+    // For reviewers, show only the disabled Sent Back button
     return (
       <div className="flex gap-2">
         <Button
@@ -490,7 +740,20 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {state?.section2_1?.map((item: any, index: number) => (
+              {(() => {
+                const infraActArray = Array.isArray(state?.section2_1?.infraActArray)
+                  ? state.section2_1.infraActArray
+                  : [];
+
+                if (!infraActArray.length) {
+                  return (
+                    <div className="text-center text-muted-foreground py-4">
+                      No infrastructure act/policy data available
+                    </div>
+                  );
+                }
+
+                return infraActArray.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -513,11 +776,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </div>
                   </div>
                 </div>
-              )) || (
-                  <div className="text-center text-muted-foreground py-4">
-                    No infrastructure act/policy data available
-                  </div>
-                )}
+                ));
+              })()}
 
               <p className="text-xs text-muted-foreground">
                 Upload copy of Act/Policy
@@ -533,7 +793,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </tr>
                   </thead>
                   <tbody>
-                    {state?.section2_1?.map((item: any, index: number) => (
+                    {(() => {
+                      const infraActArray = Array.isArray(state?.section2_1?.infraActArray)
+                        ? state.section2_1.infraActArray
+                        : [];
+
+                      if (!infraActArray.length) {
+                        return (
+                          <tr>
+                            <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                              No data available
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return infraActArray.map((item: any, index: number) => (
                       <tr key={index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || 'N/A'}</td>
                         <td className="py-3 px-4 text-sm font-normal">
@@ -550,13 +825,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                         </td>
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || 'N/A'}</td>
                       </tr>
-                    )) || (
-                        <tr>
-                          <td colSpan={3} className="py-8 text-center text-muted-foreground">
-                            No data available
-                          </td>
-                        </tr>
-                      )}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -602,7 +872,20 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {state?.section2_2?.map((item: any, index: number) => (
+              {(() => {
+                const specializedEntityArray = Array.isArray(state?.section2_2?.specializedEntityArray)
+                  ? state.section2_2.specializedEntityArray
+                  : [];
+
+                if (!specializedEntityArray.length) {
+                  return (
+                    <div className="text-center text-muted-foreground py-4">
+                      No specialised entity data available
+                    </div>
+                  );
+                }
+
+                return specializedEntityArray.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -626,11 +909,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </div>
                   </div>
                 </div>
-              )) || (
-                  <div className="text-center text-muted-foreground py-4">
-                    No specialised entity data available
-                  </div>
-                )}
+              ));
+              })()}
               <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
             </div>
 
@@ -670,7 +950,20 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {state?.section2_3?.map((item: any, index: number) => (
+              {(() => {
+                const infraDevelopmentArray = Array.isArray(state?.section2_3?.infraDevelopmentArray)
+                  ? state.section2_3.infraDevelopmentArray
+                  : [];
+
+                if (!infraDevelopmentArray.length) {
+                  return (
+                    <div className="text-center text-muted-foreground py-4">
+                      No sector infra development plan data available
+                    </div>
+                  );
+                }
+
+                return infraDevelopmentArray.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -694,11 +987,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </div>
                   </div>
                 </div>
-              )) || (
-                  <div className="text-center text-muted-foreground py-4">
-                    No sector infra development plan data available
-                  </div>
-                )}
+              ));
+              })()}
               <p className="text-sm text-muted-foreground">Upload plan</p>
             </div>
 
@@ -738,7 +1028,20 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {state?.section2_4?.map((item: any, index: number) => (
+              {(() => {
+                const investmentReadyArray = Array.isArray(state?.section2_4?.investmentReadyArray)
+                  ? state.section2_4.investmentReadyArray
+                  : [];
+
+                if (!investmentReadyArray.length) {
+                  return (
+                    <div className="text-center text-muted-foreground py-4">
+                      No investment ready project pipeline data available
+                    </div>
+                  );
+                }
+
+                return investmentReadyArray.map((item: any, index: number) => (
                 <div key={item.id || index} className="border rounded-lg p-4">
                   <div className="space-y-4">
                     <div>
@@ -762,11 +1065,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </div>
                   </div>
                 </div>
-              )) || (
-                  <div className="text-center text-muted-foreground py-4">
-                    No investment ready project pipeline data available
-                  </div>
-                )}
+              ));
+              })()}
               <p className="text-sm text-muted-foreground">
                 Annex 8: Upload DPR/Feasibility Report
               </p>
@@ -819,7 +1119,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </tr>
                   </thead>
                   <tbody>
-                    {state?.section2_5?.map((item: any, index: number) => (
+                    {(() => {
+                      const assetMonetizationArray = Array.isArray(state?.section2_5?.assetMonetizationArray)
+                        ? state.section2_5.assetMonetizationArray
+                        : [];
+
+                      if (!assetMonetizationArray.length) {
+                        return (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                              No asset monetization pipeline data available
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return assetMonetizationArray.map((item: any, index: number) => (
                       <tr key={item.id || index} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
                         <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
@@ -827,13 +1142,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                         <td className="py-3 px-4 text-sm font-normal">{item.ownership || ""}</td>
                         <td className="py-3 px-4 text-sm font-normal">{item.estimatedMonetization ? `₹ ${item.estimatedMonetization} Crores` : ""}</td>
                       </tr>
-                    )) || (
-                        <tr>
-                          <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                            No asset monetization pipeline data available
-                          </td>
-                        </tr>
-                      )}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
