@@ -452,7 +452,74 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
+    
+    // Check if user is NODAL_OFFICER from localStorage
+    const getUserRole = () => {
+      try {
+        const authUser = localStorage.getItem('niri_app:auth_user');
+        if (authUser) {
+          const user = JSON.parse(authUser);
+          return user.value?.role;
+        }
+      } catch (error) {
+        console.error('Error reading user role:', error);
+      }
+      return null;
+    };
+    const userRole = getUserRole();
+    const isNodalOfficer = userRole === 'NODAL_OFFICER';
+    
     if (sectionStatus === 'REVERTED') {
+      // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
+      if (isNodalOfficer) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setEditable(sectionId, true)}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => setEditable(sectionId, false)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
+          </div>
+        );
+      }
+      
+      // For reviewers/approvers, show only the disabled Sent Back button
       return (
         <div className="flex gap-2">
           <Button

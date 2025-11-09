@@ -535,9 +535,25 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const comments = getComments(sectionId);
   const commentCount = comments ? comments.length : 0;
   
+  // Check if user is NODAL_OFFICER from localStorage
+  const getUserRole = () => {
+    try {
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const user = JSON.parse(authUser);
+        return user.value?.role;
+      }
+    } catch (error) {
+      console.error('Error reading user role:', error);
+    }
+    return null;
+  };
+  const userRole = getUserRole();
+  const isNodalOfficer = userRole === 'NODAL_OFFICER';
+  
   if (sectionStatus === 'REVERTED') {
-    // If nodal officer (isPreview = true) and status is REVERTED, show Edit button + Sent Back badge
-    if (isPreview) {
+    // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
+    if (isNodalOfficer) {
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -585,7 +601,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       );
     }
     
-    // For reviewers, show only the disabled Sent Back button
+    // For reviewers/approvers, show only the disabled Sent Back button
     return (
       <div className="flex gap-2">
         <Button
