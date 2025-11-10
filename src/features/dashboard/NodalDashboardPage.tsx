@@ -316,7 +316,7 @@ export function NodalDashboardPage() {
             Manage your NIRI data submissions and track approval status
           </p>
         </div>
-        <img src="/images/dashboard.png" alt="Dashboard" className="absolute right-6 top-0"/>
+        {/* <img src="/images/dashboard.png" alt="Dashboard" className="absolute right-6 top-0"/> */}
       </div>
 
       {/* KPI Cards */}
@@ -408,7 +408,7 @@ export function NodalDashboardPage() {
                   <h2 className="text-xl font-semibold">Latest Submissions</h2>
                   <p className="text-sm text-muted-foreground">Your latest NIRI data submissions and their status</p>
                 </div>
-                {/* <Button onClick={() => navigate('/submissions')}>+ New Submission</Button> */}
+                <Button onClick={() => navigate('/submissions')}>+ New Submission</Button>
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="flex justify-start items-center gap-6 px-1">
@@ -465,8 +465,8 @@ export function NodalDashboardPage() {
           <QuickActions actions={[
     {
       id: "1",
-      title: "Data Submission",
-      subtitle: "Start data entry",
+      title: "New Data Submission",
+      subtitle: "Start fresh data entry",
       icon: "file" as const,
               onClick: () => navigate('/submissions')
     },

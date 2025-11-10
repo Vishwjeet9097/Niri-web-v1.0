@@ -149,7 +149,9 @@ useEffect(() => {
   };
 
   const handleSaveUser = async (officerData: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => {
-     try {
+   
+    
+    try {
       if (editingOfficer) {
         // Update existing user via backend API
         let selectedState = "";
@@ -203,6 +205,7 @@ useEffect(() => {
         if (!selectedState) {
           throw new Error("State is required but not provided");
         }
+ 
         
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
@@ -301,7 +304,8 @@ useEffect(() => {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          selectedStateName, // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
+          officerData.stateUt,
+         // selectedStateName, // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
           selectedStateId, // State ID for reference
           officerData.assignedIndicators // Pass indicators directly in register call
         );
