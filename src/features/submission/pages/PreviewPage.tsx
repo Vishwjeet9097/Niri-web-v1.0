@@ -84,6 +84,9 @@ export const PreviewPage = () => {
   const [submissionMessage, setSubmissionMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+   // Check if we're in edit mode
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(null);
   const location = useLocation();
   // const navigate = useNavigate();
   const qs = new URLSearchParams(location.search);
@@ -133,6 +136,21 @@ export const PreviewPage = () => {
       .finally(() => setLoading(false));
   }, [stateUt, year]);
 
+
+  // Check for edit mode on mount
+  useEffect(() => {
+    const editingSubmissionId = localStorage.getItem('editing_submission_id');
+    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
+
+    if (editingSubmissionId && isEditModeFlag) {
+      setIsEditMode(true);
+      setEditingSubmissionId(editingSubmissionId);
+    }
+
+    storageService.set(PREVIEW_FLAG_KEY, true);
+    setHasPreviewed(true);
+  }, []); // Empty dependency array to run only once
+
    useEffect(() => {
     if (!previewData) return;
 
@@ -142,7 +160,7 @@ export const PreviewPage = () => {
 
     const totals = flat.reduce(
       (acc, r) => {
-        const st = (r.status || "").toUpperCase();
+        const st = (r?.status || "").toUpperCase();
         if (st.includes("ACCEPT")) acc.accepted += 1;
         else if (st.includes("SUBMIT")) acc.submitted += 1;
         else if (st.includes("NOT_STARTED")) acc.notStarted += 1;
@@ -158,7 +176,7 @@ export const PreviewPage = () => {
     // build sections for tabs
     const sections = categories.map((cat) => {
       const list = (previewData.indicators[cat] || []) as IndicatorRow[];
-      const acceptedInCat = list.filter((r) => statusIsAccepted(r.status)).length;
+      const acceptedInCat = list.filter((r) => statusIsAccepted(r?.status)).length;
       const progress = list.length ? Math.round((acceptedInCat / list.length) * 100) : 0;
 
       return {
@@ -175,7 +193,7 @@ export const PreviewPage = () => {
           id: r.id,
           code: r.code,
           name: r.name,
-          status: r.status,
+          status: r?.status,
           score: r.score ?? r.data?.marksObtained ?? null,
           updatedAt: r.updatedAt ?? null,
           data: r.data ?? null,
@@ -223,7 +241,7 @@ export const PreviewPage = () => {
         firstName: user?.firstName || "Preview",
         lastName: user?.lastName || "User",
         contactNumber: user?.contactNumber || null,
-        role: user?.role || "STATE_APPROVER",
+        role: user?.role || "STATE_APPROVER" ,
         stateUt: previewData.stateUt,
         isActive: true,
         createdAt: now,
@@ -249,8 +267,8 @@ export const PreviewPage = () => {
     let totalScore = 0;
 
     for (const row of flatIndicators) {
-      const st = (row.status || "").toUpperCase();
-      if (st.includes("ACCEPT") || st.includes("APPROV")) accepted++;
+      const st = (row?.status || "").toUpperCase();
+      if (st.includes("ACCEPT") || st.includes("APPROVE")) accepted++;
       else if (st.includes("SUBMIT")) submitted++;
       else if (st.includes("NOT_STARTED")) notStarted++;
 
@@ -266,6 +284,7 @@ export const PreviewPage = () => {
   // Fetch all indicators data for state approver if viewAll is true
   useEffect(() => {
     let isActive = true;
+    
     
     async function fetchStateData() {
       if (!urlParams.viewAll || !urlParams.stateId) {
@@ -303,8 +322,8 @@ export const PreviewPage = () => {
             metadata: {
               state: urlParams.stateId,
               totalIndicators: allIndicators.length,
-              approvedIndicators: allIndicators.filter(i => i.status === 'APPROVED').length,
-              pendingIndicators: allIndicators.filter(i => i.status !== 'APPROVED').length
+              approvedIndicators: allIndicators.filter(i => i?.status === 'APPROVED').length,
+              pendingIndicators: allIndicators.filter(i => i?.status !== 'APPROVED').length
             }
           };
           const stateFormData: StateFormData = {
@@ -313,8 +332,8 @@ export const PreviewPage = () => {
             metadata: {
               state: urlParams.stateId || '',
               totalIndicators: allIndicators.length,
-              approvedIndicators: allIndicators.filter(i => i.status === 'APPROVED').length,
-              pendingIndicators: allIndicators.filter(i => i.status !== 'APPROVED').length
+              approvedIndicators: allIndicators.filter(i => i?.status === 'APPROVED').length,
+              pendingIndicators: allIndicators.filter(i => i?.status !== 'APPROVED').length
             }
           };
 
@@ -404,23 +423,8 @@ export const PreviewPage = () => {
   }
 
 
-  // Check if we're in edit mode
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(null);
+ 
 
-  // Check for edit mode on mount
-  useEffect(() => {
-    const editingSubmissionId = localStorage.getItem('editing_submission_id');
-    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
-
-    if (editingSubmissionId && isEditModeFlag) {
-      setIsEditMode(true);
-      setEditingSubmissionId(editingSubmissionId);
-    }
-
-    storageService.set(PREVIEW_FLAG_KEY, true);
-    setHasPreviewed(true);
-  }, []); // Empty dependency array to run only once
 
   // Final submit handler with confirmation modal
   const handleFinalSubmit = async (e?: React.MouseEvent) => {
