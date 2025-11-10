@@ -262,11 +262,11 @@ export function UserForm({
       const stateIds = officer.state
       ? officer.state.split(",").map(name => {
           const match = states.find(s => s.name.trim() === name.trim());
-          return match ? match.id : "";
+          return match ? match.id : officer.state;
         }).filter(Boolean)
       : []; 
 
-      console.log("🔍 Resolved state IDs for officer:", stateIds) ;
+      console.log("🔍 Resolved state IDs for officer:", officer.state) ;
       
       setFormData({
         firstName: officer.firstName || "",
