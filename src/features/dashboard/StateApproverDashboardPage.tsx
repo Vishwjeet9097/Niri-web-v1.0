@@ -139,14 +139,20 @@ export function StateApproverDashboardPage() {
           // Indicators received group
           {
             title: "Accepted From Nodal Officer",
-            value: `${acceptedFromNodal}/${Math.max(1, totalAssigned)}`,
+            value:
+              totalAssigned && totalAssigned > 0
+                ? `${acceptedFromNodal}/${totalAssigned}`
+                : String(acceptedFromNodal ?? 0),
             subtitle: "This fiscal year",
             icon: CheckCircle,
             variant: "green",
           },
           {
             title: "Returned to Nodal Officer",
-            value: `${returnedToNodal}/${Math.max(1, totalAssigned)}`,
+            value:
+              totalAssigned && totalAssigned > 0
+                ? `${returnedToNodal}/${totalAssigned}`
+                : String(returnedToNodal ?? 0),
             subtitle: "Need Revision",
             icon: ArrowLeft,
             variant: "yellow",

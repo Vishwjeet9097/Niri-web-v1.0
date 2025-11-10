@@ -1064,7 +1064,9 @@ class ApiService implements HttpClient {
   async uploadFile(
     submissionId: string,
     file: File
-  ): Promise<{ url: string; filename: string; size: number }> {
+  ): Promise<{
+    data: any; url: string; filename: string; size: number 
+}> {
     try {
       const formData = new FormData();
       formData.append("file", file);

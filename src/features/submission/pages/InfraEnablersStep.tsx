@@ -38,7 +38,6 @@ import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import { computeStepProgress } from "../utils/progress";
 
-
 const defaultData: InfraEnablersData = {
   section4_1: {
     allEligible: "",
@@ -61,24 +60,23 @@ const defaultData: InfraEnablersData = {
     impact: "",
     file: null,
   },
-  section4_6: [],
+  section4_6: {
+    capacityArray: [],
+  },
 };
 
 export const InfraEnablersStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isLastStep } =
     useStepNavigation(4);
-  const {
-    formData: persistedFormData,
-    getStepData,
-    updateFormData,
-  } = useFormPersistence();
+  const { getStepData, updateFormData } = useFormPersistence();
+
   // Detect edit mode to hide empty indicators
   const isEditMode =
     typeof window !== "undefined" &&
     localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
 
-  // ✅ New unified indicator access control
+  // Indicator access
   const {
     isNodalOfficer,
     isStateApprover,
@@ -88,10 +86,6 @@ export const InfraEnablersStep = () => {
     loading: indicatorLoading,
     error: indicatorError,
   } = useIndicatorAccess();
-
-  // useEffect(() => {
-  //   refresh?.({ clearCache: true });
-  // }, [refresh]);
 
   useEffect(() => {
     console.log("🔍 InfraEnablersStep: Access control state", {
@@ -113,8 +107,6 @@ export const InfraEnablersStep = () => {
     user,
   ]);
 
-  // Note: Editing submission data is handled by useFormPersistence hook
-
   // Merge loaded data with defaults
   const loadedData =
     (getStepData("infraEnablers") as Partial<InfraEnablersData>) || {};
@@ -126,15 +118,18 @@ export const InfraEnablersStep = () => {
     section4_3: { ...defaultData.section4_3, ...(loadedData.section4_3 || {}) },
     section4_4: { ...defaultData.section4_4, ...(loadedData.section4_4 || {}) },
     section4_5: { ...defaultData.section4_5, ...(loadedData.section4_5 || {}) },
-    section4_6: Array.isArray(loadedData.section4_6)
-      ? loadedData.section4_6
-      : [],
+    section4_6: {
+      capacityArray: Array.isArray(loadedData.section4_6?.capacityArray)
+        ? loadedData.section4_6!.capacityArray
+        : [],
+    },
   };
 
   const [formData, setFormData] = useState<InfraEnablersData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const { toast } = useToast();
 
-  // Sync with localStorage data when component mounts or data changes
+  // Sync with persisted localStorage step data when component mounts or getStepData changes
   useEffect(() => {
     const currentStepData = getStepData(
       "infraEnablers"
@@ -163,9 +158,13 @@ export const InfraEnablersStep = () => {
           ...defaultData.section4_5,
           ...(currentStepData.section4_5 || {}),
         },
-        section4_6: Array.isArray(currentStepData.section4_6)
-          ? currentStepData.section4_6
-          : [],
+        section4_6: {
+          capacityArray: Array.isArray(
+            currentStepData.section4_6?.capacityArray
+          )
+            ? currentStepData.section4_6!.capacityArray
+            : [],
+        },
       };
       setFormData(syncedData);
       console.log(
@@ -173,9 +172,10 @@ export const InfraEnablersStep = () => {
         syncedData
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getStepData]);
 
-  // Initialize form data only once when component mounts
+  // Initialize form data only once when component mounts (editing_submission)
   useEffect(() => {
     const editingSubmission = localStorage.getItem("editing_submission");
     if (editingSubmission) {
@@ -212,7 +212,11 @@ export const InfraEnablersStep = () => {
               ...defaultData.section4_5,
               ...(stepData.section4_5 || {}),
             },
-            section4_6: stepData.section4_6 || [],
+            section4_6: {
+              capacityArray: Array.isArray(stepData.section4_6?.capacityArray)
+                ? stepData.section4_6!.capacityArray
+                : [],
+            },
           };
           setFormData(updatedData);
           console.log(
@@ -231,26 +235,33 @@ export const InfraEnablersStep = () => {
         localStorage.removeItem("editing_submission");
       }
     }
-  }, []); // Empty dependency array to run only once
+  }, []); // run once
 
-  // Always load latest data from localStorage on mount
-  useEffect(() => {
-    const loaded =
-      (getStepData("infraEnablers") as Partial<InfraEnablersData>) || {};
-    setFormData((prev) => ({
-      ...prev,
-      ...loaded,
-      section4_1: { ...defaultData.section4_1, ...(loaded.section4_1 || {}) },
-      section4_2: { ...defaultData.section4_2, ...(loaded.section4_2 || {}) },
-      section4_3: { ...defaultData.section4_3, ...(loaded.section4_3 || {}) },
-      section4_4: { ...defaultData.section4_4, ...(loaded.section4_4 || {}) },
-      section4_5: { ...defaultData.section4_5, ...(loaded.section4_5 || {}) },
-      section4_6: loaded.section4_6 || [],
-    }));
-    // eslint-disable-next-line
-  }, []);
+  // Calculation helpers
+  const calculateSection4_3 = useCallback(() => {
+    const numberOfProjects = parseInt(
+      formData.section4_3.numberOfProjects || ""
+    );
+    if (isNaN(numberOfProjects)) return { marksObtained: 0 };
+    const marksObtained = Math.min(numberOfProjects * 5, 20);
+    return { marksObtained: Math.round(marksObtained * 100) / 100 };
+  }, [formData.section4_3.numberOfProjects]);
 
-  // Update calculations when specific fields change (avoid infinite loop)
+  const calculateSection4_4 = useCallback(() => {
+    const marksObtained = formData.section4_4.adopted === "yes" ? 50 : 0;
+    return { marksObtained: Math.round(marksObtained * 100) / 100 };
+  }, [formData.section4_4.adopted]);
+
+  const calculateSection4_6 = useCallback(() => {
+    const len = formData.section4_6.capacityArray.length;
+    const totalMarks = Math.min(len * 1, 50);
+    return {
+      perEntry: len > 0 ? 1 : 0,
+      totalMarks: Math.round(totalMarks * 100) / 100,
+    };
+  }, [formData.section4_6.capacityArray.length]);
+
+  // update computed marks into formData (per-entry marks for section4_6 set to 1)
   useEffect(() => {
     const section4_3Calc = calculateSection4_3();
     const section4_4Calc = calculateSection4_4();
@@ -266,99 +277,70 @@ export const InfraEnablersStep = () => {
         ...prev.section4_4,
         marksObtained: section4_4Calc.marksObtained,
       },
-      section4_6: prev.section4_6.map((participant) => ({
-        ...participant,
-        marksObtained: section4_6Calc.marksObtained,
-      })),
+      section4_6: {
+        capacityArray: prev.section4_6.capacityArray.map((p) => ({
+          ...p,
+          marksObtained: section4_6Calc.perEntry,
+        })),
+      },
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     formData.section4_3.numberOfProjects,
     formData.section4_4.adopted,
-    formData.section4_6.length,
+    formData.section4_6.capacityArray.length,
   ]);
 
-  // Calculation functions
-  const calculateSection4_3 = useCallback(() => {
-    // A₁: Number of projects
-    const numberOfProjects = parseInt(formData.section4_3.numberOfProjects);
-
-    if (isNaN(numberOfProjects)) {
-      return { marksObtained: 0 };
-    }
-
-    // Marks: MIN(A₁ × 5, 20)
-    const marksObtained = Math.min(numberOfProjects * 5, 20);
-
-    return {
-      marksObtained: Math.round(marksObtained * 100) / 100,
-    };
-  }, [formData.section4_3.numberOfProjects]);
-
-  const calculateSection4_4 = useCallback(() => {
-    // For section 4.4, marks = IF adopted = 'Yes' THEN 50 ELSE 0
-    const marksObtained = formData.section4_4.adopted === "yes" ? 50 : 0;
-
-    return {
-      marksObtained: Math.round(marksObtained * 100) / 100,
-    };
-  }, [formData.section4_4.adopted]);
-
-  const calculateSection4_6 = useCallback(() => {
-    // For section 4.6, marks = MIN(number of participants × 1, 50)
-    const totalParticipants = formData.section4_6.reduce((sum, training) => {
-      // Since we don't have participants field, we'll use 1 per training
-      return sum + 1;
-    }, 0);
-
-    const marksObtained = Math.min(totalParticipants * 1, 50);
-
-    return {
-      marksObtained: Math.round(marksObtained * 100) / 100,
-    };
-  }, [formData.section4_6.length]);
-
-  // Autosave to localStorage with debouncing (avoid infinite loop)
+  // Autosave to persistence with debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      // Ensure form data has proper structure before saving
-      const structuredData = {
+      const structuredData: InfraEnablersData = {
         section4_1: formData.section4_1 || defaultData.section4_1,
         section4_2: formData.section4_2 || defaultData.section4_2,
         section4_3: formData.section4_3 || defaultData.section4_3,
         section4_4: formData.section4_4 || defaultData.section4_4,
         section4_5: formData.section4_5 || defaultData.section4_5,
-        section4_6: formData.section4_6 || defaultData.section4_6,
+        section4_6: {
+          capacityArray: formData.section4_6.capacityArray || [],
+        },
       };
-
       updateFormData("infraEnablers", structuredData);
-    }, 500); // Debounce for 500ms
+    }, 500);
 
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line
   }, [formData]);
 
-  // --- Section 4.6: Add/Remove Officer Training ---
+  // --- Section 4.6 helpers (operate on capacityArray) ---
   const addTraining = () => {
+    const newEntry = {
+      id:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : Date.now().toString(),
+      officerName: "",
+      designation: "",
+      programName: "",
+      organiser: "",
+      trainingType: "",
+      marksObtained: 1,
+    };
     setFormData((prev) => ({
       ...prev,
-      section4_6: [
-        ...prev.section4_6,
-        {
-          id: crypto.randomUUID(),
-          officerName: "",
-          designation: "",
-          programName: "",
-          organiser: "",
-          trainingType: "",
-        },
-      ],
+      section4_6: {
+        capacityArray: [...prev.section4_6.capacityArray, newEntry],
+      },
     }));
   };
 
   const removeTraining = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      section4_6: prev.section4_6.filter((entry) => entry.id !== id),
+      section4_6: {
+        capacityArray: prev.section4_6.capacityArray.filter(
+          (entry) => entry.id !== id
+        ),
+      },
     }));
   };
 
@@ -374,39 +356,28 @@ export const InfraEnablersStep = () => {
   ) => {
     setFormData((prev) => ({
       ...prev,
-      section4_6: prev.section4_6.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
+      section4_6: {
+        capacityArray: prev.section4_6.capacityArray.map((entry) =>
+          entry.id === id ? { ...entry, [field]: value } : entry
+        ),
+      },
     }));
   };
 
-  // --- Validation (commented out for now) ---
-  // const validateFields = () => {
-  //   const newErrors: { [key: string]: string } = {};
-  //   // Add validation logic for required fields here if needed
-  //   setErrors(newErrors);
-  //   return Object.keys(newErrors).length === 0;
-  // };
-
-  // --- Navigation ---
+  // Navigation / Save
   const handleNext = () => {
     updateFormData("infraEnablers", formData);
     goToNext();
   };
 
-  const { toast } = useToast();
-
   const handleSaveDraft = async () => {
-    // Save to localStorage with toast message
     const success = saveDraftToLocalStorage("infraEnablers", formData);
-
     if (success) {
-      // Also update form data in persistence hook
       updateFormData("infraEnablers", formData);
     }
   };
 
-  // ✅ Unified access control for both Nodal Officer & State Approver
+  // Unified access control for both roles
   const sectionIndicators = ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"];
   const allowedIndicators =
     (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter((i) =>
@@ -675,7 +646,7 @@ export const InfraEnablersStep = () => {
                 <span className="text-base font-semibold ">
                   <span className="text-primary">4.3 - </span> Adoption of PM
                   GatiShakti
-                  <span className="font-normal text-xs text-muted-foreground ml-1">
+                   <span className="font-normal text-xs text-muted-foreground ml-1">
                     (10 marks per 1%)
                   </span>
                 </span>
@@ -716,7 +687,7 @@ export const InfraEnablersStep = () => {
           !!formData.section4_4?.file) && (
           <SectionCard
             title={
-              <div className="flex flex-col">
+               <div className="flex flex-col">
                 <span className="text-base font-semibold ">
                   <span className="text-primary">4.4 - </span> Adoption of ADR
                   <span className="font-normal text-xs text-muted-foreground ml-1">
@@ -810,9 +781,6 @@ export const InfraEnablersStep = () => {
                 <span className="text-base font-semibold ">
                   <span className="text-primary">4.5 - </span> Innovative
                   Practices
-                  <span className="font-normal text-xs text-muted-foreground ml-1">
-                    (10 marks per practice)
-                  </span>
                 </span>
               </div>
             }
@@ -939,12 +907,13 @@ export const InfraEnablersStep = () => {
           </SectionCard>
         )}
 
-      {/* Section 4.6 */} 
+      {/* Section 4.6 */}
       {((!isNodalOfficer && !isStateApprover) ||
         assignedIndicators.includes("4.6") ||
-        availableIndicators.includes("4.6")) && (!isEditMode ||
-          (Array.isArray(formData.section4_6) &&
-            formData.section4_6.length > 0)) && (
+        availableIndicators.includes("4.6")) &&
+        (!isEditMode ||
+          (Array.isArray(formData.section4_6.capacityArray) &&
+            formData.section4_6.capacityArray.length > 0)) && (
           <SectionCard
             title={
               <div className="flex flex-col">
@@ -957,7 +926,6 @@ export const InfraEnablersStep = () => {
                 </span>
               </div>
             }
-            // subtitle="Annex 11"
             className="mb-6"
           >
             <div className="flex flex-col gap-4">
@@ -978,7 +946,7 @@ export const InfraEnablersStep = () => {
                     htmlFor="capacity-yes-step"
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => {
-                      if (formData.section4_6.length === 0) {
+                      if (formData.section4_6.capacityArray.length === 0) {
                         addTraining();
                       }
                     }}
@@ -988,9 +956,9 @@ export const InfraEnablersStep = () => {
                       type="radio"
                       name="capacity-building-step"
                       value="yes"
-                      checked={formData.section4_6.length > 0}
+                      checked={formData.section4_6.capacityArray.length > 0}
                       onChange={() => {
-                        if (formData.section4_6.length === 0) {
+                        if (formData.section4_6.capacityArray.length === 0) {
                           addTraining();
                         }
                       }}
@@ -1002,10 +970,10 @@ export const InfraEnablersStep = () => {
                     htmlFor="capacity-no-step"
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => {
-                      if (formData.section4_6.length > 0) {
+                      if (formData.section4_6.capacityArray.length > 0) {
                         setFormData((prev) => ({
                           ...prev,
-                          section4_6: [],
+                          section4_6: { capacityArray: [] },
                         }));
                       }
                     }}
@@ -1015,11 +983,11 @@ export const InfraEnablersStep = () => {
                       type="radio"
                       name="capacity-building-step"
                       value="no"
-                      checked={formData.section4_6.length === 0}
+                      checked={formData.section4_6.capacityArray.length === 0}
                       onChange={() => {
                         setFormData((prev) => ({
                           ...prev,
-                          section4_6: [],
+                          section4_6: { capacityArray: [] },
                         }));
                       }}
                       className="w-4 h-4 text-blue-600 cursor-pointer"
@@ -1028,7 +996,8 @@ export const InfraEnablersStep = () => {
                   </label>
                 </div>
               </div>
-              {formData.section4_6.map((entry, idx) => (
+
+              {formData.section4_6.capacityArray.map((entry, idx) => (
                 <div key={entry.id} className="mb-2">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                     <div>
@@ -1122,6 +1091,7 @@ export const InfraEnablersStep = () => {
                   </div>
                 </div>
               ))}
+
               <Button
                 type="button"
                 variant="outline"
@@ -1132,7 +1102,6 @@ export const InfraEnablersStep = () => {
                 <Plus className="w-4 h-4" />
                 Add More Training
               </Button>
-              {/* <p className="text-xs text-muted-foreground">Annex 11</p> */}
             </div>
           </SectionCard>
         )}

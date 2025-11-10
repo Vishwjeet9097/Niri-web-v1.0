@@ -93,40 +93,46 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.issuingAuthority) &&
         hasMeaningfulValue(r.value)
     ),
-  section1_5: (data) =>
+  section1_5: (data: any) =>
+  anyValid(
+    data?.ffiArray,
+    (r) =>
+      hasMeaningfulValue(r.organisationName) &&
+      hasMeaningfulValue(r.organisationType) &&
+      hasMeaningfulValue(r.yearEstablished) &&
+      hasMeaningfulValue(r.totalFunding)
+  ),
+
+
+   // 2.x Infra Development (updated to handle new nested array structure)
+  section2_1: (data: any) =>
     anyValid(
-      data,
-      (r) =>
-        hasMeaningfulValue(r.organisationName) &&
-        hasMeaningfulValue(r.organisationType) &&
-        hasMeaningfulValue(r.yearEstablished) &&
-        hasMeaningfulValue(r.totalFunding)
+      data?.infraActArray,
+      (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
     ),
 
-  // 2.x Infra Development (all arrays with at least one entry)
-  section2_1: (data) =>
+  section2_2: (data: any) =>
     anyValid(
-      data,
+      data?.specializedEntityArray,
       (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
     ),
-  section2_2: (data) =>
+
+  section2_3: (data: any) =>
     anyValid(
-      data,
+      data?.infraDevelopmentArray,
       (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
     ),
-  section2_3: (data) =>
+
+  section2_4: (data: any) =>
     anyValid(
-      data,
-      (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
+      data?.investmentReadyArray,
+      (r) =>
+        hasMeaningfulValue(r.projectName) && hasMeaningfulValue(r.dprFile)
     ),
-  section2_4: (data) =>
+
+  section2_5: (data: any) =>
     anyValid(
-      data,
-      (r) => hasMeaningfulValue(r.projectName) && hasMeaningfulValue(r.dprFile)
-    ),
-  section2_5: (data) =>
-    anyValid(
-      data,
+      data?.assetMonetizationArray,
       (r) =>
         hasMeaningfulValue(r.projectName) &&
         hasMeaningfulValue(r.sector) &&
@@ -134,6 +140,7 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.ownership) &&
         hasMeaningfulValue(r.estimatedMonetization)
     ),
+
 
   // 3.x PPP
   section3_1: (data) => {
@@ -205,16 +212,18 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
       );
     return true;
   },
-  section4_6: (data) =>
-    anyValid(
-      data,
-      (r) =>
-        hasMeaningfulValue(r.officerName) &&
-        hasMeaningfulValue(r.designation) &&
-        hasMeaningfulValue(r.programName) &&
-        hasMeaningfulValue(r.organiser) &&
-        hasMeaningfulValue(r.trainingType)
-    ),
+  section4_6: (data) =>{
+  const d = data as Record<string, any>;
+  return anyValid(
+    d?.capacityArray,
+    (r) =>
+      hasMeaningfulValue(r.officerName) &&
+      hasMeaningfulValue(r.designation) &&
+      hasMeaningfulValue(r.programName) &&
+      hasMeaningfulValue(r.organiser) &&
+      hasMeaningfulValue(r.trainingType)
+  );
+},
 };
 
 function hasMeaningfulValue(value: unknown): boolean {

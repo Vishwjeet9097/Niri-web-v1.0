@@ -34,17 +34,19 @@ import { FileUploadSection } from "../components/FileUploadSection";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
-// import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import { computeStepProgress } from "../utils/progress";
 
+// NOTE: The InfraDevelopmentData shape now wraps arrays inside objects.
+// This component was updated to use those nested arrays e.g. formData.section2_1.infraActArray
+
 const defaultData: InfraDevelopmentData = {
-  section2_1: [],
-  section2_2: [],
-  section2_3: [],
-  section2_4: [],
-  section2_5: [],
+  section2_1: { infraActArray: [] },
+  section2_2: { specializedEntityArray: [] },
+  section2_3: { infraDevelopmentArray: [] },
+  section2_4: { investmentReadyArray: [] },
+  section2_5: { assetMonetizationArray: [] },
 };
 
 const getDefaultFileUpload = (): FileUpload => ({
@@ -75,7 +77,6 @@ export const InfraDevelopmentStep = () => {
     localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
 
-  // Indicator access control
   const {
     isNodalOfficer,
     availableIndicators,
@@ -86,7 +87,6 @@ export const InfraDevelopmentStep = () => {
     error: indicatorError,
   } = useIndicatorAccess();
 
-  // Debug info
   useEffect(() => {
     console.log("🔍 InfraDevelopmentStep: Access control state", {
       isNodalOfficer,
@@ -105,30 +105,34 @@ export const InfraDevelopmentStep = () => {
     user,
   ]);
 
-  // Refresh indicators when component mounts (to ensure latest availability)
-  // useEffect(() => {
-  //   refresh?.({ clearCache: true });
-  // }, []);
-
-  // Delete file function
-  const onDelete = (fileId: string) => {
-    // Implementation for deleting file
-    console.log("Delete file:", fileId);
-  };
-
-  // Note: Editing submission data is handled by useFormPersistence hook
-
   // Merge loaded data with defaults
   const loadedData =
-    (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
+    (getStepData("infraDevelopment") as
+      | Partial<InfraDevelopmentData>
+      | undefined) || {};
+
   const initialData: InfraDevelopmentData = {
     ...defaultData,
     ...loadedData,
-    section2_1: loadedData.section2_1 || [],
-    section2_2: loadedData.section2_2 || [],
-    section2_3: loadedData.section2_3 || [],
-    section2_4: loadedData.section2_4 || [],
-    section2_5: loadedData.section2_5 || [],
+    section2_1: {
+      infraActArray: (loadedData.section2_1 as any)?.infraActArray || [],
+    },
+    section2_2: {
+      specializedEntityArray:
+        (loadedData.section2_2 as any)?.specializedEntityArray || [],
+    },
+    section2_3: {
+      infraDevelopmentArray:
+        (loadedData.section2_3 as any)?.infraDevelopmentArray || [],
+    },
+    section2_4: {
+      investmentReadyArray:
+        (loadedData.section2_4 as any)?.investmentReadyArray || [],
+    },
+    section2_5: {
+      assetMonetizationArray:
+        (loadedData.section2_5 as any)?.assetMonetizationArray || [],
+    },
   };
 
   const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
@@ -143,11 +147,26 @@ export const InfraDevelopmentStep = () => {
       const syncedData: InfraDevelopmentData = {
         ...defaultData,
         ...currentStepData,
-        section2_1: currentStepData.section2_1 || [],
-        section2_2: currentStepData.section2_2 || [],
-        section2_3: currentStepData.section2_3 || [],
-        section2_4: currentStepData.section2_4 || [],
-        section2_5: currentStepData.section2_5 || [],
+        section2_1: {
+          infraActArray:
+            (currentStepData.section2_1 as any)?.infraActArray || [],
+        },
+        section2_2: {
+          specializedEntityArray:
+            (currentStepData.section2_2 as any)?.specializedEntityArray || [],
+        },
+        section2_3: {
+          infraDevelopmentArray:
+            (currentStepData.section2_3 as any)?.infraDevelopmentArray || [],
+        },
+        section2_4: {
+          investmentReadyArray:
+            (currentStepData.section2_4 as any)?.investmentReadyArray || [],
+        },
+        section2_5: {
+          assetMonetizationArray:
+            (currentStepData.section2_5 as any)?.assetMonetizationArray || [],
+        },
       };
       setFormData(syncedData);
       console.log(
@@ -155,9 +174,10 @@ export const InfraDevelopmentStep = () => {
         syncedData
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getStepData]);
 
-  // Initialize form data only once when component mounts
+  // Initialize form data only once when component mounts (editing flow)
   useEffect(() => {
     const editingSubmission = localStorage.getItem("editing_submission");
     if (editingSubmission) {
@@ -177,11 +197,25 @@ export const InfraDevelopmentStep = () => {
           const updatedData: InfraDevelopmentData = {
             ...defaultData,
             ...stepData,
-            section2_1: stepData.section2_1 || [],
-            section2_2: stepData.section2_2 || [],
-            section2_3: stepData.section2_3 || [],
-            section2_4: stepData.section2_4 || [],
-            section2_5: stepData.section2_5 || [],
+            section2_1: {
+              infraActArray: (stepData.section2_1 as any)?.infraActArray || [],
+            },
+            section2_2: {
+              specializedEntityArray:
+                (stepData.section2_2 as any)?.specializedEntityArray || [],
+            },
+            section2_3: {
+              infraDevelopmentArray:
+                (stepData.section2_3 as any)?.infraDevelopmentArray || [],
+            },
+            section2_4: {
+              investmentReadyArray:
+                (stepData.section2_4 as any)?.investmentReadyArray || [],
+            },
+            section2_5: {
+              assetMonetizationArray:
+                (stepData.section2_5 as any)?.assetMonetizationArray || [],
+            },
           };
           setFormData(updatedData);
           console.log(
@@ -200,37 +234,61 @@ export const InfraDevelopmentStep = () => {
         localStorage.removeItem("editing_submission");
       }
     }
-  }, []); // Empty dependency array to run only once
+  }, []);
 
-  // Autosave to localStorage with debouncing (avoid infinite loop)
+  // Autosave to localStorage with debouncing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       updateFormData("infraDevelopment", formData);
-    }, 500); // Debounce for 500ms
+    }, 500);
 
     return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line
-  }, [formData]);
+  }, [formData, updateFormData]);
+
+  // Helpers to map section -> array key inside the object
+  const sectionArrayKeyMap: Record<string, string> = {
+    section2_1: "infraActArray",
+    section2_2: "specializedEntityArray",
+    section2_3: "infraDevelopmentArray",
+    section2_4: "investmentReadyArray",
+    section2_5: "assetMonetizationArray",
+  };
 
   // --- Section 2.1, 2.2, 2.3: Add/Remove Entries ---
   const addEntry = (section: "section2_1" | "section2_2" | "section2_3") => {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: [
-        ...prev[section],
-        { id: crypto.randomUUID(), sector: "", files: [] },
-      ],
-    }));
+    const arrKey = sectionArrayKeyMap[section];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          [section]: {
+            ...(prev as any)[section],
+            [arrKey]: [
+              ...((prev as any)[section]?.[arrKey] || []),
+              { id: crypto.randomUUID(), sector: "", files: [] },
+            ],
+          },
+        } as any)
+    );
   };
 
   const removeEntry = (
     section: "section2_1" | "section2_2" | "section2_3",
     id: string
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: prev[section].filter((entry) => entry.id !== id),
-    }));
+    const arrKey = sectionArrayKeyMap[section];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          [section]: {
+            ...(prev as any)[section],
+            [arrKey]: ((prev as any)[section]?.[arrKey] || []).filter(
+              (entry: any) => entry.id !== id
+            ),
+          },
+        } as any)
+    );
   };
 
   const updateEntry = (
@@ -239,30 +297,54 @@ export const InfraDevelopmentStep = () => {
     field: "sector" | "files",
     value: any
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: prev[section].map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
-    }));
+    const arrKey = sectionArrayKeyMap[section];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          [section]: {
+            ...(prev as any)[section],
+            [arrKey]: ((prev as any)[section]?.[arrKey] || []).map(
+              (entry: any) =>
+                entry.id === id ? { ...entry, [field]: value } : entry
+            ),
+          },
+        } as any)
+    );
   };
 
   // --- Section 2.4: Add/Remove Project ---
   const addProject = () => {
-    setFormData((prev) => ({
-      ...prev,
-      section2_4: [
-        ...prev.section2_4,
-        { id: crypto.randomUUID(), projectName: "", dprFile: null },
-      ],
-    }));
+    const arrKey = sectionArrayKeyMap["section2_4"];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          section2_4: {
+            ...(prev as any).section2_4,
+            [arrKey]: [
+              ...((prev as any).section2_4?.[arrKey] || []),
+              { id: crypto.randomUUID(), projectName: "", dprFile: null },
+            ],
+          },
+        } as any)
+    );
   };
 
   const removeProject = (id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      section2_4: prev.section2_4.filter((entry) => entry.id !== id),
-    }));
+    const arrKey = sectionArrayKeyMap["section2_4"];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          section2_4: {
+            ...(prev as any).section2_4,
+            [arrKey]: ((prev as any).section2_4?.[arrKey] || []).filter(
+              (entry: any) => entry.id !== id
+            ),
+          },
+        } as any)
+    );
   };
 
   const updateProject = (
@@ -270,37 +352,61 @@ export const InfraDevelopmentStep = () => {
     field: "projectName" | "dprFile",
     value: any
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      section2_4: prev.section2_4.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
-    }));
+    const arrKey = sectionArrayKeyMap["section2_4"];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          section2_4: {
+            ...(prev as any).section2_4,
+            [arrKey]: ((prev as any).section2_4?.[arrKey] || []).map(
+              (entry: any) =>
+                entry.id === id ? { ...entry, [field]: value } : entry
+            ),
+          },
+        } as any)
+    );
   };
 
   // --- Section 2.5: Add/Remove Asset ---
   const addAsset = () => {
-    setFormData((prev) => ({
-      ...prev,
-      section2_5: [
-        ...prev.section2_5,
-        {
-          id: crypto.randomUUID(),
-          projectName: "",
-          sector: "",
-          type: "",
-          ownership: "Asset ownership",
-          estimatedMonetization: "",
-        },
-      ],
-    }));
+    const arrKey = sectionArrayKeyMap["section2_5"];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          section2_5: {
+            ...(prev as any).section2_5,
+            [arrKey]: [
+              ...((prev as any).section2_5?.[arrKey] || []),
+              {
+                id: crypto.randomUUID(),
+                projectName: "",
+                sector: "",
+                type: "",
+                ownership: "Asset ownership",
+                estimatedMonetization: "",
+              },
+            ],
+          },
+        } as any)
+    );
   };
 
   const removeAsset = (id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      section2_5: prev.section2_5.filter((entry) => entry.id !== id),
-    }));
+    const arrKey = sectionArrayKeyMap["section2_5"];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          section2_5: {
+            ...(prev as any).section2_5,
+            [arrKey]: ((prev as any).section2_5?.[arrKey] || []).filter(
+              (entry: any) => entry.id !== id
+            ),
+          },
+        } as any)
+    );
   };
 
   const updateAsset = (
@@ -313,80 +419,29 @@ export const InfraDevelopmentStep = () => {
       | "estimatedMonetization",
     value: any
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      section2_5: prev.section2_5.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
-    }));
+    const arrKey = sectionArrayKeyMap["section2_5"];
+    setFormData(
+      (prev) =>
+        ({
+          ...prev,
+          section2_5: {
+            ...(prev as any).section2_5,
+            [arrKey]: ((prev as any).section2_5?.[arrKey] || []).map(
+              (entry: any) =>
+                entry.id === id ? { ...entry, [field]: value } : entry
+            ),
+          },
+        } as any)
+    );
   };
 
-  // --- Validation ---
-  // Validation is currently disabled (commented out for all fields)
+  // --- Validation (kept disabled) ---
   const validateFields = () => {
-    // const newErrors: { [key: string]: string } = {};
-
-    // // Section 2.1: At least one entry, all fields filled, at least one file
-    // if (
-    //   formData.section2_1.length === 0 ||
-    //   formData.section2_1.some(
-    //     (entry) => !entry.sector || entry.files.length === 0,
-    //   )
-    // ) {
-    //   newErrors.section2_1 =
-    //     "Please add at least one entry and fill all fields with file(s).";
-    // }
-    // // Section 2.2
-    // if (
-    //   formData.section2_2.length === 0 ||
-    //   formData.section2_2.some(
-    //     (entry) => !entry.sector || entry.files.length === 0,
-    //   )
-    // ) {
-    //   newErrors.section2_2 =
-    //     "Please add at least one entry and fill all fields with file(s).";
-    // }
-    // // Section 2.3
-    // if (
-    //   formData.section2_3.length === 0 ||
-    //   formData.section2_3.some(
-    //     (entry) => !entry.sector || entry.files.length === 0,
-    //   )
-    // ) {
-    //   newErrors.section2_3 =
-    //     "Please add at least one entry and fill all fields with file(s).";
-    // }
-    // // Section 2.4: At least one project, projectName required, dprFile required
-    // if (
-    //   formData.section2_4.length === 0 ||
-    //   formData.section2_4.some((entry) => !entry.projectName || !entry.dprFile)
-    // ) {
-    //   newErrors.section2_4 =
-    //     "Please add at least one project and upload DPR/Feasibility Report.";
-    // }
-    // // Section 2.5: At least one asset, all fields except estimatedMonetization required
-    // if (
-    //   formData.section2_5.length === 0 ||
-    //   formData.section2_5.some(
-    //     (entry) =>
-    //       !entry.projectName ||
-    //       !entry.sector ||
-    //       !entry.type ||
-    //       !entry.ownership,
-    //   )
-    // ) {
-    //   newErrors.section2_5 =
-    //     "Please add at least one asset and fill all required fields.";
-    // }
-
-    // setErrors(newErrors);
-    // return Object.keys(newErrors).length === 0;
     return true;
   };
 
   // --- Navigation ---
   const handleNext = () => {
-    // Always save to localStorage before navigating
     updateFormData("infraDevelopment", formData);
     goToNext();
   };
@@ -394,17 +449,14 @@ export const InfraDevelopmentStep = () => {
   const { toast } = useToast();
 
   const handleSaveDraft = async () => {
-    // Save to localStorage with toast message
     const success = saveDraftToLocalStorage("infraDevelopment", formData);
 
     if (success) {
-      // Also update form data in persistence hook
       updateFormData("infraDevelopment", formData);
     }
   };
 
-  // Access control for NODAL_OFFICER
-  // Access control for NODAL_OFFICER and STATE_APPROVER
+  // Access control for NODAL_OFFICER & STATE_APPROVER
   if (isNodalOfficer || user?.role === "STATE_APPROVER") {
     const sectionIndicators = ["2.1", "2.2", "2.3", "2.4", "2.5"];
     const allowed = (
@@ -464,7 +516,12 @@ export const InfraDevelopmentStep = () => {
         const { completed, total, progress } = computeStepProgress(
           { infraDevelopment: formData } as Record<string, unknown>,
           "infraDevelopment",
-          { assignedIndicators, availableIndicators, isNodalOfficer, isStateApprover: user?.role === "STATE_APPROVER" }
+          {
+            assignedIndicators,
+            availableIndicators,
+            isNodalOfficer,
+            isStateApprover: user?.role === "STATE_APPROVER",
+          }
         );
         console.log("Infra Development Progress Debug:", {
           role: user?.role,
@@ -487,13 +544,14 @@ export const InfraDevelopmentStep = () => {
           />
         );
       })()}
+
       {/* Section 2.1 */}
       {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
         availableIndicators.includes("2.1") ||
         assignedIndicators.includes("2.1")) &&
         (!isEditMode ||
-          (Array.isArray(formData.section2_1) &&
-            formData.section2_1.length > 0)) && (
+          (Array.isArray(formData.section2_1.infraActArray) &&
+            formData.section2_1.infraActArray.length > 0)) && (
           <SectionCard
             title={
               <div className="flex flex-col">
@@ -507,7 +565,7 @@ export const InfraDevelopmentStep = () => {
             className="mb-6"
           >
             <div className="flex flex-col gap-4 ">
-              {formData.section2_1.map((entry, idx) => (
+              {formData.section2_1.infraActArray.map((entry) => (
                 <div key={entry.id} className=" mb-2 relative">
                   <div className="flex flex-col gap-4 max-w-[70%]">
                     <div className="flex-1 w-full">
@@ -588,7 +646,8 @@ export const InfraDevelopmentStep = () => {
                   </p>
                 )}
               </div>
-              {formData.section2_1.length > 0 && (
+
+              {formData.section2_1.infraActArray.length > 0 && (
                 <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full border-separate border-spacing-0 ">
                     <thead>
@@ -608,7 +667,7 @@ export const InfraDevelopmentStep = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {formData.section2_1.map((entry, idx) => (
+                      {formData.section2_1.infraActArray.map((entry) => (
                         <tr key={entry.id} className="bg-white">
                           <td className="py-3 px-4 text-sm font-normal">
                             {entry.sector}
@@ -652,8 +711,8 @@ export const InfraDevelopmentStep = () => {
         availableIndicators.includes("2.2") ||
         assignedIndicators.includes("2.2")) &&
         (!isEditMode ||
-          (Array.isArray(formData.section2_2) &&
-            formData.section2_2.length > 0)) && (
+          (Array.isArray(formData.section2_2.specializedEntityArray) &&
+            formData.section2_2.specializedEntityArray.length > 0)) && (
           <SectionCard
             title={
               <div className="flex flex-col">
@@ -667,7 +726,7 @@ export const InfraDevelopmentStep = () => {
             className="mb-6"
           >
             <div className="flex flex-col gap-4">
-              {formData.section2_2.map((entry, idx) => (
+              {formData.section2_2.specializedEntityArray.map((entry) => (
                 <div key={entry.id} className="mb-2 relative">
                   <div className="flex flex-col gap-4 max-w-[70%]">
                     <div className="flex-1 w-full">
@@ -747,7 +806,8 @@ export const InfraDevelopmentStep = () => {
                   </p>
                 )}
               </div>
-              {formData.section2_2.length > 0 && (
+
+              {formData.section2_2.specializedEntityArray.length > 0 && (
                 <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full border-separate border-spacing-0 ">
                     <thead>
@@ -767,37 +827,39 @@ export const InfraDevelopmentStep = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {formData.section2_2.map((entry, idx) => (
-                        <tr key={entry.id} className="bg-white">
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {entry.sector}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {entry.files?.[0]?.fileName || "No file uploaded"}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {entry.files?.[0]?.fileSize
-                              ? `${(
-                                  entry.files[0].fileSize /
-                                  1024 /
-                                  1024
-                                ).toFixed(1)} MB`
-                              : "N/A"}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeEntry("section2_2", entry.id)
-                              }
-                              className="text-red-600 hover:text-red-800"
-                              aria-label="Delete"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {formData.section2_2.specializedEntityArray.map(
+                        (entry) => (
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileName || "No file uploaded"}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileSize
+                                ? `${(
+                                    entry.files[0].fileSize /
+                                    1024 /
+                                    1024
+                                  ).toFixed(1)} MB`
+                                : "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeEntry("section2_2", entry.id)
+                                }
+                                className="text-red-600 hover:text-red-800"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -811,8 +873,8 @@ export const InfraDevelopmentStep = () => {
         availableIndicators.includes("2.3") ||
         assignedIndicators.includes("2.3")) &&
         (!isEditMode ||
-          (Array.isArray(formData.section2_3) &&
-            formData.section2_3.length > 0)) && (
+          (Array.isArray(formData.section2_3.infraDevelopmentArray) &&
+            formData.section2_3.infraDevelopmentArray.length > 0)) && (
           <SectionCard
             title={
               <div className="flex flex-col">
@@ -826,7 +888,7 @@ export const InfraDevelopmentStep = () => {
             className="mb-6"
           >
             <div className="flex flex-col gap-4">
-              {formData.section2_3.map((entry, idx) => (
+              {formData.section2_3.infraDevelopmentArray.map((entry) => (
                 <div key={entry.id} className="mb-2 relative">
                   <div className="flex flex-col gap-4 max-w-[70%]">
                     <div className="flex-1 w-full">
@@ -906,7 +968,8 @@ export const InfraDevelopmentStep = () => {
                   </p>
                 )}
               </div>
-              {formData.section2_3.length > 0 && (
+
+              {formData.section2_3.infraDevelopmentArray.length > 0 && (
                 <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full border-separate border-spacing-0 ">
                     <thead>
@@ -926,37 +989,39 @@ export const InfraDevelopmentStep = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {formData.section2_3.map((entry, idx) => (
-                        <tr key={entry.id} className="bg-white">
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {entry.sector}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {entry.files?.[0]?.fileName || "No file uploaded"}
-                          </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {entry.files?.[0]?.fileSize
-                              ? `${(
-                                  entry.files[0].fileSize /
-                                  1024 /
-                                  1024
-                                ).toFixed(1)} MB`
-                              : "N/A"}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeEntry("section2_3", entry.id)
-                              }
-                              className="text-red-600 hover:text-red-800"
-                              aria-label="Delete"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {formData.section2_3.infraDevelopmentArray.map(
+                        (entry) => (
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileName || "No file uploaded"}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileSize
+                                ? `${(
+                                    entry.files[0].fileSize /
+                                    1024 /
+                                    1024
+                                  ).toFixed(1)} MB`
+                                : "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeEntry("section2_3", entry.id)
+                                }
+                                className="text-red-600 hover:text-red-800"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -970,8 +1035,8 @@ export const InfraDevelopmentStep = () => {
         availableIndicators.includes("2.4") ||
         assignedIndicators.includes("2.4")) &&
         (!isEditMode ||
-          (Array.isArray(formData.section2_4) &&
-            formData.section2_4.length > 0)) && (
+          (Array.isArray(formData.section2_4.investmentReadyArray) &&
+            formData.section2_4.investmentReadyArray.length > 0)) && (
           <SectionCard
             title={
               <div className="flex flex-col">
@@ -981,11 +1046,10 @@ export const InfraDevelopmentStep = () => {
                 </span>
               </div>
             }
-            // subtitle="Annex 5: Upload DPR/Feasibility Report"
             className="mb-6"
           >
             <div className="flex flex-col gap-4">
-              {formData.section2_4.map((entry, idx) => (
+              {formData.section2_4.investmentReadyArray.map((entry) => (
                 <div key={entry.id} className="mb-2 relative">
                   <div className="flex flex-col gap-4 max-w-[70%]">
                     <div className="flex-1 w-full">
@@ -1050,8 +1114,8 @@ export const InfraDevelopmentStep = () => {
         availableIndicators.includes("2.5") ||
         assignedIndicators.includes("2.5")) &&
         (!isEditMode ||
-          (Array.isArray(formData.section2_5) &&
-            formData.section2_5.length > 0)) && (
+          (Array.isArray(formData.section2_5.assetMonetizationArray) &&
+            formData.section2_5.assetMonetizationArray.length > 0)) && (
           <SectionCard
             title={
               <div className="flex flex-col">
@@ -1061,11 +1125,10 @@ export const InfraDevelopmentStep = () => {
                 </span>
               </div>
             }
-            // subtitle="Annex 6"
             className="mb-6"
           >
             <div className="flex flex-col gap-4">
-              {formData.section2_5.map((entry, idx) => (
+              {formData.section2_5.assetMonetizationArray.map((entry) => (
                 <div key={entry.id} className="mb-2">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                     <div>

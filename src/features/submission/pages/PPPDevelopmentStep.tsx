@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
@@ -52,7 +53,7 @@ const defaultData: PPPDevelopmentData = {
     available: "",
     file: null,
   },
-  section3_3: [],
+  section3_3: { VGFArray: [] },
   section3_4: {
     projects: [],
   },
@@ -109,34 +110,22 @@ export const PPPDevelopmentStep = () => {
     user,
   ]);
 
-  // useEffect(() => {
-  //   refresh?.({ clearCache: true });
-  // }, [refresh]);
-  // Note: Editing submission data is handled by useFormPersistence hook
-
   // Merge loaded data with defaults
   const loadedData =
     (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
-  // const initialData: PPPDevelopmentData = {
-  //   ...defaultData,
-  //   ...loadedData,
-  //   section3_1: { ...defaultData.section3_1, ...(loadedData.section3_1 || {}) },
-  //   section3_2: { ...defaultData.section3_2, ...(loadedData.section3_2 || {}) },
-  //   section3_3: loadedData.section3_3 || [],
-  //   section3_4: { ...defaultData.section3_4, ...(loadedData.section3_4 || {}) },
-  // };
 
   const initialData: PPPDevelopmentData = {
     ...defaultData,
     ...loadedData,
     section3_1: { ...defaultData.section3_1, ...(loadedData.section3_1 || {}) },
     section3_2: { ...defaultData.section3_2, ...(loadedData.section3_2 || {}) },
-    section3_3: loadedData.section3_3 || [],
+    section3_3: { VGFArray: (loadedData.section3_3 as any)?.VGFArray || [] },
     section3_4: {
       projects:
         loadedData.section3_4?.projects || defaultData.section3_4.projects,
     },
   };
+
   const [formData, setFormData] = useState<PPPDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -157,7 +146,9 @@ export const PPPDevelopmentStep = () => {
           ...defaultData.section3_2,
           ...(currentStepData.section3_2 || {}),
         },
-        section3_3: currentStepData.section3_3 || [],
+        section3_3: {
+          VGFArray: (currentStepData.section3_3 as any)?.VGFArray || [],
+        },
         section3_4: {
           projects:
             currentStepData.section3_4?.projects ||
@@ -197,7 +188,9 @@ export const PPPDevelopmentStep = () => {
               ...defaultData.section3_2,
               ...(stepData.section3_2 || {}),
             },
-            section3_3: stepData.section3_3 || [],
+            section3_3: {
+              VGFArray: (stepData.section3_3 as any)?.VGFArray || [],
+            },
             section3_4: {
               projects:
                 stepData.section3_4?.projects ||
@@ -221,7 +214,7 @@ export const PPPDevelopmentStep = () => {
         localStorage.removeItem("editing_submission");
       }
     }
-  }, []); // Empty dependency array to run only once
+  }, []);
 
   // Autosave to localStorage with debouncing (avoid infinite loop)
   useEffect(() => {
@@ -230,27 +223,22 @@ export const PPPDevelopmentStep = () => {
     }, 500); // Debounce for 500ms
 
     return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line
-  }, [formData]);
+  }, [formData, updateFormData]);
 
   // Calculation functions
   const calculateSection3_3 = useCallback(() => {
     // For section 3.3, marks = MIN(number of proposals × 5, 50)
-    const numberOfProposals = formData.section3_3.length;
+    const numberOfProposals = formData.section3_3.VGFArray.length;
     const marksObtained = Math.min(numberOfProposals * 5, 50);
 
     return {
       marksObtained: Math.round(marksObtained * 100) / 100,
     };
-  }, [formData.section3_3.length]);
+  }, [formData.section3_3.VGFArray.length]);
 
   const calculateSection3_4 = useCallback(() => {
-    // Calculate from projects array
     const projects = formData.section3_4.projects || [];
-
-    // For now, just mark based on number of projects
-    // The actual calculation may need TPC value per project which we don't have yet
-    const tpcOfPPPProjects = 0; // Placeholder - may need to calculate from projects array
+    const tpcOfPPPProjects = 0; // Placeholder
 
     return {
       tpcOfPPPProjects: 0,
@@ -259,44 +247,28 @@ export const PPPDevelopmentStep = () => {
     };
   }, [formData.section3_4.projects]);
 
-  // Update calculations when form data changes
-  // useEffect(() => {
-  //   const section3_3Calc = calculateSection3_3();
-  //   const section3_4Calc = calculateSection3_4();
-
-  //   setFormData(prev => ({
-  //     ...prev,
-  //     section3_3: prev.section3_3.map(project => ({
-  //       ...project,
-  //       marksObtained: section3_3Calc.marksObtained
-  //     })),
-  //     section3_4: {
-  //       ...prev.section3_4,
-  //       proportion: section3_4Calc.proportion,
-  //       marksObtained: section3_4Calc.marksObtained
-  //     }
-  //   }));
-  // }, [formData.section3_3.length, formData.section3_4.tpcOfPPPProjects, formData.section3_4.totalTPC]);
-
   useEffect(() => {
     const section3_3Calc = calculateSection3_3();
     const section3_4Calc = calculateSection3_4();
 
-    // Check if update is needed
-    const shouldUpdate3_3 = formData.section3_3.some(
+    const shouldUpdate3_3 = formData.section3_3.VGFArray.some(
       (project) => project.marksObtained !== section3_3Calc.marksObtained
     );
     const shouldUpdate3_4 =
-      formData.section3_4.proportion !== section3_4Calc.proportion ||
-      formData.section3_4.marksObtained !== section3_4Calc.marksObtained;
+      (formData.section3_4 as any).proportion !== section3_4Calc.proportion ||
+      (formData.section3_4 as any).marksObtained !==
+        section3_4Calc.marksObtained;
 
     if (shouldUpdate3_3 || shouldUpdate3_4) {
       setFormData((prev) => ({
         ...prev,
-        section3_3: prev.section3_3.map((project) => ({
-          ...project,
-          marksObtained: section3_3Calc.marksObtained,
-        })),
+        section3_3: {
+          ...(prev.section3_3 as any),
+          VGFArray: prev.section3_3.VGFArray.map((project) => ({
+            ...project,
+            marksObtained: section3_3Calc.marksObtained,
+          })),
+        },
         section3_4: {
           ...prev.section3_4,
           proportion: section3_4Calc.proportion,
@@ -307,33 +279,40 @@ export const PPPDevelopmentStep = () => {
   }, [
     calculateSection3_3,
     calculateSection3_4,
-    formData.section3_3.length,
+    formData.section3_3.VGFArray.length,
     formData.section3_4.projects.length,
-    formData.section3_4.proportion,
-    formData.section3_4.marksObtained,
+    (formData.section3_4 as any).proportion,
+    (formData.section3_4 as any).marksObtained,
   ]);
+
   // --- Section 3.3: Add/Remove Project ---
   const addProject = () => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: [
-        ...prev.section3_3,
-        {
-          id: crypto.randomUUID(),
-          projectName: "",
-          sector: "",
-          type: "",
-          submissionDate: "",
-          file: null,
-        },
-      ],
+      section3_3: {
+        ...(prev.section3_3 as any),
+        VGFArray: [
+          ...prev.section3_3.VGFArray,
+          {
+            id: crypto.randomUUID(),
+            projectName: "",
+            sector: "",
+            type: "",
+            submissionDate: "",
+            file: null,
+          },
+        ],
+      },
     }));
   };
 
   const removeProject = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: prev.section3_3.filter((entry) => entry.id !== id),
+      section3_3: {
+        ...(prev.section3_3 as any),
+        VGFArray: prev.section3_3.VGFArray.filter((entry) => entry.id !== id),
+      },
     }));
   };
 
@@ -344,9 +323,12 @@ export const PPPDevelopmentStep = () => {
   ) => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: prev.section3_3.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
+      section3_3: {
+        ...(prev.section3_3 as any),
+        VGFArray: prev.section3_3.VGFArray.map((entry) =>
+          entry.id === id ? { ...entry, [field]: value } : entry
+        ),
+      },
     }));
   };
 
@@ -408,7 +390,6 @@ export const PPPDevelopmentStep = () => {
 
   // --- Navigation ---
   const handleNext = () => {
-    // Always save to localStorage before navigating
     updateFormData("pppDevelopment", formData);
     goToNext();
   };
@@ -416,17 +397,14 @@ export const PPPDevelopmentStep = () => {
   const { toast } = useToast();
 
   const handleSaveDraft = async () => {
-    // Save to localStorage with toast message
     const success = saveDraftToLocalStorage("pppDevelopment", formData);
 
     if (success) {
-      // Also update form data in persistence hook
       updateFormData("pppDevelopment", formData);
     }
   };
 
   // Access control for NODAL_OFFICER
-  // ✅ Unified access control for both Nodal Officer and State Approver
   const sectionIndicators = ["3.1", "3.2", "3.3", "3.4"];
   const allowedIndicators =
     (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter((ind) =>
@@ -489,12 +467,14 @@ export const PPPDevelopmentStep = () => {
           const { completed, total, progress } = computeStepProgress(
             { pppDevelopment: formData } as Record<string, unknown>,
             "pppDevelopment",
-            { assignedIndicators,
+            {
+              assignedIndicators,
               availableIndicators,
               isNodalOfficer,
-              isStateApprover, }
+              isStateApprover,
+            }
           );
-           console.log("📊 PPP Development Progress Debug:", {
+          console.log("📊 PPP Development Progress Debug:", {
             isNodalOfficer,
             isStateApprover,
             assignedIndicators,
@@ -514,6 +494,7 @@ export const PPPDevelopmentStep = () => {
             />
           );
         })()}
+
         {/* Section 3.1 */}
         {((!isNodalOfficer && !isStateApprover) ||
           assignedIndicators.includes("3.1") ||
@@ -602,7 +583,8 @@ export const PPPDevelopmentStep = () => {
                 )}
               </div>
             </SectionCard>
-          )}{" "}
+          )}
+
         {/* Section 3.2 */}
         {((!isNodalOfficer && !isStateApprover) ||
           assignedIndicators.includes("3.2") ||
@@ -691,14 +673,15 @@ export const PPPDevelopmentStep = () => {
                 )}
               </div>
             </SectionCard>
-          )}{" "}
+          )}
+
         {/* Section 3.3 */}
         {((!isNodalOfficer && !isStateApprover) ||
           assignedIndicators.includes("3.3") ||
           availableIndicators.includes("3.3")) &&
           (!isEditMode ||
-            (Array.isArray(formData.section3_3) &&
-              formData.section3_3.length > 0)) && (
+            (Array.isArray(formData.section3_3.VGFArray) &&
+              formData.section3_3.VGFArray.length > 0)) && (
             <SectionCard
               title={
                 <div className="flex flex-col">
@@ -712,7 +695,7 @@ export const PPPDevelopmentStep = () => {
               className="mb-6"
             >
               <div className="flex flex-col gap-4">
-                {formData.section3_3.map((entry, idx) => (
+                {formData.section3_3.VGFArray.map((entry, idx) => (
                   <div key={entry.id} className="mb-2">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                       <div>
@@ -846,13 +829,12 @@ export const PPPDevelopmentStep = () => {
                     <Plus className="w-4 h-4" />
                     Add More Project
                   </Button>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {/* Annex 7: Provide VGF/IIPDF details */}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1"></p>
                 </div>
               </div>
             </SectionCard>
-          )}{" "}
+          )}
+
         {/* Section 3.4 */}
         {((!isNodalOfficer && !isStateApprover) ||
           assignedIndicators.includes("3.4") ||
@@ -876,9 +858,7 @@ export const PPPDevelopmentStep = () => {
                 {(formData.section3_4.projects || []).map((project, idx) => (
                   <div key={project.id} className="mb-4 p-4 border rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Column 1 */}
                       <div className="space-y-4">
-                        {/* Name of PPP/Bankable Projects */}
                         <div>
                           <Label>
                             Name of PPP/Bankable Projects{" "}
@@ -904,8 +884,6 @@ export const PPPDevelopmentStep = () => {
                             }
                           />
                         </div>
-
-                        {/* NIP ID */}
                         <div>
                           <Label>
                             NIP ID{" "}
@@ -931,8 +909,6 @@ export const PPPDevelopmentStep = () => {
                             }
                           />
                         </div>
-
-                        {/* Funding Source */}
                         <div>
                           <Label>
                             Funding Source (In case of bankable project){" "}
@@ -960,9 +936,7 @@ export const PPPDevelopmentStep = () => {
                         </div>
                       </div>
 
-                      {/* Column 2 */}
                       <div className="space-y-4">
-                        {/* Infrastructure Sector */}
                         <div>
                           <Label>
                             Infrastructure Sector{" "}
@@ -997,8 +971,6 @@ export const PPPDevelopmentStep = () => {
                             </SelectContent>
                           </Select>
                         </div>
-
-                        {/* Date of Award */}
                         <div>
                           <Label>
                             Date of Award{" "}
@@ -1050,8 +1022,6 @@ export const PPPDevelopmentStep = () => {
                             </PopoverContent>
                           </Popover>
                         </div>
-
-                        {/* % of Capex funded by non-Govt sources */}
                         <div>
                           <Label>
                             % of Capex funded by non-Govt sources{" "}
@@ -1080,8 +1050,6 @@ export const PPPDevelopmentStep = () => {
                         </div>
                       </div>
                     </div>
-
-                    {/* Remove Button */}
                     <div className="mt-4 flex justify-end">
                       <Button
                         type="button"
@@ -1096,7 +1064,6 @@ export const PPPDevelopmentStep = () => {
                   </div>
                 ))}
 
-                {/* Add More Project Button */}
                 <div>
                   <Button
                     type="button"
@@ -1112,7 +1079,8 @@ export const PPPDevelopmentStep = () => {
               </div>
             </SectionCard>
           )}
-        {/* Navigation Buttons */}{" "}
+
+        {/* Navigation Buttons */}
         <FormActions
           onPrevious={goToPrevious}
           onNext={handleNext}
