@@ -4,6 +4,16 @@ import { Button } from "@/components/ui/button";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import type { FileUpload } from "@/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Allow files to be FileUpload objects or objects with file properties from backend
 type FileLike = FileUpload | {
@@ -40,11 +50,46 @@ export const EditableFileDisplay = ({
 }: FileDisplayWithActionsProps) => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ file: FileUpload; index: number } | null>(null);
 
-  // Normalize files to array
-  const filesArray = files 
-    ? (Array.isArray(files) ? files : [files])
-    : [];
+  const normalizeFile = (fileLike: FileLike, fallbackIndex: number): FileUpload => {
+    const anyFile = fileLike as any;
+    const rawFile = anyFile.file;
+    let normalizedFile: File | string | null = null;
+    const globalFileCtor =
+      typeof globalThis !== "undefined" && typeof (globalThis as any).File === "function"
+        ? (globalThis as any).File
+        : undefined;
+
+    if (globalFileCtor && rawFile instanceof globalFileCtor) {
+      normalizedFile = rawFile as File;
+    } else if (rawFile === null || rawFile === undefined) {
+      normalizedFile = null;
+    } else if (typeof rawFile === "string") {
+      normalizedFile = rawFile;
+    } else if (typeof anyFile.filePath === "string") {
+      normalizedFile = anyFile.filePath;
+    }
+
+    return {
+      id: anyFile.id ?? `file-${fallbackIndex}`,
+      file: normalizedFile,
+      fileName: anyFile.fileName ?? anyFile.filename ?? "File",
+      fileSize: Number(anyFile.fileSize ?? anyFile.size ?? 0),
+      uploadedAt: Number(anyFile.uploadedAt ?? Date.now()),
+      filePath: anyFile.filePath ?? (typeof normalizedFile === "string" ? normalizedFile : undefined),
+      fileUrl: anyFile.fileUrl ?? anyFile.url,
+      mimeType: anyFile.mimeType,
+    };
+  };
+
+  const getNormalizedFiles = () => {
+    return files
+      ? (Array.isArray(files) ? files : [files]).map((fileLike, index) =>
+          normalizeFile(fileLike, index)
+        )
+      : [];
+  };
 
   const handleFileUpload = async (file: File) => {
     if (file.size > maxSize * 1024 * 1024) {
@@ -63,21 +108,26 @@ export const EditableFileDisplay = ({
       // API returns { url: string; filename: string; size: number }
       // But might also have nested data property
       const fileData = (response as any)?.data || response;
-      
-      const newFile: FileUpload = {
-        id: crypto.randomUUID(),
-        file: null, // File not stored locally when backend handles upload
+
+      const storedPath =
+        fileData.file ?? fileData.filePath ?? fileData.url ?? fileData.path ?? null;
+      const uploadedAt = Number(fileData.uploadedAt ?? Date.now());
+
+      const newFile = {
+        id: fileData.id ?? crypto.randomUUID(),
+        file: storedPath,
         fileName: fileData.fileName || fileData.filename || file.name,
-        fileSize: fileData.fileSize || fileData.size || file.size,
-        uploadedAt: Date.now(),
-        ...(fileData.filePath || fileData.url ? { filePath: fileData.filePath || fileData.url } : {}),
-        ...(fileData.fileUrl || fileData.url ? { fileUrl: fileData.fileUrl || fileData.url } : {}),
-        ...(fileData.mimeType ? { mimeType: fileData.mimeType } : {}),
-      };
+        fileSize: Number(fileData.fileSize ?? fileData.size ?? file.size ?? 0),
+        uploadedAt,
+        filePath: storedPath ?? undefined,
+        fileUrl: fileData.fileUrl || fileData.url,
+        mimeType: fileData.mimeType,
+      } as FileUpload;
 
       // Update files based on multiple prop
       if (multiple) {
-        const updatedFiles = [...filesArray, newFile] as FileUpload[];
+        const currentFiles = getNormalizedFiles();
+        const updatedFiles = [...currentFiles, newFile] as FileUpload[];
         onFilesChange(updatedFiles);
       } else {
         onFilesChange(newFile);
@@ -97,28 +147,13 @@ export const EditableFileDisplay = ({
     }
   };
 
-  const handleDelete = async (fileToDelete: FileLike, fileIndex: number) => {
+  const handleDelete = (fileToDelete: FileUpload, fileIndex: number) => {
     if (!fileToDelete) return;
-
-    const file = fileToDelete as FileUpload;
-    
-    // Delete from backend if filePath exists
-    if (file.filePath && submissionId) {
-      try {
-        await apiService.deleteFile(file.filePath);
-        notificationService.success("File deleted successfully", "File Removed");
-      } catch (error: any) {
-        notificationService.error(
-          error.message || "Failed to delete file.",
-          "Delete Failed"
-        );
-        return; // Don't update UI if deletion failed
-      }
-    }
 
     // Update local state - use index for more reliable deletion
     if (multiple) {
-      const updatedFiles = filesArray.filter((_, index) => index !== fileIndex) as FileUpload[];
+      const currentFiles = getNormalizedFiles();
+      const updatedFiles = currentFiles.filter((_, index) => index !== fileIndex) as FileUpload[];
       onFilesChange(updatedFiles.length > 0 ? updatedFiles : null);
     } else {
       onFilesChange(null);
@@ -138,18 +173,23 @@ export const EditableFileDisplay = ({
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+  const normalizedFiles = getNormalizedFiles();
+
   return (
     <div className="space-y-2">
       {label && <label className="text-sm font-medium">{label}</label>}
       
       {/* Display existing files */}
-      {filesArray.length > 0 ? (
+      {normalizedFiles.length > 0 ? (
         <div className="space-y-2">
-          {filesArray.map((fileLike, index) => {
-            const file = fileLike as FileUpload;
+          {normalizedFiles.map((file, index) => {
+            const viewUrl =
+              (typeof file.file === "string" ? file.file : undefined) ||
+              file.fileUrl ||
+              undefined;
             return (
               <div
-                key={file.id || index}
+                key={file.id || `file-${index}`}
                 className="flex items-center gap-2 p-2 bg-gray-50 rounded border"
               >
                 <File className="w-4 h-4 text-primary flex-shrink-0" />
@@ -163,9 +203,9 @@ export const EditableFileDisplay = ({
                     </span>
                   )}
                 </div>
-                {file.fileUrl && (
+                {viewUrl && (
                   <a
-                    href={file.fileUrl}
+                    href={viewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-primary hover:underline"
@@ -179,7 +219,7 @@ export const EditableFileDisplay = ({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDelete(fileLike, index)}
+                    onClick={() => setDeleteTarget({ file, index })}
                     className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -229,6 +269,38 @@ export const EditableFileDisplay = ({
           </Button>
         </div>
       )}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete file?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will remove the uploaded file from this record. You can re-upload it if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTarget) {
+                  handleDelete(deleteTarget.file, deleteTarget.index);
+                }
+                setDeleteTarget(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

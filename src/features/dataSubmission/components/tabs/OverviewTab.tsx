@@ -43,26 +43,26 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
 
     // Count from Infra Development
     if (submission.formData.infraDevelopment) {
-      // Section 2.1 files
-      if (submission.formData.infraDevelopment.section2_1) {
+      // Section 2.1 files (infraActArray)
+      if (submission.formData.infraDevelopment.section2_1?.infraActArray) {
         submission.formData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
           if (item.files) countFileArray(item.files);
         });
       }
-      // Section 2.2 files
-      if (submission.formData.infraDevelopment.section2_2) {
+      // Section 2.2 files (specializedEntityArray)
+      if (submission.formData.infraDevelopment.section2_2?.specializedEntityArray) {
         submission.formData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
           if (item.files) countFileArray(item.files);
         });
       }
-      // Section 2.3 files
-      if (submission.formData.infraDevelopment.section2_3) {
+      // Section 2.3 files (infraDevelopmentArray)
+      if (submission.formData.infraDevelopment.section2_3?.infraDevelopmentArray) {
         submission.formData.infraDevelopment.section2_3.infraDevelopmentArray.forEach((item: any) => {
           if (item.files) countFileArray(item.files);
         });
       }
-      // Section 2.4 files
-      if (submission.formData.infraDevelopment.section2_4) {
+      // Section 2.4 files (investmentReadyArray)
+      if (submission.formData.infraDevelopment.section2_4?.investmentReadyArray) {
         submission.formData.infraDevelopment.section2_4.investmentReadyArray.forEach((item: any) => {
           if (item.dprFile) countFiles(item.dprFile);
         });
@@ -71,13 +71,13 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
 
     // Count from PPP Development
     if (submission.formData.pppDevelopment) {
-      if (submission.formData.pppDevelopment.section3_1?.file) {
-        countFiles(submission.formData.pppDevelopment.section3_1.file);
+      if (submission.formData.pppDevelopment.section3_1?.files) {
+        countFileArray(submission.formData.pppDevelopment.section3_1.files);
       }
       if (submission.formData.pppDevelopment.section3_2?.file) {
         countFiles(submission.formData.pppDevelopment.section3_2.file);
       }
-      if (submission.formData.pppDevelopment.section3_3) {
+      if (submission.formData.pppDevelopment.section3_3?.VGFArray) {
         submission.formData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
           if (item.file) countFiles(item.file);
         });

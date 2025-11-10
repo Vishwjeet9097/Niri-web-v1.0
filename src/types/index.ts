@@ -100,7 +100,7 @@ export interface ApiError {
 // Enhanced File Upload Interface
 export interface FileUpload {
   id: string;
-  file: File | null;
+  file: File | string | null;
   fileName: string;
   fileSize: number;
   uploadedAt: number;
