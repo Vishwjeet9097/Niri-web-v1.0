@@ -149,7 +149,7 @@ useEffect(() => {
   };
 
   const handleSaveUser = async (officerData: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => {
-    try {
+     try {
       if (editingOfficer) {
         // Update existing user via backend API
         let selectedState = "";
@@ -209,7 +209,9 @@ useEffect(() => {
           lastName: officerData.lastName,
           contactNumber: officerData.contactNumber,
           role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
-          indicatorCodes: officerData.assignedIndicators || [] // Include assigned indicators in update payload with correct key
+          indicatorCodes: officerData.assignedIndicators || [], 
+          stateUt: officerData.stateUt
+          // Include assigned indicators in update payload with correct key
           // Note: email and stateUt are not included in update payload as they should not be changed
         } as any);
         
@@ -288,7 +290,7 @@ useEffect(() => {
     // Debug logging removed for performance
 
         // ✅ Final validation before API call
-        if (!selectedStateId || !selectedStateName || selectedStateName.trim() === "") {
+        if (!selectedStateId || !selectedStateName) {
           throw new Error("State is required but not provided");
         }
         
