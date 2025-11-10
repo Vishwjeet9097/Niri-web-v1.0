@@ -62,20 +62,26 @@ interface UnifiedReviewPageProps {
   isEditMode?: boolean;
 }
 
-export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, submission: propSubmission, onFinalSubmit, isSubmitting = false, isResubmit = false, isEditMode = false }: UnifiedReviewPageProps) => {
+export const UnifiedReviewPage = ({ 
+  submission: initialSubmission,
+  isPreview = false, 
+  isMospiApprover = false, 
+  onFinalSubmit, 
+  isSubmitting = false, 
+  isResubmit = false, 
+  isEditMode = false 
+}) => {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   
-  const [submission, setSubmission] = useState<Submission | null>(null);
+  const [submission, setSubmission] = useState<Submission | null>(initialSubmission);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sendBackModalOpen, setSendBackModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [sendToApproverModalOpen, setSendToApproverModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  
-  // Check for edit mode from localStorage
   const [actualEditMode, setActualEditMode] = useState(isEditMode);
 
   // Check for edit mode on mount
@@ -91,8 +97,8 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
   // Load submission data from API or use prop
   const loadSubmission = async () => {
     // If submission is provided as prop (for preview), use it
-    if (propSubmission) {
-      setSubmission(propSubmission);
+    if (initialSubmission) {
+      setSubmission(initialSubmission);
       setLoading(false);
       return;
     }
@@ -121,7 +127,7 @@ export const UnifiedReviewPage = ({ isPreview = false, isMospiApprover = false, 
 
   useEffect(() => {
     loadSubmission();
-  }, [id, propSubmission]);
+  }, [id, initialSubmission]);
 
   // Show loading state
   if (loading) {

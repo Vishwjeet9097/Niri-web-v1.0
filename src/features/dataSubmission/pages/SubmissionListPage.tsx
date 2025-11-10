@@ -30,6 +30,7 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { calculateStateProgressFromApi, ProgressStats } from "@/utils/progressUtils";
+import { authService } from "@/services/auth.service";
 
 export const SubmissionListPage = () => {
   const navigate = useNavigate();
@@ -41,6 +42,11 @@ export const SubmissionListPage = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const selectedYear = undefined;
+
+  const { stateUt: myState } = authService.getUser() ?? {};
+
+  // const selectedYear = uiState.year; // Removed because uiState is undefined
 
  
 
@@ -55,8 +61,10 @@ const [submittingFinal, setSubmittingFinal] = useState(false);
     const loadSubmissions = async () => {
       try {
         setLoading(true);
+        console.log("📦 [loadSubmissions] Fetching submissions...");
         const submissionsData = await apiService.getSubmissions(1, 100);
-        
+        console.log("✅ [loadSubmissions] Response:", submissionsData);
+
         // Handle different response structures
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
@@ -67,6 +75,7 @@ const [submittingFinal, setSubmittingFinal] = useState(false);
           submissionsArray = (submissionsData as any).data;
         }
         
+         console.log("📄 [loadSubmissions] Final list length:", submissionsArray.length);
         setSubmissions(submissionsArray);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
@@ -113,9 +122,35 @@ useEffect(() => {
     try {
       isFetchingProgress.current = true;
       setProgressLoading(true);
+      console.log("📊 [Progress] Fetching /indicators/state-statuses...");
 
       const resp = await apiService.getStateIndicatorStatuses();
-      const stats = calculateStateProgressFromApi(resp);
+      // const payload = (resp && resp.data !== undefined) ? resp.data : resp;
+      console.log("✅ [Progress] Raw API response:", resp);
+      //  console.log("📦 [Progress] normalized payload:", payload);
+      // console.log("🧾 [Progress] payload.summary:", payload?.summary);
+      // console.log("🧾 [Progress] payload.submissions.length:", Array.isArray(payload?.submissions) ? payload.submissions.length : payload?.submissions);
+
+
+      // console.log("🔍 [Progress] resp.data:", resp?.data);
+      //   console.log("🔍 [Progress] resp?.data?.summary:", resp?.data?.summary);
+
+      // const stats = calculateStateProgressFromApi(payload);
+      //   console.log("🧮 [Progress] calculateStateProgressFromApi ->", stats);
+
+          // Normalize so utils can read resp.data.summary even if backend returns summary at root
+        const normalized = resp?.data ? resp : { data: resp };
+        console.log("🧩 normalized payload shape:", {
+          hasData: !!normalized?.data,
+          hasSummary: !!normalized?.data?.summary,
+          keys: normalized?.data ? Object.keys(normalized.data) : []
+        });
+        console.log("📦 normalized.data.summary:", normalized?.data?.summary);
+
+        const stats = calculateStateProgressFromApi(normalized);
+        console.log("✅ calculateStateProgressFromApi(stats):", stats);
+
+
       setStateProgress(stats);
     } catch (e) {
       console.error("Failed to load state indicator statuses", e);
@@ -139,9 +174,12 @@ useEffect(() => {
 }, [user?.role]);
 
 const handleFinalSubmit = async () => {
+  console.group("[FinalSubmit] handleFinalSubmit()");
   try {
+
+    console.log("🚀 [Submit] Current stateProgress:", stateProgress);
     // Gate: must have progress and must be 100% approved
-    if (!stateProgress || stateProgress.approved !== stateProgress.total) {
+    if (!stateProgress || stateProgress.percentage !== 100 || stateProgress.approved !== stateProgress.total) {
       notificationService.warning("All indicators must be approved before final submission.");
       return;
     }
@@ -161,8 +199,12 @@ const handleFinalSubmit = async () => {
     setSubmittingFinal(true);
 
     // Optional note to MoSPI + pass current status for backend logic
+     const forwardId = candidate.id ?? candidate.submissionId;
     const comment = "All indicators approved. Submitting to MoSPI for review.";
-    await apiService.forwardToMospi(candidate.id, comment, candidate.status);
+
+    console.log("📨 [Submit] Forwarding:", { forwardId, comment, status: candidate.status });
+
+    await apiService.forwardToMospi(forwardId, comment, candidate.status);
 
     notificationService.success("Submission sent to MoSPI reviewer.");
 
@@ -179,44 +221,86 @@ const handleFinalSubmit = async () => {
     // Refresh state progress
     if (user?.role === "STATE_APPROVER") {
       const resp = await apiService.getStateIndicatorStatuses();
-      const stats = calculateStateProgressFromApi(resp);
-      setStateProgress(stats);
+      // const stats = calculateStateProgressFromApi(resp);
+      // setStateProgress(stats);
+
+       const normalized = resp?.data ? resp : { data: resp };
+        console.log("[FinalSubmit] Progress refresh normalized:", normalized);
+        const stats = calculateStateProgressFromApi(normalized);
+        console.log("[FinalSubmit] Progress refresh stats:", stats);
     }
   } catch (e: any) {
+    console.error("❌ Error forwarding submission:", e);
     notificationService.error(e?.message || "Error forwarding submission.");
   } finally {
     setSubmittingFinal(false);
+     console.groupEnd();
   }
+};
+
+const handlePreviewClick = (rowStateUt?: string, year?: string) => {
+  // Prefer: explicit state from the row -> user’s stateUt -> nothing
+  const userState = authService.getUser()?.stateUt;
+  const resolvedState = (rowStateUt || userState || "").toUpperCase();
+
+  const params = new URLSearchParams();
+  if (resolvedState) params.set("state", resolvedState);
+  if (year) params.set("year", year);
+
+  const qs = params.toString();
+  navigate(`/submissions/preview${qs ? `?${qs}` : ""}`);
 };
 
 
 
-
   // Filter submissions based on search and filters
+  // const filteredSubmissions = useMemo(() => {
+  //   return submissions.filter((submission) => {
+  //     // Search filter
+  //     const matchesSearch =
+  //       searchQuery === "" ||
+  //       (submission.title || submission.submissionId || `Submission ${submission.id}`).toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //       (submission.submittedBy?.name || submission.user?.firstName + " " + submission.user?.lastName || "Unknown").toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //       (submission.category || "Infrastructure").toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //       (submission.id || submission.submissionId).toLowerCase().includes(searchQuery.toLowerCase());
+
+  //     // State filter - COMMENTED OUT
+  //     // const matchesState =
+  //     //   stateFilter === "all" ||
+  //     //   (submission.stateUt || submission.submittedBy?.location || "Unknown")
+  //     //     .toLowerCase()
+  //     //     .includes(stateFilter.toLowerCase());
+
+  //     // Status filter - COMMENTED OUT
+  //     // const matchesStatus =
+  //     //   statusFilter === "all" || (submission.status || "Unknown") === statusFilter;
+
+  //     return matchesSearch; // && matchesState && matchesStatus;
+  //   });
+  // }, [searchQuery, submissions]); // stateFilter, statusFilter removed from dependencies
+
+
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((submission) => {
-      // Search filter
-      const matchesSearch =
+      const title = (submission.title || submission.submissionId || `Submission ${submission.id}` || "").toLowerCase();
+      const submitter =
+        (submission.submittedBy?.name ||
+          (submission.user ? `${submission.user.firstName || ""} ${submission.user.lastName || ""}`.trim() : "") ||
+          "Unknown").toLowerCase();
+      const category = (submission.category || "Infrastructure").toLowerCase();
+      const idStr = (submission.id || submission.submissionId || "").toLowerCase();
+
+      const q = searchQuery.toLowerCase();
+      return (
         searchQuery === "" ||
-        (submission.title || submission.submissionId || `Submission ${submission.id}`).toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (submission.submittedBy?.name || submission.user?.firstName + " " + submission.user?.lastName || "Unknown").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (submission.category || "Infrastructure").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (submission.id || submission.submissionId).toLowerCase().includes(searchQuery.toLowerCase());
-
-      // State filter - COMMENTED OUT
-      // const matchesState =
-      //   stateFilter === "all" ||
-      //   (submission.stateUt || submission.submittedBy?.location || "Unknown")
-      //     .toLowerCase()
-      //     .includes(stateFilter.toLowerCase());
-
-      // Status filter - COMMENTED OUT
-      // const matchesStatus =
-      //   statusFilter === "all" || (submission.status || "Unknown") === statusFilter;
-
-      return matchesSearch; // && matchesState && matchesStatus;
+        title.includes(q) ||
+        submitter.includes(q) ||
+        category.includes(q) ||
+        idStr.includes(q)
+      );
     });
-  }, [searchQuery, submissions]); // stateFilter, statusFilter removed from dependencies
+  }, [searchQuery, submissions]);
+
 
   // Handle export
   const handleExport = () => {
@@ -307,58 +391,11 @@ const handleFinalSubmit = async () => {
         </div>
 
         {/* Progress Overview Section - Only for STATE_APPROVER */}
-        {/* {user?.role === "STATE_APPROVER" && filteredSubmissions.length > 0 && (() => {
-          const latestSubmission = filteredSubmissions.find(s => s.status === "SUBMITTED_TO_STATE");
-          if (latestSubmission && latestSubmission.formData) {
-            const progress = calculateIndicatorProgress(latestSubmission.formData);
-            return (
-              <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-                <div className="mb-4">
-                  <h2 className="text-xl font-semibold text-foreground mb-1">Progress Overview</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Track the approval status of indicators for {latestSubmission.stateUt || "your state"}
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-sm font-semibold text-[#212121]">Indicators Progress</p>
-                      <p className="text-sm text-[#727272]">
-                        {progress.approved} of {progress.total} Approved ({progress.percentage}%)
-                      </p>
-                    </div>
-                    <Progress value={progress.percentage} className="h-2" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 mt-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-2xl font-bold text-primary">{progress.total}</p>
-                      <p className="text-sm text-muted-foreground">Total Indicators</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-2xl font-bold text-green-600">{progress.approved}</p>
-                      <p className="text-sm text-muted-foreground">Approved</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-2xl font-bold text-orange-600">{progress.total - progress.approved}</p>
-                      <p className="text-sm text-muted-foreground">Pending Review</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-          return null;
-        })()} */}
+   
 
         {user?.role === "STATE_APPROVER" && (
   <div className="max-w-7xl mx-auto mb-6">
     <div className="mb-4 flex items-start justify-between gap-4">
-      {/* <div>
-      <h2 className="text-xl font-semibold text-foreground mb-1">Progress Overview</h2>
-      <p className="text-sm text-muted-foreground">
-        Track the approval status of indicators for your state
-      </p>
-      </div> */}
     </div>
 
     {progressLoading ? (
@@ -392,22 +429,48 @@ const handleFinalSubmit = async () => {
                 }`}
               />
             </div>
-            <Button
-              className={`shrink-0 text-white px-6 ${
-                stateProgress.percentage === 100 && !submittingFinal && !progressLoading && stateProgress.approved === stateProgress.total
-                ? "bg-[#1e3a8a] hover:bg-[#1e3299]" // Darker blue when enabled at 100%
-                : "bg-[#7888E3] hover:bg-[#6574CC]"  // Default lighter blue
-              }`}
-              onClick={handleFinalSubmit}
-              disabled={
-                submittingFinal ||
-                progressLoading ||
-                !stateProgress ||
-                stateProgress.approved !== stateProgress.total
-              }
-            >
-              {submittingFinal ? "Submitting…" : "Submit Now"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="shrink-0 px-6 text-[#1e3a8a] hover:bg-gray-50 border-[#1e3a8a]"
+                onClick={() => handlePreviewClick(undefined, selectedYear)}
+                //   {
+                //   // Get all indicators with status matching what we want
+                //   const stateIndicators = filteredSubmissions.filter(s => 
+                //     (s.status === "SUBMITTED_TO_STATE" || s.status === "RETURNED_FROM_MOSPI") &&
+                //     s.stateUt === user?.state
+                //   );
+
+                //   // If we have at least one submission, navigate to it
+                //   if (stateIndicators.length > 0) {
+                //     // Take the first submission and show in preview mode
+                //     const previewSubmission = stateIndicators[0];
+                //     navigate(`/data-submission/review/${previewSubmission.id}?preview=true`);
+                //   } else {
+                //     notificationService.warning("No indicators available for preview");
+                //   }
+                // }
+              // }
+              >
+                Preview
+              </Button>
+              <Button
+                className={`shrink-0 text-white px-6 ${
+                  stateProgress.percentage === 100 && !submittingFinal && !progressLoading && stateProgress.approved === stateProgress.total
+                  ? "bg-[#1e3a8a] hover:bg-[#1e3299]" // Darker blue when enabled at 100%
+                  : "bg-[#7888E3] hover:bg-[#6574CC]"  // Default lighter blue
+                }`}
+                onClick={handleFinalSubmit}
+                disabled={
+                  submittingFinal ||
+                  progressLoading ||
+                  !stateProgress ||
+                  stateProgress.approved !== stateProgress.total
+                }
+              >
+                {submittingFinal ? "Submitting…" : "Submit Now"}
+              </Button>
+            </div>
           </div>
         </div>
         {/* <div className="grid grid-cols-3 gap-4 mt-4">

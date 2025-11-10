@@ -71,6 +71,32 @@ export interface HttpClient {
   delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
 }
 
+
+export type CumulativePreviewResponse = {
+  status: boolean;
+  message: string;
+  data: {
+    stateUt: string;
+    users: number;              // always 0 in lean mode
+    totalIndicators: number;    // should be 20
+    categories: string[];       // 4 categories
+    indicators: Record<string, Array<{
+      id: string;
+      code: string;
+      name: string;
+      category?: string;
+      sectionId?: string;
+      maxScore?: number | string;
+      data: any;
+      status: string;           // NOT_STARTED | SUBMITTED_TO_STATE | ACCEPTED | etc.
+      score: number | null;
+      remarks: string | null;
+      updatedAt: string | null;
+      year: string | null;
+    }>>;
+  };
+};
+
 class ApiService implements HttpClient {
   private axios: AxiosInstance;
 
@@ -2433,27 +2459,79 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     }
   }
 
-  async getStateIndicatorStatuses(): Promise<any> {
+//   async getStateIndicatorStatuses(): Promise<any> {
+//   try {
+//     const response = await this.axios.get("/indicators/state-statuses", {
+//       headers: { Accept: "application/json" },
+//     });
+
+//     console.log(response.status);
+//     // normalize like you do elsewhere
+//     return response.data?.data !== undefined ? response.data.data : response.data;
+//     // If your backend shape is { status: true, data: {...} }, return response.data is fine,
+//     // since your calculator reads payload?.data?.submissions.
+//   } catch (error: any) {
+//     if (error.response?.status === 304) {
+//       const cached = error.response?.data || {};
+//       return cached?.data !== undefined ? cached.data : cached;
+//     }
+//     throw error;
+//   }
+// }
+
+// services/api.service.ts
+
+async getStateIndicatorStatuses(year?: string): Promise<{
+  status: boolean;
+  message?: string;
+  data: any;
+}> {
   try {
-    const response = await this.axios.get("/indicators/state-statuses", {
+    const qs = year ? `?year=${encodeURIComponent(year)}` : "";
+    const resp = await this.axios.get(`/indicators/state-statuses${qs}`, {
       headers: { Accept: "application/json" },
     });
 
-    console.log(response.status);
-    // normalize like you do elsewhere
-    return response.data?.data !== undefined ? response.data.data : response.data;
-    // If your backend shape is { status: true, data: {...} }, return response.data is fine,
-    // since your calculator reads payload?.data?.submissions.
+    // Always return the backend envelope so downstream can read .data.summary
+    // resp.data is expected to be { status, message, data }
+    return resp.data;
   } catch (error: any) {
-    if (error.response?.status === 304) {
-      const cached = error.response?.data || {};
-      return cached?.data !== undefined ? cached.data : cached;
+    // If your server sometimes replies 304 with a payload, normalize it
+    if (error?.response?.status === 304) {
+      const fallback = error.response.data ?? {};
+      return typeof fallback.status === "boolean"
+        ? fallback
+        : { status: true, data: fallback };
     }
     throw error;
   }
 }
 
 
+
+
+
+}
+
+
+// api.service.ts
+// assuming you already export an axios-like instance as `apiService`
+// add this function anywhere in the same file and export it
+
+
+export async function getCumulativePreview(
+  stateUt: string,
+  opts?: { year?: string; debug?: string }
+) {
+  const params: Record<string, string> = {};
+  if (opts?.year) params.year = opts.year;
+  if (opts?.debug) params.debug = opts.debug;
+
+  const res = await apiService.get<CumulativePreviewResponse>(
+    `/submission/state/${encodeURIComponent(stateUt)}/cumulative-preview`,
+    { params }
+  );
+  return res.data;
 }
 
 export const apiService = new ApiService();

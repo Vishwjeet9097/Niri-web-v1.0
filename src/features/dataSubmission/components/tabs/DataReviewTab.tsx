@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
@@ -13,6 +13,27 @@ interface DataReviewTabProps {
   formData?: any;
   submission?: any; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
+  sections?: Array<{
+    id: string;
+    name: string;
+    progress?: number;
+    maxPoints?: number;
+    points?: number;
+    indicators: Array<{
+      id: string;
+      code: string;
+      name: string;
+      status: string | null;
+      score: number | null;
+      updatedAt: string | null;
+      data?: any;
+      sectionId?: string;
+      maxScore?: string | number | null;
+      category?: string;
+      year?: string | null;
+    }>;
+  }>;
+
 }
 
 const sections = [
@@ -22,7 +43,7 @@ const sections = [
   { id: "infra-enablers", label: "Infra Enablers", points: 250 },
 ];
 
-export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false }: DataReviewTabProps) => {
+export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false, sections }: DataReviewTabProps) => {
   const [currentSection, setCurrentSection] = useState(0);
 
   // Check which sections have data
@@ -34,8 +55,13 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
   ];
 
   // Filter sections that have data
-  const availableSections = sectionsWithData.filter(section => section.hasData);
+  // const availableSections = sectionsWithData.filter(section => section.hasData);
 
+   const availableSections = useMemo(() => {
+    const anyHasData = sectionsWithData.some((s) => s.hasData);
+    return anyHasData ? sectionsWithData.filter((s) => s.hasData) : fallbackSections;
+  }, [sectionsWithData]);
+  
   const renderSectionContent = () => {
     const sectionFormData = formData ? {
       infraFinancing: formData.infraFinancing,
