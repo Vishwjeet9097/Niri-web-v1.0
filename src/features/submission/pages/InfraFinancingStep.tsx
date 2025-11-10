@@ -35,11 +35,7 @@ import { SUBMISSION_STEPS } from "../constants/steps";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import type { InfraFinancingData } from "../types";
 import { getCurrentFinancialYear } from "@/utils/dateUtils";
-
-// import { draftService } from "@/services/draft.service"; // Commented out - no backend API calls for draft
 import { useAuth } from "@/features/auth/AuthProvider";
-import { apiService } from "@/services/api.service";
-import { authService } from "@/services/auth.service";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { computeStepProgress } from "../utils/progress";
 
@@ -52,18 +48,14 @@ export const InfraFinancingStep = () => {
     isFirstStep,
     isLastStep,
   } = useStepNavigation(1);
-  const {
-    formData: persistedFormData,
-    getStepData,
-    updateFormData,
-  } = useFormPersistence();
+  const { getStepData, updateFormData } = useFormPersistence();
   // Detect edit mode to decide hiding of empty indicators
   const isEditMode =
     typeof window !== "undefined" &&
     localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
 
-  // Indicator access control - now includes availableIndicators and isStateApprover
+  // Indicator access
   const {
     loading: indicatorLoading,
     error: indicatorError,
@@ -76,47 +68,16 @@ export const InfraFinancingStep = () => {
   } = useIndicatorAccess();
 
   const currentFY = getCurrentFinancialYear();
-  console.log("🔍 InfraFinancingStep: Current FY detected:", currentFY);
-  useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      section1_1: { ...prev.section1_1, year: currentFY },
-      section1_2: { ...prev.section1_2, year: currentFY },
-    }));
-  }, [currentFY]);
-  // Diagnostic: ensure component sees what hook loaded
-  useEffect(() => {
-    console.log("🔍 InfraFinancingStep: Access control state", {
-      isNodalOfficer,
-      isStateApprover,
-      assignedIndicators,
-      availableIndicators,
-      indicatorLoading,
-      indicatorError,
-      user: user ? { id: user._id || user.id, role: user.role } : null,
-    });
-  }, [
-    isNodalOfficer,
-    isStateApprover,
-    assignedIndicators,
-    availableIndicators,
-    indicatorLoading,
-    indicatorError,
-    user,
-  ]);
-
-  // useEffect(() => {
-  //   refresh?.({ clearCache: true });
-  // }, [refresh]);
-  // Note: Editing submission data is handled by useFormPersistence hook
   const { toast } = useToast();
 
-  // Always provide a fully structured initialData, merging loaded data with defaults
+  // ------------------------
+  // Default / initial data
+  // ------------------------
   const defaultData: InfraFinancingData = {
     section1_1: {
       year: "",
-      capitalAllocation: "", // A₁
-      gsdpForFY: "", // A₂
+      capitalAllocation: "",
+      gsdpForFY: "",
       stateCapexUtilisation: "",
       allocationToGSDP: "",
       capexToCapexActuals: "",
@@ -124,16 +85,17 @@ export const InfraFinancingStep = () => {
     section1_2: {
       year: "",
       gsdpForFY: "",
-      actualCapex: "", // A₁
+      actualCapex: "",
       budgetaryCapex: "",
       stateCapexUtilisation: "",
       capexActualsToGSDP: "",
     },
     section1_3: { totalULBs: 0, ulbList: [] },
     section1_4: { totalULBs: 0, bondList: [] },
-    section1_5: [],
+    section1_5: { ffiArray: [] },
   };
 
+  // Merge loaded / persisted data with defaults
   const loadedData =
     (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
   const initialData: InfraFinancingData = {
@@ -155,14 +117,52 @@ export const InfraFinancingStep = () => {
         ? [...loadedData.section1_4.bondList]
         : [...defaultData.section1_4.bondList],
     },
-    section1_5: Array.isArray(loadedData.section1_5)
-      ? loadedData.section1_5
-      : [],
+    section1_5: {
+      ffiArray: Array.isArray(loadedData.section1_5?.ffiArray)
+        ? [...loadedData.section1_5!.ffiArray]
+        : [],
+    },
   };
 
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
 
-  // Sync with localStorage data when component mounts or data changes
+  // UI helper state for section1_5 availability + comment (keeps UI simple).
+  // We'll sync these to section1_5.ffiArray (so backend type remains correct).
+  const [ffiAvailable, setFfiAvailable] = useState<"yes" | "no" | "">("");
+  const [ffiComment, setFfiComment] = useState<string>("");
+
+  // populate initial UI state for section1_5 from loaded data
+  useEffect(() => {
+    // if there's an explicit ffiArray item with hasIntermediary === false and comment => treat as no
+    const ffi = formData.section1_5.ffiArray || [];
+    const noItem = ffi.find((i) => i.hasIntermediary === false && i.comment);
+    if (noItem) {
+      setFfiAvailable("no");
+      setFfiComment(noItem.comment || "");
+      // also remove the noItem from intermediaries list in UI (we'll persist it when saving)
+      // keep the ffiArray as-is for now; sync logic below will normalize before save
+      return;
+    }
+    if (ffi.length > 0) {
+      setFfiAvailable("yes");
+      setFfiComment("");
+    } else {
+      setFfiAvailable("");
+      setFfiComment("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ensure year defaults to current FY
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      section1_1: { ...prev.section1_1, year: currentFY },
+      section1_2: { ...prev.section1_2, year: currentFY },
+    }));
+  }, [currentFY]);
+
+  // Sync persisted step data into local formData if present (run on mount)
   useEffect(() => {
     const currentStepData = getStepData(
       "infraFinancing"
@@ -195,9 +195,11 @@ export const InfraFinancingStep = () => {
             ? currentStepData.section1_4.bondList
             : [],
         },
-        section1_5: Array.isArray(currentStepData.section1_5)
-          ? currentStepData.section1_5
-          : [],
+        section1_5: {
+          ffiArray: Array.isArray(currentStepData.section1_5?.ffiArray)
+            ? currentStepData.section1_5!.ffiArray
+            : [],
+        },
       };
       setFormData(syncedData);
       console.log(
@@ -205,14 +207,11 @@ export const InfraFinancingStep = () => {
         syncedData
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getStepData]);
 
-  // Initialize form data from persisted data or editing submission (run only once)
+  // Initialize from local editing_submission (once)
   useEffect(() => {
-    let shouldUpdate = false;
-    let updatedData = { ...defaultData };
-
-    // Check for editing submission data first
     const editingSubmission = localStorage.getItem("editing_submission");
     if (editingSubmission) {
       try {
@@ -220,7 +219,7 @@ export const InfraFinancingStep = () => {
         if (submissionData.formData && submissionData.formData.infraFinancing) {
           const stepData = submissionData.formData
             .infraFinancing as Partial<InfraFinancingData>;
-          updatedData = {
+          const updatedData: InfraFinancingData = {
             ...defaultData,
             ...stepData,
             section1_1: {
@@ -234,24 +233,38 @@ export const InfraFinancingStep = () => {
             section1_3: {
               totalULBs: stepData.section1_3?.totalULBs ?? 0,
               ulbList: Array.isArray(stepData.section1_3?.ulbList)
-                ? stepData.section1_3.ulbList
+                ? stepData.section1_3!.ulbList
                 : [],
             },
             section1_4: {
               totalULBs: stepData.section1_4?.totalULBs ?? 0,
               bondList: Array.isArray(stepData.section1_4?.bondList)
-                ? stepData.section1_4.bondList
+                ? stepData.section1_4!.bondList
                 : [],
             },
-            section1_5: Array.isArray(stepData.section1_5)
-              ? stepData.section1_5
-              : [],
+            section1_5: {
+              ffiArray: Array.isArray(stepData.section1_5?.ffiArray)
+                ? stepData.section1_5!.ffiArray
+                : [],
+            },
           };
-          shouldUpdate = true;
-          console.log(
-            "✅ Direct prefill from editing submission:",
-            updatedData
+          setFormData(updatedData);
+
+          // derive ffiAvailable / ffiComment from updatedData
+          const noItem = updatedData.section1_5.ffiArray.find(
+            (i) => i.hasIntermediary === false && i.comment
           );
+          if (noItem) {
+            setFfiAvailable("no");
+            setFfiComment(noItem.comment || "");
+          } else if (updatedData.section1_5.ffiArray.length > 0) {
+            setFfiAvailable("yes");
+            setFfiComment("");
+          } else {
+            setFfiAvailable("");
+            setFfiComment("");
+          }
+
           localStorage.removeItem("editing_submission");
         }
       } catch (error) {
@@ -261,57 +274,21 @@ export const InfraFinancingStep = () => {
         );
         localStorage.removeItem("editing_submission");
       }
-    } else {
-      // Check for persisted form data using getStepData instead of persistedFormData
-      const currentStepData = getStepData(
-        "infraFinancing"
-      ) as Partial<InfraFinancingData>;
-      if (currentStepData && Object.keys(currentStepData).length > 0) {
-        updatedData = {
-          ...defaultData,
-          ...currentStepData,
-          section1_1: {
-            ...defaultData.section1_1,
-            ...(currentStepData.section1_1 || {}),
-          },
-          section1_2: {
-            ...defaultData.section1_2,
-            ...(currentStepData.section1_2 || {}),
-          },
-          section1_3: {
-            totalULBs: currentStepData.section1_3?.totalULBs ?? 0,
-            ulbList: Array.isArray(currentStepData.section1_3?.ulbList)
-              ? currentStepData.section1_3.ulbList
-              : [],
-          },
-          section1_4: {
-            totalULBs: currentStepData.section1_4?.totalULBs ?? 0,
-            bondList: Array.isArray(currentStepData.section1_4?.bondList)
-              ? currentStepData.section1_4.bondList
-              : [],
-          },
-
-          section1_5: Array.isArray(currentStepData.section1_5)
-            ? currentStepData.section1_5
-            : [],
-        };
-        shouldUpdate = true;
-        console.log("🔄 Synced form data from persisted data:", updatedData);
-      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    if (shouldUpdate) {
-      setFormData(updatedData);
-    }
-  }, []); // Empty dependency array to run only once
-
-  // Calculation functions
+  // ------------------------
+  // Calculation helpers
+  // ------------------------
   const calculateSection1_1 = useCallback(() => {
     const capitalAllocation = parseFloat(
-      formData.section1_1.capitalAllocation.replace(/[₹,]/g, "")
+      (formData.section1_1.capitalAllocation || "")
+        .toString()
+        .replace(/[₹,]/g, "")
     );
     const gsdpForFY = parseFloat(
-      formData.section1_1.gsdpForFY.replace(/[₹,]/g, "")
+      (formData.section1_1.gsdpForFY || "").toString().replace(/[₹,]/g, "")
     );
 
     if (isNaN(capitalAllocation) || isNaN(gsdpForFY) || gsdpForFY === 0) {
@@ -322,17 +299,19 @@ export const InfraFinancingStep = () => {
     const marksObtained = Math.min(percentage * 10, 50); // Max 50 marks
 
     return {
-      percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
+      percentage: Math.round(percentage * 100) / 100,
       marksObtained: Math.round(marksObtained * 100) / 100,
     };
   }, [formData.section1_1.capitalAllocation, formData.section1_1.gsdpForFY]);
 
   const calculateSection1_2 = useCallback(() => {
     const actualCapex = parseFloat(
-      formData.section1_2.actualCapex.replace(/[₹,]/g, "")
+      (formData.section1_2.actualCapex || "").toString().replace(/[₹,]/g, "")
     );
     const stateCapexUtilisation = parseFloat(
-      formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, "")
+      (formData.section1_2.stateCapexUtilisation || "")
+        .toString()
+        .replace(/[₹,]/g, "")
     );
 
     if (
@@ -347,7 +326,7 @@ export const InfraFinancingStep = () => {
     const marksObtained = Math.min(percentage / 2, 50); // Max 50 marks
 
     return {
-      percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
+      percentage: Math.round(percentage * 100) / 100,
       marksObtained: Math.round(marksObtained * 100) / 100,
     };
   }, [
@@ -355,7 +334,9 @@ export const InfraFinancingStep = () => {
     formData.section1_2.stateCapexUtilisation,
   ]);
 
-  // Helper functions for array management
+  // ------------------------
+  // Arrays helpers (use interface paths)
+  // ------------------------
   const addULB = () => {
     const newULB = {
       id: Date.now().toString(),
@@ -411,39 +392,102 @@ export const InfraFinancingStep = () => {
     }));
   };
 
+  // section1_5 -> use ffiArray per interface
   const addIntermediary = () => {
     const newIntermediary = {
       id: Date.now().toString(),
+      hasIntermediary: true,
       organisationName: "",
       organisationType: "",
       yearEstablished: "",
       totalFunding: "",
       website: "",
+      comment: "",
     };
     setFormData((prev) => ({
       ...prev,
-      section1_5: [...prev.section1_5, newIntermediary],
+      section1_5: {
+        ...prev.section1_5,
+        ffiArray: [...prev.section1_5.ffiArray, newIntermediary],
+      },
     }));
+    setFfiAvailable("yes"); // mark available when user adds one
   };
 
   const removeIntermediary = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      section1_5: prev.section1_5.filter((item) => item.id !== id),
+      section1_5: {
+        ...prev.section1_5,
+        ffiArray: prev.section1_5.ffiArray.filter((item) => item.id !== id),
+      },
     }));
   };
 
-  // Update formData with calculated values when they change
+  // Keep formData.section1_5 in sync with the simple UI flags (ffiAvailable / ffiComment).
+  // If ffiAvailable === "no", we'll store one ffiArray item with hasIntermediary=false and comment.
+  // If ffiAvailable === "yes", keep the actual intermediaries (with hasIntermediary=true).
+  useEffect(() => {
+    setFormData((prev) => {
+      const prevFfi = prev.section1_5.ffiArray || [];
+
+      if (ffiAvailable === "no") {
+        // store single no-item (or replace existing)
+        const noItem = {
+          id:
+            prevFfi.find((i) => i.hasIntermediary === false)?.id ||
+            Date.now().toString(),
+          hasIntermediary: false,
+          organisationName: "",
+          organisationType: "",
+          yearEstablished: "",
+          totalFunding: "",
+          website: "",
+          comment: ffiComment || "",
+        };
+        return {
+          ...prev,
+          section1_5: {
+            ffiArray: [noItem],
+          },
+        };
+      } else if (ffiAvailable === "yes") {
+        // remove any existing 'no'-item if present, keep only items with hasIntermediary !== false
+        const keep = prevFfi.filter((i) => i.hasIntermediary !== false);
+        return {
+          ...prev,
+          section1_5: {
+            ffiArray: keep,
+          },
+        };
+      } else {
+        // empty state
+        return {
+          ...prev,
+          section1_5: {
+            ffiArray: prevFfi.filter((i) => i.hasIntermediary !== false), // drop any no-items
+          },
+        };
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ffiAvailable, ffiComment]);
+
+  // ------------------------
+  // Derived calculations -> write back into formData
+  // ------------------------
   useEffect(() => {
     const section1_1Calc = calculateSection1_1();
     const section1_2Calc = calculateSection1_2();
 
     // Calculate % Allocation to GSDP
     const capitalAllocation = parseFloat(
-      formData.section1_1.capitalAllocation.replace(/[₹,]/g, "")
+      (formData.section1_1.capitalAllocation || "")
+        .toString()
+        .replace(/[₹,]/g, "")
     );
     const gsdpForFY = parseFloat(
-      formData.section1_1.gsdpForFY.replace(/[₹,]/g, "")
+      (formData.section1_1.gsdpForFY || "").toString().replace(/[₹,]/g, "")
     );
     let allocationToGSDP = "";
 
@@ -454,10 +498,12 @@ export const InfraFinancingStep = () => {
 
     // Calculate % Capex Actuals to GSDP
     const actualCapex = parseFloat(
-      formData.section1_2.actualCapex.replace(/[₹,]/g, "")
+      (formData.section1_2.actualCapex || "").toString().replace(/[₹,]/g, "")
     );
     const stateCapexUtilisation = parseFloat(
-      formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, "")
+      (formData.section1_2.stateCapexUtilisation || "")
+        .toString()
+        .replace(/[₹,]/g, "")
     );
     let capexActualsToGSDP = "";
 
@@ -471,7 +517,6 @@ export const InfraFinancingStep = () => {
     }
 
     setFormData((prev) => {
-      // Check if values actually changed to prevent infinite loop
       const section1_1Changed =
         prev.section1_1.percentage !== section1_1Calc.percentage ||
         prev.section1_1.marksObtained !== section1_1Calc.marksObtained ||
@@ -483,7 +528,7 @@ export const InfraFinancingStep = () => {
         prev.section1_2.capexActualsToGSDP !== capexActualsToGSDP;
 
       if (!section1_1Changed && !section1_2Changed) {
-        return prev; // No change, return same object
+        return prev;
       }
 
       return {
@@ -510,28 +555,25 @@ export const InfraFinancingStep = () => {
     formData.section1_2.stateCapexUtilisation,
   ]);
 
-  // Autosave to localStorage with debouncing (avoid infinite loop)
+  // Autosave to persistence hook
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       updateFormData("infraFinancing", formData);
-    }, 500); // Debounce for 500ms
-
+    }, 500);
     return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData]);
 
-  // Validation disabled - always return true to allow form progression
-  const validateFields = () => {
-    return true;
-  };
+  // ------------------------
+  // Navigation / Save
+  // ------------------------
+  const validateFields = () => true;
 
   const handleNext = () => {
-    // Always save to localStorage before navigating
     updateFormData("infraFinancing", formData);
     goToNext();
   };
 
-  // If indicators still loading -> show a small loading placeholder so we don't render all fields prematurely
   if (indicatorLoading) {
     return (
       <div className="w-full -mx-6 lg:-mx-8">
@@ -555,16 +597,14 @@ export const InfraFinancingStep = () => {
     );
   }
 
-  // Access control for NODAL_OFFICER (unchanged)
+  // Nodal access check (unchanged logic)
   if (isNodalOfficer) {
-    // Check if user has access to any indicator in this section
     const hasAccessToSection =
       hasIndicatorAccess("1.1") ||
       hasIndicatorAccess("1.2") ||
       hasIndicatorAccess("1.3") ||
       hasIndicatorAccess("1.4") ||
       hasIndicatorAccess("1.5");
-
     console.log("🔍 InfraFinancingStep: Access control check", {
       isNodalOfficer,
       assignedIndicators,
@@ -575,7 +615,6 @@ export const InfraFinancingStep = () => {
       hasAccess1_4: hasIndicatorAccess("1.4"),
       hasAccess1_5: hasIndicatorAccess("1.5"),
     });
-
     if (!hasAccessToSection) {
       return (
         <div className="w-full -mx-6 lg:-mx-8">
@@ -613,26 +652,16 @@ export const InfraFinancingStep = () => {
     }
   }
 
-  // Decide which codes we use to determine visibility:
-  // - nodal -> assignedIndicators
-  // - state approver -> availableIndicators
-  // - other roles -> show all (codes === null)
   const codesForVisibility = isNodalOfficer
     ? assignedIndicators
     : isStateApprover
     ? availableIndicators
     : null;
 
-  // helper to check per-indicator visibility
   const showIndicator = (indicatorCode: string) => {
     if (codesForVisibility === null) return true;
     return codesForVisibility.includes(indicatorCode);
   };
-
-  // Build access object for progress calculation: use availableIndicators for approver so progress matches visible fields
-  const accessForProgress = isStateApprover
-    ? { assignedIndicators: availableIndicators, isNodalOfficer: false }
-    : { assignedIndicators, isNodalOfficer };
 
   return (
     <div className="w-full -mx-6 lg:-mx-8">
@@ -656,15 +685,6 @@ export const InfraFinancingStep = () => {
               isStateApprover,
             }
           );
-          console.log("InfraFinancing Progress Debug:", {
-            isNodalOfficer,
-            isStateApprover,
-            assignedIndicators,
-            availableIndicators,
-            completed,
-            total,
-            progress,
-          });
           return (
             <ProgressHeader
               title="Infrastructure Financing"
@@ -680,7 +700,6 @@ export const InfraFinancingStep = () => {
         {/* Section 1.1 */}
         {showIndicator("1.1") &&
           (!isEditMode ||
-            // Hide if edit mode and no meaningful data present in section1_1
             !!(
               formData.section1_1 &&
               (formData.section1_1.year ||
@@ -694,12 +713,9 @@ export const InfraFinancingStep = () => {
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">1.1 -</span> % Capex to GSDP{" "}
-                    <span className="font-normal text-xs text-muted-foreground"></span>
                   </span>
                 </div>
               }
-              // subtitle="Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for
-              //       Capital Expenditure)"
               className="mb-6"
             >
               <div className="grid grid-cols-2 gap-4 max-w-[70%]">
@@ -716,7 +732,7 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
                 <div>
-                  <Label className="">
+                  <Label>
                     Capital Allocation for FY (INR)
                     <span className="text-red-500">*</span>
                     <Info className="h-4 w-4 text-gray-500 inline-block ml-2" />
@@ -736,7 +752,7 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
                 <div>
-                  <Label className="">
+                  <Label>
                     GSDP for FY (INR)<span className="text-red-500">*</span>
                     <Info className="h-4 w-4 text-gray-500 ml-2" />
                   </Label>
@@ -755,7 +771,7 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
                 <div>
-                  <Label className=" ">
+                  <Label>
                     % Allocation to GSDP<span className="text-red-500">*</span>
                     <Info className="h-4 w-4 text-gray-500 ml-2" />
                   </Label>
@@ -763,13 +779,14 @@ export const InfraFinancingStep = () => {
                     placeholder="Auto-calculated"
                     value={(() => {
                       const capitalAllocation = parseFloat(
-                        formData.section1_1.capitalAllocation.replace(
-                          /[₹,]/g,
-                          ""
-                        )
+                        (formData.section1_1.capitalAllocation || "")
+                          .toString()
+                          .replace(/[₹,]/g, "")
                       );
                       const gsdpForFY = parseFloat(
-                        formData.section1_1.gsdpForFY.replace(/[₹,]/g, "")
+                        (formData.section1_1.gsdpForFY || "")
+                          .toString()
+                          .replace(/[₹,]/g, "")
                       );
 
                       if (
@@ -868,13 +885,14 @@ export const InfraFinancingStep = () => {
                     placeholder="Auto-calculated"
                     value={(() => {
                       const actualCapex = parseFloat(
-                        formData.section1_2.actualCapex.replace(/[₹,]/g, "")
+                        (formData.section1_2.actualCapex || "")
+                          .toString()
+                          .replace(/[₹,]/g, "")
                       );
                       const stateCapexUtilisation = parseFloat(
-                        formData.section1_2.stateCapexUtilisation.replace(
-                          /[₹,]/g,
-                          ""
-                        )
+                        (formData.section1_2.stateCapexUtilisation || "")
+                          .toString()
+                          .replace(/[₹,]/g, "")
                       );
 
                       if (
@@ -914,7 +932,6 @@ export const InfraFinancingStep = () => {
               className="mb-6"
             >
               <div className="space-y-4">
-                {/* ✅ New Field: Total Number of ULBs */}
                 <div className="w-1/4">
                   <Label>
                     Total Number of ULBs <span className="text-red-500">*</span>
@@ -939,8 +956,7 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
 
-                {/* Existing ULB List */}
-                {formData.section1_3.ulbList.map((ulb, index) => (
+                {formData.section1_3.ulbList.map((ulb) => (
                   <div key={ulb.id} className="grid grid-cols-4 gap-4">
                     <div>
                       <Label>
@@ -1087,7 +1103,7 @@ export const InfraFinancingStep = () => {
                         variant="outline"
                         size="icon"
                         onClick={() => removeULB(ulb.id)}
-                        className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
+                        className="text-red-500 hover:text-red-700 border-none bg-none"
                       >
                         <Trash2 className="h-6 w-6" />
                       </Button>
@@ -1125,7 +1141,6 @@ export const InfraFinancingStep = () => {
               className="mb-6"
             >
               <div className="space-y-4">
-                {/* ✅ New Field: Total Number of ULBs */}
                 <div className="w-1/4">
                   <Label>
                     Total Number of ULBs <span className="text-red-500">*</span>
@@ -1150,7 +1165,6 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
 
-                {/* Existing Bond List */}
                 {formData.section1_4.bondList.map((bond) => (
                   <div key={bond.id} className="grid grid-cols-4 gap-4">
                     <div>
@@ -1287,7 +1301,7 @@ export const InfraFinancingStep = () => {
                         variant="outline"
                         size="icon"
                         onClick={() => removeBond(bond.id)}
-                        className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
+                        className="text-red-500 hover:text-red-700 border-none bg-none"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -1311,8 +1325,8 @@ export const InfraFinancingStep = () => {
         {/* Section 1.5 */}
         {showIndicator("1.5") &&
           (!isEditMode ||
-            (Array.isArray(formData.section1_5) &&
-              formData.section1_5.length > 0)) && (
+            (Array.isArray(formData.section1_5.ffiArray) &&
+              formData.section1_5.ffiArray.length > 0)) && (
             <SectionCard
               title={
                 <div className="flex flex-col">
@@ -1325,7 +1339,6 @@ export const InfraFinancingStep = () => {
               className="mb-6"
             >
               <div className="space-y-6">
-                {/* ✅ Radio Button Selection */}
                 <div>
                   <Label>
                     Functional Financial Intermediary Available?{" "}
@@ -1345,14 +1358,11 @@ export const InfraFinancingStep = () => {
                         type="radio"
                         name="functional-financial-intermediary"
                         value="yes"
-                        checked={formData.section1_5_available === "yes"}
-                        onChange={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_5_available: "yes",
-                            section1_5_comment: "", // clear comment when switching
-                          }))
-                        }
+                        checked={ffiAvailable === "yes"}
+                        onChange={() => {
+                          setFfiAvailable("yes");
+                          setFfiComment("");
+                        }}
                       />
                       Yes
                     </label>
@@ -1361,171 +1371,200 @@ export const InfraFinancingStep = () => {
                         type="radio"
                         name="functional-financial-intermediary"
                         value="no"
-                        checked={formData.section1_5_available === "no"}
-                        onChange={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_5_available: "no",
-                            section1_5: [], // clear intermediary list when no
-                          }))
-                        }
+                        checked={ffiAvailable === "no"}
+                        onChange={() => {
+                          setFfiAvailable("no");
+                        }}
                       />
                       No
                     </label>
                   </div>
                 </div>
 
-                {/* ✅ If Yes → show intermediary fields */}
-                {formData.section1_5_available === "yes" && (
+                {/* If Yes → show intermediary fields (bound to section1_5.ffiArray) */}
+                {ffiAvailable === "yes" && (
                   <div className="space-y-4">
-                    {formData.section1_5.map((intermediary, index) => (
-                      <div
-                        key={intermediary.id}
-                        className="grid grid-cols-5 gap-4"
-                      >
-                        <div>
-                          <Label>
-                            Organisation Name
-                            <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            placeholder="Enter organisation name"
-                            value={intermediary.organisationName}
-                            onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                section1_5: prev.section1_5.map((item) =>
-                                  item.id === intermediary.id
-                                    ? {
-                                        ...item,
-                                        organisationName: e.target.value,
-                                      }
-                                    : item
-                                ),
-                              }))
-                            }
-                          />
-                        </div>
-
-                        <div>
-                          <Label>
-                            Organisation Type
-                            <span className="text-red-500">*</span>
-                          </Label>
-                          <Select
-                            value={intermediary.organisationType}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                section1_5: prev.section1_5.map((item) =>
-                                  item.id === intermediary.id
-                                    ? { ...item, organisationType: value }
-                                    : item
-                                ),
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Government Corporation">
-                                Government Corporation
-                              </SelectItem>
-                              <SelectItem value="Development Authority">
-                                Development Authority
-                              </SelectItem>
-                              <SelectItem value="Financial Institution">
-                                Financial Institution
-                              </SelectItem>
-                              <SelectItem value="Private Entity">
-                                Private Entity
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>
-                            Year of Establishment
-                            <span className="text-red-500">*</span>
-                          </Label>
-                          <Select
-                            value={intermediary.yearEstablished}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                section1_5: prev.section1_5.map((item) =>
-                                  item.id === intermediary.id
-                                    ? { ...item, yearEstablished: value }
-                                    : item
-                                ),
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Enter year" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from(
-                                { length: 30 },
-                                (_, i) => 2024 - i
-                              ).map((year) => (
-                                <SelectItem key={year} value={year.toString()}>
-                                  {year}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Total Funding (INR)</Label>
-                          <Input
-                            placeholder="Enter total funding in INR"
-                            value={intermediary.totalFunding}
-                            onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                section1_5: prev.section1_5.map((item) =>
-                                  item.id === intermediary.id
-                                    ? { ...item, totalFunding: e.target.value }
-                                    : item
-                                ),
-                              }))
-                            }
-                          />
-                        </div>
-
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
-                            <Label>Website (Optional)</Label>
+                    {formData.section1_5.ffiArray
+                      .filter((i) => i.hasIntermediary !== false)
+                      .map((intermediary) => (
+                        <div
+                          key={intermediary.id}
+                          className="grid grid-cols-5 gap-4"
+                        >
+                          <div>
+                            <Label>
+                              Organisation Name
+                              <span className="text-red-500">*</span>
+                            </Label>
                             <Input
-                              placeholder="Website link"
-                              value={intermediary.website}
+                              placeholder="Enter organisation name"
+                              value={intermediary.organisationName}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
-                                  section1_5: prev.section1_5.map((item) =>
-                                    item.id === intermediary.id
-                                      ? { ...item, website: e.target.value }
-                                      : item
-                                  ),
+                                  section1_5: {
+                                    ...prev.section1_5,
+                                    ffiArray: prev.section1_5.ffiArray.map(
+                                      (item) =>
+                                        item.id === intermediary.id
+                                          ? {
+                                              ...item,
+                                              organisationName: e.target.value,
+                                            }
+                                          : item
+                                    ),
+                                  },
                                 }))
                               }
                             />
                           </div>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeIntermediary(intermediary.id)}
-                            className="text-red-500 hover:text-red-700 border-none bg-none text-2xl"
-                          >
-                            <Trash2 className="h-6 w-6" />
-                          </Button>
+
+                          <div>
+                            <Label>
+                              Organisation Type
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Select
+                              value={intermediary.organisationType}
+                              onValueChange={(value) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section1_5: {
+                                    ...prev.section1_5,
+                                    ffiArray: prev.section1_5.ffiArray.map(
+                                      (item) =>
+                                        item.id === intermediary.id
+                                          ? { ...item, organisationType: value }
+                                          : item
+                                    ),
+                                  },
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Government Corporation">
+                                  Government Corporation
+                                </SelectItem>
+                                <SelectItem value="Development Authority">
+                                  Development Authority
+                                </SelectItem>
+                                <SelectItem value="Financial Institution">
+                                  Financial Institution
+                                </SelectItem>
+                                <SelectItem value="Private Entity">
+                                  Private Entity
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label>
+                              Year of Establishment
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Select
+                              value={intermediary.yearEstablished}
+                              onValueChange={(value) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section1_5: {
+                                    ...prev.section1_5,
+                                    ffiArray: prev.section1_5.ffiArray.map(
+                                      (item) =>
+                                        item.id === intermediary.id
+                                          ? { ...item, yearEstablished: value }
+                                          : item
+                                    ),
+                                  },
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Enter year" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from(
+                                  { length: 30 },
+                                  (_, i) => 2024 - i
+                                ).map((year) => (
+                                  <SelectItem
+                                    key={year}
+                                    value={year.toString()}
+                                  >
+                                    {year}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label>Total Funding (INR)</Label>
+                            <Input
+                              placeholder="Enter total funding in INR"
+                              value={intermediary.totalFunding}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section1_5: {
+                                    ...prev.section1_5,
+                                    ffiArray: prev.section1_5.ffiArray.map(
+                                      (item) =>
+                                        item.id === intermediary.id
+                                          ? {
+                                              ...item,
+                                              totalFunding: e.target.value,
+                                            }
+                                          : item
+                                    ),
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <Label>Website (Optional)</Label>
+                              <Input
+                                placeholder="Website link"
+                                value={intermediary.website}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    section1_5: {
+                                      ...prev.section1_5,
+                                      ffiArray: prev.section1_5.ffiArray.map(
+                                        (item) =>
+                                          item.id === intermediary.id
+                                            ? {
+                                                ...item,
+                                                website: e.target.value,
+                                              }
+                                            : item
+                                      ),
+                                    },
+                                  }))
+                                }
+                              />
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() =>
+                                removeIntermediary(intermediary.id)
+                              }
+                              className="text-red-500 hover:text-red-700 border-none bg-none"
+                            >
+                              <Trash2 className="h-6 w-6" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
 
                     <Button
                       type="button"
@@ -1539,19 +1578,14 @@ export const InfraFinancingStep = () => {
                   </div>
                 )}
 
-                {/* ✅ If No → show Comment Box */}
-                {formData.section1_5_available === "no" && (
+                {/* If 'No' -> show comment box. We persist this as a single ffiArray entry with hasIntermediary=false and comment */}
+                {ffiAvailable === "no" && (
                   <div>
                     <Label>Comments (Reason)</Label>
                     <Input
                       placeholder="Enter comments or reason"
-                      value={formData.section1_5_comment || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          section1_5_comment: e.target.value,
-                        }))
-                      }
+                      value={ffiComment}
+                      onChange={(e) => setFfiComment(e.target.value)}
                     />
                   </div>
                 )}
@@ -1563,19 +1597,14 @@ export const InfraFinancingStep = () => {
           onPrevious={isFirstStep ? undefined : goToPrevious}
           onNext={handleNext}
           onSaveDraft={async () => {
-            // Save to localStorage with toast message
             const success = saveDraftToLocalStorage("infraFinancing", formData);
-
-            if (success) {
-              // Also update form data in persistence hook
-              updateFormData("infraFinancing", formData);
-            }
+            if (success) updateFormData("infraFinancing", formData);
           }}
           isFirstStep={isFirstStep}
           isLastStep={isLastStep}
           nextLabel={isLastStep ? "Review & Submit" : "Next"}
           showSaveDraft={true}
-          isNextDisabled={false} // Commented out validation: !validateFields()
+          isNextDisabled={false}
         />
       </div>
     </div>

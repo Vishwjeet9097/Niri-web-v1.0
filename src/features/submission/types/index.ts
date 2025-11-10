@@ -9,13 +9,18 @@ export interface SubmissionStep {
   totalSections?: number;
 }
 
+// ✅ Enhanced FileUpload interface (matches backend + frontend upload usage)
 export interface FileUpload {
   id: string;
-  file: File | null;
+  file: File | null; // Local file (null once uploaded to backend)
   fileName: string;
   fileSize: number;
   uploadedAt: number;
+  filePath?: string; // ✅ path returned from backend (e.g. submissions/...pdf)
+  fileUrl?: string;  // ✅ full URL or signed URL from backend
+  mimeType?: string; // ✅ optional for preview / validation
 }
+
 
 export interface InfraFinancingData {
   section1_1: {
@@ -61,7 +66,8 @@ export interface InfraFinancingData {
       value: string;
     }>;
   };
-  section1_5: Array<{
+  section1_5: {
+    ffiArray: Array<{
     id: string;
     hasIntermediary?: boolean;
     organisationName: string;
@@ -70,38 +76,43 @@ export interface InfraFinancingData {
     totalFunding: string;
     website: string;
     comment?: string;
-  }>;
+  }>;}
 }
 
 export interface InfraDevelopmentData {
-  section2_1: Array<{
+  section2_1: {
+    infraActArray: Array<{
     id: string;
     sector: string;
     files: FileUpload[];
-  }>;
-  section2_2: Array<{
+  }>};
+  section2_2: {
+    specializedEntityArray: Array<{
     id: string;
     sector: string;
     files: FileUpload[];
-  }>;
-  section2_3: Array<{
+  }>};
+  section2_3: 
+  {infraDevelopmentArray :Array<{
     id: string;
     sector: string;
     files: FileUpload[];
-  }>;
-  section2_4: Array<{
+  }>};
+  section2_4: {
+    investmentReadyArray: Array<{
     id: string;
     projectName: string;
     dprFile: FileUpload | null;
-  }>;
-  section2_5: Array<{
+  }>};
+  section2_5: {
+    assetMonetizationArray: Array<{
     id: string;
     projectName: string;
     sector: string;
     type: string;
     ownership: string;
     estimatedMonetization: string;
-  }>;
+  }>};
 }
 
 export interface PPPDevelopmentData {
@@ -113,16 +124,16 @@ export interface PPPDevelopmentData {
     available: "yes" | "no" | "";
     file: FileUpload | null;
   };
-  section3_3: Array<{
+  section3_3: {
+    VGFArray: Array<{
     id: string;
     projectName: string;
     sector: string;
     type: string;
     submissionDate: string;
     file: FileUpload | null;
-    // Calculation fields
     marksObtained?: number;
-  }>;
+  }>};
   section3_4: {
     projects: Array<{
       id: string;
@@ -166,7 +177,8 @@ export interface InfraEnablersData {
     impact: string;
     file: FileUpload | null;
   };
-  section4_6: Array<{
+  section4_6: {
+    capacityArray: Array<{
     id: string;
     officerName: string;
     designation: string;
@@ -174,7 +186,7 @@ export interface InfraEnablersData {
     organiser: string;
     trainingType: string;
     marksObtained?: number;
-  }>;
+  }>};
 }
 
 export interface SubmissionFormData {

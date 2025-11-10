@@ -378,9 +378,9 @@ export function LoginPage() {
                     &{" "}
                     <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>
                   </p>
-                  <p className="text-xs">
+                  {/* <p className="text-xs">
                     Powered by National Informatics Centre
-                  </p>
+                  </p> */}
                 </div>
               </div>
             )}
@@ -476,9 +476,9 @@ export function LoginPage() {
                   <p className="font-medium mb-2">
                     (For Official Use Only Nodal Officer, State Reviewers, Ministry of Statistics and Programme Implementation (MoSPI) Reviewer & Approver)
                   </p>
-                  <p className="text-xs">
+                  {/* <p className="text-xs">
                     Powered by National Informatics Centre
-                  </p>
+                  </p> */}
                 </div>
               </div>
             )}

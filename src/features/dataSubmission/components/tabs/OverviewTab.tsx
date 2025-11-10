@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,25 +45,25 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
     if (submission.formData.infraDevelopment) {
       // Section 2.1 files
       if (submission.formData.infraDevelopment.section2_1) {
-        submission.formData.infraDevelopment.section2_1.forEach((item: any) => {
+        submission.formData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
           if (item.files) countFileArray(item.files);
         });
       }
       // Section 2.2 files
       if (submission.formData.infraDevelopment.section2_2) {
-        submission.formData.infraDevelopment.section2_2.forEach((item: any) => {
+        submission.formData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
           if (item.files) countFileArray(item.files);
         });
       }
       // Section 2.3 files
       if (submission.formData.infraDevelopment.section2_3) {
-        submission.formData.infraDevelopment.section2_3.forEach((item: any) => {
+        submission.formData.infraDevelopment.section2_3.infraDevelopmentArray.forEach((item: any) => {
           if (item.files) countFileArray(item.files);
         });
       }
       // Section 2.4 files
       if (submission.formData.infraDevelopment.section2_4) {
-        submission.formData.infraDevelopment.section2_4.forEach((item: any) => {
+        submission.formData.infraDevelopment.section2_4.investmentReadyArray.forEach((item: any) => {
           if (item.dprFile) countFiles(item.dprFile);
         });
       }
@@ -77,7 +78,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
         countFiles(submission.formData.pppDevelopment.section3_2.file);
       }
       if (submission.formData.pppDevelopment.section3_3) {
-        submission.formData.pppDevelopment.section3_3.forEach((item: any) => {
+        submission.formData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
           if (item.file) countFiles(item.file);
         });
       }
@@ -221,7 +222,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 text-center">
             <div className="text-4xl font-bold text-blue-600 mb-2">
@@ -246,7 +247,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
             <p className="text-sm font-semibold text-[#212121]">Days Pending</p>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
     </div>
   );
 };
