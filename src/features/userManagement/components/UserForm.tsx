@@ -161,6 +161,7 @@ export function UserForm({
     );
   }, [availableIndicatorCodes, formData.assignedIndicators]);
 
+// Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
 
   // Debug: Log indicator options to verify 4.6 is included
   useEffect(() => {
@@ -259,15 +260,19 @@ export function UserForm({
       //   stateId: officer.stateId,
       //   state: officer.state,
       // });
-      const stateIds = officer.state
-      ? officer.state.split(",").map(name => {
-          const match = states.find(s => s.name.trim() === name.trim());
-          return match ? match.id : officer.state;
-        }).filter(Boolean)
-      : []; 
-
-      console.log("🔍 Resolved state IDs for officer:", officer.state) ;
-      
+      const stateIdsRaw = officer.state
+        ? officer.state.split(",").map(name => {
+            const match = states.find(s => s.name.trim() === name.trim());
+            return match ? match.id : officer.state;
+          }).filter(Boolean)
+        : [];
+      // Deduplicate stateIds
+      const stateIds = Array.from(new Set(stateIdsRaw));
+      // Get unique state names for stateUt
+      const uniqueStateNames = Array.from(new Set(stateIds.map(id => {
+        const found = states.find(s => s.id === id);
+        return found ? found.name : id;
+      })));
       setFormData({
         firstName: officer.firstName || "",
         lastName: officer.lastName || "",
@@ -276,7 +281,7 @@ export function UserForm({
         password: "", // Don't show password for existing users
         role: officer.role || "NODAL_OFFICER",
         stateId: stateIds, // Will be set after states are loaded 
-        stateUt:  stateIds, // Will be set after states are loaded 
+        stateUt: uniqueStateNames.join(", "), // Always unique, comma-separated string
         assignedIndicators: (() => {
           if (Array.isArray(officer.assignedIndicators)) {
             return officer.assignedIndicators as string[];
@@ -472,7 +477,7 @@ export function UserForm({
 
   
   
-   const handleSubmit = () => {
+   const handleSubmit1 = () => {
   if (!validate()) return;
 
   const normalizedStateId =
@@ -511,9 +516,57 @@ export function UserForm({
   console.log("payload", formData);
 
   onSave(payload  as SubmitPayload); // Make sure onSave type includes stateUt
+
+   
 };
 
- 
+ const handleSubmit = () => {
+  if (!validate()) return;
+
+  const normalizedStateId =
+    formData.role === "MOSPI_REVIEWER"
+      ? Array.isArray(formData.stateId)
+        ? formData.stateId.filter(Boolean)
+        : formData.stateId
+        ? [formData.stateId]
+        : []
+      : Array.isArray(formData.stateId)
+      ? [formData.stateId[0] ?? ""].filter(Boolean)
+      : formData.stateId
+      ? [formData.stateId]
+      : [];
+
+  // Get unique state names only for stateUt
+  const stateNames = Array.from(new Set(normalizedStateId.map(
+    (id) => states.find((s) => s.id === id)?.name ?? id
+  )));
+
+  const payload = {
+    ...formData,
+    stateUt: stateNames.join(", "), // always only the selected unique state(s)
+    stateId: normalizedStateId,
+  };
+
+  type SubmitPayload = Omit<
+  NodalOfficer,
+  "id" | "state" | "createdAt" | "assignedIndicator"
+> & {
+  password?: string;
+  assignedIndicators?: string[];
+  stateId?: string | string[];
+  stateUt?: string; // string joined for backend
+};
+
+  onSave(payload as SubmitPayload);
+
+  // ✅ Reset values after submit
+  setFormData(prev => ({
+    ...prev,
+    stateId: formData.role === "MOSPI_REVIEWER" ? [] : '',
+    stateUt: '', // always clear after submit
+  }));
+};
+
 
   // Get selected state name for display
   const getSelectedStateName1 = () => {
@@ -529,28 +582,35 @@ const getSelectedStateName = () => {
 };
 
   
-const handleStateChange = (values: string | string[]) => {
-   
 
+const handleStateChange = (values: string | string[]) => {
+  // Always update stateId and stateUt to reflect the latest selection, not keeping previous state
+  if (!values || (Array.isArray(values) && values.length === 0)) {
+    setFormData(prev => ({
+      ...prev,
+      stateId: formData.role === "MOSPI_REVIEWER" ? [] : '',
+      stateUt: ''
+    }));
+    return;
+  }
   if (formData.role === "MOSPI_REVIEWER") {
     // Multiple selection
-    const stateValues = Array.isArray(values) ? values.filter(Boolean) : values ? [values] : [];
-    
-   setFormData(prev => ({
+    const stateValues = Array.isArray(values) ? values.filter(Boolean) : [values].filter(Boolean);
+    // Get unique state names only
+    const uniqueNames = Array.from(new Set(stateValues.map(id => states.find(s => s.id === id)?.name ?? id)));
+    setFormData(prev => ({
       ...prev,
-      stateId: stateValues,               // always array for reviewer
-      stateUt: stateValues.map(id => states.find(s => s.id === id)?.name ?? id).join(", "), // string for backend
+      stateId: stateValues, // always array for reviewer
+      stateUt: uniqueNames.join(", ")
     }));
   } else {
     // Single selection
     const singleValue = Array.isArray(values) ? values[0] : values;
-
-      setFormData(prev => ({
+    const name = singleValue ? states.find(s => s.id === singleValue)?.name ?? singleValue : '';
+    setFormData(prev => ({
       ...prev,
-      stateId: singleValue || '',         
-      stateUt: singleValue
-        ? states.find(s => s.id === singleValue)?.name ?? "singleValue"
-        : '', // string for backend
+      stateId: singleValue || '',
+      stateUt: name
     }));
   }
 };
@@ -774,7 +834,14 @@ const handleStateChange = (values: string | string[]) => {
           </Label>
           <Select
             value={formData.role}
-            onValueChange={(value) => setFormData({ ...formData, role: value })}
+            onValueChange={(value) => {
+              setFormData(prev => ({
+                ...prev,
+                role: value,
+                stateId: value === "MOSPI_REVIEWER" ? [] : '',
+                stateUt: ''
+              }));
+            }}
           >
             <SelectTrigger className={errors.role ? "border-destructive" : ""}>
               <SelectValue placeholder="Select role" />
@@ -884,21 +951,37 @@ const handleStateChange = (values: string | string[]) => {
  
 {user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" ? (
    formData.role === "MOSPI_REVIEWER" ? (
-    <MultiSelect
-      options={states.map(state => ({
-        value: state.id,
-        label: state.name,
-        disabled: !state.isActive
-      }))}
-      value={Array.isArray(formData.stateId) ? formData.stateId : [formData.stateId].filter(Boolean)}
-      onChange={(values) => handleStateChange(values)}
-      placeholder={loadingStates ? "Loading states..." : "Select multiple states"}
-      searchPlaceholder="Search states..."
-      showSearch={true}
-      className={errors.stateId ? "border-destructive" : ""}
-      disabled={loadingStates}
-      showSelectAll={true}
-    />
+    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <MultiSelect
+        options={states.map(state => {
+          // Find if this state is already assigned to another MOSPI_REVIEWER (not the current officer)
+          const isAssigned = (officers || []).some(o =>
+            o.role === 'MOSPI_REVIEWER' &&
+            o.id !== officer?.id &&
+            (
+              (Array.isArray(o.stateId) && o.stateId.includes(state.id)) ||
+              (!Array.isArray(o.stateId) && o.stateId === state.id)
+            )
+          );
+          return {
+            value: state.id,
+            label: state.name,
+            disabled: !state.isActive || isAssigned
+          };
+        })}
+        value={Array.isArray(formData.stateId) ? formData.stateId : [formData.stateId].filter(Boolean)}
+        onChange={(values) => handleStateChange(values)}
+        placeholder={loadingStates ? "Loading states..." : "Select multiple states"}
+        searchPlaceholder="Search states..."
+        showSearch={true}
+        className={errors.stateId ? "border-destructive" : ""}
+        disabled={loadingStates}
+        showSelectAll={true}
+      />
+      <Button type="button" variant="outline" size="sm" onClick={() => handleStateChange([])} disabled={loadingStates}>
+        Clear
+      </Button>
+    </div>
   ) : formData.role !== "MOSPI_APPROVER" ? (
     <Select
   value={typeof formData.stateId === 'string' ? formData.stateId : Array.isArray(formData.stateId) ? formData.stateId[0] : ''}
