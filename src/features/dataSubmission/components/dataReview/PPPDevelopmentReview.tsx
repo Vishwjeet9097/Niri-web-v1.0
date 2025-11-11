@@ -22,6 +22,10 @@ import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 import { useEditableSectionStore } from '@/utils/EditableSection';
+import { handleSaveSection } from "@/utils/ReviewActionHandelers";
+import { EditableFileDisplay } from "../EditableFileDisplay";
+import type { FileUpload } from "@/types";
+import { SECTOR_OPTIONS, PROJECT_TYPE_OPTIONS } from "@/features/submission/constants/steps";
 
 
 interface PPPDevelopmentReviewProps {
@@ -71,7 +75,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
- const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+  const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+  
+  // Alias for formDataState to match pattern used in other review components
+  const state = formDataState as any;
   
   // Real-time update listener
   useEffect(() => {
@@ -189,10 +196,208 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     return titles[sectionId] || sectionId;
   };
 
+  // Helper functions for file handling
+  const toSingleFile = (
+    value: FileUpload | FileUpload[] | null | undefined
+  ): FileUpload | null => {
+    if (Array.isArray(value)) {
+      return value.length > 0 ? (value[0] as FileUpload) : null;
+    }
+    return value ?? null;
+  };
+
+  const toFileArray = (value: FileUpload | FileUpload[] | null | undefined): FileUpload[] => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  };
+
+  // Helper function to handle field updates
+  const handleFieldUpdate = (sectionId: string, fieldName: string, value: any) => {
+    setFormDataState((prev: any) => {
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      return {
+        ...prev,
+        [sectionKey]: {
+          ...prev?.[sectionKey],
+          [fieldName]: value
+        }
+      };
+    });
+  };
+
+  // Helper function to handle file updates
+  const handleFileUpdate = async (
+    sectionId: string,
+    updatedValue: FileUpload | FileUpload[] | null
+  ) => {
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const previousSection = state?.[sectionKey] || {};
+    const targetKey = sectionId === '3.1' ? 'files' : 'file';
+    const filesArray = toFileArray(updatedValue);
+    const normalizedValue = targetKey === 'files' ? filesArray : updatedValue;
+
+    const updatedSection =
+      targetKey === 'files'
+        ? {
+            ...previousSection,
+            files: filesArray,
+          }
+        : {
+            ...previousSection,
+            [targetKey]: normalizedValue,
+          };
+
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: updatedSection,
+    }));
+
+    // Auto-save for file changes
+    if (sectionId === '3.1') {
+      try {
+        const fields = [{
+          available: updatedSection?.available ?? null,
+          files: filesArray,
+        }];
+
+        await handleSaveSection({
+          submissionId,
+          category: 'pppDevelopment',
+          section: sectionKey,
+          fields,
+        });
+        
+        if (filesArray.length === 0) {
+          await onIndicatorStatus(sectionId, false);
+        }
+      } catch (error) {
+        console.error('Failed to auto-save files for section', sectionId, error);
+      }
+    } else if (sectionId === '3.2') {
+      try {
+        const fields = [{
+          available: updatedSection?.available ?? null,
+          file: normalizedValue,
+        }];
+
+        await handleSaveSection({
+          submissionId,
+          category: 'pppDevelopment',
+          section: sectionKey,
+          fields,
+        });
+      } catch (error) {
+        console.error('Failed to auto-save files for section', sectionId, error);
+      }
+    }
+  };
+
+  // Helper to update table row items for section 3.3
+  const handleTableFieldUpdate = (rowIndex: number, fieldName: string, value: any) => {
+    setFormDataState((prev: any) => {
+      const current = prev?.section3_3?.VGFArray;
+      const rows = Array.isArray(current) ? [...current] : [];
+      const currentRow = { ...(rows[rowIndex] || {}) };
+      currentRow[fieldName] = value;
+      rows[rowIndex] = currentRow;
+      return {
+        ...prev,
+        section3_3: {
+          ...(prev?.section3_3 || {}),
+          VGFArray: rows,
+        },
+      };
+    });
+  };
+
+  // Helper to update section 3.4 project fields
+  const handleProjectFieldUpdate = (projectIndex: number, fieldName: string, value: any) => {
+    setFormDataState((prev: any) => {
+      const current = prev?.section3_4?.projects;
+      const projects = Array.isArray(current) ? [...current] : [];
+      const currentProject = { ...(projects[projectIndex] || {}) };
+      currentProject[fieldName] = value;
+      projects[projectIndex] = currentProject;
+      return {
+        ...prev,
+        section3_4: {
+          ...(prev?.section3_4 || {}),
+          projects: projects,
+        },
+      };
+    });
+  };
+
   const onSaveSection = async (sectionId: string) => {
-    // TODO: Implement save logic for PPP sections when editable workflow is defined.
-    console.warn(`Save operation for section ${sectionId} is not implemented yet.`);
-    setEditable(sectionId, false);
+    try {
+      // Map visual section id to payload section key (e.g. "3.1" -> "section3_1")
+      const payloadSection = `section${sectionId.replace('.', '_')}`;
+
+      // Use the local formData state to build fields for this section
+      let fields: Record<string, any>[] = [];
+
+      switch (sectionId) {
+        case '3.1':
+          fields = [{
+            available: state?.section3_1?.available ?? null,
+            files: Array.isArray(state?.section3_1?.files)
+              ? state.section3_1.files
+              : state?.section3_1?.files
+              ? [state.section3_1.files]
+              : [],
+          }];
+          break;
+
+        case '3.2':
+          fields = [{
+            available: state?.section3_2?.available ?? null,
+            file: state?.section3_2?.file ?? null,
+          }];
+          break;
+
+        case '3.3':
+          fields = [{
+            VGFArray: (state?.section3_3?.VGFArray || []).map((item: any) => ({
+              projectName: item?.projectName ?? null,
+              sector: item?.sector ?? null,
+              type: item?.type ?? null,
+              submissionDate: item?.submissionDate ?? null,
+              file: item?.file ?? null,
+              marksObtained: item?.marksObtained ?? null,
+            })),
+          }];
+          break;
+
+        case '3.4':
+          fields = [{
+            projects: (state?.section3_4?.projects || []).map((project: any) => ({
+              nameOfProject: project?.nameOfProject ?? null,
+              nipId: project?.nipId ?? null,
+              fundingSource: project?.fundingSource ?? null,
+              infrastructureSector: project?.infrastructureSector ?? null,
+              dateOfAward: project?.dateOfAward ?? null,
+              capexPercentage: project?.capexPercentage ?? null,
+            })),
+          }];
+          break;
+
+        default:
+          console.warn(`Unhandled section: ${sectionId}`);
+          return;
+      }
+
+      await handleSaveSection({
+        submissionId,
+        category: 'pppDevelopment',
+        section: payloadSection,
+        fields
+      });
+
+      // Disable editing after successful save
+      setEditable(sectionId, false);
+    } catch (error) {
+      console.error('Error saving section:', error);
+    }
   };
 
 
@@ -230,8 +435,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     }
 
     const sectionKey = `section${sectionId.replace('.', '_')}`;
-    const sectionData = formDataState
-      ? (formDataState as any)[sectionKey]
+    const sectionData = state
+      ? state[sectionKey]
       : undefined;
     const sectionStatus = sectionData
       ? Array.isArray(sectionData)
@@ -340,6 +545,11 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       );
     }
 
+    // For NODAL_OFFICER, if status is not REVERTED or ACCEPTED, don't show any buttons
+    if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED') {
+      return null;
+    }
+
     return (
       <div className="flex gap-2">
         {!isEditable(sectionId) ? (
@@ -395,15 +605,17 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           Timeline ({commentCount})
         </Button> */}
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => onIndicatorStatus(sectionId, true)}
-        >
-          <CheckCircle className="w-4 h-4" />
-          Accept
-        </Button>
+        {!isNodalOfficer && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+          </Button>
+        )}
       </div>
     );
   };
@@ -475,34 +687,45 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section3_1?.available === "yes"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-                  }`}>
-                  {formDataState?.section3_1?.available === "yes" ? "Yes" : "No"}
-                </span>
-              </div>
+              {isEditable('3.1') ? (
+                <RadioGroup
+                  value={state?.section3_1?.available || ""}
+                  onValueChange={(value) => handleFieldUpdate('3.1', 'available', value)}
+                  className="flex flex-row gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="3.1-yes" />
+                    <Label htmlFor="3.1-yes">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="3.1-no" />
+                    <Label htmlFor="3.1-no">No</Label>
+                  </div>
+                </RadioGroup>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section3_1?.available === "yes"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                    }`}>
+                    {state?.section3_1?.available === "yes" ? "Yes" : "No"}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label>Uploaded Files</Label>
-                {formDataState?.section3_1?.files && formDataState.section3_1.files.length > 0 ? (
-                  <div className="space-y-2">
-                    {formDataState.section3_1.files.map((file: any, index: number) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                        <Upload className="w-4 h-4" />
-                        <span className="text-sm">{file?.fileName || "Act/Policy document"}</span>
-                        <span className="text-sm text-green-600">✓</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">No files uploaded</span>
-                )}
+            {(state?.section3_1?.available === "yes") && (
+              <div>
+                <EditableFileDisplay
+                  files={state?.section3_1?.files ?? null}
+                  isEditable={isEditable('3.1')}
+                  submissionId={submissionId}
+                  onFilesChange={(updatedFiles) => handleFileUpdate('3.1', updatedFiles)}
+                  label="Uploaded Files"
+                  multiple={true}
+                />
               </div>
-            </div>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Upload copy of Act/Policy
@@ -547,30 +770,45 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">Functional State/UT PPP Cell/Unit*</Label>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${formDataState?.section3_2?.available === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {formDataState?.section3_2?.available === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
+                {isEditable('3.2') ? (
+                  <RadioGroup
+                    value={state?.section3_2?.available || ""}
+                    onValueChange={(value) => handleFieldUpdate('3.2', 'available', value)}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="3.2-yes" />
+                      <Label htmlFor="3.2-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="3.2-no" />
+                      <Label htmlFor="3.2-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section3_2?.available === "yes"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}>
+                      {state?.section3_2?.available === "yes" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <Label>Uploaded File</Label>
-                  {formDataState?.section3_2?.file ? (
-                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                      <Upload className="w-4 h-4" />
-                      <span className="text-sm">{formDataState?.section3_2?.file?.fileName || "PPP Cell document"}</span>
-                      <span className="text-sm text-green-600">✓</span>
-                    </div>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">No file uploaded</span>
-                  )}
+              {(state?.section3_2?.available === "yes") && (
+                <div>
+                  <EditableFileDisplay
+                    files={state?.section3_2?.file ?? null}
+                    isEditable={isEditable('3.2')}
+                    submissionId={submissionId}
+                    onFilesChange={(updatedFile) => handleFileUpdate('3.2', updatedFile)}
+                    label="Uploaded File"
+                    multiple={false}
+                  />
                 </div>
-              </div>
+              )}
 
               <p className="text-xs text-muted-foreground">
                 Upload notification or mandate
@@ -626,8 +864,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                   </thead>
                   <tbody>
                     {(() => {
-                      const VGFArray = Array.isArray(formDataState?.section3_3?.VGFArray)
-                        ? formDataState.section3_3.VGFArray
+                      const VGFArray = Array.isArray(state?.section3_3?.VGFArray)
+                        ? state.section3_3.VGFArray
                         : [];
 
                       if (!VGFArray.length) {
@@ -642,22 +880,96 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
                       return VGFArray.map((item: any, index: number) => (
                         <tr key={item.id || index} className="border-b">
-                          <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
-                          <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
-                          <td className="py-3 px-4 text-sm font-normal">{item.type || ""}</td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {item.submissionDate 
-                              ? new Date(item.submissionDate).toLocaleDateString() 
-                              : ""}
+                            {isEditable('3.3') ? (
+                              <Input
+                                value={item.projectName || ""}
+                                onChange={(e) => handleTableFieldUpdate(index, 'projectName', e.target.value)}
+                                className="w-full"
+                              />
+                            ) : (
+                              item.projectName || ""
+                            )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {item.file ? (
-                              <div className="flex items-center gap-2">
-                                <Upload className="w-4 h-4" />
-                                <span className="text-sm">{item.file.fileName || "File"}</span>
-                              </div>
+                            {isEditable('3.3') ? (
+                              <Select
+                                value={item.sector || ""}
+                                onValueChange={(value) => handleTableFieldUpdate(index, 'sector', value)}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select sector" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {SECTOR_OPTIONS.map((sector) => (
+                                    <SelectItem key={sector} value={sector}>
+                                      {sector}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             ) : (
-                              <span className="text-sm text-muted-foreground">No file</span>
+                              item.sector || ""
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.3') ? (
+                              <Select
+                                value={item.type || ""}
+                                onValueChange={(value) => handleTableFieldUpdate(index, 'type', value)}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PROJECT_TYPE_OPTIONS.map((type) => (
+                                    <SelectItem key={type} value={type}>
+                                      {type}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              item.type || ""
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.3') ? (
+                              <Input
+                                type="date"
+                                value={item.submissionDate 
+                                  ? new Date(item.submissionDate).toISOString().split('T')[0]
+                                  : ""}
+                                onChange={(e) => handleTableFieldUpdate(index, 'submissionDate', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                                className="w-full"
+                              />
+                            ) : (
+                              item.submissionDate 
+                                ? new Date(item.submissionDate).toLocaleDateString() 
+                                : ""
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.3') ? (
+                              <EditableFileDisplay
+                                files={item.file ?? null}
+                                isEditable={true}
+                                submissionId={submissionId}
+                                onFilesChange={(updatedFile) => {
+                                  handleTableFieldUpdate(index, 'file', updatedFile);
+                                }}
+                                label=""
+                                multiple={false}
+                              />
+                            ) : (
+                              item.file ? (
+                                <div className="flex items-center gap-2">
+                                  <Upload className="w-4 h-4" />
+                                  <span className="text-sm">{item.file.fileName || "File"}</span>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">No file</span>
+                              )
                             )}
                           </td>
                         </tr>
@@ -715,35 +1027,88 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {formDataState?.section3_4?.projects && formDataState.section3_4.projects.length > 0 ? (
+              {state?.section3_4?.projects && state.section3_4.projects.length > 0 ? (
                 <div className="flex flex-col gap-4">
-                  {formDataState.section3_4.projects.map((project: any, idx: number) => (
+                  {state.section3_4.projects.map((project: any, idx: number) => (
                     <div key={project.id || idx} className="border rounded-lg p-4">
                       <h4 className="font-medium mb-3">Project {idx + 1}</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>Name of PPP/Bankable Projects</Label>
-                          <Input value={project.nameOfProject || ""} readOnly />
+                          <Input 
+                            value={project.nameOfProject || ""} 
+                            readOnly={!isEditable('3.4')}
+                            className={isEditable('3.4') ? 'bg-white' : 'bg-gray-50'}
+                            onChange={(e) => handleProjectFieldUpdate(idx, 'nameOfProject', e.target.value)}
+                          />
                         </div>
                         <div>
                           <Label>NIP ID</Label>
-                          <Input value={project.nipId || ""} readOnly />
+                          <Input 
+                            value={project.nipId || ""} 
+                            readOnly={!isEditable('3.4')}
+                            className={isEditable('3.4') ? 'bg-white' : 'bg-gray-50'}
+                            onChange={(e) => handleProjectFieldUpdate(idx, 'nipId', e.target.value)}
+                          />
                         </div>
                         <div>
                           <Label>Funding Source</Label>
-                          <Input value={project.fundingSource || ""} readOnly />
+                          <Input 
+                            value={project.fundingSource || ""} 
+                            readOnly={!isEditable('3.4')}
+                            className={isEditable('3.4') ? 'bg-white' : 'bg-gray-50'}
+                            onChange={(e) => handleProjectFieldUpdate(idx, 'fundingSource', e.target.value)}
+                          />
                         </div>
                         <div>
                           <Label>Infrastructure Sector</Label>
-                          <Input value={project.infrastructureSector || ""} readOnly />
+                          {isEditable('3.4') ? (
+                            <Select
+                              value={project.infrastructureSector || ""}
+                              onValueChange={(value) => handleProjectFieldUpdate(idx, 'infrastructureSector', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select sector" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SECTOR_OPTIONS.map((sector) => (
+                                  <SelectItem key={sector} value={sector}>
+                                    {sector}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={project.infrastructureSector || ""} readOnly className="bg-gray-50" />
+                          )}
                         </div>
                         <div>
                           <Label>Date of Award</Label>
-                          <Input value={project.dateOfAward ? new Date(project.dateOfAward).toLocaleDateString() : ""} readOnly />
+                          {isEditable('3.4') ? (
+                            <Input
+                              type="date"
+                              value={project.dateOfAward 
+                                ? new Date(project.dateOfAward).toISOString().split('T')[0]
+                                : ""}
+                              onChange={(e) => handleProjectFieldUpdate(idx, 'dateOfAward', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                              className="bg-white"
+                            />
+                          ) : (
+                            <Input 
+                              value={project.dateOfAward ? new Date(project.dateOfAward).toLocaleDateString() : ""} 
+                              readOnly 
+                              className="bg-gray-50"
+                            />
+                          )}
                         </div>
                         <div>
                           <Label>% of Capex funded by non-Govt sources</Label>
-                          <Input value={project.capexPercentage || ""} readOnly />
+                          <Input 
+                            value={project.capexPercentage || ""} 
+                            readOnly={!isEditable('3.4')}
+                            className={isEditable('3.4') ? 'bg-white' : 'bg-gray-50'}
+                            onChange={(e) => handleProjectFieldUpdate(idx, 'capexPercentage', e.target.value)}
+                          />
                         </div>
                       </div>
                     </div>

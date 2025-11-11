@@ -617,6 +617,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     );
   }
 
+  // For NODAL_OFFICER, if status is not REVERTED or ACCEPTED, don't show any buttons
+  if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED') {
+    return null;
+  }
+
   // Debug logging removed for performance
 
   return (
@@ -675,16 +680,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         Timeline ({commentCount})
       </Button> */}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-        onClick={() => onIndicatorStatus(sectionId, true)}
-      >
-        <CheckCircle className="w-4 h-4" />
-        Accept
-      </Button>
-      
+      {!isNodalOfficer && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={() => onIndicatorStatus(sectionId, true)}
+        >
+          <CheckCircle className="w-4 h-4" />
+          Accept
+        </Button>
+      )}
 
     </div>
   );

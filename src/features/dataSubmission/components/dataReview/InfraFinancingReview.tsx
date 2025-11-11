@@ -611,6 +611,11 @@ const renderActionButtons = (sectionId: string) => {
     );
   }
 
+  // For NODAL_OFFICER, if status is not REVERTED or ACCEPTED, don't show any buttons
+  if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED') {
+    return null;
+  }
+
   return (
     <div className="flex gap-2">
       {!isEditable(sectionId) ? (
@@ -657,15 +662,17 @@ const renderActionButtons = (sectionId: string) => {
         {/* ({commentCount}) */}
       </Button>
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-        onClick={() => onIndicatorStatus(sectionId, true)}
-      >
-        <CheckCircle className="w-4 h-4" />
-        Accept
-      </Button>
+      {!isNodalOfficer && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={() => onIndicatorStatus(sectionId, true)}
+        >
+          <CheckCircle className="w-4 h-4" />
+          Accept
+        </Button>
+      )}
     </div>
   );
 };
