@@ -562,6 +562,12 @@ useEffect(() => {
         "Assignment Successful"
       );
       await loadOfficers();
+       try {
+      console.log("🔁 Triggering indicator refresh after assign indicator");
+      await refresh?.({ clearCache: true });
+    } catch (err) {
+      console.warn("⚠️ Indicator refresh failed after assign indicator:", err);
+    }
     } catch (error) {
       console.error("❌ Error assigning indicator:", error);
       notificationService.error(
