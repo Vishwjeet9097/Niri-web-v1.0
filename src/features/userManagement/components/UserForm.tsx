@@ -32,7 +32,7 @@ interface UserFormProps {
     data: Omit<
       NodalOfficer,
       "id" | "state" | "createdAt" | "assignedIndicator"
-    > & { password?: string; assignedIndicators?: string[] }
+    > & { password?: string; assignedIndicators?: string[];stateId?: string | string[] }
   ) => void;
   onCancel: () => void;
   // parent passes full indicator objects (or at least objects with `.code`)
@@ -53,23 +53,46 @@ export function UserForm({
   const { user } = useAuth();
 
   // Debug user info (temporarily enabled)
-  console.log("🔍 UserForm - User info:", {
-    userRole: user?.role,
-    userState: user?.state,
-    userEmail: user?.email,
-    isAdmin: user?.role === "ADMIN",
-  });
+  // console.log("🔍 UserForm - User info:", {
+  //   userRole: user?.role,
+  //   userState: user?.state,
+  //   userEmail: user?.email,
+  //   isAdmin: user?.role === "ADMIN",
+  // });
 
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    contactNumber: "",
-    email: "",
-    password: "",
-    role: "NODAL_OFFICER",
-    stateId: "",
-    assignedIndicators: [] as string[],
-  });
+  // const [formData, setFormData] = useState({
+  //   firstName: "",
+  //   lastName: "",
+  //   contactNumber: "",
+  //   email: "",
+  //   password: "",
+  //   role: "NODAL_OFFICER",
+  //   stateId: "",
+  //   stateUt: "",
+  //   assignedIndicators: [] as string[],
+  // });
+
+  const [formData, setFormData] = useState<{
+  firstName: string;
+  lastName: string;
+  contactNumber: string;
+  email: string;
+  password: string;
+  role: string;
+  stateId: string | string[]; // Allow array for multiple states
+  assignedIndicators: string[];
+  stateUt: string | string[];
+}>({
+  firstName: "",
+  lastName: "",
+  contactNumber: "",
+  email: "",
+  password: "",
+  role: "NODAL_OFFICER",
+  stateId: "",
+  assignedIndicators: [],
+  stateUt: "",
+});
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [states, setStates] = useState<State[]>([]);
@@ -138,14 +161,15 @@ export function UserForm({
     );
   }, [availableIndicatorCodes, formData.assignedIndicators]);
 
+// Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
 
   // Debug: Log indicator options to verify 4.6 is included
   useEffect(() => {
-    console.log("🔍 Indicator Options:", indicatorOptions);
-    console.log(
-      "🔍 4.6 in options:",
-      indicatorOptions.find((opt) => opt.value === "4.6")
-    );
+    // console.log("🔍 Indicator Options:", indicatorOptions);
+    // console.log(
+    //   "🔍 4.6 in options:",
+    //   indicatorOptions.find((opt) => opt.value === "4.6")
+    // );
   }, []);
 
   // Handle indicator selection change
@@ -159,9 +183,9 @@ export function UserForm({
   // Fetch assigned indicators from API for editing
   const fetchAssignedIndicators = async (userId: string) => {
     try {
-      console.log("🔍 Fetching assigned indicators for user:", userId);
+     // console.log("🔍 Fetching assigned indicators for user:", userId);
       const indicators = await apiService.getUserAssignedIndicators(userId);
-      console.log("🔍 Fetched indicators:", indicators);
+      //console.log("🔍 Fetched indicators:", indicators);
 
       if (Array.isArray(indicators) && indicators.length > 0) {
         setFormData((prev) => ({
@@ -179,7 +203,7 @@ export function UserForm({
   const getAvailableRoles = useCallback(() => {
     const currentUserRole = user?.role;
 
-    console.log("🔍 getAvailableRoles - Current user role:", currentUserRole);
+   // console.log("🔍 getAvailableRoles - Current user role:", currentUserRole);
 
     switch (currentUserRole) {
       case "STATE_APPROVER":
@@ -230,12 +254,25 @@ export function UserForm({
   }, [user?.role]);
 
   useEffect(() => {
-    if (officer) {
-      console.log("🔍 Setting form data for officer:", {
-        officer,
-        stateId: officer.stateId,
-        state: officer.state,
-      });
+     if (officer) {
+      // console.log("🔍 Setting form data for officer:", {
+      //   officer,
+      //   stateId: officer.stateId,
+      //   state: officer.state,
+      // });
+      const stateIdsRaw = officer.state
+        ? officer.state.split(",").map(name => {
+            const match = states.find(s => s.name.trim() === name.trim());
+            return match ? match.id : officer.state;
+          }).filter(Boolean)
+        : [];
+      // Deduplicate stateIds
+      const stateIds = Array.from(new Set(stateIdsRaw));
+      // Get unique state names for stateUt
+      const uniqueStateNames = Array.from(new Set(stateIds.map(id => {
+        const found = states.find(s => s.id === id);
+        return found ? found.name : id;
+      })));
       setFormData({
         firstName: officer.firstName || "",
         lastName: officer.lastName || "",
@@ -243,7 +280,8 @@ export function UserForm({
         email: officer.email || "",
         password: "", // Don't show password for existing users
         role: officer.role || "NODAL_OFFICER",
-        stateId: "", // Will be set after states are loaded
+        stateId: stateIds, // Will be set after states are loaded 
+        stateUt: uniqueStateNames.join(", "), // Always unique, comma-separated string
         assignedIndicators: (() => {
           if (Array.isArray(officer.assignedIndicators)) {
             return officer.assignedIndicators as string[];
@@ -286,10 +324,11 @@ export function UserForm({
         password: "",
         role: defaultRole,
         stateId: user?.role === "ADMIN" ? "" : user?.state || "", // ✅ Admin can select any state, others use current state
-        assignedIndicators: [],
+        assignedIndicators: [], 
+        stateUt: "", 
       });
     }
-  }, [officer, user?.state, user?.role, getAvailableRoles]);
+  }, [officer, user?.state, user?.role, getAvailableRoles, states]);
 
   // Load states on component mount
   useEffect(() => {
@@ -297,11 +336,11 @@ export function UserForm({
       setLoadingStates(true);
       try {
         const statesData = await statesService.getStates();
-        console.log("🔍 States loaded in UserForm:", {
-          statesCount: statesData.length,
-          firstState: statesData[0],
-          userRole: user?.role,
-        });
+        // console.log("🔍 States loaded in UserForm:", {
+        //   statesCount: statesData.length,
+        //   firstState: statesData[0],
+        //   userRole: user?.role,
+        // });
         setStates(statesData);
 
         // If we have an officer but no stateId, try to find it by stateUt/state name
@@ -309,11 +348,7 @@ export function UserForm({
           officer &&
           (!officer.stateId || officer.stateId === "") &&
           officer.state
-        ) {
-          console.log("🔍 Looking for state match:", {
-            officerState: officer.state,
-            statesData: statesData.length,
-          });
+        ) {          
 
           const foundState = statesData.find(
             (state) =>
@@ -322,7 +357,7 @@ export function UserForm({
           );
 
           if (foundState) {
-            console.log("🔍 Found matching state:", foundState);
+           // console.log("🔍 Found matching state:", foundState);
             setFormData((prev) => ({
               ...prev,
               stateId: foundState.id,
@@ -344,11 +379,7 @@ export function UserForm({
   // Set stateId after states are loaded and officer is available
   useEffect(() => {
     if (officer && states.length > 0 && !formData.stateId) {
-      console.log("🔍 Setting stateId after states loaded:", {
-        officerState: officer.state,
-        statesCount: states.length,
-      });
-
+     
       const foundState = states.find(
         (state) =>
           state.name.toLowerCase() === officer.state.toLowerCase() ||
@@ -356,7 +387,7 @@ export function UserForm({
       );
 
       if (foundState) {
-        console.log("🔍 Found matching state for form:", foundState);
+        
         setFormData((prev) => ({
           ...prev,
           stateId: foundState.id,
@@ -404,9 +435,14 @@ export function UserForm({
     }
 
     // ✅ State validation for ADMIN only
-    if (user?.role === "ADMIN" && !formData.stateId) {
-      newErrors.stateId = "State is required";
-    }
+   
+
+    if (formData.role !== "MOSPI_APPROVER") {
+      if (user?.role === "ADMIN" && !formData.stateId) {
+        newErrors.stateId = "State is required";
+      } 
+   }
+
 
     // ✅ Indicator validation for NODAL_OFFICER
     if (
@@ -417,23 +453,168 @@ export function UserForm({
         "At least one indicator must be assigned to Nodal Officer";
     }
 
+    // ✅ State validation for MOSPI_APPROVER and ADMIN
+   if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
+    if (formData.role === "MOSPI_REVIEWER") {
+      // Validate multiple states for MOSPI_REVIEWER
+      if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
+        newErrors.stateId = "Please select at least one state";
+      }
+    } else {
+
+      if (formData.role !== "MOSPI_APPROVER") {
+      // Validate single state for other roles
+      if (!formData.stateId || (Array.isArray(formData.stateId) && formData.stateId.length === 0)) {
+        newErrors.stateId = "State is required";
+      }
+      }
+    }
+  }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validate()) {
-      console.log("🔍 Form data being submitted:", formData);
-      onSave(formData);
-    }
+  
+  
+   const handleSubmit1 = () => {
+  if (!validate()) return;
+
+  const normalizedStateId =
+    formData.role === "MOSPI_REVIEWER"
+      ? Array.isArray(formData.stateId)
+        ? formData.stateId.filter(Boolean)
+        : formData.stateId
+        ? [formData.stateId]
+        : []
+      : Array.isArray(formData.stateId)
+      ? [formData.stateId[0] ?? ""].filter(Boolean)
+      : formData.stateId
+      ? [formData.stateId]
+      : [];
+
+  const stateNames = normalizedStateId.map(
+    (id) => states.find((s) => s.id === id)?.name ?? id
+  );
+
+  const payload = {
+    ...formData,
+    stateUt: stateNames.join(", "),      // string for backend
+     stateId: normalizedStateId,  // ✅ string for backend
+  };
+    type SubmitPayload = Omit<
+  NodalOfficer,
+  "id" | "state" | "createdAt" | "assignedIndicator"
+> & {
+  password?: string;
+  assignedIndicators?: string[];
+  stateId?: string | string[];
+  stateUt?: string; // ✅ string, since we're joining 
+};
+
+
+  console.log("payload", formData);
+
+  onSave(payload  as SubmitPayload); // Make sure onSave type includes stateUt
+
+   
+};
+
+ const handleSubmit = () => {
+  if (!validate()) return;
+
+  const normalizedStateId =
+    formData.role === "MOSPI_REVIEWER"
+      ? Array.isArray(formData.stateId)
+        ? formData.stateId.filter(Boolean)
+        : formData.stateId
+        ? [formData.stateId]
+        : []
+      : Array.isArray(formData.stateId)
+      ? [formData.stateId[0] ?? ""].filter(Boolean)
+      : formData.stateId
+      ? [formData.stateId]
+      : [];
+
+  // Get unique state names only for stateUt
+  const stateNames = Array.from(new Set(normalizedStateId.map(
+    (id) => states.find((s) => s.id === id)?.name ?? id
+  )));
+
+  const payload = {
+    ...formData,
+    stateUt: stateNames.join(", "), // always only the selected unique state(s)
+    stateId: normalizedStateId,
   };
 
+  type SubmitPayload = Omit<
+  NodalOfficer,
+  "id" | "state" | "createdAt" | "assignedIndicator"
+> & {
+  password?: string;
+  assignedIndicators?: string[];
+  stateId?: string | string[];
+  stateUt?: string; // string joined for backend
+};
+
+  onSave(payload as SubmitPayload);
+
+  // ✅ Reset values after submit
+  setFormData(prev => ({
+    ...prev,
+    stateId: formData.role === "MOSPI_REVIEWER" ? [] : '',
+    stateUt: '', // always clear after submit
+  }));
+};
+
+
   // Get selected state name for display
-  const getSelectedStateName = () => {
+  const getSelectedStateName1 = () => {
     if (!formData.stateId) return "";
     const selectedState = states.find((state) => state.id === formData.stateId);
     return selectedState ? selectedState.name : formData.stateId; // Fallback to stateId if not found
   };
+const getSelectedStateName = () => {
+  if (!formData.stateId) return "";
+  const id = Array.isArray(formData.stateId) ? formData.stateId[0] : formData.stateId;
+  const state = states.find((s) => s.id === id);
+  return state ? state.name : id; // fallback to ID if name not found
+};
+
+  
+
+const handleStateChange = (values: string | string[]) => {
+  // Always update stateId and stateUt to reflect the latest selection, not keeping previous state
+  if (!values || (Array.isArray(values) && values.length === 0)) {
+    setFormData(prev => ({
+      ...prev,
+      stateId: formData.role === "MOSPI_REVIEWER" ? [] : '',
+      stateUt: ''
+    }));
+    return;
+  }
+  if (formData.role === "MOSPI_REVIEWER") {
+    // Multiple selection
+    const stateValues = Array.isArray(values) ? values.filter(Boolean) : [values].filter(Boolean);
+    // Get unique state names only
+    const uniqueNames = Array.from(new Set(stateValues.map(id => states.find(s => s.id === id)?.name ?? id)));
+    setFormData(prev => ({
+      ...prev,
+      stateId: stateValues, // always array for reviewer
+      stateUt: uniqueNames.join(", ")
+    }));
+  } else {
+    // Single selection
+    const singleValue = Array.isArray(values) ? values[0] : values;
+    const name = singleValue ? states.find(s => s.id === singleValue)?.name ?? singleValue : '';
+    setFormData(prev => ({
+      ...prev,
+      stateId: singleValue || '',
+      stateUt: name
+    }));
+  }
+};
+ 
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -653,7 +834,14 @@ export function UserForm({
           </Label>
           <Select
             value={formData.role}
-            onValueChange={(value) => setFormData({ ...formData, role: value })}
+            onValueChange={(value) => {
+              setFormData(prev => ({
+                ...prev,
+                role: value,
+                stateId: value === "MOSPI_REVIEWER" ? [] : '',
+                stateUt: ''
+              }));
+            }}
           >
             <SelectTrigger className={errors.role ? "border-destructive" : ""}>
               <SelectValue placeholder="Select role" />
@@ -672,8 +860,9 @@ export function UserForm({
         </div>
 
         <div className="space-y-2">
+          {formData?.role !== "MOSPI_APPROVER" && (<>
           <Label htmlFor="stateId" className="flex items-center gap-2">
-            State/UT
+              State/UT
             <span className="text-destructive">*</span>
             <TooltipProvider>
               <Tooltip>
@@ -682,7 +871,7 @@ export function UserForm({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>
-                    {user?.role === "ADMIN"
+                    {formData?.role === "ADMIN"
                       ? "Select the state/union territory for the user"
                       : "State will be automatically set to your current state"}
                   </p>
@@ -690,8 +879,11 @@ export function UserForm({
               </Tooltip>
             </TooltipProvider>
           </Label>
+          </>
+      )}
+          
 
-          {user?.role === "ADMIN" ? (
+          {/* {user?.role === "ADMIN"  || user?.role === "MOSPI_APPROVER" ? (
             <Select
               value={formData.stateId}
               onValueChange={(value) => {
@@ -705,12 +897,7 @@ export function UserForm({
                   availableStates: states.length,
                   matchingState: states.find((s) => s.id === value),
                 });
-
-                // Temporarily disable validation to allow state selection
-                // if (value && (value.includes('q') || value.length < 3 || /\d.*[a-zA-Z]/.test(value))) {
-                //   console.error("❌ Invalid state selected:", value);
-                //   return;
-                // }
+ 
 
                 setFormData({ ...formData, stateId: value });
               }}
@@ -758,16 +945,92 @@ export function UserForm({
               className="bg-muted"
               placeholder="Your current state"
             />
-          )}
+          )} */}
 
-          {user?.role === "ADMIN" ? (
+
+ 
+{user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" ? (
+   formData.role === "MOSPI_REVIEWER" ? (
+    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <MultiSelect
+        options={states.map(state => {
+          // Find if this state is already assigned to another MOSPI_REVIEWER (not the current officer)
+          const isAssigned = (officers || []).some(o =>
+            o.role === 'MOSPI_REVIEWER' &&
+            o.id !== officer?.id &&
+            (
+              (Array.isArray(o.stateId) && o.stateId.includes(state.id)) ||
+              (!Array.isArray(o.stateId) && o.stateId === state.id)
+            )
+          );
+          return {
+            value: state.id,
+            label: state.name,
+            disabled: !state.isActive || isAssigned
+          };
+        })}
+        value={Array.isArray(formData.stateId) ? formData.stateId : [formData.stateId].filter(Boolean)}
+        onChange={(values) => handleStateChange(values)}
+        placeholder={loadingStates ? "Loading states..." : "Select multiple states"}
+        searchPlaceholder="Search states..."
+        showSearch={true}
+        className={errors.stateId ? "border-destructive" : ""}
+        disabled={loadingStates}
+        showSelectAll={true}
+      />
+      <Button type="button" variant="outline" size="sm" onClick={() => handleStateChange([])} disabled={loadingStates}>
+        Clear
+      </Button>
+    </div>
+  ) : formData.role !== "MOSPI_APPROVER" ? (
+    <Select
+  value={typeof formData.stateId === 'string' ? formData.stateId : Array.isArray(formData.stateId) ? formData.stateId[0] : ''}
+  onValueChange={(value) => handleStateChange(value)}
+  disabled={loadingStates}
+>
+  <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
+    <SelectValue>
+      {formData.stateId
+        ? getSelectedStateName()
+        : loadingStates
+        ? "Loading states..."
+        : "Select state/UT"}
+    </SelectValue>
+  </SelectTrigger>
+  <SelectContent>
+    {loadingStates ? (
+      <div className="flex items-center justify-center p-2">
+        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+        Loading states...
+      </div>
+    ) : (
+      states.map((state) => (
+        <SelectItem key={state.id} value={state.id} disabled={!state.isActive}>
+          {state.name}
+        </SelectItem>
+      ))
+    )}
+  </SelectContent>
+</Select>
+  ):null
+) : (
+  <Input
+    id="stateId"
+    value={user?.state || "Loading..."}
+    disabled={true}
+    className="bg-muted"
+    placeholder="Your current state"
+  />
+)}
+
+          {formData?.role === "ADMIN" ? (
             <p className="text-sm text-muted-foreground">
               Select the state where you want to create the user
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Users will be created in your current state:{" "}
-              <strong>{user?.state}</strong>
+              {/* Users will be created in your current state:{" "} */}
+              {/* <strong>{user?.state}</strong> */}
             </p>
           )}
 
@@ -885,6 +1148,8 @@ export function UserForm({
     </div>
   );
 }
+
+
 
 // Helper function to get indicator display name
 function getIndicatorDisplayName(indicatorCode: string): string {

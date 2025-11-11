@@ -149,6 +149,8 @@ useEffect(() => {
   };
 
   const handleSaveUser = async (officerData: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => {
+   
+    
     try {
       if (editingOfficer) {
         // Update existing user via backend API
@@ -200,16 +202,19 @@ useEffect(() => {
         }
         
         // ✅ Validate state
-        if (!selectedState) {
-          throw new Error("State is required but not provided");
+        if (!selectedState && officerData.role !== "STATE_APPROVER") {
+          //throw new Error("State is required but not provided");
         }
+ 
         
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
           contactNumber: officerData.contactNumber,
           role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
-          indicatorCodes: officerData.assignedIndicators || [] // Include assigned indicators in update payload with correct key
+          indicatorCodes: officerData.assignedIndicators || [], 
+          stateUt: officerData.stateUt
+          // Include assigned indicators in update payload with correct key
           // Note: email and stateUt are not included in update payload as they should not be changed
         } as any);
         
@@ -283,14 +288,9 @@ useEffect(() => {
         
         // ✅ Validate state
         if (!selectedStateId || !selectedStateName) {
-          throw new Error("State is required but not provided");
+         // throw new Error("State is required but not provided");
         }
-    // Debug logging removed for performance
-
-        // ✅ Final validation before API call
-        if (!selectedStateId || !selectedStateName || selectedStateName.trim() === "") {
-          throw new Error("State is required but not provided");
-        }
+    
         
         const newUser = await apiService.register(
           officerData.email,
@@ -299,7 +299,8 @@ useEffect(() => {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          selectedStateName, // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
+          officerData.stateUt,
+         // selectedStateName, // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
           selectedStateId, // State ID for reference
           officerData.assignedIndicators // Pass indicators directly in register call
         );
@@ -556,6 +557,12 @@ useEffect(() => {
         "Assignment Successful"
       );
       await loadOfficers();
+       try {
+      console.log("🔁 Triggering indicator refresh after assign indicator");
+      await refresh?.({ clearCache: true });
+    } catch (err) {
+      console.warn("⚠️ Indicator refresh failed after assign indicator:", err);
+    }
     } catch (error) {
       console.error("❌ Error assigning indicator:", error);
       notificationService.error(

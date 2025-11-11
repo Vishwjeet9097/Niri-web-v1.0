@@ -2509,16 +2509,16 @@ async getStateIndicatorStatuses(year?: string): Promise<{
   }
 }
 
+ async  getNodalMetrics() {
+  // Adjust depending on how your API client is set up (axios/fetch wrapper)
+  const res = await this.axios.get('/dashboard/nodal-metrics');
+  return res.data;
+}
 
 
 
 
 }
-
-
-// api.service.ts
-// assuming you already export an axios-like instance as `apiService`
-// add this function anywhere in the same file and export it
 
 
 export async function getCumulativePreview(
