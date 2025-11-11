@@ -202,7 +202,7 @@ useEffect(() => {
         }
         
         // ✅ Validate state
-        if (!selectedState && officerData.role !== "STATE_APPROVER") {
+        if (!selectedState && officerData.role !== "MOSPI_APPROVER") {
           throw new Error("State is required but not provided");
         }
  
