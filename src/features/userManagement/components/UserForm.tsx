@@ -254,15 +254,21 @@ export function UserForm({
   }, [user?.role]);
 
   useEffect(() => {
-    if (officer) {
-      // ...existing code for editing officer...
+     if (officer) {
+      // console.log("🔍 Setting form data for officer:", {
+      //   officer,
+      //   stateId: officer.stateId,
+      //   state: officer.state,
+      // });
       const stateIdsRaw = officer.state
         ? officer.state.split(",").map(name => {
             const match = states.find(s => s.name.trim() === name.trim());
             return match ? match.id : officer.state;
           }).filter(Boolean)
         : [];
+      // Deduplicate stateIds
       const stateIds = Array.from(new Set(stateIdsRaw));
+      // Get unique state names for stateUt
       const uniqueStateNames = Array.from(new Set(stateIds.map(id => {
         const found = states.find(s => s.id === id);
         return found ? found.name : id;
@@ -272,10 +278,10 @@ export function UserForm({
         lastName: officer.lastName || "",
         contactNumber: officer.contactNumber || "",
         email: officer.email || "",
-        password: "",
+        password: "", // Don't show password for existing users
         role: officer.role || "NODAL_OFFICER",
-        stateId: officer.role === "MOSPI_REVIEWER" ? stateIds : stateIds[0] || "",
-        stateUt: uniqueStateNames.join(", "),
+        stateId: stateIds, // Will be set after states are loaded 
+        stateUt: uniqueStateNames.join(", "), // Always unique, comma-separated string
         assignedIndicators: (() => {
           if (Array.isArray(officer.assignedIndicators)) {
             return officer.assignedIndicators as string[];
@@ -299,11 +305,13 @@ export function UserForm({
         })(),
       });
 
+      // Fetch assigned indicators from API for NODAL_OFFICER
       if (officer.role === "NODAL_OFFICER" && officer.id) {
         fetchAssignedIndicators(officer.id);
       }
     } else {
       // Reset form when no officer (new user)
+      // Set default role based on current user's permissions
       const availableRoles = getAvailableRoles();
       const defaultRole =
         availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
@@ -315,9 +323,9 @@ export function UserForm({
         email: "",
         password: "",
         role: defaultRole,
-        stateId: defaultRole === "MOSPI_REVIEWER" ? [] : (user?.role === "ADMIN" ? "" : user?.state || ""),
-        assignedIndicators: [],
-        stateUt: "",
+        stateId: user?.role === "ADMIN" ? "" : user?.state || "", // ✅ Admin can select any state, others use current state
+        assignedIndicators: [], 
+        stateUt: "", 
       });
     }
   }, [officer, user?.state, user?.role, getAvailableRoles, states]);
@@ -981,7 +989,7 @@ const handleStateChange = (values: string | string[]) => {
   disabled={loadingStates}
 >
   <SelectTrigger className={errors.stateId ? "border-destructive" : ""}>
-    <SelectValue placeholder="Please select a state/UT">
+    <SelectValue placeholder="Please select a state/UT" >
       {formData.stateId
         ? getSelectedStateName()
         : loadingStates
