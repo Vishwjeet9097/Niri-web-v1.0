@@ -14,6 +14,7 @@ export interface MultiSelectOption {
   label: string;
   section?: string;
   description?: string;
+  disabled?: boolean;
 }
 
 interface MultiSelectProps {
@@ -82,12 +83,16 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
     if (allSelected) {
       onChange([]);
     } else {
-      onChange(options.map((option) => option.value));
+      // Only select enabled options
+      onChange(options.filter(opt => !opt.disabled).map((option) => option.value));
     }
   };
 
   // Handle individual option toggle
-  const handleOptionToggle = (optionValue: string) => {
+  const handleOptionToggle = (optionValue: string, isDisabled?: boolean) => {
+    // Prevent toggling if option is disabled
+    if (isDisabled) return;
+    
     if (value.includes(optionValue)) {
       onChange(value.filter((v) => v !== optionValue));
     } else {
@@ -319,33 +324,46 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                       .findIndex((opt) => opt.value === option.value);
                     const isSelected = value.includes(option.value);
                     const isFocused = focusedIndex === globalIndex;
+                    const isDisabled = option.disabled || false;
 
                     return (
                       <button
                         key={option.value}
                         type="button"
-                        onClick={() => handleOptionToggle(option.value)}
+                        onClick={() => handleOptionToggle(option.value, isDisabled)}
                         onMouseEnter={() => setFocusedIndex(globalIndex)}
+                        disabled={isDisabled}
                         className={cn(
-                          "w-full flex items-start px-3 py-2 text-sm text-left hover:bg-gray-100 transition-colors",
+                          "w-full flex items-start px-3 py-2 text-sm text-left transition-colors",
                           "focus:outline-none", // <= added
-                          isFocused && "bg-gray-100",
-                          isSelected && "bg-blue-50"
+                          !isDisabled && "hover:bg-gray-100",
+                          isFocused && !isDisabled && "bg-gray-100",
+                          isSelected && !isDisabled && "bg-blue-50",
+                          isDisabled && "opacity-50 cursor-not-allowed bg-gray-50"
                         )}
                       >
                         <div className="flex-shrink-0 mt-0.5 mr-3">
                           {isSelected ? (
-                            <CheckCircle className="w-4 h-4 text-blue-600" />
+                            <CheckCircle className={cn(
+                              "w-4 h-4",
+                              isDisabled ? "text-gray-400" : "text-blue-600"
+                            )} />
                           ) : (
                             <Circle className="w-4 h-4 text-gray-400" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900">
+                          <div className={cn(
+                            "font-medium",
+                            isDisabled ? "text-gray-500" : "text-gray-900"
+                          )}>
                             {option.label}
                           </div>
                           {option.description && (
-                            <div className="text-xs text-gray-500 mt-1">
+                            <div className={cn(
+                              "text-xs mt-1",
+                              isDisabled ? "text-gray-500" : "text-gray-500"
+                            )}>
                               {option.description}
                             </div>
                           )}
