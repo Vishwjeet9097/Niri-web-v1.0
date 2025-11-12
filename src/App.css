@@ -41,3 +41,27 @@
   color: #888;
 }
 .text-destructive{ color:#ff0000}
+
+
+/* Disabled option background and text color */
+
+.rmsc__option.rmsc__option--disabled {
+  background-color: #d6d6d6 !important; /* slightly darker gray */
+  color: #999 !important;             /* optional: make disabled text italic */
+  cursor: not-allowed;
+  pointer-events: none;                 /* prevents hover or click events */
+}
+
+/* Ensure label text inside disabled option is also gray and italic */
+.rmsc__option.rmsc__option--disabled .rmsc__option-label {
+  color: #999 !important; 
+}
+
+/* Prevent hover highlight for disabled options */
+.rmsc__option.rmsc__option--disabled:hover {
+  background-color: #d6d6d6 !important;
+}
+.rmsc__option.rmsc__option--disabled span,
+.rmsc__option.rmsc__option--disabled div {
+  color: #999; 
+}
