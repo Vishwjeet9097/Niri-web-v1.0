@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { NodalKpiCard } from "./components/NodalKpiCard";
+import { NodalKpiCard } from "./components/nodal/NodalKpiCards";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
 import { UpcomingDeadlines } from "./components/UpcomingDeadlines";
 import { QuickActions } from "./components/QuickActions";
@@ -24,19 +25,19 @@ import {
 // Helper function to map backend status to frontend status
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
   const statusMap: Record<string, string> = {
-    "DRAFT": "DRAFT",
-    "SUBMITTED_TO_STATE": "SUBMITTED_TO_STATE",
-    "APPROVED": "APPROVED",
-    "REJECTED": "REJECTED",
-    "SUBMITTED_TO_MOSPI": "SUBMITTED_TO_MOSPI",
-    "MOSPI_APPROVED": "MOSPI_APPROVED",
-    "MOSPI_REJECTED": "MOSPI_REJECTED",
-    "RETURNED_FROM_MOSPI": "RETURNED_FROM_MOSPI",
+    DRAFT: "DRAFT",
+    SUBMITTED_TO_STATE: "SUBMITTED_TO_STATE",
+    APPROVED: "APPROVED",
+    REJECTED: "REJECTED",
+    SUBMITTED_TO_MOSPI: "SUBMITTED_TO_MOSPI",
+    MOSPI_APPROVED: "MOSPI_APPROVED",
+    MOSPI_REJECTED: "MOSPI_REJECTED",
+    RETURNED_FROM_MOSPI: "RETURNED_FROM_MOSPI",
     // Legacy mappings
-    "draft": "DRAFT",
-    "under_review": "SUBMITTED_TO_STATE",
-    "approved": "APPROVED",
-    "need_revision": "REJECTED",
+    draft: "DRAFT",
+    under_review: "SUBMITTED_TO_STATE",
+    approved: "APPROVED",
+    need_revision: "REJECTED",
   };
 
   return statusMap[backendStatus] || backendStatus;
@@ -52,21 +53,17 @@ const handleEditSubmission = async (submissionId: string, navigate: any) => {
     // Debug logging removed for performance
 
     // Store submission data in localStorage for form prefill
-    localStorage.setItem('editing_submission', JSON.stringify(submissionData));
+    localStorage.setItem("editing_submission", JSON.stringify(submissionData));
 
     // Navigate to edit page (same as handleEditSubmissionForEdit)
     navigate(`/data-submission/edit/${submissionId}`);
 
-    notificationService.success(
-      "Submission loaded for editing",
-      "Edit Mode",
-      {
-        details: {
-          submissionId,
-          status: submissionData.status,
-        },
-      }
-    );
+    notificationService.success("Submission loaded for editing", "Edit Mode", {
+      details: {
+        submissionId,
+        status: submissionData.status,
+      },
+    });
   } catch (error: any) {
     console.error("❌ Failed to load submission for edit:", error);
     notificationService.error(
@@ -83,22 +80,21 @@ const handleEditSubmission = async (submissionId: string, navigate: any) => {
 };
 
 // Helper function to handle edit submission for edit page
-const handleEditSubmissionForEdit = async (submissionId: string, navigate: any) => {
+const handleEditSubmissionForEdit = async (
+  submissionId: string,
+  navigate: any
+) => {
   try {
     // Debug logging removed for performance
 
     // Navigate to edit page
     navigate(`/data-submission/edit/${submissionId}`);
 
-    notificationService.success(
-      "Opening edit page",
-      "Edit Mode",
-      {
-        details: {
-          submissionId,
-        },
-      }
-    );
+    notificationService.success("Opening edit page", "Edit Mode", {
+      details: {
+        submissionId,
+      },
+    });
   } catch (error: any) {
     console.error("❌ Failed to open edit page:", error);
     notificationService.error(
@@ -116,16 +112,16 @@ export function NodalDashboardPage() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [totalSubmissions, setTotalSubmissions] = useState<any[]>([]);
   const [indicatorData, setIndicatorData] = useState<any>({
-totalAssigned: 0,
-totalSubmitted: 0,
-approved: 0,
-reverted: 0,
-underReview: 0,
-pendingSubmission: 0,
-});
-const [loading, setLoading] = useState(true);
+    totalAssigned: 0,
+    totalSubmitted: 0,
+    approved: 0,
+    reverted: 0,
+    underReview: 0,
+    pendingSubmission: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
-   useEffect(() => {
+  useEffect(() => {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
@@ -142,104 +138,123 @@ const [loading, setLoading] = useState(true);
         setIndicatorData(metrics);
 
         // derive KPI numbers from nodalMetrics if available, otherwise fallback to role KPIs
-        const totalIndicators = metrics.totalAssigned ?? (kpiData?.mySubmissions ?? 0);
+        const totalIndicators =
+          metrics.totalAssigned ?? kpiData?.mySubmissions ?? 0;
         const pendingIndicators = metrics.pendingSubmission ?? 0;
         const underReviewIndicators = metrics.underReview ?? 0;
         const approvedIndicators = metrics.approved ?? 0;
         const sentBackIndicators = metrics.reverted ?? 0;
 
-       const kpisData = [
-  {
-    title: "Total Allocated Indicators",
-    value: String(totalIndicators ?? 0),
-    subtitle: "Critical Attention Needed",
-    icon: FileText,
-    variant: "red" as const,
-    description:
-      "Total number of indicators assigned to the Nodal Officer. Shows the full workload currently allocated to you for the reporting period.",
-  },
-  {
-    title: "Pending Submission",
-    value: `${pendingIndicators}/${totalIndicators || 0}`,
-    subtitle: `${pendingIndicators} pending`,
-    icon: Clock,
-    variant: "orange" as const,
-    description:
-      "Assigned indicators for which no submission has been sent yet — action required to start form entry and submit.",
-  },
-  {
-    title: "Under Review",
-    value: `${underReviewIndicators}/${totalIndicators || 0}`,
-    subtitle: "Average review time: 3 days",
-    icon: Search,
-    variant: "blue" as const,
-    description:
-      "Submissions that have been sent by the Nodal Officer and are currently under review by the State Approver or reviewers.",
-  },
-  {
-    title: "Approved",
-    value: `${approvedIndicators}/${totalIndicators || 0}`,
-    subtitle: "This fiscal year",
-    icon: CheckCircle,
-    variant: "green" as const,
-    description:
-      "Submissions that have been reviewed and approved at all required levels. These indicators are considered complete for the reporting period.",
-  },
-  {
-    title: "Sent Back",
-    value: `${sentBackIndicators}/${totalIndicators || 0}`,
-    subtitle: "Need Revision",
-    icon: ArrowLeft,
-    variant: "blue" as const,
-    description:
-      "Submissions that were sent back for correction or clarification. You’ll need to revise and resubmit these items.",
-  },
-];
-
+        const kpisData = [
+          {
+            title: "Total Allocated Indicators",
+            value: String(totalIndicators ?? 0),
+            subtitle: "Critical Attention Needed",
+            icon: FileText,
+            variant: "red" as const,
+            description:
+              "Total number of indicators assigned to the Nodal Officer.",
+          },
+          {
+            title: "Total Submitted",
+            value: String(metrics.totalSubmitted ?? 0),
+            subtitle: "Submitted forms",
+            icon: TrendingUp,
+            variant: "blue" as const,
+            description:
+              "Number of assigned indicators for which the Nodal Officer has submitted forms.",
+          },
+          {
+            title: "Under Review",
+            value: `${underReviewIndicators}/${totalIndicators || 0}`,
+            subtitle: "Average review time: 3 days",
+            icon: Search,
+            variant: "blue" as const,
+            description:
+              "Submissions that have been sent by the Nodal Officer and are currently under review.",
+          },
+          {
+            title: "Approved",
+            value: `${approvedIndicators}/${totalIndicators || 0}`,
+            subtitle: "This fiscal year",
+            icon: CheckCircle,
+            variant: "green" as const,
+            description:
+              "Submissions that have been reviewed and approved at all required levels.",
+          },
+          {
+            title: "Pending Submissions",
+            value: `${pendingIndicators}/${totalIndicators || 0}`,
+            subtitle: `${pendingIndicators} pending`,
+            icon: Clock,
+            variant: "orange" as const,
+            description:
+              "Indicators assigned to the Nodal Officer but for which forms have not yet been submitted.",
+          },
+        ];
 
         setKpis(kpisData);
 
         // total submissions fallback
-        const totalSubmissionsData = (
-          (submissionsData?.submissions && submissionsData.submissions.length) ||
-          (kpiData?.mySubmissions ?? 0)
-        );
+        const totalSubmissionsData =
+          (submissionsData?.submissions &&
+            submissionsData.submissions.length) ||
+          (kpiData?.mySubmissions ?? 0);
         setTotalSubmissions(totalSubmissionsData);
 
         // Normalize submissions array
         let submissionsArray: any[] = [];
         if (Array.isArray(submissionsData)) submissionsArray = submissionsData;
-        else if (Array.isArray(submissionsData?.submissions)) submissionsArray = submissionsData.submissions;
-        else if (Array.isArray((submissionsData as any)?.data?.submissions)) submissionsArray = (submissionsData as any).data.submissions;
+        else if (Array.isArray(submissionsData?.submissions))
+          submissionsArray = submissionsData.submissions;
+        else if (Array.isArray((submissionsData as any)?.data?.submissions))
+          submissionsArray = (submissionsData as any).data.submissions;
 
         setSubmissions(
           submissionsArray.map((sub: any) => {
             const fd = sub.form_data || sub.formData || {};
             const formDataKeys = Object.keys(fd || {});
-            const progress = formDataKeys.length > 0 ? Math.min(100, (formDataKeys.length / 10) * 100) : 0;
+            const progress =
+              formDataKeys.length > 0
+                ? Math.min(100, (formDataKeys.length / 10) * 100)
+                : 0;
 
             let nextStep = "Complete submission";
-            if (sub.status === "DRAFT") nextStep = "Complete all required sections";
-            else if (sub.status === "SUBMITTED_TO_STATE") nextStep = "Waiting for state approval";
-            else if (sub.status === "APPROVED") nextStep = "Submission approved";
-            else if (sub.status === "REJECTED") nextStep = "Address reviewer feedback";
+            if (sub.status === "DRAFT")
+              nextStep = "Complete all required sections";
+            else if (sub.status === "SUBMITTED_TO_STATE")
+              nextStep = "Waiting for state approval";
+            else if (sub.status === "APPROVED")
+              nextStep = "Submission approved";
+            else if (sub.status === "REJECTED")
+              nextStep = "Address reviewer feedback";
 
-            const reviewerNote = sub.review_comments && sub.review_comments.length > 0
-              ? sub.review_comments[sub.review_comments.length - 1]?.text
-              : (sub.reviewComments && sub.reviewComments.length > 0 ? sub.reviewComments[sub.reviewComments.length - 1]?.text : undefined);
+            const reviewerNote =
+              sub.review_comments && sub.review_comments.length > 0
+                ? sub.review_comments[sub.review_comments.length - 1]?.text
+                : sub.reviewComments && sub.reviewComments.length > 0
+                ? sub.reviewComments[sub.reviewComments.length - 1]?.text
+                : undefined;
 
             return {
               id: sub.id,
-              title: sub.submission_id || sub.submissionId || `Submission ${sub.id}`,
+              title:
+                sub.submission_id || sub.submissionId || `Submission ${sub.id}`,
               status: mapBackendStatusToFrontend(sub.status),
               referenceId: sub.submission_id || sub.submissionId,
-              updatedDate: sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : "",
+              updatedDate: sub.updatedAt
+                ? new Date(sub.updatedAt).toLocaleDateString()
+                : "",
               dueDate: sub.dueDate || "TBD",
               progress: Math.round(progress),
               nextStep,
               reviewerNote,
               submission: sub,
-              submittedBy: sub.user ? `${sub.user.firstName || ''} ${sub.user.lastName || ''}`.trim() : "Unknown",
+              submittedBy: sub.user
+                ? `${sub.user.firstName || ""} ${
+                    sub.user.lastName || ""
+                  }`.trim()
+                : "Unknown",
               stateUt: sub.stateUt || sub.state_ut,
               rejectionCount: sub.rejection_count ?? sub.rejectionCount ?? 0,
               finalScore: sub.finalScore,
@@ -264,7 +279,7 @@ const [loading, setLoading] = useState(true);
     loadDashboardData();
   }, []);
 
-   if (loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
@@ -278,10 +293,13 @@ const [loading, setLoading] = useState(true);
   const filteredSubmissions = submissions.filter((submission) => {
     const statusMatch = activeTab === "all" || submission.status === activeTab;
     const query = searchQuery?.toLowerCase() || "";
-    const searchMatch = !query ||
+    const searchMatch =
+      !query ||
       (submission.title && submission.title.toLowerCase().includes(query)) ||
-      (submission.referenceId && String(submission.referenceId).toLowerCase().includes(query)) ||
-      (submission.stateUt && String(submission.stateUt).toLowerCase().includes(query));
+      (submission.referenceId &&
+        String(submission.referenceId).toLowerCase().includes(query)) ||
+      (submission.stateUt &&
+        String(submission.stateUt).toLowerCase().includes(query));
 
     return statusMatch && searchMatch;
   });
@@ -289,30 +307,54 @@ const [loading, setLoading] = useState(true);
   // Deadlines will be loaded from API when available
   const deadlines: any[] = [];
 
- return (
+  return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-[#fff] p-6 rounded-lg relative">
         <div>
           <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome back</h1>
-          <p className="text-[#212121]">Manage your NIRI data submissions and track approval status</p>
+          <p className="text-[#212121]">
+            Manage your NIRI data submissions and track approval status
+          </p>
         </div>
-        <img src="/images/dashboard.png" alt="Dashboard" className="absolute right-6 top-0" />
+        <img
+          src="/images/dashboard.png"
+          alt="Dashboard"
+          className="absolute right-6 top-0"
+        />
       </div>
 
       {/* KPI Cards */}
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {kpis.slice(0, 2).map((kpi, index) => (
-            <NodalKpiCard key={index} title={kpi.title} value={kpi.value} subtitle={kpi.subtitle} icon={kpi.icon} variant={kpi.variant} description={kpi.description} />
-          ))}
+      <TooltipProvider delayDuration={200}>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {kpis.slice(0, 2).map((kpi, index) => (
+              <NodalKpiCard
+                key={index}
+                title={kpi.title}
+                value={kpi.value}
+                subtitle={kpi.subtitle}
+                icon={kpi.icon}
+                variant={kpi.variant}
+                description={kpi.description}
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {kpis.slice(2, 5).map((kpi, index) => (
+              <NodalKpiCard
+                key={index + 2}
+                title={kpi.title}
+                value={kpi.value}
+                subtitle={kpi.subtitle}
+                icon={kpi.icon}
+                variant={kpi.variant}
+                description={kpi.description}
+              />
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {kpis.slice(2, 5).map((kpi, index) => (
-            <NodalKpiCard key={index + 2} title={kpi.title} value={kpi.value} subtitle={kpi.subtitle} icon={kpi.icon} variant={kpi.variant} description={kpi.description} />
-          ))}
-        </div>
-      </div>
+      </TooltipProvider>
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -322,7 +364,9 @@ const [loading, setLoading] = useState(true);
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold">Latest Submissions</h2>
-                  <p className="text-sm text-muted-foreground">Your latest NIRI data submissions and their status</p>
+                  <p className="text-sm text-muted-foreground">
+                    Your latest NIRI data submissions and their status
+                  </p>
                 </div>
                 {/* <Button onClick={() => navigate('/submissions')}>+ New Submission</Button> */}
               </div>
@@ -330,14 +374,18 @@ const [loading, setLoading] = useState(true);
                 <TabsList className="flex justify-start items-center gap-6 px-1">
                   <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
-                  <TabsTrigger value="SUBMITTED_TO_STATE">Under Review</TabsTrigger>
+                  <TabsTrigger value="SUBMITTED_TO_STATE">
+                    Under Review
+                  </TabsTrigger>
                   <TabsTrigger value="APPROVED">Approved</TabsTrigger>
                   <TabsTrigger value="DRAFT">Draft</TabsTrigger>
                 </TabsList>
                 <TabsContent value={activeTab} className="mt-4">
                   <div className="space-y-4">
                     {filteredSubmissions.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">No submissions found for this status.</div>
+                      <div className="text-center py-8 text-muted-foreground">
+                        No submissions found for this status.
+                      </div>
                     ) : (
                       filteredSubmissions.map((submission) => (
                         <UnifiedSubmissionCard
@@ -354,9 +402,15 @@ const [loading, setLoading] = useState(true);
                           submission={submission.submission}
                           currentUserRole="NODAL_OFFICER"
                           submittedBy={submission.submittedBy}
-                          onEdit={() => handleEditSubmissionForEdit(submission.id, navigate)}
-                          onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
-                          onRevise={() => handleEditSubmission(submission.id, navigate)}
+                          onEdit={() =>
+                            handleEditSubmissionForEdit(submission.id, navigate)
+                          }
+                          onViewDetails={() =>
+                            navigate(`/data-submission/review/${submission.id}`)
+                          }
+                          onRevise={() =>
+                            handleEditSubmission(submission.id, navigate)
+                          }
                         />
                       ))
                     )}
@@ -373,43 +427,57 @@ const [loading, setLoading] = useState(true);
         <div className="space-y-6 lg:w-[300px] ">
           <UpcomingDeadlines deadlines={deadlines} />
 
-            {/* Quick Actions */}
-          <QuickActions actions={[
-    {
-      id: "1",
-      title: "Data Submission",
-      subtitle: "Start data entry",
-      icon: "file" as const,
-              onClick: () => navigate('/submissions')
-    },
-    {
-      id: "2",
-      title: "Copy from Previous",
-      subtitle: "Replicate last submission",
-      icon: "copy" as const,
-              onClick: () => console.log("Copy from previous")
-    },
-    {
-      id: "3",
-      title: "View Reports",
-      subtitle: "Performance analytics",
-      icon: "chart" as const,
-              onClick: () => console.log("View reports")
-    },
-    {
-      id: "4",
-      title: "Help Center",
-      subtitle: "Guides & documentation",
-      icon: "help" as const,
-              onClick: () => console.log("Help center")
-            }
-          ]} />
+          {/* Quick Actions */}
+          <QuickActions
+            actions={[
+              {
+                id: "1",
+                title: "Data Submission",
+                subtitle: "Start data entry",
+                icon: "file" as const,
+                onClick: () => navigate("/submissions"),
+              },
+              {
+                id: "2",
+                title: "Copy from Previous",
+                subtitle: "Replicate last submission",
+                icon: "copy" as const,
+                onClick: () => console.log("Copy from previous"),
+              },
+              {
+                id: "3",
+                title: "View Reports",
+                subtitle: "Performance analytics",
+                icon: "chart" as const,
+                onClick: () => console.log("View reports"),
+              },
+              {
+                id: "4",
+                title: "Help Center",
+                subtitle: "Guides & documentation",
+                icon: "help" as const,
+                onClick: () => console.log("Help center"),
+              },
+            ]}
+          />
 
           <QuickTips
             tips={[
-              { id: "1", title: "Save drafts frequently", description: "Auto-save feature keeps your progress safe" },
-              { id: "2", title: "Use the replication feature", description: "Copy data from previous submissions to save time" },
-              { id: "3", title: "Upload supporting documents", description: "Add relevant files to strengthen your submission" },
+              {
+                id: "1",
+                title: "Save drafts frequently",
+                description: "Auto-save feature keeps your progress safe",
+              },
+              {
+                id: "2",
+                title: "Use the replication feature",
+                description: "Copy data from previous submissions to save time",
+              },
+              {
+                id: "3",
+                title: "Upload supporting documents",
+                description: "Add relevant files to strengthen your submission",
+              },
             ]}
           />
         </div>

@@ -5,7 +5,6 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  TooltipProvider,
 } from "@/components/ui/tooltip";
 
 interface NodalKpiCardProps {
@@ -43,44 +42,44 @@ export function NodalKpiCard({
   description,
 }: NodalKpiCardProps) {
   return (
-    <TooltipProvider>
-      <div
-        className={`bg-white rounded-xl p-5 shadow-md flex flex-col justify-between ${cardBorderMap[variant]} transition-all hover:shadow-lg`}
-      >
-        {/* Header with icon + title + info tooltip */}
-        <div className="flex justify-between items-start">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${iconBgMap[variant]}`}
-            >
-              <Icon className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+    <div
+      className={`bg-white rounded-xl p-5 shadow-md flex flex-col justify-between ${cardBorderMap[variant]} transition-all hover:shadow-lg`}
+    >
+      {/* Header with icon + title + info tooltip */}
+      <div className="flex justify-between items-start">
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center ${iconBgMap[variant]}`}
+          >
+            <Icon className="w-5 h-5" />
           </div>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                aria-label={`${title} info`}
-                className="p-1 rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
-              >
-                <Info className="w-5 h-5 text-gray-400 hover:text-gray-600 cursor-pointer" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs bg-gray-800 text-white text-sm rounded-md p-2 shadow-lg">
-              {description || "No description available"}
-            </TooltipContent>
-          </Tooltip>
+          <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
         </div>
 
-        {/* KPI Value */}
-        <div className="mt-3">
-          <div className="text-2xl font-bold text-gray-900">{value}</div>
-          {subtitle && (
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
-          )}
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${title} info`}
+              className="p-1 rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
+            >
+              <Info className="w-5 h-5 text-gray-400 hover:text-gray-600 cursor-pointer" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            className="max-w-[250px] text-sm bg-white text-gray-700 shadow-md border border-gray-200"
+          >
+            {description || "No description available"}
+          </TooltipContent>
+        </Tooltip>
       </div>
-    </TooltipProvider>
+
+      {/* KPI Value */}
+      <div className="mt-3">
+        <div className="text-2xl font-bold text-gray-900">{value}</div>
+        {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+      </div>
+    </div>
   );
 }
