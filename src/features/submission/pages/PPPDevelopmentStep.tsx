@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,10 @@ import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { computeStepProgress } from "../utils/progress";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
+import {
+  validatePPPDevelopment,
+  type PPPDevelopmentValidationResult,
+} from "../validation/pppDevelopmentValidation";
 
 const defaultData: PPPDevelopmentData = {
   section3_1: {
@@ -137,6 +141,49 @@ export const PPPDevelopmentStep = () => {
 
   const [formData, setFormData] = useState<PPPDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+
+  // Validation
+  const validation: PPPDevelopmentValidationResult = useMemo(
+    () => validatePPPDevelopment(formData),
+    [formData]
+  );
+  const isNextDisabled = !validation.isValid;
+
+  // Debug logging
+  useEffect(() => {
+    console.log("🔍 PPPDevelopmentStep Validation:", {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      section3_1_available: formData.section3_1.available,
+      section3_2_available: formData.section3_2.available,
+      section3_3_count: formData.section3_3.VGFArray.length,
+      section3_4_projects_count: formData.section3_4.projects.length,
+    });
+  }, [validation, formData]);
+
+  // Helper functions for error display
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validation.errors[fieldPath];
+  };
+
+  const renderFieldError = (fieldPath: string) => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return null;
+    return <p className="text-sm text-destructive mt-1">{error}</p>;
+  };
+
+  const getInputValidationClass = (fieldPath: string): string => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return "";
+    return "border-destructive focus-visible:ring-destructive";
+  };
+
+  const showErrorsIfNeeded = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+    }
+  };
 
   // Sync with localStorage data when component mounts or data changes
   useEffect(() => {
@@ -411,13 +458,22 @@ export const PPPDevelopmentStep = () => {
     }));
   };
 
+  const { toast } = useToast();
+
   // --- Navigation ---
   const handleNext = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+      toast({
+        title: "Validation Error",
+        description: "Please complete all required fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateFormData("pppDevelopment", formData);
     goToNext();
   };
-
-  const { toast } = useToast();
 
   const handleSaveDraft = async () => {
     const success = saveDraftToLocalStorage("pppDevelopment", formData);
@@ -542,6 +598,7 @@ export const PPPDevelopmentStep = () => {
                 <div>
                   <Label>
                     PPP Act/Policy Available?{" "}
+                    <span className="text-red-500">*</span>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
@@ -558,7 +615,8 @@ export const PPPDevelopmentStep = () => {
                         name="ppp-act-policy"
                         value="yes"
                         checked={formData.section3_1.available === "yes"}
-                        onChange={() =>
+                        onChange={() => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section3_1: {
@@ -566,8 +624,8 @@ export const PPPDevelopmentStep = () => {
                               available: "yes",
                               comment: "",
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       />
                       Yes
                     </label>
@@ -577,7 +635,8 @@ export const PPPDevelopmentStep = () => {
                         name="ppp-act-policy"
                         value="no"
                         checked={formData.section3_1.available === "no"}
-                        onChange={() =>
+                        onChange={() => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section3_1: {
@@ -585,12 +644,13 @@ export const PPPDevelopmentStep = () => {
                               available: "no",
                               file: null,
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       />
                       No
                     </label>
                   </div>
+                  {renderFieldError("section3_1.available")}
                 </div>
 
                 {/* If Yes → show File Upload */}
@@ -599,37 +659,46 @@ export const PPPDevelopmentStep = () => {
                     <FileUploadSection
                       label="Upload File"
                       value={formData.section3_1.file || null}
-                      onChange={(file) =>
+                      onChange={(file) => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section3_1: { ...prev.section3_1, file },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       Upload copy of Act/Policy
                     </p>
+                    {renderFieldError("section3_1.file")}
                   </div>
                 )}
 
                 {/* If No → show Comment */}
                 {formData.section3_1.available === "no" && (
                   <div className="flex flex-col gap-2">
-                    <Label>Comments (Reason)</Label>
+                    <Label>
+                    <span className="text-red-500">*</span>
+                      Comments (Reason)</Label>
                     <Input
                       type="text"
                       placeholder="Enter reason or comment"
                       value={formData.section3_1.comment || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section3_1: {
                             ...prev.section3_1,
                             comment: e.target.value,
                           },
-                        }))
-                      }
+                        }));
+                      }}
+                      className={cn(
+                        getInputValidationClass("section3_1.comment")
+                      )}
                     />
+                    {renderFieldError("section3_1.comment")}
                   </div>
                 )}
               </div>
@@ -660,6 +729,7 @@ export const PPPDevelopmentStep = () => {
                 <div>
                   <Label>
                     Functional State/UT PPP Cell/Unit{" "}
+                    <span className="text-red-500">*</span>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="inline w-3 h-3 ml-1" />
@@ -676,7 +746,8 @@ export const PPPDevelopmentStep = () => {
                         name="ppp-cell-unit"
                         value="yes"
                         checked={formData.section3_2.available === "yes"}
-                        onChange={() =>
+                        onChange={() => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section3_2: {
@@ -684,8 +755,8 @@ export const PPPDevelopmentStep = () => {
                               available: "yes",
                               comment: "",
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       />
                       Yes
                     </label>
@@ -695,7 +766,8 @@ export const PPPDevelopmentStep = () => {
                         name="ppp-cell-unit"
                         value="no"
                         checked={formData.section3_2.available === "no"}
-                        onChange={() =>
+                        onChange={() => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section3_2: {
@@ -703,12 +775,13 @@ export const PPPDevelopmentStep = () => {
                               available: "no",
                               file: null,
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       />
                       No
                     </label>
                   </div>
+                  {renderFieldError("section3_2.available")}
                 </div>
 
                 {/* If Yes → show File Upload */}
@@ -717,37 +790,46 @@ export const PPPDevelopmentStep = () => {
                     <FileUploadSection
                       label="Upload File"
                       value={formData.section3_2.file || null}
-                      onChange={(file) =>
+                      onChange={(file) => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section3_2: { ...prev.section3_2, file },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
                       Upload notification or mandate
                     </p>
+                    {renderFieldError("section3_2.file")}
                   </div>
                 )}
 
                 {/* If No → show Comment */}
                 {formData.section3_2.available === "no" && (
                   <div className="flex flex-col gap-2">
-                    <Label>Comments (Reason)</Label>
+                    <Label>Comments (Reason)
+                    <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       type="text"
                       placeholder="Enter reason or comment"
                       value={formData.section3_2.comment || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section3_2: {
                             ...prev.section3_2,
                             comment: e.target.value,
                           },
-                        }))
-                      }
+                        }));
+                      }}
+                      className={cn(
+                        getInputValidationClass("section3_2.comment")
+                      )}
                     />
+                    {renderFieldError("section3_2.comment")}
                   </div>
                 )}
               </div>
@@ -778,29 +860,49 @@ export const PPPDevelopmentStep = () => {
                   <div key={entry.id} className="mb-2">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                       <div>
-                        <Label>Project Name</Label>
+                        <Label>Project Name
+                        <span className="text-red-500">*</span>
+                        </Label>
                         <Input
                           type="text"
                           placeholder="Enter project name"
                           value={entry.projectName}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            showErrorsIfNeeded();
                             updateProject(
                               entry.id,
                               "projectName",
                               e.target.value
+                            );
+                          }}
+                          className={cn(
+                            getInputValidationClass(
+                              `section3_3.VGFArray.${idx}.projectName`
                             )
-                          }
+                          )}
                         />
+                        {renderFieldError(
+                          `section3_3.VGFArray.${idx}.projectName`
+                        )}
                       </div>
                       <div>
-                        <Label>Select Sector</Label>
+                        <Label>Select Sector
+                        <span className="text-red-500">*</span>
+                        </Label>
                         <Select
                           value={entry.sector}
-                          onValueChange={(value) =>
-                            updateProject(entry.id, "sector", value)
-                          }
+                          onValueChange={(value) => {
+                            showErrorsIfNeeded();
+                            updateProject(entry.id, "sector", value);
+                          }}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_3.VGFArray.${idx}.sector`
+                              )
+                            )}
+                          >
                             <SelectValue placeholder="Select sector" />
                           </SelectTrigger>
                           <SelectContent>
@@ -811,16 +913,26 @@ export const PPPDevelopmentStep = () => {
                             ))}
                           </SelectContent>
                         </Select>
+                        {renderFieldError(`section3_3.VGFArray.${idx}.sector`)}
                       </div>
                       <div>
-                        <Label>Select Type</Label>
+                        <Label>Select Type
+                        <span className="text-red-500">*</span>
+                        </Label>
                         <Select
                           value={entry.type}
-                          onValueChange={(value) =>
-                            updateProject(entry.id, "type", value)
-                          }
+                          onValueChange={(value) => {
+                            showErrorsIfNeeded();
+                            updateProject(entry.id, "type", value);
+                          }}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_3.VGFArray.${idx}.type`
+                              )
+                            )}
+                          >
                             <SelectValue placeholder="Enter year" />
                           </SelectTrigger>
                           <SelectContent>
@@ -831,10 +943,13 @@ export const PPPDevelopmentStep = () => {
                             ))}
                           </SelectContent>
                         </Select>
+                        {renderFieldError(`section3_3.VGFArray.${idx}.type`)}
                       </div>
                       <div className="flex items-center gap-2 w-full">
                         <div className="w-full">
-                          <Label>Submission Date</Label>
+                          <Label>Submission Date
+                          <span className="text-red-500">*</span>
+                          </Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
@@ -842,7 +957,10 @@ export const PPPDevelopmentStep = () => {
                                 className={cn(
                                   "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
                                   !entry.submissionDate &&
-                                    "text-muted-foreground"
+                                    "text-muted-foreground",
+                                  getInputValidationClass(
+                                    `section3_3.VGFArray.${idx}.submissionDate`
+                                  )
                                 )}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -862,13 +980,14 @@ export const PPPDevelopmentStep = () => {
                                     ? new Date(entry.submissionDate)
                                     : undefined
                                 }
-                                onSelect={(date) =>
+                                onSelect={(date) => {
+                                  showErrorsIfNeeded();
                                   updateProject(
                                     entry.id,
                                     "submissionDate",
                                     date ? date.toISOString() : ""
-                                  )
-                                }
+                                  );
+                                }}
                                 initialFocus
                               />
                             </PopoverContent>
@@ -890,11 +1009,15 @@ export const PPPDevelopmentStep = () => {
                       <FileUploadSection
                         label="Upload File"
                         value={entry.file || null}
-                        onChange={(file) =>
-                          updateProject(entry.id, "file", file)
-                        }
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
+                          updateProject(entry.id, "file", file);
+                        }}
                       />
                     </div>
+                    {renderFieldError(
+                      `section3_3.VGFArray.${idx}.submissionDate`
+                    )}
                   </div>
                 ))}
                 <div>
@@ -909,6 +1032,7 @@ export const PPPDevelopmentStep = () => {
                     Add More Project
                   </Button>
                   <p className="text-xs text-muted-foreground mt-1"></p>
+                  {renderFieldError("section3_3.VGFArray")}
                 </div>
                 {/* ✅ Table view for VGF/IIPDF proposals (with File Size) */}
                 {formData.section3_3.VGFArray.length > 0 && (
@@ -943,14 +1067,12 @@ export const PPPDevelopmentStep = () => {
                         {formData.section3_3.VGFArray.map((entry) => (
                           <tr key={entry.id} className="bg-white">
                             <td className="py-3 px-4 text-sm">
-                              {entry.projectName }
+                              {entry.projectName}
                             </td>
                             <td className="py-3 px-4 text-sm">
-                              {entry.sector }
+                              {entry.sector}
                             </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.type }
-                            </td>
+                            <td className="py-3 px-4 text-sm">{entry.type}</td>
                             <td className="py-3 px-4 text-sm">
                               {entry.submissionDate
                                 ? format(
@@ -1023,16 +1145,23 @@ export const PPPDevelopmentStep = () => {
                       min="0"
                       placeholder="Enter number of projects awarded"
                       value={formData.section3_4.totalProjectsAwarded || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section3_4: {
                             ...prev.section3_4,
                             totalProjectsAwarded: e.target.value,
                           },
-                        }))
-                      }
+                        }));
+                      }}
+                      className={cn(
+                        getInputValidationClass(
+                          "section3_4.totalProjectsAwarded"
+                        )
+                      )}
                     />
+                    {renderFieldError("section3_4.totalProjectsAwarded")}
                   </div>
                   <div>
                     <Label className="block min-h-[40px] leading-snug">
@@ -1046,16 +1175,23 @@ export const PPPDevelopmentStep = () => {
                       step="0.01"
                       placeholder="Enter total cost in crore INR"
                       value={formData.section3_4.totalProjectCostAwarded || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section3_4: {
                             ...prev.section3_4,
                             totalProjectCostAwarded: e.target.value,
                           },
-                        }))
-                      }
+                        }));
+                      }}
+                      className={cn(
+                        getInputValidationClass(
+                          "section3_4.totalProjectCostAwarded"
+                        )
+                      )}
                     />
+                    {renderFieldError("section3_4.totalProjectCostAwarded")}
                   </div>
                 </div>
 
@@ -1119,14 +1255,27 @@ export const PPPDevelopmentStep = () => {
                             type="text"
                             placeholder="Enter percentage"
                             value={project.capexPercentage}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
                               updatePPPProject(
                                 project.id,
                                 "capexPercentage",
                                 e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                  (p) => p.id === project.id
+                                )}.capexPercentage`
                               )
-                            }
+                            )}
                           />
+                          {renderFieldError(
+                            `section3_4.projects.${formData.section3_4.projects.findIndex(
+                              (p) => p.id === project.id
+                            )}.capexPercentage`
+                          )}
                         </div>
                       </div>
 
@@ -1181,14 +1330,27 @@ export const PPPDevelopmentStep = () => {
                             step="0.01"
                             placeholder="Enter cost in crore"
                             value={project.totalProjectCost || ""}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
                               updatePPPProject(
                                 project.id,
                                 "totalProjectCost",
                                 e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                  (p) => p.id === project.id
+                                )}.totalProjectCost`
                               )
-                            }
+                            )}
                           />
+                          {renderFieldError(
+                            `section3_4.projects.${formData.section3_4.projects.findIndex(
+                              (p) => p.id === project.id
+                            )}.totalProjectCost`
+                          )}
                         </div>
 
                         <div>
@@ -1326,6 +1488,11 @@ export const PPPDevelopmentStep = () => {
           )}
 
         {/* Navigation Buttons */}
+        {isNextDisabled && showValidationErrors && (
+          <p className="text-sm text-destructive mb-4">
+            Complete all required fields before continuing.
+          </p>
+        )}
         <FormActions
           onPrevious={goToPrevious}
           onNext={handleNext}
@@ -1334,6 +1501,7 @@ export const PPPDevelopmentStep = () => {
           isLastStep={isLastStep}
           nextLabel={isLastStep ? "Review & Submit" : "Next"}
           showSaveDraft={true}
+          isNextDisabled={isNextDisabled}
         />
       </div>
     </div>

@@ -68,14 +68,15 @@ export interface InfraFinancingData {
   section1_5: {
     ffiArray: Array<{
       id: string;
-      hasIntermediary?: boolean;
+
       organisationName: string;
       organisationType: string;
       yearEstablished: string;
       totalFunding: string;
       website: string;
-      comment?: string;
     }>;
+    hasIntermediary?: string;
+    comment?: string;
   };
 }
 
@@ -99,7 +100,6 @@ export interface InfraDevelopmentData {
       id: string;
       sector: string;
       files: FileUpload[];
-      hasPlan?: boolean;
       comment?: string;
     }>;
     hasInfraDevelopmentPlan?: string;
