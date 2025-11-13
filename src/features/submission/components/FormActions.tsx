@@ -1,5 +1,5 @@
-import { ArrowLeft, ArrowRight, Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ArrowLeft, ArrowRight, Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface FormActionsProps {
   onPrevious?: () => void;
@@ -18,7 +18,7 @@ export const FormActions = ({
   onSaveDraft,
   isFirstStep = false,
   isLastStep = false,
-  nextLabel = 'Next',
+  nextLabel = "Next",
   showSaveDraft = true,
   isNextDisabled = false,
 }: FormActionsProps) => {
@@ -41,8 +41,15 @@ export const FormActions = ({
           </Button>
         )}
         {onNext && (
-          <Button onClick={onNext} disabled={false}>
-            {/* disabled={isNextDisabled} // Commented out validation */}
+          <Button
+            onClick={onNext}
+            disabled={isNextDisabled}
+            title={
+              isNextDisabled
+                ? "Complete required fields to continue"
+                : undefined
+            }
+          >
             {nextLabel}
             {!isLastStep && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>

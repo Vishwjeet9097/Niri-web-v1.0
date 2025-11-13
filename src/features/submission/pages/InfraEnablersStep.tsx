@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,11 @@ import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import { computeStepProgress } from "../utils/progress";
+import { cn } from "@/lib/utils";
+import {
+  validateInfraEnablers,
+  type InfraEnablersValidationResult,
+} from "../validation/infraEnablersValidation";
 
 const defaultData: InfraEnablersData = {
   section4_1: {
@@ -129,7 +134,55 @@ export const InfraEnablersStep = () => {
 
   const [formData, setFormData] = useState<InfraEnablersData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const { toast } = useToast();
+
+  // Validation
+  const validation: InfraEnablersValidationResult = useMemo(
+    () => validateInfraEnablers(formData),
+    [formData]
+  );
+  const isNextDisabled = !validation.isValid;
+
+  // Debug logging
+  useEffect(() => {
+    console.log("🔍 InfraEnablersStep Validation:", {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      section4_1_allEligible: formData.section4_1.allEligible,
+      section4_2_available: formData.section4_2.available,
+      section4_3_adopted: formData.section4_3.adopted,
+      section4_3_projects_count: formData.section4_3.projects.length,
+      section4_4_adopted: formData.section4_4.adopted,
+      section4_5_implemented: formData.section4_5.implemented,
+      section4_5_practices_count: formData.section4_5.practices.length,
+      section4_6_participated: formData.section4_6.participated,
+      section4_6_capacity_count: formData.section4_6.capacityArray.length,
+    });
+  }, [validation, formData]);
+
+  // Helper functions for error display
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validation.errors[fieldPath];
+  };
+
+  const renderFieldError = (fieldPath: string) => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return null;
+    return <p className="text-sm text-destructive mt-1">{error}</p>;
+  };
+
+  const getInputValidationClass = (fieldPath: string): string => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return "";
+    return "border-destructive focus-visible:ring-destructive";
+  };
+
+  const showErrorsIfNeeded = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+    }
+  };
 
   // Sync with persisted localStorage step data when component mounts or getStepData changes
   useEffect(() => {
@@ -459,6 +512,15 @@ export const InfraEnablersStep = () => {
 
   // Navigation / Save
   const handleNext = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+      toast({
+        title: "Validation Error",
+        description: "Please complete all required fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateFormData("infraEnablers", formData);
     goToNext();
   };
@@ -574,6 +636,7 @@ export const InfraEnablersStep = () => {
               <div>
                 <Label>
                   All Eligible Infra Projects on NIP Portal{" "}
+                  <span className="text-red-500">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />
@@ -590,7 +653,8 @@ export const InfraEnablersStep = () => {
                       name="all-eligible"
                       value="yes"
                       checked={formData.section4_1.allEligible === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_1: {
@@ -598,8 +662,8 @@ export const InfraEnablersStep = () => {
                             allEligible: "yes",
                             comment: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -609,7 +673,8 @@ export const InfraEnablersStep = () => {
                       name="all-eligible"
                       value="no"
                       checked={formData.section4_1.allEligible === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_1: {
@@ -617,12 +682,13 @@ export const InfraEnablersStep = () => {
                             allEligible: "no",
                             websiteLink: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_1.allEligible")}
               </div>
 
               {/* ✅ Conditionally render website link or comment */}
@@ -635,16 +701,21 @@ export const InfraEnablersStep = () => {
                     type="url"
                     placeholder="Enter Website Link"
                     value={formData.section4_1.websiteLink}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_1: {
                           ...prev.section4_1,
                           websiteLink: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_1.websiteLink")
+                    )}
                   />
+                  {renderFieldError("section4_1.websiteLink")}
                 </div>
               )}
 
@@ -658,16 +729,21 @@ export const InfraEnablersStep = () => {
                     type="text"
                     placeholder="Enter reason or comment"
                     value={formData.section4_1.comment || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_1: {
                           ...prev.section4_1,
                           comment: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_1.comment")
+                    )}
                   />
+                  {renderFieldError("section4_1.comment")}
                 </div>
               )}
             </div>
@@ -697,6 +773,7 @@ export const InfraEnablersStep = () => {
               <div>
                 <Label>
                   Availability & Use of State/UT PMG{" "}
+                  <span className="text-red-500">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />
@@ -713,12 +790,13 @@ export const InfraEnablersStep = () => {
                       name="pmg-available"
                       value="yes"
                       checked={formData.section4_2.available === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_2: { ...prev.section4_2, available: "yes" },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -728,49 +806,61 @@ export const InfraEnablersStep = () => {
                       name="pmg-available"
                       value="no"
                       checked={formData.section4_2.available === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_2: { ...prev.section4_2, available: "no" },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_2.available")}
               </div>
               {formData.section4_2.available === "yes" && (
                 <div className="flex flex-col gap-2">
                   <FileUploadSection
                     label="Upload File"
                     value={formData.section4_2.file || null}
-                    onChange={(file) =>
+                    onChange={(file) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_2: { ...prev.section4_2, file },
-                      }))
-                    }
+                      }));
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">Description</p>
+                  {renderFieldError("section4_2.file")}
                 </div>
               )}
               {formData.section4_2.available === "no" && (
                 <div className="flex flex-col gap-2">
-                  <Label>Comments (Reason)</Label>
+                  <Label>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     type="text"
                     placeholder="Enter reason or comment"
                     value={formData.section4_2.comment || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_2: {
                           ...prev.section4_2,
                           comment: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_2.comment")
+                    )}
                   />
+                  {renderFieldError("section4_2.comment")}
                 </div>
               )}
             </div>
@@ -819,7 +909,8 @@ export const InfraEnablersStep = () => {
                       name="pm-gatishakti"
                       value="yes"
                       checked={formData.section4_3.adopted === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_3: {
@@ -827,8 +918,8 @@ export const InfraEnablersStep = () => {
                             adopted: "yes",
                             comment: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -838,7 +929,8 @@ export const InfraEnablersStep = () => {
                       name="pm-gatishakti"
                       value="no"
                       checked={formData.section4_3.adopted === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_3: {
@@ -846,12 +938,13 @@ export const InfraEnablersStep = () => {
                             adopted: "no",
                             projects: [],
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_3.adopted")}
               </div>
 
               {/* --- If YES --- */}
@@ -870,14 +963,27 @@ export const InfraEnablersStep = () => {
                             type="text"
                             placeholder="Enter project name"
                             value={entry.projectName}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
                               updateGatiProject(
                                 entry.id,
                                 "projectName",
                                 e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_3.projects.${formData.section4_3.projects.findIndex(
+                                  (p) => p.id === entry.id
+                                )}.projectName`
                               )
-                            }
+                            )}
                           />
+                          {renderFieldError(
+                            `section4_3.projects.${formData.section4_3.projects.findIndex(
+                              (p) => p.id === entry.id
+                            )}.projectName`
+                          )}
                         </div>
 
                         <div>
@@ -886,11 +992,20 @@ export const InfraEnablersStep = () => {
                           </Label>
                           <Select
                             value={entry.sector}
-                            onValueChange={(v) =>
-                              updateGatiProject(entry.id, "sector", v)
-                            }
+                            onValueChange={(v) => {
+                              showErrorsIfNeeded();
+                              updateGatiProject(entry.id, "sector", v);
+                            }}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section4_3.projects.${formData.section4_3.projects.findIndex(
+                                    (p) => p.id === entry.id
+                                  )}.sector`
+                                )
+                              )}
+                            >
                               <SelectValue placeholder="Select sector" />
                             </SelectTrigger>
                             <SelectContent>
@@ -901,6 +1016,11 @@ export const InfraEnablersStep = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                          {renderFieldError(
+                            `section4_3.projects.${formData.section4_3.projects.findIndex(
+                              (p) => p.id === entry.id
+                            )}.sector`
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -923,13 +1043,20 @@ export const InfraEnablersStep = () => {
                           label="Upload File (PDF only)"
                           accept=".pdf"
                           value={entry.file || null}
-                          onChange={(file) =>
-                            updateGatiProject(entry.id, "file", file)
-                          }
+                          onChange={(file) => {
+                            showErrorsIfNeeded();
+                            updateGatiProject(entry.id, "file", file);
+                          }}
                         />
+                        {renderFieldError(
+                          `section4_3.projects.${formData.section4_3.projects.findIndex(
+                            (p) => p.id === entry.id
+                          )}.file`
+                        )}
                       </div>
                     </div>
                   ))}
+                  {renderFieldError("section4_3.projects")}
 
                   <Button
                     type="button"
@@ -1015,16 +1142,21 @@ export const InfraEnablersStep = () => {
                     type="text"
                     placeholder="Enter reason or comment"
                     value={formData.section4_3.comment || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_3: {
                           ...prev.section4_3,
                           comment: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_3.comment")
+                    )}
                   />
+                  {renderFieldError("section4_3.comment")}
                 </div>
               )}
             </div>
@@ -1056,6 +1188,7 @@ export const InfraEnablersStep = () => {
               <div>
                 <Label>
                   Adoption of ADR{" "}
+                  <span className="text-red-500">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />
@@ -1071,7 +1204,8 @@ export const InfraEnablersStep = () => {
                       name="adr-adopted"
                       value="yes"
                       checked={formData.section4_4.adopted === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_4: {
@@ -1079,8 +1213,8 @@ export const InfraEnablersStep = () => {
                             adopted: "yes",
                             comment: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -1091,7 +1225,8 @@ export const InfraEnablersStep = () => {
                       name="adr-adopted"
                       value="no"
                       checked={formData.section4_4.adopted === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_4: {
@@ -1099,12 +1234,13 @@ export const InfraEnablersStep = () => {
                             adopted: "no",
                             file: null,
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_4.adopted")}
               </div>
 
               {/* ✅ If YES → show file upload */}
@@ -1113,16 +1249,18 @@ export const InfraEnablersStep = () => {
                   <FileUploadSection
                     label="Upload File"
                     value={formData.section4_4.file || null}
-                    onChange={(file) =>
+                    onChange={(file) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_4: { ...prev.section4_4, file },
-                      }))
-                    }
+                      }));
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Upload ADR orders / notifications
+                    Upload ADR orders
                   </p>
+                  {renderFieldError("section4_4.file")}
                 </div>
               )}
 
@@ -1137,16 +1275,21 @@ export const InfraEnablersStep = () => {
                     type="text"
                     placeholder="Enter reason or comment"
                     value={formData.section4_4.comment || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_4: {
                           ...prev.section4_4,
                           comment: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_4.comment")
+                    )}
                   />
+                  {renderFieldError("section4_4.comment")}
                 </div>
               )}
             </div>
@@ -1196,7 +1339,8 @@ export const InfraEnablersStep = () => {
                       name="innovative-practices"
                       value="yes"
                       checked={formData.section4_5.implemented === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_5: {
@@ -1204,8 +1348,8 @@ export const InfraEnablersStep = () => {
                             implemented: "yes",
                             comment: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -1216,7 +1360,8 @@ export const InfraEnablersStep = () => {
                       name="innovative-practices"
                       value="no"
                       checked={formData.section4_5.implemented === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_5: {
@@ -1224,12 +1369,13 @@ export const InfraEnablersStep = () => {
                             implemented: "no",
                             practices: [],
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_5.implemented")}
               </div>
 
               {/* ✅ If YES → show Practice list */}
@@ -1247,14 +1393,27 @@ export const InfraEnablersStep = () => {
                             type="text"
                             placeholder="Enter practice name"
                             value={entry.practiceName}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
                               updatePractice(
                                 entry.id,
                                 "practiceName",
                                 e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_5.practices.${formData.section4_5.practices.findIndex(
+                                  (p) => p.id === entry.id
+                                )}.practiceName`
                               )
-                            }
+                            )}
                           />
+                          {renderFieldError(
+                            `section4_5.practices.${formData.section4_5.practices.findIndex(
+                              (p) => p.id === entry.id
+                            )}.practiceName`
+                          )}
                         </div>
 
                         <div>
@@ -1263,11 +1422,20 @@ export const InfraEnablersStep = () => {
                           </Label>
                           <Select
                             value={entry.impact}
-                            onValueChange={(v) =>
-                              updatePractice(entry.id, "impact", v)
-                            }
+                            onValueChange={(v) => {
+                              showErrorsIfNeeded();
+                              updatePractice(entry.id, "impact", v);
+                            }}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section4_5.practices.${formData.section4_5.practices.findIndex(
+                                    (p) => p.id === entry.id
+                                  )}.impact`
+                                )
+                              )}
+                            >
                               <SelectValue placeholder="Select impact" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1285,6 +1453,11 @@ export const InfraEnablersStep = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                          {renderFieldError(
+                            `section4_5.practices.${formData.section4_5.practices.findIndex(
+                              (p) => p.id === entry.id
+                            )}.impact`
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -1307,13 +1480,20 @@ export const InfraEnablersStep = () => {
                           label="Upload Evidence (Annex 10)"
                           value={entry.file || null}
                           accept=".pdf"
-                          onChange={(file) =>
-                            updatePractice(entry.id, "file", file)
-                          }
+                          onChange={(file) => {
+                            showErrorsIfNeeded();
+                            updatePractice(entry.id, "file", file);
+                          }}
                         />
+                        {renderFieldError(
+                          `section4_5.practices.${formData.section4_5.practices.findIndex(
+                            (p) => p.id === entry.id
+                          )}.file`
+                        )}
                       </div>
                     </div>
                   ))}
+                  {renderFieldError("section4_5.practices")}
 
                   <Button
                     type="button"
@@ -1339,16 +1519,21 @@ export const InfraEnablersStep = () => {
                     type="text"
                     placeholder="Enter reason or comment"
                     value={formData.section4_5.comment || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_5: {
                           ...prev.section4_5,
                           comment: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_5.comment")
+                    )}
                   />
+                  {renderFieldError("section4_5.comment")}
                 </div>
               )}
             </div>
@@ -1398,7 +1583,8 @@ export const InfraEnablersStep = () => {
                       name="capacity-building"
                       value="yes"
                       checked={formData.section4_6.participated === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_6: {
@@ -1407,8 +1593,8 @@ export const InfraEnablersStep = () => {
                             comment: "",
                             capacityArray: prev.section4_6.capacityArray || [],
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -1419,7 +1605,8 @@ export const InfraEnablersStep = () => {
                       name="capacity-building"
                       value="no"
                       checked={formData.section4_6.participated === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_6: {
@@ -1427,12 +1614,13 @@ export const InfraEnablersStep = () => {
                             participated: "no",
                             capacityArray: [],
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_6.participated")}
               </div>
 
               {/* ✅ If YES → show officer entries */}
@@ -1450,14 +1638,27 @@ export const InfraEnablersStep = () => {
                             type="text"
                             placeholder="Enter officer name"
                             value={entry.officerName}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
                               updateTraining(
                                 entry.id,
                                 "officerName",
                                 e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.officerName`
                               )
-                            }
+                            )}
                           />
+                          {renderFieldError(
+                            `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.officerName`
+                          )}
                         </div>
                         <div>
                           <Label>
@@ -1468,14 +1669,27 @@ export const InfraEnablersStep = () => {
                             type="text"
                             placeholder="Enter designation"
                             value={entry.designation}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
                               updateTraining(
                                 entry.id,
                                 "designation",
                                 e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.designation`
                               )
-                            }
+                            )}
                           />
+                          {renderFieldError(
+                            `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.designation`
+                          )}
                         </div>
                         <div>
                           <Label>
@@ -1486,14 +1700,27 @@ export const InfraEnablersStep = () => {
                             type="text"
                             placeholder="Enter program name"
                             value={entry.programName}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
                               updateTraining(
                                 entry.id,
                                 "programName",
                                 e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.programName`
                               )
-                            }
+                            )}
                           />
+                          {renderFieldError(
+                            `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.programName`
+                          )}
                         </div>
                         <div>
                           <Label>
@@ -1504,14 +1731,27 @@ export const InfraEnablersStep = () => {
                             type="text"
                             placeholder="Enter organizer"
                             value={entry.organiser}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
                               updateTraining(
                                 entry.id,
                                 "organiser",
                                 e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.organiser`
                               )
-                            }
+                            )}
                           />
+                          {renderFieldError(
+                            `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.organiser`
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1">
@@ -1520,11 +1760,20 @@ export const InfraEnablersStep = () => {
                             </Label>
                             <Select
                               value={entry.trainingType}
-                              onValueChange={(v) =>
-                                updateTraining(entry.id, "trainingType", v)
-                              }
+                              onValueChange={(v) => {
+                                showErrorsIfNeeded();
+                                updateTraining(entry.id, "trainingType", v);
+                              }}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.trainingType`
+                                  )
+                                )}
+                              >
                                 <SelectValue placeholder="Select type" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1532,6 +1781,11 @@ export const InfraEnablersStep = () => {
                                 <SelectItem value="Offline">Offline</SelectItem>
                               </SelectContent>
                             </Select>
+                            {renderFieldError(
+                              `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.trainingType`
+                            )}
                           </div>
                           <Button
                             type="button"
@@ -1547,6 +1801,7 @@ export const InfraEnablersStep = () => {
                       </div>
                     </div>
                   ))}
+                  {renderFieldError("section4_6.capacityArray")}
 
                   <Button
                     type="button"
@@ -1588,19 +1843,19 @@ export const InfraEnablersStep = () => {
                           {formData.section4_6.capacityArray.map((entry) => (
                             <tr key={entry.id} className="bg-white">
                               <td className="py-3 px-4 text-sm">
-                                {entry.officerName }
+                                {entry.officerName}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                {entry.designation }
+                                {entry.designation}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                {entry.programName }
+                                {entry.programName}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                {entry.organiser }
+                                {entry.organiser}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                {entry.trainingType }
+                                {entry.trainingType}
                               </td>
                               <td className="py-3 px-4">
                                 <button
@@ -1632,16 +1887,21 @@ export const InfraEnablersStep = () => {
                     type="text"
                     placeholder="Enter reason or comment"
                     value={formData.section4_6.comment || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_6: {
                           ...prev.section4_6,
                           comment: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_6.comment")
+                    )}
                   />
+                  {renderFieldError("section4_6.comment")}
                 </div>
               )}
             </div>
@@ -1649,6 +1909,11 @@ export const InfraEnablersStep = () => {
         )}
 
       {/* Navigation Buttons */}
+      {isNextDisabled && showValidationErrors && (
+        <p className="text-sm text-destructive mb-4">
+          Complete all required fields before continuing.
+        </p>
+      )}
       <FormActions
         onPrevious={goToPrevious}
         onNext={handleNext}
@@ -1657,6 +1922,7 @@ export const InfraEnablersStep = () => {
         isLastStep={isLastStep}
         nextLabel={isLastStep ? "Review & Submit" : "Next"}
         showSaveDraft={true}
+        isNextDisabled={isNextDisabled}
       />
     </div>
   );

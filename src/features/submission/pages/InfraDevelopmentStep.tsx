@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,10 @@ import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import { computeStepProgress } from "../utils/progress";
+import {
+  validateInfraDevelopment,
+  type InfraDevelopmentValidationResult,
+} from "../validation/infraDevelopmentValidation";
 
 // NOTE: The InfraDevelopmentData shape now wraps arrays inside objects.
 // This component was updated to use those nested arrays e.g. formData.section2_1.infraActArray
@@ -141,6 +145,51 @@ export const InfraDevelopmentStep = () => {
     "yes" | "no" | ""
   >("");
   const [infraPlanComment, setInfraPlanComment] = useState<string>("");
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+
+  // Validation
+  const validation: InfraDevelopmentValidationResult = useMemo(
+    () => validateInfraDevelopment(formData, { infraPlanAvailable }),
+    [formData, infraPlanAvailable]
+  );
+  const isNextDisabled = !validation.isValid;
+
+  // Debug logging
+  useEffect(() => {
+    console.log("🔍 InfraDevelopmentStep Validation:", {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      infraPlanAvailable,
+      section2_1_count: formData.section2_1.infraActArray.length,
+      section2_2_count: formData.section2_2.specializedEntityArray.length,
+      section2_3_count: formData.section2_3.infraDevelopmentArray.length,
+      section2_4_count: formData.section2_4.investmentReadyArray.length,
+      section2_5_count: formData.section2_5.assetMonetizationArray.length,
+    });
+  }, [validation, infraPlanAvailable, formData]);
+
+  // Helper functions for error display
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validation.errors[fieldPath];
+  };
+
+  const renderFieldError = (fieldPath: string) => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return null;
+    return <p className="text-sm text-destructive mt-1">{error}</p>;
+  };
+
+  const getInputValidationClass = (fieldPath: string): string => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return "";
+    return "border-destructive focus-visible:ring-destructive";
+  };
+
+  const showErrorsIfNeeded = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+    }
+  };
 
   useEffect(() => {
     const currentStepData = getStepData(
@@ -252,6 +301,7 @@ export const InfraDevelopmentStep = () => {
       setInfraPlanAvailable("");
       setInfraPlanComment("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -500,18 +550,22 @@ export const InfraDevelopmentStep = () => {
     );
   };
 
-  // --- Validation (kept disabled) ---
-  const validateFields = () => {
-    return true;
-  };
+  const { toast } = useToast();
 
   // --- Navigation ---
   const handleNext = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+      toast({
+        title: "Validation Error",
+        description: "Please complete all required fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateFormData("infraDevelopment", formData);
     goToNext();
   };
-
-  const { toast } = useToast();
 
   const handleSaveDraft = async () => {
     const success = saveDraftToLocalStorage("infraDevelopment", formData);
@@ -646,11 +700,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.sector}
-                        onValueChange={(value) =>
-                          updateEntry("section2_1", entry.id, "sector", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateEntry("section2_1", entry.id, "sector", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select an option" />
                         </SelectTrigger>
                         <SelectContent>
@@ -666,16 +729,22 @@ export const InfraDevelopmentStep = () => {
                       <FileUploadSection
                         label="Upload File"
                         value={entry.files?.[0] || null}
-                        onChange={(file) =>
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
                           updateEntry(
                             "section2_1",
                             entry.id,
                             "files",
                             file ? [file] : []
-                          )
-                        }
+                          );
+                        }}
                         required
                       />
+                      {renderFieldError(
+                        `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.files`
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -704,12 +773,7 @@ export const InfraDevelopmentStep = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Upload copy of Act/Policy
                 </p>
-
-                {errors.section2_1 && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.section2_1}
-                  </p>
-                )}
+                {renderFieldError("section2_1.infraActArray")}
               </div>
 
               {formData.section2_1.infraActArray.length > 0 && (
@@ -807,11 +871,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.sector}
-                        onValueChange={(value) =>
-                          updateEntry("section2_2", entry.id, "sector", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateEntry("section2_2", entry.id, "sector", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select an option" />
                         </SelectTrigger>
                         <SelectContent>
@@ -827,16 +900,22 @@ export const InfraDevelopmentStep = () => {
                       <FileUploadSection
                         label="Upload File"
                         value={entry.files?.[0] || null}
-                        onChange={(file) =>
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
                           updateEntry(
                             "section2_2",
                             entry.id,
                             "files",
                             file ? [file] : []
-                          )
-                        }
+                          );
+                        }}
                         required
                       />
+                      {renderFieldError(
+                        `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.files`
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -865,11 +944,7 @@ export const InfraDevelopmentStep = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Upload evidence
                 </p>
-                {errors.section2_2 && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.section2_2}
-                  </p>
-                )}
+                {renderFieldError("section2_2.specializedEntityArray")}
               </div>
 
               {formData.section2_2.specializedEntityArray.length > 0 && (
@@ -973,6 +1048,7 @@ export const InfraDevelopmentStep = () => {
                       value="yes"
                       checked={infraPlanAvailable === "yes"}
                       onChange={() => {
+                        showErrorsIfNeeded();
                         setInfraPlanAvailable("yes");
                         setInfraPlanComment("");
                       }}
@@ -986,12 +1062,14 @@ export const InfraDevelopmentStep = () => {
                       value="no"
                       checked={infraPlanAvailable === "no"}
                       onChange={() => {
+                        showErrorsIfNeeded();
                         setInfraPlanAvailable("no");
                       }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section2_3.hasPlan")}
               </div>
 
               {/* If Yes → show infra plan fields */}
@@ -1017,16 +1095,25 @@ export const InfraDevelopmentStep = () => {
                             </Label>
                             <Select
                               value={entry.sector}
-                              onValueChange={(value) =>
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
                                 updateEntry(
                                   "section2_3",
                                   entry.id,
                                   "sector",
                                   value
-                                )
-                              }
+                                );
+                              }}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.sector`
+                                  )
+                                )}
+                              >
                                 <SelectValue placeholder="Select an option" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1043,16 +1130,22 @@ export const InfraDevelopmentStep = () => {
                             <FileUploadSection
                               label="Upload File"
                               value={entry.files?.[0] || null}
-                              onChange={(file) =>
+                              onChange={(file) => {
+                                showErrorsIfNeeded();
                                 updateEntry(
                                   "section2_3",
                                   entry.id,
                                   "files",
                                   file ? [file] : []
-                                )
-                              }
+                                );
+                              }}
                               required
                             />
+                            {renderFieldError(
+                              `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.files`
+                            )}
                           </div>
                         </div>
 
@@ -1093,16 +1186,19 @@ export const InfraDevelopmentStep = () => {
                   <Input
                     placeholder="Enter reason or comment"
                     value={infraPlanComment}
-                    onChange={(e) => setInfraPlanComment(e.target.value)}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setInfraPlanComment(e.target.value);
+                    }}
+                    className={cn(
+                      getInputValidationClass("section2_3.comment")
+                    )}
                   />
+                  {renderFieldError("section2_3.comment")}
                 </div>
               )}
 
-              {errors.section2_3 && (
-                <p className="text-xs text-destructive mt-1">
-                  {errors.section2_3}
-                </p>
-              )}
+              {renderFieldError("section2_3.infraDevelopmentArray")}
 
               {/* Table view */}
               {infraPlanAvailable === "yes" &&
@@ -1202,7 +1298,8 @@ export const InfraDevelopmentStep = () => {
                       name="investment-ready"
                       value="yes"
                       checked={formData.section2_4.hasInvestmentReady === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section2_4: {
@@ -1210,8 +1307,8 @@ export const InfraDevelopmentStep = () => {
                             hasInvestmentReady: "yes",
                             comment: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -1221,7 +1318,8 @@ export const InfraDevelopmentStep = () => {
                       name="investment-ready"
                       value="no"
                       checked={formData.section2_4.hasInvestmentReady === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section2_4: {
@@ -1230,12 +1328,13 @@ export const InfraDevelopmentStep = () => {
                             investmentReadyArray: [],
                             websiteLink: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section2_4.hasInvestmentReady")}
               </div>
 
               {/* If Yes → show fields */}
@@ -1250,16 +1349,21 @@ export const InfraDevelopmentStep = () => {
                       type="url"
                       placeholder="Enter website URL"
                       value={formData.section2_4.websiteLink || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section2_4: {
                             ...prev.section2_4,
                             websiteLink: e.target.value,
                           },
-                        }))
-                      }
+                        }));
+                      }}
+                      className={cn(
+                        getInputValidationClass("section2_4.websiteLink")
+                      )}
                     />
+                    {renderFieldError("section2_4.websiteLink")}
                   </div>
 
                   {/* Add Projects Section */}
@@ -1276,14 +1380,27 @@ export const InfraDevelopmentStep = () => {
                               type="text"
                               placeholder="Enter project name"
                               value={entry.projectName}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
                                 updateProject(
                                   entry.id,
                                   "projectName",
                                   e.target.value
+                                );
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.projectName`
                                 )
-                              }
+                              )}
                             />
+                            {renderFieldError(
+                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.projectName`
+                            )}
                           </div>
 
                           <div>
@@ -1292,11 +1409,20 @@ export const InfraDevelopmentStep = () => {
                             </Label>
                             <Select
                               value={entry.sector}
-                              onValueChange={(value) =>
-                                updateProject(entry.id, "sector", value)
-                              }
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
+                                updateProject(entry.id, "sector", value);
+                              }}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.sector`
+                                  )
+                                )}
+                              >
                                 <SelectValue placeholder="Select Sector" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1315,11 +1441,20 @@ export const InfraDevelopmentStep = () => {
                             </Label>
                             <Select
                               value={entry.status}
-                              onValueChange={(value) =>
-                                updateProject(entry.id, "status", value)
-                              }
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
+                                updateProject(entry.id, "status", value);
+                              }}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.status`
+                                  )
+                                )}
+                              >
                                 <SelectValue placeholder="Select Status" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1345,14 +1480,27 @@ export const InfraDevelopmentStep = () => {
                               step="0.01"
                               placeholder="Enter size"
                               value={entry.projectSize || ""}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
                                 updateProject(
                                   entry.id,
                                   "projectSize",
                                   e.target.value
+                                );
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.projectSize`
                                 )
-                              }
+                              )}
                             />
+                            {renderFieldError(
+                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.projectSize`
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2">
@@ -1363,15 +1511,24 @@ export const InfraDevelopmentStep = () => {
                               </Label>
                               <Select
                                 value={entry.investmentType}
-                                onValueChange={(value) =>
+                                onValueChange={(value) => {
+                                  showErrorsIfNeeded();
                                   updateProject(
                                     entry.id,
                                     "investmentType",
                                     value
-                                  )
-                                }
+                                  );
+                                }}
                               >
-                                <SelectTrigger>
+                                <SelectTrigger
+                                  className={cn(
+                                    getInputValidationClass(
+                                      `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                        (e) => e.id === entry.id
+                                      )}.investmentType`
+                                    )
+                                  )}
+                                >
                                   <SelectValue placeholder="Select Type" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1412,6 +1569,7 @@ export const InfraDevelopmentStep = () => {
                       <Plus className="w-4 h-4" />
                       Add Project
                     </Button>
+                    {renderFieldError("section2_4.investmentReadyArray")}
                   </div>
 
                   {/* Table view */}
@@ -1486,16 +1644,21 @@ export const InfraDevelopmentStep = () => {
                     type="text"
                     placeholder="Enter reason or comment"
                     value={formData.section2_4.comment || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section2_4: {
                           ...prev.section2_4,
                           comment: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section2_4.comment")
+                    )}
                   />
+                  {renderFieldError("section2_4.comment")}
                 </div>
               )}
             </div>
@@ -1533,10 +1696,23 @@ export const InfraDevelopmentStep = () => {
                         type="text"
                         placeholder="Enter project/asset name"
                         value={entry.projectName}
-                        onChange={(e) =>
-                          updateAsset(entry.id, "projectName", e.target.value)
-                        }
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "projectName", e.target.value);
+                        }}
+                        className={cn(
+                          getInputValidationClass(
+                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.projectName`
+                          )
+                        )}
                       />
+                      {renderFieldError(
+                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.projectName`
+                      )}
                     </div>
                     <div>
                       <Label>
@@ -1551,11 +1727,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.sector}
-                        onValueChange={(value) =>
-                          updateAsset(entry.id, "sector", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "sector", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select an Option" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1573,11 +1758,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.type}
-                        onValueChange={(value) =>
-                          updateAsset(entry.id, "type", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "type", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.type`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select an Option" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1596,11 +1790,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.ownership}
-                        onValueChange={(value) =>
-                          updateAsset(entry.id, "ownership", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "ownership", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.ownership`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Asset ownership" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1619,14 +1822,27 @@ export const InfraDevelopmentStep = () => {
                           type="number"
                           placeholder="Estimated Monetization"
                           value={entry.estimatedMonetization}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            showErrorsIfNeeded();
                             updateAsset(
                               entry.id,
                               "estimatedMonetization",
                               e.target.value
+                            );
+                          }}
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.estimatedMonetization`
                             )
-                          }
+                          )}
                         />
+                        {renderFieldError(
+                          `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                            (e) => e.id === entry.id
+                          )}.estimatedMonetization`
+                        )}
                       </div>
                       <Button
                         type="button"
@@ -1653,11 +1869,7 @@ export const InfraDevelopmentStep = () => {
                   <Plus className="w-4 h-4 " />
                   Add More Asset
                 </Button>
-                {errors.section2_5 && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.section2_5}
-                  </p>
-                )}
+                {renderFieldError("section2_5.assetMonetizationArray")}
               </div>
               {/* Table view for Asset Monetization entries */}
               {formData.section2_5.assetMonetizationArray.length > 0 && (
@@ -1693,16 +1905,16 @@ export const InfraDevelopmentStep = () => {
                               {entry.projectName}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {entry.sector }
+                              {entry.sector}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {entry.type }
+                              {entry.type}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {entry.ownership }
+                              {entry.ownership}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {entry.estimatedMonetization }
+                              {entry.estimatedMonetization}
                             </td>
                             <td className="py-3 px-4">
                               <button
@@ -1726,6 +1938,11 @@ export const InfraDevelopmentStep = () => {
         )}
 
       {/* Navigation Buttons */}
+      {isNextDisabled && showValidationErrors && (
+        <p className="text-sm text-destructive mb-4">
+          Complete all required fields before continuing.
+        </p>
+      )}
       <FormActions
         onPrevious={goToPrevious}
         onNext={handleNext}
@@ -1734,6 +1951,7 @@ export const InfraDevelopmentStep = () => {
         isLastStep={isLastStep}
         nextLabel={isLastStep ? "Review & Submit" : "Next"}
         showSaveDraft={true}
+        isNextDisabled={isNextDisabled}
       />
     </div>
   );

@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +38,7 @@ import { getCurrentFinancialYear } from "@/utils/dateUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { computeStepProgress } from "../utils/progress";
+import { validateInfraFinancing } from "../validation/infraFinancingValidation";
 
 export const InfraFinancingStep = () => {
   const {
@@ -128,6 +128,44 @@ export const InfraFinancingStep = () => {
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
   const [ffiAvailable, setFfiAvailable] = useState<"yes" | "no" | "">("");
   const [ffiComment, setFfiComment] = useState<string>("");
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+
+  const validation = useMemo(
+    () => validateInfraFinancing(formData, { ffiAvailable }),
+    [formData, ffiAvailable]
+  );
+
+  useEffect(() => {
+    console.log("InfraFinancing validation state", {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      ffiAvailable,
+      hasFfiEntries: formData.section1_5.ffiArray.length,
+    });
+  }, [validation, ffiAvailable, formData.section1_5.ffiArray.length]);
+
+  const isNextDisabled = !validation.isValid;
+
+  const getFieldError = (path: string) =>
+    showValidationErrors ? validation.errors[path] : undefined;
+
+  const getInputValidationClass = (path: string) =>
+    getFieldError(path)
+      ? "border-destructive focus-visible:ring-destructive"
+      : undefined;
+
+  const showErrorsIfNeeded = () => {
+    if (!showValidationErrors) {
+      setShowValidationErrors(true);
+    }
+  };
+
+  const renderFieldError = (path: string) => {
+    const message = getFieldError(path);
+    return message ? (
+      <p className="text-xs text-destructive mt-1">{message}</p>
+    ) : null;
+  };
 
   // populate initial UI state for section1_5 from loaded data
   useEffect(() => {
@@ -428,22 +466,6 @@ export const InfraFinancingStep = () => {
     }));
   };
 
-  // normalize ids from backend before using in UI
-const normalizeArrayIds = (arr: any[] | undefined) =>
-  Array.isArray(arr)
-    ? arr.map((item) => ({
-        ...item,
-        // prefer existing id, then _id (Mongo), else generate a stable fallback
-        id:
-          item?.id ??
-          (item?._id ? String(item._id) : undefined) ??
-          // browser-safe UUID fallback
-          (typeof crypto !== "undefined" && (crypto as any).randomUUID
-            ? (crypto as any).randomUUID()
-            :  Date.now().toString()),
-      }))
-    : [];
-
   // Keep formData.section1_5 in sync with the simple UI flags (ffiAvailable / ffiComment).
   // If ffiAvailable === "no", we'll store one ffiArray item with hasIntermediary=false and comment.
   // If ffiAvailable === "yes", keep the actual intermediaries (with hasIntermediary=true).
@@ -490,7 +512,6 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
         };
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ffiAvailable, ffiComment]);
 
   // ------------------------
@@ -590,6 +611,15 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
   const validateFields = () => true;
 
   const handleNext = () => {
+    setShowValidationErrors(true);
+    if (!validation.isValid) {
+      toast({
+        title: "Incomplete section",
+        description: "Please complete all required fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateFormData("infraFinancing", formData);
     goToNext();
   };
@@ -755,45 +785,65 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                   <Label>
                     Capital Allocation for FY (INR)
                     <span className="text-red-500">*</span>
-                    <Info className="h-4 w-4 text-gray-500 inline-block ml-2" />
+                    {/* <Info className="h-4 w-4 text-gray-500 inline-block ml-2" /> */}
                   </Label>
                   <Input
-                    placeholder="Enter Capital Allocation"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="Enter capital allocation"
                     value={formData.section1_1.capitalAllocation}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
                         section1_1: {
-                          ...formData.section1_1,
-                          capitalAllocation: e.target.value,
+                          ...prev.section1_1,
+                          capitalAllocation: value,
                         },
-                      })
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_1.capitalAllocation")
+                    )}
                   />
+                  {renderFieldError("section1_1.capitalAllocation")}
                 </div>
                 <div>
                   <Label>
                     GSDP for FY (INR)<span className="text-red-500">*</span>
-                    <Info className="h-4 w-4 text-gray-500 ml-2" />
+                    {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </Label>
                   <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
                     placeholder="Enter GSDP for FY"
                     value={formData.section1_1.gsdpForFY}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
                         section1_1: {
-                          ...formData.section1_1,
-                          gsdpForFY: e.target.value,
+                          ...prev.section1_1,
+                          gsdpForFY: value,
                         },
-                      })
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_1.gsdpForFY")
+                    )}
                   />
+                  {renderFieldError("section1_1.gsdpForFY")}
                 </div>
                 <div>
                   <Label>
                     % Allocation to GSDP<span className="text-red-500">*</span>
-                    <Info className="h-4 w-4 text-gray-500 ml-2" />
+                    {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </Label>
                   <Input
                     placeholder="Auto-calculated"
@@ -821,8 +871,12 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                       return percentage.toFixed(1) + "%";
                     })()}
                     readOnly
-                    className="bg-gray-50 cursor-not-allowed"
+                    className={cn(
+                      "bg-gray-50 cursor-not-allowed",
+                      getInputValidationClass("section1_1.allocationToGSDP")
+                    )}
                   />
+                  {renderFieldError("section1_1.allocationToGSDP")}
                 </div>
               </div>
             </SectionCard>
@@ -870,37 +924,65 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                     <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    placeholder="Enter Actual Capex"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="Enter actual capex"
                     value={formData.section1_2.actualCapex}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
                         section1_2: {
-                          ...formData.section1_2,
-                          actualCapex: e.target.value,
+                          ...prev.section1_2,
+                          actualCapex: value,
                         },
-                      })
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_2.actualCapex")
+                    )}
                   />
+                  {renderFieldError("section1_2.actualCapex")}
                 </div>
                 <div className="space-y-2">
-                  <Label>State Capex Utilisation (INR)</Label>
+                  <Label>
+                    State Capex Utilisation (INR)
+                    <span className="text-red-500">*</span>
+                  </Label>
                   <Input
-                    placeholder="Enter State Capex Utilisation"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="Enter state capex utilisation"
                     value={formData.section1_2.stateCapexUtilisation}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
                         section1_2: {
-                          ...formData.section1_2,
-                          stateCapexUtilisation: e.target.value,
+                          ...prev.section1_2,
+                          stateCapexUtilisation: value,
                         },
-                      })
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass(
+                        "section1_2.stateCapexUtilisation"
+                      )
+                    )}
                   />
+                  {renderFieldError("section1_2.stateCapexUtilisation")}
                 </div>
                 <div className="space-y-2">
-                  <Label>% Capex Actuals to GSDP</Label>
+                  <Label>
+                    % Capex Actuals to GSDP
+                    <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     placeholder="Auto-calculated"
                     value={(() => {
@@ -928,8 +1010,12 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                       return percentage.toFixed(1) + "%";
                     })()}
                     readOnly
-                    className="bg-gray-50 cursor-not-allowed"
+                    className={cn(
+                      "bg-gray-50 cursor-not-allowed",
+                      getInputValidationClass("section1_2.capexActualsToGSDP")
+                    )}
                   />
+                  {renderFieldError("section1_2.capexActualsToGSDP")}
                 </div>
               </div>
             </SectionCard>
@@ -961,22 +1047,28 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                     placeholder="Enter total number of ULBs"
                     min="0"
                     value={formData.section1_3.totalULBs || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const { value } = e.target;
                       setFormData((prev) => ({
                         ...prev,
                         section1_3: {
                           ...prev.section1_3,
-                          totalULBs: e.target.value
-                            ? parseInt(e.target.value, 10)
+                          totalULBs: value
+                            ? Math.max(parseInt(value, 10), 0)
                             : 0,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_3.totalULBs")
+                    )}
                     required
                   />
+                  {renderFieldError("section1_3.totalULBs")}
                 </div>
 
-                {formData.section1_3.ulbList.map((ulb) => (
+                {formData.section1_3.ulbList.map((ulb, index) => (
                   <div key={ulb.id} className="grid grid-cols-4 gap-4">
                     <div>
                       <Label>
@@ -985,20 +1077,28 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                       <Input
                         placeholder="Enter City Name"
                         value={ulb.cityName}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          const value = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
                             section1_3: {
                               ...prev.section1_3,
                               ulbList: prev.section1_3.ulbList.map((item) =>
                                 item.id === ulb.id
-                                  ? { ...item, cityName: e.target.value }
+                                  ? { ...item, cityName: value }
                                   : item
                               ),
                             },
-                          }))
-                        }
+                          }));
+                        }}
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_3.ulbList.${index}.cityName`
+                          )
+                        )}
                       />
+                      {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
                     </div>
                     <div>
                       <Label>
@@ -1006,7 +1106,8 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                       </Label>
                       <Select
                         value={ulb.ulb}
-                        onValueChange={(value) =>
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section1_3: {
@@ -1017,10 +1118,16 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                   : item
                               ),
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_3.ulbList.${index}.ulb`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select ULB" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1035,6 +1142,7 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
                     </div>
                     <div>
                       <Label>
@@ -1046,7 +1154,10 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                             variant="outline"
                             className={cn(
                               "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                              !ulb.ratingDate && "text-muted-foreground"
+                              !ulb.ratingDate && "text-muted-foreground",
+                              getInputValidationClass(
+                                `section1_3.ulbList.${index}.ratingDate`
+                              )
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1063,7 +1174,8 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                 ? new Date(ulb.ratingDate)
                                 : undefined
                             }
-                            onSelect={(date) =>
+                            onSelect={(date) => {
+                              showErrorsIfNeeded();
                               setFormData((prev) => ({
                                 ...prev,
                                 section1_3: {
@@ -1079,12 +1191,15 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                       : item
                                   ),
                                 },
-                              }))
-                            }
+                              }));
+                            }}
                             initialFocus
                           />
                         </PopoverContent>
                       </Popover>
+                      {renderFieldError(
+                        `section1_3.ulbList.${index}.ratingDate`
+                      )}
                     </div>
                     <div className="flex items-end gap-2">
                       <div className="flex-1">
@@ -1093,7 +1208,8 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                         </Label>
                         <Select
                           value={ulb.rating}
-                          onValueChange={(value) =>
+                          onValueChange={(value) => {
+                            showErrorsIfNeeded();
                             setFormData((prev) => ({
                               ...prev,
                               section1_3: {
@@ -1104,20 +1220,42 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                     : item
                                 ),
                               },
-                            }))
-                          }
+                            }));
+                          }}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_3.ulbList.${index}.rating`
+                              )
+                            )}
+                          >
                             <SelectValue placeholder="Select rating" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="AAA">AAA</SelectItem>
                             <SelectItem value="AA+">AA+</SelectItem>
                             <SelectItem value="AA">AA</SelectItem>
+                            <SelectItem value="AA-">AA-</SelectItem>
                             <SelectItem value="A+">A+</SelectItem>
                             <SelectItem value="A">A</SelectItem>
+                            <SelectItem value="A-">A-</SelectItem>
                             <SelectItem value="BBB+">BBB+</SelectItem>
+                            <SelectItem value="BBB">BBB</SelectItem>
+                            <SelectItem value="BBB-">BBB-</SelectItem>
+                            <SelectItem value="BB+">BB+</SelectItem>
+                            <SelectItem value="BB">BB</SelectItem>
+                            <SelectItem value="BB-">BB-</SelectItem>
+                            <SelectItem value="B+">B+</SelectItem>
+                            <SelectItem value="B">B</SelectItem>
+                            <SelectItem value="B-">B-</SelectItem>
+                            <SelectItem value="CCC">CCC</SelectItem>
+                            <SelectItem value="CC">CC</SelectItem>
+                            <SelectItem value="C">C</SelectItem>
+                            <SelectItem value="D">D</SelectItem>
                           </SelectContent>
                         </Select>
+                        {renderFieldError(`section1_3.ulbList.${index}.rating`)}
                       </div>
                       <Button
                         variant="outline"
@@ -1140,6 +1278,7 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                   <Plus className="h-4 w-4" />
                   Add More ULB
                 </Button>
+                {renderFieldError("section1_3.ulbList")}
                 {formData.section1_3.ulbList.length > 0 && (
                   <div className="overflow-x-auto rounded-xl mt-4">
                     <table className="min-w-full border-separate border-spacing-0">
@@ -1166,10 +1305,10 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                         {formData.section1_3.ulbList.map((ulb) => (
                           <tr key={ulb.id} className="bg-white">
                             <td className="py-3 px-4 text-sm font-normal">
-                              {ulb.cityName }
+                              {ulb.cityName}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {ulb.ulb }
+                              {ulb.ulb}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {ulb.ratingDate
@@ -1177,7 +1316,7 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                 : "-"}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {ulb.rating }
+                              {ulb.rating}
                             </td>
                             <td className="py-3 px-4">
                               <button
@@ -1225,22 +1364,28 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                     placeholder="Enter total number of ULBs"
                     min="0"
                     value={formData.section1_4.totalULBs || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const { value } = e.target;
                       setFormData((prev) => ({
                         ...prev,
                         section1_4: {
                           ...prev.section1_4,
-                          totalULBs: e.target.value
-                            ? parseInt(e.target.value, 10)
+                          totalULBs: value
+                            ? Math.max(parseInt(value, 10), 0)
                             : 0,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_4.totalULBs")
+                    )}
                     required
                   />
+                  {renderFieldError("section1_4.totalULBs")}
                 </div>
 
-                {formData.section1_4.bondList.map((bond) => (
+                {formData.section1_4.bondList.map((bond, index) => (
                   <div key={bond.id} className="grid grid-cols-4 gap-4">
                     <div>
                       <Label>
@@ -1248,7 +1393,8 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                       </Label>
                       <Select
                         value={bond.bondType}
-                        onValueChange={(value) =>
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section1_4: {
@@ -1259,24 +1405,27 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                   : item
                               ),
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_4.bondList.${index}.bondType`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select bond type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Municipal bond">
-                            Municipal bond
-                          </SelectItem>
-                          <SelectItem value="Infrastructure bond">
-                            Infrastructure bond
-                          </SelectItem>
-                          <SelectItem value="Revenue bond">
-                            Revenue bond
-                          </SelectItem>
+                          <SelectItem value="Municipal">Municipal</SelectItem>
+                          <SelectItem value="Green">Green</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
+                      {renderFieldError(
+                        `section1_4.bondList.${index}.bondType`
+                      )}
                     </div>
 
                     <div>
@@ -1285,7 +1434,8 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                       </Label>
                       <Select
                         value={bond.cityName}
-                        onValueChange={(value) =>
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section1_4: {
@@ -1296,10 +1446,16 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                   : item
                               ),
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_4.bondList.${index}.cityName`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select city" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1309,15 +1465,22 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                           <SelectItem value="Nashik">Nashik</SelectItem>
                         </SelectContent>
                       </Select>
+                      {renderFieldError(
+                        `section1_4.bondList.${index}.cityName`
+                      )}
                     </div>
 
                     <div>
                       <Label>
                         Issuing Authority<span className="text-red-500">*</span>
                       </Label>
-                      <Select
+                      <Input
+                        placeholder="Enter issuing authority"
                         value={bond.issuingAuthority}
-                        onValueChange={(value) =>
+                        maxLength={100}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          const value = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
                             section1_4: {
@@ -1328,24 +1491,17 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                   : item
                               ),
                             },
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select authority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Authority Name">
-                            Authority Name
-                          </SelectItem>
-                          <SelectItem value="Municipal Corporation">
-                            Municipal Corporation
-                          </SelectItem>
-                          <SelectItem value="Development Authority">
-                            Development Authority
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                          }));
+                        }}
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_4.bondList.${index}.issuingAuthority`
+                          )
+                        )}
+                      />
+                      {renderFieldError(
+                        `section1_4.bondList.${index}.issuingAuthority`
+                      )}
                     </div>
 
                     <div className="flex items-end gap-2">
@@ -1355,22 +1511,34 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                           <span className="text-red-500">*</span>
                         </Label>
                         <Input
-                          placeholder="Enter Value"
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          placeholder="Enter value"
                           value={bond.value}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            showErrorsIfNeeded();
+                            const value = e.target.value;
                             setFormData((prev) => ({
                               ...prev,
                               section1_4: {
                                 ...prev.section1_4,
                                 bondList: prev.section1_4.bondList.map((item) =>
                                   item.id === bond.id
-                                    ? { ...item, value: e.target.value }
+                                    ? { ...item, value }
                                     : item
                                 ),
                               },
-                            }))
-                          }
+                            }));
+                          }}
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_4.bondList.${index}.value`
+                            )
+                          )}
                         />
+                        {renderFieldError(`section1_4.bondList.${index}.value`)}
                       </div>
                       <Button
                         variant="outline"
@@ -1394,6 +1562,7 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                   Add More Bond
                 </Button>
 
+                {renderFieldError("section1_4.bondList")}
                 {formData.section1_4.bondList.length > 0 && (
                   <div className="overflow-x-auto rounded-xl mt-4">
                     <table className="min-w-full border-separate border-spacing-0">
@@ -1420,16 +1589,16 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                         {formData.section1_4.bondList.map((bond) => (
                           <tr key={bond.id} className="bg-white">
                             <td className="py-3 px-4 text-sm font-normal">
-                              {bond.bondType }
+                              {bond.bondType}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {bond.cityName }
+                              {bond.cityName}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {bond.issuingAuthority }
+                              {bond.issuingAuthority}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {bond.value }
+                              {bond.value}
                             </td>
                             <td className="py-3 px-4">
                               <button
@@ -1489,6 +1658,7 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                         value="yes"
                         checked={ffiAvailable === "yes"}
                         onChange={() => {
+                          showErrorsIfNeeded();
                           setFfiAvailable("yes");
                           setFfiComment("");
                         }}
@@ -1502,12 +1672,14 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                         value="no"
                         checked={ffiAvailable === "no"}
                         onChange={() => {
+                          showErrorsIfNeeded();
                           setFfiAvailable("no");
                         }}
                       />
                       No
                     </label>
                   </div>
+                  {renderFieldError("section1_5.ffiAvailable")}
                 </div>
 
                 {/* If Yes → show intermediary fields (bound to section1_5.ffiArray) */}
@@ -1515,7 +1687,7 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                   <div className="space-y-4">
                     {formData.section1_5.ffiArray
                       .filter((i) => i.hasIntermediary !== false)
-                      .map((intermediary) => (
+                      .map((intermediary, index) => (
                         <div
                           key={intermediary.id}
                           className="grid grid-cols-5 gap-4"
@@ -1528,7 +1700,9 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                             <Input
                               placeholder="Enter organisation name"
                               value={intermediary.organisationName}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                const value = e.target.value;
                                 setFormData((prev) => ({
                                   ...prev,
                                   section1_5: {
@@ -1538,14 +1712,22 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                         item.id === intermediary.id
                                           ? {
                                               ...item,
-                                              organisationName: e.target.value,
+                                              organisationName: value,
                                             }
                                           : item
                                     ),
                                   },
-                                }))
-                              }
+                                }));
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section1_5.ffiArray.${index}.organisationName`
+                                )
+                              )}
                             />
+                            {renderFieldError(
+                              `section1_5.ffiArray.${index}.organisationName`
+                            )}
                           </div>
 
                           <div>
@@ -1555,7 +1737,8 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                             </Label>
                             <Select
                               value={intermediary.organisationType}
-                              onValueChange={(value) =>
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
                                 setFormData((prev) => ({
                                   ...prev,
                                   section1_5: {
@@ -1567,27 +1750,30 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                           : item
                                     ),
                                   },
-                                }))
-                              }
+                                }));
+                              }}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section1_5.ffiArray.${index}.organisationType`
+                                  )
+                                )}
+                              >
                                 <SelectValue placeholder="Select type" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Government Corporation">
-                                  Government Corporation
+                                <SelectItem value="Trust">Trust</SelectItem>
+                                <SelectItem value="Society">Society</SelectItem>
+                                <SelectItem value="Corporation">
+                                  Corporation
                                 </SelectItem>
-                                <SelectItem value="Development Authority">
-                                  Development Authority
-                                </SelectItem>
-                                <SelectItem value="Financial Institution">
-                                  Financial Institution
-                                </SelectItem>
-                                <SelectItem value="Private Entity">
-                                  Private Entity
-                                </SelectItem>
+                                <SelectItem value="Company">Company</SelectItem>
                               </SelectContent>
                             </Select>
+                            {renderFieldError(
+                              `section1_5.ffiArray.${index}.organisationType`
+                            )}
                           </div>
 
                           <div>
@@ -1595,9 +1781,16 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                               Year of Establishment
                               <span className="text-red-500">*</span>
                             </Label>
-                            <Select
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              placeholder="YYYY"
                               value={intermediary.yearEstablished}
-                              onValueChange={(value) =>
+                              min="1900"
+                              max="9999"
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                const value = e.target.value;
                                 setFormData((prev) => ({
                                   ...prev,
                                   section1_5: {
@@ -1609,34 +1802,34 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                           : item
                                     ),
                                   },
-                                }))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Enter year" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Array.from(
-                                  { length: 30 },
-                                  (_, i) => 2024 - i
-                                ).map((year) => (
-                                  <SelectItem
-                                    key={year}
-                                    value={year.toString()}
-                                  >
-                                    {year}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                                }));
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section1_5.ffiArray.${index}.yearEstablished`
+                                )
+                              )}
+                            />
+                            {renderFieldError(
+                              `section1_5.ffiArray.${index}.yearEstablished`
+                            )}
                           </div>
 
                           <div>
-                            <Label>Total Funding (INR)</Label>
+                            <Label>
+                              Total Funding (INR)
+                              <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                               placeholder="Enter total funding in INR"
                               value={intermediary.totalFunding}
-                              onChange={(e) =>
+                              type="number"
+                              inputMode="decimal"
+                              step="0.01"
+                              min="0"
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                const value = e.target.value;
                                 setFormData((prev) => ({
                                   ...prev,
                                   section1_5: {
@@ -1646,23 +1839,37 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                         item.id === intermediary.id
                                           ? {
                                               ...item,
-                                              totalFunding: e.target.value,
+                                              totalFunding: value,
                                             }
                                           : item
                                     ),
                                   },
-                                }))
-                              }
+                                }));
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section1_5.ffiArray.${index}.totalFunding`
+                                )
+                              )}
                             />
+                            {renderFieldError(
+                              `section1_5.ffiArray.${index}.totalFunding`
+                            )}
                           </div>
 
                           <div className="flex items-end gap-2">
                             <div className="flex-1">
-                              <Label>Website (Optional)</Label>
+                              <Label>
+                                Website
+                                <span className="text-red-500">*</span>
+                              </Label>
                               <Input
                                 placeholder="Website link"
                                 value={intermediary.website}
-                                onChange={(e) =>
+                                type="url"
+                                onChange={(e) => {
+                                  showErrorsIfNeeded();
+                                  const value = e.target.value;
                                   setFormData((prev) => ({
                                     ...prev,
                                     section1_5: {
@@ -1672,14 +1879,22 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                           item.id === intermediary.id
                                             ? {
                                                 ...item,
-                                                website: e.target.value,
+                                                website: value,
                                               }
                                             : item
                                       ),
                                     },
-                                  }))
-                                }
+                                  }));
+                                }}
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section1_5.ffiArray.${index}.website`
+                                  )
+                                )}
                               />
+                              {renderFieldError(
+                                `section1_5.ffiArray.${index}.website`
+                              )}
                             </div>
                             <Button
                               variant="outline"
@@ -1739,19 +1954,19 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                     className="bg-white"
                                   >
                                     <td className="py-3 px-4 text-sm font-normal">
-                                      {intermediary.organisationName }
+                                      {intermediary.organisationName}
                                     </td>
                                     <td className="py-3 px-4 text-sm font-normal">
-                                      {intermediary.organisationType }
+                                      {intermediary.organisationType}
                                     </td>
                                     <td className="py-3 px-4 text-sm font-normal">
-                                      {intermediary.yearEstablished }
+                                      {intermediary.yearEstablished}
                                     </td>
                                     <td className="py-3 px-4 text-sm font-normal">
-                                      {intermediary.totalFunding }
+                                      {intermediary.totalFunding}
                                     </td>
                                     <td className="py-3 px-4 text-sm font-normal">
-                                      {intermediary.website }
+                                      {intermediary.website}
                                     </td>
                                     <td className="py-3 px-4">
                                       <button
@@ -1768,7 +1983,7 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                                   </tr>
                                 ))}
                             </tbody>
-                          </table> 
+                          </table>
                         </div>
                       )}
                   </div>
@@ -1781,13 +1996,26 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
                     <Input
                       placeholder="Enter comments or reason"
                       value={ffiComment}
-                      onChange={(e) => setFfiComment(e.target.value)}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFfiComment(e.target.value);
+                      }}
+                      className={cn(
+                        getInputValidationClass("section1_5.comment")
+                      )}
                     />
+                    {renderFieldError("section1_5.comment")}
                   </div>
                 )}
               </div>
             </SectionCard>
           )}
+
+        {isNextDisabled && (
+          <p className="text-sm text-destructive mb-4">
+            Complete all required fields before continuing.
+          </p>
+        )}
 
         <FormActions
           onPrevious={isFirstStep ? undefined : goToPrevious}
@@ -1800,7 +2028,7 @@ const normalizeArrayIds = (arr: any[] | undefined) =>
           isLastStep={isLastStep}
           nextLabel={isLastStep ? "Review & Submit" : "Next"}
           showSaveDraft={true}
-          isNextDisabled={false}
+          isNextDisabled={isNextDisabled}
         />
       </div>
     </div>
