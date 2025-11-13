@@ -202,8 +202,8 @@ useEffect(() => {
         }
         
         // ✅ Validate state
-        if (!selectedState) {
-          throw new Error("State is required but not provided");
+        if (!selectedState && officerData.role !== "STATE_APPROVER") {
+          //throw new Error("State is required but not provided");
         }
  
         
@@ -288,14 +288,9 @@ useEffect(() => {
         
         // ✅ Validate state
         if (!selectedStateId || !selectedStateName) {
-          throw new Error("State is required but not provided");
+         // throw new Error("State is required but not provided");
         }
-    // Debug logging removed for performance
-
-        // ✅ Final validation before API call
-        if (!selectedStateId || !selectedStateName) {
-          throw new Error("State is required but not provided");
-        }
+    
         
         const newUser = await apiService.register(
           officerData.email,
