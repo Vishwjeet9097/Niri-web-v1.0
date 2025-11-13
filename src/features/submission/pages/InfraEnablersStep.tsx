@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,31 +37,42 @@ import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import { computeStepProgress } from "../utils/progress";
+import { cn } from "@/lib/utils";
+import {
+  validateInfraEnablers,
+  type InfraEnablersValidationResult,
+} from "../validation/infraEnablersValidation";
 
 const defaultData: InfraEnablersData = {
   section4_1: {
     allEligible: "",
     websiteLink: "",
+    comment: "",
   },
   section4_2: {
     available: "",
     file: null,
+    comment: "",
   },
   section4_3: {
-    numberOfProjects: "",
+    adopted: "",
+    projects: [],
+    comment: "",
   },
   section4_4: {
     adopted: "",
     file: null,
+    comment: "",
   },
   section4_5: {
     implemented: "",
-    practiceName: "",
-    impact: "",
-    file: null,
+    practices: [],
+    comment: "",
   },
   section4_6: {
+    participated: "",
     capacityArray: [],
+    comment: "",
   },
 };
 
@@ -118,16 +129,60 @@ export const InfraEnablersStep = () => {
     section4_3: { ...defaultData.section4_3, ...(loadedData.section4_3 || {}) },
     section4_4: { ...defaultData.section4_4, ...(loadedData.section4_4 || {}) },
     section4_5: { ...defaultData.section4_5, ...(loadedData.section4_5 || {}) },
-    section4_6: {
-      capacityArray: Array.isArray(loadedData.section4_6?.capacityArray)
-        ? loadedData.section4_6!.capacityArray
-        : [],
-    },
+    section4_6: { ...defaultData.section4_6, ...(loadedData.section4_6 || {}) },
   };
 
   const [formData, setFormData] = useState<InfraEnablersData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const { toast } = useToast();
+
+  // Validation
+  const validation: InfraEnablersValidationResult = useMemo(
+    () => validateInfraEnablers(formData),
+    [formData]
+  );
+  const isNextDisabled = !validation.isValid;
+
+  // Debug logging
+  useEffect(() => {
+    console.log("🔍 InfraEnablersStep Validation:", {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      section4_1_allEligible: formData.section4_1.allEligible,
+      section4_2_available: formData.section4_2.available,
+      section4_3_adopted: formData.section4_3.adopted,
+      section4_3_projects_count: formData.section4_3.projects.length,
+      section4_4_adopted: formData.section4_4.adopted,
+      section4_5_implemented: formData.section4_5.implemented,
+      section4_5_practices_count: formData.section4_5.practices.length,
+      section4_6_participated: formData.section4_6.participated,
+      section4_6_capacity_count: formData.section4_6.capacityArray.length,
+    });
+  }, [validation, formData]);
+
+  // Helper functions for error display
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validation.errors[fieldPath];
+  };
+
+  const renderFieldError = (fieldPath: string) => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return null;
+    return <p className="text-sm text-destructive mt-1">{error}</p>;
+  };
+
+  const getInputValidationClass = (fieldPath: string): string => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return "";
+    return "border-destructive focus-visible:ring-destructive";
+  };
+
+  const showErrorsIfNeeded = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+    }
+  };
 
   // Sync with persisted localStorage step data when component mounts or getStepData changes
   useEffect(() => {
@@ -159,11 +214,8 @@ export const InfraEnablersStep = () => {
           ...(currentStepData.section4_5 || {}),
         },
         section4_6: {
-          capacityArray: Array.isArray(
-            currentStepData.section4_6?.capacityArray
-          )
-            ? currentStepData.section4_6!.capacityArray
-            : [],
+          ...defaultData.section4_6,
+          ...(currentStepData.section4_6 || {}),
         },
       };
       setFormData(syncedData);
@@ -213,9 +265,8 @@ export const InfraEnablersStep = () => {
               ...(stepData.section4_5 || {}),
             },
             section4_6: {
-              capacityArray: Array.isArray(stepData.section4_6?.capacityArray)
-                ? stepData.section4_6!.capacityArray
-                : [],
+              ...defaultData.section4_6,
+              ...(stepData.section4_6 || {}),
             },
           };
           setFormData(updatedData);
@@ -278,10 +329,7 @@ export const InfraEnablersStep = () => {
         marksObtained: section4_4Calc.marksObtained,
       },
       section4_6: {
-        capacityArray: prev.section4_6.capacityArray.map((p) => ({
-          ...p,
-          marksObtained: section4_6Calc.perEntry,
-        })),
+        ...prev.section4_6,
       },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -300,9 +348,7 @@ export const InfraEnablersStep = () => {
         section4_3: formData.section4_3 || defaultData.section4_3,
         section4_4: formData.section4_4 || defaultData.section4_4,
         section4_5: formData.section4_5 || defaultData.section4_5,
-        section4_6: {
-          capacityArray: formData.section4_6.capacityArray || [],
-        },
+        section4_6: formData.section4_6 || defaultData.section4_6,
       };
       updateFormData("infraEnablers", structuredData);
     }, 500);
@@ -311,7 +357,105 @@ export const InfraEnablersStep = () => {
     // eslint-disable-next-line
   }, [formData]);
 
-  // --- Section 4.6 helpers (operate on capacityArray) ---
+  // --- Section 4.3 helpers ---
+  const addGatiProject = () => {
+    setFormData((prev) => ({
+      ...prev,
+      section4_3: {
+        ...prev.section4_3,
+        projects: [
+          ...(prev.section4_3.projects || []),
+          {
+            id:
+              typeof crypto !== "undefined" &&
+              typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : Date.now().toString(),
+            projectName: "",
+            sector: "",
+            file: null,
+          },
+        ],
+      },
+    }));
+  };
+
+  const removeGatiProject = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      section4_3: {
+        ...prev.section4_3,
+        projects: prev.section4_3.projects.filter((p) => p.id !== id),
+      },
+    }));
+  };
+
+  const updateGatiProject = (
+    id: string,
+    field: "projectName" | "sector" | "file",
+    value: any
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      section4_3: {
+        ...prev.section4_3,
+        projects: prev.section4_3.projects.map((p) =>
+          p.id === id ? { ...p, [field]: value } : p
+        ),
+      },
+    }));
+  };
+
+  // --- Section 4.5 helpers ---
+  const addPractice = () => {
+    setFormData((prev) => ({
+      ...prev,
+      section4_5: {
+        ...prev.section4_5,
+        practices: [
+          ...(prev.section4_5.practices || []),
+          {
+            id:
+              typeof crypto !== "undefined" &&
+              typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : Date.now().toString(),
+            practiceName: "",
+            impact: "",
+            file: null,
+          },
+        ],
+      },
+    }));
+  };
+
+  const removePractice = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      section4_5: {
+        ...prev.section4_5,
+        practices: prev.section4_5.practices.filter((p) => p.id !== id),
+      },
+    }));
+  };
+
+  const updatePractice = (
+    id: string,
+    field: "practiceName" | "impact" | "file",
+    value: any
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      section4_5: {
+        ...prev.section4_5,
+        practices: prev.section4_5.practices.map((p) =>
+          p.id === id ? { ...p, [field]: value } : p
+        ),
+      },
+    }));
+  };
+
+  // --- Section 4.6 helpers ---
   const addTraining = () => {
     const newEntry = {
       id:
@@ -323,12 +467,12 @@ export const InfraEnablersStep = () => {
       programName: "",
       organiser: "",
       trainingType: "",
-      marksObtained: 1,
     };
     setFormData((prev) => ({
       ...prev,
       section4_6: {
-        capacityArray: [...prev.section4_6.capacityArray, newEntry],
+        ...prev.section4_6,
+        capacityArray: [...(prev.section4_6.capacityArray || []), newEntry],
       },
     }));
   };
@@ -337,6 +481,7 @@ export const InfraEnablersStep = () => {
     setFormData((prev) => ({
       ...prev,
       section4_6: {
+        ...prev.section4_6,
         capacityArray: prev.section4_6.capacityArray.filter(
           (entry) => entry.id !== id
         ),
@@ -357,6 +502,7 @@ export const InfraEnablersStep = () => {
     setFormData((prev) => ({
       ...prev,
       section4_6: {
+        ...prev.section4_6,
         capacityArray: prev.section4_6.capacityArray.map((entry) =>
           entry.id === id ? { ...entry, [field]: value } : entry
         ),
@@ -366,6 +512,15 @@ export const InfraEnablersStep = () => {
 
   // Navigation / Save
   const handleNext = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+      toast({
+        title: "Validation Error",
+        description: "Please complete all required fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateFormData("infraEnablers", formData);
     goToNext();
   };
@@ -462,8 +617,7 @@ export const InfraEnablersStep = () => {
         assignedIndicators.includes("4.1") ||
         availableIndicators.includes("4.1")) &&
         (!isEditMode ||
-          (formData.section4_1?.allEligible &&
-            formData.section4_1.allEligible !== "") ||
+          formData.section4_1?.allEligible ||
           (formData.section4_1?.websiteLink &&
             formData.section4_1.websiteLink !== "")) && (
           <SectionCard
@@ -482,6 +636,7 @@ export const InfraEnablersStep = () => {
               <div>
                 <Label>
                   All Eligible Infra Projects on NIP Portal{" "}
+                  <span className="text-red-500">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />
@@ -498,15 +653,17 @@ export const InfraEnablersStep = () => {
                       name="all-eligible"
                       value="yes"
                       checked={formData.section4_1.allEligible === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_1: {
                             ...prev.section4_1,
                             allEligible: "yes",
+                            comment: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -516,34 +673,79 @@ export const InfraEnablersStep = () => {
                       name="all-eligible"
                       value="no"
                       checked={formData.section4_1.allEligible === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
-                          section4_1: { ...prev.section4_1, allEligible: "no" },
-                        }))
-                      }
+                          section4_1: {
+                            ...prev.section4_1,
+                            allEligible: "no",
+                            websiteLink: "",
+                          },
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_1.allEligible")}
               </div>
-              <div>
-                <Label>Website Link</Label>
-                <Input
-                  type="url"
-                  placeholder="Enter Website Link"
-                  value={formData.section4_1.websiteLink}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_1: {
-                        ...prev.section4_1,
-                        websiteLink: e.target.value,
-                      },
-                    }))
-                  }
-                />
-              </div>
+
+              {/* ✅ Conditionally render website link or comment */}
+              {formData.section4_1.allEligible === "yes" && (
+                <div className="flex flex-col gap-2">
+                  <Label>
+                    Website Link <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="url"
+                    placeholder="Enter Website Link"
+                    value={formData.section4_1.websiteLink}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section4_1: {
+                          ...prev.section4_1,
+                          websiteLink: e.target.value,
+                        },
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_1.websiteLink")
+                    )}
+                  />
+                  {renderFieldError("section4_1.websiteLink")}
+                </div>
+              )}
+
+              {formData.section4_1.allEligible === "no" && (
+                <div className="flex flex-col gap-2">
+                  <Label>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter reason or comment"
+                    value={formData.section4_1.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section4_1: {
+                          ...prev.section4_1,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_1.comment")
+                    )}
+                  />
+                  {renderFieldError("section4_1.comment")}
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -553,8 +755,7 @@ export const InfraEnablersStep = () => {
         assignedIndicators.includes("4.2") ||
         availableIndicators.includes("4.2")) &&
         (!isEditMode ||
-          (formData.section4_2?.available &&
-            formData.section4_2.available !== "") ||
+          formData.section4_2?.available ||
           !!formData.section4_2?.file) && (
           <SectionCard
             title={
@@ -572,6 +773,7 @@ export const InfraEnablersStep = () => {
               <div>
                 <Label>
                   Availability & Use of State/UT PMG{" "}
+                  <span className="text-red-500">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />
@@ -588,12 +790,13 @@ export const InfraEnablersStep = () => {
                       name="pmg-available"
                       value="yes"
                       checked={formData.section4_2.available === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_2: { ...prev.section4_2, available: "yes" },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
@@ -603,30 +806,61 @@ export const InfraEnablersStep = () => {
                       name="pmg-available"
                       value="no"
                       checked={formData.section4_2.available === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_2: { ...prev.section4_2, available: "no" },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_2.available")}
               </div>
               {formData.section4_2.available === "yes" && (
                 <div className="flex flex-col gap-2">
                   <FileUploadSection
                     label="Upload File"
                     value={formData.section4_2.file || null}
-                    onChange={(file) =>
+                    onChange={(file) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_2: { ...prev.section4_2, file },
-                      }))
-                    }
+                      }));
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">Description</p>
+                  {renderFieldError("section4_2.file")}
+                </div>
+              )}
+              {formData.section4_2.available === "no" && (
+                <div className="flex flex-col gap-2">
+                  <Label>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter reason or comment"
+                    value={formData.section4_2.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section4_2: {
+                          ...prev.section4_2,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_2.comment")
+                    )}
+                  />
+                  {renderFieldError("section4_2.comment")}
                 </div>
               )}
             </div>
@@ -638,41 +872,293 @@ export const InfraEnablersStep = () => {
         assignedIndicators.includes("4.3") ||
         availableIndicators.includes("4.3")) &&
         (!isEditMode ||
-          (formData.section4_3?.numberOfProjects !== undefined &&
-            formData.section4_3.numberOfProjects !== "")) && (
+          formData.section4_3?.adopted ||
+          (Array.isArray(formData.section4_3?.projects) &&
+            formData.section4_3.projects.length > 0) ||
+          formData.section4_3?.comment) && (
           <SectionCard
             title={
               <div className="flex flex-col">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">4.3 - </span> Adoption of PM
+                <span className="text-base font-semibold">
+                  <span className="text-primary">4.3 – </span> Adoption of PM
                   GatiShakti
-                   <span className="font-normal text-xs text-muted-foreground ml-1">
-                    (10 marks per 1%)
-                  </span>
                 </span>
               </div>
             }
-            subtitle=""
             className="mb-6"
           >
-            <div className="space-y-4 w-[40%]">
-              <div>
-                <Label>A₁ - Number of Projects*</Label>
-                <Input
-                  type="number"
-                  placeholder="4"
-                  value={formData.section4_3.numberOfProjects}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      section4_3: {
-                        ...formData.section4_3,
-                        numberOfProjects: e.target.value,
-                      },
-                    })
-                  }
-                />
+            <div className="flex flex-col gap-4">
+              {/* --- Toggle --- */}
+              <div className="w-[60%]">
+                <Label>
+                  Adoption of PM GatiShakti{" "}
+                  <span className="text-destructive">*</span>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="inline w-3 h-3 ml-1" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Has the State/UT adopted PM GatiShakti?
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <div className="flex gap-6 mt-1">
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="pm-gatishakti"
+                      value="yes"
+                      checked={formData.section4_3.adopted === "yes"}
+                      onChange={() => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_3: {
+                            ...prev.section4_3,
+                            adopted: "yes",
+                            comment: "",
+                          },
+                        }));
+                      }}
+                    />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="pm-gatishakti"
+                      value="no"
+                      checked={formData.section4_3.adopted === "no"}
+                      onChange={() => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_3: {
+                            ...prev.section4_3,
+                            adopted: "no",
+                            projects: [],
+                          },
+                        }));
+                      }}
+                    />
+                    No
+                  </label>
+                </div>
+                {renderFieldError("section4_3.adopted")}
               </div>
+
+              {/* --- If YES --- */}
+              {formData.section4_3.adopted === "yes" && (
+                <div className="flex flex-col gap-4">
+                  {formData.section4_3.projects.map((entry) => (
+                    <div key={entry.id} className="mb-2">
+                      {/* Fields row */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div>
+                          <Label>
+                            Project Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter project name"
+                            value={entry.projectName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateGatiProject(
+                                entry.id,
+                                "projectName",
+                                e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_3.projects.${formData.section4_3.projects.findIndex(
+                                  (p) => p.id === entry.id
+                                )}.projectName`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section4_3.projects.${formData.section4_3.projects.findIndex(
+                              (p) => p.id === entry.id
+                            )}.projectName`
+                          )}
+                        </div>
+
+                        <div>
+                          <Label>
+                            Sector <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={entry.sector}
+                            onValueChange={(v) => {
+                              showErrorsIfNeeded();
+                              updateGatiProject(entry.id, "sector", v);
+                            }}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section4_3.projects.${formData.section4_3.projects.findIndex(
+                                    (p) => p.id === entry.id
+                                  )}.sector`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section4_3.projects.${formData.section4_3.projects.findIndex(
+                              (p) => p.id === entry.id
+                            )}.sector`
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeGatiProject(entry.id)}
+                            aria-label="Remove"
+                            className="text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Upload file below */}
+                      <div className="mt-4">
+                        <FileUploadSection
+                          label="Upload File (PDF only)"
+                          accept=".pdf"
+                          value={entry.file || null}
+                          onChange={(file) => {
+                            showErrorsIfNeeded();
+                            updateGatiProject(entry.id, "file", file);
+                          }}
+                        />
+                        {renderFieldError(
+                          `section4_3.projects.${formData.section4_3.projects.findIndex(
+                            (p) => p.id === entry.id
+                          )}.file`
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {renderFieldError("section4_3.projects")}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addGatiProject}
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add More Project
+                  </Button>
+                  {/* ✅ Table view for Section 4.3 – PM GatiShakti Projects */}
+                  {formData.section4_3.projects.length > 0 && (
+                    <div className="overflow-x-auto rounded-xl mt-4">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[#DDE3F9]">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Project Name
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Sector
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Uploaded File
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              File Size
+                            </th>
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formData.section4_3.projects.map((entry) => (
+                            <tr key={entry.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm">
+                                {entry.projectName}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.file?.fileName || "No file uploaded"}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.file?.fileSize
+                                  ? `${(
+                                      entry.file.fileSize /
+                                      1024 /
+                                      1024
+                                    ).toFixed(1)} MB`
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() => removeGatiProject(entry.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* --- If NO --- (same style as Section 4.1) */}
+              {formData.section4_3.adopted === "no" && (
+                <div className="flex flex-col gap-2 w-[60%]">
+                  <Label>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter reason or comment"
+                    value={formData.section4_3.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section4_3: {
+                          ...prev.section4_3,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_3.comment")
+                    )}
+                  />
+                  {renderFieldError("section4_3.comment")}
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -682,27 +1168,27 @@ export const InfraEnablersStep = () => {
         assignedIndicators.includes("4.4") ||
         availableIndicators.includes("4.4")) &&
         (!isEditMode ||
-          (formData.section4_4?.adopted &&
-            formData.section4_4.adopted !== "") ||
-          !!formData.section4_4?.file) && (
+          formData.section4_4?.adopted ||
+          !!formData.section4_4?.file ||
+          formData.section4_4?.comment) && (
           <SectionCard
             title={
-               <div className="flex flex-col">
+              <div className="flex flex-col">
                 <span className="text-base font-semibold ">
-                  <span className="text-primary">4.4 - </span> Adoption of ADR
+                  <span className="text-primary">4.4 – </span> Adoption of ADR
                   <span className="font-normal text-xs text-muted-foreground ml-1">
                     (10 marks per practice)
                   </span>
                 </span>
               </div>
             }
-            subtitle=""
             className="mb-6"
           >
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 w-[70%]">
               <div>
                 <Label>
-                  Adoption of PM GatiShakti{" "}
+                  Adoption of ADR{" "}
+                  <span className="text-red-500">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />
@@ -710,54 +1196,100 @@ export const InfraEnablersStep = () => {
                     <TooltipContent>Is ADR adopted?</TooltipContent>
                   </Tooltip>
                 </Label>
-                <div className="flex gap-6">
+
+                <div className="flex gap-6 mt-1">
                   <label className="flex items-center gap-2">
                     <Input
                       type="radio"
                       name="adr-adopted"
                       value="yes"
                       checked={formData.section4_4.adopted === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
-                          section4_4: { ...prev.section4_4, adopted: "yes" },
-                        }))
-                      }
+                          section4_4: {
+                            ...prev.section4_4,
+                            adopted: "yes",
+                            comment: "",
+                          },
+                        }));
+                      }}
                     />
                     Yes
                   </label>
+
                   <label className="flex items-center gap-2">
                     <Input
                       type="radio"
                       name="adr-adopted"
                       value="no"
                       checked={formData.section4_4.adopted === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
-                          section4_4: { ...prev.section4_4, adopted: "no" },
-                        }))
-                      }
+                          section4_4: {
+                            ...prev.section4_4,
+                            adopted: "no",
+                            file: null,
+                          },
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_4.adopted")}
               </div>
+
+              {/* ✅ If YES → show file upload */}
               {formData.section4_4.adopted === "yes" && (
                 <div className="flex flex-col gap-2">
                   <FileUploadSection
                     label="Upload File"
                     value={formData.section4_4.file || null}
-                    onChange={(file) =>
+                    onChange={(file) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_4: { ...prev.section4_4, file },
-                      }))
-                    }
+                      }));
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Upload ADR orders/notifications
+                    Upload ADR orders
                   </p>
+                  {renderFieldError("section4_4.file")}
+                </div>
+              )}
+
+              {/* ✅ If NO → show comment box (same style as 4.1 & 4.3) */}
+              {formData.section4_4.adopted === "no" && (
+                <div className="flex flex-col gap-2 w-[60%]">
+                  <Label>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter reason or comment"
+                    value={formData.section4_4.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section4_4: {
+                          ...prev.section4_4,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_4.comment")
+                    )}
+                  />
+                  {renderFieldError("section4_4.comment")}
                 </div>
               )}
             </div>
@@ -769,138 +1301,239 @@ export const InfraEnablersStep = () => {
         assignedIndicators.includes("4.5") ||
         availableIndicators.includes("4.5")) &&
         (!isEditMode ||
-          (formData.section4_5?.implemented &&
-            formData.section4_5.implemented !== "") ||
-          (formData.section4_5?.practiceName &&
-            formData.section4_5.practiceName !== "") ||
-          (formData.section4_5?.impact && formData.section4_5.impact !== "") ||
-          !!formData.section4_5?.file) && (
+          formData.section4_5?.implemented ||
+          (Array.isArray(formData.section4_5?.practices) &&
+            formData.section4_5.practices.length > 0) ||
+          formData.section4_5?.comment) && (
           <SectionCard
             title={
               <div className="flex flex-col">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">4.5 - </span> Innovative
+                <span className="text-base font-semibold">
+                  <span className="text-primary">4.5 – </span> Innovative
                   Practices
                 </span>
               </div>
             }
-            subtitle=""
             className="mb-6"
           >
             <div className="flex flex-col gap-4 w-[70%]">
+              {/* Toggle */}
               <div>
                 <Label>
-                  Innovation Practices{" "}
+                  Innovative Practices{" "}
+                  <span className="text-destructive">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      Are there innovative practices?
+                      Has the State/UT implemented innovative practices?
                     </TooltipContent>
                   </Tooltip>
                 </Label>
-                <div className="flex gap-6">
+
+                <div className="flex gap-6 mt-1">
                   <label className="flex items-center gap-2">
                     <Input
                       type="radio"
-                      name="innovation-practices"
+                      name="innovative-practices"
                       value="yes"
                       checked={formData.section4_5.implemented === "yes"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section4_5: {
                             ...prev.section4_5,
                             implemented: "yes",
+                            comment: "",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     Yes
                   </label>
+
                   <label className="flex items-center gap-2">
                     <Input
                       type="radio"
-                      name="innovation-practices"
+                      name="innovative-practices"
                       value="no"
                       checked={formData.section4_5.implemented === "no"}
-                      onChange={() =>
+                      onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
-                          section4_5: { ...prev.section4_5, implemented: "no" },
-                        }))
-                      }
+                          section4_5: {
+                            ...prev.section4_5,
+                            implemented: "no",
+                            practices: [],
+                          },
+                        }));
+                      }}
                     />
                     No
                   </label>
                 </div>
+                {renderFieldError("section4_5.implemented")}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Practice Name</Label>
+
+              {/* ✅ If YES → show Practice list */}
+              {formData.section4_5.implemented === "yes" && (
+                <div className="flex flex-col gap-4">
+                  {(formData.section4_5.practices || []).map((entry) => (
+                    <div key={entry.id} className="mb-2">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div>
+                          <Label>
+                            Practice Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter practice name"
+                            value={entry.practiceName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updatePractice(
+                                entry.id,
+                                "practiceName",
+                                e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_5.practices.${formData.section4_5.practices.findIndex(
+                                  (p) => p.id === entry.id
+                                )}.practiceName`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section4_5.practices.${formData.section4_5.practices.findIndex(
+                              (p) => p.id === entry.id
+                            )}.practiceName`
+                          )}
+                        </div>
+
+                        <div>
+                          <Label>
+                            Impact <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={entry.impact}
+                            onValueChange={(v) => {
+                              showErrorsIfNeeded();
+                              updatePractice(entry.id, "impact", v);
+                            }}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section4_5.practices.${formData.section4_5.practices.findIndex(
+                                    (p) => p.id === entry.id
+                                  )}.impact`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select impact" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[
+                                "Rollout",
+                                "Viability",
+                                "Tech",
+                                "Monitoring",
+                                "Capacity",
+                                "Other",
+                              ].map((impact) => (
+                                <SelectItem key={impact} value={impact}>
+                                  {impact}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section4_5.practices.${formData.section4_5.practices.findIndex(
+                              (p) => p.id === entry.id
+                            )}.impact`
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removePractice(entry.id)}
+                            aria-label="Remove"
+                            className="text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Upload File Below */}
+                      <div className="mt-4">
+                        <FileUploadSection
+                          label="Upload Evidence (Annex 10)"
+                          value={entry.file || null}
+                          accept=".pdf"
+                          onChange={(file) => {
+                            showErrorsIfNeeded();
+                            updatePractice(entry.id, "file", file);
+                          }}
+                        />
+                        {renderFieldError(
+                          `section4_5.practices.${formData.section4_5.practices.findIndex(
+                            (p) => p.id === entry.id
+                          )}.file`
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {renderFieldError("section4_5.practices")}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addPractice}
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add More Practice
+                  </Button>
+                </div>
+              )}
+
+              {/* ✅ If NO → show Comment Box (same as 4.1/4.3/4.4) */}
+              {formData.section4_5.implemented === "no" && (
+                <div className="flex flex-col gap-2 w-[60%]">
+                  <Label>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     type="text"
-                    placeholder="Practice Name"
-                    value={formData.section4_5.practiceName}
-                    onChange={(e) =>
+                    placeholder="Enter reason or comment"
+                    value={formData.section4_5.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
                       setFormData((prev) => ({
                         ...prev,
                         section4_5: {
                           ...prev.section4_5,
-                          practiceName: e.target.value,
+                          comment: e.target.value,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_5.comment")
+                    )}
                   />
-                </div>
-                <div>
-                  <Label>
-                    Impact{" "}
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="inline w-3 h-3 ml-1" />
-                      </TooltipTrigger>
-                      <TooltipContent>Impact of the practice</TooltipContent>
-                    </Tooltip>
-                  </Label>
-                  <Select
-                    value={formData.section4_5.impact}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_5: { ...prev.section4_5, impact: value },
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Capital allocation (INR)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {IMPACT_OPTIONS.map((impact) => (
-                        <SelectItem key={impact} value={impact}>
-                          {impact}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {formData.section4_5.implemented === "yes" && (
-                <div className="flex flex-col gap-2">
-                  <FileUploadSection
-                    label="Upload File"
-                    value={formData.section4_5.file || null}
-                    onChange={(file) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        section4_5: { ...prev.section4_5, file },
-                      }))
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Upload evidence
-                  </p>
+                  {renderFieldError("section4_5.comment")}
                 </div>
               )}
             </div>
@@ -912,26 +1545,27 @@ export const InfraEnablersStep = () => {
         assignedIndicators.includes("4.6") ||
         availableIndicators.includes("4.6")) &&
         (!isEditMode ||
-          (Array.isArray(formData.section4_6.capacityArray) &&
-            formData.section4_6.capacityArray.length > 0)) && (
+          formData.section4_6?.participated ||
+          (Array.isArray(formData.section4_6?.capacityArray) &&
+            formData.section4_6.capacityArray.length > 0) ||
+          formData.section4_6?.comment) && (
           <SectionCard
             title={
               <div className="flex flex-col">
                 <span className="text-base font-semibold ">
-                  <span className="text-primary">4.6 - </span> Capacity Building
-                  - Officer Participation
-                  <span className="font-normal text-xs text-muted-foreground ml-1">
-                    (1 marks per officer)
-                  </span>
+                  <span className="text-primary">4.6 – </span> Capacity Building
+                  – Officer Participation
                 </span>
               </div>
             }
             className="mb-6"
           >
             <div className="flex flex-col gap-4">
-              <div>
+              {/* --- Toggle --- */}
+              <div className="w-[60%]">
                 <Label>
                   Capacity Building – Officer Participation{" "}
+                  <span className="text-destructive">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />
@@ -941,172 +1575,345 @@ export const InfraEnablersStep = () => {
                     </TooltipContent>
                   </Tooltip>
                 </Label>
-                <div className="flex gap-6">
-                  <label
-                    htmlFor="capacity-yes-step"
-                    className="flex items-center gap-2 cursor-pointer"
-                    onClick={() => {
-                      if (formData.section4_6.capacityArray.length === 0) {
-                        addTraining();
-                      }
-                    }}
-                  >
-                    <input
-                      id="capacity-yes-step"
+
+                <div className="flex gap-6 mt-1">
+                  <label className="flex items-center gap-2">
+                    <Input
                       type="radio"
-                      name="capacity-building-step"
+                      name="capacity-building"
                       value="yes"
-                      checked={formData.section4_6.capacityArray.length > 0}
+                      checked={formData.section4_6.participated === "yes"}
                       onChange={() => {
-                        if (formData.section4_6.capacityArray.length === 0) {
-                          addTraining();
-                        }
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_6: {
+                            ...prev.section4_6,
+                            participated: "yes",
+                            comment: "",
+                            capacityArray: prev.section4_6.capacityArray || [],
+                          },
+                        }));
                       }}
-                      className="w-4 h-4 text-blue-600 cursor-pointer"
                     />
-                    <span className="cursor-pointer select-none">Yes</span>
+                    Yes
                   </label>
-                  <label
-                    htmlFor="capacity-no-step"
-                    className="flex items-center gap-2 cursor-pointer"
-                    onClick={() => {
-                      if (formData.section4_6.capacityArray.length > 0) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          section4_6: { capacityArray: [] },
-                        }));
-                      }
-                    }}
-                  >
-                    <input
-                      id="capacity-no-step"
+
+                  <label className="flex items-center gap-2">
+                    <Input
                       type="radio"
-                      name="capacity-building-step"
+                      name="capacity-building"
                       value="no"
-                      checked={formData.section4_6.capacityArray.length === 0}
+                      checked={formData.section4_6.participated === "no"}
                       onChange={() => {
+                        showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
-                          section4_6: { capacityArray: [] },
+                          section4_6: {
+                            ...prev.section4_6,
+                            participated: "no",
+                            capacityArray: [],
+                          },
                         }));
                       }}
-                      className="w-4 h-4 text-blue-600 cursor-pointer"
                     />
-                    <span className="cursor-pointer select-none">No</span>
+                    No
                   </label>
                 </div>
+                {renderFieldError("section4_6.participated")}
               </div>
 
-              {formData.section4_6.capacityArray.map((entry, idx) => (
-                <div key={entry.id} className="mb-2">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-                    <div>
-                      <Label>Officer Name</Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter officer name"
-                        value={entry.officerName}
-                        onChange={(e) =>
-                          updateTraining(
-                            entry.id,
-                            "officerName",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Designation</Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter designation"
-                        value={entry.designation}
-                        onChange={(e) =>
-                          updateTraining(
-                            entry.id,
-                            "designation",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Program Name</Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter program name"
-                        value={entry.programName}
-                        onChange={(e) =>
-                          updateTraining(
-                            entry.id,
-                            "programName",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Organiser</Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter organiser"
-                        value={entry.organiser}
-                        onChange={(e) =>
-                          updateTraining(entry.id, "organiser", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div className="flex flex-col md:flex-row gap-2 md:gap-4">
-                      <div className="w-full">
-                        <Label>Training Type</Label>
-                        <Select
-                          value={entry.trainingType}
-                          onValueChange={(value) =>
-                            updateTraining(entry.id, "trainingType", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TRAINING_TYPE_OPTIONS.map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+              {/* ✅ If YES → show officer entries */}
+              {formData.section4_6.participated === "yes" && (
+                <div className="flex flex-col gap-4">
+                  {formData.section4_6.capacityArray.map((entry) => (
+                    <div key={entry.id} className="mb-2">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                        <div>
+                          <Label>
+                            Officer Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter officer name"
+                            value={entry.officerName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateTraining(
+                                entry.id,
+                                "officerName",
+                                e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.officerName`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.officerName`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Designation{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter designation"
+                            value={entry.designation}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateTraining(
+                                entry.id,
+                                "designation",
+                                e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.designation`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.designation`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Program Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter program name"
+                            value={entry.programName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateTraining(
+                                entry.id,
+                                "programName",
+                                e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.programName`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.programName`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Organizer{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter organizer"
+                            value={entry.organiser}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateTraining(
+                                entry.id,
+                                "organiser",
+                                e.target.value
+                              );
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.organiser`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.organiser`
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <Label>
+                              Type <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                              value={entry.trainingType}
+                              onValueChange={(v) => {
+                                showErrorsIfNeeded();
+                                updateTraining(entry.id, "trainingType", v);
+                              }}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.trainingType`
+                                  )
+                                )}
+                              >
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Online">Online</SelectItem>
+                                <SelectItem value="Offline">Offline</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {renderFieldError(
+                              `section4_6.capacityArray.${formData.section4_6.capacityArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.trainingType`
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeTraining(entry.id)}
+                            aria-label="Remove"
+                            className="text-destructive hover:bg-destructive/10 mt-6"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="self-start mt-6"
-                        onClick={() => removeTraining(entry.id)}
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="w-5 h-5 text-destructive" />
-                      </Button>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  ))}
+                  {renderFieldError("section4_6.capacityArray")}
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addTraining}
-                className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 "
-              >
-                <Plus className="w-4 h-4" />
-                Add More Training
-              </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addTraining}
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add More Officer
+                  </Button>
+                  {/* ✅ Table view for Section 4.6 – Officer Participation */}
+                  {formData.section4_6.capacityArray.length > 0 && (
+                    <div className="overflow-x-auto rounded-xl mt-4">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[#DDE3F9]">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Officer Name
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Designation
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Program Name
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Organizer
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Type
+                            </th>
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formData.section4_6.capacityArray.map((entry) => (
+                            <tr key={entry.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm">
+                                {entry.officerName}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.designation}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.programName}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.organiser}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.trainingType}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() => removeTraining(entry.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ✅ If NO → show comment box */}
+              {formData.section4_6.participated === "no" && (
+                <div className="flex flex-col gap-2 w-[60%]">
+                  <Label>
+                    Comments (Reason){" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter reason or comment"
+                    value={formData.section4_6.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section4_6: {
+                          ...prev.section4_6,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section4_6.comment")
+                    )}
+                  />
+                  {renderFieldError("section4_6.comment")}
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
 
       {/* Navigation Buttons */}
+      {isNextDisabled && showValidationErrors && (
+        <p className="text-sm text-destructive mb-4">
+          Complete all required fields before continuing.
+        </p>
+      )}
       <FormActions
         onPrevious={goToPrevious}
         onNext={handleNext}
@@ -1115,6 +1922,7 @@ export const InfraEnablersStep = () => {
         isLastStep={isLastStep}
         nextLabel={isLastStep ? "Review & Submit" : "Next"}
         showSaveDraft={true}
+        isNextDisabled={isNextDisabled}
       />
     </div>
   );

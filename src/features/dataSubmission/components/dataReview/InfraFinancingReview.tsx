@@ -5,7 +5,17 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Plus, Trash2, Clock, Edit3, Check, X, CheckCircle, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
@@ -48,10 +58,12 @@ export const InfraFinancingReview = ({
   });
 
   useEffect(() => {
-    setSection14State({
-      totalULBs: formData?.section1_4?.totalULBs || 0,
-      bondList: formData?.section1_4?.bondList || [],
-    });
+    if (!isRestoringRef.current) {
+      setSection14State({
+        totalULBs: formData?.section1_4?.totalULBs || 0,
+        bondList: formData?.section1_4?.bondList || [],
+      });
+    }
   }, [formData?.section1_4]);
   const { saveMessage, getMessage, getComments, getAllComments } =
     useSectionMessages(submissionId, submission);
@@ -67,17 +79,21 @@ export const InfraFinancingReview = ({
   });
 
   useEffect(() => {
-    setSection13State({
-      totalULBs: formData?.section1_3?.totalULBs || 0,
-      ulbList: formData?.section1_3?.ulbList || [],
-    });
+    if (!isRestoringRef.current) {
+      setSection13State({
+        totalULBs: formData?.section1_3?.totalULBs || 0,
+        ulbList: formData?.section1_3?.ulbList || [],
+      });
+    }
   }, [formData?.section1_3]);
 
   // Section 1.5 state management
   const [section15State, setSection15State] = useState<any[]>(formData?.section1_5 || []);
 
   useEffect(() => {
-    setSection15State(formData?.section1_5 || []);
+    if (!isRestoringRef.current) {
+      setSection15State(formData?.section1_5 || []);
+    }
   }, [formData?.section1_5]);
 
   // Check if this section has any data
@@ -148,8 +164,110 @@ const sectionsWithData = useMemo(() => {
   const [capitalAllocation, setCapitalAllocation] = useState('');
   const [gsdpForFY, setGsdpForFY] = useState('');
 
+  // State for section 1.2
+  const [actualCapex, setActualCapex] = useState('');
+  const [stateCapexUtilisation, setStateCapexUtilisation] = useState('');
+
+  // State for save confirmation dialog
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
+
+  // State for Send Back and Accept confirmation dialogs
+  const [showSendBackDialog, setShowSendBackDialog] = useState(false);
+  const [showAcceptDialog, setShowAcceptDialog] = useState(false);
+  const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
+
+  // Helper function to check user role
+  const getUserRole = () => {
+    try {
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const user = JSON.parse(authUser);
+        return user.value?.role;
+      }
+    } catch (error) {
+      console.error('Error reading user role:', error);
+    }
+    return null;
+  };
+
+  // Initialize section 1.2 state from formData (but not when restoring from cancel)
+  useEffect(() => {
+    if (!isRestoringRef.current) {
+      if (formData?.section1_2?.actualCapex) {
+        // Extract numeric value if it's formatted
+        const value = typeof formData.section1_2.actualCapex === 'string' 
+          ? formData.section1_2.actualCapex.replace(/[₹,Crores\s]/g, '').trim()
+          : String(formData.section1_2.actualCapex);
+        setActualCapex(value);
+      } else {
+        setActualCapex('');
+      }
+
+      if (formData?.section1_2?.stateCapexUtilisation) {
+        // Extract numeric value if it's formatted
+        const value = typeof formData.section1_2.stateCapexUtilisation === 'string'
+          ? formData.section1_2.stateCapexUtilisation.replace(/[₹,Crores\s]/g, '').trim()
+          : String(formData.section1_2.stateCapexUtilisation);
+        setStateCapexUtilisation(value);
+      } else {
+        setStateCapexUtilisation('');
+      }
+    }
+  }, [formData?.section1_2]);
+
   // State for edit fucntionality indicator wise
   const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+  
+  // Store original state snapshots when edit mode starts (for cancel functionality)
+  const [originalStateSnapshot, setOriginalStateSnapshot] = useState<any>(null);
+  // Flag to prevent useEffect from overriding cancel restore
+  const isRestoringRef = useRef(false);
+  // Counter to force remount of Select components on cancel
+  const [selectResetKey, setSelectResetKey] = useState(0);
+  
+  // Handle edit mode start - store original state snapshot
+  const handleEditStart = (sectionId: string) => {
+    // Store a deep copy of all relevant state
+    setOriginalStateSnapshot({
+      submissionData: JSON.parse(JSON.stringify(submissionData)),
+      capitalAllocation,
+      gsdpForFY,
+      actualCapex,
+      stateCapexUtilisation,
+      section13State: JSON.parse(JSON.stringify(section13State)),
+      section14State: JSON.parse(JSON.stringify(section14State)),
+      section15State: JSON.parse(JSON.stringify(section15State)),
+    });
+    setEditable(sectionId, true);
+  };
+  
+  // Handle cancel - restore original state
+  const handleCancel = (sectionId: string) => {
+    if (originalStateSnapshot) {
+      isRestoringRef.current = true;
+      setSubmissionData(originalStateSnapshot.submissionData);
+      setCapitalAllocation(originalStateSnapshot.capitalAllocation);
+      setGsdpForFY(originalStateSnapshot.gsdpForFY);
+      setActualCapex(originalStateSnapshot.actualCapex);
+      setStateCapexUtilisation(originalStateSnapshot.stateCapexUtilisation);
+      setSection13State(originalStateSnapshot.section13State);
+      setSection14State(originalStateSnapshot.section14State);
+      setSection15State(originalStateSnapshot.section15State);
+      setOriginalStateSnapshot(null);
+      setEditable(sectionId, false);
+      // Increment reset key to force Select components to remount
+      setSelectResetKey(prev => prev + 1);
+      // Reset the flag after React has processed the state update
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isRestoringRef.current = false;
+        });
+      });
+    } else {
+      setEditable(sectionId, false);
+    }
+  };
 
   // Real-time update listener
   useEffect(() => {
@@ -369,6 +487,23 @@ const sectionsWithData = useMemo(() => {
   // Handles for review edit, accept, send back
   // Add this handler after other handlers
   const onSaveSection = async (sectionId: string) => {
+    // Check if user is NODAL_OFFICER
+    const userRole = getUserRole();
+    const isNodalOfficer = userRole === 'NODAL_OFFICER';
+
+    // If NODAL_OFFICER, show confirmation dialog first
+    if (isNodalOfficer) {
+      setPendingSaveSectionId(sectionId);
+      setShowSaveDialog(true);
+      return;
+    }
+
+    // For non-NODAL_OFFICER users, proceed with save directly
+    await performSave(sectionId);
+  };
+
+  // Actual save function that performs the save operation
+  const performSave = async (sectionId: string) => {
     try {
       // Map visual section id to payload section key
       const payloadSection = `section${sectionId.replace('.', '_')}`;
@@ -389,11 +524,11 @@ const sectionsWithData = useMemo(() => {
 
         case '1.2':
           fields = [
-            
-              {year: formData?.section1_2?.year || "2024-25"},
-              {actualCapex: formData?.section1_2?.actualCapex},
-              {stateCapexUtilisation: formData?.section1_2?.stateCapexUtilisation}
-            
+            {
+              year: formData?.section1_2?.year || "2024-25",
+              actualCapex: actualCapex ? Number(actualCapex) : null,
+              stateCapexUtilisation: stateCapexUtilisation ? Number(stateCapexUtilisation) : null
+            }
           ];
           break;
 
@@ -447,6 +582,19 @@ const sectionsWithData = useMemo(() => {
 
       console.log('🔄 payload section:',  payloadSection)
 
+      // Check if user is NODAL_OFFICER to add status to payload
+      const userRole = getUserRole();
+      const isNodalOfficer = userRole === 'NODAL_OFFICER';
+      
+      // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
+      if (isNodalOfficer && fields.length > 0) {
+        // Add status to the first field object (or create a new one if needed)
+        fields[0] = {
+          ...fields[0],
+          status: 'RESUBMITTED',
+        };
+      }
+
       await handleSaveSection({
         submissionId,
         category: 'infraFinancing',
@@ -454,8 +602,36 @@ const sectionsWithData = useMemo(() => {
         fields
       });
 
+      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
+      if (isNodalOfficer) {
+        // Update local formData state to set status to RESUBMITTED
+        const sectionKey = `section${sectionId.replace('.', '_')}`;
+        // Update formData prop if it exists
+        if (formData && (formData as any)[sectionKey]) {
+          (formData as any)[sectionKey] = {
+            ...(formData as any)[sectionKey],
+            status: 'RESUBMITTED',
+          };
+          setSubmissionData({ ...formData });
+        }
+        // Also update submissionData to trigger re-render
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (updated[sectionKey]) {
+            updated[sectionKey] = {
+              ...updated[sectionKey],
+              status: 'RESUBMITTED',
+            };
+          }
+          return updated;
+        });
+      }
+
       // Disable editing after successful save
       setEditable(sectionId, false);
+      // Clear the snapshot since save was successful
+      setOriginalStateSnapshot(null);
 
       // Optional: Show success message
       // toast.success(`Section ${sectionId} saved successfully`);
@@ -468,7 +644,22 @@ const sectionsWithData = useMemo(() => {
     }
   };
 
-  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+  // Handle confirmation dialog actions
+  const handleConfirmSave = async () => {
+    if (pendingSaveSectionId) {
+      await performSave(pendingSaveSectionId);
+      setShowSaveDialog(false);
+      setPendingSaveSectionId(null);
+    }
+  };
+
+  const handleCancelSave = () => {
+    setShowSaveDialog(false);
+    setPendingSaveSectionId(null);
+  };
+
+  // Actual function that performs the status update
+  const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const payload = {
       submissionId,
       category: 'infraFinancing',
@@ -492,6 +683,58 @@ const sectionsWithData = useMemo(() => {
       console.error("❌ Failed to update indicator status:", error);
     }
   }
+
+  // Wrapper function that checks for STATE_APPROVER and shows dialog if needed
+  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+    const userRole = getUserRole();
+    const isStateApprover = userRole === 'STATE_APPROVER';
+
+    if (isStateApprover) {
+      // Show appropriate dialog based on action
+      setPendingActionSectionId(sectionId);
+      if (status) {
+        // Accept action
+        setShowAcceptDialog(true);
+      } else {
+        // Send Back action
+        setShowSendBackDialog(true);
+      }
+      return;
+    }
+
+    // For non-STATE_APPROVER users, proceed directly
+    await performIndicatorStatus(sectionId, status);
+  };
+
+  // Handle Send Back confirmation
+  const handleConfirmSendBack = async () => {
+    if (pendingActionSectionId) {
+      await performIndicatorStatus(pendingActionSectionId, false);
+      setShowSendBackDialog(false);
+      setPendingActionSectionId(null);
+      // Close the message modal if it's open
+      setActiveSection(null);
+    }
+  };
+
+  const handleCancelSendBack = () => {
+    setShowSendBackDialog(false);
+    setPendingActionSectionId(null);
+  };
+
+  // Handle Accept confirmation
+  const handleConfirmAccept = async () => {
+    if (pendingActionSectionId) {
+      await performIndicatorStatus(pendingActionSectionId, true);
+      setShowAcceptDialog(false);
+      setPendingActionSectionId(null);
+    }
+  };
+
+  const handleCancelAccept = () => {
+    setShowAcceptDialog(false);
+    setPendingActionSectionId(null);
+  };
 
 
 // 🧑‍💻🧑‍💻Edited by Harsh
@@ -544,6 +787,67 @@ const renderActionButtons = (sectionId: string) => {
   };
   const userRole = getUserRole();
   const isNodalOfficer = userRole === 'NODAL_OFFICER';
+  const isStateApprover = userRole === 'STATE_APPROVER';
+  
+  // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
+  if (isStateApprover && sectionStatus === 'RESUBMITTED') {
+    return (
+      <div className="flex gap-2">
+        {!isEditable(sectionId) ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleEditStart(sectionId)}
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => onSaveSection(sectionId)}
+            >
+              <Check className="w-4 h-4" />
+              Save
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleCancel(sectionId)}
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </Button>
+          </>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+          disabled
+        >
+          <CheckCircle className="w-4 h-4" />
+          Re Submitted
+        </Button>
+        {!isNodalOfficer && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+          </Button>
+        )}
+      </div>
+    );
+  }
   
   if (sectionStatus === 'REVERTED') {
     // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
@@ -555,7 +859,7 @@ const renderActionButtons = (sectionId: string) => {
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => setEditable(sectionId, true)}
+              onClick={() => handleEditStart(sectionId)}
             >
               <Edit3 className="w-4 h-4" />
               Edit
@@ -575,7 +879,7 @@ const renderActionButtons = (sectionId: string) => {
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => setEditable(sectionId, false)}
+                onClick={() => handleCancel(sectionId)}
               >
                 <X className="w-4 h-4" />
                 Cancel
@@ -611,8 +915,25 @@ const renderActionButtons = (sectionId: string) => {
     );
   }
 
-  // For NODAL_OFFICER, if status is not REVERTED or ACCEPTED, don't show any buttons
-  if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED') {
+  // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
+  if (isNodalOfficer && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+          disabled
+        >
+          <Clock className="w-4 h-4" />
+          Under Review
+        </Button>
+      </div>
+    );
+  }
+
+  // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
+  if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
     return null;
   }
 
@@ -651,16 +972,19 @@ const renderActionButtons = (sectionId: string) => {
         </>
       )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-1"
-        onClick={() => handleOpenModal(sectionId)}
-      >
-        <RotateCcw className="w-4 h-4" />
-        Send Back 
-        {/* ({commentCount}) */}
-      </Button>
+      {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
+      {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenModal(sectionId)}
+        >
+          <RotateCcw className="w-4 h-4" />
+          Send Back 
+          {/* ({commentCount}) */}
+        </Button>
+      )}
 
       {!isNodalOfficer && (
         <Button
@@ -874,57 +1198,76 @@ const calculateAllocationPercentage = () => {
                 <Input
                   value={formData?.section1_2?.year || "2024-25"}
                   readOnly
+                  className="bg-gray-50"
                 />
               </div>
               <div>
                 <Label>A₁ - Actual Capex (INR)</Label>
                 <Input
                   value={
-                    formData?.section1_2?.actualCapex
-                      ? `₹${formData.section1_2.actualCapex} Crores`
+                    isEditable('1.2')
+                      ? actualCapex
+                      : actualCapex
+                      ? `₹${actualCapex} Crores`
                       : ""
                   }
+                  onChange={(e) => {
+                    // Only allow numbers and decimal point
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    setActualCapex(value);
+                  }}
+                  placeholder="Enter Actual Capex value"
                   readOnly={!isEditable('1.2')}
                   className={isEditable('1.2') ? 'bg-white' : 'bg-gray-50'}
                 />
+                {isEditable('1.2') && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Current value: "{actualCapex}"
+                  </div>
+                )}
               </div>
               <div>
                 <Label>State Capex Utilisation (INR)</Label>
                 <Input
                   value={
-                    formData?.section1_2?.stateCapexUtilisation
-                      ? `₹${formData.section1_2.stateCapexUtilisation} Crores`
+                    isEditable('1.2')
+                      ? stateCapexUtilisation
+                      : stateCapexUtilisation
+                      ? `₹${stateCapexUtilisation} Crores`
                       : ""
                   }
-                readOnly={!isEditable('1.2')}
-                className={isEditable('1.2') ? 'bg-white' : 'bg-gray-50'}
+                  onChange={(e) => {
+                    // Only allow numbers and decimal point
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    setStateCapexUtilisation(value);
+                  }}
+                  placeholder="Enter State Capex Utilisation value"
+                  readOnly={!isEditable('1.2')}
+                  className={isEditable('1.2') ? 'bg-white' : 'bg-gray-50'}
                 />
+                {isEditable('1.2') && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Current value: "{stateCapexUtilisation}"
+                  </div>
+                )}
               </div>
               <div className="">
                 <Label>% Capex Actuals to GSDP</Label>
                 <Input
                   value={(() => {
-                    const actualCapex = parseFloat(
-                      formData?.section1_2?.actualCapex?.replace(/[₹,]/g, "") ||
-                        "0"
-                    );
-                    const stateCapexUtilisation = parseFloat(
-                      formData?.section1_2?.stateCapexUtilisation?.replace(
-                        /[₹,]/g,
-                        ""
-                      ) || "0"
-                    );
+                    const actualCapexNum = parseFloat(actualCapex) || 0;
+                    const stateCapexUtilisationNum = parseFloat(stateCapexUtilisation) || 0;
 
                     if (
-                      isNaN(actualCapex) ||
-                      isNaN(stateCapexUtilisation) ||
-                      stateCapexUtilisation === 0
+                      isNaN(actualCapexNum) ||
+                      isNaN(stateCapexUtilisationNum) ||
+                      stateCapexUtilisationNum === 0
                     ) {
                       return "";
                     }
 
                     const percentage =
-                      (actualCapex / stateCapexUtilisation) * 100;
+                      (actualCapexNum / stateCapexUtilisationNum) * 100;
                     return percentage.toFixed(1) + "%";
                   })()}
                   readOnly
@@ -1061,6 +1404,7 @@ const calculateAllocationPercentage = () => {
               formData={{ section1_3: section13State }}
               isEditable={isEditable}
               setSectionState={setSection13State}
+              resetKey={selectResetKey}
             />
           </SectionCard>
         )}
@@ -1149,6 +1493,7 @@ const calculateAllocationPercentage = () => {
               formData={{ section1_4: section14State }}
               isEditable={isEditable}
               setSectionState={setSection14State}
+              resetKey={selectResetKey}
             />
           </SectionCard>
         )}
@@ -1230,6 +1575,7 @@ const calculateAllocationPercentage = () => {
               formData={{ section1_5: section15State }}
               isEditable={isEditable}
               setSectionState={setSection15State}
+              resetKey={selectResetKey}
             />
           </SectionCard>
         )}
@@ -1256,6 +1602,54 @@ const calculateAllocationPercentage = () => {
           getAllComments().length
         }-${Date.now()}`} // Force re-render when comments change
       />
+
+      {/* Confirmation Dialog for NODAL_OFFICER Save */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save this section? This will send the data to the State Approver for review.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSave}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>Confirm & Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for STATE_APPROVER Send Back */}
+      <AlertDialog open={showSendBackDialog} onOpenChange={setShowSendBackDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Send Back</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSendBack}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSendBack}>Confirm & Send Back</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for STATE_APPROVER Accept */}
+      <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Accept</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

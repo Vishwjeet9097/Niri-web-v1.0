@@ -2,10 +2,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Upload, Plus, Clock, Edit3, Check, X, RotateCcw, CheckCircle } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -75,7 +86,145 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
+  
+  // Store original formDataState snapshot when edit mode starts (for cancel functionality)
+  const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
+  // Flag to prevent useEffect from overriding cancel restore
+  const isRestoringRef = useRef(false);
+  // Counter to force remount of Select components on cancel
+  const [selectResetKey, setSelectResetKey] = useState(0);
+  // Refresh key to force component re-render on cancel
+  const [refreshKey, setRefreshKey] = useState(0);
+  
+  // State for adding new project in section 3.4
+  const [showAddProjectForm, setShowAddProjectForm] = useState(false);
+  const [newProject, setNewProject] = useState({
+    nameOfProject: "",
+    nipId: "",
+    fundingSource: "",
+    infrastructureSector: "",
+    dateOfAward: "",
+    capexPercentage: "",
+    totalProjectCost: "",
+  });
+
+  // State for adding new VGF proposal in section 3.3
+  const [showAddVGFForm, setShowAddVGFForm] = useState(false);
+  const [newVGFItem, setNewVGFItem] = useState({
+    projectName: "",
+    sector: "",
+    type: "",
+    submissionDate: "",
+    file: null as FileUpload | null,
+  });
+
+  // State for save confirmation dialog
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
+
+  // State for Send Back and Accept confirmation dialogs
+  const [showSendBackDialog, setShowSendBackDialog] = useState(false);
+  const [showAcceptDialog, setShowAcceptDialog] = useState(false);
+  const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
+
+  // Helper function to check user role
+  const getUserRole = () => {
+    try {
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const user = JSON.parse(authUser);
+        return user.value?.role;
+      }
+    } catch (error) {
+      console.error('Error reading user role:', error);
+    }
+    return null;
+  };
+
   const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+  
+  // Handle edit mode start - store original state snapshot
+  const handleEditStart = (sectionId: string) => {
+    // Store a deep copy of current formDataState
+    setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
+    setEditable(sectionId, true);
+  };
+  
+  // Handle cancel - restore original state
+  const handleCancel = (sectionId: string) => {
+    if (originalFormDataSnapshot) {
+      isRestoringRef.current = true;
+      // Create a fresh deep copy to ensure React detects the change
+      const restoredState = JSON.parse(JSON.stringify(originalFormDataSnapshot));
+      setFormDataState(restoredState);
+      setOriginalFormDataSnapshot(null);
+      setEditable(sectionId, false);
+      // Increment reset key to force Select components to remount
+      setSelectResetKey(prev => prev + 1);
+      // Increment refresh key to force component re-render
+      setRefreshKey(prev => prev + 1);
+      
+      // Close and reset "Add More Project" forms for section 3.3
+      if (sectionId === '3.3') {
+        setShowAddVGFForm(false);
+        setNewVGFItem({
+          projectName: "",
+          sector: "",
+          type: "",
+          submissionDate: "",
+          file: null,
+        });
+      }
+      
+      // Close and reset "Add More Project" forms for section 3.4
+      if (sectionId === '3.4') {
+        setShowAddProjectForm(false);
+        setNewProject({
+          nameOfProject: "",
+          nipId: "",
+          fundingSource: "",
+          infrastructureSector: "",
+          dateOfAward: "",
+          capexPercentage: "",
+          totalProjectCost: "",
+        });
+      }
+      
+      // Reset the flag after React has processed the state update
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isRestoringRef.current = false;
+        });
+      });
+    } else {
+      setEditable(sectionId, false);
+      // Increment refresh key even if no snapshot exists
+      setRefreshKey(prev => prev + 1);
+      // Still close forms even if no snapshot exists
+      if (sectionId === '3.3') {
+        setShowAddVGFForm(false);
+        setNewVGFItem({
+          projectName: "",
+          sector: "",
+          type: "",
+          submissionDate: "",
+          file: null,
+        });
+      }
+      if (sectionId === '3.4') {
+        setShowAddProjectForm(false);
+        setNewProject({
+          nameOfProject: "",
+          nipId: "",
+          fundingSource: "",
+          infrastructureSector: "",
+          dateOfAward: "",
+          capexPercentage: "",
+          totalProjectCost: "",
+        });
+      }
+    }
+  };
   
   // Alias for formDataState to match pattern used in other review components
   const state = formDataState as any;
@@ -328,13 +477,132 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     });
   };
 
+  // Handle adding new project to section 3.4
+  const handleAddNewProject = () => {
+    setFormDataState((prev: any) => {
+      const current = prev?.section3_4?.projects || [];
+      const newProjectWithId = {
+        ...newProject,
+        id: `project-${Date.now()}`,
+        dateOfAward: newProject.dateOfAward ? new Date(newProject.dateOfAward).toISOString() : null,
+      };
+      return {
+        ...prev,
+        section3_4: {
+          ...(prev?.section3_4 || {}),
+          projects: [...current, newProjectWithId],
+        },
+      };
+    });
+    // Reset form
+    setNewProject({
+      nameOfProject: "",
+      nipId: "",
+      fundingSource: "",
+      infrastructureSector: "",
+      dateOfAward: "",
+      capexPercentage: "",
+      totalProjectCost: "",
+    });
+    setShowAddProjectForm(false);
+  };
+
+  // Handle cancel adding new project
+  const handleCancelAddProject = () => {
+    setNewProject({
+      nameOfProject: "",
+      nipId: "",
+      fundingSource: "",
+      infrastructureSector: "",
+      dateOfAward: "",
+      capexPercentage: "",
+      totalProjectCost: "",
+    });
+    setShowAddProjectForm(false);
+  };
+
+  // Helper to update section 3.4 summary fields
+  const handleSection3_4FieldUpdate = (fieldName: string, value: any) => {
+    setFormDataState((prev: any) => {
+      return {
+        ...prev,
+        section3_4: {
+          ...(prev?.section3_4 || {}),
+          [fieldName]: value,
+        },
+      };
+    });
+  };
+
+  // Handle adding new VGF item to section 3.3
+  const handleAddNewVGFItem = () => {
+    setFormDataState((prev: any) => {
+      const current = prev?.section3_3?.VGFArray || [];
+      const newVGFItemWithId = {
+        ...newVGFItem,
+        id: `vgf-${Date.now()}`,
+        submissionDate: newVGFItem.submissionDate ? new Date(newVGFItem.submissionDate).toISOString() : null,
+        file: newVGFItem.file,
+      };
+      return {
+        ...prev,
+        section3_3: {
+          ...(prev?.section3_3 || {}),
+          VGFArray: [...current, newVGFItemWithId],
+        },
+      };
+    });
+    // Reset form
+    setNewVGFItem({
+      projectName: "",
+      sector: "",
+      type: "",
+      submissionDate: "",
+      file: null,
+    });
+    setShowAddVGFForm(false);
+  };
+
+  // Handle cancel adding new VGF item
+  const handleCancelAddVGF = () => {
+    setNewVGFItem({
+      projectName: "",
+      sector: "",
+      type: "",
+      submissionDate: "",
+      file: null,
+    });
+    setShowAddVGFForm(false);
+  };
+
   const onSaveSection = async (sectionId: string) => {
+    // Check if user is NODAL_OFFICER
+    const userRole = getUserRole();
+    const isNodalOfficer = userRole === 'NODAL_OFFICER';
+
+    // If NODAL_OFFICER, show confirmation dialog first
+    if (isNodalOfficer) {
+      setPendingSaveSectionId(sectionId);
+      setShowSaveDialog(true);
+      return;
+    }
+
+    // For non-NODAL_OFFICER users, proceed with save directly
+    await performSave(sectionId);
+  };
+
+  // Actual save function that performs the save operation
+  const performSave = async (sectionId: string) => {
     try {
       // Map visual section id to payload section key (e.g. "3.1" -> "section3_1")
       const payloadSection = `section${sectionId.replace('.', '_')}`;
 
       // Use the local formData state to build fields for this section
       let fields: Record<string, any>[] = [];
+
+      // Check if user is NODAL_OFFICER to add status to payload
+      const userRole = getUserRole();
+      const isNodalOfficer = userRole === 'NODAL_OFFICER';
 
       switch (sectionId) {
         case '3.1':
@@ -345,6 +613,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               : state?.section3_1?.files
               ? [state.section3_1.files]
               : [],
+            comment: state?.section3_1?.comment ?? null,
           }];
           break;
 
@@ -352,6 +621,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           fields = [{
             available: state?.section3_2?.available ?? null,
             file: state?.section3_2?.file ?? null,
+            comment: state?.section3_2?.comment ?? null,
           }];
           break;
 
@@ -370,6 +640,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
         case '3.4':
           fields = [{
+            totalProjectsAwarded: state?.section3_4?.totalProjectsAwarded ?? null,
+            totalProjectCostAwarded: state?.section3_4?.totalProjectCostAwarded ?? null,
             projects: (state?.section3_4?.projects || []).map((project: any) => ({
               nameOfProject: project?.nameOfProject ?? null,
               nipId: project?.nipId ?? null,
@@ -377,6 +649,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               infrastructureSector: project?.infrastructureSector ?? null,
               dateOfAward: project?.dateOfAward ?? null,
               capexPercentage: project?.capexPercentage ?? null,
+              totalProjectCost: project?.totalProjectCost ?? null,
             })),
           }];
           break;
@@ -386,6 +659,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           return;
       }
 
+      // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
+      if (isNodalOfficer && fields.length > 0) {
+        // Add status to the first field object
+        fields[0] = {
+          ...fields[0],
+          status: 'RESUBMITTED',
+        };
+      }
+
       await handleSaveSection({
         submissionId,
         category: 'pppDevelopment',
@@ -393,15 +675,48 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         fields
       });
 
+      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
+      if (isNodalOfficer) {
+        // Update formDataState to set status to RESUBMITTED
+        const sectionKey = `section${sectionId.replace('.', '_')}`;
+        setFormDataState((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (updated[sectionKey]) {
+            updated[sectionKey] = {
+              ...updated[sectionKey],
+              status: 'RESUBMITTED',
+            };
+          }
+          return updated;
+        });
+      }
+
       // Disable editing after successful save
       setEditable(sectionId, false);
+      // Clear the snapshot since save was successful
+      setOriginalFormDataSnapshot(null);
     } catch (error) {
       console.error('Error saving section:', error);
     }
   };
 
+  // Handle confirmation dialog actions
+  const handleConfirmSave = async () => {
+    if (pendingSaveSectionId) {
+      await performSave(pendingSaveSectionId);
+      setShowSaveDialog(false);
+      setPendingSaveSectionId(null);
+    }
+  };
 
-  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+  const handleCancelSave = () => {
+    setShowSaveDialog(false);
+    setPendingSaveSectionId(null);
+  };
+
+  // Actual function that performs the status update
+  const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const payload = {
       submissionId,
       category: 'pppDevelopment',
@@ -426,6 +741,58 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     } catch (error) {
       console.error("❌ Failed to update indicator status:", error);
     }
+  };
+
+  // Wrapper function that checks for STATE_APPROVER and shows dialog if needed
+  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+    const userRole = getUserRole();
+    const isStateApprover = userRole === 'STATE_APPROVER';
+
+    if (isStateApprover) {
+      // Show appropriate dialog based on action
+      setPendingActionSectionId(sectionId);
+      if (status) {
+        // Accept action
+        setShowAcceptDialog(true);
+      } else {
+        // Send Back action
+        setShowSendBackDialog(true);
+      }
+      return;
+    }
+
+    // For non-STATE_APPROVER users, proceed directly
+    await performIndicatorStatus(sectionId, status);
+  };
+
+  // Handle Send Back confirmation
+  const handleConfirmSendBack = async () => {
+    if (pendingActionSectionId) {
+      await performIndicatorStatus(pendingActionSectionId, false);
+      setShowSendBackDialog(false);
+      setPendingActionSectionId(null);
+      // Close the message modal if it's open
+      setActiveSection(null);
+    }
+  };
+
+  const handleCancelSendBack = () => {
+    setShowSendBackDialog(false);
+    setPendingActionSectionId(null);
+  };
+
+  // Handle Accept confirmation
+  const handleConfirmAccept = async () => {
+    if (pendingActionSectionId) {
+      await performIndicatorStatus(pendingActionSectionId, true);
+      setShowAcceptDialog(false);
+      setPendingActionSectionId(null);
+    }
+  };
+
+  const handleCancelAccept = () => {
+    setShowAcceptDialog(false);
+    setPendingActionSectionId(null);
   };
 
  const renderActionButtons = (sectionId: string) => {
@@ -478,6 +845,67 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     };
     const userRole = getUserRole();
     const isNodalOfficer = userRole === 'NODAL_OFFICER';
+    const isStateApprover = userRole === 'STATE_APPROVER';
+    
+    // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
+    if (isStateApprover && sectionStatus === 'RESUBMITTED') {
+      return (
+        <div className="flex gap-2">
+          {!isEditable(sectionId) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleEditStart(sectionId)}
+            >
+              <Edit3 className="w-4 h-4" />
+              Edit
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => onSaveSection(sectionId)}
+              >
+                <Check className="w-4 h-4" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleCancel(sectionId)}
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Re Submitted
+          </Button>
+          {!isNodalOfficer && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
+            </Button>
+          )}
+        </div>
+      );
+    }
     
     if (sectionStatus === 'REVERTED') {
       // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
@@ -489,7 +917,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => setEditable(sectionId, true)}
+                onClick={() => handleEditStart(sectionId)}
               >
                 <Edit3 className="w-4 h-4" />
                 Edit
@@ -509,7 +937,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-1"
-                  onClick={() => setEditable(sectionId, false)}
+                  onClick={() => handleCancel(sectionId)}
                 >
                   <X className="w-4 h-4" />
                   Cancel
@@ -545,8 +973,25 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       );
     }
 
-    // For NODAL_OFFICER, if status is not REVERTED or ACCEPTED, don't show any buttons
-    if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED') {
+    // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
+    if (isNodalOfficer && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <Clock className="w-4 h-4" />
+            Under Review
+          </Button>
+        </div>
+      );
+    }
+
+    // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
+    if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
       return null;
     }
 
@@ -557,7 +1002,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => setEditable(sectionId, true)}
+            onClick={() => handleEditStart(sectionId)}
           >
             <Edit3 className="w-4 h-4" />
             Edit
@@ -585,15 +1030,18 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </>
         )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenModal(sectionId)}
-        >
-          <RotateCcw className="w-4 h-4" />
-          Send Back
-        </Button>
+        {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
+        {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenModal(sectionId)}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Send Back
+          </Button>
+        )}
 
         {/* <Button
           variant="outline"
@@ -727,6 +1175,24 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               </div>
             )}
 
+            {(state?.section3_1?.available === "no") && (
+              <div>
+                <Label className="mb-2 block">Comment</Label>
+                {isEditable('3.1') ? (
+                  <Textarea
+                    value={state?.section3_1?.comment || ""}
+                    onChange={(e) => handleFieldUpdate('3.1', 'comment', e.target.value)}
+                    placeholder="Please provide a comment..."
+                    className="min-h-[100px]"
+                  />
+                ) : (
+                  <div className="p-3 bg-gray-50 rounded-md text-sm">
+                    {state?.section3_1?.comment || "No comment provided"}
+                  </div>
+                )}
+              </div>
+            )}
+
             <p className="text-xs text-muted-foreground">
               Upload copy of Act/Policy
             </p>
@@ -810,6 +1276,24 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 </div>
               )}
 
+              {(state?.section3_2?.available === "no") && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {isEditable('3.2') ? (
+                    <Textarea
+                      value={state?.section3_2?.comment || ""}
+                      onChange={(e) => handleFieldUpdate('3.2', 'comment', e.target.value)}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section3_2?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground">
                 Upload notification or mandate
               </p>
@@ -821,6 +1305,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         {/* Section 3.3 */}
         {sectionsWithData.includes('section3_3') && (
         <SectionCard
+          key={`section-3.3-${refreshKey}`}
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
@@ -862,7 +1347,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody key={`vgf-table-body-${selectResetKey}-${refreshKey}-${state?.section3_3?.VGFArray?.length || 0}`}>
                     {(() => {
                       const VGFArray = Array.isArray(state?.section3_3?.VGFArray)
                         ? state.section3_3.VGFArray
@@ -894,6 +1379,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                           <td className="py-3 px-4 text-sm font-normal">
                             {isEditable('3.3') ? (
                               <Select
+                                key={`sector-${index}-${selectResetKey}`}
                                 value={item.sector || ""}
                                 onValueChange={(value) => handleTableFieldUpdate(index, 'sector', value)}
                               >
@@ -915,6 +1401,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                           <td className="py-3 px-4 text-sm font-normal">
                             {isEditable('3.3') ? (
                               <Select
+                                key={`type-${index}-${selectResetKey}`}
                                 value={item.type || ""}
                                 onValueChange={(value) => handleTableFieldUpdate(index, 'type', value)}
                               >
@@ -951,24 +1438,73 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
                             {isEditable('3.3') ? (
-                              <EditableFileDisplay
-                                files={item.file ?? null}
-                                isEditable={true}
-                                submissionId={submissionId}
-                                onFilesChange={(updatedFile) => {
-                                  handleTableFieldUpdate(index, 'file', updatedFile);
-                                }}
-                                label=""
-                                multiple={false}
-                              />
+                              <div className="space-y-1.5">
+                                {item.file ? (
+                                  <Badge 
+                                    variant="secondary" 
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                    title={item.file.fileName || 'Unknown file'}
+                                  >
+                                    <Upload className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{item.file.fileName || 'Unknown file'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleTableFieldUpdate(index, 'file', null);
+                                      }}
+                                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                    </button>
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">No file</span>
+                                )}
+                                <div className="flex items-center">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx"
+                                    onChange={async (e) => {
+                                      const selectedFile = e.target.files?.[0];
+                                      if (selectedFile) {
+                                        const newFile: FileUpload = {
+                                          id: `file-${Date.now()}`,
+                                          file: selectedFile,
+                                          fileName: selectedFile.name,
+                                          fileSize: selectedFile.size,
+                                          uploadedAt: Date.now(),
+                                        };
+                                        await handleTableFieldUpdate(index, 'file', newFile);
+                                        e.target.value = ''; // Reset input
+                                      }
+                                    }}
+                                    className="hidden"
+                                    id={`file-input-3.3-${index}`}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => document.getElementById(`file-input-3.3-${index}`)?.click()}
+                                    className="h-6 px-2 text-xs"
+                                  >
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Add
+                                  </Button>
+                                </div>
+                              </div>
                             ) : (
                               item.file ? (
-                                <div className="flex items-center gap-2">
-                                  <Upload className="w-4 h-4" />
-                                  <span className="text-sm">{item.file.fileName || "File"}</span>
-                                </div>
+                                <Badge 
+                                  variant="secondary" 
+                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                  title={item.file.fileName || 'Unknown file'}
+                                >
+                                  <Upload className="w-3 h-3" />
+                                  <span className="truncate">{item.file.fileName || 'Unknown file'}</span>
+                                </Badge>
                               ) : (
-                                <span className="text-sm text-muted-foreground">No file</span>
+                                <span className="text-muted-foreground text-xs">No file</span>
                               )
                             )}
                           </td>
@@ -979,11 +1515,113 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 </table>
               </div>
 
-              {!isPreview && isEditable('3.3') && (
-                <Button variant="outline" size="sm" className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2">
+              {/* Add More Project Button - Only visible when in edit mode */}
+              {isEditable('3.3') && !showAddVGFForm && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  onClick={() => setShowAddVGFForm(true)}
+                >
                   <Plus className="w-4 h-4" />
                   Add More Project
                 </Button>
+              )}
+
+              {/* Add VGF Form - Only visible when showAddVGFForm is true */}
+              {showAddVGFForm && isEditable('3.3') && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-medium mb-3">Add New VGF/IIPDF Proposal</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Project Name</Label>
+                      <Input 
+                        value={newVGFItem.projectName} 
+                        onChange={(e) => setNewVGFItem({...newVGFItem, projectName: e.target.value})}
+                        className="bg-white"
+                        placeholder="Enter project name"
+                      />
+                    </div>
+                    <div>
+                      <Label>Sector</Label>
+                      <Select
+                        value={newVGFItem.sector}
+                        onValueChange={(value) => setNewVGFItem({...newVGFItem, sector: value})}
+                      >
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Select sector" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Type</Label>
+                      <Select
+                        value={newVGFItem.type}
+                        onValueChange={(value) => setNewVGFItem({...newVGFItem, type: value})}
+                      >
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROJECT_TYPE_OPTIONS.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Submission Date</Label>
+                      <Input
+                        type="date"
+                        value={newVGFItem.submissionDate}
+                        onChange={(e) => setNewVGFItem({...newVGFItem, submissionDate: e.target.value})}
+                        className="bg-white"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label>Upload File</Label>
+                      <EditableFileDisplay
+                        files={newVGFItem.file}
+                        isEditable={true}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFile) => {
+                          setNewVGFItem({...newVGFItem, file: updatedFile as FileUpload | null});
+                        }}
+                        label=""
+                        multiple={false}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleAddNewVGFItem}
+                      className="flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Save Proposal
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelAddVGF}
+                      className="flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               )}
 
               {/* <p className="text-xs text-muted-foreground">
@@ -997,6 +1635,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         {/* Section 3.4 */}
         {sectionsWithData.includes('section3_4') && (
         <SectionCard
+          key={`section-3.4-${refreshKey}`}
           title={<div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
@@ -1027,96 +1666,286 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             </div>
           </CardHeader> */}
             <div className="space-y-4">
-              {state?.section3_4?.projects && state.section3_4.projects.length > 0 ? (
-                <div className="flex flex-col gap-4">
-                  {state.section3_4.projects.map((project: any, idx: number) => (
-                    <div key={project.id || idx} className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-3">Project {idx + 1}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Name of PPP/Bankable Projects</Label>
-                          <Input 
-                            value={project.nameOfProject || ""} 
-                            readOnly={!isEditable('3.4')}
-                            className={isEditable('3.4') ? 'bg-white' : 'bg-gray-50'}
-                            onChange={(e) => handleProjectFieldUpdate(idx, 'nameOfProject', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>NIP ID</Label>
-                          <Input 
-                            value={project.nipId || ""} 
-                            readOnly={!isEditable('3.4')}
-                            className={isEditable('3.4') ? 'bg-white' : 'bg-gray-50'}
-                            onChange={(e) => handleProjectFieldUpdate(idx, 'nipId', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Funding Source</Label>
-                          <Input 
-                            value={project.fundingSource || ""} 
-                            readOnly={!isEditable('3.4')}
-                            className={isEditable('3.4') ? 'bg-white' : 'bg-gray-50'}
-                            onChange={(e) => handleProjectFieldUpdate(idx, 'fundingSource', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Infrastructure Sector</Label>
-                          {isEditable('3.4') ? (
-                            <Select
-                              value={project.infrastructureSector || ""}
-                              onValueChange={(value) => handleProjectFieldUpdate(idx, 'infrastructureSector', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select sector" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SECTOR_OPTIONS.map((sector) => (
-                                  <SelectItem key={sector} value={sector}>
-                                    {sector}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input value={project.infrastructureSector || ""} readOnly className="bg-gray-50" />
-                          )}
-                        </div>
-                        <div>
-                          <Label>Date of Award</Label>
-                          {isEditable('3.4') ? (
-                            <Input
-                              type="date"
-                              value={project.dateOfAward 
-                                ? new Date(project.dateOfAward).toISOString().split('T')[0]
-                                : ""}
-                              onChange={(e) => handleProjectFieldUpdate(idx, 'dateOfAward', e.target.value ? new Date(e.target.value).toISOString() : null)}
-                              className="bg-white"
-                            />
-                          ) : (
-                            <Input 
-                              value={project.dateOfAward ? new Date(project.dateOfAward).toLocaleDateString() : ""} 
-                              readOnly 
-                              className="bg-gray-50"
-                            />
-                          )}
-                        </div>
-                        <div>
-                          <Label>% of Capex funded by non-Govt sources</Label>
-                          <Input 
-                            value={project.capexPercentage || ""} 
-                            readOnly={!isEditable('3.4')}
-                            className={isEditable('3.4') ? 'bg-white' : 'bg-gray-50'}
-                            onChange={(e) => handleProjectFieldUpdate(idx, 'capexPercentage', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              {/* Summary Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <Label>Total Projects Awarded</Label>
+                  {isEditable('3.4') ? (
+                    <Input
+                      value={state?.section3_4?.totalProjectsAwarded || ""}
+                      onChange={(e) => handleSection3_4FieldUpdate('totalProjectsAwarded', e.target.value)}
+                      className="bg-white"
+                      placeholder="Enter total projects awarded"
+                    />
+                  ) : (
+                    <Input
+                      value={state?.section3_4?.totalProjectsAwarded || ""}
+                      readOnly
+                      className="bg-gray-50"
+                    />
+                  )}
                 </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-4">
-                  No PPP Projects data available
+                <div>
+                  <Label>Total Project Cost Awarded</Label>
+                  {isEditable('3.4') ? (
+                    <Input
+                      value={state?.section3_4?.totalProjectCostAwarded || ""}
+                      onChange={(e) => handleSection3_4FieldUpdate('totalProjectCostAwarded', e.target.value)}
+                      className="bg-white"
+                      placeholder="Enter total project cost awarded"
+                    />
+                  ) : (
+                    <Input
+                      value={state?.section3_4?.totalProjectCostAwarded || ""}
+                      readOnly
+                      className="bg-gray-50"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Projects Table */}
+              <div className="overflow-x-auto rounded-xl">
+                <table className="min-w-full border-separate border-spacing-0">
+                  <thead>
+                    <tr className="bg-[#DDE3F9]">
+                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Name of Project</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">NIP ID</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Funding Source</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Infrastructure Sector</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Date of Award</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">% Capex</th>
+                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Total Project Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody key={`projects-table-body-${selectResetKey}-${refreshKey}-${state?.section3_4?.projects?.length || 0}`}>
+                    {(() => {
+                      const projects = Array.isArray(state?.section3_4?.projects)
+                        ? state.section3_4.projects
+                        : [];
+
+                      if (!projects.length) {
+                        return (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                              No projects available
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return projects.map((project: any, idx: number) => (
+                        <tr key={project.id || idx} className="border-b">
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.4') ? (
+                              <Input
+                                value={project.nameOfProject || ""}
+                                onChange={(e) => handleProjectFieldUpdate(idx, 'nameOfProject', e.target.value)}
+                                className="w-full"
+                              />
+                            ) : (
+                              project.nameOfProject || 'N/A'
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.4') ? (
+                              <Input
+                                value={project.nipId || ""}
+                                onChange={(e) => handleProjectFieldUpdate(idx, 'nipId', e.target.value)}
+                                className="w-full"
+                              />
+                            ) : (
+                              project.nipId || 'N/A'
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.4') ? (
+                              <Input
+                                value={project.fundingSource || ""}
+                                onChange={(e) => handleProjectFieldUpdate(idx, 'fundingSource', e.target.value)}
+                                className="w-full"
+                              />
+                            ) : (
+                              project.fundingSource || 'N/A'
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.4') ? (
+                              <Select
+                                key={`infrastructureSector-${idx}-${selectResetKey}`}
+                                value={project.infrastructureSector || ""}
+                                onValueChange={(value) => handleProjectFieldUpdate(idx, 'infrastructureSector', value)}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select sector" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {SECTOR_OPTIONS.map((sector) => (
+                                    <SelectItem key={sector} value={sector}>
+                                      {sector}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              project.infrastructureSector || 'N/A'
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.4') ? (
+                              <Input
+                                type="date"
+                                value={project.dateOfAward 
+                                  ? new Date(project.dateOfAward).toISOString().split('T')[0]
+                                  : ""}
+                                onChange={(e) => handleProjectFieldUpdate(idx, 'dateOfAward', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                                className="w-full"
+                              />
+                            ) : (
+                              project.dateOfAward ? new Date(project.dateOfAward).toLocaleDateString() : 'N/A'
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.4') ? (
+                              <Input
+                                value={project.capexPercentage || ""}
+                                onChange={(e) => handleProjectFieldUpdate(idx, 'capexPercentage', e.target.value)}
+                                className="w-full"
+                              />
+                            ) : (
+                              project.capexPercentage || 'N/A'
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {isEditable('3.4') ? (
+                              <Input
+                                value={project.totalProjectCost || ""}
+                                onChange={(e) => handleProjectFieldUpdate(idx, 'totalProjectCost', e.target.value)}
+                                className="w-full"
+                                placeholder="Enter cost"
+                              />
+                            ) : (
+                              project.totalProjectCost || 'N/A'
+                            )}
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Add More Project Button - Only visible when in edit mode */}
+              {isEditable('3.4') && !showAddProjectForm && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  onClick={() => setShowAddProjectForm(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add More Project
+                </Button>
+              )}
+
+              {/* Add Project Form - Only visible when showAddProjectForm is true */}
+              {showAddProjectForm && isEditable('3.4') && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-medium mb-3">Add New Project</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Name of PPP/Bankable Projects</Label>
+                      <Input 
+                        value={newProject.nameOfProject} 
+                        onChange={(e) => setNewProject({...newProject, nameOfProject: e.target.value})}
+                        className="bg-white"
+                        placeholder="Enter project name"
+                      />
+                    </div>
+                    <div>
+                      <Label>NIP ID</Label>
+                      <Input 
+                        value={newProject.nipId} 
+                        onChange={(e) => setNewProject({...newProject, nipId: e.target.value})}
+                        className="bg-white"
+                        placeholder="Enter NIP ID"
+                      />
+                    </div>
+                    <div>
+                      <Label>Funding Source</Label>
+                      <Input 
+                        value={newProject.fundingSource} 
+                        onChange={(e) => setNewProject({...newProject, fundingSource: e.target.value})}
+                        className="bg-white"
+                        placeholder="Enter funding source"
+                      />
+                    </div>
+                    <div>
+                      <Label>Infrastructure Sector</Label>
+                      <Select
+                        value={newProject.infrastructureSector}
+                        onValueChange={(value) => setNewProject({...newProject, infrastructureSector: value})}
+                      >
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Select sector" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Date of Award</Label>
+                      <Input
+                        type="date"
+                        value={newProject.dateOfAward}
+                        onChange={(e) => setNewProject({...newProject, dateOfAward: e.target.value})}
+                        className="bg-white"
+                      />
+                    </div>
+                    <div>
+                      <Label>% of Capex funded by non-Govt sources</Label>
+                      <Input 
+                        value={newProject.capexPercentage} 
+                        onChange={(e) => setNewProject({...newProject, capexPercentage: e.target.value})}
+                        className="bg-white"
+                        placeholder="Enter percentage"
+                      />
+                    </div>
+                    <div>
+                      <Label>Total Project Cost</Label>
+                      <Input 
+                        value={newProject.totalProjectCost} 
+                        onChange={(e) => setNewProject({...newProject, totalProjectCost: e.target.value})}
+                        className="bg-white"
+                        placeholder="Enter total project cost"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleAddNewProject}
+                      className="flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Save Project
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelAddProject}
+                      className="flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1143,6 +1972,54 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         comments={getAllComments()}
         key={`timeline-${timelineSection}-${getAllComments().length}-${Date.now()}`} // Force re-render when comments change
       />
+
+      {/* Confirmation Dialog for NODAL_OFFICER Save */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save this section? This will send the data to the State Approver for review.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSave}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>Confirm & Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for STATE_APPROVER Send Back */}
+      <AlertDialog open={showSendBackDialog} onOpenChange={setShowSendBackDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Send Back</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSendBack}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSendBack}>Confirm & Send Back</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for STATE_APPROVER Accept */}
+      <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Accept</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
