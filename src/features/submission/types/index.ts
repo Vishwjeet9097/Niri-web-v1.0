@@ -17,10 +17,9 @@ export interface FileUpload {
   fileSize: number;
   uploadedAt: number;
   filePath?: string; // ✅ path returned from backend (e.g. submissions/...pdf)
-  fileUrl?: string;  // ✅ full URL or signed URL from backend
+  fileUrl?: string; // ✅ full URL or signed URL from backend
   mimeType?: string; // ✅ optional for preview / validation
 }
-
 
 export interface InfraFinancingData {
   section1_1: {
@@ -68,63 +67,67 @@ export interface InfraFinancingData {
   };
   section1_5: {
     ffiArray: Array<{
-    id: string;
-    hasIntermediary?: boolean;
-    organisationName: string;
-    organisationType: string;
-    yearEstablished: string;
-    totalFunding: string;
-    website: string;
-    comment?: string;
-  }>;}
+      id: string;
+      hasIntermediary?: boolean;
+      organisationName: string;
+      organisationType: string;
+      yearEstablished: string;
+      totalFunding: string;
+      website: string;
+      comment?: string;
+    }>;
+  };
 }
 
 export interface InfraDevelopmentData {
   section2_1: {
     infraActArray: Array<{
-    id: string;
-    sector: string;
-    files: FileUpload[];
-  }>};
+      id: string;
+      sector: string;
+      files: FileUpload[];
+    }>;
+  };
   section2_2: {
     specializedEntityArray: Array<{
-    id: string;
-    sector: string;
-    files: FileUpload[];
-  }>};
+      id: string;
+      sector: string;
+      files: FileUpload[];
+    }>;
+  };
   section2_3: {
     infraDevelopmentArray: Array<{
       id: string;
       sector: string;
       files: FileUpload[];
+      hasPlan?: boolean;
+      comment?: string;
     }>;
-    hasPlan?: boolean;
-    comment?: string;
     hasInfraDevelopmentPlan?: string;
+    comment?: string;
   };
   section2_4: {
     investmentReadyArray: Array<{
       id: string;
-      projectName: string;
-      dprFile: FileUpload | null;
+      projectName?: string;
+      sector?: string;
+      status?: string;
+      projectSize?: string;
+      investmentType?: string;
     }>;
-    sector?: string;
-    status?: string;
-    projectSize?: string;
-    investmentType?: string;
     hasInvestmentReady?: string;
     comment?: string;
     websiteLink?: string;
   };
   section2_5: {
     assetMonetizationArray: Array<{
-    id: string;
-    projectName: string;
-    sector: string;
-    type: string;
-    ownership: string;
-    estimatedMonetization: string;
-  }>};
+      id: string;
+      projectName?: string;
+      sector?: string;
+      type?: string;
+      ownership?: string;
+      estimatedMonetization?: string;
+    }>;
+  };
 }
 
 export interface PPPDevelopmentData {
@@ -140,15 +143,14 @@ export interface PPPDevelopmentData {
   };
   section3_3: {
     VGFArray: Array<{
-      id: string;
-      projectName: string;
-      sector: string;
-      type: string;
-      submissionDate: string;
+      id?: string;
+      projectName?: string;
+      sector?: string;
+      type?: string;
+      submissionDate?: string;
       file: FileUpload | null;
       marksObtained?: number;
     }>;
-    id?: string;
   };
   section3_4: {
     projects: Array<{
@@ -159,7 +161,10 @@ export interface PPPDevelopmentData {
       infrastructureSector: string; // Infrastructure Sector
       dateOfAward: string; // Date of Award
       capexPercentage: string; // % of Capex funded by non-Govt sources
+      totalProjectCost: string; // Total Project Cost (in crore)
     }>;
+    totalProjectsAwarded?: string;
+    totalProjectCostAwarded?: string;
     // Calculation fields
     tpcOfPPPProjects?: string; // A₁ - Calculated total from projects
     proportion?: number;
@@ -190,15 +195,20 @@ export interface InfraEnablersData {
     }>;
     adopted: "yes" | "no" | "";
     comment?: string;
+    // Calculation fields
+    numberOfProjects?: string;
+    marksObtained?: number;
   };
   section4_4: {
     adopted: "yes" | "no" | "";
     file: FileUpload | null;
+    comment?: string;
     // Calculation fields
     marksObtained?: number;
     comment?: string;
   };
   section4_5: {
+    implemented: "yes" | "no" | "";
     practices: Array<{
       id: string;
       practiceName: string;
@@ -208,6 +218,7 @@ export interface InfraEnablersData {
     comment?: string;
   };
   section4_6: {
+    participated?: string;
     capacityArray: Array<{
       id: string;
       officerName: string;
@@ -217,7 +228,6 @@ export interface InfraEnablersData {
       trainingType: string;
       marksObtained?: number;
     }>;
-    participated?: string;
     comment?: string;
   };
 }

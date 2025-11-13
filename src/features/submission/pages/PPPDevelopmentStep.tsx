@@ -56,6 +56,8 @@ const defaultData: PPPDevelopmentData = {
   section3_3: { VGFArray: [] },
   section3_4: {
     projects: [],
+    totalProjectsAwarded: "",
+    totalProjectCostAwarded: "",
   },
 };
 
@@ -120,9 +122,16 @@ export const PPPDevelopmentStep = () => {
     section3_1: { ...defaultData.section3_1, ...(loadedData.section3_1 || {}) },
     section3_2: { ...defaultData.section3_2, ...(loadedData.section3_2 || {}) },
     section3_3: { VGFArray: (loadedData.section3_3 as any)?.VGFArray || [] },
+
     section3_4: {
       projects:
         loadedData.section3_4?.projects || defaultData.section3_4.projects,
+      totalProjectsAwarded:
+        loadedData.section3_4?.totalProjectsAwarded ||
+        defaultData.section3_4.totalProjectsAwarded,
+      totalProjectCostAwarded:
+        loadedData.section3_4?.totalProjectCostAwarded ||
+        defaultData.section3_4.totalProjectCostAwarded,
     },
   };
 
@@ -153,6 +162,12 @@ export const PPPDevelopmentStep = () => {
           projects:
             currentStepData.section3_4?.projects ||
             defaultData.section3_4.projects,
+          totalProjectsAwarded:
+            currentStepData.section3_4?.totalProjectsAwarded ||
+            defaultData.section3_4.totalProjectsAwarded,
+          totalProjectCostAwarded:
+            currentStepData.section3_4?.totalProjectCostAwarded ||
+            defaultData.section3_4.totalProjectCostAwarded,
         },
       };
       setFormData(syncedData);
@@ -195,6 +210,12 @@ export const PPPDevelopmentStep = () => {
               projects:
                 stepData.section3_4?.projects ||
                 defaultData.section3_4.projects,
+              totalProjectsAwarded:
+                stepData.section3_4?.totalProjectsAwarded ||
+                defaultData.section3_4.totalProjectsAwarded,
+              totalProjectCostAwarded:
+                stepData.section3_4?.totalProjectCostAwarded ||
+                defaultData.section3_4.totalProjectCostAwarded,
             },
           };
           setFormData(updatedData);
@@ -279,10 +300,10 @@ export const PPPDevelopmentStep = () => {
   }, [
     calculateSection3_3,
     calculateSection3_4,
+    formData.section3_3.VGFArray,
     formData.section3_3.VGFArray.length,
+    formData.section3_4,
     formData.section3_4.projects.length,
-    (formData.section3_4 as any).proportion,
-    (formData.section3_4 as any).marksObtained,
   ]);
 
   // --- Section 3.3: Add/Remove Project ---
@@ -348,6 +369,7 @@ export const PPPDevelopmentStep = () => {
             infrastructureSector: "",
             dateOfAward: "",
             capexPercentage: "",
+            totalProjectCost: "",
           },
         ],
       },
@@ -374,7 +396,8 @@ export const PPPDevelopmentStep = () => {
       | "fundingSource"
       | "infrastructureSector"
       | "dateOfAward"
-      | "capexPercentage",
+      | "capexPercentage"
+      | "totalProjectCost",
     value: string
   ) => {
     setFormData((prev) => ({
@@ -500,15 +523,15 @@ export const PPPDevelopmentStep = () => {
           assignedIndicators.includes("3.1") ||
           availableIndicators.includes("3.1")) &&
           (!isEditMode ||
-            (formData.section3_1?.available &&
-              formData.section3_1.available !== "") ||
-            !!formData.section3_1?.file) && (
+            formData.section3_1?.available ||
+            !!formData.section3_1?.file ||
+            !!formData.section3_1?.comment) && (
             <SectionCard
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">3.1 - </span> Availability of
-                    Infrastructure Act/Policy{" "}
+                    PPP Act/Policy
                   </span>
                 </div>
               }
@@ -541,6 +564,7 @@ export const PPPDevelopmentStep = () => {
                             section3_1: {
                               ...prev.section3_1,
                               available: "yes",
+                              comment: "",
                             },
                           }))
                         }
@@ -556,7 +580,11 @@ export const PPPDevelopmentStep = () => {
                         onChange={() =>
                           setFormData((prev) => ({
                             ...prev,
-                            section3_1: { ...prev.section3_1, available: "no" },
+                            section3_1: {
+                              ...prev.section3_1,
+                              available: "no",
+                              file: null,
+                            },
                           }))
                         }
                       />
@@ -564,6 +592,8 @@ export const PPPDevelopmentStep = () => {
                     </label>
                   </div>
                 </div>
+
+                {/* If Yes → show File Upload */}
                 {formData.section3_1.available === "yes" && (
                   <div className="flex flex-col gap-2">
                     <FileUploadSection
@@ -581,6 +611,27 @@ export const PPPDevelopmentStep = () => {
                     </p>
                   </div>
                 )}
+
+                {/* If No → show Comment */}
+                {formData.section3_1.available === "no" && (
+                  <div className="flex flex-col gap-2">
+                    <Label>Comments (Reason)</Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter reason or comment"
+                      value={formData.section3_1.comment || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          section3_1: {
+                            ...prev.section3_1,
+                            comment: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}
@@ -590,15 +641,15 @@ export const PPPDevelopmentStep = () => {
           assignedIndicators.includes("3.2") ||
           availableIndicators.includes("3.2")) &&
           (!isEditMode ||
-            (formData.section3_2?.available &&
-              formData.section3_2.available !== "") ||
-            !!formData.section3_2?.file) && (
+            formData.section3_2?.available ||
+            !!formData.section3_2?.file ||
+            !!formData.section3_2?.comment) && (
             <SectionCard
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">3.2 - </span> Functional PPP
-                    Cell/Unit{" "}
+                    Cell/Unit
                   </span>
                 </div>
               }
@@ -631,6 +682,7 @@ export const PPPDevelopmentStep = () => {
                             section3_2: {
                               ...prev.section3_2,
                               available: "yes",
+                              comment: "",
                             },
                           }))
                         }
@@ -646,7 +698,11 @@ export const PPPDevelopmentStep = () => {
                         onChange={() =>
                           setFormData((prev) => ({
                             ...prev,
-                            section3_2: { ...prev.section3_2, available: "no" },
+                            section3_2: {
+                              ...prev.section3_2,
+                              available: "no",
+                              file: null,
+                            },
                           }))
                         }
                       />
@@ -654,6 +710,8 @@ export const PPPDevelopmentStep = () => {
                     </label>
                   </div>
                 </div>
+
+                {/* If Yes → show File Upload */}
                 {formData.section3_2.available === "yes" && (
                   <div className="flex flex-col gap-2">
                     <FileUploadSection
@@ -669,6 +727,27 @@ export const PPPDevelopmentStep = () => {
                     <p className="text-xs text-muted-foreground">
                       Upload notification or mandate
                     </p>
+                  </div>
+                )}
+
+                {/* If No → show Comment */}
+                {formData.section3_2.available === "no" && (
+                  <div className="flex flex-col gap-2">
+                    <Label>Comments (Reason)</Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter reason or comment"
+                      value={formData.section3_2.comment || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          section3_2: {
+                            ...prev.section3_2,
+                            comment: e.target.value,
+                          },
+                        }))
+                      }
+                    />
                   </div>
                 )}
               </div>
@@ -831,6 +910,83 @@ export const PPPDevelopmentStep = () => {
                   </Button>
                   <p className="text-xs text-muted-foreground mt-1"></p>
                 </div>
+                {/* ✅ Table view for VGF/IIPDF proposals (with File Size) */}
+                {formData.section3_3.VGFArray.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl mt-4">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Project Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Type
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Submission Date
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Uploaded
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Size
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formData.section3_3.VGFArray.map((entry) => (
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm">
+                              {entry.projectName }
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.sector }
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.type }
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.submissionDate
+                                ? format(
+                                    new Date(entry.submissionDate),
+                                    "dd-MM-yyyy"
+                                  )
+                                : "-"}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.file?.fileName || "No file uploaded"}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.file?.fileSize
+                                ? `${(
+                                    entry.file.fileSize /
+                                    1024 /
+                                    1024
+                                  ).toFixed(1)} MB`
+                                : "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeProject(entry.id)}
+                                className="text-red-600 hover:text-red-800"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}
@@ -846,30 +1002,71 @@ export const PPPDevelopmentStep = () => {
               title={
                 <div className="flex flex-col">
                   <span className="text-base font-semibold ">
-                    <span className="text-primary">3.4 - </span> Proportion of
-                    TPC of PPP Projects{" "}
+                    <span className="text-primary">3.4 – </span> Proportion of
+                    TPC of PPP Projects
                   </span>
                 </div>
               }
-              subtitle=""
               className="mb-6"
             >
-              <div className="flex flex-col gap-4">
-                {(formData.section3_4.projects || []).map((project, idx) => (
+              <div className="flex flex-col gap-6">
+                {/* ✅ Single-instance summary fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="block min-h-[40px] leading-snug">
+                      Total Number of Infrastructure Projects awarded in the
+                      financial year of assessment
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Enter number of projects awarded"
+                      value={formData.section3_4.totalProjectsAwarded || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          section3_4: {
+                            ...prev.section3_4,
+                            totalProjectsAwarded: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="block min-h-[40px] leading-snug">
+                      Total Project Cost of Infrastructure Projects awarded in
+                      the financial year of assessment (INR Crore)
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Enter total cost in crore INR"
+                      value={formData.section3_4.totalProjectCostAwarded || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          section3_4: {
+                            ...prev.section3_4,
+                            totalProjectCostAwarded: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Existing per-project list */}
+                {(formData.section3_4.projects || []).map((project) => (
                   <div key={project.id} className="mb-4 p-4 border rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                       <div className="space-y-4">
                         <div>
                           <Label>
-                            Name of PPP/Bankable Projects{" "}
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Info className="inline w-3 h-3 ml-1" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Enter the name of the PPP or Bankable project
-                              </TooltipContent>
-                            </Tooltip>
+                            Name of PPP/Bankable Projects that have been awarded
                           </Label>
                           <Input
                             type="text"
@@ -885,17 +1082,7 @@ export const PPPDevelopmentStep = () => {
                           />
                         </div>
                         <div>
-                          <Label>
-                            NIP ID{" "}
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Info className="inline w-3 h-3 ml-1" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Enter the NIP ID of the project
-                              </TooltipContent>
-                            </Tooltip>
-                          </Label>
+                          <Label>NIP ID</Label>
                           <Input
                             type="text"
                             placeholder="Enter NIP ID"
@@ -911,19 +1098,11 @@ export const PPPDevelopmentStep = () => {
                         </div>
                         <div>
                           <Label>
-                            Funding Source (In case of bankable project){" "}
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Info className="inline w-3 h-3 ml-1" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Enter the funding source name
-                              </TooltipContent>
-                            </Tooltip>
+                            Source of Funding (in case of Bankable project)
                           </Label>
                           <Input
                             type="text"
-                            placeholder="Enter funding source name"
+                            placeholder="Enter funding source"
                             value={project.fundingSource}
                             onChange={(e) =>
                               updatePPPProject(
@@ -934,55 +1113,26 @@ export const PPPDevelopmentStep = () => {
                             }
                           />
                         </div>
+                        <div>
+                          <Label>% of Capex funded by non-Govt sources</Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter percentage"
+                            value={project.capexPercentage}
+                            onChange={(e) =>
+                              updatePPPProject(
+                                project.id,
+                                "capexPercentage",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-4">
                         <div>
-                          <Label>
-                            Infrastructure Sector{" "}
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Info className="inline w-3 h-3 ml-1" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Select the infrastructure sector
-                              </TooltipContent>
-                            </Tooltip>
-                          </Label>
-                          <Select
-                            value={project.infrastructureSector}
-                            onValueChange={(value) =>
-                              updatePPPProject(
-                                project.id,
-                                "infrastructureSector",
-                                value
-                              )
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a sector" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {SECTOR_OPTIONS.map((sector) => (
-                                <SelectItem key={sector} value={sector}>
-                                  {sector}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>
-                            Date of Award{" "}
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Info className="inline w-3 h-3 ml-1" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Select the date of award
-                              </TooltipContent>
-                            </Tooltip>
-                          </Label>
+                          <Label>Date of Award (DD-MM-YYYY)</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
@@ -1022,44 +1172,62 @@ export const PPPDevelopmentStep = () => {
                             </PopoverContent>
                           </Popover>
                         </div>
+
                         <div>
-                          <Label>
-                            % of Capex funded by non-Govt sources{" "}
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Info className="inline w-3 h-3 ml-1" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Enter the percentage of Capex funded by
-                                non-government sources
-                              </TooltipContent>
-                            </Tooltip>
-                          </Label>
+                          <Label>Total Project Cost (INR Crore)</Label>
                           <Input
-                            type="text"
-                            placeholder="Enter percentage"
-                            value={project.capexPercentage}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Enter cost in crore"
+                            value={project.totalProjectCost || ""}
                             onChange={(e) =>
                               updatePPPProject(
                                 project.id,
-                                "capexPercentage",
+                                "totalProjectCost",
                                 e.target.value
                               )
                             }
                           />
                         </div>
+
+                        <div>
+                          <Label>Infrastructure Sector</Label>
+                          <Select
+                            value={project.infrastructureSector}
+                            onValueChange={(value) =>
+                              updatePPPProject(
+                                project.id,
+                                "infrastructureSector",
+                                value
+                              )
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="mt-4 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removePPPProject(project.id)}
+                            aria-label="Remove"
+                          >
+                            <Trash2 className="w-5 h-5 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removePPPProject(project.id)}
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="w-5 h-5 text-destructive" />
-                      </Button>
                     </div>
                   </div>
                 ))}
@@ -1075,6 +1243,83 @@ export const PPPDevelopmentStep = () => {
                     <Plus className="w-4 h-4" />
                     Add More Project
                   </Button>
+                  {/* ✅ Table view for PPP/Bankable projects */}
+                  {formData.section3_4.projects.length > 0 && (
+                    <div className="overflow-x-auto rounded-xl mt-4">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[#DDE3F9]">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Project Name
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              NIP ID
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Funding Source
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              % of Capex from Non-Govt
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Infra Sector
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Date of Award
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Total Cost (INR Cr)
+                            </th>
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formData.section3_4.projects.map((project) => (
+                            <tr key={project.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm">
+                                {project.nameOfProject}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {project.nipId}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {project.fundingSource}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {project.capexPercentage}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {project.infrastructureSector}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {project.dateOfAward
+                                  ? format(
+                                      new Date(project.dateOfAward),
+                                      "dd-MM-yyyy"
+                                    )
+                                  : "-"}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {project.totalProjectCost}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() => removePPPProject(project.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </SectionCard>

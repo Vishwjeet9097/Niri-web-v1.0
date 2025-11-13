@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -120,14 +121,11 @@ export const InfraFinancingStep = () => {
     section1_5: {
       ffiArray: Array.isArray(loadedData.section1_5?.ffiArray)
         ? [...loadedData.section1_5!.ffiArray]
-        : [],
+        : [...defaultData.section1_5.ffiArray],
     },
   };
 
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
-
-  // UI helper state for section1_5 availability + comment (keeps UI simple).
-  // We'll sync these to section1_5.ffiArray (so backend type remains correct).
   const [ffiAvailable, setFfiAvailable] = useState<"yes" | "no" | "">("");
   const [ffiComment, setFfiComment] = useState<string>("");
 
@@ -157,8 +155,14 @@ export const InfraFinancingStep = () => {
   useEffect(() => {
     setFormData((prev) => ({
       ...prev,
-      section1_1: { ...prev.section1_1, year: currentFY },
-      section1_2: { ...prev.section1_2, year: currentFY },
+      section1_1: {
+        ...prev.section1_1,
+        year: prev.section1_1.year ? prev.section1_1.year : currentFY,
+      },
+      section1_2: {
+        ...prev.section1_2,
+        year: prev.section1_2.year ? prev.section1_2.year : currentFY,
+      },
     }));
   }, [currentFY]);
 
@@ -423,6 +427,22 @@ export const InfraFinancingStep = () => {
       },
     }));
   };
+
+  // normalize ids from backend before using in UI
+const normalizeArrayIds = (arr: any[] | undefined) =>
+  Array.isArray(arr)
+    ? arr.map((item) => ({
+        ...item,
+        // prefer existing id, then _id (Mongo), else generate a stable fallback
+        id:
+          item?.id ??
+          (item?._id ? String(item._id) : undefined) ??
+          // browser-safe UUID fallback
+          (typeof crypto !== "undefined" && (crypto as any).randomUUID
+            ? (crypto as any).randomUUID()
+            :  Date.now().toString()),
+      }))
+    : [];
 
   // Keep formData.section1_5 in sync with the simple UI flags (ffiAvailable / ffiComment).
   // If ffiAvailable === "no", we'll store one ffiArray item with hasIntermediary=false and comment.
@@ -1120,6 +1140,61 @@ export const InfraFinancingStep = () => {
                   <Plus className="h-4 w-4" />
                   Add More ULB
                 </Button>
+                {formData.section1_3.ulbList.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl mt-4">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            City Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            ULB
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Rating Date
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Rating
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formData.section1_3.ulbList.map((ulb) => (
+                          <tr key={ulb.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.cityName }
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.ulb }
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.ratingDate
+                                ? format(new Date(ulb.ratingDate), "dd-MM-yyyy")
+                                : "-"}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.rating }
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeULB(ulb.id)}
+                                className="text-red-600 hover:text-red-800"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}
@@ -1318,6 +1393,60 @@ export const InfraFinancingStep = () => {
                   <Plus className="h-4 w-4" />
                   Add More Bond
                 </Button>
+
+                {formData.section1_4.bondList.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl mt-4">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Bond Type
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            City
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Issuing Authority
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Value (INR Cr)
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formData.section1_4.bondList.map((bond) => (
+                          <tr key={bond.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.bondType }
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.cityName }
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.issuingAuthority }
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.value }
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeBond(bond.id)}
+                                className="text-red-600 hover:text-red-800"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}
@@ -1575,6 +1704,73 @@ export const InfraFinancingStep = () => {
                       <Plus className="h-4 w-4" />
                       Add More Financial Intermediary
                     </Button>
+                    {ffiAvailable === "yes" &&
+                      formData.section1_5.ffiArray.length > 0 && (
+                        <div className="overflow-x-auto rounded-xl mt-4">
+                          <table className="min-w-full border-separate border-spacing-0">
+                            <thead>
+                              <tr className="bg-[#DDE3F9]">
+                                <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                  Organisation Name
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Organisation Type
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Year Established
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Total Funding (INR)
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Website
+                                </th>
+                                <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                                  Action
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {formData.section1_5.ffiArray
+                                .filter((i) => i.hasIntermediary !== false)
+                                .map((intermediary) => (
+                                  <tr
+                                    key={intermediary.id}
+                                    className="bg-white"
+                                  >
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.organisationName }
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.organisationType }
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.yearEstablished }
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.totalFunding }
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.website }
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeIntermediary(intermediary.id)
+                                        }
+                                        className="text-red-600 hover:text-red-800"
+                                        aria-label="Delete"
+                                      >
+                                        <Trash2 className="w-5 h-5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table> 
+                        </div>
+                      )}
                   </div>
                 )}
 

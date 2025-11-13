@@ -2515,9 +2515,11 @@ async getStateIndicatorStatuses(year?: string): Promise<{
   return res.data;
 }
 
-
-
-
+ async  getAssignedStateOnly(roleName: string) { 
+  const res = await this.axios.get(`/users/states/assigned-state-by-state-approver/${roleName}`);
+  return res.data;
+}
+ 
 }
 
 
