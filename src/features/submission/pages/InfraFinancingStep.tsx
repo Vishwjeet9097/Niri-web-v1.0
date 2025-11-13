@@ -93,7 +93,7 @@ export const InfraFinancingStep = () => {
     },
     section1_3: { totalULBs: 0, ulbList: [] },
     section1_4: { totalULBs: 0, bondList: [] },
-    section1_5: { ffiArray: [] },
+    section1_5: { ffiArray: [], hasIntermediary: "", comment: "" },
   };
 
   // Merge loaded / persisted data with defaults
@@ -122,27 +122,31 @@ export const InfraFinancingStep = () => {
       ffiArray: Array.isArray(loadedData.section1_5?.ffiArray)
         ? [...loadedData.section1_5!.ffiArray]
         : [...defaultData.section1_5.ffiArray],
+      hasIntermediary: loadedData.section1_5?.hasIntermediary || "",
+      comment: loadedData.section1_5?.comment || "",
     },
   };
 
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
-  const [ffiAvailable, setFfiAvailable] = useState<"yes" | "no" | "">("");
-  const [ffiComment, setFfiComment] = useState<string>("");
   const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   const validation = useMemo(
-    () => validateInfraFinancing(formData, { ffiAvailable }),
-    [formData, ffiAvailable]
+    () => validateInfraFinancing(formData),
+    [formData]
   );
 
   useEffect(() => {
     console.log("InfraFinancing validation state", {
       isValid: validation.isValid,
       errors: validation.errors,
-      ffiAvailable,
+      hasIntermediary: formData.section1_5.hasIntermediary,
       hasFfiEntries: formData.section1_5.ffiArray.length,
     });
-  }, [validation, ffiAvailable, formData.section1_5.ffiArray.length]);
+  }, [
+    validation,
+    formData.section1_5.hasIntermediary,
+    formData.section1_5.ffiArray.length,
+  ]);
 
   const isNextDisabled = !validation.isValid;
 
@@ -166,28 +170,6 @@ export const InfraFinancingStep = () => {
       <p className="text-xs text-destructive mt-1">{message}</p>
     ) : null;
   };
-
-  // populate initial UI state for section1_5 from loaded data
-  useEffect(() => {
-    // if there's an explicit ffiArray item with hasIntermediary === false and comment => treat as no
-    const ffi = formData.section1_5.ffiArray || [];
-    const noItem = ffi.find((i) => i.hasIntermediary === false && i.comment);
-    if (noItem) {
-      setFfiAvailable("no");
-      setFfiComment(noItem.comment || "");
-      // also remove the noItem from intermediaries list in UI (we'll persist it when saving)
-      // keep the ffiArray as-is for now; sync logic below will normalize before save
-      return;
-    }
-    if (ffi.length > 0) {
-      setFfiAvailable("yes");
-      setFfiComment("");
-    } else {
-      setFfiAvailable("");
-      setFfiComment("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // ensure year defaults to current FY
   useEffect(() => {
@@ -241,6 +223,8 @@ export const InfraFinancingStep = () => {
           ffiArray: Array.isArray(currentStepData.section1_5?.ffiArray)
             ? currentStepData.section1_5!.ffiArray
             : [],
+          hasIntermediary: currentStepData.section1_5?.hasIntermediary || "",
+          comment: currentStepData.section1_5?.comment || "",
         },
       };
       setFormData(syncedData);
@@ -288,24 +272,11 @@ export const InfraFinancingStep = () => {
               ffiArray: Array.isArray(stepData.section1_5?.ffiArray)
                 ? stepData.section1_5!.ffiArray
                 : [],
+              hasIntermediary: stepData.section1_5?.hasIntermediary || "",
+              comment: stepData.section1_5?.comment || "",
             },
           };
           setFormData(updatedData);
-
-          // derive ffiAvailable / ffiComment from updatedData
-          const noItem = updatedData.section1_5.ffiArray.find(
-            (i) => i.hasIntermediary === false && i.comment
-          );
-          if (noItem) {
-            setFfiAvailable("no");
-            setFfiComment(noItem.comment || "");
-          } else if (updatedData.section1_5.ffiArray.length > 0) {
-            setFfiAvailable("yes");
-            setFfiComment("");
-          } else {
-            setFfiAvailable("");
-            setFfiComment("");
-          }
 
           localStorage.removeItem("editing_submission");
         }
@@ -438,22 +409,20 @@ export const InfraFinancingStep = () => {
   const addIntermediary = () => {
     const newIntermediary = {
       id: Date.now().toString(),
-      hasIntermediary: true,
       organisationName: "",
       organisationType: "",
       yearEstablished: "",
       totalFunding: "",
       website: "",
-      comment: "",
     };
     setFormData((prev) => ({
       ...prev,
       section1_5: {
         ...prev.section1_5,
         ffiArray: [...prev.section1_5.ffiArray, newIntermediary],
+        hasIntermediary: "yes",
       },
     }));
-    setFfiAvailable("yes"); // mark available when user adds one
   };
 
   const removeIntermediary = (id: string) => {
@@ -465,54 +434,6 @@ export const InfraFinancingStep = () => {
       },
     }));
   };
-
-  // Keep formData.section1_5 in sync with the simple UI flags (ffiAvailable / ffiComment).
-  // If ffiAvailable === "no", we'll store one ffiArray item with hasIntermediary=false and comment.
-  // If ffiAvailable === "yes", keep the actual intermediaries (with hasIntermediary=true).
-  useEffect(() => {
-    setFormData((prev) => {
-      const prevFfi = prev.section1_5.ffiArray || [];
-
-      if (ffiAvailable === "no") {
-        // store single no-item (or replace existing)
-        const noItem = {
-          id:
-            prevFfi.find((i) => i.hasIntermediary === false)?.id ||
-            Date.now().toString(),
-          hasIntermediary: false,
-          organisationName: "",
-          organisationType: "",
-          yearEstablished: "",
-          totalFunding: "",
-          website: "",
-          comment: ffiComment || "",
-        };
-        return {
-          ...prev,
-          section1_5: {
-            ffiArray: [noItem],
-          },
-        };
-      } else if (ffiAvailable === "yes") {
-        // remove any existing 'no'-item if present, keep only items with hasIntermediary !== false
-        const keep = prevFfi.filter((i) => i.hasIntermediary !== false);
-        return {
-          ...prev,
-          section1_5: {
-            ffiArray: keep,
-          },
-        };
-      } else {
-        // empty state
-        return {
-          ...prev,
-          section1_5: {
-            ffiArray: prevFfi.filter((i) => i.hasIntermediary !== false), // drop any no-items
-          },
-        };
-      }
-    });
-  }, [ffiAvailable, ffiComment]);
 
   // ------------------------
   // Derived calculations -> write back into formData
@@ -1656,11 +1577,17 @@ export const InfraFinancingStep = () => {
                         type="radio"
                         name="functional-financial-intermediary"
                         value="yes"
-                        checked={ffiAvailable === "yes"}
+                        checked={formData.section1_5.hasIntermediary === "yes"}
                         onChange={() => {
                           showErrorsIfNeeded();
-                          setFfiAvailable("yes");
-                          setFfiComment("");
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_5: {
+                              ...prev.section1_5,
+                              hasIntermediary: "yes",
+                              comment: "",
+                            },
+                          }));
                         }}
                       />
                       Yes
@@ -1670,245 +1597,248 @@ export const InfraFinancingStep = () => {
                         type="radio"
                         name="functional-financial-intermediary"
                         value="no"
-                        checked={ffiAvailable === "no"}
+                        checked={formData.section1_5.hasIntermediary === "no"}
                         onChange={() => {
                           showErrorsIfNeeded();
-                          setFfiAvailable("no");
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_5: {
+                              ...prev.section1_5,
+                              hasIntermediary: "no",
+                              ffiArray: [],
+                            },
+                          }));
                         }}
                       />
                       No
                     </label>
                   </div>
-                  {renderFieldError("section1_5.ffiAvailable")}
+                  {renderFieldError("section1_5.hasIntermediary")}
                 </div>
 
                 {/* If Yes → show intermediary fields (bound to section1_5.ffiArray) */}
-                {ffiAvailable === "yes" && (
+                {formData.section1_5.hasIntermediary === "yes" && (
                   <div className="space-y-4">
-                    {formData.section1_5.ffiArray
-                      .filter((i) => i.hasIntermediary !== false)
-                      .map((intermediary, index) => (
-                        <div
-                          key={intermediary.id}
-                          className="grid grid-cols-5 gap-4"
-                        >
-                          <div>
-                            <Label>
-                              Organisation Name
-                              <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                              placeholder="Enter organisation name"
-                              value={intermediary.organisationName}
-                              onChange={(e) => {
-                                showErrorsIfNeeded();
-                                const value = e.target.value;
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? {
-                                              ...item,
-                                              organisationName: value,
-                                            }
-                                          : item
-                                    ),
-                                  },
-                                }));
-                              }}
-                              className={cn(
-                                getInputValidationClass(
-                                  `section1_5.ffiArray.${index}.organisationName`
-                                )
-                              )}
-                            />
-                            {renderFieldError(
-                              `section1_5.ffiArray.${index}.organisationName`
+                    {formData.section1_5.ffiArray.map((intermediary, index) => (
+                      <div
+                        key={intermediary.id}
+                        className="grid grid-cols-5 gap-4"
+                      >
+                        <div>
+                          <Label>
+                            Organisation Name
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            placeholder="Enter organisation name"
+                            value={intermediary.organisationName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              const value = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? {
+                                            ...item,
+                                            organisationName: value,
+                                          }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_5.ffiArray.${index}.organisationName`
+                              )
                             )}
-                          </div>
-
-                          <div>
-                            <Label>
-                              Organisation Type
-                              <span className="text-red-500">*</span>
-                            </Label>
-                            <Select
-                              value={intermediary.organisationType}
-                              onValueChange={(value) => {
-                                showErrorsIfNeeded();
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? { ...item, organisationType: value }
-                                          : item
-                                    ),
-                                  },
-                                }));
-                              }}
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  getInputValidationClass(
-                                    `section1_5.ffiArray.${index}.organisationType`
-                                  )
-                                )}
-                              >
-                                <SelectValue placeholder="Select type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Trust">Trust</SelectItem>
-                                <SelectItem value="Society">Society</SelectItem>
-                                <SelectItem value="Corporation">
-                                  Corporation
-                                </SelectItem>
-                                <SelectItem value="Company">Company</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {renderFieldError(
-                              `section1_5.ffiArray.${index}.organisationType`
-                            )}
-                          </div>
-
-                          <div>
-                            <Label>
-                              Year of Establishment
-                              <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                              type="number"
-                              inputMode="numeric"
-                              placeholder="YYYY"
-                              value={intermediary.yearEstablished}
-                              min="1900"
-                              max="9999"
-                              onChange={(e) => {
-                                showErrorsIfNeeded();
-                                const value = e.target.value;
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? { ...item, yearEstablished: value }
-                                          : item
-                                    ),
-                                  },
-                                }));
-                              }}
-                              className={cn(
-                                getInputValidationClass(
-                                  `section1_5.ffiArray.${index}.yearEstablished`
-                                )
-                              )}
-                            />
-                            {renderFieldError(
-                              `section1_5.ffiArray.${index}.yearEstablished`
-                            )}
-                          </div>
-
-                          <div>
-                            <Label>
-                              Total Funding (INR)
-                              <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                              placeholder="Enter total funding in INR"
-                              value={intermediary.totalFunding}
-                              type="number"
-                              inputMode="decimal"
-                              step="0.01"
-                              min="0"
-                              onChange={(e) => {
-                                showErrorsIfNeeded();
-                                const value = e.target.value;
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? {
-                                              ...item,
-                                              totalFunding: value,
-                                            }
-                                          : item
-                                    ),
-                                  },
-                                }));
-                              }}
-                              className={cn(
-                                getInputValidationClass(
-                                  `section1_5.ffiArray.${index}.totalFunding`
-                                )
-                              )}
-                            />
-                            {renderFieldError(
-                              `section1_5.ffiArray.${index}.totalFunding`
-                            )}
-                          </div>
-
-                          <div className="flex items-end gap-2">
-                            <div className="flex-1">
-                              <Label>
-                                Website
-                                <span className="text-red-500">*</span>
-                              </Label>
-                              <Input
-                                placeholder="Website link"
-                                value={intermediary.website}
-                                type="url"
-                                onChange={(e) => {
-                                  showErrorsIfNeeded();
-                                  const value = e.target.value;
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    section1_5: {
-                                      ...prev.section1_5,
-                                      ffiArray: prev.section1_5.ffiArray.map(
-                                        (item) =>
-                                          item.id === intermediary.id
-                                            ? {
-                                                ...item,
-                                                website: value,
-                                              }
-                                            : item
-                                      ),
-                                    },
-                                  }));
-                                }}
-                                className={cn(
-                                  getInputValidationClass(
-                                    `section1_5.ffiArray.${index}.website`
-                                  )
-                                )}
-                              />
-                              {renderFieldError(
-                                `section1_5.ffiArray.${index}.website`
-                              )}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() =>
-                                removeIntermediary(intermediary.id)
-                              }
-                              className="text-red-500 hover:text-red-700 border-none bg-none"
-                            >
-                              <Trash2 className="h-6 w-6" />
-                            </Button>
-                          </div>
+                          />
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.organisationName`
+                          )}
                         </div>
-                      ))}
+
+                        <div>
+                          <Label>
+                            Organisation Type
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={intermediary.organisationType}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? { ...item, organisationType: value }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section1_5.ffiArray.${index}.organisationType`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Trust">Trust</SelectItem>
+                              <SelectItem value="Society">Society</SelectItem>
+                              <SelectItem value="Corporation">
+                                Corporation
+                              </SelectItem>
+                              <SelectItem value="Company">Company</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.organisationType`
+                          )}
+                        </div>
+
+                        <div>
+                          <Label>
+                            Year of Establishment
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="YYYY"
+                            value={intermediary.yearEstablished}
+                            min="1900"
+                            max="9999"
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              const value = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? { ...item, yearEstablished: value }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_5.ffiArray.${index}.yearEstablished`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.yearEstablished`
+                          )}
+                        </div>
+
+                        <div>
+                          <Label>
+                            Total Funding (INR)
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            placeholder="Enter total funding in INR"
+                            value={intermediary.totalFunding}
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            min="0"
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              const value = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? {
+                                            ...item,
+                                            totalFunding: value,
+                                          }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_5.ffiArray.${index}.totalFunding`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.totalFunding`
+                          )}
+                        </div>
+
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Label>
+                              Website
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              placeholder="Website link"
+                              value={intermediary.website}
+                              type="url"
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                const value = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section1_5: {
+                                    ...prev.section1_5,
+                                    ffiArray: prev.section1_5.ffiArray.map(
+                                      (item) =>
+                                        item.id === intermediary.id
+                                          ? {
+                                              ...item,
+                                              website: value,
+                                            }
+                                          : item
+                                    ),
+                                  },
+                                }));
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section1_5.ffiArray.${index}.website`
+                                )
+                              )}
+                            />
+                            {renderFieldError(
+                              `section1_5.ffiArray.${index}.website`
+                            )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => removeIntermediary(intermediary.id)}
+                            className="text-red-500 hover:text-red-700 border-none bg-none"
+                          >
+                            <Trash2 className="h-6 w-6" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
 
                     <Button
                       type="button"
@@ -1919,7 +1849,7 @@ export const InfraFinancingStep = () => {
                       <Plus className="h-4 w-4" />
                       Add More Financial Intermediary
                     </Button>
-                    {ffiAvailable === "yes" &&
+                    {formData.section1_5.hasIntermediary === "yes" &&
                       formData.section1_5.ffiArray.length > 0 && (
                         <div className="overflow-x-auto rounded-xl mt-4">
                           <table className="min-w-full border-separate border-spacing-0">
@@ -1946,9 +1876,8 @@ export const InfraFinancingStep = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {formData.section1_5.ffiArray
-                                .filter((i) => i.hasIntermediary !== false)
-                                .map((intermediary) => (
+                              {formData.section1_5.ffiArray.map(
+                                (intermediary) => (
                                   <tr
                                     key={intermediary.id}
                                     className="bg-white"
@@ -1981,7 +1910,8 @@ export const InfraFinancingStep = () => {
                                       </button>
                                     </td>
                                   </tr>
-                                ))}
+                                )
+                              )}
                             </tbody>
                           </table>
                         </div>
@@ -1989,16 +1919,22 @@ export const InfraFinancingStep = () => {
                   </div>
                 )}
 
-                {/* If 'No' -> show comment box. We persist this as a single ffiArray entry with hasIntermediary=false and comment */}
-                {ffiAvailable === "no" && (
+                {/* If 'No' -> show comment box */}
+                {formData.section1_5.hasIntermediary === "no" && (
                   <div>
                     <Label>Comments (Reason)</Label>
                     <Input
                       placeholder="Enter comments or reason"
-                      value={ffiComment}
+                      value={formData.section1_5.comment || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
-                        setFfiComment(e.target.value);
+                        setFormData((prev) => ({
+                          ...prev,
+                          section1_5: {
+                            ...prev.section1_5,
+                            comment: e.target.value,
+                          },
+                        }));
                       }}
                       className={cn(
                         getInputValidationClass("section1_5.comment")

@@ -48,7 +48,11 @@ import {
 const defaultData: InfraDevelopmentData = {
   section2_1: { infraActArray: [] },
   section2_2: { specializedEntityArray: [] },
-  section2_3: { infraDevelopmentArray: [] },
+  section2_3: {
+    infraDevelopmentArray: [],
+    hasInfraDevelopmentPlan: "",
+    comment: "",
+  },
   section2_4: { investmentReadyArray: [] },
   section2_5: { assetMonetizationArray: [] },
 };
@@ -128,6 +132,9 @@ export const InfraDevelopmentStep = () => {
     section2_3: {
       infraDevelopmentArray:
         (loadedData.section2_3 as any)?.infraDevelopmentArray || [],
+      hasInfraDevelopmentPlan:
+        (loadedData.section2_3 as any)?.hasInfraDevelopmentPlan || "",
+      comment: (loadedData.section2_3 as any)?.comment || "",
     },
     section2_4: {
       investmentReadyArray:
@@ -141,16 +148,12 @@ export const InfraDevelopmentStep = () => {
 
   const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [infraPlanAvailable, setInfraPlanAvailable] = useState<
-    "yes" | "no" | ""
-  >("");
-  const [infraPlanComment, setInfraPlanComment] = useState<string>("");
   const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   // Validation
   const validation: InfraDevelopmentValidationResult = useMemo(
-    () => validateInfraDevelopment(formData, { infraPlanAvailable }),
-    [formData, infraPlanAvailable]
+    () => validateInfraDevelopment(formData),
+    [formData]
   );
   const isNextDisabled = !validation.isValid;
 
@@ -159,14 +162,14 @@ export const InfraDevelopmentStep = () => {
     console.log("🔍 InfraDevelopmentStep Validation:", {
       isValid: validation.isValid,
       errors: validation.errors,
-      infraPlanAvailable,
+      hasInfraDevelopmentPlan: formData.section2_3.hasInfraDevelopmentPlan,
       section2_1_count: formData.section2_1.infraActArray.length,
       section2_2_count: formData.section2_2.specializedEntityArray.length,
       section2_3_count: formData.section2_3.infraDevelopmentArray.length,
       section2_4_count: formData.section2_4.investmentReadyArray.length,
       section2_5_count: formData.section2_5.assetMonetizationArray.length,
     });
-  }, [validation, infraPlanAvailable, formData]);
+  }, [validation, formData]);
 
   // Helper functions for error display
   const getFieldError = (fieldPath: string): string | undefined => {
@@ -210,6 +213,9 @@ export const InfraDevelopmentStep = () => {
         section2_3: {
           infraDevelopmentArray:
             (currentStepData.section2_3 as any)?.infraDevelopmentArray || [],
+          hasInfraDevelopmentPlan:
+            (currentStepData.section2_3 as any)?.hasInfraDevelopmentPlan || "",
+          comment: (currentStepData.section2_3 as any)?.comment || "",
         },
         section2_4: {
           investmentReadyArray:
@@ -259,6 +265,9 @@ export const InfraDevelopmentStep = () => {
             section2_3: {
               infraDevelopmentArray:
                 (stepData.section2_3 as any)?.infraDevelopmentArray || [],
+              hasInfraDevelopmentPlan:
+                (stepData.section2_3 as any)?.hasInfraDevelopmentPlan || "",
+              comment: (stepData.section2_3 as any)?.comment || "",
             },
             section2_4: {
               investmentReadyArray:
@@ -288,61 +297,48 @@ export const InfraDevelopmentStep = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const infra = formData.section2_3.infraDevelopmentArray || [];
-    const noItem = infra.find((i: any) => i.hasPlan === false && i.comment);
-    if (noItem) {
-      setInfraPlanAvailable("no");
-      setInfraPlanComment(noItem.comment || "");
-    } else if (infra.length > 0) {
-      setInfraPlanAvailable("yes");
-      setInfraPlanComment("");
-    } else {
-      setInfraPlanAvailable("");
-      setInfraPlanComment("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // Sync infraDevelopmentArray based on hasInfraDevelopmentPlan
   useEffect(() => {
     setFormData((prev) => {
       const prevInfra = prev.section2_3.infraDevelopmentArray || [];
-      if (infraPlanAvailable === "no") {
-        const noItem = {
-          id:
-            prevInfra.find((i: any) => i.hasPlan === false)?.id ||
-            Date.now().toString(),
-          hasPlan: false,
-          sector: "",
-          files: [],
-          comment: infraPlanComment,
-        };
-        return {
-          ...prev,
-          section2_3: {
-            infraDevelopmentArray: [noItem],
-          },
-        };
-      } else if (infraPlanAvailable === "yes") {
+      const hasPlan = prev.section2_3.hasInfraDevelopmentPlan;
+
+      if (hasPlan === "no") {
+        // When "no", keep only comment entries (entries with hasPlan === false)
+        const noItems = prevInfra.filter((i: any) => i.hasPlan === false);
+        if (noItems.length === 0) {
+          // Create a new comment entry if none exists
+          return {
+            ...prev,
+            section2_3: {
+              ...prev.section2_3,
+              infraDevelopmentArray: [
+                {
+                  id: Date.now().toString(),
+                  sector: "",
+                  files: [],
+                  comment: prev.section2_3.comment || "",
+                },
+              ],
+            },
+          };
+        }
+        return prev; // Keep existing structure
+      } else if (hasPlan === "yes") {
+        // When "yes", filter out comment entries (entries with hasPlan === false)
         const keep = prevInfra.filter((i: any) => i.hasPlan !== false);
         return {
           ...prev,
           section2_3: {
+            ...prev.section2_3,
             infraDevelopmentArray: keep,
-          },
-        };
-      } else {
-        return {
-          ...prev,
-          section2_3: {
-            infraDevelopmentArray: prevInfra.filter(
-              (i: any) => i.hasPlan !== false
-            ),
+            comment: "", // Clear comment when yes is selected
           },
         };
       }
+      return prev;
     });
-  }, [infraPlanAvailable, infraPlanComment]);
+  }, [formData.section2_3.hasInfraDevelopmentPlan]);
 
   // Autosave to localStorage with debouncing
   useEffect(() => {
@@ -378,7 +374,15 @@ export const InfraDevelopmentStep = () => {
           },
         } as any)
     );
-    if (section === "section2_3") setInfraPlanAvailable("yes");
+    if (section === "section2_3") {
+      setFormData((prev) => ({
+        ...prev,
+        section2_3: {
+          ...prev.section2_3,
+          hasInfraDevelopmentPlan: "yes",
+        },
+      }));
+    }
   };
 
   const removeEntry = (
@@ -1046,11 +1050,19 @@ export const InfraDevelopmentStep = () => {
                       type="radio"
                       name="infra-development-plan"
                       value="yes"
-                      checked={infraPlanAvailable === "yes"}
+                      checked={
+                        formData.section2_3.hasInfraDevelopmentPlan === "yes"
+                      }
                       onChange={() => {
                         showErrorsIfNeeded();
-                        setInfraPlanAvailable("yes");
-                        setInfraPlanComment("");
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_3: {
+                            ...prev.section2_3,
+                            hasInfraDevelopmentPlan: "yes",
+                            comment: "",
+                          },
+                        }));
                       }}
                     />
                     Yes
@@ -1060,24 +1072,32 @@ export const InfraDevelopmentStep = () => {
                       type="radio"
                       name="infra-development-plan"
                       value="no"
-                      checked={infraPlanAvailable === "no"}
+                      checked={
+                        formData.section2_3.hasInfraDevelopmentPlan === "no"
+                      }
                       onChange={() => {
                         showErrorsIfNeeded();
-                        setInfraPlanAvailable("no");
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_3: {
+                            ...prev.section2_3,
+                            hasInfraDevelopmentPlan: "no",
+                            infraDevelopmentArray: [],
+                          },
+                        }));
                       }}
                     />
                     No
                   </label>
                 </div>
-                {renderFieldError("section2_3.hasPlan")}
+                {renderFieldError("section2_3.hasInfraDevelopmentPlan")}
               </div>
 
               {/* If Yes → show infra plan fields */}
-              {infraPlanAvailable === "yes" && (
+              {formData.section2_3.hasInfraDevelopmentPlan === "yes" && (
                 <div className="space-y-4">
-                  {formData.section2_3.infraDevelopmentArray
-                    .filter((e: any) => e.hasPlan !== false)
-                    .map((entry: any) => (
+                  {formData.section2_3.infraDevelopmentArray.map(
+                    (entry: any) => (
                       <div key={entry.id} className="mb-2 relative">
                         <div className="flex flex-col gap-4 max-w-[70%]">
                           <div className="flex-1 w-full">
@@ -1161,7 +1181,8 @@ export const InfraDevelopmentStep = () => {
                           <Trash2 className="w-5 h-5 text-destructive" />
                         </Button>
                       </div>
-                    ))}
+                    )
+                  )}
 
                   <Button
                     type="button"
@@ -1180,15 +1201,21 @@ export const InfraDevelopmentStep = () => {
               )}
 
               {/* If No → show comment box */}
-              {infraPlanAvailable === "no" && (
+              {formData.section2_3.hasInfraDevelopmentPlan === "no" && (
                 <div>
                   <Label>Comments (Reason)</Label>
                   <Input
                     placeholder="Enter reason or comment"
-                    value={infraPlanComment}
+                    value={formData.section2_3.comment || ""}
                     onChange={(e) => {
                       showErrorsIfNeeded();
-                      setInfraPlanComment(e.target.value);
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_3: {
+                          ...prev.section2_3,
+                          comment: e.target.value,
+                        },
+                      }));
                     }}
                     className={cn(
                       getInputValidationClass("section2_3.comment")
@@ -1201,10 +1228,8 @@ export const InfraDevelopmentStep = () => {
               {renderFieldError("section2_3.infraDevelopmentArray")}
 
               {/* Table view */}
-              {infraPlanAvailable === "yes" &&
-                formData.section2_3.infraDevelopmentArray.filter(
-                  (e: any) => e.hasPlan !== false
-                ).length > 0 && (
+              {formData.section2_3.hasInfraDevelopmentPlan === "yes" &&
+                formData.section2_3.infraDevelopmentArray.length > 0 && (
                   <div className="overflow-x-auto rounded-xl">
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
@@ -1224,9 +1249,8 @@ export const InfraDevelopmentStep = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {formData.section2_3.infraDevelopmentArray
-                          .filter((e: any) => e.hasPlan !== false)
-                          .map((entry) => (
+                        {formData.section2_3.infraDevelopmentArray.map(
+                          (entry) => (
                             <tr key={entry.id} className="bg-white">
                               <td className="py-3 px-4 text-sm font-normal">
                                 {entry.sector}
@@ -1257,7 +1281,8 @@ export const InfraDevelopmentStep = () => {
                                 </button>
                               </td>
                             </tr>
-                          ))}
+                          )
+                        )}
                       </tbody>
                     </table>
                   </div>

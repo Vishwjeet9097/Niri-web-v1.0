@@ -4,10 +4,6 @@ export interface InfraFinancingValidationErrors {
   [fieldPath: string]: string;
 }
 
-export interface InfraFinancingValidationOptions {
-  ffiAvailable?: "yes" | "no" | "";
-}
-
 export interface InfraFinancingValidationResult {
   isValid: boolean;
   errors: InfraFinancingValidationErrors;
@@ -64,11 +60,9 @@ const isValidUrl = (value: string): boolean => {
 };
 
 export const validateInfraFinancing = (
-  data: InfraFinancingData,
-  options: InfraFinancingValidationOptions = {}
+  data: InfraFinancingData
 ): InfraFinancingValidationResult => {
   const errors: InfraFinancingValidationErrors = {};
-  const { ffiAvailable } = options;
 
   // Section 1.1 validations
   const section11 = data.section1_1;
@@ -205,53 +199,46 @@ export const validateInfraFinancing = (
 
   // Section 1.5 validations
   const section15 = data.section1_5;
-  const hasNoEntry = section15.ffiArray.some(
-    (item) => item.hasIntermediary === false
-  );
-  const effectiveFfiAvailable =
-    ffiAvailable ??
-    (hasNoEntry ? "no" : section15.ffiArray.length > 0 ? "yes" : "");
+  const hasIntermediary = section15.hasIntermediary;
 
-  if (!effectiveFfiAvailable) {
-    errors["section1_5.ffiAvailable"] = "Please select Yes or No.";
-  } else if (effectiveFfiAvailable === "yes") {
-    const intermediaries = section15.ffiArray.filter(
-      (item) => item.hasIntermediary !== false
-    );
-    if (intermediaries.length === 0) {
+  if (
+    !hasIntermediary ||
+    (hasIntermediary !== "yes" && hasIntermediary !== "no")
+  ) {
+    errors["section1_5.hasIntermediary"] = "Please select Yes or No.";
+  } else if (hasIntermediary === "yes") {
+    if (!section15.ffiArray || section15.ffiArray.length === 0) {
       errors["section1_5.ffiArray"] =
         "Add at least one financial intermediary when selecting Yes.";
+    } else {
+      section15.ffiArray.forEach((intermediary, index) => {
+        if (!intermediary.organisationName) {
+          errors[`section1_5.ffiArray.${index}.organisationName`] =
+            "Organisation name is required.";
+        }
+        if (!intermediary.organisationType) {
+          errors[`section1_5.ffiArray.${index}.organisationType`] =
+            "Organisation type is required.";
+        }
+        if (!isValidYear(intermediary.yearEstablished)) {
+          errors[`section1_5.ffiArray.${index}.yearEstablished`] =
+            "Enter a valid year in YYYY format";
+        }
+        if (
+          !isNonNegativeDecimal(intermediary.totalFunding) ||
+          !hasMaxTwoDecimals(intermediary.totalFunding)
+        ) {
+          errors[`section1_5.ffiArray.${index}.totalFunding`] =
+            "Enter a non-negative amount with up to two decimal places.";
+        }
+        if (!intermediary.website || !isValidUrl(intermediary.website)) {
+          errors[`section1_5.ffiArray.${index}.website`] =
+            "Enter a valid website URL.";
+        }
+      });
     }
-    intermediaries.forEach((intermediary, index) => {
-      const basePath = `section1_5.ffiArray.${index}`;
-      if (!intermediary.organisationName) {
-        errors[`${basePath}.organisationName`] =
-          "Organisation name is required.";
-      }
-      if (!intermediary.organisationType) {
-        errors[`${basePath}.organisationType`] =
-          "Organisation type is required.";
-      }
-      if (!isValidYear(intermediary.yearEstablished)) {
-        errors[`${basePath}.yearEstablished`] =
-          "Enter a valid year in YYYY format";
-      }
-      if (
-        !isNonNegativeDecimal(intermediary.totalFunding) ||
-        !hasMaxTwoDecimals(intermediary.totalFunding)
-      ) {
-        errors[`${basePath}.totalFunding`] =
-          "Enter a non-negative amount with up to two decimal places.";
-      }
-      if (!intermediary.website || !isValidUrl(intermediary.website)) {
-        errors[`${basePath}.website`] = "Enter a valid website URL.";
-      }
-    });
-  } else if (effectiveFfiAvailable === "no") {
-    const noEntry = section15.ffiArray.find(
-      (item) => item.hasIntermediary === false
-    );
-    if (!noEntry || !noEntry.comment?.trim()) {
+  } else if (hasIntermediary === "no") {
+    if (!section15.comment || section15.comment.trim() === "") {
       errors["section1_5.comment"] =
         "Provide a comment explaining why no intermediary is available.";
     }

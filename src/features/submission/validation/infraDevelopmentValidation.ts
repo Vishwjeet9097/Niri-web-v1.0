@@ -4,10 +4,6 @@ export interface InfraDevelopmentValidationErrors {
   [fieldPath: string]: string;
 }
 
-export interface InfraDevelopmentValidationOptions {
-  infraPlanAvailable?: "yes" | "no" | "";
-}
-
 export interface InfraDevelopmentValidationResult {
   isValid: boolean;
   errors: InfraDevelopmentValidationErrors;
@@ -71,11 +67,9 @@ const hasRequiredFile = (files: FileUpload[] | null | undefined): boolean => {
 };
 
 export const validateInfraDevelopment = (
-  data: InfraDevelopmentData,
-  options: InfraDevelopmentValidationOptions = {}
+  data: InfraDevelopmentData
 ): InfraDevelopmentValidationResult => {
   const errors: InfraDevelopmentValidationErrors = {};
-  const { infraPlanAvailable } = options;
 
   // Section 2.1 - Availability of Infrastructure Act/Policy
   const section21 = data.section2_1;
@@ -134,12 +128,14 @@ export const validateInfraDevelopment = (
 
   // Section 2.3 - Sector Infra Development Plan
   const section23 = data.section2_3;
+  const hasInfraDevelopmentPlan = section23.hasInfraDevelopmentPlan;
+
   if (
-    !infraPlanAvailable ||
-    (infraPlanAvailable !== "yes" && infraPlanAvailable !== "no")
+    !hasInfraDevelopmentPlan ||
+    (hasInfraDevelopmentPlan !== "yes" && hasInfraDevelopmentPlan !== "no")
   ) {
-    errors["section2_3.hasPlan"] = "Please select Yes or No.";
-  } else if (infraPlanAvailable === "yes") {
+    errors["section2_3.hasInfraDevelopmentPlan"] = "Please select Yes or No.";
+  } else if (hasInfraDevelopmentPlan === "yes") {
     if (
       !section23.infraDevelopmentArray ||
       section23.infraDevelopmentArray.length === 0
@@ -147,33 +143,25 @@ export const validateInfraDevelopment = (
       errors["section2_3.infraDevelopmentArray"] =
         "At least one entry is required when plan is available.";
     } else {
-      section23.infraDevelopmentArray
-        .filter((e) => e.hasPlan !== false)
-        .forEach((entry, index) => {
-          const actualIndex = section23.infraDevelopmentArray.findIndex(
-            (e) => e.id === entry.id
-          );
-          if (!entry.sector || entry.sector.trim() === "") {
-            errors[`section2_3.infraDevelopmentArray.${actualIndex}.sector`] =
-              "Sector is required.";
+      section23.infraDevelopmentArray.forEach((entry, index) => {
+        if (!entry.sector || entry.sector.trim() === "") {
+          errors[`section2_3.infraDevelopmentArray.${index}.sector`] =
+            "Sector is required.";
+        }
+        if (!hasRequiredFile(entry.files)) {
+          errors[`section2_3.infraDevelopmentArray.${index}.files`] =
+            "Upload plan is required.";
+        } else {
+          const file = entry.files?.[0];
+          if (file && file.file && !isValidPdfFile(file)) {
+            errors[`section2_3.infraDevelopmentArray.${index}.files`] =
+              "Only PDF files are allowed.";
           }
-          if (!hasRequiredFile(entry.files)) {
-            errors[`section2_3.infraDevelopmentArray.${actualIndex}.files`] =
-              "Upload plan is required.";
-          } else {
-            const file = entry.files?.[0];
-            if (file && file.file && !isValidPdfFile(file)) {
-              errors[`section2_3.infraDevelopmentArray.${actualIndex}.files`] =
-                "Only PDF files are allowed.";
-            }
-          }
-        });
+        }
+      });
     }
-  } else if (infraPlanAvailable === "no") {
-    const noItem = section23.infraDevelopmentArray?.find(
-      (e) => e.hasPlan === false
-    );
-    if (!noItem || !noItem.comment || noItem.comment.trim() === "") {
+  } else if (hasInfraDevelopmentPlan === "no") {
+    if (!section23.comment || section23.comment.trim() === "") {
       errors["section2_3.comment"] = "Comment (reason) is required.";
     }
   }
