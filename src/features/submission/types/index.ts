@@ -163,8 +163,7 @@ export interface PPPDevelopmentData {
       capexPercentage: string; // % of Capex funded by non-Govt sources
       totalProjectCost: string; // Total Project Cost (in crore)
     }>;
-    totalProjectsAwarded?: string;
-    totalProjectCostAwarded?: string;
+    
     // Calculation fields
     tpcOfPPPProjects?: string; // A₁ - Calculated total from projects
     proportion?: number;
@@ -184,6 +183,7 @@ export interface InfraEnablersData {
   section4_2: {
     available: "yes" | "no" | "";
     file: FileUpload | null;
+    websiteLink?: string;
     comment?: string;
   };
   section4_3: {
@@ -202,7 +202,7 @@ export interface InfraEnablersData {
   section4_4: {
     adopted: "yes" | "no" | "";
     file: FileUpload | null;
-    comment?: string;
+    
     // Calculation fields
     marksObtained?: number;
     comment?: string;
