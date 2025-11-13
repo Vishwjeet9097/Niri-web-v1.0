@@ -36,7 +36,7 @@ interface DataReviewTabProps {
 
 }
 
-const sections = [
+const DEFAULT_SECTIONS = [
   { id: "infra-financing", label: "Infra Financing", points: 250 },
   { id: "infra-development", label: "Infra Development", points: 250 },
   { id: "ppp-development", label: "PPP Development", points: 250 },
@@ -59,7 +59,8 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
 
    const availableSections = useMemo(() => {
     const anyHasData = sectionsWithData.some((s) => s.hasData);
-    return anyHasData ? sectionsWithData.filter((s) => s.hasData) : fallbackSections;
+    // If no sections have data, show all sections as fallback
+    return anyHasData ? sectionsWithData.filter((s) => s.hasData) : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
   }, [sectionsWithData]);
   
   const renderSectionContent = () => {

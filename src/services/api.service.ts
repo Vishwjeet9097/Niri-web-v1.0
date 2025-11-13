@@ -210,8 +210,15 @@ class ApiService implements HttpClient {
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.axios.get(url, config);
-      // Response interceptor already handles 304, so we just return the data
-      return response.data as T;
+      if (
+        response &&
+        typeof response === "object" &&
+        "config" in response &&
+        "data" in response
+      ) {
+        return (response as AxiosResponse<T>).data;
+      }
+      return response as T;
     } catch (error: any) {
       // If it's a 304, the interceptor should have handled it
       if (error.response?.status === 304) {

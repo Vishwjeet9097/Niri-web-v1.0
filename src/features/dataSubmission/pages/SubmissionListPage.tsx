@@ -239,16 +239,15 @@ const handleFinalSubmit = async () => {
 };
 
 const handlePreviewClick = (rowStateUt?: string, year?: string) => {
-  // Prefer: explicit state from the row -> user’s stateUt -> nothing
-  const userState = authService.getUser()?.stateUt;
-  const resolvedState = (rowStateUt || userState || "").toUpperCase();
+  const userState = authService.getUser()?.stateUt || authService.getUser()?.stateName || authService.getUser()?.state;
+  const resolvedState = (rowStateUt || userState || "").trim();
 
   const params = new URLSearchParams();
   if (resolvedState) params.set("state", resolvedState);
   if (year) params.set("year", year);
 
   const qs = params.toString();
-  navigate(`/submissions/preview${qs ? `?${qs}` : ""}`);
+  navigate(`/data-submission/state-aggregate${qs ? `?${qs}` : ""}`);
 };
 
 

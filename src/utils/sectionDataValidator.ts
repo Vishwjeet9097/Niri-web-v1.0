@@ -160,9 +160,13 @@ export const hasInfraFinancingData = (formData: any): boolean => {
         );
 
       case "section1_3":
+        // Check for ulbList array or totalULBs field
+        return hasArrayData(section?.ulbList) || hasMeaningfulValue(section?.totalULBs);
       case "section1_4":
+        // Check for bondList array or totalULBs field
+        return hasArrayData(section?.bondList) || hasMeaningfulValue(section?.totalULBs);
       case "section1_5":
-        return hasArrayData(section);
+        return hasArrayData(section?.ffiArray) || hasArrayData(section);
 
       default:
         return false;
@@ -445,9 +449,13 @@ const hasSectionData = (
         case "section1_2":
           return Object.values(section).some(hasMeaningfulValue);
         case "section1_3":
+          // Check for ulbList array or totalULBs field
+          return hasArrayData(section?.ulbList) || hasMeaningfulValue(section?.totalULBs);
         case "section1_4":
+          // Check for bondList array or totalULBs field
+          return hasArrayData(section?.bondList) || hasMeaningfulValue(section?.totalULBs);
         case "section1_5":
-          return hasArrayData(section);
+          return hasArrayData(section?.ffiArray) || hasArrayData(section);
         default:
           return false;
       }

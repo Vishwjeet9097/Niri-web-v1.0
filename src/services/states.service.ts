@@ -30,70 +30,131 @@ class StatesService {
       const data = await response.json();
       console.log("🌍 States API Response:", data);
 
-      // Handle different response formats
-      let states: State[];
-      if (Array.isArray(data)) {
-        states = data;
-      } else if (data.data && Array.isArray(data.data)) {
-        // Direct API response - use index+1 as id and value as name
-        states = data.data.map((state: any, index: number) => ({
-          id: (index + 1).toString(), // Use 1-based index as ID
-          name: state.value || state.label,
-          code: state.value || state.label,
-          isActive: true,
-        }));
+      const normalizeArray = (items: any[]): State[] =>
+        items.map((item, index) => {
+          if (typeof item === "string") {
+            const normalized = item.trim();
+            return {
+              id: (index + 1).toString(),
+              name: normalized,
+              code: normalized,
+              isActive: true,
+            };
+          }
 
-        console.log("🌍 Processed states:", states.slice(0, 3)); // Log first 3 states for debugging
-        console.log("🌍 All states count:", states.length);
-        console.log("🌍 Sample state structure:", states[0]);
+          const candidate = item || {};
+          const name =
+            candidate.name ||
+            candidate.label ||
+            candidate.value ||
+            candidate.stateName ||
+            candidate.state ||
+            candidate.code ||
+            `State ${index + 1}`;
 
-        // Check for any states with unusual characters
-        const unusualStates = states.filter(
-          (state) =>
-            state.id.includes("q") ||
-            state.name.includes("q") ||
-            state.id.length < 3
-        );
-        if (unusualStates.length > 0) {
-          console.warn("⚠️ Found unusual states:", unusualStates);
+          const code =
+            candidate.code ||
+            candidate.value ||
+            candidate.label ||
+            candidate.name ||
+            String(index + 1);
+
+          return {
+            id: candidate.id?.toString() || (index + 1).toString(),
+            name: String(name).trim(),
+            code: String(code).trim(),
+            isActive:
+              typeof candidate.isActive === "boolean"
+                ? candidate.isActive
+                : true,
+          };
+        });
+
+      const extractStates = (payload: any): State[] | null => {
+        if (!payload) return null;
+
+        if (Array.isArray(payload)) {
+          return normalizeArray(payload);
         }
 
-        // Log all state IDs to check for issues
-        console.log(
-          "🌍 All state IDs:",
-          states.map((s) => s.id)
-        );
-
-        // Check for any states that might be causing the "4 q" issue
-        const problematicStates = states.filter(
-          (state) =>
-            state.id === "4 q" ||
-            state.name === "4 q" ||
-            state.id.includes("4 q") ||
-            state.name.includes("4 q")
-        );
-        if (problematicStates.length > 0) {
-          console.error("❌ Found problematic states:", problematicStates);
+        if (Array.isArray(payload.states)) {
+          return normalizeArray(payload.states);
         }
 
-        // Check for any states with numbers and letters
-        const numberLetterStates = states.filter(
-          (state) =>
-            /\d.*[a-zA-Z]/.test(state.id) || /\d.*[a-zA-Z]/.test(state.name)
-        );
-        if (numberLetterStates.length > 0) {
-          console.warn(
-            "⚠️ Found states with numbers and letters:",
-            numberLetterStates
-          );
+        if (Array.isArray(payload.data)) {
+          return normalizeArray(payload.data);
         }
-      } else if (data.states && Array.isArray(data.states)) {
-        states = data.states;
-      } else {
+
+        if (
+          payload.data &&
+          Array.isArray(payload.data.states)
+        ) {
+          return normalizeArray(payload.data.states);
+        }
+
+        if (
+          payload.data &&
+          Array.isArray(payload.data.data)
+        ) {
+          return normalizeArray(payload.data.data);
+        }
+
+        if (typeof payload === "object") {
+          const entries = Object.entries(payload);
+          if (entries.length === 0) return null;
+
+          const normalizedEntries = entries.map(([key, value], index) => {
+            if (typeof value === "object" && value !== null) {
+              return {
+                id: value.id?.toString() || (index + 1).toString(),
+                name:
+                  value.name ||
+                  value.label ||
+                  value.value ||
+                  value.stateName ||
+                  key,
+                code:
+                  value.code ||
+                  value.value ||
+                  value.label ||
+                  value.name ||
+                  key,
+                isActive:
+                  typeof value.isActive === "boolean"
+                    ? value.isActive
+                    : true,
+              };
+            }
+
+            const fallbackName =
+              typeof value === "string" && value.trim().length > 0
+                ? value
+                : key;
+
+            return {
+              id: (index + 1).toString(),
+              name: String(fallbackName).trim(),
+              code: String(key).trim(),
+              isActive: true,
+            };
+          });
+
+          return normalizeArray(normalizedEntries);
+        }
+
+        return null;
+      };
+
+      const states = extractStates(data) || extractStates(data?.data);
+
+      if (!states || states.length === 0) {
         throw new Error("Invalid states data format");
       }
 
-      // Cache the data
+      console.log("🌍 Processed states:", states.slice(0, 3));
+      console.log("🌍 All states count:", states.length);
+      console.log("🌍 Sample state structure:", states[0]);
+
       this.statesCache = states;
       this.cacheExpiry = Date.now() + this.CACHE_DURATION;
 
