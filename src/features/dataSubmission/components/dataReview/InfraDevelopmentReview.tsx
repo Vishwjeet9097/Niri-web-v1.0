@@ -3,7 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageSquare, Upload, Plus, Clock, RotateCcw, CheckCircle, X, Check, Edit3 } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -51,9 +61,66 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
+  
+  // Store original formDataState snapshot when edit mode starts (for cancel functionality)
+  const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
+  // Flag to prevent useEffect from overriding cancel restore
+  const isRestoringRef = useRef(false);
+  // Counter to force remount of Select components on cancel
+  const [selectResetKey, setSelectResetKey] = useState(0);
+ 
+  // State for save confirmation dialog
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
+
+  // State for Send Back and Accept confirmation dialogs
+  const [showSendBackDialog, setShowSendBackDialog] = useState(false);
+  const [showAcceptDialog, setShowAcceptDialog] = useState(false);
+  const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
+
+  // Helper function to check user role
+  const getUserRole = () => {
+    try {
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const user = JSON.parse(authUser);
+        return user.value?.role;
+      }
+    } catch (error) {
+      console.error('Error reading user role:', error);
+    }
+    return null;
+  };
  
   //State for edit button 
   const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+  
+  // Handle edit mode start - store original state snapshot
+  const handleEditStart = (sectionId: string) => {
+    // Store a deep copy of current formDataState
+    setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
+    setEditable(sectionId, true);
+  };
+  
+  // Handle cancel - restore original state
+  const handleCancel = (sectionId: string) => {
+    if (originalFormDataSnapshot) {
+      isRestoringRef.current = true;
+      setFormDataState(originalFormDataSnapshot);
+      setOriginalFormDataSnapshot(null);
+      setEditable(sectionId, false);
+      // Increment reset key to force Select components to remount
+      setSelectResetKey(prev => prev + 1);
+      // Reset the flag after React has processed the state update
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isRestoringRef.current = false;
+        });
+      });
+    } else {
+      setEditable(sectionId, false);
+    }
+  };
 
   const normalizeInfraDevelopment = (data: any) => {
     if (!data || typeof data !== "object") return data;
@@ -109,9 +176,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   // Type assertion for formDataState to avoid TypeScript errors
   const state = (formDataState as any) || {};
 
-  // Sync formDataState when formData prop changes
+  // Sync formDataState when formData prop changes (but not when restoring from cancel)
   useEffect(() => {
-    if (formData) {
+    if (formData && !isRestoringRef.current) {
       setFormDataState(normalizeInfraDevelopment((formData as any)?.infraDevelopment || formData));
     }
   }, [formData]);
@@ -309,12 +376,42 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 // ...existing code...
 
   const onSaveSection = async (sectionId: string) => {
+    // Check if user is NODAL_OFFICER
+    const userRole = getUserRole();
+    const isNodalOfficer = userRole === 'NODAL_OFFICER';
+
+    // If NODAL_OFFICER, show confirmation dialog first
+    if (isNodalOfficer) {
+      setPendingSaveSectionId(sectionId);
+      setShowSaveDialog(true);
+      return;
+    }
+
+    // For non-NODAL_OFFICER users, proceed with save directly
+    await performSave(sectionId);
+  };
+
+  // Actual save function that performs the save operation
+  const performSave = async (sectionId: string) => {
     try {
       // Map visual section id to payload section key (e.g. "2.1" -> "section2_1")
       const payloadSection = `section${sectionId.replace('.', '_')}`;
 
       // Use the local formData state (formDataState) to build fields for this section
-      const fields = buildSectionFields(sectionId);
+      let fields = buildSectionFields(sectionId);
+
+      // Check if user is NODAL_OFFICER to add status to payload
+      const userRole = getUserRole();
+      const isNodalOfficer = userRole === 'NODAL_OFFICER';
+      
+      // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
+      if (isNodalOfficer && fields.length > 0) {
+        // Add status to the first field object
+        fields[0] = {
+          ...fields[0],
+          status: 'RESUBMITTED',
+        };
+      }
 
       await handleSaveSection({
         submissionId,
@@ -323,14 +420,48 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         fields
       });
 
+      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
+      if (isNodalOfficer) {
+        // Update formDataState to set status to RESUBMITTED
+        const sectionKey = `section${sectionId.replace('.', '_')}`;
+        setFormDataState((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (updated[sectionKey]) {
+            updated[sectionKey] = {
+              ...updated[sectionKey],
+              status: 'RESUBMITTED',
+            };
+          }
+          return updated;
+        });
+      }
+
       // Disable editing after successful save
       setEditable(sectionId, false);
+      // Clear the snapshot since save was successful
+      setOriginalFormDataSnapshot(null);
     } catch (error) {
       console.error('Error saving section:', error);
     }
   };
 
-  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+  // Handle confirmation dialog actions
+  const handleConfirmSave = async () => {
+    if (pendingSaveSectionId) {
+      await performSave(pendingSaveSectionId);
+      setShowSaveDialog(false);
+      setPendingSaveSectionId(null);
+    }
+  };
+
+  const handleCancelSave = () => {
+    setShowSaveDialog(false);
+    setPendingSaveSectionId(null);
+  };
+
+  // Actual function that performs the status update
+  const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const payload = {
       submissionId,
       category: 'infraDevelopment', // updated category for this file
@@ -371,6 +502,161 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     } catch (error) {
       console.error("❌ Failed to update indicator status:", error);
     }
+  };
+
+  // Wrapper function that checks for STATE_APPROVER and shows dialog if needed
+  const onIndicatorStatus = async (sectionId: string, status: boolean) => {
+    const userRole = getUserRole();
+    const isStateApprover = userRole === 'STATE_APPROVER';
+
+    if (isStateApprover) {
+      // Show appropriate dialog based on action
+      setPendingActionSectionId(sectionId);
+      if (status) {
+        // Accept action
+        setShowAcceptDialog(true);
+      } else {
+        // Send Back action
+        setShowSendBackDialog(true);
+      }
+      return;
+    }
+
+    // For non-STATE_APPROVER users, proceed directly
+    await performIndicatorStatus(sectionId, status);
+  };
+
+  // Handle Send Back confirmation
+  const handleConfirmSendBack = async () => {
+    if (pendingActionSectionId) {
+      await performIndicatorStatus(pendingActionSectionId, false);
+      setShowSendBackDialog(false);
+      setPendingActionSectionId(null);
+      // Close the message modal if it's open
+      setActiveSection(null);
+    }
+  };
+
+  const handleCancelSendBack = () => {
+    setShowSendBackDialog(false);
+    setPendingActionSectionId(null);
+  };
+
+  // Handle Accept confirmation
+  const handleConfirmAccept = async () => {
+    if (pendingActionSectionId) {
+      await performIndicatorStatus(pendingActionSectionId, true);
+      setShowAcceptDialog(false);
+      setPendingActionSectionId(null);
+    }
+  };
+
+  const handleCancelAccept = () => {
+    setShowAcceptDialog(false);
+    setPendingActionSectionId(null);
+  };
+
+  // Helper function to handle field updates for nested array items
+  const handleArrayFieldUpdate = (
+    sectionId: string,
+    itemIndex: number,
+    fieldName: string,
+    value: any
+  ) => {
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const currentSection = state?.[sectionKey] || {};
+    const currentStatus = currentSection ? (currentSection as any).status : undefined;
+
+    let nextSection: any = null;
+
+    const buildArrayUpdate = (arrayKey: string) => {
+      const existingArray = Array.isArray(currentSection?.[arrayKey])
+        ? currentSection[arrayKey]
+        : [];
+
+      if (!existingArray[itemIndex]) {
+        return null;
+      }
+
+      const updatedArray = [...existingArray];
+      updatedArray[itemIndex] = {
+        ...updatedArray[itemIndex],
+        [fieldName]: value,
+      };
+
+      return {
+        ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+        [arrayKey]: updatedArray,
+        ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+      };
+    };
+
+    switch (sectionId) {
+      case '2.1':
+        nextSection = buildArrayUpdate('infraActArray');
+        break;
+      case '2.2':
+        nextSection = buildArrayUpdate('specializedEntityArray');
+        break;
+      case '2.3':
+        nextSection = buildArrayUpdate('infraDevelopmentArray');
+        break;
+      case '2.4': {
+        const existingArray = Array.isArray(currentSection?.investmentReadyArray)
+          ? currentSection.investmentReadyArray
+          : [];
+
+        if (!existingArray[itemIndex]) {
+          return;
+        }
+
+        const updatedArray = [...existingArray];
+        updatedArray[itemIndex] = {
+          ...updatedArray[itemIndex],
+          [fieldName]: value,
+        };
+
+        nextSection = {
+          ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+          investmentReadyArray: updatedArray,
+          ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+        };
+        break;
+      }
+      case '2.5': {
+        const existingArray = Array.isArray(currentSection?.assetMonetizationArray)
+          ? currentSection.assetMonetizationArray
+          : [];
+
+        if (!existingArray[itemIndex]) {
+          return;
+        }
+
+        const updatedArray = [...existingArray];
+        updatedArray[itemIndex] = {
+          ...updatedArray[itemIndex],
+          [fieldName]: value,
+        };
+
+        nextSection = {
+          ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+          assetMonetizationArray: updatedArray,
+          ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+        };
+        break;
+      }
+      default:
+        return;
+    }
+
+    if (!nextSection) {
+      return;
+    }
+
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: nextSection,
+    }));
   };
 
   // Helper functions to handle file updates
@@ -550,6 +836,67 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   };
   const userRole = getUserRole();
   const isNodalOfficer = userRole === 'NODAL_OFFICER';
+  const isStateApprover = userRole === 'STATE_APPROVER';
+  
+  // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
+  if (isStateApprover && sectionStatus === 'RESUBMITTED') {
+    return (
+      <div className="flex gap-2">
+        {!isEditable(sectionId) ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleEditStart(sectionId)}
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => onSaveSection(sectionId)}
+            >
+              <Check className="w-4 h-4" />
+              Save
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleCancel(sectionId)}
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </Button>
+          </>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+          disabled
+        >
+          <CheckCircle className="w-4 h-4" />
+          Re Submitted
+        </Button>
+        {!isNodalOfficer && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+          </Button>
+        )}
+      </div>
+    );
+  }
   
   if (sectionStatus === 'REVERTED') {
     // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
@@ -561,7 +908,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => setEditable(sectionId, true)}
+              onClick={() => handleEditStart(sectionId)}
             >
               <Edit3 className="w-4 h-4" />
               Edit
@@ -581,7 +928,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => setEditable(sectionId, false)}
+                onClick={() => handleCancel(sectionId)}
               >
                 <X className="w-4 h-4" />
                 Cancel
@@ -617,8 +964,25 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     );
   }
 
-  // For NODAL_OFFICER, if status is not REVERTED or ACCEPTED, don't show any buttons
-  if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED') {
+  // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
+  if (isNodalOfficer && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+          disabled
+        >
+          <Clock className="w-4 h-4" />
+          Under Review
+        </Button>
+      </div>
+    );
+  }
+
+  // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
+  if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
     return null;
   }
 
@@ -659,16 +1023,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         </>
       )}
 
-
-      <Button
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-1"
-        onClick={() => handleOpenModal(sectionId)}
-      >
-        <RotateCcw className="w-4 h-4" />
-        Send Back
-      </Button>
+      {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
+      {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenModal(sectionId)}
+        >
+          <RotateCcw className="w-4 h-4" />
+          Send Back
+        </Button>
+      )}
 
       {/* <Button
         variant="outline"
@@ -780,9 +1146,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                   <div className="space-y-4">
                     <div>
                       <Label>Sector</Label>
-                      <Input value={item.sector || ""} 
-                      readOnly={!isEditable('2.1')}
-                      className={isEditable('2.1') ? 'bg-white' : 'bg-gray-50'}
+                      <Input 
+                        value={item.sector || ""} 
+                        readOnly={!isEditable('2.1')}
+                        onChange={(e) => handleArrayFieldUpdate('2.1', index, 'sector', e.target.value)}
+                        className={isEditable('2.1') ? 'bg-white' : 'bg-gray-50'}
                       />
                     </div>
 
@@ -915,6 +1283,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                       <Input 
                         value={item.sector || ""} 
                         readOnly={!isEditable('2.2')}
+                        onChange={(e) => handleArrayFieldUpdate('2.2', index, 'sector', e.target.value)}
                         className={isEditable('2.2') ? 'bg-white' : 'bg-gray-50'}
                       />
                     </div>
@@ -993,6 +1362,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                       <Input 
                         value={item.sector || ""} 
                         readOnly={!isEditable('2.3')}
+                        onChange={(e) => handleArrayFieldUpdate('2.3', index, 'sector', e.target.value)}
                         className={isEditable('2.3') ? 'bg-white' : 'bg-gray-50'}
                       />
                     </div>
@@ -1071,6 +1441,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                       <Input 
                         value={item.projectName || ""} 
                         readOnly={!isEditable('2.4')}
+                        onChange={(e) => handleArrayFieldUpdate('2.4', index, 'projectName', e.target.value)}
                         className={isEditable('2.4') ? 'bg-white' : 'bg-gray-50'}
                       />
                     </div>
@@ -1158,11 +1529,62 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
                       return assetMonetizationArray.map((item: any, index: number) => (
                       <tr key={item.id || index} className="border-b">
-                        <td className="py-3 px-4 text-sm font-normal">{item.projectName || ""}</td>
-                        <td className="py-3 px-4 text-sm font-normal">{item.sector || ""}</td>
-                        <td className="py-3 px-4 text-sm font-normal">{item.type || ""}</td>
-                        <td className="py-3 px-4 text-sm font-normal">{item.ownership || ""}</td>
-                        <td className="py-3 px-4 text-sm font-normal">{item.estimatedMonetization ? `₹ ${item.estimatedMonetization} Crores` : ""}</td>
+                        <td className="py-3 px-4 text-sm font-normal">
+                          {isEditable('2.5') ? (
+                            <Input
+                              value={item.projectName || ""}
+                              onChange={(e) => handleArrayFieldUpdate('2.5', index, 'projectName', e.target.value)}
+                              className="w-full"
+                            />
+                          ) : (
+                            item.projectName || ""
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm font-normal">
+                          {isEditable('2.5') ? (
+                            <Input
+                              value={item.sector || ""}
+                              onChange={(e) => handleArrayFieldUpdate('2.5', index, 'sector', e.target.value)}
+                              className="w-full"
+                            />
+                          ) : (
+                            item.sector || ""
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm font-normal">
+                          {isEditable('2.5') ? (
+                            <Input
+                              value={item.type || ""}
+                              onChange={(e) => handleArrayFieldUpdate('2.5', index, 'type', e.target.value)}
+                              className="w-full"
+                            />
+                          ) : (
+                            item.type || ""
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm font-normal">
+                          {isEditable('2.5') ? (
+                            <Input
+                              value={item.ownership || ""}
+                              onChange={(e) => handleArrayFieldUpdate('2.5', index, 'ownership', e.target.value)}
+                              className="w-full"
+                            />
+                          ) : (
+                            item.ownership || ""
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm font-normal">
+                          {isEditable('2.5') ? (
+                            <Input
+                              value={item.estimatedMonetization || ""}
+                              onChange={(e) => handleArrayFieldUpdate('2.5', index, 'estimatedMonetization', e.target.value)}
+                              className="w-full"
+                              placeholder="Enter amount"
+                            />
+                          ) : (
+                            item.estimatedMonetization ? `₹ ${item.estimatedMonetization} Crores` : ""
+                          )}
+                        </td>
                       </tr>
                       ));
                     })()}
@@ -1193,6 +1615,54 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         comments={getAllComments()}
         key={`timeline-${timelineSection}-${getAllComments().length}-${Date.now()}`} // Force re-render when comments change
       />
+
+      {/* Confirmation Dialog for NODAL_OFFICER Save */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save this section? This will send the data to the State Approver for review.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSave}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>Confirm & Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for STATE_APPROVER Send Back */}
+      <AlertDialog open={showSendBackDialog} onOpenChange={setShowSendBackDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Send Back</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSendBack}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSendBack}>Confirm & Send Back</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for STATE_APPROVER Accept */}
+      <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Accept</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

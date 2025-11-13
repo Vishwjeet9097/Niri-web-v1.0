@@ -92,18 +92,30 @@ export interface InfraDevelopmentData {
     sector: string;
     files: FileUpload[];
   }>};
-  section2_3: 
-  {infraDevelopmentArray :Array<{
-    id: string;
-    sector: string;
-    files: FileUpload[];
-  }>};
+  section2_3: {
+    infraDevelopmentArray: Array<{
+      id: string;
+      sector: string;
+      files: FileUpload[];
+    }>;
+    hasPlan?: boolean;
+    comment?: string;
+    hasInfraDevelopmentPlan?: string;
+  };
   section2_4: {
     investmentReadyArray: Array<{
-    id: string;
-    projectName: string;
-    dprFile: FileUpload | null;
-  }>};
+      id: string;
+      projectName: string;
+      dprFile: FileUpload | null;
+    }>;
+    sector?: string;
+    status?: string;
+    projectSize?: string;
+    investmentType?: string;
+    hasInvestmentReady?: string;
+    comment?: string;
+    websiteLink?: string;
+  };
   section2_5: {
     assetMonetizationArray: Array<{
     id: string;
@@ -119,21 +131,25 @@ export interface PPPDevelopmentData {
   section3_1: {
     available: "yes" | "no" | "";
     file: FileUpload | null;
+    comment?: string;
   };
   section3_2: {
     available: "yes" | "no" | "";
     file: FileUpload | null;
+    comment?: string;
   };
   section3_3: {
     VGFArray: Array<{
-    id: string;
-    projectName: string;
-    sector: string;
-    type: string;
-    submissionDate: string;
-    file: FileUpload | null;
-    marksObtained?: number;
-  }>};
+      id: string;
+      projectName: string;
+      sector: string;
+      type: string;
+      submissionDate: string;
+      file: FileUpload | null;
+      marksObtained?: number;
+    }>;
+    id?: string;
+  };
   section3_4: {
     projects: Array<{
       id: string;
@@ -148,6 +164,9 @@ export interface PPPDevelopmentData {
     tpcOfPPPProjects?: string; // A₁ - Calculated total from projects
     proportion?: number;
     marksObtained?: number;
+    totalProjectsAwarded?: string;
+    totalProjectCostAwarded?: string;
+    totalProjectCost?: string;
   };
 }
 
@@ -155,38 +174,52 @@ export interface InfraEnablersData {
   section4_1: {
     allEligible: "yes" | "no" | "";
     websiteLink: string;
+    comment?: string;
   };
   section4_2: {
     available: "yes" | "no" | "";
     file: FileUpload | null;
+    comment?: string;
   };
   section4_3: {
-    numberOfProjects: string; // A₁
-    // Calculation fields
-    marksObtained?: number;
+    projects: Array<{
+      id: string;
+      projectName: string;
+      sector: string;
+      file: FileUpload | null;
+    }>;
+    adopted: "yes" | "no" | "";
+    comment?: string;
   };
   section4_4: {
     adopted: "yes" | "no" | "";
     file: FileUpload | null;
     // Calculation fields
     marksObtained?: number;
+    comment?: string;
   };
   section4_5: {
-    implemented: "yes" | "no" | "";
-    practiceName: string;
-    impact: string;
-    file: FileUpload | null;
+    practices: Array<{
+      id: string;
+      practiceName: string;
+      impact: string;
+      file: FileUpload | null;
+    }>;
+    comment?: string;
   };
   section4_6: {
     capacityArray: Array<{
-    id: string;
-    officerName: string;
-    designation: string;
-    programName: string;
-    organiser: string;
-    trainingType: string;
-    marksObtained?: number;
-  }>};
+      id: string;
+      officerName: string;
+      designation: string;
+      programName: string;
+      organiser: string;
+      trainingType: string;
+      marksObtained?: number;
+    }>;
+    participated?: string;
+    comment?: string;
+  };
 }
 
 export interface SubmissionFormData {
