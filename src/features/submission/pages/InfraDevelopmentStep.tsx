@@ -150,11 +150,34 @@ export const InfraDevelopmentStep = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showValidationErrors, setShowValidationErrors] = useState(false);
 
-  // Validation
-  const validation: InfraDevelopmentValidationResult = useMemo(
-    () => validateInfraDevelopment(formData),
-    [formData]
+  // Calculate allowed indicators for validation - calculate before validation
+  const sectionIndicators = useMemo(
+    () => ["2.1", "2.2", "2.3", "2.4", "2.5"],
+    []
   );
+  const allowedIndicators = useMemo(
+    () =>
+      (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter(
+        (ind) => sectionIndicators.includes(ind)
+      ) || [],
+    [isNodalOfficer, assignedIndicators, availableIndicators, sectionIndicators]
+  );
+
+  // Validation - only validate sections that are accessible based on indicators
+  const validation: InfraDevelopmentValidationResult = useMemo(() => {
+    // Determine which indicators to validate
+    // For Nodal Officer or State Approver: only validate assigned/available indicators
+    // For others: validate all (no restrictions)
+    const indicatorsToValidate =
+      (isNodalOfficer || user?.role === "STATE_APPROVER") &&
+      allowedIndicators.length > 0
+        ? allowedIndicators
+        : undefined; // undefined means validate all (backward compatibility)
+
+    return validateInfraDevelopment(formData, {
+      allowedIndicators: indicatorsToValidate,
+    });
+  }, [formData, isNodalOfficer, user?.role, allowedIndicators]);
   const isNextDisabled = !validation.isValid;
 
   // Debug logging
@@ -581,20 +604,15 @@ export const InfraDevelopmentStep = () => {
 
   // Access control for NODAL_OFFICER & STATE_APPROVER
   if (isNodalOfficer || user?.role === "STATE_APPROVER") {
-    const sectionIndicators = ["2.1", "2.2", "2.3", "2.4", "2.5"];
-    const allowed = (
-      isNodalOfficer ? assignedIndicators : availableIndicators
-    )?.filter((ind) => sectionIndicators.includes(ind));
-
     console.log("🔍 InfraDevelopmentStep: Section indicator access", {
       role: user?.role,
       isNodalOfficer,
       assignedIndicators,
       availableIndicators,
-      allowed,
+      allowedIndicators,
     });
 
-    if (!allowed?.length) {
+    if (!allowedIndicators?.length) {
       return (
         <div className="w-full -mx-6 lg:-mx-8">
           <div className="px-6 lg:px-8">

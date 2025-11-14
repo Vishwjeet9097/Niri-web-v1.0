@@ -143,11 +143,30 @@ export const PPPDevelopmentStep = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showValidationErrors, setShowValidationErrors] = useState(false);
 
-  // Validation
-  const validation: PPPDevelopmentValidationResult = useMemo(
-    () => validatePPPDevelopment(formData),
-    [formData]
+  // Calculate allowed indicators for validation - calculate before validation
+  const sectionIndicators = useMemo(() => ["3.1", "3.2", "3.3", "3.4"], []);
+  const allowedIndicators = useMemo(
+    () =>
+      (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter(
+        (ind) => sectionIndicators.includes(ind)
+      ) || [],
+    [isNodalOfficer, assignedIndicators, availableIndicators, sectionIndicators]
   );
+
+  // Validation - only validate sections that are accessible based on indicators
+  const validation: PPPDevelopmentValidationResult = useMemo(() => {
+    // Determine which indicators to validate
+    // For Nodal Officer or State Approver: only validate assigned/available indicators
+    // For others: validate all (no restrictions)
+    const indicatorsToValidate =
+      (isNodalOfficer || isStateApprover) && allowedIndicators.length > 0
+        ? allowedIndicators
+        : undefined; // undefined means validate all (backward compatibility)
+
+    return validatePPPDevelopment(formData, {
+      allowedIndicators: indicatorsToValidate,
+    });
+  }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
   const isNextDisabled = !validation.isValid;
 
   // Debug logging
@@ -484,12 +503,6 @@ export const PPPDevelopmentStep = () => {
   };
 
   // Access control for NODAL_OFFICER
-  const sectionIndicators = ["3.1", "3.2", "3.3", "3.4"];
-  const allowedIndicators =
-    (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter((ind) =>
-      sectionIndicators.includes(ind)
-    ) || [];
-
   console.log("🔍 PPPDevelopmentStep: Allowed indicators", {
     isNodalOfficer,
     isStateApprover,
@@ -678,8 +691,9 @@ export const PPPDevelopmentStep = () => {
                 {formData.section3_1.available === "no" && (
                   <div className="flex flex-col gap-2">
                     <Label>
-                    <span className="text-red-500">*</span>
-                      Comments (Reason)</Label>
+                      <span className="text-red-500">*</span>
+                      Comments (Reason)
+                    </Label>
                     <Input
                       type="text"
                       placeholder="Enter reason or comment"
@@ -808,8 +822,9 @@ export const PPPDevelopmentStep = () => {
                 {/* If No → show Comment */}
                 {formData.section3_2.available === "no" && (
                   <div className="flex flex-col gap-2">
-                    <Label>Comments (Reason)
-                    <span className="text-red-500">*</span>
+                    <Label>
+                      Comments (Reason)
+                      <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       type="text"
@@ -860,8 +875,9 @@ export const PPPDevelopmentStep = () => {
                   <div key={entry.id} className="mb-2">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                       <div>
-                        <Label>Project Name
-                        <span className="text-red-500">*</span>
+                        <Label>
+                          Project Name
+                          <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           type="text"
@@ -886,8 +902,9 @@ export const PPPDevelopmentStep = () => {
                         )}
                       </div>
                       <div>
-                        <Label>Select Sector
-                        <span className="text-red-500">*</span>
+                        <Label>
+                          Select Sector
+                          <span className="text-red-500">*</span>
                         </Label>
                         <Select
                           value={entry.sector}
@@ -916,8 +933,9 @@ export const PPPDevelopmentStep = () => {
                         {renderFieldError(`section3_3.VGFArray.${idx}.sector`)}
                       </div>
                       <div>
-                        <Label>Select Type
-                        <span className="text-red-500">*</span>
+                        <Label>
+                          Select Type
+                          <span className="text-red-500">*</span>
                         </Label>
                         <Select
                           value={entry.type}
@@ -947,8 +965,9 @@ export const PPPDevelopmentStep = () => {
                       </div>
                       <div className="flex items-center gap-2 w-full">
                         <div className="w-full">
-                          <Label>Submission Date
-                          <span className="text-red-500">*</span>
+                          <Label>
+                            Submission Date
+                            <span className="text-red-500">*</span>
                           </Label>
                           <Popover>
                             <PopoverTrigger asChild>

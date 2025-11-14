@@ -137,11 +137,29 @@ export const InfraEnablersStep = () => {
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const { toast } = useToast();
 
-  // Validation
-  const validation: InfraEnablersValidationResult = useMemo(
-    () => validateInfraEnablers(formData),
-    [formData]
-  );
+  // Unified access control for both roles - calculate before validation
+  const sectionIndicators = ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"];
+  const allowedIndicators =
+    (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter((i) =>
+      sectionIndicators.includes(i)
+    ) || [];
+
+  console.log("🟢 InfraEnablersStep: Allowed indicators", allowedIndicators);
+
+  // Validation - only validate sections that are accessible based on indicators
+  const validation: InfraEnablersValidationResult = useMemo(() => {
+    // Determine which indicators to validate
+    // For Nodal Officer or State Approver: only validate assigned/available indicators
+    // For others: validate all (no restrictions)
+    const indicatorsToValidate =
+      (isNodalOfficer || isStateApprover) && allowedIndicators.length > 0
+        ? allowedIndicators
+        : undefined; // undefined means validate all (backward compatibility)
+
+    return validateInfraEnablers(formData, {
+      allowedIndicators: indicatorsToValidate,
+    });
+  }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
   const isNextDisabled = !validation.isValid;
 
   // Debug logging
@@ -149,6 +167,9 @@ export const InfraEnablersStep = () => {
     console.log("🔍 InfraEnablersStep Validation:", {
       isValid: validation.isValid,
       errors: validation.errors,
+      allowedIndicators,
+      isNodalOfficer,
+      isStateApprover,
       section4_1_allEligible: formData.section4_1.allEligible,
       section4_2_available: formData.section4_2.available,
       section4_3_adopted: formData.section4_3.adopted,
@@ -159,7 +180,13 @@ export const InfraEnablersStep = () => {
       section4_6_participated: formData.section4_6.participated,
       section4_6_capacity_count: formData.section4_6.capacityArray.length,
     });
-  }, [validation, formData]);
+  }, [
+    validation,
+    formData,
+    allowedIndicators,
+    isNodalOfficer,
+    isStateApprover,
+  ]);
 
   // Helper functions for error display
   const getFieldError = (fieldPath: string): string | undefined => {
@@ -531,15 +558,6 @@ export const InfraEnablersStep = () => {
       updateFormData("infraEnablers", formData);
     }
   };
-
-  // Unified access control for both roles
-  const sectionIndicators = ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"];
-  const allowedIndicators =
-    (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter((i) =>
-      sectionIndicators.includes(i)
-    ) || [];
-
-  console.log("🟢 InfraEnablersStep: Allowed indicators", allowedIndicators);
 
   if ((isNodalOfficer || isStateApprover) && allowedIndicators.length === 0) {
     return (
@@ -1187,8 +1205,7 @@ export const InfraEnablersStep = () => {
             <div className="flex flex-col gap-4 w-[70%]">
               <div>
                 <Label>
-                  Adoption of ADR{" "}
-                  <span className="text-red-500">*</span>
+                  Adoption of ADR <span className="text-red-500">*</span>
                   <Tooltip>
                     <TooltipTrigger>
                       <Info className="inline w-3 h-3 ml-1" />

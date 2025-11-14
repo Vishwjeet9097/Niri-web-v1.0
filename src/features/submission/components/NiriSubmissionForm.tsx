@@ -28,6 +28,10 @@ import {
   filterFormDataByIndicators,
   validateFormDataAccess,
 } from "@/utils/indicatorUtils";
+import {
+  autoAcceptStateApproverIndicators,
+  extractSubmissionId,
+} from "@/services/autoAcceptance.service";
 import { Download, RefreshCw, AlertTriangle, Lock } from "lucide-react";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 // Import all indicator components (same as your previous file)
@@ -81,7 +85,10 @@ const fieldToIndicatorMap: Record<string, string> = {
   capacityBuilding: "4.6",
 };
 
-export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormProps) {
+export function NiriSubmissionForm({
+  onSuccess,
+  onCancel,
+}: NiriSubmissionFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -160,7 +167,8 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   const handlePrefillData = () => {
     toast({
       title: "Prefill Data",
-      description: "Prefill functionality will be implemented with actual API data",
+      description:
+        "Prefill functionality will be implemented with actual API data",
       variant: "default",
     });
   };
@@ -181,9 +189,17 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       // Debug logs: role, both indicator lists, and form fields
       console.group("🧩 Indicator Filtering Debug");
       console.log("User:", { id: user?._id || user?.id, role: user?.role });
-      console.log("isNodalOfficer:", isNodalOfficer, "isStateApprover:", isStateApprover);
+      console.log(
+        "isNodalOfficer:",
+        isNodalOfficer,
+        "isStateApprover:",
+        isStateApprover
+      );
       console.log("Assigned Indicators (nodal):", assignedIndicators);
-      console.log("Available Indicators (approver - unassigned):", availableIndicators);
+      console.log(
+        "Available Indicators (approver - unassigned):",
+        availableIndicators
+      );
       console.log("Form fields before filter:", Object.keys(formData));
       console.groupEnd();
 
@@ -191,16 +207,24 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       let submissionFormData = formData;
 
       if (isNodalOfficer && assignedIndicators.length > 0) {
-        submissionFormData = filterFormDataByIndicators(formData, assignedIndicators);
+        submissionFormData = filterFormDataByIndicators(
+          formData,
+          assignedIndicators
+        );
       } else if (isStateApprover && availableIndicators.length > 0) {
-        submissionFormData = filterFormDataByIndicators(formData, availableIndicators);
+        submissionFormData = filterFormDataByIndicators(
+          formData,
+          availableIndicators
+        );
       } else {
         // other roles: keep everything
         submissionFormData = formData;
       }
 
       const keptFields = Object.keys(submissionFormData);
-      const removedFields = Object.keys(formData).filter((f) => !keptFields.includes(f));
+      const removedFields = Object.keys(formData).filter(
+        (f) => !keptFields.includes(f)
+      );
 
       console.group("🛠️ Filter Result Debug");
       console.log("Kept fields:", keptFields);
@@ -237,12 +261,45 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       }
       console.groupEnd();
 
-      const response = await apiService.postMultipart("/submission", formDataObj);
+      const response = await apiService.postMultipart(
+        "/submission",
+        formDataObj
+      );
 
       console.log("✅ Submission response:", response);
-      toast({ title: "Success", description: "Submission created successfully" });
+
+      // Get submission ID from response
+      const submissionId = extractSubmissionId(response);
+
+      // Auto-accept indicators if STATE_APPROVER submitted their own indicators
+      if (isStateApprover && submissionId && availableIndicators.length > 0) {
+        console.log(
+          "🔄 [NiriSubmissionForm] STATE_APPROVER submission detected. Starting auto-acceptance..."
+        );
+        console.log(`📝 [NiriSubmissionForm] Submission ID: ${submissionId}`);
+        try {
+          await autoAcceptStateApproverIndicators(
+            submissionId,
+            submissionFormData,
+            availableIndicators
+          );
+          console.log(
+            "✅ [NiriSubmissionForm] Auto-acceptance completed successfully"
+          );
+        } catch (error: any) {
+          // Log error but don't fail the submission
+          console.error(
+            "⚠️ [NiriSubmissionForm] Auto-acceptance failed, but submission was successful:",
+            error
+          );
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Submission created successfully",
+      });
       if (onSuccess) onSuccess(response);
-      
     } catch (error: any) {
       console.error("❌ Submission failed:", error);
       toast({
@@ -264,14 +321,20 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
   };
 
   // Render section — updated so STATE_APPROVER uses availableIndicators to determine visible fields
-  const renderSection = (sectionId: string, title: string, fields: string[]) => {
+  const renderSection = (
+    sectionId: string,
+    title: string,
+    fields: string[]
+  ) => {
     if (indicatorLoading) {
       return (
         <IndicatorSection sectionId={sectionId} title={title}>
           <div className="flex items-center justify-center p-8">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading your indicators...</p>
+              <p className="text-muted-foreground">
+                Loading your indicators...
+              </p>
             </div>
           </div>
         </IndicatorSection>
@@ -282,7 +345,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       return (
         <IndicatorSection sectionId={sectionId} title={title}>
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600">Error loading indicators: {indicatorError}</p>
+            <p className="text-red-600">
+              Error loading indicators: {indicatorError}
+            </p>
           </div>
         </IndicatorSection>
       );
@@ -301,35 +366,50 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("capexToGsdpRatio") && (
                   <Section1_1_CapexToGSDP
                     value={formData.capexToGsdpRatio}
-                    onChange={(value) => handleInputChange("capexToGsdpRatio", value)}
+                    onChange={(value) =>
+                      handleInputChange("capexToGsdpRatio", value)
+                    }
                     error={errors.capexToGsdpRatio}
                   />
                 )}
                 {accessibleFields.includes("capexUtilization") && (
                   <Section1_2_CapexUtilization
                     value={formData.capexUtilization}
-                    onChange={(value) => handleInputChange("capexUtilization", value)}
+                    onChange={(value) =>
+                      handleInputChange("capexUtilization", value)
+                    }
                     error={errors.capexUtilization}
                   />
                 )}
                 {accessibleFields.includes("creditRatedULBs") && (
                   <Section1_3_CreditRatedULBs
                     value={formData.creditRatedULBs}
-                    onChange={(value) => handleInputChange("creditRatedULBs", value)}
+                    onChange={(value) =>
+                      handleInputChange("creditRatedULBs", value)
+                    }
                     error={errors.creditRatedULBs}
                   />
                 )}
                 {accessibleFields.includes("ulbsIssuingBonds") && (
                   <Section1_4_ULBsIssuingBonds
                     value={formData.ulbsIssuingBonds}
-                    onChange={(value) => handleInputChange("ulbsIssuingBonds", value)}
+                    onChange={(value) =>
+                      handleInputChange("ulbsIssuingBonds", value)
+                    }
                     error={errors.ulbsIssuingBonds}
                   />
                 )}
-                {accessibleFields.includes("functionalFinancialIntermediary") && (
+                {accessibleFields.includes(
+                  "functionalFinancialIntermediary"
+                ) && (
                   <Section1_5_FunctionalFinancialIntermediary
                     value={formData.functionalFinancialIntermediary}
-                    onChange={(value) => handleInputChange("functionalFinancialIntermediary", value)}
+                    onChange={(value) =>
+                      handleInputChange(
+                        "functionalFinancialIntermediary",
+                        value
+                      )
+                    }
                     error={errors.functionalFinancialIntermediary}
                   />
                 )}
@@ -341,35 +421,45 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("infrastructureActPolicy") && (
                   <Section2_1_InfrastructureActPolicy
                     value={formData.infrastructureActPolicy}
-                    onChange={(value) => handleInputChange("infrastructureActPolicy", value)}
+                    onChange={(value) =>
+                      handleInputChange("infrastructureActPolicy", value)
+                    }
                     error={errors.infrastructureActPolicy}
                   />
                 )}
                 {accessibleFields.includes("specializedEntity") && (
                   <Section2_2_SpecializedEntity
                     value={formData.specializedEntity}
-                    onChange={(value) => handleInputChange("specializedEntity", value)}
+                    onChange={(value) =>
+                      handleInputChange("specializedEntity", value)
+                    }
                     error={errors.specializedEntity}
                   />
                 )}
                 {accessibleFields.includes("sectorInfraPlan") && (
                   <Section2_3_SectorInfraPlan
                     value={formData.sectorInfraPlan}
-                    onChange={(value) => handleInputChange("sectorInfraPlan", value)}
+                    onChange={(value) =>
+                      handleInputChange("sectorInfraPlan", value)
+                    }
                     error={errors.sectorInfraPlan}
                   />
                 )}
                 {accessibleFields.includes("investmentReadyPipeline") && (
                   <Section2_4_InvestmentReadyPipeline
                     value={formData.investmentReadyPipeline}
-                    onChange={(value) => handleInputChange("investmentReadyPipeline", value)}
+                    onChange={(value) =>
+                      handleInputChange("investmentReadyPipeline", value)
+                    }
                     error={errors.investmentReadyPipeline}
                   />
                 )}
                 {accessibleFields.includes("assetMonetizationPipeline") && (
                   <Section2_5_AssetMonetizationPipeline
                     value={formData.assetMonetizationPipeline}
-                    onChange={(value) => handleInputChange("assetMonetizationPipeline", value)}
+                    onChange={(value) =>
+                      handleInputChange("assetMonetizationPipeline", value)
+                    }
                     error={errors.assetMonetizationPipeline}
                   />
                 )}
@@ -381,7 +471,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("pppActPolicy") && (
                   <Section3_1_PPPActPolicy
                     value={formData.pppActPolicy}
-                    onChange={(value) => handleInputChange("pppActPolicy", value)}
+                    onChange={(value) =>
+                      handleInputChange("pppActPolicy", value)
+                    }
                     error={errors.pppActPolicy}
                   />
                 )}
@@ -395,14 +487,18 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("vgfIipdfProposals") && (
                   <Section3_3_VGFIIPDFProposals
                     value={formData.vgfIipdfProposals}
-                    onChange={(value) => handleInputChange("vgfIipdfProposals", value)}
+                    onChange={(value) =>
+                      handleInputChange("vgfIipdfProposals", value)
+                    }
                     error={errors.vgfIipdfProposals}
                   />
                 )}
                 {accessibleFields.includes("pppBankableProjects") && (
                   <Section3_4_PPPBankableProjects
                     value={formData.pppBankableProjects}
-                    onChange={(value) => handleInputChange("pppBankableProjects", value)}
+                    onChange={(value) =>
+                      handleInputChange("pppBankableProjects", value)
+                    }
                     error={errors.pppBankableProjects}
                   />
                 )}
@@ -414,42 +510,54 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("pmgPortalEligible") && (
                   <Section4_1_PMGPortalEligible
                     value={formData.pmgPortalEligible}
-                    onChange={(value) => handleInputChange("pmgPortalEligible", value)}
+                    onChange={(value) =>
+                      handleInputChange("pmgPortalEligible", value)
+                    }
                     error={errors.pmgPortalEligible}
                   />
                 )}
                 {accessibleFields.includes("statePmgPortal") && (
                   <Section4_2_StatePMGPortal
                     value={formData.statePmgPortal}
-                    onChange={(value) => handleInputChange("statePmgPortal", value)}
+                    onChange={(value) =>
+                      handleInputChange("statePmgPortal", value)
+                    }
                     error={errors.statePmgPortal}
                   />
                 )}
                 {accessibleFields.includes("pmGatiShaktiAdoption") && (
                   <Section4_3_PMGatiShaktiAdoption
                     value={formData.pmGatiShaktiAdoption}
-                    onChange={(value) => handleInputChange("pmGatiShaktiAdoption", value)}
+                    onChange={(value) =>
+                      handleInputChange("pmGatiShaktiAdoption", value)
+                    }
                     error={errors.pmGatiShaktiAdoption}
                   />
                 )}
                 {accessibleFields.includes("adrAdoption") && (
                   <Section4_4_ADRAdoption
                     value={formData.adrAdoption}
-                    onChange={(value) => handleInputChange("adrAdoption", value)}
+                    onChange={(value) =>
+                      handleInputChange("adrAdoption", value)
+                    }
                     error={errors.adrAdoption}
                   />
                 )}
                 {accessibleFields.includes("innovativePractices") && (
                   <Section4_5_InnovativePractices
                     value={formData.innovativePractices}
-                    onChange={(value) => handleInputChange("innovativePractices", value)}
+                    onChange={(value) =>
+                      handleInputChange("innovativePractices", value)
+                    }
                     error={errors.innovativePractices}
                   />
                 )}
                 {accessibleFields.includes("capacityBuilding") && (
                   <Section4_6_CapacityBuilding
                     value={formData.capacityBuilding}
-                    onChange={(value) => handleInputChange("capacityBuilding", value)}
+                    onChange={(value) =>
+                      handleInputChange("capacityBuilding", value)
+                    }
                     error={errors.capacityBuilding}
                   />
                 )}
@@ -482,35 +590,50 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("capexToGsdpRatio") && (
                   <Section1_1_CapexToGSDP
                     value={formData.capexToGsdpRatio}
-                    onChange={(value) => handleInputChange("capexToGsdpRatio", value)}
+                    onChange={(value) =>
+                      handleInputChange("capexToGsdpRatio", value)
+                    }
                     error={errors.capexToGsdpRatio}
                   />
                 )}
                 {accessibleFields.includes("capexUtilization") && (
                   <Section1_2_CapexUtilization
                     value={formData.capexUtilization}
-                    onChange={(value) => handleInputChange("capexUtilization", value)}
+                    onChange={(value) =>
+                      handleInputChange("capexUtilization", value)
+                    }
                     error={errors.capexUtilization}
                   />
                 )}
                 {accessibleFields.includes("creditRatedULBs") && (
                   <Section1_3_CreditRatedULBs
                     value={formData.creditRatedULBs}
-                    onChange={(value) => handleInputChange("creditRatedULBs", value)}
+                    onChange={(value) =>
+                      handleInputChange("creditRatedULBs", value)
+                    }
                     error={errors.creditRatedULBs}
                   />
                 )}
                 {accessibleFields.includes("ulbsIssuingBonds") && (
                   <Section1_4_ULBsIssuingBonds
                     value={formData.ulbsIssuingBonds}
-                    onChange={(value) => handleInputChange("ulbsIssuingBonds", value)}
+                    onChange={(value) =>
+                      handleInputChange("ulbsIssuingBonds", value)
+                    }
                     error={errors.ulbsIssuingBonds}
                   />
                 )}
-                {accessibleFields.includes("functionalFinancialIntermediary") && (
+                {accessibleFields.includes(
+                  "functionalFinancialIntermediary"
+                ) && (
                   <Section1_5_FunctionalFinancialIntermediary
                     value={formData.functionalFinancialIntermediary}
-                    onChange={(value) => handleInputChange("functionalFinancialIntermediary", value)}
+                    onChange={(value) =>
+                      handleInputChange(
+                        "functionalFinancialIntermediary",
+                        value
+                      )
+                    }
                     error={errors.functionalFinancialIntermediary}
                   />
                 )}
@@ -522,35 +645,45 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("infrastructureActPolicy") && (
                   <Section2_1_InfrastructureActPolicy
                     value={formData.infrastructureActPolicy}
-                    onChange={(value) => handleInputChange("infrastructureActPolicy", value)}
+                    onChange={(value) =>
+                      handleInputChange("infrastructureActPolicy", value)
+                    }
                     error={errors.infrastructureActPolicy}
                   />
                 )}
                 {accessibleFields.includes("specializedEntity") && (
                   <Section2_2_SpecializedEntity
                     value={formData.specializedEntity}
-                    onChange={(value) => handleInputChange("specializedEntity", value)}
+                    onChange={(value) =>
+                      handleInputChange("specializedEntity", value)
+                    }
                     error={errors.specializedEntity}
                   />
                 )}
                 {accessibleFields.includes("sectorInfraPlan") && (
                   <Section2_3_SectorInfraPlan
                     value={formData.sectorInfraPlan}
-                    onChange={(value) => handleInputChange("sectorInfraPlan", value)}
+                    onChange={(value) =>
+                      handleInputChange("sectorInfraPlan", value)
+                    }
                     error={errors.sectorInfraPlan}
                   />
                 )}
                 {accessibleFields.includes("investmentReadyPipeline") && (
                   <Section2_4_InvestmentReadyPipeline
                     value={formData.investmentReadyPipeline}
-                    onChange={(value) => handleInputChange("investmentReadyPipeline", value)}
+                    onChange={(value) =>
+                      handleInputChange("investmentReadyPipeline", value)
+                    }
                     error={errors.investmentReadyPipeline}
                   />
                 )}
                 {accessibleFields.includes("assetMonetizationPipeline") && (
                   <Section2_5_AssetMonetizationPipeline
                     value={formData.assetMonetizationPipeline}
-                    onChange={(value) => handleInputChange("assetMonetizationPipeline", value)}
+                    onChange={(value) =>
+                      handleInputChange("assetMonetizationPipeline", value)
+                    }
                     error={errors.assetMonetizationPipeline}
                   />
                 )}
@@ -562,7 +695,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("pppActPolicy") && (
                   <Section3_1_PPPActPolicy
                     value={formData.pppActPolicy}
-                    onChange={(value) => handleInputChange("pppActPolicy", value)}
+                    onChange={(value) =>
+                      handleInputChange("pppActPolicy", value)
+                    }
                     error={errors.pppActPolicy}
                   />
                 )}
@@ -576,14 +711,18 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("vgfIipdfProposals") && (
                   <Section3_3_VGFIIPDFProposals
                     value={formData.vgfIipdfProposals}
-                    onChange={(value) => handleInputChange("vgfIipdfProposals", value)}
+                    onChange={(value) =>
+                      handleInputChange("vgfIipdfProposals", value)
+                    }
                     error={errors.vgfIipdfProposals}
                   />
                 )}
                 {accessibleFields.includes("pppBankableProjects") && (
                   <Section3_4_PPPBankableProjects
                     value={formData.pppBankableProjects}
-                    onChange={(value) => handleInputChange("pppBankableProjects", value)}
+                    onChange={(value) =>
+                      handleInputChange("pppBankableProjects", value)
+                    }
                     error={errors.pppBankableProjects}
                   />
                 )}
@@ -595,42 +734,54 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
                 {accessibleFields.includes("pmgPortalEligible") && (
                   <Section4_1_PMGPortalEligible
                     value={formData.pmgPortalEligible}
-                    onChange={(value) => handleInputChange("pmgPortalEligible", value)}
+                    onChange={(value) =>
+                      handleInputChange("pmgPortalEligible", value)
+                    }
                     error={errors.pmgPortalEligible}
                   />
                 )}
                 {accessibleFields.includes("statePmgPortal") && (
                   <Section4_2_StatePMGPortal
                     value={formData.statePmgPortal}
-                    onChange={(value) => handleInputChange("statePmgPortal", value)}
+                    onChange={(value) =>
+                      handleInputChange("statePmgPortal", value)
+                    }
                     error={errors.statePmgPortal}
                   />
                 )}
                 {accessibleFields.includes("pmGatiShaktiAdoption") && (
                   <Section4_3_PMGatiShaktiAdoption
                     value={formData.pmGatiShaktiAdoption}
-                    onChange={(value) => handleInputChange("pmGatiShaktiAdoption", value)}
+                    onChange={(value) =>
+                      handleInputChange("pmGatiShaktiAdoption", value)
+                    }
                     error={errors.pmGatiShaktiAdoption}
                   />
                 )}
                 {accessibleFields.includes("adrAdoption") && (
                   <Section4_4_ADRAdoption
                     value={formData.adrAdoption}
-                    onChange={(value) => handleInputChange("adrAdoption", value)}
+                    onChange={(value) =>
+                      handleInputChange("adrAdoption", value)
+                    }
                     error={errors.adrAdoption}
                   />
                 )}
                 {accessibleFields.includes("innovativePractices") && (
                   <Section4_5_InnovativePractices
                     value={formData.innovativePractices}
-                    onChange={(value) => handleInputChange("innovativePractices", value)}
+                    onChange={(value) =>
+                      handleInputChange("innovativePractices", value)
+                    }
                     error={errors.innovativePractices}
                   />
                 )}
                 {accessibleFields.includes("capacityBuilding") && (
                   <Section4_6_CapacityBuilding
                     value={formData.capacityBuilding}
-                    onChange={(value) => handleInputChange("capacityBuilding", value)}
+                    onChange={(value) =>
+                      handleInputChange("capacityBuilding", value)
+                    }
                     error={errors.capacityBuilding}
                   />
                 )}
@@ -668,14 +819,18 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
           />
           <Section1_5_FunctionalFinancialIntermediary
             value={formData.functionalFinancialIntermediary}
-            onChange={(value) => handleInputChange("functionalFinancialIntermediary", value)}
+            onChange={(value) =>
+              handleInputChange("functionalFinancialIntermediary", value)
+            }
             error={errors.functionalFinancialIntermediary}
           />
 
           {/* Infra Development */}
           <Section2_1_InfrastructureActPolicy
             value={formData.infrastructureActPolicy}
-            onChange={(value) => handleInputChange("infrastructureActPolicy", value)}
+            onChange={(value) =>
+              handleInputChange("infrastructureActPolicy", value)
+            }
             error={errors.infrastructureActPolicy}
           />
           <Section2_2_SpecializedEntity
@@ -690,12 +845,16 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
           />
           <Section2_4_InvestmentReadyPipeline
             value={formData.investmentReadyPipeline}
-            onChange={(value) => handleInputChange("investmentReadyPipeline", value)}
+            onChange={(value) =>
+              handleInputChange("investmentReadyPipeline", value)
+            }
             error={errors.investmentReadyPipeline}
           />
           <Section2_5_AssetMonetizationPipeline
             value={formData.assetMonetizationPipeline}
-            onChange={(value) => handleInputChange("assetMonetizationPipeline", value)}
+            onChange={(value) =>
+              handleInputChange("assetMonetizationPipeline", value)
+            }
             error={errors.assetMonetizationPipeline}
           />
 
@@ -717,7 +876,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
           />
           <Section3_4_PPPBankableProjects
             value={formData.pppBankableProjects}
-            onChange={(value) => handleInputChange("pppBankableProjects", value)}
+            onChange={(value) =>
+              handleInputChange("pppBankableProjects", value)
+            }
             error={errors.pppBankableProjects}
           />
 
@@ -734,7 +895,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
           />
           <Section4_3_PMGatiShaktiAdoption
             value={formData.pmGatiShaktiAdoption}
-            onChange={(value) => handleInputChange("pmGatiShaktiAdoption", value)}
+            onChange={(value) =>
+              handleInputChange("pmGatiShaktiAdoption", value)
+            }
             error={errors.pmGatiShaktiAdoption}
           />
           <Section4_4_ADRAdoption
@@ -744,7 +907,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
           />
           <Section4_5_InnovativePractices
             value={formData.innovativePractices}
-            onChange={(value) => handleInputChange("innovativePractices", value)}
+            onChange={(value) =>
+              handleInputChange("innovativePractices", value)
+            }
             error={errors.innovativePractices}
           />
           <Section4_6_CapacityBuilding
@@ -763,7 +928,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold">NIRI Data Submission</h1>
-          <p className="text-muted-foreground mt-2">Loading your assigned/available indicators...</p>
+          <p className="text-muted-foreground mt-2">
+            Loading your assigned/available indicators...
+          </p>
         </div>
         <div className="flex justify-center">
           <RefreshCw className="w-8 h-8 animate-spin" />
@@ -781,7 +948,8 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
           <Alert className="mt-4">
             <Lock className="h-4 w-4" />
             <AlertDescription>
-              आपको कोई भी indicator assign नहीं किया गया है। कृपया अपने administrator से संपर्क करें।
+              आपको कोई भी indicator assign नहीं किया गया है। कृपया अपने
+              administrator से संपर्क करें।
             </AlertDescription>
           </Alert>
         </div>
@@ -794,14 +962,16 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
       <div className="text-center">
         <h1 className="text-3xl font-bold">NIRI Data Submission</h1>
         <p className="text-muted-foreground mt-2">
-          Submit your infrastructure readiness data in the standardized NIRI format
+          Submit your infrastructure readiness data in the standardized NIRI
+          format
         </p>
 
         {/* Show assigned indicators for NODAL_OFFICER */}
         {isNodalOfficer && assignedIndicators.length > 0 && (
           <div className="mt-4 p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>Assigned Indicators:</strong> {assignedIndicators.join(", ")}
+              <strong>Assigned Indicators:</strong>{" "}
+              {assignedIndicators.join(", ")}
             </p>
           </div>
         )}
@@ -810,14 +980,19 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
         {isStateApprover && availableIndicators.length > 0 && (
           <div className="mt-4 p-4 bg-green-50 rounded-lg">
             <p className="text-sm text-green-800">
-              <strong>Available (unassigned) Indicators:</strong> {availableIndicators.join(", ")}
+              <strong>Available (unassigned) Indicators:</strong>{" "}
+              {availableIndicators.join(", ")}
             </p>
           </div>
         )}
 
         {/* Action Buttons */}
         <div className="mt-4 flex gap-2">
-          <Button variant="outline" onClick={handlePrefillData} className="gap-2">
+          <Button
+            variant="outline"
+            onClick={handlePrefillData}
+            className="gap-2"
+          >
             <Download className="w-4 h-4" />
             Load Sample Data
           </Button>
@@ -829,7 +1004,9 @@ export function NiriSubmissionForm({ onSuccess, onCancel }: NiriSubmissionFormPr
             className="gap-2"
             disabled={indicatorLoading}
           >
-            <RefreshCw className={`w-4 h-4 ${indicatorLoading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${indicatorLoading ? "animate-spin" : ""}`}
+            />
             {indicatorLoading ? "Loading..." : "Refresh Indicators"}
           </Button>
         </div>

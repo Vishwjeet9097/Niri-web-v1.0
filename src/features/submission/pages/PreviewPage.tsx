@@ -3,7 +3,16 @@ import { Button } from "@/components/ui/button";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useFormPersistence } from "../hooks/useFormPersistence";
@@ -12,31 +21,42 @@ import { apiV2 } from "@/services/ApiService";
 import { config } from "@/config/environment";
 import { notificationService } from "@/services/NotificationBus";
 import { SectionCard } from "../components/SectionCard";
-import { transformFormDataForSubmission, getFormDataSummary } from "@/utils/formDataTransformer";
+import {
+  transformFormDataForSubmission,
+  getFormDataSummary,
+} from "@/utils/formDataTransformer";
 import { Label } from "@/components/ui/label";
 import { UnifiedReviewPage } from "../../dataSubmission/components/UnifiedReviewPage";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import {
+  autoAcceptStateApproverIndicators,
+  extractSubmissionId,
+} from "@/services/autoAcceptance.service";
 const PREVIEW_FLAG_KEY = "submission_has_previewed";
 
 export const PreviewPage = () => {
   const navigate = useNavigate();
   const { formData, clearFormData, isResubmit } = useFormPersistence();
   const { user } = useAuth();
+  const { availableIndicators, isStateApprover } = useIndicatorAccess();
   const [hasPreviewed, setHasPreviewed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [submissionMessage, setSubmissionMessage] = useState('');
+  const [submissionMessage, setSubmissionMessage] = useState("");
 
   // Check if we're in edit mode
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(null);
+  const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(
+    null
+  );
 
   // Check for edit mode on mount
   useEffect(() => {
-    const editingSubmissionId = localStorage.getItem('editing_submission_id');
-    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
+    const editingSubmissionId = localStorage.getItem("editing_submission_id");
+    const isEditModeFlag = localStorage.getItem("is_edit_mode") === "true";
 
     if (editingSubmissionId && isEditModeFlag) {
       setIsEditMode(true);
@@ -52,7 +72,9 @@ export const PreviewPage = () => {
     e?.preventDefault();
 
     if (!formData) {
-      notificationService.error("No form data found. Please go back and fill the form.");
+      notificationService.error(
+        "No form data found. Please go back and fill the form."
+      );
       return;
     }
 
@@ -61,102 +83,172 @@ export const PreviewPage = () => {
   };
 
   // Actual submission logic
-const performSubmission = async () => {
-  if (!formData) return;
+  const performSubmission = async () => {
+    if (!formData) return;
 
-  try {
-    setIsSubmitting(true);
-    setShowConfirmModal(false);
+    try {
+      setIsSubmitting(true);
+      setShowConfirmModal(false);
 
-    const transformedData = transformFormDataForSubmission(formData, "SUBMITTED_TO_STATE");
-    const multipartData = new FormData();
-    multipartData.append("submission", JSON.stringify(transformedData));
-
-    appendFilesRecursively(multipartData, formData);
-
-    console.group("🧾 FormData entries being sent:");
-    for (const [key, val] of multipartData.entries()) {
-      console.log("➡️", key, val instanceof File ? val.name : val);
-    }
-    console.groupEnd();
-
-    // Resolve token from multiple sources (new and legacy)
-    const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
-    const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
-    const tokenFromNewKey = tokenData?.value?.accessToken;
-    const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
-    const token = tokenFromNewKey || tokenFromLegacyKey || "";
-    let response;
-
-    if (isEditMode && editingSubmissionId) {
-      response = await axios.post(
-        `${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`,
-        multipartData,
-        { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
+      const transformedData = transformFormDataForSubmission(
+        formData,
+        "SUBMITTED_TO_STATE"
       );
-    } else {
-      response = await axios.post(`${config.apiBaseUrl}/submission`, multipartData, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
+      const multipartData = new FormData();
+      multipartData.append("submission", JSON.stringify(transformedData));
+
+      appendFilesRecursively(multipartData, formData);
+
+      console.group("🧾 FormData entries being sent:");
+      for (const [key, val] of multipartData.entries()) {
+        console.log("➡️", key, val instanceof File ? val.name : val);
+      }
+      console.groupEnd();
+
+      // Resolve token from multiple sources (new and legacy)
+      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
+      const tokenFromNewKey = tokenData?.value?.accessToken;
+      const tokenFromLegacyKey =
+        localStorage.getItem("access_token") || undefined;
+      const token = tokenFromNewKey || tokenFromLegacyKey || "";
+      let response;
+
+      if (isEditMode && editingSubmissionId) {
+        response = await axios.post(
+          `${config.apiBaseUrl}/submission/resubmit/${editingSubmissionId}`,
+          multipartData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          }
+        );
+      } else {
+        response = await axios.post(
+          `${config.apiBaseUrl}/submission`,
+          multipartData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          }
+        );
+      }
+
+      console.log("✅ Submission successful:", response);
+
+      // Get submission ID - use editingSubmissionId if resubmitting, otherwise extract from response
+      const submissionId =
+        isEditMode && editingSubmissionId
+          ? editingSubmissionId
+          : extractSubmissionId(response);
+
+      // Auto-accept indicators if STATE_APPROVER submitted their own indicators
+      if (isStateApprover && submissionId && availableIndicators.length > 0) {
+        console.log(
+          "🔄 [PreviewPage] STATE_APPROVER submission detected. Starting auto-acceptance..."
+        );
+        console.log(
+          `📝 [PreviewPage] Submission ID: ${submissionId} (${
+            isEditMode ? "resubmit" : "new"
+          })`
+        );
+        try {
+          await autoAcceptStateApproverIndicators(
+            submissionId,
+            formData || {},
+            availableIndicators
+          );
+          console.log(
+            "✅ [PreviewPage] Auto-acceptance completed successfully"
+          );
+        } catch (error: unknown) {
+          // Log error but don't fail the submission
+          console.error(
+            "⚠️ [PreviewPage] Auto-acceptance failed, but submission was successful:",
+            error
+          );
+          // Optionally show a warning to the user
+          notificationService.warning(
+            "Submission successful, but some indicators may need manual acceptance",
+            "Auto-acceptance Warning"
+          );
+        }
+      }
+
+      clearFormData();
+      localStorage.removeItem("editing_submission_id");
+      localStorage.removeItem("is_edit_mode");
+
+      const successMessage = isEditMode
+        ? "Form resubmitted successfully!"
+        : "Form submitted successfully!";
+      setSubmissionMessage(successMessage);
+      setShowSuccessModal(true);
+
+      setTimeout(() => navigate("/dashboard"), 3000);
+    } catch (error: unknown) {
+      console.error("❌ Submission failed:", error);
+      const err = error as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to submit form.";
+      notificationService.error(errorMessage, "Submission Error");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    console.log("✅ Submission successful:", response);
-    clearFormData();
-    localStorage.removeItem("editing_submission_id");
-    localStorage.removeItem("is_edit_mode");
-
-    const successMessage = isEditMode
-      ? "Form resubmitted successfully!"
-      : "Form submitted successfully!";
-    setSubmissionMessage(successMessage);
-    setShowSuccessModal(true);
-
-    setTimeout(() => navigate("/dashboard"), 3000);
-  } catch (error: unknown) {
-    console.error("❌ Submission failed:", error);
-    const err = error as { response?: { data?: { message?: string } }; message?: string };
-    const errorMessage =
-      err?.response?.data?.message || err?.message || "Failed to submit form.";
-    notificationService.error(errorMessage, "Submission Error");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
   // Create a mock submission object for UnifiedReviewPage
-  const mockSubmission = formData ? {
-    id: "preview-submission",
-    submissionId: "PREVIEW-001",
-    stateUt: (formData as Record<string, unknown>).stateUt as string || "Preview State",
-    submittedBy: "current-user",
-    rejectionCount: 0,
-    formData: formData,
-    reviewComments: [],
-    attachedFiles: [],
-    status: isResubmit ? "RETURNED_FROM_STATE" : "PREVIEW",
-    currentOwnerRole: "NODAL_OFFICER",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    user: {
-      id: user?.id || "current-user",
-      email: user?.email || "preview@example.com",
-      firstName: user?.firstName || "Preview",
-      lastName: user?.lastName || "User",
-      contactNumber: user?.contactNumber || null,
-      role: user?.role || "NODAL_OFFICER",
-      stateUt: user?.state || (formData as Record<string, unknown>).stateUt as string || "Preview State",
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    finalScore: null
-  } : null;
+  const mockSubmission = formData
+    ? {
+        id: "preview-submission",
+        submissionId: "PREVIEW-001",
+        stateUt:
+          ((formData as Record<string, unknown>).stateUt as string) ||
+          "Preview State",
+        submittedBy: "current-user",
+        rejectionCount: 0,
+        formData: formData,
+        reviewComments: [],
+        attachedFiles: [],
+        status: isResubmit ? "RETURNED_FROM_STATE" : "PREVIEW",
+        currentOwnerRole: "NODAL_OFFICER",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        user: {
+          id: user?.id || "current-user",
+          email: user?.email || "preview@example.com",
+          firstName: user?.firstName || "Preview",
+          lastName: user?.lastName || "User",
+          contactNumber: user?.contactNumber || null,
+          role: user?.role || "NODAL_OFFICER",
+          stateUt:
+            user?.state ||
+            ((formData as Record<string, unknown>).stateUt as string) ||
+            "Preview State",
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        finalScore: null,
+      }
+    : null;
 
   if (!formData || !mockSubmission) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">No Form Data Found</h2>
-          <p className="text-muted-foreground mb-4">Please go back and fill the form first.</p>
+          <p className="text-muted-foreground mb-4">
+            Please go back and fill the form first.
+          </p>
           <Button onClick={() => navigate(-1)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Go Back
@@ -168,7 +260,6 @@ const performSubmission = async () => {
 
   return (
     <>
-
       {/* Use UnifiedReviewPage for preview */}
       <UnifiedReviewPage
         isPreview={true}
@@ -185,15 +276,18 @@ const performSubmission = async () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isEditMode ? "Resubmit Form?" : isResubmit ? "Resubmit Form?" : "Submit Form?"}
+              {isEditMode
+                ? "Resubmit Form?"
+                : isResubmit
+                ? "Resubmit Form?"
+                : "Submit Form?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isEditMode
                 ? "Are you sure you want to resubmit this form? Your changes will be sent for review."
                 : isResubmit
-                  ? "Are you sure you want to resubmit this form? Your changes will be sent for review."
-                  : "Are you sure you want to submit this form? Once submitted, you cannot make changes."
-              }
+                ? "Are you sure you want to resubmit this form? Your changes will be sent for review."
+                : "Are you sure you want to submit this form? Once submitted, you cannot make changes."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -213,9 +307,7 @@ const performSubmission = async () => {
               <CheckCircle2 className="w-5 h-5 text-green-600" />
               {isResubmit ? "Form Resubmitted!" : "Form Submitted!"}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {submissionMessage}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{submissionMessage}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => navigate("/dashboard")}>
