@@ -2403,18 +2403,49 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
 
   async updateIndicator(payload: UpdateIndicatorPayload, token?: string) {
     try {
-      // If caller provided a token, attach it directly in request headers.
-      // Otherwise let axios request interceptor (authService.getAuthHeaders()) attach auth headers.
-      const config: AxiosRequestConfig | undefined = token
-        ? {
+      // Check if payload contains File objects
+      const hasFiles = this.hasFileObjects(payload);
+      
+      let response;
+      
+      if (hasFiles) {
+        // Convert to FormData if files are present
+        const formData = new FormData();
+        
+        // Create a sanitized payload without File objects for JSON serialization
+        const sanitizedPayload = this.sanitizePayloadForJSON(payload);
+        formData.append("payload", JSON.stringify(sanitizedPayload));
+        
+        // Append files recursively with proper paths
+        this.appendFilesToFormData(formData, payload, "");
+        
+        // Get auth token
+        const authHeaders = authService.getAuthHeaders();
+        const authToken = token || authHeaders?.Authorization || "";
+        
+        const config: AxiosRequestConfig = {
           headers: {
-            "Content-Type": "application/json",
-            Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+            Authorization: authToken,
           },
-        }
-        : undefined;
+        };
+        
+        console.log("📤 Sending updateIndicator with FormData (files detected)");
+        response = await this.axios.post("/submission/update-indicator", formData, config);
+      } else {
+        // Send as JSON if no files
+        const config: AxiosRequestConfig | undefined = token
+          ? {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
+            },
+          }
+          : undefined;
 
-      const response = await this.axios.post("/submission/update-indicator", payload, config);
+        console.log("📤 Sending updateIndicator as JSON (no files)");
+        response = await this.axios.post("/submission/update-indicator", payload, config);
+      }
 
       // Follow existing pattern used across the service: prefer response.data.data when present.
       return response.data?.data !== undefined ? response.data.data : response.data;
@@ -2427,6 +2458,91 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
       // Re-throw for centralized error handling in interceptors / callers
       throw error;
     }
+  }
+
+  // Helper to check if payload contains File objects
+  private hasFileObjects(obj: any): boolean {
+    if (!obj || typeof obj !== "object") return false;
+    
+    if (obj instanceof File) return true;
+    
+    if (Array.isArray(obj)) {
+      return obj.some(item => this.hasFileObjects(item));
+    }
+    
+    for (const value of Object.values(obj)) {
+      if (value instanceof File) return true;
+      if (value && typeof value === "object") {
+        // Check FileUpload objects - look for file property that is a File instance
+        if (value.file instanceof File) return true;
+        // Recursively check nested objects
+        if (this.hasFileObjects(value)) return true;
+      }
+    }
+    
+    return false;
+  }
+
+  // Helper to create a JSON-safe copy of payload (replaces File objects with placeholders)
+  private sanitizePayloadForJSON(obj: any): any {
+    if (!obj || typeof obj !== "object") return obj;
+    
+    if (obj instanceof File) {
+      return { _filePlaceholder: true, name: obj.name, size: obj.size };
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.sanitizePayloadForJSON(item));
+    }
+    
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value instanceof File) {
+        sanitized[key] = { _filePlaceholder: true, name: value.name, size: value.size };
+      } else if (value && typeof value === "object" && value.file instanceof File) {
+        // For FileUpload objects, keep metadata but mark file as placeholder
+        sanitized[key] = {
+          ...value,
+          file: { _filePlaceholder: true, name: value.file.name, size: value.file.size },
+        };
+      } else {
+        sanitized[key] = this.sanitizePayloadForJSON(value);
+      }
+    }
+    
+    return sanitized;
+  }
+
+  // Helper to append files to FormData recursively
+  private appendFilesToFormData(formData: FormData, obj: any, parentKey: string = "") {
+    if (!obj || typeof obj !== "object") return;
+    
+    Object.entries(obj).forEach(([key, value]) => {
+      const fullKey = parentKey ? `${parentKey}.${key}` : key;
+      
+      if (value instanceof File) {
+        console.log(`📎 Appending file: ${fullKey}`, value.name);
+        formData.append(fullKey, value, value.name);
+        return;
+      }
+      
+      if (value && typeof value === "object") {
+        // Handle FileUpload objects
+        if (value.file instanceof File) {
+          const fileKey = `${fullKey}.file`;
+          console.log(`📎 Appending FileUpload file: ${fileKey}`, value.file.name);
+          formData.append(fileKey, value.file, value.file.name);
+        } else if (Array.isArray(value)) {
+          // Handle arrays (like VGFArray, projects array, etc.)
+          value.forEach((item, index) => {
+            this.appendFilesToFormData(formData, item, `${fullKey}[${index}]`);
+          });
+        } else {
+          // Recursively handle nested objects
+          this.appendFilesToFormData(formData, value, fullKey);
+        }
+      }
+    });
   }
 
 

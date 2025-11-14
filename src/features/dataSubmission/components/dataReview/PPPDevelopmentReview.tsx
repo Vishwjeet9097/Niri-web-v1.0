@@ -1474,6 +1474,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                           fileSize: selectedFile.size,
                                           uploadedAt: Date.now(),
                                         };
+                                        console.log("📎 File uploaded:", {
+                                          fileName: newFile.fileName,
+                                          fileSize: newFile.fileSize,
+                                          fileType: selectedFile.type,
+                                          fileInstance: selectedFile instanceof File,
+                                          fileObject: selectedFile
+                                        });
                                         await handleTableFieldUpdate(index, 'file', newFile);
                                         e.target.value = ''; // Reset input
                                       }

@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Plus, Trash2, Clock, Edit3, Check, X, CheckCircle, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
   AlertDialog,
@@ -32,11 +34,10 @@ import {
 } from "@/features/submission/utils/progress";
 import { useEditableSectionStore } from '@/utils/EditableSection';
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
-// import { getDropdown } from '@/utils/getDropDowns';
+import { Dropdown, dropdownValues } from '@/utils/getDropDowns';
 import { useFormDataStore } from '@/utils/FormDataStore';
 import { Section_1_3 } from "./Sections/Section_1_3";
 import { Section_1_4 } from "./Sections/Section_1_4";
-import {Section_1_5} from "./Sections/Section_1_5";
 
 
 interface InfraFinancingReviewProps {
@@ -88,11 +89,20 @@ export const InfraFinancingReview = ({
   }, [formData?.section1_3]);
 
   // Section 1.5 state management
-  const [section15State, setSection15State] = useState<any[]>(formData?.section1_5 || []);
+  const [section15State, setSection15State] = useState<{
+    hasIntermediary?: string;
+    ffiArray?: any[];
+    comment?: string;
+  }>(formData?.section1_5 || { ffiArray: [] });
 
   useEffect(() => {
     if (!isRestoringRef.current) {
-      setSection15State(formData?.section1_5 || []);
+      // Handle both old format (array) and new format (object)
+      if (Array.isArray(formData?.section1_5)) {
+        setSection15State({ ffiArray: formData.section1_5 });
+      } else {
+        setSection15State(formData?.section1_5 || { ffiArray: [] });
+      }
     }
   }, [formData?.section1_5]);
 
@@ -139,8 +149,36 @@ const sectionsWithData = useMemo(() => {
     ])
   );
 
-  // Final safety filter: if validator included 1.3/1.4 but lists are empty, drop them
+  // Final safety filter: verify each section has actual data
   const final = merged.filter((sec) => {
+    if (sec === "section1_1") {
+      const section = infraPayload?.section1_1;
+      if (!section) {
+        console.log("🚫 Section 1.1 excluded: no section object");
+        return false;
+      }
+      // Check if any field has meaningful value
+      const hasData = Object.values(section).some(val => {
+        if (val === null || val === undefined || val === '' || val === 0) return false;
+        return true;
+      });
+      console.log(`${hasData ? '✅' : '🚫'} Section 1.1 ${hasData ? 'included' : 'excluded'}:`, section);
+      return hasData;
+    }
+    if (sec === "section1_2") {
+      const section = infraPayload?.section1_2;
+      if (!section) {
+        console.log("🚫 Section 1.2 excluded: no section object");
+        return false;
+      }
+      // Check if any field has meaningful value
+      const hasData = Object.values(section).some(val => {
+        if (val === null || val === undefined || val === '' || val === 0) return false;
+        return true;
+      });
+      console.log(`${hasData ? '✅' : '🚫'} Section 1.2 ${hasData ? 'included' : 'excluded'}:`, section);
+      return hasData;
+    }
     if (sec === "section1_3") {
       return (
         Array.isArray(infraPayload?.section1_3?.ulbList) &&
@@ -152,6 +190,17 @@ const sectionsWithData = useMemo(() => {
         Array.isArray(infraPayload?.section1_4?.bondList) &&
         infraPayload.section1_4.bondList.length > 0
       );
+    }
+    if (sec === "section1_5") {
+      const section = infraPayload?.section1_5;
+      if (!section) return false;
+      // Check if it has the new format with hasIntermediary
+      if (section.hasIntermediary) return true;
+      // Check if it has ffiArray with data
+      if (Array.isArray(section.ffiArray) && section.ffiArray.length > 0) return true;
+      // Check if it's the old array format
+      if (Array.isArray(section) && section.length > 0) return true;
+      return false;
     }
     return true;
   });
@@ -176,6 +225,16 @@ const sectionsWithData = useMemo(() => {
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
+
+  // State for Add More form in section 1.5
+  const [showAddForm1_5, setShowAddForm1_5] = useState(false);
+  const [newEntry1_5, setNewEntry1_5] = useState({
+    organisationName: "",
+    organisationType: "",
+    yearEstablished: "",
+    totalFunding: "",
+    website: "",
+  });
 
   // Helper function to check user role
   const getUserRole = () => {
@@ -242,6 +301,28 @@ const sectionsWithData = useMemo(() => {
     setEditable(sectionId, true);
   };
   
+  // Handle adding new entry for section 1.5
+  const handleAddNewEntry1_5 = () => {
+    const newEntryWithId = {
+      ...newEntry1_5,
+      id: `org-${Date.now()}`,
+    };
+    const updatedArray = [...(section15State?.ffiArray || []), newEntryWithId];
+    setSection15State({
+      ...section15State,
+      ffiArray: updatedArray
+    });
+    // Reset form
+    setNewEntry1_5({
+      organisationName: "",
+      organisationType: "",
+      yearEstablished: "",
+      totalFunding: "",
+      website: "",
+    });
+    setShowAddForm1_5(false);
+  };
+
   // Handle cancel - restore original state
   const handleCancel = (sectionId: string) => {
     if (originalStateSnapshot) {
@@ -256,6 +337,11 @@ const sectionsWithData = useMemo(() => {
       setSection15State(originalStateSnapshot.section15State);
       setOriginalStateSnapshot(null);
       setEditable(sectionId, false);
+      // Reset Add More form for section 1.5
+      if (sectionId === '1.5') {
+        setShowAddForm1_5(false);
+        setNewEntry1_5({ organisationName: "", organisationType: "", yearEstablished: "", totalFunding: "", website: "" });
+      }
       // Increment reset key to force Select components to remount
       setSelectResetKey(prev => prev + 1);
       // Reset the flag after React has processed the state update
@@ -298,15 +384,8 @@ const sectionsWithData = useMemo(() => {
           "🔄 Real-time comment update received in InfraFinancingReview"
         );
 
-        // 1. Update submission with fresh comments data
-        setSubmission((prev) => ({
-          ...prev,
-          indicatorComment: comments,
-          updatedAt: new Date().toISOString(),
-        }));
-        console.log(
-          "✅ InfraFinancingReview - Submission state updated with comments"
-        );
+        // 1. Note: submission is a prop, not state, so we don't update it here
+        // Comments are handled by the useSectionMessages hook
 
         // 2. Refresh complete submission data (same as first load)
         try {
@@ -326,15 +405,9 @@ const sectionsWithData = useMemo(() => {
           );
 
           if (freshSubmission) {
-            // Update submission state with fresh data
-            setSubmission(freshSubmission);
-            console.log(
-              "✅ InfraFinancingReview - Submission state updated with fresh data"
-            );
-
-            // Update form data with fresh data
+            // Update submission data state with fresh data
             if (freshSubmission.formData) {
-              setFormData(freshSubmission.formData);
+              setSubmissionData(freshSubmission.formData);
               console.log(
                 "✅ InfraFinancingReview - Form data updated with fresh data"
               );
@@ -566,13 +639,17 @@ const sectionsWithData = useMemo(() => {
         case '1.5':
           // Use local state for financial intermediary data
           console.log("Section_1_5 state", section15State)
-          fields = (section15State || []).map((item: any) => ({
-            organisationName: item.organisationName,
-            organisationType: item.organisationType,
-            yearEstablished: item.yearEstablished,
-            totalFunding: item.totalFunding,
-            website: item.website
-          }));
+          fields = [{
+            hasIntermediary: section15State?.hasIntermediary || null,
+            comment: section15State?.comment || null,
+            ffiArray: (section15State?.ffiArray || []).map((item: any) => ({
+              organisationName: item.organisationName,
+              organisationType: item.organisationType,
+              yearEstablished: item.yearEstablished,
+              totalFunding: item.totalFunding,
+              website: item.website
+            }))
+          }];
           break;
 
         default:
@@ -1515,68 +1592,293 @@ const calculateAllocationPercentage = () => {
             subtitle="Annex 4: Provide link and funding details"
             className="mb-6"
           >
-            {/* <div className="space-y-4">
-              {formData?.section1_5?.map((item: any, index: number) => (
-                <div key={item.id || index} className="">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div>
-                      <Label>Organisation Name</Label>
-                      <Input 
-                      value={item.organisationName || ""} 
-                      readOnly={!isEditable('1.5')}
-                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'} 
-                      />
+            <div className="space-y-4">
+              {/* RadioGroup for hasIntermediary */}
+              <div>
+                <Label className="mb-3 block">Has Functional Financial Intermediary?*</Label>
+                {isEditable('1.5') ? (
+                  <RadioGroup
+                    value={section15State?.hasIntermediary || ""}
+                    onValueChange={(value) => {
+                      setSection15State({
+                        ...section15State,
+                        hasIntermediary: value,
+                        // Clear comment if switching to "yes"
+                        ...(value === "yes" ? { comment: undefined } : {})
+                      });
+                    }}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="1.5-yes" />
+                      <Label htmlFor="1.5-yes">Yes</Label>
                     </div>
-                    <div>
-                      <Label>Organization Type</Label>
-                      <Input 
-                      value={item.organisationType || ""} 
-                      readOnly={!isEditable('1.5')}
-                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'} 
-                      />
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="1.5-no" />
+                      <Label htmlFor="1.5-no">No</Label>
                     </div>
-                    <div>
-                      <Label>Year of Establishment</Label>
-                      <Input
-                       value={item.yearEstablished || ""} 
-                       readOnly={!isEditable('1.5')}
-                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'} 
-                       />
-                    </div>
-                    <div>
-                      <Label>Total Funding (INR)</Label>
-                      <Input
-                        value={
-                          item.totalFunding
-                            ? `₹ ${item.totalFunding} Crores`
-                            : ""
-                        }
-                        readOnly={!isEditable('1.5')}
-                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'}
-                      />
-                    </div>
-                    <div className="">
-                      <Label>Website Link</Label>
-                      <Input 
-                      value={item.website || ""} 
-                      readOnly={!isEditable('1.5')}
-                      className={isEditable('1.5') ? 'bg-white' : 'bg-gray-50'}
-                       />
-                    </div>
+                  </RadioGroup>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-sm ${
+                      section15State?.hasIntermediary === "yes"
+                        ? "bg-green-100 text-green-800"
+                        : section15State?.hasIntermediary === "no"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}>
+                      {section15State?.hasIntermediary === "yes" ? "Yes" : section15State?.hasIntermediary === "no" ? "No" : "Not specified"}
+                    </span>
                   </div>
-                </div>
-              )) || (
-                <div className="text-center text-muted-foreground py-4">
-                  No financial intermediary data available
+                )}
+              </div>
+
+              {/* Show table and Add More button if hasIntermediary is "yes" */}
+              {(section15State?.hasIntermediary === "yes") && (
+                <>
+                  {/* Table Display */}
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Organisation Name</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Organisation Type</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Year of Establishment</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Total Funding (₹ Crores)</th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Website</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const ffiArray = Array.isArray(section15State?.ffiArray)
+                            ? section15State.ffiArray
+                            : [];
+
+                          if (!ffiArray.length) {
+                            return (
+                              <tr>
+                                <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                                  No financial intermediary data available
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return ffiArray.map((item: any, index: number) => (
+                            <tr key={item.id || index} className="border-b">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('1.5') ? (
+                                  <Input
+                                    value={item.organisationName || ""}
+                                    onChange={(e) => {
+                                      const updatedArray = [...ffiArray];
+                                      updatedArray[index] = { ...updatedArray[index], organisationName: e.target.value };
+                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                    }}
+                                    className="w-full"
+                                    placeholder="Enter organisation name"
+                                  />
+                                ) : (
+                                  item.organisationName || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('1.5') ? (
+                                  <Dropdown
+                                    options={dropdownValues.issuingAuthorityList}
+                                    value={item.organisationType || ""}
+                                    onChange={(value) => {
+                                      const updatedArray = [...ffiArray];
+                                      updatedArray[index] = { ...updatedArray[index], organisationType: value };
+                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                    }}
+                                    placeholder="Select Type"
+                                    isEditable={true}
+                                    resetKey={selectResetKey}
+                                  />
+                                ) : (
+                                  item.organisationType || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('1.5') ? (
+                                  <Input
+                                    type="number"
+                                    value={item.yearEstablished || ""}
+                                    onChange={(e) => {
+                                      const updatedArray = [...ffiArray];
+                                      updatedArray[index] = { ...updatedArray[index], yearEstablished: e.target.value };
+                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                    }}
+                                    className="w-full"
+                                    placeholder="Enter year"
+                                  />
+                                ) : (
+                                  item.yearEstablished || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('1.5') ? (
+                                  <Input
+                                    type="number"
+                                    value={item.totalFunding || ""}
+                                    onChange={(e) => {
+                                      const updatedArray = [...ffiArray];
+                                      updatedArray[index] = { ...updatedArray[index], totalFunding: e.target.value };
+                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                    }}
+                                    className="w-full"
+                                    placeholder="Enter funding"
+                                  />
+                                ) : (
+                                  item.totalFunding || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('1.5') ? (
+                                  <Input
+                                    type="url"
+                                    value={item.website || ""}
+                                    onChange={(e) => {
+                                      const updatedArray = [...ffiArray];
+                                      updatedArray[index] = { ...updatedArray[index], website: e.target.value };
+                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                    }}
+                                    className="w-full"
+                                    placeholder="Enter website"
+                                  />
+                                ) : (
+                                  item.website || 'N/A'
+                                )}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Add More Button - Only visible when in edit mode */}
+                  {isEditable('1.5') && !showAddForm1_5 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => setShowAddForm1_5(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More
+                    </Button>
+                  )}
+
+                  {/* Add Entry Form - Only visible when showAddForm1_5 is true */}
+                  {showAddForm1_5 && isEditable('1.5') && (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium mb-3">Add New Organization</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div>
+                          <Label>Organisation Name</Label>
+                          <Input
+                            value={newEntry1_5.organisationName}
+                            onChange={(e) => setNewEntry1_5({...newEntry1_5, organisationName: e.target.value})}
+                            className="bg-white"
+                            placeholder="Enter organisation name"
+                          />
+                        </div>
+                        <div>
+                          <Label>Organisation Type</Label>
+                          <Dropdown
+                            options={dropdownValues.issuingAuthorityList}
+                            value={newEntry1_5.organisationType}
+                            onChange={(value) => setNewEntry1_5({...newEntry1_5, organisationType: value})}
+                            placeholder="Select Type"
+                            isEditable={true}
+                          />
+                        </div>
+                        <div>
+                          <Label>Year of Establishment</Label>
+                          <Input
+                            type="number"
+                            value={newEntry1_5.yearEstablished}
+                            onChange={(e) => setNewEntry1_5({...newEntry1_5, yearEstablished: e.target.value})}
+                            className="bg-white"
+                            placeholder="Enter year"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Funding (₹ Crores)</Label>
+                          <Input
+                            type="number"
+                            value={newEntry1_5.totalFunding}
+                            onChange={(e) => setNewEntry1_5({...newEntry1_5, totalFunding: e.target.value})}
+                            className="bg-white"
+                            placeholder="Enter funding"
+                          />
+                        </div>
+                        <div>
+                          <Label>Website</Label>
+                          <Input
+                            type="url"
+                            value={newEntry1_5.website}
+                            onChange={(e) => setNewEntry1_5({...newEntry1_5, website: e.target.value})}
+                            className="bg-white"
+                            placeholder="Enter website"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleAddNewEntry1_5}
+                          className="flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Save Entry
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowAddForm1_5(false);
+                            setNewEntry1_5({ organisationName: "", organisationType: "", yearEstablished: "", totalFunding: "", website: "" });
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Show comment field if hasIntermediary is "no" */}
+              {(section15State?.hasIntermediary === "no") && (
+                <div>
+                  <Label>Comment</Label>
+                  {isEditable('1.5') ? (
+                    <Textarea
+                      value={section15State?.comment || ""}
+                      onChange={(e) => {
+                        setSection15State({
+                          ...section15State,
+                          comment: e.target.value
+                        });
+                      }}
+                      className="bg-white mt-2"
+                      placeholder="Enter comment"
+                      rows={4}
+                    />
+                  ) : (
+                    <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                      {section15State?.comment || "No comment provided"}
+                    </div>
+                  )}
                 </div>
               )}
-            </div> */}
-            <Section_1_5 
-              formData={{ section1_5: section15State }}
-              isEditable={isEditable}
-              setSectionState={setSection15State}
-              resetKey={selectResetKey}
-            />
+            </div>
           </SectionCard>
         )}
       </div>
