@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useFormPersistence } from "../hooks/useFormPersistence";
 import { storageService } from "@/services/storage.service";
 import { apiV2 } from "@/services/ApiService";
@@ -34,13 +34,14 @@ import {
   autoAcceptStateApproverIndicators,
   extractSubmissionId,
 } from "@/services/autoAcceptance.service";
+import { filterSectionFormDataByIndicators } from "@/utils/indicatorUtils";
 const PREVIEW_FLAG_KEY = "submission_has_previewed";
 
 export const PreviewPage = () => {
   const navigate = useNavigate();
   const { formData, clearFormData, isResubmit } = useFormPersistence();
   const { user } = useAuth();
-  const { availableIndicators, isStateApprover } = useIndicatorAccess();
+  const { availableIndicators, isStateApprover, assignedIndicators, isNodalOfficer } = useIndicatorAccess();
   const [hasPreviewed, setHasPreviewed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -67,6 +68,24 @@ export const PreviewPage = () => {
     setHasPreviewed(true);
   }, []); // Empty dependency array to run only once
 
+  // Filter formData based on assigned indicators for nodal officers
+  const filteredFormData = useMemo(() => {
+    if (!formData) return null;
+    
+    // For nodal officers, filter formData to only include assigned indicators
+    if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+      return filterSectionFormDataByIndicators(formData, assignedIndicators);
+    }
+    
+    // For state approvers, filter formData to only include available indicators
+    if (isStateApprover && availableIndicators && availableIndicators.length > 0) {
+      return filterSectionFormDataByIndicators(formData, availableIndicators);
+    }
+    
+    // For other roles, return formData as-is
+    return formData;
+  }, [formData, isNodalOfficer, assignedIndicators, isStateApprover, availableIndicators]);
+
   // Final submit handler with confirmation modal
   const handleFinalSubmit = async (e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -90,14 +109,17 @@ export const PreviewPage = () => {
       setIsSubmitting(true);
       setShowConfirmModal(false);
 
+      // Use filtered formData for submission (already filtered in useMemo above)
+      const formDataToSubmit = filteredFormData || formData;
+      
       const transformedData = transformFormDataForSubmission(
-        formData,
+        formDataToSubmit,
         "SUBMITTED_TO_STATE"
       );
       const multipartData = new FormData();
       multipartData.append("submission", JSON.stringify(transformedData));
 
-      appendFilesRecursively(multipartData, formData);
+      appendFilesRecursively(multipartData, formDataToSubmit);
 
       console.group("🧾 FormData entries being sent:");
       for (const [key, val] of multipartData.entries()) {
@@ -157,9 +179,10 @@ export const PreviewPage = () => {
           })`
         );
         try {
+          // Use filtered formData for auto-acceptance (already filtered above)
           await autoAcceptStateApproverIndicators(
             submissionId,
-            formData || {},
+            filteredFormData || formData || {},
             availableIndicators
           );
           console.log(
@@ -205,17 +228,18 @@ export const PreviewPage = () => {
       setIsSubmitting(false);
     }
   };
+
   // Create a mock submission object for UnifiedReviewPage
-  const mockSubmission = formData
+  const mockSubmission = filteredFormData
     ? {
         id: "preview-submission",
         submissionId: "PREVIEW-001",
         stateUt:
-          ((formData as Record<string, unknown>).stateUt as string) ||
+          ((filteredFormData as Record<string, unknown>).stateUt as string) ||
           "Preview State",
         submittedBy: "current-user",
         rejectionCount: 0,
-        formData: formData,
+        formData: filteredFormData,
         reviewComments: [],
         attachedFiles: [],
         status: isResubmit ? "RETURNED_FROM_STATE" : "PREVIEW",
@@ -231,7 +255,7 @@ export const PreviewPage = () => {
           role: user?.role || "NODAL_OFFICER",
           stateUt:
             user?.state ||
-            ((formData as Record<string, unknown>).stateUt as string) ||
+            ((filteredFormData as Record<string, unknown>).stateUt as string) ||
             "Preview State",
           isActive: true,
           createdAt: new Date().toISOString(),
@@ -241,7 +265,7 @@ export const PreviewPage = () => {
       }
     : null;
 
-  if (!formData || !mockSubmission) {
+  if (!filteredFormData || !mockSubmission) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

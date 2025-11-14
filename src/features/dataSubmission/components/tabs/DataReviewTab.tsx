@@ -7,6 +7,7 @@ import { InfraDevelopmentReview } from "../dataReview/InfraDevelopmentReview";
 import { PPPDevelopmentReview } from "../dataReview/PPPDevelopmentReview";
 import { InfraEnablersReview } from "../dataReview/InfraEnablersReview";
 import { hasInfraFinancingData, hasInfraDevelopmentData, hasPPPDevelopmentData, hasInfraEnablersData } from "@/utils/sectionDataValidator";
+import { filterSectionFormDataByIndicators } from "@/utils/indicatorUtils";
 
 interface DataReviewTabProps {
   submissionId: string;
@@ -85,14 +86,22 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
   }, [sectionsWithData, isPreview, isNodalOfficer, assignedIndicators]);
   
   const renderSectionContent = () => {
-    const sectionFormData = formData ? {
-      infraFinancing: formData.infraFinancing,
-      infraDevelopment: formData.infraDevelopment,
-      pppDevelopment: formData.pppDevelopment,
-      infraEnablers: formData.infraEnablers
+    // Filter formData based on assigned indicators for nodal officers in preview mode
+    let filteredFormData = formData;
+    if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0 && formData) {
+      filteredFormData = filterSectionFormDataByIndicators(formData, assignedIndicators);
+      console.log("🔍 [DataReviewTab] Filtered formData for nodal officer:", filteredFormData);
+    }
+    
+    const sectionFormData = filteredFormData ? {
+      infraFinancing: filteredFormData.infraFinancing,
+      infraDevelopment: filteredFormData.infraDevelopment,
+      pppDevelopment: filteredFormData.pppDevelopment,
+      infraEnablers: filteredFormData.infraEnablers
     } : {};
     
     console.log("🔍 [DataReviewTab] formData:", formData);
+    console.log("🔍 [DataReviewTab] filteredFormData:", filteredFormData);
     console.log("🔍 [DataReviewTab] sectionFormData.infraFinancing:", sectionFormData.infraFinancing);
     console.log("🔍 [DataReviewTab] isPreview:", isPreview);
     console.log("🔍 [DataReviewTab] currentSection:", currentSection);
