@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { apiService } from "@/services/api.service";
@@ -40,12 +41,20 @@ import {
 } from "@/utils/formDataTransformer";
 import { SectionCard } from "../components/SectionCard";
 import { Plus, Trash2, Info } from "lucide-react";
+import {
+  autoAcceptStateApproverIndicators,
+  extractSubmissionId,
+} from "@/services/autoAcceptance.service";
 
 export const ReviewSubmitStep = () => {
   const { currentStep, goToStep, goToPrevious } = useStepNavigation(5);
   const { formData, clearFormData, isResubmit } = useFormPersistence();
-  const { assignedIndicators, isNodalOfficer, isStateApprover } =
-    useIndicatorAccess();
+  const {
+    assignedIndicators,
+    availableIndicators,
+    isNodalOfficer,
+    isStateApprover,
+  } = useIndicatorAccess();
   const navigate = useNavigate();
   const [showPreview, setShowPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -248,6 +257,46 @@ export const ReviewSubmitStep = () => {
       });
 
       console.log("✅ Backend response:", response);
+
+      // Get submission ID - use editingSubmissionId if resubmitting, otherwise extract from response
+      const submissionId =
+        isEditMode && editingSubmissionId
+          ? editingSubmissionId
+          : extractSubmissionId(response);
+
+      // Auto-accept indicators if STATE_APPROVER submitted their own indicators
+      if (isStateApprover && submissionId && availableIndicators.length > 0) {
+        console.log(
+          "🔄 [ReviewSubmit] STATE_APPROVER submission detected. Starting auto-acceptance..."
+        );
+        console.log(
+          `📝 [ReviewSubmit] Submission ID: ${submissionId} (${
+            isEditMode ? "resubmit" : "new"
+          })`
+        );
+        try {
+          await autoAcceptStateApproverIndicators(
+            submissionId,
+            formData || {},
+            availableIndicators
+          );
+          console.log(
+            "✅ [ReviewSubmit] Auto-acceptance completed successfully"
+          );
+        } catch (error: unknown) {
+          // Log error but don't fail the submission
+          console.error(
+            "⚠️ [ReviewSubmit] Auto-acceptance failed, but submission was successful:",
+            error
+          );
+          // Optionally show a warning to the user
+          notificationService.warning(
+            "Submission successful, but some indicators may need manual acceptance",
+            "Auto-acceptance Warning"
+          );
+        }
+      }
+
       notificationService.success(
         isEditMode ? "Resubmission successful!" : "Submission successful!",
         isEditMode
