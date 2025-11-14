@@ -38,6 +38,7 @@ import { DataReviewTab } from "../components/tabs/DataReviewTab";
 import { DocumentsTab } from "../components/tabs/DocumentsTab";
 import { AuditLog } from "@/components/AuditLog";
 import { generateAuditEntries } from "@/utils/auditUtils";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 type AggregatedIndicator = {
   id?: string;
@@ -82,18 +83,44 @@ type StateOption = {
 
 /**
  * Transform aggregated indicators from API into formData structure expected by review components
+ * Also checks submissions array if available to extract form data from nodal officer submissions
  */
 const transformIndicatorsToFormData = (
-  indicators: Record<string, AggregatedIndicator[]>
+  indicators: Record<string, AggregatedIndicator[]>,
+  submissions?: any[]
 ): any => {
   console.log("[Transform] Raw indicators input:", indicators);
   console.log("[Transform] Indicator keys:", Object.keys(indicators));
   
   const formData: any = {
-    infraFinancing: {},
-    infraDevelopment: {},
-    pppDevelopment: {},
-    infraEnablers: {},
+    infraFinancing: {
+      section1_1: {},
+      section1_2: {},
+      section1_3: { ulbList: [] },
+      section1_4: { bondList: [] },
+      section1_5: { ffiArray: [] },
+    },
+    infraDevelopment: {
+      section2_1: { infraActArray: [] },
+      section2_2: { specializedEntityArray: [] },
+      section2_3: { infraDevelopmentArray: [] },
+      section2_4: { investmentReadyArray: [] },
+      section2_5: { assetMonetizationArray: [] },
+    },
+    pppDevelopment: {
+      section3_1: {},
+      section3_2: {},
+      section3_3: { VGFArray: [] },
+      section3_4: { projects: [] },
+    },
+    infraEnablers: {
+      section4_1: {},
+      section4_2: {},
+      section4_3: {},
+      section4_4: {},
+      section4_5: {},
+      section4_6: { capacityArray: [] },
+    },
   };
 
   // Map category names to formData keys (matching actual API response)
@@ -132,7 +159,10 @@ const transformIndicatorsToFormData = (
       }
 
       console.log(`[Transform] Processing indicator ${code} in category ${categoryKey}`);
+      console.log(`[Transform] Full indicator object:`, indicator);
       console.log(`[Transform] Indicator data:`, indicator.data);
+      console.log(`[Transform] Indicator data type:`, typeof indicator.data);
+      console.log(`[Transform] Indicator data keys:`, indicator.data && typeof indicator.data === 'object' ? Object.keys(indicator.data) : 'not an object');
 
       // Convert code to section key (e.g., "1.1" -> "section1_1")
       const sectionKey = `section${code.replace(".", "_")}`;
@@ -173,15 +203,17 @@ const transformIndicatorsToFormData = (
 
       // Handle object-based indicators
       if (typeof indicatorData === 'object') {
-        // Filter out backend fields (status, percentage, marksObtained) and keep only form fields
-        const formFields: any = {};
+        // Start with all fields from indicatorData, then filter
+        const formFields: any = { ...indicatorData };
         
-        Object.entries(indicatorData).forEach(([key, value]) => {
-          // Skip backend/metadata fields, but keep meaningful data
-          if (!['status', 'percentage', 'marksObtained'].includes(key)) {
-            formFields[key] = value;
-          }
-        });
+        // Remove backend/metadata fields that shouldn't be displayed
+        delete formFields.status;
+        delete formFields.percentage;
+        delete formFields.marksObtained;
+        
+        // Log what we're keeping for debugging
+        console.log(`[Transform] Indicator ${code} - keeping fields:`, Object.keys(formFields));
+        console.log(`[Transform] Indicator ${code} - formFields values:`, formFields);
 
         // Add year if available (from indicator.year or data.year)
         if (indicator.year) {
@@ -222,6 +254,85 @@ const transformIndicatorsToFormData = (
 
         // Special handling for specific indicators
         switch (code) {
+          case '1.1':
+            // For section 1.1, check if data exists in the indicator object itself
+            // The API might store data differently - check all possible locations
+            console.log(`[Transform] Section 1.1 - Full indicator:`, JSON.stringify(indicator, null, 2));
+            
+            // Check if capitalAllocation/gsdpForFY exist with different field names
+            // Common variations: capital_allocation, capitalAllocation, capital_allocation_fy, etc.
+            const possibleCapAllocKeys = ['capitalAllocation', 'capital_allocation', 'capitalAllocationFY', 'capital_allocation_fy', 'a1', 'A1'];
+            const possibleGsdpKeys = ['gsdpForFY', 'gsdp_for_fy', 'gsdpForFYValue', 'gsdp_for_fy_value', 'a2', 'A2', 'gsdp'];
+            
+            // Try to find capitalAllocation
+            if (!formFields.capitalAllocation) {
+              for (const key of possibleCapAllocKeys) {
+                if (indicatorData[key] !== undefined) {
+                  formFields.capitalAllocation = String(indicatorData[key]);
+                  console.log(`[Transform] Found capitalAllocation as '${key}':`, indicatorData[key]);
+                  break;
+                }
+              }
+            }
+            
+            // Try to find gsdpForFY
+            if (!formFields.gsdpForFY) {
+              for (const key of possibleGsdpKeys) {
+                if (indicatorData[key] !== undefined) {
+                  formFields.gsdpForFY = String(indicatorData[key]);
+                  console.log(`[Transform] Found gsdpForFY as '${key}':`, indicatorData[key]);
+                  break;
+                }
+              }
+            }
+            
+            // If still not found, check if they're in a nested structure
+            if (!formFields.capitalAllocation && indicatorData.user_fill_value_a1 !== undefined) {
+              formFields.capitalAllocation = String(indicatorData.user_fill_value_a1);
+              console.log(`[Transform] Found capitalAllocation as user_fill_value_a1:`, indicatorData.user_fill_value_a1);
+            }
+            
+            if (!formFields.gsdpForFY && indicatorData.user_fill_value_a2 !== undefined) {
+              formFields.gsdpForFY = String(indicatorData.user_fill_value_a2);
+              console.log(`[Transform] Found gsdpForFY as user_fill_value_a2:`, indicatorData.user_fill_value_a2);
+            }
+            
+            // If still not found, check submissions array for formData (nodal officer submissions)
+            if ((!formFields.capitalAllocation || !formFields.gsdpForFY) && submissions && Array.isArray(submissions)) {
+              console.log(`[Transform] Checking ${submissions.length} submissions for section 1.1 data`);
+              for (const submission of submissions) {
+                const subFormData = submission.formData || submission.form_data || {};
+                const infraFinancing = subFormData.infraFinancing || subFormData.Infrastructure_Financing || {};
+                const section1_1 = infraFinancing.section1_1 || {};
+                
+                if (section1_1.capitalAllocation && !formFields.capitalAllocation) {
+                  formFields.capitalAllocation = String(section1_1.capitalAllocation);
+                  console.log(`[Transform] Found capitalAllocation in submission ${submission.id}:`, section1_1.capitalAllocation);
+                }
+                
+                if (section1_1.gsdpForFY && !formFields.gsdpForFY) {
+                  formFields.gsdpForFY = String(section1_1.gsdpForFY);
+                  console.log(`[Transform] Found gsdpForFY in submission ${submission.id}:`, section1_1.gsdpForFY);
+                }
+                
+                // If we found both, break early
+                if (formFields.capitalAllocation && formFields.gsdpForFY) {
+                  break;
+                }
+              }
+            }
+            
+            // Ensure required fields exist (even if empty) for section 1.1
+            if (!formFields.capitalAllocation) {
+              formFields.capitalAllocation = '';
+            }
+            if (!formFields.gsdpForFY) {
+              formFields.gsdpForFY = '';
+            }
+            
+            // Log what we have for section 1.1
+            console.log(`[Transform] Section 1.1 final fields:`, formFields);
+            break;
           case '1.3':
             // Ensure ulbList exists (might be empty)
             if (!formFields.ulbList) {
@@ -280,6 +391,102 @@ const transformIndicatorsToFormData = (
 };
 
 /**
+ * Filter formData to only include sections for assigned indicators (for nodal officers)
+ */
+const filterFormDataByAssignedIndicators = (formData: any, assignedIndicators: string[]): any => {
+  if (!formData || !assignedIndicators || assignedIndicators.length === 0) {
+    return formData;
+  }
+
+  const filtered: any = {
+    infraFinancing: {},
+    infraDevelopment: {},
+    pppDevelopment: {},
+    infraEnablers: {},
+  };
+
+  // Map indicator codes to their section keys
+  const indicatorToSectionMap: Record<string, { category: string; sectionKey: string }> = {
+    "1.1": { category: "infraFinancing", sectionKey: "section1_1" },
+    "1.2": { category: "infraFinancing", sectionKey: "section1_2" },
+    "1.3": { category: "infraFinancing", sectionKey: "section1_3" },
+    "1.4": { category: "infraFinancing", sectionKey: "section1_4" },
+    "1.5": { category: "infraFinancing", sectionKey: "section1_5" },
+    "2.1": { category: "infraDevelopment", sectionKey: "section2_1" },
+    "2.2": { category: "infraDevelopment", sectionKey: "section2_2" },
+    "2.3": { category: "infraDevelopment", sectionKey: "section2_3" },
+    "2.4": { category: "infraDevelopment", sectionKey: "section2_4" },
+    "2.5": { category: "infraDevelopment", sectionKey: "section2_5" },
+    "3.1": { category: "pppDevelopment", sectionKey: "section3_1" },
+    "3.2": { category: "pppDevelopment", sectionKey: "section3_2" },
+    "3.3": { category: "pppDevelopment", sectionKey: "section3_3" },
+    "3.4": { category: "pppDevelopment", sectionKey: "section3_4" },
+    "4.1": { category: "infraEnablers", sectionKey: "section4_1" },
+    "4.2": { category: "infraEnablers", sectionKey: "section4_2" },
+    "4.3": { category: "infraEnablers", sectionKey: "section4_3" },
+    "4.4": { category: "infraEnablers", sectionKey: "section4_4" },
+    "4.5": { category: "infraEnablers", sectionKey: "section4_5" },
+    "4.6": { category: "infraEnablers", sectionKey: "section4_6" },
+  };
+
+  // Only include sections for assigned indicators (even if empty)
+  assignedIndicators.forEach((indicatorCode) => {
+    const mapping = indicatorToSectionMap[indicatorCode];
+    if (mapping && formData[mapping.category]) {
+      if (!filtered[mapping.category]) {
+        filtered[mapping.category] = {};
+      }
+      // Include the section even if it's empty (for assigned indicators)
+      if (formData[mapping.category][mapping.sectionKey]) {
+        filtered[mapping.category][mapping.sectionKey] = formData[mapping.category][mapping.sectionKey];
+      } else {
+        // Initialize empty section structure based on indicator type
+        switch (indicatorCode) {
+          case "1.3":
+            filtered[mapping.category][mapping.sectionKey] = { ulbList: [] };
+            break;
+          case "1.4":
+            filtered[mapping.category][mapping.sectionKey] = { bondList: [] };
+            break;
+          case "1.5":
+            filtered[mapping.category][mapping.sectionKey] = { ffiArray: [] };
+            break;
+          case "2.1":
+            filtered[mapping.category][mapping.sectionKey] = { infraActArray: [] };
+            break;
+          case "2.2":
+            filtered[mapping.category][mapping.sectionKey] = { specializedEntityArray: [] };
+            break;
+          case "2.3":
+            filtered[mapping.category][mapping.sectionKey] = { infraDevelopmentArray: [] };
+            break;
+          case "2.4":
+            filtered[mapping.category][mapping.sectionKey] = { investmentReadyArray: [] };
+            break;
+          case "2.5":
+            filtered[mapping.category][mapping.sectionKey] = { assetMonetizationArray: [] };
+            break;
+          case "3.3":
+            filtered[mapping.category][mapping.sectionKey] = { VGFArray: [] };
+            break;
+          case "3.4":
+            filtered[mapping.category][mapping.sectionKey] = { projects: [] };
+            break;
+          case "4.6":
+            filtered[mapping.category][mapping.sectionKey] = { capacityArray: [] };
+            break;
+          default:
+            filtered[mapping.category][mapping.sectionKey] = {};
+        }
+      }
+      console.log(`[Filter] Including ${indicatorCode} -> ${mapping.category}.${mapping.sectionKey}`);
+    }
+  });
+
+  return filtered;
+};
+
+/**
  * Create a mock submission object from aggregated data for use with existing components
  */
 const createMockSubmission = (
@@ -328,6 +535,9 @@ export const StateAggregateReviewPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  
+  // Get assigned indicators for nodal officers (for filtering in preview mode)
+  const { assignedIndicators, isNodalOfficer } = useIndicatorAccess();
 
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("");
@@ -434,15 +644,49 @@ export const StateAggregateReviewPage = () => {
         Object.entries(data.indicators || {}).forEach(([category, indicators]) => {
           console.log(`[StateAggregate] Category ${category}:`, indicators);
           if (Array.isArray(indicators) && indicators.length > 0) {
+            // Find indicator 1.1 specifically
+            const indicator1_1 = indicators.find((ind: any) => ind.code === '1.1');
+            if (indicator1_1) {
+              console.log(`[StateAggregate] 🔍 Indicator 1.1 FULL OBJECT:`, JSON.stringify(indicator1_1, null, 2));
+              console.log(`[StateAggregate] 🔍 Indicator 1.1 data:`, indicator1_1.data);
+              console.log(`[StateAggregate] 🔍 Indicator 1.1 data keys:`, indicator1_1.data ? Object.keys(indicator1_1.data) : 'no data');
+            }
+            // Find indicator 1.2 for comparison
+            const indicator1_2 = indicators.find((ind: any) => ind.code === '1.2');
+            if (indicator1_2) {
+              console.log(`[StateAggregate] 🔍 Indicator 1.2 FULL OBJECT:`, JSON.stringify(indicator1_2, null, 2));
+              console.log(`[StateAggregate] 🔍 Indicator 1.2 data:`, indicator1_2.data);
+              console.log(`[StateAggregate] 🔍 Indicator 1.2 data keys:`, indicator1_2.data ? Object.keys(indicator1_2.data) : 'no data');
+            }
             console.log(`[StateAggregate] Sample indicator from ${category}:`, indicators[0]);
             console.log(`[StateAggregate] Sample indicator data structure:`, indicators[0]?.data);
           }
         });
 
         // Transform indicators to formData structure
-        const transformedFormData = transformIndicatorsToFormData(data.indicators || {});
+        // Also pass submissions array if available to extract form data
+        let transformedFormData = transformIndicatorsToFormData(
+          data.indicators || {},
+          data.submissions || (payload as any).submissions
+        );
         console.log("[StateAggregate] Transformed formData:", transformedFormData);
         console.log("[StateAggregate] FormData keys:", Object.keys(transformedFormData));
+        
+        // Filter formData for nodal officers: remove unassigned indicators
+        if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+          console.log("[StateAggregate] Filtering formData for nodal officer");
+          console.log("[StateAggregate] Assigned indicators:", assignedIndicators);
+          console.log("[StateAggregate] FormData before filtering:", transformedFormData);
+          transformedFormData = filterFormDataByAssignedIndicators(transformedFormData, assignedIndicators);
+          console.log("[StateAggregate] Filtered formData:", transformedFormData);
+          console.log("[StateAggregate] Filtered formData keys:", Object.keys(transformedFormData));
+          if (transformedFormData.infraFinancing) {
+            console.log("[StateAggregate] Filtered infraFinancing sections:", Object.keys(transformedFormData.infraFinancing));
+          }
+        } else {
+          console.log("[StateAggregate] Not filtering - isNodalOfficer:", isNodalOfficer, "assignedIndicators:", assignedIndicators);
+        }
+        
         setFormData(transformedFormData);
 
         // Create mock submission for existing components
@@ -459,7 +703,22 @@ export const StateAggregateReviewPage = () => {
     };
 
     loadAggregatePreview();
-  }, [effectiveState, selectedYear]);
+  }, [effectiveState, selectedYear, isNodalOfficer, assignedIndicators]);
+
+  // Re-filter formData when assignedIndicators changes (for nodal officers)
+  useEffect(() => {
+    if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0 && formData) {
+      console.log("[StateAggregate] Re-filtering formData due to assignedIndicators change");
+      console.log("[StateAggregate] Current formData:", formData);
+      console.log("[StateAggregate] Assigned indicators:", assignedIndicators);
+      const filteredFormData = filterFormDataByAssignedIndicators(formData, assignedIndicators);
+      console.log("[StateAggregate] Re-filtered formData:", filteredFormData);
+      if (filteredFormData.infraFinancing) {
+        console.log("[StateAggregate] Re-filtered infraFinancing sections:", Object.keys(filteredFormData.infraFinancing));
+      }
+      setFormData(filteredFormData);
+    }
+  }, [isNodalOfficer, assignedIndicators]);
 
   // Restrict state selection for STATE_APPROVER
   const isStateApprover = user?.role === "STATE_APPROVER";
@@ -635,6 +894,8 @@ export const StateAggregateReviewPage = () => {
                 formData={formData}
                 submission={mockSubmission}
                 isPreview={true}
+                assignedIndicators={isNodalOfficer ? assignedIndicators : undefined}
+                isNodalOfficer={isNodalOfficer}
               />
             </TabsContent>
 

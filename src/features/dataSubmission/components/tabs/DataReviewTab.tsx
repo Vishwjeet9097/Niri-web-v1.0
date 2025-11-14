@@ -13,6 +13,8 @@ interface DataReviewTabProps {
   formData?: any;
   submission?: any; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
+  assignedIndicators?: string[]; // Assigned indicators for nodal officers (for filtering in preview)
+  isNodalOfficer?: boolean; // Whether the user is a nodal officer
   sections?: Array<{
     id: string;
     name: string;
@@ -43,8 +45,16 @@ const DEFAULT_SECTIONS = [
   { id: "infra-enablers", label: "Infra Enablers", points: 250 },
 ];
 
-export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false, sections }: DataReviewTabProps) => {
+export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false, assignedIndicators, isNodalOfficer, sections }: DataReviewTabProps) => {
   const [currentSection, setCurrentSection] = useState(0);
+
+  // Map category IDs to their indicator codes
+  const categoryIndicatorMap: Record<string, string[]> = {
+    "infra-financing": ["1.1", "1.2", "1.3", "1.4", "1.5"],
+    "infra-development": ["2.1", "2.2", "2.3", "2.4", "2.5"],
+    "ppp-development": ["3.1", "3.2", "3.3", "3.4"],
+    "infra-enablers": ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"],
+  };
 
   // Check which sections have data
   const sectionsWithData = [
@@ -54,14 +64,25 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
     { id: "infra-enablers", label: "Infra Enablers", points: 250, hasData: hasInfraEnablersData(formData) },
   ];
 
-  // Filter sections that have data
-  // const availableSections = sectionsWithData.filter(section => section.hasData);
+  // Filter sections based on assigned indicators for nodal officers in preview mode
+  const availableSections = useMemo(() => {
+    // For nodal officers in preview mode: filter categories that have assigned indicators
+    if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+      const filtered = sectionsWithData.filter((section) => {
+        const categoryIndicators = categoryIndicatorMap[section.id] || [];
+        // Check if any indicator in this category is assigned to the nodal officer
+        const hasAssignedIndicator = categoryIndicators.some(ind => assignedIndicators.includes(ind));
+        console.log(`🔍 [DataReviewTab] Category ${section.id} has assigned indicator:`, hasAssignedIndicator, "category indicators:", categoryIndicators, "assigned:", assignedIndicators);
+        return hasAssignedIndicator;
+      });
+      console.log("🔍 [DataReviewTab] Filtered sections for nodal officer:", filtered);
+      return filtered;
+    }
 
-   const availableSections = useMemo(() => {
+    // For aggregate view or non-preview: show sections with data, or all as fallback
     const anyHasData = sectionsWithData.some((s) => s.hasData);
-    // If no sections have data, show all sections as fallback
     return anyHasData ? sectionsWithData.filter((s) => s.hasData) : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
-  }, [sectionsWithData]);
+  }, [sectionsWithData, isPreview, isNodalOfficer, assignedIndicators]);
   
   const renderSectionContent = () => {
     const sectionFormData = formData ? {
@@ -70,7 +91,12 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
       pppDevelopment: formData.pppDevelopment,
       infraEnablers: formData.infraEnablers
     } : {};
-    // Debug logging removed for performance
+    
+    console.log("🔍 [DataReviewTab] formData:", formData);
+    console.log("🔍 [DataReviewTab] sectionFormData.infraFinancing:", sectionFormData.infraFinancing);
+    console.log("🔍 [DataReviewTab] isPreview:", isPreview);
+    console.log("🔍 [DataReviewTab] currentSection:", currentSection);
+    console.log("🔍 [DataReviewTab] availableSections:", availableSections);
 
     if (availableSections.length === 0) {
       return (
@@ -82,13 +108,14 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
 
     switch (availableSections[currentSection]?.id) {
       case "infra-financing":
-        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} isPreview={isPreview} />;
+        console.log("🔍 [DataReviewTab] Rendering InfraFinancingReview with formData:", sectionFormData.infraFinancing);
+        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
       case "infra-development":
-        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} isPreview={isPreview} />;
+        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
       case "ppp-development":
-        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} isPreview={isPreview} />;
+        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
       case "infra-enablers":
-        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} isPreview={isPreview} />;
+        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
       default:
         return null;
     }
