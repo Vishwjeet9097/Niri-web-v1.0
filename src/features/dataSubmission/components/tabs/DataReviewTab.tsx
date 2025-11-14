@@ -80,10 +80,52 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
       return filtered;
     }
 
+    // For preview mode but NOT nodal officer (e.g., state approver viewing aggregate):
+    // Show all sections that exist in formData, even if they don't have meaningful data
+    // This ensures all indicators are visible in aggregate/preview views
+    if (isPreview && !isNodalOfficer && formData && typeof formData === 'object') {
+      // Map section ID to formData category key
+      const categoryMap: Record<string, string> = {
+        "infra-financing": "infraFinancing",
+        "infra-development": "infraDevelopment",
+        "ppp-development": "pppDevelopment",
+        "infra-enablers": "infraEnablers",
+      };
+      
+      // Check which sections exist in formData (even if empty)
+      const existingSections = DEFAULT_SECTIONS.filter((section) => {
+        const formDataCategory = categoryMap[section.id];
+        if (!formDataCategory) return false;
+        
+        // Check if category exists in formData (even if empty object)
+        const categoryExists = formDataCategory in formData && formData[formDataCategory] && typeof formData[formDataCategory] === 'object';
+        
+        // For each section, check if any sub-sections exist (e.g., section4_3 in infraEnablers)
+        if (categoryExists) {
+          const categoryData = formData[formDataCategory];
+          // Check if this category has any section keys (e.g., section4_3, section4_4, etc.)
+          const hasAnySections = Object.keys(categoryData).some(key => key.startsWith('section'));
+          return hasAnySections;
+        }
+        
+        return false;
+      });
+      
+      // Include sections that have data OR exist in formData
+      const sectionsToShow = DEFAULT_SECTIONS.map(section => {
+        const existsInFormData = existingSections.some(s => s.id === section.id);
+        const hasData = sectionsWithData.find(s => s.id === section.id)?.hasData || false;
+        return { ...section, hasData: hasData || existsInFormData };
+      }).filter(section => section.hasData);
+      
+      console.log("🔍 [DataReviewTab] Preview mode (non-nodal): showing sections that exist in formData:", sectionsToShow);
+      return sectionsToShow.length > 0 ? sectionsToShow : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
+    }
+
     // For aggregate view or non-preview: show sections with data, or all as fallback
     const anyHasData = sectionsWithData.some((s) => s.hasData);
     return anyHasData ? sectionsWithData.filter((s) => s.hasData) : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
-  }, [sectionsWithData, isPreview, isNodalOfficer, assignedIndicators]);
+  }, [sectionsWithData, isPreview, isNodalOfficer, assignedIndicators, formData]);
   
   const renderSectionContent = () => {
     // Filter formData based on assigned indicators for nodal officers in preview mode

@@ -39,6 +39,12 @@ import { DocumentsTab } from "../components/tabs/DocumentsTab";
 import { AuditLog } from "@/components/AuditLog";
 import { generateAuditEntries } from "@/utils/auditUtils";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { calculateStateProgressFromApi, ProgressStats } from "@/utils/progressUtils";
+import { authService } from "@/services/auth.service";
+import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
+import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
+import axios from "axios";
+import { config } from "@/config/environment";
 
 type AggregatedIndicator = {
   id?: string;
@@ -92,35 +98,13 @@ const transformIndicatorsToFormData = (
   console.log("[Transform] Raw indicators input:", indicators);
   console.log("[Transform] Indicator keys:", Object.keys(indicators));
   
+  // Start with empty categories - only create sections for indicators that actually exist in the API response
+  // Don't initialize all sections upfront - this prevents unassigned/unfilled indicators from appearing
   const formData: any = {
-    infraFinancing: {
-      section1_1: {},
-      section1_2: {},
-      section1_3: { ulbList: [] },
-      section1_4: { bondList: [] },
-      section1_5: { ffiArray: [] },
-    },
-    infraDevelopment: {
-      section2_1: { infraActArray: [] },
-      section2_2: { specializedEntityArray: [] },
-      section2_3: { infraDevelopmentArray: [] },
-      section2_4: { investmentReadyArray: [] },
-      section2_5: { assetMonetizationArray: [] },
-    },
-    pppDevelopment: {
-      section3_1: {},
-      section3_2: {},
-      section3_3: { VGFArray: [] },
-      section3_4: { projects: [] },
-    },
-    infraEnablers: {
-      section4_1: {},
-      section4_2: {},
-      section4_3: {},
-      section4_4: {},
-      section4_5: {},
-      section4_6: { capacityArray: [] },
-    },
+    infraFinancing: {},
+    infraDevelopment: {},
+    pppDevelopment: {},
+    infraEnablers: {},
   };
 
   // Map category names to formData keys (matching actual API response)
@@ -170,34 +154,56 @@ const transformIndicatorsToFormData = (
       // Extract data from indicator - data is directly in indicator.data, not nested
       let indicatorData = indicator.data;
 
-      // Handle null/undefined data
+      // Handle null/undefined data - if indicator exists but has no data, skip creating empty section
+      // Only proceed if indicator has data OR if we can extract data from submissions array
+      if (!indicatorData && (!submissions || submissions.length === 0)) {
+        console.log(`[Transform] Skipping indicator ${code} - no data and no submissions to extract from`);
+        return;
+      }
+      
+      // If no indicatorData, try to get from empty object for now (will check later if meaningful)
       if (!indicatorData) {
         indicatorData = {};
       }
 
       // Handle array-based indicators (2.1, 2.2, 2.3, 2.4, 2.5)
       if (Array.isArray(indicatorData)) {
-        // Map to appropriate array field based on indicator code
-        switch (code) {
-          case '2.1':
-            formData[formDataKey][sectionKey] = { infraActArray: indicatorData };
-            break;
-          case '2.2':
-            formData[formDataKey][sectionKey] = { specializedEntityArray: indicatorData };
-            break;
-          case '2.3':
-            formData[formDataKey][sectionKey] = { infraDevelopmentArray: indicatorData };
-            break;
-          case '2.4':
-            formData[formDataKey][sectionKey] = { investmentReadyArray: indicatorData };
-            break;
-          case '2.5':
-            formData[formDataKey][sectionKey] = { assetMonetizationArray: indicatorData };
-            break;
-          default:
-            formData[formDataKey][sectionKey] = indicatorData;
+        // For array-based indicators, only include if the array has actual data
+        // Empty arrays should not be shown even if they exist in submissions or have a status
+        // Also check if array contains only empty/null/undefined values
+        const hasValidData = indicatorData.length > 0 && indicatorData.some(item => {
+          if (item === null || item === undefined) return false;
+          if (typeof item === 'object' && Object.keys(item).length === 0) return false;
+          return true;
+        });
+        
+        if (!hasValidData) {
+          console.log(`[Transform] Skipping array ${sectionKey} in ${formDataKey} - empty array or array with no valid data (length: ${indicatorData.length})`);
+          return;
         }
-        console.log(`[Transform] Stored array ${sectionKey} in ${formDataKey}:`, formData[formDataKey][sectionKey]);
+        
+        // Array has valid data, proceed to store it
+          // Map to appropriate array field based on indicator code
+          switch (code) {
+            case '2.1':
+              formData[formDataKey][sectionKey] = { infraActArray: indicatorData };
+              break;
+            case '2.2':
+              formData[formDataKey][sectionKey] = { specializedEntityArray: indicatorData };
+              break;
+            case '2.3':
+              formData[formDataKey][sectionKey] = { infraDevelopmentArray: indicatorData };
+              break;
+            case '2.4':
+              formData[formDataKey][sectionKey] = { investmentReadyArray: indicatorData };
+              break;
+            case '2.5':
+              formData[formDataKey][sectionKey] = { assetMonetizationArray: indicatorData };
+              break;
+            default:
+              formData[formDataKey][sectionKey] = indicatorData;
+          }
+        console.log(`[Transform] Stored array ${sectionKey} in ${formDataKey}:`, formData[formDataKey][sectionKey], `(array length: ${indicatorData.length})`);
         return;
       }
 
@@ -373,19 +379,59 @@ const transformIndicatorsToFormData = (
             break;
         }
 
-        // Always store sections for aggregate view - even if empty, so all indicators show
-        // This ensures all indicators are visible in the aggregate review
-        formData[formDataKey][sectionKey] = formFields;
-        console.log(`[Transform] Stored ${sectionKey} in ${formDataKey}:`, formFields);
+        // Only store sections if they have actual data OR if they're assigned to someone
+        // Don't create empty sections for unassigned/unfilled indicators
+        // Check if section has meaningful data before storing
+        const hasMeaningfulData = Object.keys(formFields).length > 0 && 
+          Object.values(formFields).some(val => {
+            if (val === null || val === undefined || val === '') return false;
+            if (Array.isArray(val) && val.length === 0) return false;
+            if (typeof val === 'object' && Object.keys(val).length === 0) return false;
+            return true;
+          });
+        
+        // Check if indicator is assigned/submitted (not NOT_STARTED status)
+        // NOT_STARTED means the indicator hasn't been assigned or filled yet
+        const indicatorStatus = indicator?.status || indicatorData?.status || formFields.status;
+        const isNotStarted = indicatorStatus === 'NOT_STARTED' || indicatorStatus === null || indicatorStatus === undefined;
+        
+        // Check if this indicator exists in any submission (meaning it's been worked on)
+        const existsInSubmissions = submissions && Array.isArray(submissions) && submissions.some(submission => {
+          const subFormData = submission.formData || submission.form_data || {};
+          const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
+          return sectionKey in categoryData;
+        });
+        
+        // Only create section if:
+        // 1. It has meaningful data, OR
+        // 2. It's not in NOT_STARTED status (has been assigned/submitted), OR
+        // 3. It exists in submissions array (has been worked on)
+        // This prevents unassigned/unfilled indicators from appearing empty
+        const shouldInclude = hasMeaningfulData || !isNotStarted || existsInSubmissions;
+        
+        if (shouldInclude) {
+          formData[formDataKey][sectionKey] = formFields;
+          console.log(`[Transform] Stored ${sectionKey} in ${formDataKey}:`, formFields, `(hasData: ${hasMeaningfulData}, status: ${indicatorStatus}, existsInSubmissions: ${existsInSubmissions})`);
+        } else {
+          console.log(`[Transform] Skipping ${sectionKey} in ${formDataKey} - no meaningful data, NOT_STARTED status, and not in submissions`);
+        }
       }
     });
   });
 
+  // Clean up empty categories
+  Object.keys(formData).forEach((categoryKey) => {
+    if (Object.keys(formData[categoryKey]).length === 0) {
+      delete formData[categoryKey];
+      console.log(`[Transform] Removed empty category: ${categoryKey}`);
+    }
+  });
+
   console.log("[Transform] Final formData structure:", formData);
-  console.log("[Transform] infraFinancing sections:", Object.keys(formData.infraFinancing));
-  console.log("[Transform] infraDevelopment sections:", Object.keys(formData.infraDevelopment));
-  console.log("[Transform] pppDevelopment sections:", Object.keys(formData.pppDevelopment));
-  console.log("[Transform] infraEnablers sections:", Object.keys(formData.infraEnablers));
+  console.log("[Transform] infraFinancing sections:", Object.keys(formData.infraFinancing || {}));
+  console.log("[Transform] infraDevelopment sections:", Object.keys(formData.infraDevelopment || {}));
+  console.log("[Transform] pppDevelopment sections:", Object.keys(formData.pppDevelopment || {}));
+  console.log("[Transform] infraEnablers sections:", Object.keys(formData.infraEnablers || {}));
 
   return formData;
 };
@@ -537,7 +583,8 @@ export const StateAggregateReviewPage = () => {
   const [searchParams] = useSearchParams();
   
   // Get assigned indicators for nodal officers (for filtering in preview mode)
-  const { assignedIndicators, isNodalOfficer } = useIndicatorAccess();
+  const { assignedIndicators, isNodalOfficer, isStateApprover, loading: indicatorLoading } = useIndicatorAccess();
+  const isMospiReviewer = user?.role === "MOSPI_REVIEWER";
 
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("");
@@ -548,6 +595,9 @@ export const StateAggregateReviewPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadingStates, setLoadingStates] = useState(true);
+  const [stateProgress, setStateProgress] = useState<ProgressStats | null>(null);
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [submittingFinal, setSubmittingFinal] = useState(false);
 
   // Get state and year from URL params
   useEffect(() => {
@@ -608,7 +658,15 @@ export const StateAggregateReviewPage = () => {
   // Load aggregate preview data
   useEffect(() => {
     const loadAggregatePreview = async () => {
+      // Only wait for indicator loading if user is a nodal officer (they need assigned indicators for filtering)
+      // State approvers don't need to wait - they see all data regardless
+      if (indicatorLoading && isNodalOfficer) {
+        console.log("[StateAggregate] Waiting for indicator access to load (nodal officer)...");
+        return;
+      }
+      
       if (!effectiveState) {
+        console.log("[StateAggregate] No effective state, skipping load");
         setLoading(false);
         return;
       }
@@ -618,6 +676,8 @@ export const StateAggregateReviewPage = () => {
         setError(null);
 
         console.log(`[StateAggregate] Loading preview for state: ${effectiveState}, year: ${selectedYear || "current"}`);
+        console.log(`[StateAggregate] User role - isNodalOfficer: ${isNodalOfficer}, isStateApprover: ${isStateApprover}`);
+        console.log(`[StateAggregate] assignedIndicators:`, assignedIndicators);
 
         const payload = await getCumulativePreview(effectiveState, {
           year: selectedYear || undefined,
@@ -672,7 +732,8 @@ export const StateAggregateReviewPage = () => {
         console.log("[StateAggregate] Transformed formData:", transformedFormData);
         console.log("[StateAggregate] FormData keys:", Object.keys(transformedFormData));
         
-        // Filter formData for nodal officers: remove unassigned indicators
+        // Filter formData for nodal officers ONLY: remove unassigned indicators
+        // State approvers should see ALL data regardless of assigned indicators
         if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
           console.log("[StateAggregate] Filtering formData for nodal officer");
           console.log("[StateAggregate] Assigned indicators:", assignedIndicators);
@@ -684,7 +745,9 @@ export const StateAggregateReviewPage = () => {
             console.log("[StateAggregate] Filtered infraFinancing sections:", Object.keys(transformedFormData.infraFinancing));
           }
         } else {
-          console.log("[StateAggregate] Not filtering - isNodalOfficer:", isNodalOfficer, "assignedIndicators:", assignedIndicators);
+          // For state approvers or other roles, don't filter - show ALL data
+          console.log("[StateAggregate] Not filtering - showing all data. isNodalOfficer:", isNodalOfficer, "assignedIndicators:", assignedIndicators);
+          console.log("[StateAggregate] Full formData (no filtering):", transformedFormData);
         }
         
         setFormData(transformedFormData);
@@ -692,6 +755,26 @@ export const StateAggregateReviewPage = () => {
         // Create mock submission for existing components
         const submission = createMockSubmission(data, transformedFormData);
         setMockSubmission(submission);
+
+        // Log aggregated formData for verification before submission
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("📋 [StateAggregate] AGGREGATED FORMDATA FOR SUBMISSION");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("📦 Complete aggregated formData structure:", JSON.stringify(transformedFormData, null, 2));
+        console.log("📊 FormData categories:", Object.keys(transformedFormData));
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        Object.keys(transformedFormData).forEach((category) => {
+          const categoryData = transformedFormData[category];
+          if (categoryData && typeof categoryData === 'object') {
+            const sections = Object.keys(categoryData);
+            console.log(`📁 Category: ${category}`);
+            console.log(`   Sections: ${sections.join(', ')}`);
+            sections.forEach((section) => {
+              console.log(`   ✅ Section ${section}:`, categoryData[section]);
+            });
+          }
+        });
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       } catch (err: any) {
         console.error("❌ Failed to load aggregate preview:", err);
@@ -703,12 +786,15 @@ export const StateAggregateReviewPage = () => {
     };
 
     loadAggregatePreview();
-  }, [effectiveState, selectedYear, isNodalOfficer, assignedIndicators]);
+  }, [effectiveState, selectedYear, isNodalOfficer, assignedIndicators, indicatorLoading]);
 
-  // Re-filter formData when assignedIndicators changes (for nodal officers)
+  // Re-filter formData when assignedIndicators changes (for nodal officers ONLY)
+  // State approvers should NOT have their data filtered - they need to see all submissions
   useEffect(() => {
+    // Only re-filter if user is a nodal officer AND has assigned indicators
+    // State approvers should see all data regardless
     if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0 && formData) {
-      console.log("[StateAggregate] Re-filtering formData due to assignedIndicators change");
+      console.log("[StateAggregate] Re-filtering formData due to assignedIndicators change (nodal officer)");
       console.log("[StateAggregate] Current formData:", formData);
       console.log("[StateAggregate] Assigned indicators:", assignedIndicators);
       const filteredFormData = filterFormDataByAssignedIndicators(formData, assignedIndicators);
@@ -717,12 +803,317 @@ export const StateAggregateReviewPage = () => {
         console.log("[StateAggregate] Re-filtered infraFinancing sections:", Object.keys(filteredFormData.infraFinancing));
       }
       setFormData(filteredFormData);
+    } else if (!isNodalOfficer && formData) {
+      // For state approvers: ensure we don't accidentally filter data
+      // If formData exists and user is not a nodal officer, keep it as-is (all data visible)
+      console.log("[StateAggregate] State approver viewing - keeping all data unfiltered");
     }
-  }, [isNodalOfficer, assignedIndicators]);
+  }, [isNodalOfficer, assignedIndicators, formData]);
 
-  // Restrict state selection for STATE_APPROVER
-  const isStateApprover = user?.role === "STATE_APPROVER";
+  // Restrict state selection for STATE_APPROVER (use isStateApprover from useIndicatorAccess)
   const canSelectState = !isStateApprover;
+
+  // Fetch state progress for submit button
+  useEffect(() => {
+    if (user?.role !== "STATE_APPROVER" && user?.role !== "MOSPI_REVIEWER") return;
+
+    let intervalId: number | undefined;
+
+    const loadProgressOnce = async () => {
+      if (document?.hidden) return;
+
+      try {
+        setProgressLoading(true);
+        console.log("📊 [StateAggregate] Fetching /indicators/state-statuses...");
+
+        const resp = await apiService.getStateIndicatorStatuses();
+        console.log("✅ [StateAggregate] Raw API response:", resp);
+
+        const normalized = resp?.data ? resp : { data: resp };
+        const stats = calculateStateProgressFromApi(normalized);
+        console.log("✅ [StateAggregate] calculateStateProgressFromApi(stats):", stats);
+
+        setStateProgress(stats);
+      } catch (e) {
+        console.error("Failed to load state indicator statuses", e);
+        setStateProgress(null);
+      } finally {
+        setProgressLoading(false);
+      }
+    };
+
+    // run immediately on mount
+    loadProgressOnce();
+
+    // auto-refresh every 60 seconds
+    intervalId = window.setInterval(loadProgressOnce, 60_000);
+
+    // clean up on unmount
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [user?.role]);
+
+  // Handle final submit - Creates consolidated submission from aggregated formData
+  const handleFinalSubmit = async () => {
+    console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.group("🚀 [StateAggregate] STARTING CONSOLIDATED SUBMISSION");
+    console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    
+    try {
+      // Gate: must have progress and must be 100% approved
+      if (!stateProgress || stateProgress.percentage !== 100 || stateProgress.approved !== stateProgress.total) {
+        notificationService.warning("All indicators must be approved before final submission.");
+        console.warn("❌ Submission blocked: Not all indicators approved", stateProgress);
+        return;
+      }
+
+      // Gate: must have aggregated formData
+      if (!formData) {
+        notificationService.error("No aggregated data available to submit.");
+        console.error("❌ Submission blocked: No formData available");
+        return;
+      }
+
+      console.log("✅ Pre-submission checks passed");
+      console.log("📊 State Progress:", stateProgress);
+      console.log("📋 Available formData:", formData);
+      console.log("📊 FormData categories:", Object.keys(formData));
+
+      setSubmittingFinal(true);
+
+      // Use the aggregated formData from the page (consolidated data)
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📦 STEP 1: Using aggregated formData from State Aggregate Review");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📋 Raw aggregated formData:", JSON.stringify(formData, null, 2));
+      
+      // Show breakdown by category with section details
+      Object.keys(formData).forEach((category) => {
+        const categoryData = formData[category];
+        if (categoryData && typeof categoryData === 'object') {
+          const sections = Object.keys(categoryData);
+          console.log(`\n📁 Category: ${category} (${sections.length} sections)`);
+          sections.forEach((section) => {
+            const sectionData = categoryData[section];
+            console.log(`   ✅ ${section}:`, sectionData);
+            
+            // Extract and log IDs
+            if (sectionData && typeof sectionData === 'object') {
+              if (sectionData.id) {
+                console.log(`      🔑 Section ID: ${sectionData.id}`);
+              }
+              // Check for arrays with items that have IDs
+              Object.keys(sectionData).forEach((key) => {
+                if (Array.isArray(sectionData[key])) {
+                  const items = sectionData[key];
+                  if (items.length > 0) {
+                    const itemsWithIds = items.filter((item: any) => item && item.id);
+                    if (itemsWithIds.length > 0) {
+                      console.log(`      🔑 ${key} item IDs:`, itemsWithIds.map((item: any) => item.id).join(', '));
+                    }
+                    console.log(`      📊 ${key} items count: ${items.length}`);
+                  }
+                }
+              });
+            }
+          });
+        }
+      });
+
+      // Transform formData for submission
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔄 STEP 2: Transforming formData for submission");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Determine submission status based on role
+      const submissionStatus = isMospiReviewer 
+        ? "SUBMITTED_TO_MOSPI_APPROVER" 
+        : "SUBMITTED_TO_MOSPI_REVIEWER";
+      
+      const transformedData = transformFormDataForSubmission(
+        formData,
+        submissionStatus
+      );
+
+      console.log("✅ Transformed data:");
+      console.log("   📝 Submission ID:", transformedData.submissionId);
+      console.log("   📊 Status:", transformedData.status);
+      console.log("   📋 FormData structure:", Object.keys(transformedData.formData || {}));
+      console.log("   📦 Complete transformed object:", JSON.stringify(transformedData, null, 2));
+
+      // Create multipart FormData for file attachments
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📎 STEP 3: Preparing multipart FormData with file attachments");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      const multipartData = new FormData();
+      multipartData.append("submission", JSON.stringify(transformedData));
+
+      // Append file attachments recursively
+      appendFilesRecursively(multipartData, formData);
+
+      console.log("✅ Multipart FormData prepared");
+      console.log("📋 FormData entries:");
+      for (const [key, val] of multipartData.entries()) {
+        if (val instanceof File) {
+          console.log(`   📎 ${key}: File - ${val.name} (${val.size} bytes)`);
+        } else {
+          // For large JSON, show summary instead of full content
+          if (typeof val === 'string' && val.length > 500) {
+            console.log(`   📄 ${key}: ${val.substring(0, 200)}... (truncated, total length: ${val.length})`);
+          } else {
+            console.log(`   📄 ${key}:`, val);
+          }
+        }
+      }
+
+      // Get authentication token
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔐 STEP 4: Preparing API request");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
+      const tokenFromNewKey = tokenData?.value?.accessToken;
+      const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
+      const token = tokenFromNewKey || tokenFromLegacyKey || "";
+
+      console.log("✅ Token retrieved:", token ? "Yes" : "No");
+
+      // Submit consolidated submission
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📤 STEP 5: Creating consolidated submission");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📡 API Endpoint: POST /submission");
+      console.log("📝 Submission ID:", transformedData.submissionId);
+      console.log("📊 Status:", submissionStatus);
+      console.log("📍 State/UT:", effectiveState || mockSubmission?.stateUt);
+      
+      const response = await axios.post(
+        `${config.apiBaseUrl}/submission`,
+        multipartData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      console.log("✅ Submission successful!");
+      console.log("📦 Response:", response.data);
+      
+      const successMessage = isMospiReviewer
+        ? "Consolidated submission sent to MoSPI Approver successfully."
+        : "Consolidated submission sent to MoSPI Reviewer successfully.";
+      
+      notificationService.success(successMessage);
+
+      // Refresh progress so UI reflects the new state
+      try {
+        console.log("\n🔄 Refreshing state progress...");
+        const resp = await apiService.getStateIndicatorStatuses();
+        const normalized = resp?.data ? resp : { data: resp };
+        const stats = calculateStateProgressFromApi(normalized);
+        setStateProgress(stats);
+        console.log("✅ Progress refreshed:", stats);
+      } catch (e) {
+        console.error("⚠️ Failed to refresh progress", e);
+      }
+
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("✅ CONSOLIDATED SUBMISSION COMPLETED SUCCESSFULLY");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Redirect to review page after successful submission
+      console.log("\n🔄 Redirecting to review page...");
+      setTimeout(() => {
+        navigate("/data-submission/review");
+      }, 1000); // Small delay to ensure success message is visible
+      
+    } catch (e: any) {
+      console.error("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.error("❌ ERROR IN CONSOLIDATED SUBMISSION");
+      console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.error("Error details:", e);
+      console.error("Error message:", e?.message);
+      console.error("Error response:", e?.response?.data);
+      console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      notificationService.error(e?.message || "Error creating consolidated submission.");
+    } finally {
+      setSubmittingFinal(false);
+      console.groupEnd();
+      console.groupEnd();
+      console.groupEnd();
+    }
+  };
+
+  // Log submission data whenever formData changes (for verification before submit)
+  useEffect(() => {
+    if (!formData) return;
+
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("🔍 [StateAggregate] SUBMISSION DATA PREVIEW (Auto-log on data change)");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("📋 Raw formData:", formData);
+    console.log("📊 FormData categories:", Object.keys(formData || {}));
+    
+    // Show detailed breakdown by category
+    Object.keys(formData || {}).forEach((category) => {
+      const categoryData = formData[category];
+      if (categoryData && typeof categoryData === 'object') {
+        const sections = Object.keys(categoryData);
+        console.log(`\n📁 Category: ${category}`);
+        console.log(`   Sections count: ${sections.length}`);
+        sections.forEach((section) => {
+          const sectionData = categoryData[section];
+          console.log(`   ✅ ${section}:`, sectionData);
+          
+          // Show IDs if they exist in the section data
+          if (sectionData && typeof sectionData === 'object') {
+            const sectionKeys = Object.keys(sectionData);
+            if (sectionKeys.includes('id')) {
+              console.log(`      🔑 ID: ${sectionData.id}`);
+            }
+            // Check for array items with IDs
+            Object.keys(sectionData).forEach((key) => {
+              if (Array.isArray(sectionData[key])) {
+                const itemsWithIds = sectionData[key].filter((item: any) => item && item.id);
+                if (itemsWithIds.length > 0) {
+                  console.log(`      🔑 ${key} item IDs:`, itemsWithIds.map((item: any) => item.id).join(', '));
+                }
+              }
+            });
+          }
+        });
+      }
+    });
+
+    // Preview transformed data (what will be sent)
+    try {
+      // Determine submission status based on role
+      const previewStatus = isMospiReviewer 
+        ? "SUBMITTED_TO_MOSPI_APPROVER" 
+        : "SUBMITTED_TO_MOSPI_REVIEWER";
+      
+      const previewTransformed = transformFormDataForSubmission(
+        formData,
+        previewStatus
+      );
+      console.log("\n🔄 Transformed data preview (what will be submitted):");
+      console.log("   📝 Submission ID:", previewTransformed.submissionId);
+      console.log("   📊 Status:", previewTransformed.status);
+      console.log("   📋 FormData structure:", Object.keys(previewTransformed.formData || {}));
+      console.log("   📦 Complete transformed object:", JSON.stringify(previewTransformed, null, 2));
+    } catch (error) {
+      console.warn("⚠️ Could not preview transformed data:", error);
+    }
+
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("💡 This data will be submitted when you click 'Submit Now'");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  }, [formData]);
 
   if (loadingStates) {
     return (
@@ -752,143 +1143,138 @@ export const StateAggregateReviewPage = () => {
     );
   }
 
+  // Get status badge color
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "SUBMITTED_TO_STATE":
+        return "bg-blue-100 text-blue-700 border-blue-300";
+      case "APPROVED":
+        return "bg-green-100 text-green-700 border-green-300";
+      case "RETURNED_FROM_STATE":
+        return "bg-orange-100 text-orange-700 border-orange-300";
+      case "REJECTED":
+        return "bg-red-100 text-red-700 border-red-300";
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-300";
+    }
+  };
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/data-submission")}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-[#212121]">State Aggregate Review</h1>
-            <p className="text-sm text-[#727272] mt-1">
-              View aggregated data for all submissions from a state
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* State and Year Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filter Options</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="text-sm font-medium text-[#212121] mb-2 block">
-                State/UT
-              </label>
-              <Select
-                value={selectedState}
-                onValueChange={setSelectedState}
-                disabled={!canSelectState}
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-6 border border-[#ddd] bg-[#fff] rounded-lg p-6">
+            <div>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/data-submission/review")}
+                className="gap-2 flex items-center border-none bg-[none] px-0 text-primary hover:bg-[none] mb-4"
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select State/UT" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stateOptions
-                    .filter((option) => option.code && option.code.trim() !== "")
-                    .map((option) => (
-                      <SelectItem key={option.code} value={option.code}>
-                        {option.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              {!canSelectState && (
-                <p className="text-xs text-[#727272] mt-1">
-                  You can only view data for your assigned state
-                </p>
-              )}
-            </div>
-            <div className="flex-1">
-              <label className="text-sm font-medium text-[#212121] mb-2 block">
-                Financial Year
-              </label>
-              <Select value={selectedYear || "current"} onValueChange={(value) => setSelectedYear(value === "current" ? "" : value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="current">Current Year</SelectItem>
-                  <SelectItem value="2024-25">2024-25</SelectItem>
-                  <SelectItem value="2023-24">2023-24</SelectItem>
-                  <SelectItem value="2022-23">2022-23</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Main Content */}
-      {loading ? (
-        <div className="space-y-6">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-96 w-full" />
-        </div>
-      ) : !mockSubmission ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-12">
-              <p className="text-[#727272]">No data available for the selected state and year.</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {/* State Information Card */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-semibold text-[#212121]">
-                    {effectiveState}
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    {aggregateData?.summary && (
-                      <>
-                        {aggregateData.summary.acceptedCount || 0} of {aggregateData.summary.totalIndicators || 0} indicators completed
-                        {aggregateData.summary.percentage !== undefined && (
-                          <span className="ml-2">
-                            ({aggregateData.summary.percentage.toFixed(1)}%)
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </CardDescription>
-                </div>
-                {aggregateData?.summary?.percentage !== undefined && (
-                  <Badge variant="outline" className="text-sm">
-                    {aggregateData.summary.percentage.toFixed(1)}% Complete
-                  </Badge>
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </Button>
+                   <div>
+                     <h1 className="text-lg font-semibold text-[#212121]">
+                       {isMospiReviewer ? "MoSPI Review Submission" : "State Review Submission"}
+                     </h1>
+                {mockSubmission && (
+                  <p className="text-[#727272]">
+                    {mockSubmission.submissionId} • {mockSubmission.stateUt}
+                  </p>
                 )}
               </div>
-            </CardHeader>
+            </div>
+            {mockSubmission && (
+              <div className="flex items-center gap-3">
+                <Badge 
+                  variant="outline" 
+                  className={getStatusBadgeColor(mockSubmission.status)}
+                >
+                  {mockSubmission.status.replace(/_/g, " ")}
+                </Badge>
+                {/* Submit Button */}
+                {user?.role === "STATE_APPROVER" && stateProgress && (
+                  <Button
+                    className={`text-white px-6 ${
+                      stateProgress.percentage === 100 && !submittingFinal && !progressLoading && stateProgress.approved === stateProgress.total
+                        ? "bg-[#1e3a8a] hover:bg-[#1e3299]" // Darker blue when enabled at 100%
+                        : "bg-[#7888E3] hover:bg-[#6574CC]"  // Default lighter blue
+                    }`}
+                    onClick={handleFinalSubmit}
+                    disabled={
+                      submittingFinal ||
+                      progressLoading ||
+                      !stateProgress ||
+                      stateProgress.approved !== stateProgress.total
+                    }
+                  >
+                    {submittingFinal ? "Submitting…" : "Submit Now"}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Submission Info */}
+          {mockSubmission && (
+            <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-[#212121]">State/UT</p>
+                  <p className="text-[#727272] text-sm">
+                    {effectiveState || mockSubmission.stateUt || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#212121]">Submission Date</p>
+                  <p className="text-[#727272] text-sm">
+                    {mockSubmission.createdAt
+                      ? new Date(mockSubmission.createdAt).toLocaleDateString()
+                      : "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#212121]">Current Owner</p>
+                  <p className="text-[#727272] text-sm">
+                    {mockSubmission.currentOwnerRole?.replace(/_/g, " ") || "STATE APPROVER"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Main Content */}
+        {loading ? (
+          <div className="space-y-6">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-96 w-full" />
+          </div>
+        ) : !mockSubmission ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-12">
+                <p className="text-[#727272]">No data available for the selected state and year.</p>
+              </div>
+            </CardContent>
           </Card>
+        ) : (
+          <>
+            {/* Tabs */}
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="w-full mb-6">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="data-review">Data Review</TabsTrigger>
+                <TabsTrigger value="documents">Documents</TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+              </TabsList>
 
-          {/* Tabs */}
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="data-review">Data Review</TabsTrigger>
-              <TabsTrigger value="submissions">Submissions</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="mt-6">
+            <TabsContent value="overview">
               <OverviewTab submission={mockSubmission} />
             </TabsContent>
 
-            <TabsContent value="data-review" className="mt-6">
+            <TabsContent value="data-review">
               <DataReviewTab
                 submissionId={mockSubmission.id}
                 formData={formData}
@@ -899,46 +1285,7 @@ export const StateAggregateReviewPage = () => {
               />
             </TabsContent>
 
-            <TabsContent value="submissions" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Submissions</CardTitle>
-                  <CardDescription>
-                    List of all submissions from this state
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {aggregateData?.submissions && aggregateData.submissions.length > 0 ? (
-                    <div className="space-y-4">
-                      {aggregateData.submissions.map((submission: any) => (
-                        <Card key={submission.id || submission.submissionId}>
-                          <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h3 className="font-semibold">
-                                  {submission.submissionId || submission.id}
-                                </h3>
-                                <p className="text-sm text-[#727272]">
-                                  Submitted by {submission.user?.firstName} {submission.user?.lastName} on{" "}
-                                  {submission.createdAt
-                                    ? new Date(submission.createdAt).toLocaleDateString()
-                                    : "—"}
-                                </p>
-                              </div>
-                              <Badge variant="outline">{submission.status}</Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[#727272] text-center py-8">No submissions found</p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="documents" className="mt-6">
+            <TabsContent value="documents">
               <DocumentsTab
                 documents={mockSubmission.attachedFiles || []}
                 submissionId={mockSubmission.id}
@@ -946,12 +1293,13 @@ export const StateAggregateReviewPage = () => {
               />
             </TabsContent>
 
-            <TabsContent value="history" className="mt-6">
+            <TabsContent value="history">
               <AuditLog entries={generateAuditEntries(mockSubmission)} />
             </TabsContent>
           </Tabs>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

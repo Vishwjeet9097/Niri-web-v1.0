@@ -45,12 +45,16 @@ interface InfraFinancingReviewProps {
   formData?: any;
   submission?: unknown; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
+  assignedIndicators?: string[]; // Assigned indicators for nodal officers
+  isNodalOfficer?: boolean; // Whether the user is a nodal officer
 }
 export const InfraFinancingReview = ({
   submissionId,
   formData,
   submission,
   isPreview = false,
+  assignedIndicators = [],
+  isNodalOfficer = false,
 }: InfraFinancingReviewProps) => {
   // Section 1.4 state management
   const [section14State, setSection14State] = useState({
@@ -149,8 +153,56 @@ const sectionsWithData = useMemo(() => {
     ])
   );
 
+  // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
+  // This ensures assigned indicators are visible in preview, regardless of data presence
+  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+    const assignedSectionKeys: string[] = [];
+    const indicatorToSectionMap: Record<string, string> = {
+      "1.1": "section1_1",
+      "1.2": "section1_2",
+      "1.3": "section1_3",
+      "1.4": "section1_4",
+      "1.5": "section1_5",
+    };
+    
+    assignedIndicators.forEach((indicator) => {
+      const sectionKey = indicatorToSectionMap[indicator];
+      if (sectionKey && !merged.includes(sectionKey)) {
+        assignedSectionKeys.push(sectionKey);
+      }
+    });
+    
+    merged.push(...assignedSectionKeys);
+  }
+  
+  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // Include all sections that exist in formData
+  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This includes sections even if they don't have meaningful data (e.g., empty objects)
+  if ((!isPreview || (isPreview && !isNodalOfficer)) && infraPayload && typeof infraPayload === 'object') {
+    const allPossibleSections = ["section1_1", "section1_2", "section1_3", "section1_4", "section1_5"];
+    const existingSections = allPossibleSections.filter(sectionKey => {
+      // Check if section key exists in infraPayload (even if value is null, empty object, or empty array)
+      return sectionKey in infraPayload;
+    });
+    
+    // Merge existing sections with merged array, avoiding duplicates
+    existingSections.forEach(sec => {
+      if (!merged.includes(sec)) {
+        merged.push(sec);
+      }
+    });
+  }
+
   // Final safety filter: verify each section has actual data
+  // BUT: For preview mode (non-nodal) or review mode, include all existing sections even if empty
+  const shouldIncludeEmptySections = (!isPreview || (isPreview && !isNodalOfficer));
+  
   const final = merged.filter((sec) => {
+    // If we should include empty sections and the section exists, include it
+    if (shouldIncludeEmptySections && infraPayload && (sec in infraPayload)) {
+      return true;
+    }
     if (sec === "section1_1") {
       const section = infraPayload?.section1_1;
       if (!section) {
@@ -206,7 +258,7 @@ const sectionsWithData = useMemo(() => {
   });
 
   return final;
-}, [formData]);
+}, [formData, isPreview, isNodalOfficer, assignedIndicators]);
 
 
   // State for real-time calculation

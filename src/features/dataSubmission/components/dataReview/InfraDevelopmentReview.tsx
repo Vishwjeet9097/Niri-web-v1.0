@@ -55,9 +55,11 @@ interface InfraDevelopmentReviewProps {
   formData?: unknown;
   submission?: unknown; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
+  assignedIndicators?: string[]; // Assigned indicators for nodal officers
+  isNodalOfficer?: boolean; // Whether the user is a nodal officer
 }
 
-export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: InfraDevelopmentReviewProps) => {
+export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraDevelopmentReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
@@ -437,7 +439,103 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   
   // Check if this section has any data
   const hasData = hasInfraDevelopmentData({ infraDevelopment: state });
-  const sectionsWithData = getSectionsWithData({ infraDevelopment: state }, 'infraDevelopment');
+  let sectionsWithData = getSectionsWithData({ infraDevelopment: state }, 'infraDevelopment');
+  
+  // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
+  // This ensures assigned indicators are visible in preview, regardless of data presence
+  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+    const assignedSectionKeys: string[] = [];
+    const indicatorToSectionMap: Record<string, string> = {
+      "2.1": "section2_1",
+      "2.2": "section2_2",
+      "2.3": "section2_3",
+      "2.4": "section2_4",
+      "2.5": "section2_5",
+    };
+    
+    assignedIndicators.forEach((indicator) => {
+      const sectionKey = indicatorToSectionMap[indicator];
+      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
+        assignedSectionKeys.push(sectionKey);
+      }
+    });
+    
+    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
+  }
+  
+  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // Include all sections that exist in formData AND have meaningful data
+  // Array-based sections (2.1, 2.2, 2.3, 2.4, 2.5) should only be included if their arrays have actual data
+  // This prevents empty/unassigned indicators from appearing
+  if ((!isPreview || (isPreview && !isNodalOfficer)) && state && typeof state === 'object') {
+    const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    const existingSections = allPossibleSections.filter(sectionKey => {
+      // Check if section key exists in state
+      if (!(sectionKey in state)) {
+        return false;
+      }
+      
+      const section = state[sectionKey];
+      
+      // For array-based sections (2.1, 2.2, 2.3, 2.4, 2.5), check if array has data
+      if (sectionKey === 'section2_1') {
+        const array = Array.isArray(section?.infraActArray) ? section.infraActArray : [];
+        if (array.length === 0) return false;
+        // Check if array has valid data (not just empty objects)
+        return array.some(item => {
+          if (!item || typeof item !== 'object') return false;
+          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
+        });
+      }
+      if (sectionKey === 'section2_2') {
+        const array = Array.isArray(section?.specializedEntityArray) ? section.specializedEntityArray : [];
+        if (array.length === 0) return false;
+        return array.some(item => {
+          if (!item || typeof item !== 'object') return false;
+          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
+        });
+      }
+      if (sectionKey === 'section2_3') {
+        const array = Array.isArray(section?.infraDevelopmentArray) ? section.infraDevelopmentArray : [];
+        // Section 2.3 also has a boolean field, so check that too
+        const hasBoolean = section?.hasInfraDevelopmentPlan !== null && section?.hasInfraDevelopmentPlan !== undefined && section?.hasInfraDevelopmentPlan !== '';
+        if (array.length === 0 && !hasBoolean) return false;
+        if (hasBoolean) return true;
+        return array.some(item => {
+          if (!item || typeof item !== 'object') return false;
+          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
+        });
+      }
+      if (sectionKey === 'section2_4') {
+        const array = Array.isArray(section?.investmentReadyArray) ? section.investmentReadyArray : [];
+        if (array.length === 0) return false;
+        return array.some(item => {
+          if (!item || typeof item !== 'object') return false;
+          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
+        });
+      }
+      if (sectionKey === 'section2_5') {
+        const array = Array.isArray(section?.assetMonetizationArray) ? section.assetMonetizationArray : [];
+        if (array.length === 0) return false;
+        return array.some(item => {
+          if (!item || typeof item !== 'object') return false;
+          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
+        });
+      }
+      
+      // For non-array sections, check if they have any meaningful data
+      if (!section || typeof section !== 'object') return false;
+      return Object.values(section).some(val => {
+        if (val === null || val === undefined || val === '') return false;
+        if (Array.isArray(val) && val.length === 0) return false;
+        if (typeof val === 'object' && Object.keys(val).length === 0) return false;
+        return true;
+      });
+    });
+    
+    // Merge existing sections with sectionsWithData, avoiding duplicates
+    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+  }
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);

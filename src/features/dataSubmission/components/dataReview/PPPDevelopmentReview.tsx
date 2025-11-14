@@ -44,9 +44,11 @@ interface PPPDevelopmentReviewProps {
   formData?: unknown;
   submission?: unknown; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
+  assignedIndicators?: string[]; // Assigned indicators for nodal officers
+  isNodalOfficer?: boolean; // Whether the user is a nodal officer
 }
 
-export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false }: PPPDevelopmentReviewProps) => {
+export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: PPPDevelopmentReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
@@ -274,9 +276,47 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     return () => {
       window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
     };
-  }, [submissionId]);// Check if this section has any data
+  }, [submissionId]);
+  
+  // Check if this section has any data
   const hasData = hasPPPDevelopmentData({ pppDevelopment: formDataState });
-  const sectionsWithData = getSectionsWithData({ pppDevelopment: formDataState }, 'pppDevelopment');
+  let sectionsWithData = getSectionsWithData({ pppDevelopment: formDataState }, 'pppDevelopment');
+  
+  // For preview mode with assigned indicators, always include assigned sections even if they have no data
+  // This ensures assigned indicators are visible in preview, regardless of data presence
+  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+    const assignedSectionKeys: string[] = [];
+    const indicatorToSectionMap: Record<string, string> = {
+      "3.1": "section3_1",
+      "3.2": "section3_2",
+      "3.3": "section3_3",
+      "3.4": "section3_4",
+    };
+    
+    assignedIndicators.forEach((indicator) => {
+      const sectionKey = indicatorToSectionMap[indicator];
+      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
+        assignedSectionKeys.push(sectionKey);
+      }
+    });
+    
+    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
+  }
+  
+  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // Include all sections that exist in formData
+  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This includes sections even if they don't have meaningful data (e.g., empty objects)
+  if ((!isPreview || (isPreview && !isNodalOfficer)) && formDataState && typeof formDataState === 'object') {
+    const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
+    const existingSections = allPossibleSections.filter(sectionKey => {
+      // Check if section key exists in formDataState (even if value is null, empty object, or empty array)
+      return sectionKey in formDataState;
+    });
+    
+    // Merge existing sections with sectionsWithData, avoiding duplicates
+    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+  }
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);

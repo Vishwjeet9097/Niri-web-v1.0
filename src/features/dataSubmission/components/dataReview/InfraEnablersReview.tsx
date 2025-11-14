@@ -52,9 +52,11 @@ interface InfraEnablersReviewProps {
   formData?: unknown;
   submission?: unknown; // Complete submission object
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
+  assignedIndicators?: string[]; // Assigned indicators for nodal officers
+  isNodalOfficer?: boolean; // Whether the user is a nodal officer
 }
 
-export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false }: InfraEnablersReviewProps) => {
+export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraEnablersReviewProps) => {
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
@@ -258,9 +260,49 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     return () => {
       window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
     };
-  }, [submissionId]);  // Check if this section has any data
+  }, [submissionId]);
+  
+  // Check if this section has any data
   const hasData = hasInfraEnablersData({ infraEnablers: state });
-  const sectionsWithData = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
+  let sectionsWithData = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
+  
+  // For preview mode with assigned indicators, always include assigned sections even if they have no data
+  // This ensures assigned indicators are visible in preview, regardless of data presence
+  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+    const assignedSectionKeys: string[] = [];
+    const indicatorToSectionMap: Record<string, string> = {
+      "4.1": "section4_1",
+      "4.2": "section4_2",
+      "4.3": "section4_3",
+      "4.4": "section4_4",
+      "4.5": "section4_5",
+      "4.6": "section4_6",
+    };
+    
+    assignedIndicators.forEach((indicator) => {
+      const sectionKey = indicatorToSectionMap[indicator];
+      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
+        assignedSectionKeys.push(sectionKey);
+      }
+    });
+    
+    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
+  }
+  
+  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // Include all sections that exist in formData
+  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This includes sections even if they don't have meaningful data (e.g., empty objects)
+  if ((!isPreview || (isPreview && !isNodalOfficer)) && state && typeof state === 'object') {
+    const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+    const existingSections = allPossibleSections.filter(sectionKey => {
+      // Check if section key exists in state (even if value is null, empty object, or empty array)
+      return sectionKey in state;
+    });
+    
+    // Merge existing sections with sectionsWithData, avoiding duplicates
+    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+  }
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -1412,13 +1454,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
             {(state?.section4_2?.available === "yes") && (
               <div>
-                <Label>Website Link</Label>
-                <Input 
-                  type="url"
-                  value={state?.section4_2?.websiteLink || ""} 
-                  readOnly={!isEditable('4.2')}
-                  className={isEditable('4.2') ? 'bg-white' : 'bg-gray-50'}
-                  onChange={(e) => handleFieldUpdate('4.2', 'websiteLink', e.target.value)}
+                <EditableFileDisplay
+                  files={state?.section4_2?.files ?? (state?.section4_2?.file ? [state.section4_2.file] : null)}
+                  isEditable={isEditable('4.2')}
+                  submissionId={submissionId}
+                  onFilesChange={(updatedFiles) => handleFileUpdate('4.2', updatedFiles)}
+                  label="Uploaded File"
+                  multiple={true}
                 />
               </div>
             )}
@@ -1440,10 +1482,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 )}
               </div>
             )}
-
-            <p className="text-xs text-muted-foreground">
-              Upload Evidence/Certificate/File
-            </p>
             </div>
 
         </SectionCard>
@@ -2142,7 +2180,43 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           className="mb-6"
         >
           <div className="space-y-4">
-            {/* Capacity Building Table */}
+            <div>
+              <Label className="mb-3 block">Capacity Building – Officer Participation*</Label>
+              {isEditable('4.6') ? (
+                <RadioGroup
+                  value={state?.section4_6?.participated || ""}
+                  onValueChange={(value) => {
+                    handleFieldUpdate('4.6', 'participated', value);
+                    if (value === "yes") {
+                      handleFieldUpdate('4.6', 'comment', '');
+                    } else {
+                      handleFieldUpdate('4.6', 'capacityArray', []);
+                    }
+                  }}
+                  className="flex flex-row gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="4.6-yes" />
+                    <Label htmlFor="4.6-yes">Yes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="4.6-no" />
+                    <Label htmlFor="4.6-no">No</Label>
+                  </div>
+                </RadioGroup>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_6?.participated === "yes"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                    }`}>
+                    {state?.section4_6?.participated === "yes" ? "Yes" : "No"}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {(state?.section4_6?.participated === "yes") && (
             <div className="overflow-x-auto rounded-xl">
               <table className="min-w-full border-separate border-spacing-0">
                 <thead>
@@ -2238,9 +2312,28 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </tbody>
               </table>
             </div>
+            )}
 
-            {/* Add More Button - Only visible when in edit mode */}
-            {isEditable('4.6') && !showAddCapacityForm && (
+            {(state?.section4_6?.participated === "no") && (
+              <div>
+                <Label className="mb-2 block">Comments (Reason)</Label>
+                {isEditable('4.6') ? (
+                  <Textarea
+                    value={state?.section4_6?.comment || ""}
+                    onChange={(e) => handleFieldUpdate('4.6', 'comment', e.target.value)}
+                    placeholder="Please provide a comment..."
+                    className="min-h-[100px]"
+                  />
+                ) : (
+                  <div className="p-3 bg-gray-50 rounded-md text-sm">
+                    {state?.section4_6?.comment || "No comment provided"}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
+            {state?.section4_6?.participated === "yes" && isEditable('4.6') && !showAddCapacityForm && (
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -2252,8 +2345,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </Button>
             )}
 
-            {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true */}
-            {showAddCapacityForm && isEditable('4.6') && (
+            {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
+            {state?.section4_6?.participated === "yes" && showAddCapacityForm && isEditable('4.6') && (
               <div className="border rounded-lg p-4 bg-gray-50">
                 <h4 className="font-medium mb-3">Add New Capacity Building Entry</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

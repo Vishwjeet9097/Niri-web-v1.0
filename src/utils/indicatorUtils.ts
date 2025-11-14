@@ -321,15 +321,22 @@ export function filterSectionFormDataByIndicators(
   };
 
   // Only include sections for assigned indicators
+  // IMPORTANT: Always include assigned sections, even if they're undefined or empty,
+  // so they appear in preview/review pages regardless of data presence
   assignedIndicators.forEach((indicatorCode) => {
     const mapping = indicatorToSectionMap[indicatorCode];
-    if (mapping && formData[mapping.category]) {
+    if (mapping) {
       if (!filtered[mapping.category]) {
         filtered[mapping.category] = {};
       }
-      // Include the section if it exists in formData
-      if (formData[mapping.category][mapping.sectionKey] !== undefined) {
+      // Include the section if it exists in formData, or include an empty object if assigned
+      // This ensures assigned indicators always appear in preview/review
+      if (formData[mapping.category] && formData[mapping.category][mapping.sectionKey] !== undefined) {
         filtered[mapping.category][mapping.sectionKey] = formData[mapping.category][mapping.sectionKey];
+      } else {
+        // Include assigned section even if undefined - use empty object to preserve structure
+        // The review component will handle displaying empty/undefined sections appropriately
+        filtered[mapping.category][mapping.sectionKey] = formData[mapping.category]?.[mapping.sectionKey] ?? {};
       }
     }
   });

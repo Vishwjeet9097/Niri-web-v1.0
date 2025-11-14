@@ -52,9 +52,15 @@ export default function ReviewerSubmissionsTable() {
   }, []);
 
   const filteredSubmissions = submissions.filter((submission) => {
+    // Status filter - Only show submissions submitted to MoSPI reviewer
+    const allowedStatuses = [
+      "SUBMITTED_TO_MOSPI_REVIEWER",
+      "SUBMITTED_TO_MOSPI",
+      "RETURNED_FROM_MOSPI", // Include returned submissions that can be resubmitted
+    ];
+    const statusMatch = submission.status && allowedStatuses.includes(submission.status);
+    
     // State filter
-
-    console.log(submission.stateUt, selectedState);
     const stateMatch = selectedState === "All" || submission.stateUt === selectedState;
     
     // Search filter
@@ -65,7 +71,7 @@ export default function ReviewerSubmissionsTable() {
       submission.user?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       submission.status?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    return stateMatch && searchMatch;
+    return statusMatch && stateMatch && searchMatch;
   });
 
   // Get unique states for filter
@@ -179,8 +185,8 @@ export default function ReviewerSubmissionsTable() {
                     </span>
                   </td>
                   <td className="px-3 py-2 border-b">
-                    <span className="font-medium text-foreground">
-                      {submission.submissionId || submission.status?.replace(/_/g, " ") || "Unknown"}
+                    <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(submission.status)}`}>
+                      {submission.status?.replace(/_/g, " ") || "Unknown"}
                     </span>
                   </td>
                   <td className="px-3 py-2 border-b">

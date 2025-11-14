@@ -154,14 +154,28 @@ export const InfraFinancingStep = () => {
 
   const validation = useMemo(() => {
     // Determine which indicators to validate
-    // For Nodal Officer or State Approver: only validate assigned/available indicators
+    // For Nodal Officer: only validate assigned indicators
+    // For State Approver: only validate available indicators (not assigned to NODAL_OFFICERs)
     // For others: validate all (no restrictions)
-    const indicatorsToValidate =
-      (isNodalOfficer || isStateApprover) &&
-      allowedIndicators &&
-      allowedIndicators.length > 0
-        ? allowedIndicators
-        : undefined; // undefined means validate all (backward compatibility)
+    let indicatorsToValidate: string[] | undefined;
+    
+    if (isNodalOfficer) {
+      // NODAL_OFFICER: validate only assigned indicators
+      // If no assigned indicators, validate nothing (empty array)
+      indicatorsToValidate = allowedIndicators && allowedIndicators.length > 0 
+        ? allowedIndicators 
+        : []; // Empty array means validate nothing
+    } else if (isStateApprover) {
+      // STATE_APPROVER: validate only available indicators (indicators not assigned to any NODAL_OFFICER)
+      // If availableIndicators is empty, it means all indicators are assigned to NODAL_OFFICERs,
+      // so STATE_APPROVER shouldn't validate anything
+      indicatorsToValidate = allowedIndicators && allowedIndicators.length > 0 
+        ? allowedIndicators 
+        : []; // Empty array means validate nothing (all indicators are assigned to NODAL_OFFICERs)
+    } else {
+      // Other roles: validate all (backward compatibility)
+      indicatorsToValidate = undefined; // undefined means validate all
+    }
 
     return validateInfraFinancing(formData, {
       allowedIndicators: indicatorsToValidate,
