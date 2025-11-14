@@ -130,10 +130,43 @@ export const InfraFinancingStep = () => {
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
 
-  const validation = useMemo(
-    () => validateInfraFinancing(formData),
-    [formData]
+  // Calculate allowed indicators for validation
+  const sectionIndicators = useMemo(
+    () => ["1.1", "1.2", "1.3", "1.4", "1.5"],
+    []
   );
+  const allowedIndicators = useMemo(
+    () =>
+      (isNodalOfficer
+        ? assignedIndicators
+        : isStateApprover
+        ? availableIndicators
+        : null
+      )?.filter((i) => sectionIndicators.includes(i)) || undefined,
+    [
+      isNodalOfficer,
+      isStateApprover,
+      assignedIndicators,
+      availableIndicators,
+      sectionIndicators,
+    ]
+  );
+
+  const validation = useMemo(() => {
+    // Determine which indicators to validate
+    // For Nodal Officer or State Approver: only validate assigned/available indicators
+    // For others: validate all (no restrictions)
+    const indicatorsToValidate =
+      (isNodalOfficer || isStateApprover) &&
+      allowedIndicators &&
+      allowedIndicators.length > 0
+        ? allowedIndicators
+        : undefined; // undefined means validate all (backward compatibility)
+
+    return validateInfraFinancing(formData, {
+      allowedIndicators: indicatorsToValidate,
+    });
+  }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
 
   useEffect(() => {
     console.log("InfraFinancing validation state", {
