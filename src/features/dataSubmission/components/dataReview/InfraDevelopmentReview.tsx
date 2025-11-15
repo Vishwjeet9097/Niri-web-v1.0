@@ -260,6 +260,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     const currentSection = state?.[sectionKey] || {};
     const currentStatus = currentSection ? (currentSection as any).status : undefined;
 
+    // If switching hasInvestmentReady to "no", reset the Add More form state
+    if (sectionId === '2.4' && fieldName === 'hasInvestmentReady' && value === 'no') {
+      setShowAddForm2_4(false);
+      setNewEntry2_4({ projectName: "", dprFile: null });
+    }
+
+    // If switching hasInfraDevelopmentPlan to "no", reset the Add More form state
+    if (sectionId === '2.3' && fieldName === 'hasInfraDevelopmentPlan' && value === 'no') {
+      setShowAddForm2_3(false);
+      setNewEntry2_3({ sector: "", files: [] });
+    }
+
     const updatedSection = {
       ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
       [fieldName]: value,
@@ -513,7 +525,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       }
       if (sectionKey === 'section2_4') {
         const array = Array.isArray(section?.investmentReadyArray) ? section.investmentReadyArray : [];
-        if (array.length === 0) return false;
+        // Section 2.4 also has a boolean field (hasInvestmentReady), so check that too
+        const hasBoolean = section?.hasInvestmentReady !== null && section?.hasInvestmentReady !== undefined && section?.hasInvestmentReady !== '';
+        if (array.length === 0 && !hasBoolean) return false;
+        if (hasBoolean) return true;
         return array.some(item => {
           if (!item || typeof item !== 'object') return false;
           return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');

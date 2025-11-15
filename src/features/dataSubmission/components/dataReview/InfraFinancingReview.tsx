@@ -122,16 +122,42 @@ export const InfraFinancingReview = ({
   );
 
   const hasData = hasInfraFinancingData({ infraFinancing: formData });
-const sectionsWithData = useMemo(() => {
-  const detectedSections =
-    getSectionsWithData({ infraFinancing: formData }, "infraFinancing") || [];
+  const sectionsWithData = useMemo(() => {
+    const detectedSections =
+      getSectionsWithData({ infraFinancing: formData }, "infraFinancing") || [];
 
-  const infraPayload =
-    formData && (formData as any).section1_1
-      ? formData
-      : formData
-      ? (formData as any).infraFinancing || formData
-      : {};
+    const infraPayload =
+      formData && (formData as any).section1_1
+        ? formData
+        : formData
+        ? (formData as any).infraFinancing || formData
+        : {};
+
+  // Filter out sections 1.1 and 1.2 from detectedSections if they don't have meaningful data
+  // (exclude year, percentage, and marksObtained from meaningful data check)
+  const filteredDetectedSections = detectedSections.filter((sec) => {
+    if (sec === "section1_1") {
+      const section = infraPayload?.section1_1;
+      if (!section || typeof section !== 'object') return false;
+      const fieldsToCheck = ['gsdpForFY', 'allocationToGSDP', 'capitalAllocation', 
+                              'capexToCapexActuals', 'stateCapexUtilisation', 'stateCapex'];
+      return fieldsToCheck.some(field => {
+        const val = section[field];
+        return val !== null && val !== undefined && val !== '' && val !== 0;
+      });
+    }
+    if (sec === "section1_2") {
+      const section = infraPayload?.section1_2;
+      if (!section || typeof section !== 'object') return false;
+      const fieldsToCheck = ['gsdpForFY', 'actualCapex', 'budgetaryCapex', 
+                              'capexActualsToGSDP', 'stateCapexUtilisation', 'stateCapex'];
+      return fieldsToCheck.some(field => {
+        const val = section[field];
+        return val !== null && val !== undefined && val !== '' && val !== 0;
+      });
+    }
+    return true; // Keep all other sections
+  });
 
   // Require non-empty lists for 1.3 / 1.4 (don't treat empty objects/count-only as presence)
   const hasSection13Manual = Boolean(
@@ -147,7 +173,7 @@ const sectionsWithData = useMemo(() => {
   // Merge validator result + manual detections, preserving order and deduping
   const merged = Array.from(
     new Set([
-      ...detectedSections,
+      ...filteredDetectedSections, // Use filtered detected sections
       ...(hasSection13Manual ? ["section1_3"] : []),
       ...(hasSection14Manual ? ["section1_4"] : []),
     ])
@@ -167,7 +193,9 @@ const sectionsWithData = useMemo(() => {
     
     assignedIndicators.forEach((indicator) => {
       const sectionKey = indicatorToSectionMap[indicator];
-      if (sectionKey && !merged.includes(sectionKey)) {
+      // Exclude sections 1.1 and 1.2 from being added via assigned indicators
+      // They should only be shown if they have meaningful data (filtered later)
+      if (sectionKey && sectionKey !== "section1_1" && sectionKey !== "section1_2" && !merged.includes(sectionKey)) {
         assignedSectionKeys.push(sectionKey);
       }
     });
@@ -179,8 +207,41 @@ const sectionsWithData = useMemo(() => {
   // Include all sections that exist in formData
   // This ensures state approvers and other reviewers see all sections submitted by nodal officers
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
+  // EXCEPT: sections 1.1 and 1.2 should not be automatically included (they will be filtered later)
   if ((!isPreview || (isPreview && !isNodalOfficer)) && infraPayload && typeof infraPayload === 'object') {
-    const allPossibleSections = ["section1_1", "section1_2", "section1_3", "section1_4", "section1_5"];
+    const allPossibleSections = ["section1_3", "section1_4", "section1_5"]; // Exclude 1.1 and 1.2
+    // Check sections 1.1 and 1.2 separately to see if they should be added (only if they have meaningful data)
+    const section1_1 = infraPayload.section1_1;
+    const section1_2 = infraPayload.section1_2;
+    
+    // Only add section 1.1 if it has meaningful data (excluding percentage, marksObtained, and year)
+    // year is often a default value and alone should not determine visibility
+    if (section1_1 && typeof section1_1 === 'object') {
+      const fieldsToCheck1_1 = ['gsdpForFY', 'allocationToGSDP', 'capitalAllocation', 
+                                  'capexToCapexActuals', 'stateCapexUtilisation', 'stateCapex'];
+      const hasMeaningfulData1_1 = fieldsToCheck1_1.some(field => {
+        const val = section1_1[field];
+        return val !== null && val !== undefined && val !== '' && val !== 0;
+      });
+      if (hasMeaningfulData1_1 && !merged.includes("section1_1")) {
+        merged.push("section1_1");
+      }
+    }
+    
+    // Only add section 1.2 if it has meaningful data (excluding percentage, marksObtained, and year)
+    // year is often a default value and alone should not determine visibility
+    if (section1_2 && typeof section1_2 === 'object') {
+      const fieldsToCheck1_2 = ['gsdpForFY', 'actualCapex', 'budgetaryCapex', 
+                                  'capexActualsToGSDP', 'stateCapexUtilisation', 'stateCapex'];
+      const hasMeaningfulData1_2 = fieldsToCheck1_2.some(field => {
+        const val = section1_2[field];
+        return val !== null && val !== undefined && val !== '' && val !== 0;
+      });
+      if (hasMeaningfulData1_2 && !merged.includes("section1_2")) {
+        merged.push("section1_2");
+      }
+    }
+    
     const existingSections = allPossibleSections.filter(sectionKey => {
       // Check if section key exists in infraPayload (even if value is null, empty object, or empty array)
       return sectionKey in infraPayload;
@@ -196,21 +257,31 @@ const sectionsWithData = useMemo(() => {
 
   // Final safety filter: verify each section has actual data
   // BUT: For preview mode (non-nodal) or review mode, include all existing sections even if empty
+  // EXCEPT: sections 1.1 and 1.2 should always be filtered (never include just because they exist)
   const shouldIncludeEmptySections = (!isPreview || (isPreview && !isNodalOfficer));
   
   const final = merged.filter((sec) => {
-    // If we should include empty sections and the section exists, include it
-    if (shouldIncludeEmptySections && infraPayload && (sec in infraPayload)) {
+    // Sections 1.1 and 1.2 should always go through the strict filter (never bypass)
+    if (sec === "section1_1" || sec === "section1_2") {
+      // Continue to filter check below
+    } else if (shouldIncludeEmptySections && infraPayload && (sec in infraPayload)) {
+      // For other sections, if we should include empty sections and the section exists, include it
       return true;
     }
+    
     if (sec === "section1_1") {
       const section = infraPayload?.section1_1;
       if (!section) {
         console.log("🚫 Section 1.1 excluded: no section object");
         return false;
       }
-      // Check if any field has meaningful value
-      const hasData = Object.values(section).some(val => {
+      // Exclude percentage, marksObtained, and year from meaningful data check
+      // percentage and marksObtained are calculated/backend fields and should not determine visibility
+      // year is often a default value and alone should not determine visibility
+      const fieldsToCheck = ['gsdpForFY', 'allocationToGSDP', 'capitalAllocation', 
+                              'capexToCapexActuals', 'stateCapexUtilisation', 'stateCapex'];
+      const hasData = fieldsToCheck.some(field => {
+        const val = section[field];
         if (val === null || val === undefined || val === '' || val === 0) return false;
         return true;
       });
@@ -223,8 +294,13 @@ const sectionsWithData = useMemo(() => {
         console.log("🚫 Section 1.2 excluded: no section object");
         return false;
       }
-      // Check if any field has meaningful value
-      const hasData = Object.values(section).some(val => {
+      // Exclude percentage, marksObtained, and year from meaningful data check
+      // percentage and marksObtained are calculated/backend fields and should not determine visibility
+      // year is often a default value and alone should not determine visibility
+      const fieldsToCheck = ['gsdpForFY', 'actualCapex', 'budgetaryCapex', 
+                              'capexActualsToGSDP', 'stateCapexUtilisation', 'stateCapex'];
+      const hasData = fieldsToCheck.some(field => {
+        const val = section[field];
         if (val === null || val === undefined || val === '' || val === 0) return false;
         return true;
       });
