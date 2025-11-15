@@ -277,6 +277,11 @@ const sectionsWithData = useMemo(() => {
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
+  
+  // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
+  // (Accept no longer requires comment, so it directly shows confirmation)
+  const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
+  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<string | null>(null);
 
   // State for Add More form in section 1.5
   const [showAddForm1_5, setShowAddForm1_5] = useState(false);
@@ -540,6 +545,10 @@ const sectionsWithData = useMemo(() => {
 
   const handleCloseModal = () => {
     setActiveSection(null);
+    // Reset MOSPI_APPROVER Sent Back flags when modal closes
+    // (Accept no longer uses comment modal, so no need to reset Accept flags)
+    setIsMospiApproverSentBack(false);
+    setMospiSentBackSectionId(null);
   };
 
   const handleOpenTimeline = (sectionId: string) => {
@@ -550,45 +559,42 @@ const sectionsWithData = useMemo(() => {
     setTimelineSection(null);
   };
 
-  const handleSaveMessage = async (message: string) => {
-    // Validate parameters
-    if (!message || typeof message !== "string") {
-      console.error(
-        "❌ InfraFinancingReview - Invalid message parameter:",
-        message
-      );
-      return;
-    }
+  const handleSaveMessage = async (updatedSubmission: unknown) => {
+    // MessageModal already saved the comment, so we just need to update state and check flags
+    if (updatedSubmission) {
+      setSubmissionData(updatedSubmission as unknown as FormData);
+      console.log("✅ InfraFinancingReview - Form data updated");
 
-    if (activeSection) {
-      try {
-        console.log("🔄 InfraFinancingReview - Calling saveMessage with:", {
-          activeSection,
-          message,
-        });
-        const updatedSubmission = await saveMessage(activeSection, message);
-        console.log(
-          "🔄 InfraFinancingReview - saveMessage response:",
-          updatedSubmission
-        );
+      // Check flags BEFORE closing modal to determine if we need to show confirmation
+      const shouldShowSentBackConfirmation = isMospiApproverSentBack && mospiSentBackSectionId;
 
-        if (updatedSubmission) {
-          setSubmissionData(updatedSubmission as unknown as FormData);
-          console.log("✅ InfraFinancingReview - Form data updated");
-
-          // Force timeline refresh if modal is open for same section
-          if (timelineSection === activeSection) {
-            setTimelineSection(null);
-            setTimeout(() => {
-              setTimelineSection(activeSection);
-            }, 100);
-          }
-        }
-      } catch (error) {
-        console.error("❌ InfraFinancingReview - Error saving message:", error);
+      // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
+      if (shouldShowSentBackConfirmation) {
+        // Store section ID before resetting flags
+        const sectionIdToUse = mospiSentBackSectionId;
+        setPendingActionSectionId(sectionIdToUse);
+        // Reset the flags
+        setIsMospiApproverSentBack(false);
+        setMospiSentBackSectionId(null);
+        // Close the comment modal
+        setActiveSection(null);
+        // Show confirmation dialog
+        setTimeout(() => {
+          setShowSendBackDialog(true);
+        }, 100);
+        return;
       }
-    } else {
-      console.log("⚠️ InfraFinancingReview - No active section");
+
+      // Note: Accept action no longer requires comment, so this check is removed
+      // Accept button now directly shows confirmation dialog
+
+      // For regular comments (not from Sent Back/Accept), just update timeline if needed
+      if (activeSection && timelineSection === activeSection) {
+        setTimelineSection(null);
+        setTimeout(() => {
+          setTimelineSection(activeSection);
+        }, 100);
+      }
     }
   };
 
@@ -789,27 +795,40 @@ const sectionsWithData = useMemo(() => {
 
   // Actual function that performs the status update
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
-    const payload = {
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    
+    // For MOSPI_APPROVER, use mospi_status field instead of status
+    const payload: any = {
       submissionId,
       category: 'infraFinancing',
       section: `section${sectionId.replace('.', '_')}`,
       status: status,
     };
+    
+    // If MOSPI_APPROVER, add mospi_status field
+    if (isMospiApprover) {
+      payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
+    }
+    
     try {
       await apiService.indicatorStatus(payload);
       // Update local formData to trigger re-render of action buttons
       const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const statusField = isMospiApprover ? 'mospi_status' : 'status';
+      const statusValue = status ? 'ACCEPTED' : 'REVERTED';
+      
       // Defensive: clone formData if possible
       if (formData && formData[sectionKey]) {
         formData[sectionKey] = {
           ...formData[sectionKey],
-          status: status ? 'ACCEPTED' : 'REVERTED',
+          [statusField]: statusValue,
         };
         setSubmissionData({ ...formData });
       }
-      console.log("✅ Indicator status updated successfully");
+      console.log(`✅ Indicator ${isMospiApprover ? 'mospi_' : ''}status updated successfully`);
     } catch (error) {
-      console.error("❌ Failed to update indicator status:", error);
+      console.error(`❌ Failed to update indicator ${isMospiApprover ? 'mospi_' : ''}status:`, error);
     }
   }
 
@@ -838,11 +857,30 @@ const sectionsWithData = useMemo(() => {
   // Handle Send Back confirmation
   const handleConfirmSendBack = async () => {
     if (pendingActionSectionId) {
+      // Check if user is MOSPI_APPROVER
+      const getUserRole = () => {
+        try {
+          const authUser = localStorage.getItem('niri_app:auth_user');
+          if (authUser) {
+            const user = JSON.parse(authUser);
+            return user.value?.role;
+          }
+        } catch (error) {
+          console.error('Error reading user role:', error);
+        }
+        return null;
+      };
+      const userRole = getUserRole();
+      const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      
+      // For MOSPI_APPROVER, update mospi_status to REVERTED
+      // For other roles (STATE_APPROVER), use regular status update
+      // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
+      
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
-      // Close the message modal if it's open
-      setActiveSection(null);
+      // Comment modal is already closed before showing confirmation dialog
     }
   };
 
@@ -854,9 +892,30 @@ const sectionsWithData = useMemo(() => {
   // Handle Accept confirmation
   const handleConfirmAccept = async () => {
     if (pendingActionSectionId) {
+      // Check if user is MOSPI_APPROVER
+      const getUserRole = () => {
+        try {
+          const authUser = localStorage.getItem('niri_app:auth_user');
+          if (authUser) {
+            const user = JSON.parse(authUser);
+            return user.value?.role;
+          }
+        } catch (error) {
+          console.error('Error reading user role:', error);
+        }
+        return null;
+      };
+      const userRole = getUserRole();
+      const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      
+      // For MOSPI_APPROVER, update mospi_status to ACCEPTED
+      // For other roles (STATE_APPROVER), use regular status update
+      // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, true);
+      
       setShowAcceptDialog(false);
       setPendingActionSectionId(null);
+      // Comment modal is already closed before showing confirmation dialog
     }
   };
 
@@ -873,7 +932,114 @@ const renderActionButtons = (sectionId: string) => {
     return null;
   }
 
-  // Check if section status is ACCEPTED
+  const comments = getComments(sectionId);
+  const commentCount = comments ? comments.length : 0;
+  
+  // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
+  const getUserRole = () => {
+    try {
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const user = JSON.parse(authUser);
+        return user.value?.role;
+      }
+    } catch (error) {
+      console.error('Error reading user role:', error);
+    }
+    return null;
+  };
+  const userRole = getUserRole();
+  const isNodalOfficer = userRole === 'NODAL_OFFICER';
+  const isStateApprover = userRole === 'STATE_APPROVER';
+  const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
+  const isMospiApprover = userRole === 'MOSPI_APPROVER';
+  
+  // For MOSPI_REVIEWER, no action buttons (comments are restricted to STATE_APPROVER only)
+  if (isMospiReviewer) {
+    return null;
+  }
+  
+  // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
+  if (isMospiApprover) {
+    // Check mospi_status instead of status for MOSPI_APPROVER
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionData = formData && formData[sectionKey];
+    const mospiStatus = sectionData
+      ? Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status
+      : undefined;
+    
+    if (mospiStatus === 'ACCEPTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accepted
+          </Button>
+        </div>
+      );
+    }
+    
+    if (mospiStatus === 'REVERTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Sent Back
+          </Button>
+        </div>
+      );
+    }
+    
+    // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => {
+            // For MOSPI_APPROVER, send back action: 
+            // 1. Set flag to track this is a "Sent Back" action
+            // 2. Open comment modal first
+            setIsMospiApproverSentBack(true);
+            setMospiSentBackSectionId(sectionId);
+            handleOpenModal(sectionId);
+          }}
+        >
+          <RotateCcw className="w-4 h-4" />
+          Sent Back
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={() => {
+            // For MOSPI_APPROVER, accept action: 
+            // Show confirmation dialog directly (no comment required)
+            setPendingActionSectionId(sectionId);
+            setShowAcceptDialog(true);
+          }}
+        >
+          <CheckCircle className="w-4 h-4" />
+          Accept
+        </Button>
+      </div>
+    );
+  }
+
+  // For all other roles, check status field as before
   const sectionKey = `section${sectionId.replace('.', '_')}`;
   const sectionData = formData && formData[sectionKey];
   const sectionStatus = sectionData
@@ -897,26 +1063,6 @@ const renderActionButtons = (sectionId: string) => {
       </div>
     );
   }
-
-  const comments = getComments(sectionId);
-  const commentCount = comments ? comments.length : 0;
-  
-  // Check if user is NODAL_OFFICER from localStorage
-  const getUserRole = () => {
-    try {
-      const authUser = localStorage.getItem('niri_app:auth_user');
-      if (authUser) {
-        const user = JSON.parse(authUser);
-        return user.value?.role;
-      }
-    } catch (error) {
-      console.error('Error reading user role:', error);
-    }
-    return null;
-  };
-  const userRole = getUserRole();
-  const isNodalOfficer = userRole === 'NODAL_OFFICER';
-  const isStateApprover = userRole === 'STATE_APPROVER';
   
   // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
   if (isStateApprover && sectionStatus === 'RESUBMITTED') {
@@ -1943,7 +2089,18 @@ const calculateAllocationPercentage = () => {
       sectionId={activeSection || ""}
       submissionId={submissionId}
       existingMessage=""
-        onSendBack={(sectionId) => onIndicatorStatus(sectionId, false)}
+      onSendBack={
+        // Pass onSendBack callback to prevent auto-close when we need to show confirmation
+        // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+        // Accept no longer requires comment, so it's not included here
+        // For other cases, use the normal flow
+        isMospiApproverSentBack
+          ? async () => {
+              // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+              console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+            }
+          : (sectionId) => onIndicatorStatus(sectionId, false)
+      }
     />
 
       <TimelineModal
@@ -1973,13 +2130,32 @@ const calculateAllocationPercentage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirmation Dialog for STATE_APPROVER Send Back */}
+      {/* Confirmation Dialog for STATE_APPROVER and MOSPI_APPROVER Send Back */}
       <AlertDialog open={showSendBackDialog} onOpenChange={setShowSendBackDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Send Back</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.
+              {(() => {
+                const getUserRole = () => {
+                  try {
+                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    if (authUser) {
+                      const user = JSON.parse(authUser);
+                      return user.value?.role;
+                    }
+                  } catch (error) {
+                    console.error('Error reading user role:', error);
+                  }
+                  return null;
+                };
+                const userRole = getUserRole();
+                const isMospiApprover = userRole === 'MOSPI_APPROVER';
+                
+                return isMospiApprover
+                  ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
+                  : "Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.";
+              })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1989,13 +2165,32 @@ const calculateAllocationPercentage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirmation Dialog for STATE_APPROVER Accept */}
+      {/* Confirmation Dialog for STATE_APPROVER and MOSPI_APPROVER Accept */}
       <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Accept</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.
+              {(() => {
+                const getUserRole = () => {
+                  try {
+                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    if (authUser) {
+                      const user = JSON.parse(authUser);
+                      return user.value?.role;
+                    }
+                  } catch (error) {
+                    console.error('Error reading user role:', error);
+                  }
+                  return null;
+                };
+                const userRole = getUserRole();
+                const isMospiApprover = userRole === 'MOSPI_APPROVER';
+                
+                return isMospiApprover
+                  ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
+                  : "Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.";
+              })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

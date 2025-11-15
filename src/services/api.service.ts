@@ -2558,7 +2558,7 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
    * payload: { submissionId, category, section, accepted }
    * token: optional auth token (falls back to localStorage if not provided)
    */
-  async indicatorStatus(payload: { submissionId: string; category: string; section: string; status: boolean }, token?: string) {
+  async indicatorStatus(payload: { submissionId: string; category: string; section: string; status: boolean; mospi_status?: string }, token?: string) {
     try {
       const config: AxiosRequestConfig | undefined = token
         ? {
