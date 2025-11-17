@@ -50,6 +50,27 @@ const toSingleFile = (value: FileUpload | FileUpload[] | null | undefined): File
   return value ?? null;
 };
 
+// Helper function to extract file name from various file structures
+const getFileName = (file: any): string => {
+  if (!file) return 'Unknown file';
+  
+  // Try different possible property names
+  return file.fileName || 
+         file.name || 
+         file.file?.name || 
+         (typeof file.file === 'string' ? file.file.split('/').pop() : null) ||
+         file.filePath?.split('/').pop() ||
+         file.fileUrl?.split('/').pop() ||
+         'Unknown file';
+};
+
+// Helper function to extract file extension
+const getFileExtension = (file: any): string => {
+  const fileName = getFileName(file);
+  const parts = fileName.split('.');
+  return parts.length > 1 ? parts.pop()?.toUpperCase() || 'N/A' : 'N/A';
+};
+
 interface InfraDevelopmentReviewProps {
   submissionId: string;
   formData?: unknown;
@@ -353,6 +374,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     if (!data || typeof data !== "object") return data;
     const normalized: any = { ...data };
 
+    // Helper to clean file arrays - remove nulls and empty file objects
+    const cleanFiles = (files: any) => {
+      if (!Array.isArray(files)) return [];
+      return files.filter((f: any) => {
+        // Remove null/undefined
+        if (f == null) return false;
+        // Remove objects with empty file property
+        if (f.file && typeof f.file === 'object' && Object.keys(f.file).length === 0) return false;
+        return true;
+      });
+    };
+
     const ensureArraySection = (
       sectionKey: string,
       arrayKey: string,
@@ -373,7 +406,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       }
 
       const normalizedItems = Array.isArray(items)
-        ? items.map((item) => (transformItem ? transformItem(item) : item))
+        ? items.map((item) => {
+            const transformed = transformItem ? transformItem(item) : item;
+            // Clean files array if present
+            if (transformed && transformed.files) {
+              transformed.files = cleanFiles(transformed.files);
+            }
+            return transformed;
+          })
         : [];
 
       normalized[sectionKey] = {
@@ -403,12 +443,23 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   // Type assertion for formDataState to avoid TypeScript errors
   const state = (formDataState as any) || {};
 
-  // Sync formDataState when formData prop changes (but not when restoring from cancel)
+  // Sync formDataState when formData prop changes (but not when restoring from cancel or during edits)
   useEffect(() => {
-    if (formData && !isRestoringRef.current) {
+    // Don't sync if we're restoring from cancel
+    if (isRestoringRef.current) return;
+    
+    // Don't sync if any section is in edit mode (to preserve local edits)
+    const hasEditableSection = ['2.1', '2.2', '2.3', '2.4', '2.5'].some(sectionId => isEditable(sectionId));
+    if (hasEditableSection) {
+      console.log('⏸️ Skipping formData sync - section is in edit mode');
+      return;
+    }
+    
+    if (formData) {
+      console.log('🔄 Syncing formData to local state');
       setFormDataState(normalizeInfraDevelopment((formData as any)?.infraDevelopment || formData));
     }
-  }, [formData]);
+  }, [formData, isEditable]);
   
   // Real-time update listener
   useEffect(() => {
@@ -631,20 +682,49 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     sectionId: string,
     sourceState: any = state
   ): Record<string, any>[] => {
+    console.log(`🏗️ buildSectionFields called for section ${sectionId}`);
+    console.log(`🏗️ sourceState[section${sectionId.replace('.', '_')}]:`, sourceState[`section${sectionId.replace('.', '_')}`]);
+    
     switch (sectionId) {
       case '2.1': {
         const infraActArray = Array.isArray(sourceState?.section2_1?.infraActArray)
           ? sourceState.section2_1.infraActArray
           : [];
-        return [
+        
+        console.log(`🏗️ infraActArray BEFORE mapping (${infraActArray.length} items):`, infraActArray.map((item: any, idx: number) => ({
+          index: idx,
+          sector: item.sector,
+          id: item.id,
+          fileCount: item.files?.length || 0,
+          filesDetail: item.files?.map((f: any, fIdx: number) => ({
+            fileIndex: fIdx,
+            isNull: f === null,
+            hasFile: f?.file !== undefined,
+            isFileInstance: f?.file instanceof File,
+            fileSize: f?.file instanceof File ? f.file.size : 'N/A'
+          }))
+        })));
+        
+        const result = [
           {
-            infraActArray: infraActArray.map((item: any) => ({
-              id: item?.id ?? null,
-              sector: item?.sector ?? null,
-              files: toFileArray(item?.files),
-            })),
+            infraActArray: infraActArray.map((item: any) => {
+              const mappedItem = {
+                ...item, // Preserve all existing fields
+                files: toFileArray(item?.files).filter(f => f != null), // Filter out null files
+              };
+              console.log(`🏗️ Mapped item:`, {
+                sector: mappedItem.sector,
+                id: mappedItem.id,
+                fileCount: mappedItem.files?.length || 0,
+                firstFileIsInstance: mappedItem.files?.[0]?.file instanceof File
+              });
+              return mappedItem;
+            }),
           },
         ];
+        
+        console.log(`🏗️ buildSectionFields RESULT for 2.1:`, result);
+        return result;
       }
 
       case '2.2': {
@@ -654,9 +734,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         return [
           {
             specializedEntityArray: specializedEntityArray.map((item: any) => ({
-              id: item?.id ?? null,
-              sector: item?.sector ?? null,
-              files: toFileArray(item?.files),
+              ...item, // Preserve all existing fields
+              files: toFileArray(item?.files).filter(f => f != null), // Filter out null files
             })),
           },
         ];
@@ -671,9 +750,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             hasInfraDevelopmentPlan: sourceState?.section2_3?.hasInfraDevelopmentPlan ?? null,
             comment: sourceState?.section2_3?.comment ?? null,
             infraDevelopmentArray: infraDevelopmentArray.map((item: any) => ({
-              id: item?.id ?? null,
-              sector: item?.sector ?? null,
-              files: toFileArray(item?.files),
+              ...item, // Preserve all existing fields
+              files: toFileArray(item?.files).filter(f => f != null), // Filter out null files
             })),
           },
         ];
@@ -689,8 +767,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             comment: sourceState?.section2_4?.comment ?? null,
             websiteLink: sourceState?.section2_4?.websiteLink ?? null,
             investmentReadyArray: investmentReadyArray.map((item: any) => ({
-              id: item?.id ?? null,
-              projectName: item?.projectName ?? null,
+              ...item, // Preserve all existing fields
               dprFile: toSingleFile(item?.dprFile),
             })),
           },
@@ -704,12 +781,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         return [
           {
             assetMonetizationArray: assetMonetizationArray.map((item: any) => ({
-              id: item?.id ?? null,
-              projectName: item?.projectName ?? null,
-              sector: item?.sector ?? null,
-              type: item?.type ?? null,
-              ownership: item?.ownership ?? null,
-              estimatedMonetization: item?.estimatedMonetization ?? null,
+              ...item, // Preserve all existing fields
             })),
           },
         ];
@@ -749,6 +821,46 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       // Use the local formData state (formDataState) to build fields for this section
       let fields = buildSectionFields(sectionId);
 
+      // 🔍 CRITICAL DEBUG: Check File instances right after buildSectionFields
+      console.log('🔍 Fields IMMEDIATELY after buildSectionFields:', fields);
+      if (fields.length > 0) {
+        const firstField = fields[0];
+        const arrayKeys = ['infraActArray', 'specializedEntityArray', 'infraDevelopmentArray', 'investmentReadyArray'];
+        
+        for (const arrayKey of arrayKeys) {
+          if (firstField[arrayKey] && Array.isArray(firstField[arrayKey])) {
+            console.log(`🔍 Checking ${arrayKey}:`, firstField[arrayKey].map((item: any, idx: number) => {
+              if (item.files && Array.isArray(item.files)) {
+                return {
+                  index: idx,
+                  sector: item.sector,
+                  fileCount: item.files.length,
+                  filesDetail: item.files.map((f: any, fIdx: number) => ({
+                    fileIndex: fIdx,
+                    id: f?.id,
+                    fileName: f?.fileName,
+                    hasFileProperty: f?.file !== undefined,
+                    isFileInstance: f?.file instanceof File,
+                    fileType: typeof f?.file,
+                    fileConstructor: f?.file?.constructor?.name,
+                    fileKeys: f?.file ? Object.keys(f.file) : 'no file property'
+                  }))
+                };
+              } else if (item.dprFile) {
+                return {
+                  index: idx,
+                  projectName: item.projectName,
+                  hasDprFile: item.dprFile !== undefined && item.dprFile !== null,
+                  isFileInstance: item.dprFile?.file instanceof File,
+                  fileType: typeof item.dprFile?.file
+                };
+              }
+              return { index: idx, noFiles: true };
+            }));
+          }
+        }
+      }
+
       // Check if user is NODAL_OFFICER to add status to payload
       const userRole = getUserRole();
       const isNodalOfficer = userRole === 'NODAL_OFFICER';
@@ -761,6 +873,13 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           status: 'RESUBMITTED',
         };
       }
+
+      console.log('🎯 FINAL fields before handleSaveSection:', JSON.stringify(fields, (key, value) => {
+        if (value instanceof File) {
+          return `[File: ${value.name}, ${value.size} bytes]`;
+        }
+        return value;
+      }, 2));
 
       await handleSaveSection({
         submissionId,
@@ -1079,20 +1198,57 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         : [];
 
       if (!existingArray[itemIndex]) {
+        console.error(`❌ Item at index ${itemIndex} not found in ${arrayKey}`);
         return null;
       }
 
-      const updatedArray = [...existingArray];
-      updatedArray[itemIndex] = {
-        ...updatedArray[itemIndex],
-        files: toFileArray(updatedFiles),
-      };
+      const existingItem = existingArray[itemIndex];
+      console.log(`🔍 BEFORE file update - Item at index ${itemIndex}:`, {
+        id: existingItem.id,
+        sector: existingItem.sector,
+        fileCount: existingItem.files?.length || 0,
+        firstFileType: existingItem.files?.[0]?.file instanceof File ? 'File object' : typeof existingItem.files?.[0]?.file
+      });
 
-      return {
+      // Convert updatedFiles to array and filter out nulls
+      const newFiles = toFileArray(updatedFiles).filter(f => f != null);
+      
+      console.log(`📁 New files being set (${newFiles.length} files):`, newFiles.map((f: any) => ({
+        id: f.id,
+        fileName: f.fileName,
+        hasFileInstance: f.file instanceof File,
+        fileType: typeof f.file
+      })));
+
+      const updatedArray = [...existingArray];
+      // CRITICAL: Spread existing item first to preserve ALL fields including sector
+      const updatedItem = {
+        ...updatedArray[itemIndex], // This should preserve sector, id, and all other fields
+        files: newFiles, // Only override files
+      };
+      
+      console.log(`✅ AFTER file update - Item has:`, {
+        sector: updatedItem.sector,
+        id: updatedItem.id,
+        fileCount: updatedItem.files?.length || 0
+      });
+      
+      updatedArray[itemIndex] = updatedItem;
+
+      const result = {
         ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
         [arrayKey]: updatedArray,
         ...(currentStatus !== undefined ? { status: currentStatus } : {}),
       };
+      
+      console.log(`📦 Complete section being set (file count):`, {
+        arrayKey,
+        itemCount: updatedArray.length,
+        updatedItemIndex: itemIndex,
+        hasFiles: updatedArray[itemIndex]?.files?.length || 0
+      });
+      
+      return result;
     };
 
     switch (sectionId) {
@@ -1135,6 +1291,12 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       return;
     }
 
+    console.log(`💾 Setting formDataState with section info:`, {
+      sectionKey,
+      hasInfraActArray: !!nextSection.infraActArray,
+      itemCount: nextSection.infraActArray?.length || nextSection.specializedEntityArray?.length || nextSection.infraDevelopmentArray?.length || 0
+    });
+
     setFormDataState((prev: any) => ({
       ...prev,
       [sectionKey]: nextSection,
@@ -1145,15 +1307,56 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       [sectionKey]: nextSection,
     };
 
+    console.log(`🎯 nextState section has items:`, (nextState[sectionKey]?.infraActArray?.length || nextState[sectionKey]?.specializedEntityArray?.length || nextState[sectionKey]?.infraDevelopmentArray?.length || 0));
+    
+    // Log the actual files in nextState
+    const arrayKey = sectionId === '2.1' ? 'infraActArray' : sectionId === '2.2' ? 'specializedEntityArray' : 'infraDevelopmentArray';
+    const items = nextState[sectionKey]?.[arrayKey];
+    if (items && Array.isArray(items)) {
+      console.log(`🔍 Items in nextState before buildSectionFields:`, items.map((item: any, idx: number) => ({
+        index: idx,
+        sector: item.sector,
+        fileCount: item.files?.length || 0,
+        filesDetail: item.files?.map((f: any, fIdx: number) => ({
+          index: fIdx,
+          isNull: f === null,
+          hasFile: f?.file !== undefined,
+          isFileInstance: f?.file instanceof File
+        }))
+      })));
+    }
+
     try {
       const fields = buildSectionFields(sectionId, nextState);
 
-      await handleSaveSection({
+      // Log the actual File instances before sending
+      console.log(`📤 Sending update for section ${sectionId}`);
+      console.log(`📤 Fields structure:`, fields.map((field: any) => {
+        const arrayKey = Object.keys(field)[0];
+        const array = field[arrayKey];
+        return {
+          [arrayKey]: Array.isArray(array) ? array.map((item: any) => ({
+            sector: item.sector,
+            fileCount: item.files?.length || 0,
+            files: item.files?.map((f: any) => ({
+              id: f?.id,
+              fileName: f?.fileName,
+              hasFile: !!f?.file,
+              isFileInstance: f?.file instanceof File,
+              fileSize: f?.file instanceof File ? f.file.size : 'not a File'
+            }))
+          })) : array
+        };
+      }));
+
+      const result = await handleSaveSection({
         submissionId,
         category: 'infraDevelopment',
         section: sectionKey,
         fields,
       });
+
+      console.log(`✅ Backend response:`, result);
 
       let shouldRevert = false;
 
@@ -1186,7 +1389,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         await onIndicatorStatus(sectionId, false);
       }
     } catch (error) {
-      console.error('Failed to auto-save files for section', sectionId, error);
+      console.error('❌ Failed to auto-save files for section', sectionId, error);
+      console.error('Error details:', error);
+      // Don't throw - allow the UI to continue functioning
     }
   };
 
@@ -1626,11 +1831,21 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                       <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">File Type</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody>Annex 4: Provide link and funding details
+
+
                     {(() => {
                       const infraActArray = Array.isArray(state?.section2_1?.infraActArray)
                         ? state.section2_1.infraActArray
                         : [];
+
+                      console.log('📊 Rendering section 2.1 with data:', infraActArray.map((item: any, idx: number) => ({
+                        index: idx,
+                        id: item.id,
+                        sector: item.sector,
+                        fileCount: item.files?.length || 0,
+                        firstFile: item.files?.[0]
+                      })));
 
                       if (!infraActArray.length) {
                         return (
@@ -1663,20 +1878,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <div className="space-y-1.5">
                                 {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
-                                    {item.files.map((file: any, fileIndex: number) => (
+                                    {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                       <Badge 
                                         key={fileIndex} 
                                         variant="secondary" 
                                         className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                        title={file.fileName || 'Unknown file'}
+                                        title={getFileName(file)}
                                       >
                                         <Upload className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                        <span className="truncate">{getFileName(file)}</span>
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                            handleFilesUpdate('2.1', index, updatedFiles.length > 0 ? updatedFiles : []);
+                                            // First filter out nulls, then remove by index
+                                            const nonNullFiles = item.files.filter((f: any) => f != null);
+                                            const updatedFiles = nonNullFiles.filter((_: any, idx: number) => idx !== fileIndex);
+                                            handleFilesUpdate('2.1', index, updatedFiles);
                                           }}
                                           className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
@@ -1702,7 +1919,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                           fileSize: selectedFile.size,
                                           uploadedAt: Date.now(),
                                         };
-                                        const existingFiles = item.files || [];
+                                        // Filter out nulls from existing files before adding new one
+                                        const existingFiles = (item.files || []).filter((f: any) => f != null);
                                         await handleFilesUpdate('2.1', index, [...existingFiles, newFile]);
                                         e.target.value = ''; // Reset input
                                       }
@@ -1725,15 +1943,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             ) : (
                               item.files && item.files.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {item.files.map((file: any, fileIndex: number) => (
+                                  {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                     <Badge 
                                       key={fileIndex} 
                                       variant="secondary" 
                                       className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={file.fileName || 'Unknown file'}
+                                      title={getFileName(file)}
                                     >
                                       <Upload className="w-3 h-3" />
-                                      <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                      <span className="truncate">{getFileName(file)}</span>
                                     </Badge>
                                   ))}
                                 </div>
@@ -1745,13 +1963,13 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           <td className="py-3 px-4 text-sm font-normal">
                             {item.files && item.files.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {item.files.map((file: any, fileIndex: number) => (
+                                {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                   <Badge 
                                     key={fileIndex} 
                                     variant="outline" 
                                     className="text-xs px-1.5 py-0.5"
                                   >
-                                    {file.fileName?.split('.').pop()?.toUpperCase() || 'N/A'}
+                                    {getFileExtension(file)}
                                   </Badge>
                                 ))}
                               </div>
@@ -1920,20 +2138,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <div className="space-y-1.5">
                                 {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
-                                    {item.files.map((file: any, fileIndex: number) => (
+                                    {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                       <Badge 
                                         key={fileIndex} 
                                         variant="secondary" 
                                         className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                        title={file.fileName || 'Unknown file'}
+                                        title={getFileName(file)}
                                       >
                                         <Upload className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                        <span className="truncate">{getFileName(file)}</span>
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                            handleFilesUpdate('2.2', index, updatedFiles.length > 0 ? updatedFiles : []);
+                                            // First filter out nulls, then remove by index
+                                            const nonNullFiles = item.files.filter((f: any) => f != null);
+                                            const updatedFiles = nonNullFiles.filter((_: any, idx: number) => idx !== fileIndex);
+                                            handleFilesUpdate('2.2', index, updatedFiles);
                                           }}
                                           className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
@@ -1959,7 +2179,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                           fileSize: selectedFile.size,
                                           uploadedAt: Date.now(),
                                         };
-                                        const existingFiles = item.files || [];
+                                        // Filter out nulls from existing files before adding new one
+                                        const existingFiles = (item.files || []).filter((f: any) => f != null);
                                         await handleFilesUpdate('2.2', index, [...existingFiles, newFile]);
                                         e.target.value = ''; // Reset input
                                       }
@@ -1982,15 +2203,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             ) : (
                               item.files && item.files.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {item.files.map((file: any, fileIndex: number) => (
+                                  {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                     <Badge 
                                       key={fileIndex} 
                                       variant="secondary" 
                                       className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={file.fileName || 'Unknown file'}
+                                      title={getFileName(file)}
                                     >
                                       <Upload className="w-3 h-3" />
-                                      <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                      <span className="truncate">{getFileName(file)}</span>
                                     </Badge>
                                   ))}
                                 </div>
@@ -2002,13 +2223,13 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           <td className="py-3 px-4 text-sm font-normal">
                             {item.files && item.files.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {item.files.map((file: any, fileIndex: number) => (
+                                {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                   <Badge 
                                     key={fileIndex} 
                                     variant="outline" 
                                     className="text-xs px-1.5 py-0.5"
                                   >
-                                    {file.fileName?.split('.').pop()?.toUpperCase() || 'N/A'}
+                                    {getFileExtension(file)}
                                   </Badge>
                                 ))}
                               </div>
@@ -2210,20 +2431,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                   <div className="space-y-1.5">
                                     {item.files && item.files.length > 0 ? (
                                       <div className="flex flex-wrap gap-1.5">
-                                        {item.files.map((file: any, fileIndex: number) => (
+                                        {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                           <Badge 
                                             key={fileIndex} 
                                             variant="secondary" 
                                             className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                            title={file.fileName || 'Unknown file'}
+                                            title={getFileName(file)}
                                           >
                                             <Upload className="w-3 h-3 flex-shrink-0" />
-                                            <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                            <span className="truncate">{getFileName(file)}</span>
                                             <button
                                               type="button"
                                               onClick={() => {
-                                                const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                                handleFilesUpdate('2.3', index, updatedFiles.length > 0 ? updatedFiles : []);
+                                                // First filter out nulls, then remove by index
+                                                const nonNullFiles = item.files.filter((f: any) => f != null);
+                                                const updatedFiles = nonNullFiles.filter((_: any, idx: number) => idx !== fileIndex);
+                                                handleFilesUpdate('2.3', index, updatedFiles);
                                               }}
                                               className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
@@ -2249,7 +2472,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                               fileSize: selectedFile.size,
                                               uploadedAt: Date.now(),
                                             };
-                                            const existingFiles = item.files || [];
+                                            // Filter out nulls from existing files before adding new one
+                                            const existingFiles = (item.files || []).filter((f: any) => f != null);
                                             await handleFilesUpdate('2.3', index, [...existingFiles, newFile]);
                                             e.target.value = ''; // Reset input
                                           }
@@ -2272,15 +2496,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                 ) : (
                                   item.files && item.files.length > 0 ? (
                                     <div className="flex flex-wrap gap-1.5">
-                                      {item.files.map((file: any, fileIndex: number) => (
+                                      {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                         <Badge 
                                           key={fileIndex} 
                                           variant="secondary" 
                                           className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                          title={file.fileName || 'Unknown file'}
+                                          title={getFileName(file)}
                                         >
                                           <Upload className="w-3 h-3" />
-                                          <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                          <span className="truncate">{getFileName(file)}</span>
                                         </Badge>
                                       ))}
                                     </div>
@@ -2292,13 +2516,13 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <td className="py-3 px-4 text-sm font-normal">
                                 {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
-                                    {item.files.map((file: any, fileIndex: number) => (
+                                    {item.files.filter((file: any) => file != null).map((file: any, fileIndex: number) => (
                                       <Badge 
                                         key={fileIndex} 
                                         variant="outline" 
                                         className="text-xs px-1.5 py-0.5"
                                       >
-                                        {file.fileName?.split('.').pop()?.toUpperCase() || 'N/A'}
+                                        {getFileExtension(file)}
                                       </Badge>
                                     ))}
                                   </div>
@@ -2525,10 +2749,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                     multiple={false}
                                   />
                                 ) : (
-                                  item.dprFile && item.dprFile.fileName ? (
+                                  item.dprFile && getFileName(item.dprFile) ? (
                                     <div className="flex items-center gap-2">
                                       <Upload className="w-4 h-4" />
-                                      <span className="text-sm">{item.dprFile.fileName || 'Unknown file'}</span>
+                                      <span className="text-sm">{item.dprgetFileName(file)}</span>
                                     </div>
                                   ) : (
                                     <span className="text-muted-foreground text-xs">No file uploaded</span>
@@ -2536,9 +2760,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {item.dprFile && item.dprFile.fileName ? (
+                                {item.dprFile && getFileName(item.dprFile) ? (
                                   <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                                    {item.dprFile.fileName?.split('.').pop()?.toUpperCase() || 'N/A'}
+                                    {item.dprgetFileExtension(file)}
                                   </Badge>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">N/A</span>
@@ -2994,3 +3218,6 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     </>
   );
 };
+
+
+

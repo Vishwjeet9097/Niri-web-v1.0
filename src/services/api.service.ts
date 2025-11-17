@@ -2413,18 +2413,46 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
       // Check if payload contains File objects
       const hasFiles = this.hasFileObjects(payload);
       
+      console.log("🔍 updateIndicator called with:", {
+        submissionId: payload.submissionId,
+        category: payload.category,
+        section: payload.section,
+        fieldCount: payload.fields?.length,
+        hasFiles: hasFiles
+      });
+      
       let response;
       
       if (hasFiles) {
+        console.log("✅ File objects detected - using FormData");
         // Convert to FormData if files are present
         const formData = new FormData();
         
-        // Create a sanitized payload without File objects for JSON serialization
-        const sanitizedPayload = this.sanitizePayloadForJSON(payload);
-        formData.append("payload", JSON.stringify(sanitizedPayload));
+        // Append required fields directly to FormData (backend expects snake_case for FormData)
+        formData.append("submission_id", payload.submissionId || "");
+        formData.append("category", payload.category || "");
+        formData.append("section", payload.section || "");
         
-        // Append files recursively with proper paths
-        this.appendFilesToFormData(formData, payload, "");
+        console.log("🔍 Original payload.fields BEFORE processing:", payload.fields);
+        
+        // CRITICAL: Append files to FormData FIRST (before sanitizing)
+        // Files will be appended with keys like: fields[0].infraActArray[0].files[0].file
+        if (payload.fields && Array.isArray(payload.fields)) {
+          console.log(`🔄 Processing ${payload.fields.length} field objects for file extraction`);
+          payload.fields.forEach((field, index) => {
+            console.log(`🔄 Processing field[${index}]:`, field);
+            this.appendFilesToFormData(formData, field, `fields[${index}]`);
+          });
+        }
+        
+        console.log("✅ File extraction complete");
+        
+        // THEN create a sanitized fields array without File objects for JSON serialization
+        const sanitizedFields = payload.fields.map(field => this.sanitizePayloadForJSON(field));
+        const fieldsJSON = JSON.stringify(sanitizedFields);
+        formData.append("fields", fieldsJSON);
+        
+        console.log("📤 Sanitized fields being sent:", fieldsJSON);
         
         // Get auth token
         const authHeaders = authService.getAuthHeaders();
@@ -2438,9 +2466,24 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
         };
         
         console.log("📤 Sending updateIndicator with FormData (files detected)");
+        console.log("📦 FormData contains the following entries:");
+        let fileCount = 0;
+        for (const [key, value] of formData.entries()) {
+          if (value instanceof File) {
+            fileCount++;
+            console.log(`  ✅ ${key}: File(${value.name}, ${value.size} bytes)`);
+          } else {
+            const displayValue = typeof value === 'string' && value.length > 200 
+              ? value.substring(0, 200) + `... (${value.length} chars total)` 
+              : value;
+            console.log(`  📝 ${key}:`, displayValue);
+          }
+        }
+        console.log(`📊 Total files in FormData: ${fileCount}`);
+        
         response = await this.axios.post("/submission/update-indicator", formData, config);
       } else {
-        // Send as JSON if no files
+        // Send as JSON if no files (backend expects camelCase for JSON)
         const config: AxiosRequestConfig | undefined = token
           ? {
             headers: {
@@ -2451,6 +2494,7 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
           : undefined;
 
         console.log("📤 Sending updateIndicator as JSON (no files)");
+        console.log("📦 JSON payload:", JSON.stringify(payload, null, 2));
         response = await this.axios.post("/submission/update-indicator", payload, config);
       }
 
@@ -2467,23 +2511,38 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     }
   }
 
+  /**
+   * Type guard to check if an object is a FileUpload with a File instance
+   */
+  private isFileUpload(value: any): value is FileUpload {
+    return value && typeof value === "object" && "file" in value && value.file instanceof File;
+  }
+
   // Helper to check if payload contains File objects
   private hasFileObjects(obj: any): boolean {
     if (!obj || typeof obj !== "object") return false;
     
-    if (obj instanceof File) return true;
+    if (obj instanceof File) {
+      console.log("🎯 Found File instance directly");
+      return true;
+    }
     
     if (Array.isArray(obj)) {
       return obj.some(item => this.hasFileObjects(item));
     }
     
-    for (const value of Object.values(obj)) {
-      if (value instanceof File) return true;
-      if (value && typeof value === "object") {
-        // Check FileUpload objects - look for file property that is a File instance
-        if (value.file instanceof File) return true;
-        // Recursively check nested objects
-        if (this.hasFileObjects(value)) return true;
+    for (const [key, value] of Object.entries(obj)) {
+      if (value instanceof File) {
+        console.log("🎯 Found File instance at key:", key);
+        return true;
+      }
+      if (this.isFileUpload(value)) {
+        console.log("🎯 Found FileUpload object at key:", key);
+        return true;
+      }
+      // Recursively check nested objects
+      if (value && typeof value === "object" && this.hasFileObjects(value)) {
+        return true;
       }
     }
     
@@ -2495,25 +2554,29 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     if (!obj || typeof obj !== "object") return obj;
     
     if (obj instanceof File) {
-      return { _filePlaceholder: true, name: obj.name, size: obj.size };
+      // Don't include File objects in JSON - they're sent separately via FormData
+      return null;
     }
     
     if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizePayloadForJSON(item));
+      return obj.map(item => this.sanitizePayloadForJSON(item)).filter(item => item !== null);
     }
     
     const sanitized: any = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value instanceof File) {
-        sanitized[key] = { _filePlaceholder: true, name: value.name, size: value.size };
-      } else if (value && typeof value === "object" && value.file instanceof File) {
-        // For FileUpload objects, keep metadata but mark file as placeholder
-        sanitized[key] = {
-          ...value,
-          file: { _filePlaceholder: true, name: value.file.name, size: value.file.size },
-        };
+        // Skip File objects - they're sent separately via FormData
+        continue;
+      } else if (this.isFileUpload(value)) {
+        // For FileUpload objects, keep metadata but REMOVE the file property entirely
+        const { file, ...metadata } = value;
+        sanitized[key] = metadata;
       } else {
-        sanitized[key] = this.sanitizePayloadForJSON(value);
+        const sanitizedValue = this.sanitizePayloadForJSON(value);
+        // Only add non-null values
+        if (sanitizedValue !== null) {
+          sanitized[key] = sanitizedValue;
+        }
       }
     }
     
@@ -2524,27 +2587,31 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
   private appendFilesToFormData(formData: FormData, obj: any, parentKey: string = "") {
     if (!obj || typeof obj !== "object") return;
     
+    console.log(`🔍 appendFilesToFormData called with parentKey: "${parentKey}"`);
+    
     Object.entries(obj).forEach(([key, value]) => {
       const fullKey = parentKey ? `${parentKey}.${key}` : key;
       
       if (value instanceof File) {
-        console.log(`📎 Appending file: ${fullKey}`, value.name);
+        console.log(`📎 Appending File directly: ${fullKey}`, value.name, value.size);
         formData.append(fullKey, value, value.name);
         return;
       }
       
       if (value && typeof value === "object") {
         // Handle FileUpload objects
-        if (value.file instanceof File) {
+        if (this.isFileUpload(value)) {
           const fileKey = `${fullKey}.file`;
-          console.log(`📎 Appending FileUpload file: ${fileKey}`, value.file.name);
-          formData.append(fileKey, value.file, value.file.name);
+          console.log(`📎 Appending FileUpload.file: ${fileKey}`, (value.file as File).name, (value.file as File).size);
+          formData.append(fileKey, value.file as File, (value.file as File).name);
         } else if (Array.isArray(value)) {
+          console.log(`📦 Processing array at ${fullKey}, length: ${value.length}`);
           // Handle arrays (like VGFArray, projects array, etc.)
           value.forEach((item, index) => {
             this.appendFilesToFormData(formData, item, `${fullKey}[${index}]`);
           });
         } else {
+          console.log(`📂 Recursing into object at ${fullKey}`);
           // Recursively handle nested objects
           this.appendFilesToFormData(formData, value, fullKey);
         }
