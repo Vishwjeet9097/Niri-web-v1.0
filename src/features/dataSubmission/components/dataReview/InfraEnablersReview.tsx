@@ -1097,6 +1097,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     
+    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
+    const submissionStatus = submission?.status;
+    if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+      return null;
+    }
+    
     // For MOSPI_REVIEWER, no action buttons (comments are restricted to STATE_APPROVER only)
     if (isMospiReviewer) {
       return null;

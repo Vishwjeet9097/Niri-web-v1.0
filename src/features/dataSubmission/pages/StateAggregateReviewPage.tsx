@@ -15,6 +15,16 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -598,6 +608,8 @@ export const StateAggregateReviewPage = () => {
   const [stateProgress, setStateProgress] = useState<ProgressStats | null>(null);
   const [progressLoading, setProgressLoading] = useState(false);
   const [submittingFinal, setSubmittingFinal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [hasSubmittedToMospiReviewer, setHasSubmittedToMospiReviewer] = useState(false);
 
   // Get state and year from URL params
   useEffect(() => {
@@ -854,6 +866,44 @@ export const StateAggregateReviewPage = () => {
     };
   }, [user?.role]);
 
+  // Check if there's already a consolidated submission with status SUBMITTED_TO_MOSPI_REVIEWER
+  useEffect(() => {
+    if (user?.role !== "STATE_APPROVER") {
+      setHasSubmittedToMospiReviewer(false);
+      return;
+    }
+
+    const checkSubmittedStatus = async () => {
+      try {
+        const submissionsData = await apiService.getSubmissions(1, 100);
+        
+        // Handle different response structures
+        let submissionsArray: any[] = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+          submissionsArray = submissionsData.submissions;
+        } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+          submissionsArray = (submissionsData as any).data;
+        }
+
+        const hasSubmitted = submissionsArray.some((submission) => {
+          const isOwnSubmission = submission.user?.id === user?.id || 
+            submission.submittedBy?.id === user?.id ||
+            (submission.user?.email && submission.user.email === user?.email);
+          return submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission;
+        });
+
+        setHasSubmittedToMospiReviewer(hasSubmitted);
+      } catch (error) {
+        console.error("Failed to check submission status:", error);
+        setHasSubmittedToMospiReviewer(false);
+      }
+    };
+
+    checkSubmittedStatus();
+  }, [user?.role, user?.id, user?.email]);
+
   // Handle final submit - Creates consolidated submission from aggregated formData
   const handleFinalSubmit = async () => {
     console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -865,6 +915,7 @@ export const StateAggregateReviewPage = () => {
       if (!stateProgress || stateProgress.percentage !== 100 || stateProgress.approved !== stateProgress.total) {
         notificationService.warning("All indicators must be approved before final submission.");
         console.warn("❌ Submission blocked: Not all indicators approved", stateProgress);
+        setShowConfirmModal(false);
         return;
       }
 
@@ -872,6 +923,7 @@ export const StateAggregateReviewPage = () => {
       if (!formData) {
         notificationService.error("No aggregated data available to submit.");
         console.error("❌ Submission blocked: No formData available");
+        setShowConfirmModal(false);
         return;
       }
 
@@ -1010,6 +1062,9 @@ export const StateAggregateReviewPage = () => {
       
       notificationService.success(successMessage);
 
+      // Close modal after successful submission
+      setShowConfirmModal(false);
+
       // Refresh progress so UI reflects the new state
       try {
         console.log("\n🔄 Refreshing state progress...");
@@ -1020,6 +1075,34 @@ export const StateAggregateReviewPage = () => {
         console.log("✅ Progress refreshed:", stats);
       } catch (e) {
         console.error("⚠️ Failed to refresh progress", e);
+      }
+
+      // Refresh submissions list and update hasSubmittedToMospiReviewer flag
+      try {
+        const submissionsData = await apiService.getSubmissions(1, 100);
+        
+        // Handle different response structures
+        let submissionsArray: any[] = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+          submissionsArray = submissionsData.submissions;
+        } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+          submissionsArray = (submissionsData as any).data;
+        }
+
+        const hasSubmitted = submissionsArray.some((submission) => {
+          const isOwnSubmission = submission.user?.id === user?.id || 
+            submission.submittedBy?.id === user?.id ||
+            (submission.user?.email && submission.user.email === user?.email);
+          return submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission;
+        });
+
+        setHasSubmittedToMospiReviewer(hasSubmitted);
+      } catch (e) {
+        console.error("⚠️ Failed to refresh submission status check", e);
+        // Still set to true since we just submitted successfully
+        setHasSubmittedToMospiReviewer(true);
       }
 
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -1041,6 +1124,7 @@ export const StateAggregateReviewPage = () => {
       console.error("Error response:", e?.response?.data);
       console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       notificationService.error(e?.message || "Error creating consolidated submission.");
+      setShowConfirmModal(false);
     } finally {
       setSubmittingFinal(false);
       console.groupEnd();
@@ -1197,16 +1281,17 @@ export const StateAggregateReviewPage = () => {
                 {user?.role === "STATE_APPROVER" && stateProgress && (
                   <Button
                     className={`text-white px-6 ${
-                      stateProgress.percentage === 100 && !submittingFinal && !progressLoading && stateProgress.approved === stateProgress.total
+                      stateProgress.percentage === 100 && !submittingFinal && !progressLoading && stateProgress.approved === stateProgress.total && !hasSubmittedToMospiReviewer
                         ? "bg-[#1e3a8a] hover:bg-[#1e3299]" // Darker blue when enabled at 100%
                         : "bg-[#7888E3] hover:bg-[#6574CC]"  // Default lighter blue
                     }`}
-                    onClick={handleFinalSubmit}
+                    onClick={() => setShowConfirmModal(true)}
                     disabled={
                       submittingFinal ||
                       progressLoading ||
                       !stateProgress ||
-                      stateProgress.approved !== stateProgress.total
+                      stateProgress.approved !== stateProgress.total ||
+                      hasSubmittedToMospiReviewer
                     }
                   >
                     {submittingFinal ? "Submitting…" : "Submit Now"}
@@ -1300,6 +1385,32 @@ export const StateAggregateReviewPage = () => {
           </>
         )}
       </div>
+
+      {/* Confirmation Modal for Final Submit */}
+      <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Submit Now?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to submit this submission to MoSPI Reviewer?
+              <br />
+              Once submitted, you cannot make changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submittingFinal}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                await handleFinalSubmit();
+              }}
+              disabled={submittingFinal}
+              className="bg-[#1e3a8a] hover:bg-[#1e3299]"
+            >
+              {submittingFinal ? "Submitting…" : "Submit"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
