@@ -57,10 +57,14 @@ export const EditSubmissionPage = () => {
           infraEnablers: submissionData?.formData?.infraEnablers || {}
         };
         
-        // Save submission ID directly to localStorage
-        localStorage.setItem('editing_submission_id', id);
+        // Save submission UUID (id) - NOT the reference number (submissionId)
+        // The 'id' field is the UUID primary key from submissions table
+        localStorage.setItem('editing_submission_id', submissionData.id);
         localStorage.setItem('is_edit_mode', 'true');
         localStorage.setItem('submission_form_data', JSON.stringify(originalFormData));
+        
+        console.log(`✅ Stored submission UUID for editing: ${submissionData.id}`);
+        console.log(`   Reference number: ${submissionData.submissionId}`);
         
         // Redirect to normal submission form
         navigate('/submissions');

@@ -5,6 +5,7 @@ import { apiService } from "@/services/api.service";
 import { RefreshCw } from "lucide-react";
 
 export function CheckSubmissionRedirect() {
+  console.log("🚦 CheckSubmissionRedirect mounted==============================");
   const { user } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
@@ -14,7 +15,12 @@ export function CheckSubmissionRedirect() {
       try {
         console.log("🔍 Checking existing submission for user:", user?.id);
         const res = await apiService.get(`/submission/user/${user?.id}`);
+               
+
+      
         const submission = res?.data?.data || res?.data;
+         console.log("res=========2222222====", res, "kkk",submission)
+
 
         if (submission && submission.id) {
           console.log("✅ Found existing submission:", submission.id);

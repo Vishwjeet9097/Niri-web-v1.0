@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Info, CalendarIcon, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
+import { useIndicatorSubmission } from "../hooks/useIndicatorSubmission";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -43,6 +45,9 @@ import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { computeStepProgress } from "../utils/progress";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
+import { setIndicatorSubmitted, areAllIndicatorsSubmitted, getSubmittedIndicators, clearSubmittedIndicators } from "../utils/globalSubmissionUtils";
+import { notificationService } from "@/services/NotificationBus";
+import { apiService } from "@/services/api.service";
 
 const defaultData: PPPDevelopmentData = {
   section3_1: {
@@ -60,6 +65,15 @@ const defaultData: PPPDevelopmentData = {
 };
 
 export const PPPDevelopmentStep = () => {
+  // Tab status state for visual feedback
+  const [tabStatus, setTabStatus] = useState({
+    infraFinancing: false,
+    infraDevelopment: false,
+    pppDevelopment: false,
+    infraEnablers: false,
+  });
+
+  const navigate = useNavigate();
   const {
     currentStep,
     goToStep,
@@ -109,6 +123,17 @@ export const PPPDevelopmentStep = () => {
     indicatorError,
     user,
   ]);
+
+  // Update tab status on mount and when indicators change
+  useEffect(() => {
+    const submitted = getSubmittedIndicators();
+    setTabStatus({
+      infraFinancing: submitted.infraFinancing?.length === 5,
+      infraDevelopment: submitted.infraDevelopment?.length === 5,
+      pppDevelopment: submitted.pppDevelopment?.length === 4,
+      infraEnablers: submitted.infraEnablers?.length === 6,
+    });
+  }, []);
 
   // Merge loaded data with defaults
   const loadedData =
@@ -205,6 +230,7 @@ export const PPPDevelopmentStep = () => {
 
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
+          localStorage.removeItem("editing_submission_id");
         }
       } catch (error) {
         console.error(
@@ -212,6 +238,7 @@ export const PPPDevelopmentStep = () => {
           error
         );
         localStorage.removeItem("editing_submission");
+        localStorage.removeItem("editing_submission_id");
       }
     }
   }, []);
@@ -396,6 +423,273 @@ export const PPPDevelopmentStep = () => {
 
   const { toast } = useToast();
 
+  // Field preparation function for indicator submission
+  const prepareFieldsForPPP = (indicatorCode: string, sectionData: any) => {
+    const fields: any[] = [];
+    
+    switch (indicatorCode) {
+      case "3.1": // PPP Policy
+        fields.push({
+          available: sectionData?.available || "no",
+          file: sectionData?.file || null,
+        });
+        break;
+      case "3.2": // PPP Framework
+        fields.push({
+          available: sectionData?.available || "no",
+          file: sectionData?.file || null,
+        });
+        break;
+      case "3.3": // VGF
+        if (sectionData?.VGFArray && sectionData.VGFArray.length > 0) {
+          sectionData.VGFArray.forEach((vgf: any) => {
+            fields.push({
+              projectName: vgf.projectName || "",
+              sector: vgf.sector || "",
+              type: vgf.type || "",
+              submissionDate: vgf.submissionDate || "",
+              file: vgf.file || null,
+            });
+          });
+        }
+        break;
+      case "3.4": // PPP Projects
+        if (sectionData?.projects && sectionData.projects.length > 0) {
+          sectionData.projects.forEach((project: any) => {
+            fields.push({
+              nameOfProject: project.nameOfProject || "",
+              nipId: project.nipId || "",
+              fundingSource: project.fundingSource || "",
+              infrastructureSector: project.infrastructureSector || "",
+              dateOfAward: project.dateOfAward || "",
+              capexPercentage: project.capexPercentage || "",
+            });
+          });
+        }
+        break;
+    }
+    
+    return fields;
+  };
+
+  // Use the indicator submission hook
+  const {
+    submittingIndicators,
+    submittedIndicators: hookSubmittedIndicators,
+    handleIndicatorSubmit,
+  } = useIndicatorSubmission({
+    category: "pppDevelopment",
+    formData,
+    assignedIndicators: isNodalOfficer ? assignedIndicators : availableIndicators,
+    isNodalOfficer,
+    onAllSubmitted: undefined, // handled globally
+  });
+
+  // Check backend status on initial load to see if all sections are already complete
+  useEffect(() => {
+    const checkInitialStatus = async () => {
+      if (!user?.id) return;
+      
+      try {
+        console.log("🔍 [PPPDevelopmentStep - INITIAL CHECK] Checking backend submission status on mount");
+        const submission = await apiService.getSubmissionByUser(user.id);
+        
+        if (!submission || !submission.id) {
+          console.log("⚠️ No submission found yet");
+          return;
+        }
+
+        const sectionStatus = submission.section_status || [];
+        const infraFinancing = sectionStatus.find((s: any) => s.sectionId === "infraFinancing");
+        const infraDevelopment = sectionStatus.find((s: any) => s.sectionId === "infraDevelopment");
+        const pppDevelopment = sectionStatus.find((s: any) => s.sectionId === "pppDevelopment");
+        const infraEnablers = sectionStatus.find((s: any) => s.sectionId === "infraEnablers");
+        
+        const allSectionsComplete = 
+          infraFinancing?.isCompleted === true &&
+          infraDevelopment?.isCompleted === true &&
+          pppDevelopment?.isCompleted === true &&
+          infraEnablers?.isCompleted === true;
+        
+        if (allSectionsComplete) {
+          console.log("✅ [PPPDevelopmentStep - INITIAL CHECK] All sections completed, redirecting");
+          toast({
+            title: "Success",
+            description: "All indicators completed. Redirecting to review page...",
+          });
+          setTimeout(() => {
+            navigate(`/data-submission/review/${submission.id}`);
+          }, 1500);
+        }
+      } catch (error) {
+        console.error("❌ [PPPDevelopmentStep - INITIAL CHECK] Error:", error);
+      }
+    };
+
+    checkInitialStatus();
+  }, [user, navigate, toast]);
+
+  // Check backend after each indicator submission to see if all sections complete
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      try {
+        console.log("🔍 [PPPDevelopmentStep] Checking backend submission status");
+        const submission = await apiService.getSubmissionByUser(user.id);
+        
+        if (!submission || !submission.id) {
+          console.log("⚠️ No submission found yet");
+          return;
+        }
+
+        const sectionStatus = submission.section_status || [];
+        console.log("📊 Backend section status:", sectionStatus);
+        
+        // Find each section in the array and check isCompleted
+        const infraFinancing = sectionStatus.find((s: any) => s.sectionId === "infraFinancing");
+        const infraDevelopment = sectionStatus.find((s: any) => s.sectionId === "infraDevelopment");
+        const pppDevelopment = sectionStatus.find((s: any) => s.sectionId === "pppDevelopment");
+        const infraEnablers = sectionStatus.find((s: any) => s.sectionId === "infraEnablers");
+        
+        console.log("🔍 Section completion status:", {
+          infraFinancing: infraFinancing?.isCompleted,
+          infraDevelopment: infraDevelopment?.isCompleted,
+          pppDevelopment: pppDevelopment?.isCompleted,
+          infraEnablers: infraEnablers?.isCompleted
+        });
+        
+        const allSectionsComplete = 
+          infraFinancing?.isCompleted === true &&
+          infraDevelopment?.isCompleted === true &&
+          pppDevelopment?.isCompleted === true &&
+          infraEnablers?.isCompleted === true;
+        
+        if (allSectionsComplete) {
+          console.log("✅ All sections completed on backend, redirecting to review page");
+          toast({
+            title: "Success",
+            description: "All indicators in all steps submitted. Moving to review page.",
+          });
+          setTimeout(() => {
+            navigate(`/data-submission/review/${submission.id}`);
+          }, 1500);
+        } else {
+          console.log("ℹ️ Not all sections are completed yet, staying on current step");
+        }
+      } catch (error) {
+        console.error("❌ Error checking backend status:", error);
+      }
+    };
+
+    // Only check backend if we have submitted indicators
+    if (Object.keys(hookSubmittedIndicators).length > 0) {
+      checkBackendStatus();
+    }
+  }, [hookSubmittedIndicators, user, navigate, toast]); // Trigger when hookSubmittedIndicators changes
+
+  // Callback when all indicators are submitted - navigate to review page
+  const handleAllSubmitted = useCallback(() => {
+    // This callback is no longer used - kept for compatibility
+    goToNext();
+  }, [goToNext]);
+
+  // Server-first hydration of partial submission (independent of localStorage)
+  // Only populate fields that are empty/default - preserve ALL user's local edits
+  useEffect(() => {
+    if (!user?.id) return;
+    let hasHydrated = false;
+    
+    (async () => {
+      try {
+        const submission = await apiService.getSubmissionByUser(user.id);
+        if (!submission || hasHydrated) return;
+        hasHydrated = true;
+        
+        const remoteData = submission?.formData?.pppDevelopment;
+        if (!remoteData) return;
+        
+        setFormData((prev) => {
+          // Check each section independently - only hydrate sections that are empty
+          console.log("🌐 Hydrating pppDevelopment from server (per-section basis)");
+          
+          const hydrated: PPPDevelopmentData = {
+            // Section 3.1 - Only load from server if local is empty
+            section3_1: (() => {
+              const isLocal3_1Empty = !prev.section3_1.available;
+              if (!isLocal3_1Empty) {
+                console.log("🔒 Section 3.1 has local data, keeping it");
+                return prev.section3_1;
+              }
+              console.log("⬇️ Section 3.1 empty, loading from server");
+              return {
+                available: remoteData.section3_1?.available || prev.section3_1.available,
+                file: remoteData.section3_1?.file || prev.section3_1.file,
+              };
+            })(),
+            
+            // Section 3.2 - Only load from server if local is empty
+            section3_2: (() => {
+              const isLocal3_2Empty = !prev.section3_2.available;
+              if (!isLocal3_2Empty) {
+                console.log("🔒 Section 3.2 has local data, keeping it");
+                return prev.section3_2;
+              }
+              console.log("⬇️ Section 3.2 empty, loading from server");
+              return {
+                available: remoteData.section3_2?.available || prev.section3_2.available,
+                file: remoteData.section3_2?.file || prev.section3_2.file,
+              };
+            })(),
+            
+            // Section 3.3 - Only load from server if local is empty
+            section3_3: (() => {
+              const isLocal3_3Empty = !prev.section3_3.VGFArray || prev.section3_3.VGFArray.length === 0;
+              if (!isLocal3_3Empty) {
+                console.log("🔒 Section 3.3 has local data, keeping it");
+                return prev.section3_3;
+              }
+              console.log("⬇️ Section 3.3 empty, loading from server");
+              return {
+                VGFArray: Array.isArray(remoteData.section3_3?.VGFArray)
+                  ? remoteData.section3_3.VGFArray
+                  : prev.section3_3.VGFArray,
+              };
+            })(),
+            
+            // Section 3.4 - Only load from server if local is empty
+            section3_4: (() => {
+              const isLocal3_4Empty = !prev.section3_4.projects || prev.section3_4.projects.length === 0;
+              if (!isLocal3_4Empty) {
+                console.log("🔒 Section 3.4 has local data, keeping it");
+                return prev.section3_4;
+              }
+              console.log("⬇️ Section 3.4 empty, loading from server");
+              return {
+                projects: Array.isArray(remoteData.section3_4?.projects)
+                  ? remoteData.section3_4.projects
+                  : prev.section3_4.projects,
+                tpcOfPPPProjects: remoteData.section3_4?.tpcOfPPPProjects,
+                proportion: remoteData.section3_4?.proportion,
+                marksObtained: remoteData.section3_4?.marksObtained,
+              };
+            })(),
+          };
+          return hydrated;
+        });
+      } catch (e) {
+        console.warn("⚠️ Failed server hydration (pppDevelopment)", e);
+      }
+    })();
+  }, [user?.id]);
+
+  // Patch: after successful submit, update global state
+  const handleIndicatorSubmitPatched = async (
+    indicatorCode: string,
+    prepareFieldsFn: (code: string, data: any) => Record<string, any>[]
+  ) => {
+    await handleIndicatorSubmit(indicatorCode, prepareFieldsFn);
+    setIndicatorSubmitted("pppDevelopment", indicatorCode);
+  };
+
   const handleSaveDraft = async () => {
     const success = saveDraftToLocalStorage("pppDevelopment", formData);
 
@@ -500,8 +794,7 @@ export const PPPDevelopmentStep = () => {
           assignedIndicators.includes("3.1") ||
           availableIndicators.includes("3.1")) &&
           (!isEditMode ||
-            (formData.section3_1?.available &&
-              formData.section3_1.available !== "") ||
+            !!formData.section3_1?.available ||
             !!formData.section3_1?.file) && (
             <SectionCard
               title={
@@ -581,6 +874,26 @@ export const PPPDevelopmentStep = () => {
                     </p>
                   </div>
                 )}
+                
+                {/* Submit Button for 3.1 */}
+                <div className="flex justify-end mt-4">
+                  <Button
+                    onClick={() => handleIndicatorSubmitPatched("3.1", prepareFieldsForPPP)}
+                    disabled={submittingIndicators["3.1"] || hookSubmittedIndicators["3.1"]}
+                    className="bg-primary text-white"
+                  >
+                    {submittingIndicators["3.1"] ? (
+                      "Submitting..."
+                    ) : hookSubmittedIndicators["3.1"] ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Submitted
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
@@ -590,8 +903,7 @@ export const PPPDevelopmentStep = () => {
           assignedIndicators.includes("3.2") ||
           availableIndicators.includes("3.2")) &&
           (!isEditMode ||
-            (formData.section3_2?.available &&
-              formData.section3_2.available !== "") ||
+            !!formData.section3_2?.available ||
             !!formData.section3_2?.file) && (
             <SectionCard
               title={
@@ -671,6 +983,26 @@ export const PPPDevelopmentStep = () => {
                     </p>
                   </div>
                 )}
+                
+                {/* Submit Button for 3.2 */}
+                <div className="flex justify-end mt-4">
+                  <Button
+                    onClick={() => handleIndicatorSubmitPatched("3.2", prepareFieldsForPPP)}
+                    disabled={submittingIndicators["3.2"] || hookSubmittedIndicators["3.2"]}
+                    className="bg-primary text-white"
+                  >
+                    {submittingIndicators["3.2"] ? (
+                      "Submitting..."
+                    ) : hookSubmittedIndicators["3.2"] ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Submitted
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
@@ -753,48 +1085,48 @@ export const PPPDevelopmentStep = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex items-center gap-2 w-full">
-                        <div className="w-full">
-                          <Label>Submission Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                                  !entry.submissionDate &&
-                                    "text-muted-foreground"
-                                )}
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {entry.submissionDate
-                                  ? format(
-                                      new Date(entry.submissionDate),
-                                      "dd-MM-yyyy"
-                                    )
-                                  : "DD-MM-YYYY"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={
-                                  entry.submissionDate
-                                    ? new Date(entry.submissionDate)
-                                    : undefined
-                                }
-                                onSelect={(date) =>
-                                  updateProject(
-                                    entry.id,
-                                    "submissionDate",
-                                    date ? date.toISOString() : ""
+                      <div>
+                        <Label>Submission Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full min-w-[180px] justify-start text-left font-normal bg-[#fff] border-[1px] border-[#C6C6C6]",
+                                !entry.submissionDate &&
+                                  "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {entry.submissionDate
+                                ? format(
+                                    new Date(entry.submissionDate),
+                                    "dd-MM-yyyy"
                                   )
-                                }
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
+                                : "DD-MM-YYYY"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={
+                                entry.submissionDate
+                                  ? new Date(entry.submissionDate)
+                                  : undefined
+                              }
+                              onSelect={(date) =>
+                                updateProject(
+                                  entry.id,
+                                  "submissionDate",
+                                  date ? date.toISOString() : ""
+                                )
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="flex justify-end">
                         <Button
                           type="button"
                           variant="ghost"
@@ -830,6 +1162,26 @@ export const PPPDevelopmentStep = () => {
                     Add More Project
                   </Button>
                   <p className="text-xs text-muted-foreground mt-1"></p>
+                </div>
+                
+                {/* Submit Button for 3.3 */}
+                <div className="flex justify-end mt-4">
+                  <Button
+                    onClick={() => handleIndicatorSubmitPatched("3.3", prepareFieldsForPPP)}
+                    disabled={submittingIndicators["3.3"] || hookSubmittedIndicators["3.3"]}
+                    className="bg-primary text-white"
+                  >
+                    {submittingIndicators["3.3"] ? (
+                      "Submitting..."
+                    ) : hookSubmittedIndicators["3.3"] ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Submitted
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
                 </div>
               </div>
             </SectionCard>
@@ -1074,6 +1426,26 @@ export const PPPDevelopmentStep = () => {
                   >
                     <Plus className="w-4 h-4" />
                     Add More Project
+                  </Button>
+                </div>
+                
+                {/* Submit Button for 3.4 */}
+                <div className="flex justify-end mt-4">
+                  <Button
+                    onClick={() => handleIndicatorSubmitPatched("3.4", prepareFieldsForPPP)}
+                    disabled={submittingIndicators["3.4"] || hookSubmittedIndicators["3.4"]}
+                    className="bg-primary text-white"
+                  >
+                    {submittingIndicators["3.4"] ? (
+                      "Submitting..."
+                    ) : hookSubmittedIndicators["3.4"] ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Submitted
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
                   </Button>
                 </div>
               </div>

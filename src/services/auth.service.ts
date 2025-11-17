@@ -1,6 +1,7 @@
 import { storageService } from "./storage.service";
 import { config } from "@/config/environment";
 import type { User, AuthTokens, LoginApiResponse } from "@/types";
+import { clearSubmittedIndicators } from "@/features/submission/utils/globalSubmissionUtils";
 
 const TOKEN_KEY = "auth_tokens";
 const USER_KEY = "auth_user";
@@ -185,6 +186,10 @@ class AuthService {
     storageService.remove(USER_KEY);
     // Clear all localStorage data on logout
     storageService.clear();
+    // Clear submitted indicators tracking
+    clearSubmittedIndicators();
+    // Clear editing submission ID
+    localStorage.removeItem("editing_submission_id");
   }
 
   setAuth(user: User, tokens: AuthTokens): void {

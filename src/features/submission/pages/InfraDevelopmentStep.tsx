@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,10 @@ import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import { computeStepProgress } from "../utils/progress";
+import { useIndicatorSubmission } from "../hooks/useIndicatorSubmission";
+import { setIndicatorSubmitted, areAllIndicatorsSubmitted, getSubmittedIndicators, clearSubmittedIndicators } from "../utils/globalSubmissionUtils";
+import { notificationService } from "@/services/NotificationBus";
+import { apiService } from "@/services/api.service";
 
 // NOTE: The InfraDevelopmentData shape now wraps arrays inside objects.
 // This component was updated to use those nested arrays e.g. formData.section2_1.infraActArray
@@ -58,6 +63,14 @@ const getDefaultFileUpload = (): FileUpload => ({
 });
 
 export const InfraDevelopmentStep = () => {
+  // Tab status state for visual feedback
+  const [tabStatus, setTabStatus] = useState({
+    infraFinancing: false,
+    infraDevelopment: false,
+    pppDevelopment: false,
+    infraEnablers: false,
+  });
+  const navigate = useNavigate();
   const {
     currentStep,
     goToStep,
@@ -225,6 +238,7 @@ export const InfraDevelopmentStep = () => {
 
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
+          localStorage.removeItem("editing_submission_id");
         }
       } catch (error) {
         console.error(
@@ -232,9 +246,113 @@ export const InfraDevelopmentStep = () => {
           error
         );
         localStorage.removeItem("editing_submission");
+        localStorage.removeItem("editing_submission_id");
       }
     }
   }, []);
+
+  // Server-first hydration of partial submission (independent of localStorage)
+  // Only populate fields that are empty/default - preserve ALL user's local edits
+  useEffect(() => {
+    if (!user?.id) return;
+    let hasHydrated = false;
+    
+    (async () => {
+      try {
+        const submission = await apiService.getSubmissionByUser(user.id);
+        if (!submission || hasHydrated) return;
+        hasHydrated = true;
+        
+        const remoteData = submission?.formData?.infraDevelopment;
+        if (!remoteData) return;
+        
+        setFormData((prev) => {
+          // Check each section independently - only hydrate sections that are empty
+          console.log("🌐 Hydrating infraDevelopment from server (per-section basis)");
+          
+          const hydrated: InfraDevelopmentData = {
+            // Section 2.1 - Only load from server if local is empty
+            section2_1: (() => {
+              const isLocal2_1Empty = !prev.section2_1.infraActArray || prev.section2_1.infraActArray.length === 0;
+              if (!isLocal2_1Empty) {
+                console.log("🔒 Section 2.1 has local data, keeping it");
+                return prev.section2_1;
+              }
+              console.log("⬇️ Section 2.1 empty, loading from server");
+              return { 
+                infraActArray: Array.isArray((remoteData.section2_1 as any)?.infraActArray) 
+                  ? (remoteData.section2_1 as any).infraActArray 
+                  : [] 
+              };
+            })(),
+            
+            // Section 2.2 - Only load from server if local is empty
+            section2_2: (() => {
+              const isLocal2_2Empty = !prev.section2_2.specializedEntityArray || prev.section2_2.specializedEntityArray.length === 0;
+              if (!isLocal2_2Empty) {
+                console.log("🔒 Section 2.2 has local data, keeping it");
+                return prev.section2_2;
+              }
+              console.log("⬇️ Section 2.2 empty, loading from server");
+              return { 
+                specializedEntityArray: Array.isArray((remoteData.section2_2 as any)?.specializedEntityArray)
+                  ? (remoteData.section2_2 as any).specializedEntityArray
+                  : []
+              };
+            })(),
+            
+            // Section 2.3 - Only load from server if local is empty
+            section2_3: (() => {
+              const isLocal2_3Empty = !prev.section2_3.infraDevelopmentArray || prev.section2_3.infraDevelopmentArray.length === 0;
+              if (!isLocal2_3Empty) {
+                console.log("🔒 Section 2.3 has local data, keeping it");
+                return prev.section2_3;
+              }
+              console.log("⬇️ Section 2.3 empty, loading from server");
+              return { 
+                infraDevelopmentArray: Array.isArray((remoteData.section2_3 as any)?.infraDevelopmentArray)
+                  ? (remoteData.section2_3 as any).infraDevelopmentArray
+                  : []
+              };
+            })(),
+            
+            // Section 2.4 - Only load from server if local is empty
+            section2_4: (() => {
+              const isLocal2_4Empty = !prev.section2_4.investmentReadyArray || prev.section2_4.investmentReadyArray.length === 0;
+              if (!isLocal2_4Empty) {
+                console.log("🔒 Section 2.4 has local data, keeping it");
+                return prev.section2_4;
+              }
+              console.log("⬇️ Section 2.4 empty, loading from server");
+              return { 
+                investmentReadyArray: Array.isArray((remoteData.section2_4 as any)?.investmentReadyArray)
+                  ? (remoteData.section2_4 as any).investmentReadyArray
+                  : []
+              };
+            })(),
+            
+            // Section 2.5 - Only load from server if local is empty
+            section2_5: (() => {
+              const isLocal2_5Empty = !prev.section2_5.assetMonetizationArray || prev.section2_5.assetMonetizationArray.length === 0;
+              if (!isLocal2_5Empty) {
+                console.log("🔒 Section 2.5 has local data, keeping it");
+                return prev.section2_5;
+              }
+              console.log("⬇️ Section 2.5 empty, loading from server");
+              return { 
+                assetMonetizationArray: Array.isArray((remoteData.section2_5 as any)?.assetMonetizationArray)
+                  ? (remoteData.section2_5 as any).assetMonetizationArray
+                  : []
+              };
+            })(),
+          };
+          return hydrated;
+        });
+      } catch (e) {
+        console.warn("⚠️ Failed server hydration (infraDevelopment)", e);
+      }
+    })();
+  }, [user?.id]);
 
   // Autosave to localStorage with debouncing
   useEffect(() => {
@@ -447,6 +565,190 @@ export const InfraDevelopmentStep = () => {
   };
 
   const { toast } = useToast();
+
+  // Field preparation function for indicator submission
+  const prepareFieldsForInfraDev = (indicatorCode: string, sectionData: any) => {
+    const fields: any[] = [];
+    
+    switch (indicatorCode) {
+      case "2.1": // Infrastructure Act
+        if (sectionData?.infraActArray && sectionData.infraActArray.length > 0) {
+          sectionData.infraActArray.forEach((item: any) => {
+            fields.push({
+              nameOfAct: item.nameOfAct || "",
+              dateOfEnactment: item.dateOfEnactment || "",
+              file: item.file || null,
+            });
+          });
+        }
+        break;
+      case "2.2": // Specialized Entity
+        if (sectionData?.specializedEntityArray && sectionData.specializedEntityArray.length > 0) {
+          sectionData.specializedEntityArray.forEach((item: any) => {
+            fields.push({
+              nameOfEntity: item.nameOfEntity || "",
+              dateOfFormation: item.dateOfFormation || "",
+              file: item.file || null,
+            });
+          });
+        }
+        break;
+      case "2.3": // Infrastructure Development
+        if (sectionData?.infraDevelopmentArray && sectionData.infraDevelopmentArray.length > 0) {
+          sectionData.infraDevelopmentArray.forEach((item: any) => {
+            fields.push({
+              projectName: item.projectName || "",
+              sector: item.sector || "",
+              projectType: item.projectType || "",
+              ownership: item.ownership || "",
+              projectCost: item.projectCost || "",
+              file: item.file || null,
+            });
+          });
+        }
+        break;
+      case "2.4": // Investment Ready Projects
+        if (sectionData?.investmentReadyArray && sectionData.investmentReadyArray.length > 0) {
+          sectionData.investmentReadyArray.forEach((item: any) => {
+            fields.push({
+              projectName: item.projectName || "",
+              sector: item.sector || "",
+              projectType: item.projectType || "",
+              projectCost: item.projectCost || "",
+              file: item.file || null,
+            });
+          });
+        }
+        break;
+      case "2.5": // Asset Monetization
+        if (sectionData?.assetMonetizationArray && sectionData.assetMonetizationArray.length > 0) {
+          sectionData.assetMonetizationArray.forEach((item: any) => {
+            fields.push({
+              nameOfAsset: item.nameOfAsset || "",
+              sector: item.sector || "",
+              monetizationMode: item.monetizationMode || "",
+              monetizationStatus: item.monetizationStatus || "",
+              file: item.file || null,
+            });
+          });
+        }
+        break;
+    }
+    
+    return fields;
+  };
+
+  // Use the indicator submission hook
+  const {
+    submittingIndicators,
+    submittedIndicators: hookSubmittedIndicators,
+    handleIndicatorSubmit,
+  } = useIndicatorSubmission({
+    category: "infraDevelopment",
+    formData,
+    assignedIndicators: isNodalOfficer ? assignedIndicators : availableIndicators,
+    isNodalOfficer,
+    onAllSubmitted: undefined, // handled globally
+  });
+
+  // Check backend status on initial load to see if all sections are already complete
+  useEffect(() => {
+    const checkInitialStatus = async () => {
+      if (!user?.id) return;
+      
+      try {
+        console.log("🔍 [InfraDevelopmentStep - INITIAL CHECK] Checking backend submission status on mount");
+        const submission = await apiService.getSubmissionByUser(user.id);
+        
+        if (!submission || !submission.id) {
+          console.log("⚠️ No submission found yet");
+          return;
+        }
+
+        // Use the dedicated check-completion endpoint
+        const completionStatus = await apiService.checkSubmissionCompletion(submission.id);
+        console.log("📊 [InfraDevelopmentStep - INITIAL CHECK] Completion status:", completionStatus);
+        
+        const allSectionsComplete = completionStatus?.allCompleted === true;
+        
+        if (allSectionsComplete) {
+          console.log("✅ [InfraDevelopmentStep - INITIAL CHECK] All sections completed, redirecting");
+          toast({
+            title: "Success",
+            description: "All indicators completed. Redirecting to review page...",
+          });
+          setTimeout(() => {
+            navigate(`/data-submission/review/${submission.id}`);
+          }, 1500);
+        }
+      } catch (error) {
+        console.error("❌ [InfraDevelopmentStep - INITIAL CHECK] Error:", error);
+      }
+    };
+
+    checkInitialStatus();
+  }, [user, navigate, toast]);
+
+  // Update tab status when indicators change
+  useEffect(() => {
+    const submitted = getSubmittedIndicators();
+    setTabStatus({
+      infraFinancing: submitted.infraFinancing?.length === 5,
+      infraDevelopment: submitted.infraDevelopment?.length === 5,
+      pppDevelopment: submitted.pppDevelopment?.length === 4,
+      infraEnablers: submitted.infraEnablers?.length === 6,
+    });
+  }, [hookSubmittedIndicators]);
+
+  // Check backend after each indicator submission to see if all sections complete
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      try {
+        console.log("🔍 [InfraDevelopmentStep] Checking backend submission status");
+        const submission = await apiService.getSubmissionByUser(user.id);
+        
+        if (!submission || !submission.id) {
+          console.log("⚠️ No submission found yet");
+          return;
+        }
+
+        // Use the dedicated check-completion endpoint
+        const completionStatus = await apiService.checkSubmissionCompletion(submission.id);
+        console.log("� [InfraDevelopmentStep - AFTER SUBMIT] Completion status:", completionStatus);
+        
+        const allSectionsComplete = completionStatus?.allCompleted === true;
+        
+        if (allSectionsComplete) {
+          console.log("✅ [InfraDevelopmentStep - AFTER SUBMIT] All sections completed, redirecting");
+          toast({
+            title: "Success",
+            description: "All indicators in all steps submitted. Moving to review page.",
+          });
+          setTimeout(() => {
+            navigate(`/data-submission/review/${submission.id}`);
+          }, 1500);
+        } else {
+          console.log("ℹ️ [InfraDevelopmentStep - AFTER SUBMIT] Not all sections complete yet");
+        }
+      } catch (error) {
+        console.error("❌ [InfraDevelopmentStep - AFTER SUBMIT] Error:", error);
+      }
+    };
+
+    // Only check backend if we have submitted indicators
+    if (Object.keys(hookSubmittedIndicators).length > 0) {
+      checkBackendStatus();
+    }
+  }, [hookSubmittedIndicators, user, navigate, toast]); // Trigger when hookSubmittedIndicators changes
+
+  // Patch: after successful submit, update global state
+  const handleIndicatorSubmitPatched = async (
+    indicatorCode: string,
+    prepareFieldsFn: (code: string, data: any) => Record<string, any>[]
+  ) => {
+    await handleIndicatorSubmit(indicatorCode, prepareFieldsFn);
+    setIndicatorSubmitted("infraDevelopment", indicatorCode);
+  };
 
   const handleSaveDraft = async () => {
     const success = saveDraftToLocalStorage("infraDevelopment", formData);
@@ -702,6 +1004,26 @@ export const InfraDevelopmentStep = () => {
                   </table>
                 </div>
               )}
+              
+              {/* Submit Button for 2.1 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("2.1", prepareFieldsForInfraDev)}
+                  disabled={submittingIndicators["2.1"] || hookSubmittedIndicators["2.1"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["2.1"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["2.1"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -864,6 +1186,26 @@ export const InfraDevelopmentStep = () => {
                   </table>
                 </div>
               )}
+              
+              {/* Submit Button for 2.2 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("2.2", prepareFieldsForInfraDev)}
+                  disabled={submittingIndicators["2.2"] || hookSubmittedIndicators["2.2"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["2.2"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["2.2"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1026,6 +1368,26 @@ export const InfraDevelopmentStep = () => {
                   </table>
                 </div>
               )}
+              
+              {/* Submit Button for 2.3 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("2.3", prepareFieldsForInfraDev)}
+                  disabled={submittingIndicators["2.3"] || hookSubmittedIndicators["2.3"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["2.3"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["2.3"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1104,6 +1466,26 @@ export const InfraDevelopmentStep = () => {
                     {errors.section2_4}
                   </p>
                 )}
+              </div>
+              
+              {/* Submit Button for 2.4 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("2.4", prepareFieldsForInfraDev)}
+                  disabled={submittingIndicators["2.4"] || hookSubmittedIndicators["2.4"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["2.4"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["2.4"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
               </div>
             </div>
           </SectionCard>
@@ -1265,6 +1647,26 @@ export const InfraDevelopmentStep = () => {
                     {errors.section2_5}
                   </p>
                 )}
+              </div>
+              
+              {/* Submit Button for 2.5 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("2.5", prepareFieldsForInfraDev)}
+                  disabled={submittingIndicators["2.5"] || hookSubmittedIndicators["2.5"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["2.5"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["2.5"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
               </div>
             </div>
           </SectionCard>

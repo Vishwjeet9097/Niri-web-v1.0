@@ -109,6 +109,44 @@ class ApiService implements HttpClient {
     this.setupInterceptors();
   }
 
+  /**
+   * Fetch the current (partial or complete) submission for a given user.
+   * This wraps the backend endpoint `/submission/user/:userId` which returns
+   * the latest submission (DRAFT or in-progress) belonging to that user.
+   * Used for server-first hydration of partially filled forms after logout.
+   */
+  async getSubmissionByUser(userId: string): Promise<any> {
+    if (!userId) throw new Error("getSubmissionByUser: userId required");
+    try {
+      const response = await this.axios.get(`/submission/user/${userId}`);
+      // Normalise "data" envelope like other helpers.
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      if (error.response?.status === 304) {
+        const cached = error.response?.data || {};
+        return cached?.data !== undefined ? cached.data : cached;
+      }
+      console.warn("⚠️ getSubmissionByUser failed", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if all main sections (infraFinancing, infraDevelopment, pppDevelopment, infraEnablers) are completed
+   * @param submissionId - The submission ID to check
+   * @returns Promise with completion status and submission data
+   */
+  async checkSubmissionCompletion(submissionId: string): Promise<any> {
+    if (!submissionId) throw new Error("checkSubmissionCompletion: submissionId required");
+    try {
+      const response = await this.axios.get(`/submission/${submissionId}/check-completion`);
+      return response.data?.data !== undefined ? response.data.data : response.data;
+    } catch (error: any) {
+      console.warn("⚠️ checkSubmissionCompletion failed", error.message);
+      throw error;
+    }
+  }
+
   private setupInterceptors(): void {
     // Request interceptor - attach auth headers
     this.axios.interceptors.request.use(
