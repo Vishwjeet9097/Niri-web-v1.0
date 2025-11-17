@@ -46,6 +46,7 @@ import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { Badge } from "@/components/ui/badge";
+import { IMPACT_OPTIONS, TRAINING_TYPE_OPTIONS } from "@/features/submission/constants/steps";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -1105,7 +1106,36 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     
     // For MOSPI_REVIEWER, no action buttons (comments are restricted to STATE_APPROVER only)
     if (isMospiReviewer) {
-      return null;
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenModal(sectionId)}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Add Comment
+          </Button>
+        </div>
+      );
+    }
+    
+    // For MOSPI_REVIEWER, show only Add Comment button
+    if (isMospiReviewer) {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenModal(sectionId)}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Add Comment
+          </Button>
+        </div>
+      );
     }
     
     // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
@@ -1129,6 +1159,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <CheckCircle className="w-4 h-4" />
               Accepted
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
           </div>
         );
       }
@@ -1144,6 +1183,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             >
               <RotateCcw className="w-4 h-4" />
               Sent Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
             </Button>
           </div>
         );
@@ -1182,6 +1230,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <CheckCircle className="w-4 h-4" />
             Accept
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
         </div>
       );
     }
@@ -1205,6 +1262,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           >
             <CheckCircle className="w-4 h-4" />
             Accepted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
           </Button>
         </div>
       );
@@ -1266,6 +1332,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               Accept
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
         </div>
       );
     }
@@ -1316,6 +1391,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <RotateCcw className="w-4 h-4" />
               Sent Back
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
           </div>
         );
       }
@@ -1331,6 +1415,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
           </Button>
         </div>
       );
@@ -1348,6 +1441,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           >
             <Clock className="w-4 h-4" />
             Under Review
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
           </Button>
         </div>
       );
@@ -1406,15 +1508,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </Button>
         )}
 
-        {/* <Button
+        <Button
           variant="outline"
           size="sm"
-          className="flex items-center gap-1"
+          className="flex items-center gap-1 h-7 px-2 text-xs"
           onClick={() => handleOpenTimeline(sectionId)}
         >
-          <Clock className="w-4 h-4" />
+          <Clock className="w-3 h-3" />
           Timeline ({commentCount})
-        </Button> */}
+        </Button>
 
         {!isNodalOfficer && (
           <Button
@@ -1802,15 +1904,27 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                       onChange={async (e) => {
                                         const selectedFile = e.target.files?.[0];
                                         if (selectedFile) {
-                                          const newFile: FileUpload = {
-                                            id: `file-${Date.now()}`,
-                                            file: selectedFile,
-                                            fileName: selectedFile.name,
-                                            fileSize: selectedFile.size,
-                                            uploadedAt: Date.now(),
-                                          };
-                                          await handleProjectFileUpdate(idx, newFile);
-                                          e.target.value = ''; // Reset input
+                                          // Upload file immediately (same as create submission)
+                                          try {
+                                            const response = await apiService.uploadFile(submissionId, selectedFile);
+                                            const fileData = response?.data || response;
+                                            
+                                            const newFile: FileUpload = {
+                                              id: fileData.id ?? crypto.randomUUID(),
+                                              file: null, // File not stored locally when backend handles upload
+                                              fileName: fileData.fileName || fileData.filename || selectedFile.name,
+                                              fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
+                                              uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
+                                              filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
+                                              fileUrl: fileData.fileUrl || fileData.url,
+                                              mimeType: fileData.mimeType,
+                                            };
+                                            
+                                            await handleProjectFileUpdate(idx, newFile);
+                                            e.target.value = ''; // Reset input
+                                          } catch (error: any) {
+                                            console.error('Failed to upload file:', error);
+                                          }
                                         }
                                       }}
                                       className="hidden"
@@ -1850,7 +1964,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </table>
                 </div>
 
-                {/* Add More Project Button - Only visible when in edit mode */}
+                {/* Add More Button - Only visible when adopted is "yes" and in edit mode */}
                 {isEditable('4.3') && !showAddProjectForm && (
                   <Button 
                     variant="outline" 
@@ -1859,7 +1973,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     onClick={() => setShowAddProjectForm(true)}
                   >
                     <Plus className="w-4 h-4" />
-                    Add Project
+                    Add More
                   </Button>
                 )}
 
@@ -2138,11 +2252,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {isEditable('4.5') ? (
-                                <Input
+                                <Dropdown
                                   value={practice.impact || ""}
-                                  onChange={(e) => handlePracticeFieldUpdate(idx, 'impact', e.target.value)}
-                                  className="w-full"
-                                  placeholder="Enter impact"
+                                  onChange={(value) => handlePracticeFieldUpdate(idx, 'impact', value)}
+                                  options={IMPACT_OPTIONS}
+                                  placeholder="Select impact"
                                 />
                               ) : (
                                 practice.impact || 'N/A'
@@ -2179,15 +2293,27 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                       onChange={async (e) => {
                                         const selectedFile = e.target.files?.[0];
                                         if (selectedFile) {
-                                          const newFile: FileUpload = {
-                                            id: `file-${Date.now()}`,
-                                            file: selectedFile,
-                                            fileName: selectedFile.name,
-                                            fileSize: selectedFile.size,
-                                            uploadedAt: Date.now(),
-                                          };
-                                          await handlePracticeFileUpdate(idx, newFile);
-                                          e.target.value = ''; // Reset input
+                                          // Upload file immediately (same as create submission)
+                                          try {
+                                            const response = await apiService.uploadFile(submissionId, selectedFile);
+                                            const fileData = response?.data || response;
+                                            
+                                            const newFile: FileUpload = {
+                                              id: fileData.id ?? crypto.randomUUID(),
+                                              file: null, // File not stored locally when backend handles upload
+                                              fileName: fileData.fileName || fileData.filename || selectedFile.name,
+                                              fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
+                                              uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
+                                              filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
+                                              fileUrl: fileData.fileUrl || fileData.url,
+                                              mimeType: fileData.mimeType,
+                                            };
+                                            
+                                            await handlePracticeFileUpdate(idx, newFile);
+                                            e.target.value = ''; // Reset input
+                                          } catch (error: any) {
+                                            console.error('Failed to upload file:', error);
+                                          }
                                         }
                                       }}
                                       className="hidden"
@@ -2256,11 +2382,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                       </div>
                       <div>
                         <Label>Impact</Label>
-                        <Input 
-                          value={newPractice.impact} 
-                          onChange={(e) => setNewPractice({...newPractice, impact: e.target.value})}
-                          className="bg-white"
-                          placeholder="Enter impact"
+                        <Dropdown
+                          value={newPractice.impact}
+                          onChange={(value) => setNewPractice({...newPractice, impact: value})}
+                          options={IMPACT_OPTIONS}
+                          placeholder="Select impact"
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -2452,11 +2578,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                         </td>
                         <td className="py-3 px-4 text-sm font-normal">
                           {isEditable('4.6') ? (
-                            <Input
+                            <Dropdown
                               value={item.trainingType || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'trainingType', e.target.value)}
-                              className="w-full"
-                              placeholder="Enter training type"
+                              onChange={(value) => handleTableFieldUpdate(idx, 'trainingType', value)}
+                              options={TRAINING_TYPE_OPTIONS}
+                              placeholder="Select training type"
                             />
                           ) : (
                             item.trainingType || 'N/A'
@@ -2547,11 +2673,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </div>
                   <div>
                     <Label>Training Type</Label>
-                    <Input 
-                      value={newCapacityEntry.trainingType} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, trainingType: e.target.value})}
-                      className="bg-white"
-                      placeholder="Enter training type"
+                    <Dropdown
+                      value={newCapacityEntry.trainingType}
+                      onChange={(value) => setNewCapacityEntry({...newCapacityEntry, trainingType: value})}
+                      options={TRAINING_TYPE_OPTIONS}
+                      placeholder="Select training type"
                     />
                   </div>
                   <div>
@@ -2603,17 +2729,24 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         sectionId={activeSection || ""}
         submissionId={submissionId}
         existingMessage=""
+        commentType={(() => {
+          const userRole = getUserRole();
+          return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
+        })()}
         onSendBack={
-          // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-          // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-          // Accept no longer requires comment, so it's not included here
-          // For other cases, use the normal flow
-          isMospiApproverSentBack
-            ? async () => {
-                // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-                console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
-              }
-            : (sectionId) => onIndicatorStatus(sectionId, false)
+          // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
+          getUserRole() === 'MOSPI_REVIEWER'
+            ? undefined
+            : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
+              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+              // Accept no longer requires comment, so it's not included here
+              // For other cases, use the normal flow
+              isMospiApproverSentBack
+              ? async () => {
+                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+                }
+              : (sectionId) => onIndicatorStatus(sectionId, false)
         }
       />
 

@@ -1074,6 +1074,8 @@ class ApiService implements HttpClient {
   ): Promise<{
     data: any; url: string; filename: string; size: number 
 }> {
+
+   console.log("🔍 API Service - Upload File:", submissionId, file);
     try {
       const formData = new FormData();
       formData.append("file", file);

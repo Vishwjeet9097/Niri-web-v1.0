@@ -579,12 +579,12 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
   const handleSaveMessage = async (updatedSubmission: unknown) => {
     // MessageModal already saved the comment, so we just need to update state and check flags
-    if (updatedSubmission) {
-      // Update submission and form data so UI remains intact
-      setSubmissionState(updatedSubmission);
-      if ((updatedSubmission as any).formData) {
-        setFormDataState((updatedSubmission as any).formData.infraDevelopment);
-      }
+        if (updatedSubmission) {
+          // Update submission and form data so UI remains intact
+          setSubmissionState(updatedSubmission);
+          if ((updatedSubmission as any).formData) {
+            setFormDataState((updatedSubmission as any).formData.infraDevelopment);
+          }
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
       const shouldShowSentBackConfirmation = isMospiApproverSentBack && mospiSentBackSectionId;
@@ -608,10 +608,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
       // For regular comments (not from Sent Back), just update timeline if needed
       if (activeSection && timelineSection === activeSection) {
-        setTimelineSection(null);
-        setTimeout(() => {
-          setTimelineSection(activeSection);
-        }, 100);
+            setTimelineSection(null);
+            setTimeout(() => {
+              setTimelineSection(activeSection);
+            }, 100);
       }
     }
   };
@@ -631,50 +631,72 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     sectionId: string,
     sourceState: any = state
   ): Record<string, any>[] => {
-    switch (sectionId) {
+      switch (sectionId) {
       case '2.1': {
         const infraActArray = Array.isArray(sourceState?.section2_1?.infraActArray)
           ? sourceState.section2_1.infraActArray
           : [];
-        return [
-          {
-            infraActArray: infraActArray.map((item: any) => ({
-              id: item?.id ?? null,
-              sector: item?.sector ?? null,
-              files: toFileArray(item?.files),
-            })),
-          },
-        ];
+        const files = infraActArray.map((item: any) => ({
+          id: item?.id ?? null,
+            sector: item?.sector ?? null,
+          files: toFileArray(item?.files).map((file: FileUpload) => ({
+            id: file?.id,
+            fileName: file?.fileName,
+            fileSize: file?.fileSize,
+            uploadedAt: file?.uploadedAt,
+            filePath: file?.filePath || file?.file,
+            fileUrl: file?.fileUrl,
+            mimeType: file?.mimeType,
+          })),
+        }));
+        console.log("🔨 Built fields for 2.1:", files);
+        return [{ infraActArray: files }];
       }
 
       case '2.2': {
         const specializedEntityArray = Array.isArray(sourceState?.section2_2?.specializedEntityArray)
           ? sourceState.section2_2.specializedEntityArray
           : [];
-        return [
-          {
-            specializedEntityArray: specializedEntityArray.map((item: any) => ({
-              id: item?.id ?? null,
-              sector: item?.sector ?? null,
-              files: toFileArray(item?.files),
-            })),
-          },
-        ];
+        const files = specializedEntityArray.map((item: any) => ({
+          id: item?.id ?? null,
+            sector: item?.sector ?? null,
+          files: toFileArray(item?.files).map((file: FileUpload) => ({
+            id: file?.id,
+            fileName: file?.fileName,
+            fileSize: file?.fileSize,
+            uploadedAt: file?.uploadedAt,
+            filePath: file?.filePath || file?.file,
+            fileUrl: file?.fileUrl,
+            mimeType: file?.mimeType,
+          })),
+        }));
+        console.log("🔨 Built fields for 2.2:", files);
+        return [{ specializedEntityArray: files }];
       }
 
       case '2.3': {
         const infraDevelopmentArray = Array.isArray(sourceState?.section2_3?.infraDevelopmentArray)
           ? sourceState.section2_3.infraDevelopmentArray
           : [];
+        const files = infraDevelopmentArray.map((item: any) => ({
+          id: item?.id ?? null,
+            sector: item?.sector ?? null,
+          files: toFileArray(item?.files).map((file: FileUpload) => ({
+            id: file?.id,
+            fileName: file?.fileName,
+            fileSize: file?.fileSize,
+            uploadedAt: file?.uploadedAt,
+            filePath: file?.filePath || file?.file,
+            fileUrl: file?.fileUrl,
+            mimeType: file?.mimeType,
+          })),
+        }));
+        console.log("🔨 Built fields for 2.3:", files);
         return [
           {
             hasInfraDevelopmentPlan: sourceState?.section2_3?.hasInfraDevelopmentPlan ?? null,
             comment: sourceState?.section2_3?.comment ?? null,
-            infraDevelopmentArray: infraDevelopmentArray.map((item: any) => ({
-              id: item?.id ?? null,
-              sector: item?.sector ?? null,
-              files: toFileArray(item?.files),
-            })),
+            infraDevelopmentArray: files,
           },
         ];
       }
@@ -690,7 +712,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             websiteLink: sourceState?.section2_4?.websiteLink ?? null,
             investmentReadyArray: investmentReadyArray.map((item: any) => ({
               id: item?.id ?? null,
-              projectName: item?.projectName ?? null,
+            projectName: item?.projectName ?? null,
               dprFile: toSingleFile(item?.dprFile),
             })),
           },
@@ -705,17 +727,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           {
             assetMonetizationArray: assetMonetizationArray.map((item: any) => ({
               id: item?.id ?? null,
-              projectName: item?.projectName ?? null,
-              sector: item?.sector ?? null,
-              type: item?.type ?? null,
-              ownership: item?.ownership ?? null,
+            projectName: item?.projectName ?? null,
+            sector: item?.sector ?? null,
+            type: item?.type ?? null,
+            ownership: item?.ownership ?? null,
               estimatedMonetization: item?.estimatedMonetization ?? null,
             })),
           },
         ];
       }
 
-      default:
+        default:
         return [];
     }
   };
@@ -733,7 +755,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     if (isNodalOfficer) {
       setPendingSaveSectionId(sectionId);
       setShowSaveDialog(true);
-      return;
+          return;
     }
 
     // For non-NODAL_OFFICER users, proceed with save directly
@@ -1061,6 +1083,49 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     }));
   };
 
+  // File upload handler - handles response structure correctly
+  const handleFileUpload = async (file: File): Promise<FileUpload | null> => {
+    if (!submissionId) {
+      console.error('No submissionId provided for file upload');
+      return null;
+    }
+
+    try {
+      // Upload file to server
+      const response = await apiService.uploadFile(submissionId, file);
+      
+      // Handle different response structures (same as EditableFileDisplay)
+      // Response might be: { data: { fileName, filePath, ... } } or { fileName, filePath, ... } directly
+      const fileData = (response as any)?.data || response;
+      
+      // Extract file path from various possible fields
+      const storedPath = fileData.file ?? fileData.filePath ?? fileData.url ?? fileData.path ?? null;
+      
+      // Create FileUpload object
+      const fileUpload: FileUpload = {
+        id: fileData.id ?? crypto.randomUUID(),
+        file: storedPath, // Store file path (string) not File object
+        fileName: fileData.fileName || fileData.filename || file.name,
+        fileSize: Number(fileData.fileSize ?? fileData.size ?? file.size ?? 0),
+        uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
+        filePath: storedPath ?? undefined,
+        fileUrl: fileData.fileUrl || fileData.url,
+        mimeType: fileData.mimeType,
+      };
+      
+      console.log("✅ File uploaded successfully:", {
+        fileName: fileUpload.fileName,
+        filePath: fileUpload.filePath,
+        response: response
+      });
+      
+      return fileUpload;
+    } catch (error: any) {
+      console.error('Failed to upload file:', error);
+      return null;
+    }
+  };
+
   // Helper functions to handle file updates
   const handleFilesUpdate = async (
     sectionId: string,
@@ -1147,6 +1212,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
     try {
       const fields = buildSectionFields(sectionId, nextState);
+      
+      console.log("📤 Saving section with fields:", {
+        sectionId,
+        sectionKey,
+        fields,
+        nextSection,
+        itemFiles: nextSection?.infraActArray?.[itemIndex]?.files || nextSection?.specializedEntityArray?.[itemIndex]?.files || nextSection?.infraDevelopmentArray?.[itemIndex]?.files,
+        nextState: nextState?.[sectionKey]
+      });
 
       await handleSaveSection({
         submissionId,
@@ -1227,7 +1301,36 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   
   // For MOSPI_REVIEWER, no action buttons (comments are restricted to STATE_APPROVER only)
   if (isMospiReviewer) {
-    return null;
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenModal(sectionId)}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Add Comment
+        </Button>
+      </div>
+    );
+  }
+  
+  // For MOSPI_REVIEWER, show only Add Comment button
+  if (isMospiReviewer) {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenModal(sectionId)}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Add Comment
+        </Button>
+      </div>
+    );
   }
   
   // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
@@ -1251,6 +1354,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <CheckCircle className="w-4 h-4" />
             Accepted
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
+          </Button>
         </div>
       );
     }
@@ -1266,6 +1378,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
           </Button>
         </div>
       );
@@ -1290,23 +1411,32 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           <RotateCcw className="w-4 h-4" />
           Sent Back
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => {
-            // For MOSPI_APPROVER, accept action: 
-            // Show confirmation dialog directly (no comment required)
-            setPendingActionSectionId(sectionId);
-            setShowAcceptDialog(true);
-          }}
-        >
-          <CheckCircle className="w-4 h-4" />
-          Accept
-        </Button>
-      </div>
-    );
-  }
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => {
+              // For MOSPI_APPROVER, accept action: 
+              // Show confirmation dialog directly (no comment required)
+              setPendingActionSectionId(sectionId);
+              setShowAcceptDialog(true);
+            }}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
 
   // For all other roles, check status field as before
   const sectionKey = `section${sectionId.replace('.', '_')}`;
@@ -1327,6 +1457,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         >
           <CheckCircle className="w-4 h-4" />
           Accepted
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
         </Button>
       </div>
     );
@@ -1388,6 +1527,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             Accept
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
+        </Button>
       </div>
     );
   }
@@ -1438,6 +1586,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
+          </Button>
         </div>
       );
     }
@@ -1453,6 +1610,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         >
           <RotateCcw className="w-4 h-4" />
           Sent Back
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
         </Button>
       </div>
     );
@@ -1471,6 +1637,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           <Clock className="w-4 h-4" />
           Under Review
         </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
+          </Button>
       </div>
     );
   }
@@ -1519,18 +1694,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
       {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
       {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
+      <Button
+        variant="outline"
+        size="sm"
+        className="flex items-center gap-1"
           onClick={() => handleOpenModal(sectionId)}
-        >
-          <RotateCcw className="w-4 h-4" />
+      >
+        <RotateCcw className="w-4 h-4" />
           Send Back
-        </Button>
+      </Button>
       )}
 
-      {/* <Button
+      <Button
         variant="outline"
         size="sm"
         className="flex items-center gap-1"
@@ -1538,18 +1713,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       >
         <Clock className="w-4 h-4" />
         Timeline ({commentCount})
-      </Button> */}
+      </Button>
 
       {!isNodalOfficer && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => onIndicatorStatus(sectionId, true)}
-        >
-          <CheckCircle className="w-4 h-4" />
-          Accept
-        </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+        onClick={() => onIndicatorStatus(sectionId, true)}
+      >
+        <CheckCircle className="w-4 h-4" />
+        Accept
+      </Button>
       )}
 
     </div>
@@ -1667,9 +1842,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           <td className="py-3 px-4 text-sm font-normal">
                             {isEditable('2.1') ? (
                               <div className="space-y-1.5">
-                                {item.files && item.files.length > 0 ? (
+                        {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
-                                    {item.files.map((file: any, fileIndex: number) => (
+                            {item.files.map((file: any, fileIndex: number) => (
                                       <Badge 
                                         key={fileIndex} 
                                         variant="secondary" 
@@ -1689,9 +1864,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                           <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
                                         </button>
                                       </Badge>
-                                    ))}
-                                  </div>
-                                ) : (
+                            ))}
+                          </div>
+                        ) : (
                                   <span className="text-muted-foreground text-xs">No files</span>
                                 )}
                                 <div className="flex items-center">
@@ -1701,15 +1876,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                     onChange={async (e) => {
                                       const selectedFile = e.target.files?.[0];
                                       if (selectedFile) {
-                                        const newFile: FileUpload = {
-                                          id: `file-${Date.now()}`,
-                                          file: selectedFile,
-                                          fileName: selectedFile.name,
-                                          fileSize: selectedFile.size,
-                                          uploadedAt: Date.now(),
-                                        };
-                                        const existingFiles = item.files || [];
-                                        await handleFilesUpdate('2.1', index, [...existingFiles, newFile]);
+                                        const uploadedFile = await handleFileUpload(selectedFile);
+                                        if (uploadedFile) {
+                                          const existingFiles = item.files || [];
+                                          await handleFilesUpdate('2.1', index, [...existingFiles, uploadedFile]);
+                                        }
                                         e.target.value = ''; // Reset input
                                       }
                                     }}
@@ -1726,8 +1897,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                     <Plus className="w-3 h-3 mr-1" />
                                     Add
                                   </Button>
-                                </div>
-                              </div>
+                      </div>
+                    </div>
                             ) : (
                               item.files && item.files.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
@@ -1742,14 +1913,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                       <span className="truncate">{file.fileName || 'Unknown file'}</span>
                                     </Badge>
                                   ))}
-                                </div>
+                  </div>
                               ) : (
                                 <span className="text-muted-foreground text-xs">No files</span>
                               )
                             )}
                           </td>
-                          <td className="py-3 px-4 text-sm font-normal">
-                            {item.files && item.files.length > 0 ? (
+                        <td className="py-3 px-4 text-sm font-normal">
+                          {item.files && item.files.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {item.files.map((file: any, fileIndex: number) => (
                                   <Badge 
@@ -1761,11 +1932,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                   </Badge>
                                 ))}
                               </div>
-                            ) : (
+                          ) : (
                               <span className="text-muted-foreground text-xs">N/A</span>
-                            )}
-                          </td>
-                        </tr>
+                          )}
+                        </td>
+                      </tr>
                       ));
                     })()}
                   </tbody>
@@ -1924,9 +2095,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           <td className="py-3 px-4 text-sm font-normal">
                             {isEditable('2.2') ? (
                               <div className="space-y-1.5">
-                                {item.files && item.files.length > 0 ? (
+                        {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
-                                    {item.files.map((file: any, fileIndex: number) => (
+                            {item.files.map((file: any, fileIndex: number) => (
                                       <Badge 
                                         key={fileIndex} 
                                         variant="secondary" 
@@ -1947,7 +2118,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                         </button>
                                       </Badge>
                                     ))}
-                                  </div>
+                              </div>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">No files</span>
                                 )}
@@ -1958,15 +2129,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                     onChange={async (e) => {
                                       const selectedFile = e.target.files?.[0];
                                       if (selectedFile) {
-                                        const newFile: FileUpload = {
-                                          id: `file-${Date.now()}`,
-                                          file: selectedFile,
-                                          fileName: selectedFile.name,
-                                          fileSize: selectedFile.size,
-                                          uploadedAt: Date.now(),
-                                        };
-                                        const existingFiles = item.files || [];
-                                        await handleFilesUpdate('2.2', index, [...existingFiles, newFile]);
+                                        const uploadedFile = await handleFileUpload(selectedFile);
+                                        if (uploadedFile) {
+                                          const existingFiles = item.files || [];
+                                          await handleFilesUpdate('2.2', index, [...existingFiles, uploadedFile]);
+                                        }
                                         e.target.value = ''; // Reset input
                                       }
                                     }}
@@ -1998,9 +2165,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                       <Upload className="w-3 h-3" />
                                       <span className="truncate">{file.fileName || 'Unknown file'}</span>
                                     </Badge>
-                                  ))}
-                                </div>
-                              ) : (
+                            ))}
+                          </div>
+                        ) : (
                                 <span className="text-muted-foreground text-xs">No files</span>
                               )
                             )}
@@ -2017,7 +2184,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                     {file.fileName?.split('.').pop()?.toUpperCase() || 'N/A'}
                                   </Badge>
                                 ))}
-                              </div>
+                      </div>
                             ) : (
                               <span className="text-muted-foreground text-xs">N/A</span>
                             )}
@@ -2027,7 +2194,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     })()}
                   </tbody>
                 </table>
-              </div>
+                    </div>
 
               {/* Add More Button - Only visible when in edit mode */}
               {isEditable('2.2') && !showAddForm2_2 && (
@@ -2056,7 +2223,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                         placeholder="Select Sector"
                         isEditable={true}
                       />
-                    </div>
+                  </div>
                     <div>
                       <Label>Upload Files</Label>
                       <EditableFileDisplay
@@ -2067,7 +2234,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                         label=""
                         multiple={true}
                       />
-                    </div>
+                </div>
                   </div>
                   <div className="flex gap-2 mt-4">
                     <Button
@@ -2092,8 +2259,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                       Cancel
                     </Button>
                   </div>
-                </div>
-              )}
+                  </div>
+                )}
 
               <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
             </div>
@@ -2135,7 +2302,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           </CardHeader> */}
             <div className="space-y-4">
               {/* RadioGroup for hasInfraDevelopmentPlan */}
-              <div>
+                    <div>
                 <Label className="mb-3 block">Has Infrastructure Development Plan?*</Label>
                 {isEditable('2.3') ? (
                   <RadioGroup
@@ -2164,7 +2331,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </span>
                   </div>
                 )}
-              </div>
+                    </div>
 
               {/* Show table and Add More button if hasInfraDevelopmentPlan is "yes" */}
               {(state?.section2_3?.hasInfraDevelopmentPlan === "yes") && (
@@ -2214,9 +2381,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <td className="py-3 px-4 text-sm font-normal">
                                 {isEditable('2.3') ? (
                                   <div className="space-y-1.5">
-                                    {item.files && item.files.length > 0 ? (
+                        {item.files && item.files.length > 0 ? (
                                       <div className="flex flex-wrap gap-1.5">
-                                        {item.files.map((file: any, fileIndex: number) => (
+                            {item.files.map((file: any, fileIndex: number) => (
                                           <Badge 
                                             key={fileIndex} 
                                             variant="secondary" 
@@ -2237,7 +2404,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                             </button>
                                           </Badge>
                                         ))}
-                                      </div>
+                              </div>
                                     ) : (
                                       <span className="text-muted-foreground text-xs">No files</span>
                                     )}
@@ -2248,15 +2415,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                         onChange={async (e) => {
                                           const selectedFile = e.target.files?.[0];
                                           if (selectedFile) {
-                                            const newFile: FileUpload = {
-                                              id: `file-${Date.now()}`,
-                                              file: selectedFile,
-                                              fileName: selectedFile.name,
-                                              fileSize: selectedFile.size,
-                                              uploadedAt: Date.now(),
-                                            };
-                                            const existingFiles = item.files || [];
-                                            await handleFilesUpdate('2.3', index, [...existingFiles, newFile]);
+                                            const uploadedFile = await handleFileUpload(selectedFile);
+                                            if (uploadedFile) {
+                                              const existingFiles = item.files || [];
+                                              await handleFilesUpdate('2.3', index, [...existingFiles, uploadedFile]);
+                                            }
                                             e.target.value = ''; // Reset input
                                           }
                                         }}
@@ -2288,9 +2451,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                           <Upload className="w-3 h-3" />
                                           <span className="truncate">{file.fileName || 'Unknown file'}</span>
                                         </Badge>
-                                      ))}
-                                    </div>
-                                  ) : (
+                            ))}
+                          </div>
+                        ) : (
                                     <span className="text-muted-foreground text-xs">No files</span>
                                   )
                                 )}
@@ -2307,7 +2470,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                         {file.fileName?.split('.').pop()?.toUpperCase() || 'N/A'}
                                       </Badge>
                                     ))}
-                                  </div>
+                      </div>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">N/A</span>
                                 )}
@@ -2317,7 +2480,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                         })()}
                       </tbody>
                     </table>
-                  </div>
+                    </div>
 
                   {/* Add More Button - Only visible when in edit mode */}
                   {isEditable('2.3') && !showAddForm2_3 && (
@@ -2346,7 +2509,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             placeholder="Select Sector"
                             isEditable={true}
                           />
-                        </div>
+                  </div>
                         <div>
                           <Label>Upload Files</Label>
                           <EditableFileDisplay
@@ -2357,7 +2520,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             label=""
                             multiple={true}
                           />
-                        </div>
+                </div>
                       </div>
                       <div className="flex gap-2 mt-4">
                         <Button
@@ -2382,10 +2545,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           Cancel
                         </Button>
                       </div>
-                    </div>
-                  )}
+                  </div>
+                )}
 
-                  <p className="text-sm text-muted-foreground">Upload plan</p>
+              <p className="text-sm text-muted-foreground">Upload plan</p>
                 </>
               )}
 
@@ -2446,7 +2609,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           </CardHeader> */}
             <div className="space-y-4">
               {/* RadioGroup for hasInvestmentReady */}
-              <div>
+                    <div>
                 <Label className="mb-3 block">Has Investment Ready Project Pipeline?*</Label>
                 {isEditable('2.4') ? (
                   <RadioGroup
@@ -2475,7 +2638,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     </span>
                   </div>
                 )}
-              </div>
+                    </div>
 
               {/* Show table and Add More button if hasInvestmentReady is "yes" */}
               {(state?.section2_4?.hasInvestmentReady === "yes") && (
@@ -2533,10 +2696,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                 ) : (
                                   item.dprFile && item.dprFile.fileName ? (
                                     <div className="flex items-center gap-2">
-                                      <Upload className="w-4 h-4" />
+                            <Upload className="w-4 h-4" />
                                       <span className="text-sm">{item.dprFile.fileName || 'Unknown file'}</span>
-                                    </div>
-                                  ) : (
+                          </div>
+                        ) : (
                                     <span className="text-muted-foreground text-xs">No file uploaded</span>
                                   )
                                 )}
@@ -2555,7 +2718,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                         })()}
                       </tbody>
                     </table>
-                  </div>
+                      </div>
 
                   {/* Add More Button - Only visible when in edit mode */}
                   {isEditable('2.4') && !showAddForm2_4 && (
@@ -2583,7 +2746,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             className="bg-white"
                             placeholder="Enter project name"
                           />
-                        </div>
+                    </div>
                         <div>
                           <Label>Upload DPR/Feasibility Report</Label>
                           <EditableFileDisplay
@@ -2594,8 +2757,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             label=""
                             multiple={false}
                           />
-                        </div>
-                      </div>
+                  </div>
+                </div>
                       <div className="flex gap-2 mt-4">
                         <Button
                           variant="default"
@@ -2619,12 +2782,12 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           Cancel
                         </Button>
                       </div>
-                    </div>
-                  )}
+                  </div>
+                )}
 
-                  <p className="text-sm text-muted-foreground">
-                    Annex 8: Upload DPR/Feasibility Report
-                  </p>
+              <p className="text-sm text-muted-foreground">
+                Annex 8: Upload DPR/Feasibility Report
+              </p>
                 </>
               )}
 
@@ -2702,11 +2865,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
                       if (!assetMonetizationArray.length) {
                         return (
-                          <tr>
-                            <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                              No asset monetization pipeline data available
-                            </td>
-                          </tr>
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                            No asset monetization pipeline data available
+                          </td>
+                        </tr>
                         );
                       }
 
@@ -2889,17 +3052,50 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         sectionId={activeSection || ""}
         submissionId={submissionId}
         existingMessage=""
-        onSendBack={
-          // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-          // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-          // Accept no longer requires comment, so it's not included here
-          // For other cases, use the normal flow
-          isMospiApproverSentBack
-            ? async () => {
-                // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-                console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+        commentType={(() => {
+          const getUserRole = () => {
+            try {
+              const authUser = localStorage.getItem('niri_app:auth_user');
+              if (authUser) {
+                const user = JSON.parse(authUser);
+                return user.value?.role;
               }
-            : (sectionId) => onIndicatorStatus(sectionId, false)
+            } catch (error) {
+              console.error('Error reading user role:', error);
+            }
+            return null;
+          };
+          const userRole = getUserRole();
+          return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
+        })()}
+        onSendBack={
+          // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
+          (() => {
+            const getUserRole = () => {
+              try {
+                const authUser = localStorage.getItem('niri_app:auth_user');
+                if (authUser) {
+                  const user = JSON.parse(authUser);
+                  return user.value?.role;
+                }
+              } catch (error) {
+                console.error('Error reading user role:', error);
+              }
+              return null;
+            };
+            return getUserRole() === 'MOSPI_REVIEWER';
+          })()
+            ? undefined
+            : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
+              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+              // Accept no longer requires comment, so it's not included here
+              // For other cases, use the normal flow
+              isMospiApproverSentBack
+              ? async () => {
+                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+                }
+              : (sectionId) => onIndicatorStatus(sectionId, false)
         }
       />
 
