@@ -23,6 +23,7 @@ interface MessageModalProps {
   submissionId: string;
   existingMessage?: string;
   onSendBack?: (sectionId: string) => Promise<void> | void;
+  commentType?: "indicator_comment" | "rejection" | "approval" | "comment";
 }
 
 export const MessageModal = ({
@@ -34,6 +35,7 @@ export const MessageModal = ({
   submissionId,
   existingMessage = "",
   onSendBack,
+  commentType = "indicator_comment",
 }: MessageModalProps) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -69,11 +71,13 @@ export const MessageModal = ({
     setIsLoading(true);
     try {
       console.log("🔄 MessageModal - Calling API: apiService.addComment");
+      // Map "comment" type to "indicator_comment" for API compatibility
+      const apiCommentType = commentType === "comment" ? "indicator_comment" : commentType;
       const updatedSubmission = await apiService.addComment(
         submissionId,
         messageToSave,
         sectionId,
-        "indicator_comment"
+        apiCommentType as "indicator_comment" | "rejection" | "approval"
       );
       console.log("🔄 MessageModal - API response received:", updatedSubmission);
       

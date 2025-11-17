@@ -1030,9 +1030,21 @@ const renderActionButtons = (sectionId: string) => {
   const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
   const isMospiApprover = userRole === 'MOSPI_APPROVER';
   
-  // For MOSPI_REVIEWER, no action buttons (comments are restricted to STATE_APPROVER only)
+  // For MOSPI_REVIEWER, show only Add Comment button
   if (isMospiReviewer) {
-    return null;
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenModal(sectionId)}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Add Comment
+        </Button>
+      </div>
+    );
   }
   
   // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
@@ -1058,6 +1070,15 @@ const renderActionButtons = (sectionId: string) => {
             <CheckCircle className="w-4 h-4" />
             Accepted
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
+          </Button>
         </div>
       );
     }
@@ -1073,6 +1094,15 @@ const renderActionButtons = (sectionId: string) => {
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
           </Button>
         </div>
       );
@@ -1111,6 +1141,15 @@ const renderActionButtons = (sectionId: string) => {
           <CheckCircle className="w-4 h-4" />
           Accept
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
+        </Button>
       </div>
     );
   }
@@ -1135,6 +1174,15 @@ const renderActionButtons = (sectionId: string) => {
         >
           <CheckCircle className="w-4 h-4" />
           Accepted
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
         </Button>
       </div>
     );
@@ -1196,6 +1244,15 @@ const renderActionButtons = (sectionId: string) => {
             Accept
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
+        </Button>
       </div>
     );
   }
@@ -1246,6 +1303,15 @@ const renderActionButtons = (sectionId: string) => {
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
+          </Button>
         </div>
       );
     }
@@ -1261,6 +1327,15 @@ const renderActionButtons = (sectionId: string) => {
         >
           <RotateCcw className="w-4 h-4" />
           Sent Back
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <Clock className="w-4 h-4" />
+          Timeline ({commentCount})
         </Button>
       </div>
     );
@@ -1278,6 +1353,15 @@ const renderActionButtons = (sectionId: string) => {
         >
           <Clock className="w-4 h-4" />
           Under Review
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 h-7 px-2 text-xs"
+          onClick={() => handleOpenTimeline(sectionId)}
+        >
+          <MessageSquare className="w-3 h-3" />
+          View Comments ({commentCount})
         </Button>
       </div>
     );
@@ -1336,6 +1420,16 @@ const renderActionButtons = (sectionId: string) => {
           {/* ({commentCount}) */}
         </Button>
       )}
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="flex items-center gap-1 h-7 px-2 text-xs"
+        onClick={() => handleOpenTimeline(sectionId)}
+      >
+        <Clock className="w-3 h-3" />
+        Timeline ({commentCount})
+      </Button>
 
       {!isNodalOfficer && (
         <Button
@@ -2157,26 +2251,59 @@ const calculateAllocationPercentage = () => {
         )}
       </div>
 
-    <MessageModal
-      isOpen={activeSection !== null}
-      onClose={handleCloseModal}
-      onSave={handleSaveMessage}
-      sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
-      sectionId={activeSection || ""}
-      submissionId={submissionId}
-      existingMessage=""
-      onSendBack={
-        // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-        // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-        // Accept no longer requires comment, so it's not included here
-        // For other cases, use the normal flow
-        isMospiApproverSentBack
-          ? async () => {
-              // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-              console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+      <MessageModal
+        isOpen={activeSection !== null}
+        onClose={handleCloseModal}
+        onSave={handleSaveMessage}
+        sectionTitle={activeSection ? getSectionTitle(activeSection) : ""}
+        sectionId={activeSection || ""}
+        submissionId={submissionId}
+        existingMessage=""
+        commentType={(() => {
+          const getUserRole = () => {
+            try {
+              const authUser = localStorage.getItem('niri_app:auth_user');
+              if (authUser) {
+                const user = JSON.parse(authUser);
+                return user.value?.role;
+              }
+            } catch (error) {
+              console.error('Error reading user role:', error);
             }
-          : (sectionId) => onIndicatorStatus(sectionId, false)
-      }
+            return null;
+          };
+          const userRole = getUserRole();
+          return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
+        })()}
+        onSendBack={
+          // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
+          (() => {
+            const getUserRole = () => {
+              try {
+                const authUser = localStorage.getItem('niri_app:auth_user');
+                if (authUser) {
+                  const user = JSON.parse(authUser);
+                  return user.value?.role;
+                }
+              } catch (error) {
+                console.error('Error reading user role:', error);
+              }
+              return null;
+            };
+            return getUserRole() === 'MOSPI_REVIEWER';
+          })()
+            ? undefined
+            : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
+              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+              // Accept no longer requires comment, so it's not included here
+              // For other cases, use the normal flow
+              isMospiApproverSentBack
+              ? async () => {
+                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+                }
+              : (sectionId) => onIndicatorStatus(sectionId, false)
+        }
     />
 
       <TimelineModal
