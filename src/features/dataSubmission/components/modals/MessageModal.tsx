@@ -137,13 +137,18 @@ export const MessageModal = ({
         description: "Comment added successfully",
       });
       
+      // Call onSave with updatedSubmission - parent component will handle closing modal if needed
+      // If onSave doesn't handle closing, we'll close it after a delay
       onSave(updatedSubmission);
-
+      
+      // If onSendBack is provided, let the parent handle closing (might show confirmation)
       if (onSendBack) {
         await onSendBack(sectionId);
+        // Parent will handle closing if needed, so we don't close here
+        return;
       }
       
-      // Close modal after a small delay to ensure form is cleared
+      // For regular comments (no onSendBack), close modal after a small delay
       setTimeout(() => {
         onClose();
       }, 100);

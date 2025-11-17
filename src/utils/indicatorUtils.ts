@@ -276,3 +276,87 @@ export function getMissingIndicators(assignedIndicators: string[]): string[] {
     (indicator) => !assignedIndicators.includes(indicator)
   );
 }
+
+/**
+ * Filter section-based formData to only include sections for assigned indicators
+ * This is used for filtering formData with structure: { infraFinancing: {}, infraDevelopment: {}, ... }
+ */
+export function filterSectionFormDataByIndicators(
+  formData: any,
+  assignedIndicators: string[]
+): any {
+  if (!formData || !assignedIndicators || assignedIndicators.length === 0) {
+    return formData || {};
+  }
+
+  const filtered: any = {
+    infraFinancing: {},
+    infraDevelopment: {},
+    pppDevelopment: {},
+    infraEnablers: {},
+  };
+
+  // Map indicator codes to their section keys
+  const indicatorToSectionMap: Record<string, { category: string; sectionKey: string }> = {
+    "1.1": { category: "infraFinancing", sectionKey: "section1_1" },
+    "1.2": { category: "infraFinancing", sectionKey: "section1_2" },
+    "1.3": { category: "infraFinancing", sectionKey: "section1_3" },
+    "1.4": { category: "infraFinancing", sectionKey: "section1_4" },
+    "1.5": { category: "infraFinancing", sectionKey: "section1_5" },
+    "2.1": { category: "infraDevelopment", sectionKey: "section2_1" },
+    "2.2": { category: "infraDevelopment", sectionKey: "section2_2" },
+    "2.3": { category: "infraDevelopment", sectionKey: "section2_3" },
+    "2.4": { category: "infraDevelopment", sectionKey: "section2_4" },
+    "2.5": { category: "infraDevelopment", sectionKey: "section2_5" },
+    "3.1": { category: "pppDevelopment", sectionKey: "section3_1" },
+    "3.2": { category: "pppDevelopment", sectionKey: "section3_2" },
+    "3.3": { category: "pppDevelopment", sectionKey: "section3_3" },
+    "3.4": { category: "pppDevelopment", sectionKey: "section3_4" },
+    "4.1": { category: "infraEnablers", sectionKey: "section4_1" },
+    "4.2": { category: "infraEnablers", sectionKey: "section4_2" },
+    "4.3": { category: "infraEnablers", sectionKey: "section4_3" },
+    "4.4": { category: "infraEnablers", sectionKey: "section4_4" },
+    "4.5": { category: "infraEnablers", sectionKey: "section4_5" },
+    "4.6": { category: "infraEnablers", sectionKey: "section4_6" },
+  };
+
+  // Only include sections for assigned indicators
+  // IMPORTANT: Always include assigned sections, even if they're undefined or empty,
+  // so they appear in preview/review pages regardless of data presence
+  assignedIndicators.forEach((indicatorCode) => {
+    const mapping = indicatorToSectionMap[indicatorCode];
+    if (mapping) {
+      if (!filtered[mapping.category]) {
+        filtered[mapping.category] = {};
+      }
+      // Include the section if it exists in formData, or include an empty object if assigned
+      // This ensures assigned indicators always appear in preview/review
+      if (formData[mapping.category] && formData[mapping.category][mapping.sectionKey] !== undefined) {
+        filtered[mapping.category][mapping.sectionKey] = formData[mapping.category][mapping.sectionKey];
+      } else {
+        // Include assigned section even if undefined - use empty object to preserve structure
+        // The review component will handle displaying empty/undefined sections appropriately
+        filtered[mapping.category][mapping.sectionKey] = formData[mapping.category]?.[mapping.sectionKey] ?? {};
+      }
+    }
+  });
+
+  // Remove empty categories
+  Object.keys(filtered).forEach((category) => {
+    if (Object.keys(filtered[category]).length === 0) {
+      delete filtered[category];
+    }
+  });
+
+  // Preserve other formData properties (like stateUt, etc.)
+  const otherProps = { ...formData };
+  delete otherProps.infraFinancing;
+  delete otherProps.infraDevelopment;
+  delete otherProps.pppDevelopment;
+  delete otherProps.infraEnablers;
+
+  return {
+    ...otherProps,
+    ...filtered,
+  };
+}

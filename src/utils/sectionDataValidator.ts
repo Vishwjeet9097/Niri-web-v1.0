@@ -136,11 +136,11 @@ export const hasInfraFinancingData = (formData: any): boolean => {
 
     switch (sectionId) {
       case "section1_1":
+        // Exclude percentage and marksObtained from meaningful data check
+        // These are calculated/backend fields and should not determine visibility
         return (
-          hasMeaningfulValue(section.year) ||
+          // hasMeaningfulValue(section.year) ||
           hasMeaningfulValue(section.gsdpForFY) ||
-          hasMeaningfulValue(section.percentage) ||
-          hasMeaningfulValue(section.marksObtained) ||
           hasMeaningfulValue(section.allocationToGSDP) ||
           hasMeaningfulValue(section.capitalAllocation) ||
           hasMeaningfulValue(section.capexToCapexActuals) ||
@@ -148,21 +148,25 @@ export const hasInfraFinancingData = (formData: any): boolean => {
         );
 
       case "section1_2":
+        // Exclude percentage and marksObtained from meaningful data check
+        // These are calculated/backend fields and should not determine visibility
         return (
-          hasMeaningfulValue(section.year) ||
+          // hasMeaningfulValue(section.year) ||
           hasMeaningfulValue(section.gsdpForFY) ||
-          hasMeaningfulValue(section.percentage) ||
           hasMeaningfulValue(section.actualCapex) ||
-          hasMeaningfulValue(section.marksObtained) ||
           hasMeaningfulValue(section.budgetaryCapex) ||
           hasMeaningfulValue(section.capexActualsToGSDP) ||
           hasMeaningfulValue(section.stateCapexUtilisation)
         );
 
       case "section1_3":
+        // Check for ulbList array or totalULBs field
+        return hasArrayData(section?.ulbList) || hasMeaningfulValue(section?.totalULBs);
       case "section1_4":
+        // Check for bondList array or totalULBs field
+        return hasArrayData(section?.bondList) || hasMeaningfulValue(section?.totalULBs);
       case "section1_5":
-        return hasArrayData(section);
+        return hasArrayData(section?.ffiArray) || hasArrayData(section);
 
       default:
         return false;
@@ -442,12 +446,33 @@ const hasSectionData = (
     case "infraFinancing":
       switch (sectionId) {
         case "section1_1":
+          // Exclude percentage and marksObtained from meaningful data check
+          // These are calculated/backend fields and should not determine visibility
+          return (
+            hasMeaningfulValue(section.gsdpForFY) ||
+            hasMeaningfulValue(section.allocationToGSDP) ||
+            hasMeaningfulValue(section.capitalAllocation) ||
+            hasMeaningfulValue(section.capexToCapexActuals) ||
+            hasMeaningfulValue(section.stateCapexUtilisation)
+          );
         case "section1_2":
-          return Object.values(section).some(hasMeaningfulValue);
+          // Exclude percentage and marksObtained from meaningful data check
+          // These are calculated/backend fields and should not determine visibility
+          return (
+            hasMeaningfulValue(section.gsdpForFY) ||
+            hasMeaningfulValue(section.actualCapex) ||
+            hasMeaningfulValue(section.budgetaryCapex) ||
+            hasMeaningfulValue(section.capexActualsToGSDP) ||
+            hasMeaningfulValue(section.stateCapexUtilisation)
+          );
         case "section1_3":
+          // Check for ulbList array or totalULBs field
+          return hasArrayData(section?.ulbList) || hasMeaningfulValue(section?.totalULBs);
         case "section1_4":
+          // Check for bondList array or totalULBs field
+          return hasArrayData(section?.bondList) || hasMeaningfulValue(section?.totalULBs);
         case "section1_5":
-          return hasArrayData(section);
+          return hasArrayData(section?.ffiArray) || hasArrayData(section);
         default:
           return false;
       }

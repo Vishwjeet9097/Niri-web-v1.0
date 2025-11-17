@@ -22,6 +22,7 @@ import { AuditLog, AuditEntry } from "@/components/AuditLog";
 import { generateAuditEntries } from "@/utils/auditUtils";
 import { MospiOverviewTab } from "./tabs/MospiOverviewTab";
 import { MospiApproverDataReviewTab } from "./tabs/MospiApproverDataReviewTab";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 interface Submission {
   id: string;
@@ -74,6 +75,7 @@ export const UnifiedReviewPage = ({
   const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
+  const { assignedIndicators, isNodalOfficer } = useIndicatorAccess();
   
   const [submission, setSubmission] = useState<Submission | null>(initialSubmission);
   const [loading, setLoading] = useState(true);
@@ -449,7 +451,14 @@ export const UnifiedReviewPage = ({
                 formData={submission.formData}
               />
             ) : (
-              <DataReviewTab submissionId={submission.id} formData={submission.formData} submission={submission} isPreview={isPreview} />
+              <DataReviewTab 
+                submissionId={submission.id} 
+                formData={submission.formData} 
+                submission={submission} 
+                isPreview={isPreview}
+                assignedIndicators={assignedIndicators}
+                isNodalOfficer={isNodalOfficer}
+              />
             )}
           </TabsContent>
 

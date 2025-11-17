@@ -33,6 +33,7 @@ import { SubmissionDetailPage } from "./features/dataSubmission/pages/Submission
 import { EditSubmissionPage } from "./features/dataSubmission/pages/EditSubmissionPage";
 import { UserManagementPage } from "./features/userManagement/UserManagementPage";
 import { CheckSubmissionRedirect } from "./features/submission/pages/CheckSubmissionRedirect";
+import { StateAggregateReviewPage } from "./features/dataSubmission/pages/StateAggregateReviewPage";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,10 @@ const App = () => (
                 <Route
                   path="/data-submission/review"
                   element={<SubmissionListPage />}
+                />
+                <Route
+                  path="/data-submission/state-aggregate"
+                  element={<StateAggregateReviewPage />}
                 />
                 <Route
                   path="/data-submission/review/:id"
