@@ -108,9 +108,9 @@ export const validateInfraDevelopment = (
             errors[`section2_1.infraActArray.${index}.files`] =
               "Only PDF files are allowed.";
           }
-          if (file && !isFileSizeValid(file, 10)) {
+          if (file && !isFileSizeValid(file, 50)) {
             errors[`section2_1.infraActArray.${index}.files`] =
-              "File size must be ≤10MB.";
+              "File size must be ≤50MB.";
           }
         }
       });

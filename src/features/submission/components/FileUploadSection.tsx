@@ -25,7 +25,7 @@ export const FileUploadSection = ({
   value,
   onChange,
   accept = ".pdf,.doc,.docx",
-  maxSize = 10,
+  maxSize = 50,
   required = false,
   submissionId,
   onUploadComplete,
