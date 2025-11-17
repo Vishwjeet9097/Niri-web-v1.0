@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,11 +38,7 @@ import { getCurrentFinancialYear } from "@/utils/dateUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { computeStepProgress } from "../utils/progress";
-import { useIndicatorSubmission } from "../hooks/useIndicatorSubmission";
-import { setIndicatorSubmitted, areAllIndicatorsSubmitted, getSubmittedIndicators, clearSubmittedIndicators } from "../utils/globalSubmissionUtils";
-import { notificationService } from "@/services/NotificationBus";
-import { useNavigate } from "react-router-dom";
-import { apiService } from "@/services/api.service";
+import { validateInfraFinancing } from "../validation/infraFinancingValidation";
 
 export const InfraFinancingStep = () => {
   const navigate = useNavigate();
@@ -106,7 +102,7 @@ export const InfraFinancingStep = () => {
     },
     section1_3: { totalULBs: 0, ulbList: [] },
     section1_4: { totalULBs: 0, bondList: [] },
-    section1_5: { ffiArray: [] },
+    section1_5: { ffiArray: [], hasIntermediary: "", comment: "" },
   };
 
   // Merge loaded / persisted data with defaults
@@ -134,64 +130,115 @@ export const InfraFinancingStep = () => {
     section1_5: {
       ffiArray: Array.isArray(loadedData.section1_5?.ffiArray)
         ? [...loadedData.section1_5!.ffiArray]
-        : [],
+        : [...defaultData.section1_5.ffiArray],
+      hasIntermediary: loadedData.section1_5?.hasIntermediary || "",
+      comment: loadedData.section1_5?.comment || "",
     },
   };
 
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
 
-  // UI helper state for section1_5 availability + comment (keeps UI simple).
-  // We'll sync these to section1_5.ffiArray (so backend type remains correct).
-  const [ffiAvailable, setFfiAvailable] = useState<"yes" | "no" | "">("");
-  const [ffiComment, setFfiComment] = useState<string>("");
-  const isManualChangeRef = useRef(false); // Track manual changes with ref (immediate, not async)
-  const isSyncingFromDataRef = useRef(false); // Track when syncing FROM data to prevent circular loop
+  // Calculate allowed indicators for validation
+  const sectionIndicators = useMemo(
+    () => ["1.1", "1.2", "1.3", "1.4", "1.5"],
+    []
+  );
+  const allowedIndicators = useMemo(
+    () =>
+      (isNodalOfficer
+        ? assignedIndicators
+        : isStateApprover
+        ? availableIndicators
+        : null
+      )?.filter((i) => sectionIndicators.includes(i)) || undefined,
+    [
+      isNodalOfficer,
+      isStateApprover,
+      assignedIndicators,
+      availableIndicators,
+      sectionIndicators,
+    ]
+  );
 
-  // populate initial UI state for section1_5 from loaded data
-  // Re-sync whenever ffiArray changes (including after server hydration)
-  // BUT skip if user is manually changing the radio button
-  useEffect(() => {
-    // Skip sync if user is manually changing the value
-    if (isManualChangeRef.current) {
-      console.log("⏭️ Skipping auto-sync - manual change in progress");
-      isManualChangeRef.current = false;
-      return;
-    }
-
-    // if there's an explicit ffiArray item with hasIntermediary === false and comment => treat as no
-    const ffi = formData.section1_5.ffiArray || [];
-    const noItem = ffi.find((i) => i.hasIntermediary === false && i.comment);
+  const validation = useMemo(() => {
+    // Determine which indicators to validate
+    // For Nodal Officer: only validate assigned indicators
+    // For State Approver: only validate available indicators (not assigned to NODAL_OFFICERs)
+    // For others: validate all (no restrictions)
+    let indicatorsToValidate: string[] | undefined;
     
-    isSyncingFromDataRef.current = true; // Set flag before updating state
-    
-    if (noItem) {
-      console.log("🔄 Auto-sync: Setting to 'no' from data");
-      setFfiAvailable("no");
-      setFfiComment(noItem.comment || "");
-      // also remove the noItem from intermediaries list in UI (we'll persist it when saving)
-      // keep the ffiArray as-is for now; sync logic below will normalize before save
-    } else if (ffi.length > 0) {
-      console.log("🔄 Auto-sync: Setting to 'yes' from data");
-      setFfiAvailable("yes");
-      setFfiComment("");
+    if (isNodalOfficer) {
+      // NODAL_OFFICER: validate only assigned indicators
+      // If no assigned indicators, validate nothing (empty array)
+      indicatorsToValidate = allowedIndicators && allowedIndicators.length > 0 
+        ? allowedIndicators 
+        : []; // Empty array means validate nothing
+    } else if (isStateApprover) {
+      // STATE_APPROVER: validate only available indicators (indicators not assigned to any NODAL_OFFICER)
+      // If availableIndicators is empty, it means all indicators are assigned to NODAL_OFFICERs,
+      // so STATE_APPROVER shouldn't validate anything
+      indicatorsToValidate = allowedIndicators && allowedIndicators.length > 0 
+        ? allowedIndicators 
+        : []; // Empty array means validate nothing (all indicators are assigned to NODAL_OFFICERs)
     } else {
-      console.log("🔄 Auto-sync: Setting to empty from data");
-      setFfiAvailable("");
-      setFfiComment("");
+      // Other roles: validate all (backward compatibility)
+      indicatorsToValidate = undefined; // undefined means validate all
     }
-    
-    // Reset flag after state updates complete
-    setTimeout(() => {
-      isSyncingFromDataRef.current = false;
-    }, 0);
-  }, [formData.section1_5.ffiArray]);
+
+    return validateInfraFinancing(formData, {
+      allowedIndicators: indicatorsToValidate,
+    });
+  }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
+
+  useEffect(() => {
+    console.log("InfraFinancing validation state", {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      hasIntermediary: formData.section1_5.hasIntermediary,
+      hasFfiEntries: formData.section1_5.ffiArray.length,
+    });
+  }, [
+    validation,
+    formData.section1_5.hasIntermediary,
+    formData.section1_5.ffiArray.length,
+  ]);
+
+  const isNextDisabled = !validation.isValid;
+
+  const getFieldError = (path: string) =>
+    showValidationErrors ? validation.errors[path] : undefined;
+
+  const getInputValidationClass = (path: string) =>
+    getFieldError(path)
+      ? "border-destructive focus-visible:ring-destructive"
+      : undefined;
+
+  const showErrorsIfNeeded = () => {
+    if (!showValidationErrors) {
+      setShowValidationErrors(true);
+    }
+  };
+
+  const renderFieldError = (path: string) => {
+    const message = getFieldError(path);
+    return message ? (
+      <p className="text-xs text-destructive mt-1">{message}</p>
+    ) : null;
+  };
 
   // ensure year defaults to current FY
   useEffect(() => {
     setFormData((prev) => ({
       ...prev,
-      section1_1: { ...prev.section1_1, year: currentFY },
-      section1_2: { ...prev.section1_2, year: currentFY },
+      section1_1: {
+        ...prev.section1_1,
+        year: prev.section1_1.year ? prev.section1_1.year : currentFY,
+      },
+      section1_2: {
+        ...prev.section1_2,
+        year: prev.section1_2.year ? prev.section1_2.year : currentFY,
+      },
     }));
   }, [currentFY]);
 
@@ -232,6 +279,8 @@ export const InfraFinancingStep = () => {
           ffiArray: Array.isArray(currentStepData.section1_5?.ffiArray)
             ? currentStepData.section1_5!.ffiArray
             : [],
+          hasIntermediary: currentStepData.section1_5?.hasIntermediary || "",
+          comment: currentStepData.section1_5?.comment || "",
         },
       };
       setFormData(syncedData);
@@ -279,24 +328,11 @@ export const InfraFinancingStep = () => {
               ffiArray: Array.isArray(stepData.section1_5?.ffiArray)
                 ? stepData.section1_5!.ffiArray
                 : [],
+              hasIntermediary: stepData.section1_5?.hasIntermediary || "",
+              comment: stepData.section1_5?.comment || "",
             },
           };
           setFormData(updatedData);
-
-          // derive ffiAvailable / ffiComment from updatedData
-          const noItem = updatedData.section1_5.ffiArray.find(
-            (i) => i.hasIntermediary === false && i.comment
-          );
-          if (noItem) {
-            setFfiAvailable("no");
-            setFfiComment(noItem.comment || "");
-          } else if (updatedData.section1_5.ffiArray.length > 0) {
-            setFfiAvailable("yes");
-            setFfiComment("");
-          } else {
-            setFfiAvailable("");
-            setFfiComment("");
-          }
 
           localStorage.removeItem("editing_submission");
           localStorage.removeItem("editing_submission_id");
@@ -536,22 +572,20 @@ export const InfraFinancingStep = () => {
   const addIntermediary = () => {
     const newIntermediary = {
       id: Date.now().toString(),
-      hasIntermediary: true,
       organisationName: "",
       organisationType: "",
       yearEstablished: "",
       totalFunding: "",
       website: "",
-      comment: "",
     };
     setFormData((prev) => ({
       ...prev,
       section1_5: {
         ...prev.section1_5,
         ffiArray: [...prev.section1_5.ffiArray, newIntermediary],
+        hasIntermediary: "yes",
       },
     }));
-    setFfiAvailable("yes"); // mark available when user adds one
   };
 
   const removeIntermediary = (id: string) => {
@@ -563,64 +597,6 @@ export const InfraFinancingStep = () => {
       },
     }));
   };
-
-  // Keep formData.section1_5 in sync with the simple UI flags (ffiAvailable / ffiComment).
-  // If ffiAvailable === "no", we'll store one ffiArray item with hasIntermediary=false and comment.
-  // If ffiAvailable === "yes", keep the actual intermediaries (with hasIntermediary=true).
-  useEffect(() => {
-    // Skip if we're currently syncing FROM data to avoid circular loop
-    if (isSyncingFromDataRef.current) {
-      console.log("⏭️ Skipping form sync - currently syncing FROM data");
-      return;
-    }
-    
-    console.log("🔄 Sync effect triggered - ffiAvailable:", ffiAvailable, "ffiComment:", ffiComment);
-    setFormData((prev) => {
-      const prevFfi = prev.section1_5.ffiArray || [];
-
-      if (ffiAvailable === "no") {
-        console.log("📝 Setting 'no' item with comment");
-        // store single no-item (or replace existing)
-        const noItem = {
-          id:
-            prevFfi.find((i) => i.hasIntermediary === false)?.id ||
-            Date.now().toString(),
-          hasIntermediary: false,
-          organisationName: "",
-          organisationType: "",
-          yearEstablished: "",
-          totalFunding: "",
-          website: "",
-          comment: ffiComment || "",
-        };
-        return {
-          ...prev,
-          section1_5: {
-            ffiArray: [noItem],
-          },
-        };
-      } else if (ffiAvailable === "yes") {
-        console.log("✅ Setting 'yes' - filtering intermediaries");
-        // remove any existing 'no'-item if present, keep only items with hasIntermediary !== false
-        const keep = prevFfi.filter((i) => i.hasIntermediary !== false);
-        return {
-          ...prev,
-          section1_5: {
-            ffiArray: keep,
-          },
-        };
-      } else {
-        console.log("⚪ Empty state");
-        // empty state
-        return {
-          ...prev,
-          section1_5: {
-            ffiArray: prevFfi.filter((i) => i.hasIntermediary !== false), // drop any no-items
-          },
-        };
-      }
-    });
-  }, [ffiAvailable, ffiComment]);
 
   // ------------------------
   // Derived calculations -> write back into formData
@@ -866,6 +842,15 @@ export const InfraFinancingStep = () => {
   const validateFields = () => true;
 
   const handleNext = () => {
+    setShowValidationErrors(true);
+    if (!validation.isValid) {
+      toast({
+        title: "Incomplete section",
+        description: "Please complete all required fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateFormData("infraFinancing", formData);
     goToNext();
   };
@@ -1031,45 +1016,65 @@ export const InfraFinancingStep = () => {
                   <Label>
                     Capital Allocation for FY (INR)
                     <span className="text-red-500">*</span>
-                    <Info className="h-4 w-4 text-gray-500 inline-block ml-2" />
+                    {/* <Info className="h-4 w-4 text-gray-500 inline-block ml-2" /> */}
                   </Label>
                   <Input
-                    placeholder="Enter Capital Allocation"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="Enter capital allocation"
                     value={formData.section1_1.capitalAllocation}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
                         section1_1: {
-                          ...formData.section1_1,
-                          capitalAllocation: e.target.value,
+                          ...prev.section1_1,
+                          capitalAllocation: value,
                         },
-                      })
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_1.capitalAllocation")
+                    )}
                   />
+                  {renderFieldError("section1_1.capitalAllocation")}
                 </div>
                 <div>
                   <Label>
                     GSDP for FY (INR)<span className="text-red-500">*</span>
-                    <Info className="h-4 w-4 text-gray-500 ml-2" />
+                    {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </Label>
                   <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
                     placeholder="Enter GSDP for FY"
                     value={formData.section1_1.gsdpForFY}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
                         section1_1: {
-                          ...formData.section1_1,
-                          gsdpForFY: e.target.value,
+                          ...prev.section1_1,
+                          gsdpForFY: value,
                         },
-                      })
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_1.gsdpForFY")
+                    )}
                   />
+                  {renderFieldError("section1_1.gsdpForFY")}
                 </div>
                 <div>
                   <Label>
                     % Allocation to GSDP<span className="text-red-500">*</span>
-                    <Info className="h-4 w-4 text-gray-500 ml-2" />
+                    {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </Label>
                   <Input
                     placeholder="Auto-calculated"
@@ -1097,8 +1102,12 @@ export const InfraFinancingStep = () => {
                       return percentage.toFixed(1) + "%";
                     })()}
                     readOnly
-                    className="bg-gray-50 cursor-not-allowed"
+                    className={cn(
+                      "bg-gray-50 cursor-not-allowed",
+                      getInputValidationClass("section1_1.allocationToGSDP")
+                    )}
                   />
+                  {renderFieldError("section1_1.allocationToGSDP")}
                 </div>
               </div>
               
@@ -1172,37 +1181,65 @@ export const InfraFinancingStep = () => {
                     <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    placeholder="Enter Actual Capex"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="Enter actual capex"
                     value={formData.section1_2.actualCapex}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
                         section1_2: {
-                          ...formData.section1_2,
-                          actualCapex: e.target.value,
+                          ...prev.section1_2,
+                          actualCapex: value,
                         },
-                      })
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_2.actualCapex")
+                    )}
                   />
+                  {renderFieldError("section1_2.actualCapex")}
                 </div>
                 <div className="space-y-2">
-                  <Label>State Capex Utilisation (INR)</Label>
+                  <Label>
+                    State Capex Utilisation (INR)
+                    <span className="text-red-500">*</span>
+                  </Label>
                   <Input
-                    placeholder="Enter State Capex Utilisation"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="Enter state capex utilisation"
                     value={formData.section1_2.stateCapexUtilisation}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
                         section1_2: {
-                          ...formData.section1_2,
-                          stateCapexUtilisation: e.target.value,
+                          ...prev.section1_2,
+                          stateCapexUtilisation: value,
                         },
-                      })
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass(
+                        "section1_2.stateCapexUtilisation"
+                      )
+                    )}
                   />
+                  {renderFieldError("section1_2.stateCapexUtilisation")}
                 </div>
                 <div className="space-y-2">
-                  <Label>% Capex Actuals to GSDP</Label>
+                  <Label>
+                    % Capex Actuals to GSDP
+                    <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     placeholder="Auto-calculated"
                     value={(() => {
@@ -1230,8 +1267,12 @@ export const InfraFinancingStep = () => {
                       return percentage.toFixed(1) + "%";
                     })()}
                     readOnly
-                    className="bg-gray-50 cursor-not-allowed"
+                    className={cn(
+                      "bg-gray-50 cursor-not-allowed",
+                      getInputValidationClass("section1_2.capexActualsToGSDP")
+                    )}
                   />
+                  {renderFieldError("section1_2.capexActualsToGSDP")}
                 </div>
               </div>
               
@@ -1289,22 +1330,28 @@ export const InfraFinancingStep = () => {
                     placeholder="Enter total number of ULBs"
                     min="0"
                     value={formData.section1_3.totalULBs || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const { value } = e.target;
                       setFormData((prev) => ({
                         ...prev,
                         section1_3: {
                           ...prev.section1_3,
-                          totalULBs: e.target.value
-                            ? parseInt(e.target.value, 10)
+                          totalULBs: value
+                            ? Math.max(parseInt(value, 10), 0)
                             : 0,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_3.totalULBs")
+                    )}
                     required
                   />
+                  {renderFieldError("section1_3.totalULBs")}
                 </div>
 
-                {Array.isArray(formData.section1_3.ulbList) && formData.section1_3.ulbList.map((ulb) => (
+                {formData.section1_3.ulbList.map((ulb, index) => (
                   <div key={ulb.id} className="grid grid-cols-4 gap-4">
                     <div>
                       <Label>
@@ -1313,20 +1360,28 @@ export const InfraFinancingStep = () => {
                       <Input
                         placeholder="Enter City Name"
                         value={ulb.cityName}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          const value = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
                             section1_3: {
                               ...prev.section1_3,
                               ulbList: prev.section1_3.ulbList.map((item) =>
                                 item.id === ulb.id
-                                  ? { ...item, cityName: e.target.value }
+                                  ? { ...item, cityName: value }
                                   : item
                               ),
                             },
-                          }))
-                        }
+                          }));
+                        }}
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_3.ulbList.${index}.cityName`
+                          )
+                        )}
                       />
+                      {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
                     </div>
                     <div>
                       <Label>
@@ -1334,7 +1389,8 @@ export const InfraFinancingStep = () => {
                       </Label>
                       <Select
                         value={ulb.ulb}
-                        onValueChange={(value) =>
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section1_3: {
@@ -1345,10 +1401,16 @@ export const InfraFinancingStep = () => {
                                   : item
                               ),
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_3.ulbList.${index}.ulb`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select ULB" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1363,6 +1425,7 @@ export const InfraFinancingStep = () => {
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
                     </div>
                     <div>
                       <Label>
@@ -1374,7 +1437,10 @@ export const InfraFinancingStep = () => {
                             variant="outline"
                             className={cn(
                               "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                              !ulb.ratingDate && "text-muted-foreground"
+                              !ulb.ratingDate && "text-muted-foreground",
+                              getInputValidationClass(
+                                `section1_3.ulbList.${index}.ratingDate`
+                              )
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1391,7 +1457,8 @@ export const InfraFinancingStep = () => {
                                 ? new Date(ulb.ratingDate)
                                 : undefined
                             }
-                            onSelect={(date) =>
+                            onSelect={(date) => {
+                              showErrorsIfNeeded();
                               setFormData((prev) => ({
                                 ...prev,
                                 section1_3: {
@@ -1407,12 +1474,15 @@ export const InfraFinancingStep = () => {
                                       : item
                                   ),
                                 },
-                              }))
-                            }
+                              }));
+                            }}
                             initialFocus
                           />
                         </PopoverContent>
                       </Popover>
+                      {renderFieldError(
+                        `section1_3.ulbList.${index}.ratingDate`
+                      )}
                     </div>
                     <div className="flex items-end gap-2">
                       <div className="flex-1">
@@ -1421,7 +1491,8 @@ export const InfraFinancingStep = () => {
                         </Label>
                         <Select
                           value={ulb.rating}
-                          onValueChange={(value) =>
+                          onValueChange={(value) => {
+                            showErrorsIfNeeded();
                             setFormData((prev) => ({
                               ...prev,
                               section1_3: {
@@ -1432,20 +1503,42 @@ export const InfraFinancingStep = () => {
                                     : item
                                 ),
                               },
-                            }))
-                          }
+                            }));
+                          }}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_3.ulbList.${index}.rating`
+                              )
+                            )}
+                          >
                             <SelectValue placeholder="Select rating" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="AAA">AAA</SelectItem>
                             <SelectItem value="AA+">AA+</SelectItem>
                             <SelectItem value="AA">AA</SelectItem>
+                            <SelectItem value="AA-">AA-</SelectItem>
                             <SelectItem value="A+">A+</SelectItem>
                             <SelectItem value="A">A</SelectItem>
+                            <SelectItem value="A-">A-</SelectItem>
                             <SelectItem value="BBB+">BBB+</SelectItem>
+                            <SelectItem value="BBB">BBB</SelectItem>
+                            <SelectItem value="BBB-">BBB-</SelectItem>
+                            <SelectItem value="BB+">BB+</SelectItem>
+                            <SelectItem value="BB">BB</SelectItem>
+                            <SelectItem value="BB-">BB-</SelectItem>
+                            <SelectItem value="B+">B+</SelectItem>
+                            <SelectItem value="B">B</SelectItem>
+                            <SelectItem value="B-">B-</SelectItem>
+                            <SelectItem value="CCC">CCC</SelectItem>
+                            <SelectItem value="CC">CC</SelectItem>
+                            <SelectItem value="C">C</SelectItem>
+                            <SelectItem value="D">D</SelectItem>
                           </SelectContent>
                         </Select>
+                        {renderFieldError(`section1_3.ulbList.${index}.rating`)}
                       </div>
                       <Button
                         variant="outline"
@@ -1468,6 +1561,62 @@ export const InfraFinancingStep = () => {
                   <Plus className="h-4 w-4" />
                   Add More ULB
                 </Button>
+                {renderFieldError("section1_3.ulbList")}
+                {formData.section1_3.ulbList.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl mt-4">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            City Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            ULB
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Rating Date
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Rating
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formData.section1_3.ulbList.map((ulb) => (
+                          <tr key={ulb.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.cityName}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.ulb}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.ratingDate
+                                ? format(new Date(ulb.ratingDate), "dd-MM-yyyy")
+                                : "-"}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {ulb.rating}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeULB(ulb.id)}
+                                className="text-red-600 hover:text-red-800"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
               
               {/* Submit Button for Section 1.3 */}
@@ -1524,22 +1673,28 @@ export const InfraFinancingStep = () => {
                     placeholder="Enter total number of ULBs"
                     min="0"
                     value={formData.section1_4.totalULBs || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      const { value } = e.target;
                       setFormData((prev) => ({
                         ...prev,
                         section1_4: {
                           ...prev.section1_4,
-                          totalULBs: e.target.value
-                            ? parseInt(e.target.value, 10)
+                          totalULBs: value
+                            ? Math.max(parseInt(value, 10), 0)
                             : 0,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section1_4.totalULBs")
+                    )}
                     required
                   />
+                  {renderFieldError("section1_4.totalULBs")}
                 </div>
 
-                {Array.isArray(formData.section1_4.bondList) && formData.section1_4.bondList.map((bond) => (
+                {formData.section1_4.bondList.map((bond, index) => (
                   <div key={bond.id} className="grid grid-cols-4 gap-4">
                     <div>
                       <Label>
@@ -1547,7 +1702,8 @@ export const InfraFinancingStep = () => {
                       </Label>
                       <Select
                         value={bond.bondType}
-                        onValueChange={(value) =>
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section1_4: {
@@ -1558,24 +1714,27 @@ export const InfraFinancingStep = () => {
                                   : item
                               ),
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_4.bondList.${index}.bondType`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select bond type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Municipal bond">
-                            Municipal bond
-                          </SelectItem>
-                          <SelectItem value="Infrastructure bond">
-                            Infrastructure bond
-                          </SelectItem>
-                          <SelectItem value="Revenue bond">
-                            Revenue bond
-                          </SelectItem>
+                          <SelectItem value="Municipal">Municipal</SelectItem>
+                          <SelectItem value="Green">Green</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
+                      {renderFieldError(
+                        `section1_4.bondList.${index}.bondType`
+                      )}
                     </div>
 
                     <div>
@@ -1584,7 +1743,8 @@ export const InfraFinancingStep = () => {
                       </Label>
                       <Select
                         value={bond.cityName}
-                        onValueChange={(value) =>
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
                             section1_4: {
@@ -1595,10 +1755,16 @@ export const InfraFinancingStep = () => {
                                   : item
                               ),
                             },
-                          }))
-                        }
+                          }));
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_4.bondList.${index}.cityName`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select city" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1608,15 +1774,22 @@ export const InfraFinancingStep = () => {
                           <SelectItem value="Nashik">Nashik</SelectItem>
                         </SelectContent>
                       </Select>
+                      {renderFieldError(
+                        `section1_4.bondList.${index}.cityName`
+                      )}
                     </div>
 
                     <div>
                       <Label>
                         Issuing Authority<span className="text-red-500">*</span>
                       </Label>
-                      <Select
+                      <Input
+                        placeholder="Enter issuing authority"
                         value={bond.issuingAuthority}
-                        onValueChange={(value) =>
+                        maxLength={100}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          const value = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
                             section1_4: {
@@ -1627,24 +1800,17 @@ export const InfraFinancingStep = () => {
                                   : item
                               ),
                             },
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select authority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Authority Name">
-                            Authority Name
-                          </SelectItem>
-                          <SelectItem value="Municipal Corporation">
-                            Municipal Corporation
-                          </SelectItem>
-                          <SelectItem value="Development Authority">
-                            Development Authority
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                          }));
+                        }}
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_4.bondList.${index}.issuingAuthority`
+                          )
+                        )}
+                      />
+                      {renderFieldError(
+                        `section1_4.bondList.${index}.issuingAuthority`
+                      )}
                     </div>
 
                     <div className="flex items-end gap-2">
@@ -1654,22 +1820,34 @@ export const InfraFinancingStep = () => {
                           <span className="text-red-500">*</span>
                         </Label>
                         <Input
-                          placeholder="Enter Value"
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          placeholder="Enter value"
                           value={bond.value}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            showErrorsIfNeeded();
+                            const value = e.target.value;
                             setFormData((prev) => ({
                               ...prev,
                               section1_4: {
                                 ...prev.section1_4,
                                 bondList: prev.section1_4.bondList.map((item) =>
                                   item.id === bond.id
-                                    ? { ...item, value: e.target.value }
+                                    ? { ...item, value }
                                     : item
                                 ),
                               },
-                            }))
-                          }
+                            }));
+                          }}
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_4.bondList.${index}.value`
+                            )
+                          )}
                         />
+                        {renderFieldError(`section1_4.bondList.${index}.value`)}
                       </div>
                       <Button
                         variant="outline"
@@ -1692,6 +1870,61 @@ export const InfraFinancingStep = () => {
                   <Plus className="h-4 w-4" />
                   Add More Bond
                 </Button>
+
+                {renderFieldError("section1_4.bondList")}
+                {formData.section1_4.bondList.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl mt-4">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Bond Type
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            City
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Issuing Authority
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Value (INR Cr)
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formData.section1_4.bondList.map((bond) => (
+                          <tr key={bond.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.bondType}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.cityName}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.issuingAuthority}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.value}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeBond(bond.id)}
+                                className="text-red-600 hover:text-red-800"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
               
               {/* Submit Button for Section 1.4 */}
@@ -1758,14 +1991,17 @@ export const InfraFinancingStep = () => {
                         type="radio"
                         name="functional-financial-intermediary"
                         value="yes"
-                        checked={ffiAvailable === "yes"}
-                        onChange={(e) => {
-                          console.log("✅ Radio Yes clicked, current:", ffiAvailable);
-                          if (e.target.checked) {
-                            isManualChangeRef.current = true; // Prevent auto-sync immediately
-                            setFfiAvailable("yes");
-                            setFfiComment("");
-                          }
+                        checked={formData.section1_5.hasIntermediary === "yes"}
+                        onChange={() => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_5: {
+                              ...prev.section1_5,
+                              hasIntermediary: "yes",
+                              comment: "",
+                            },
+                          }));
                         }}
                         className="w-4 h-4 cursor-pointer accent-primary"
                       />
@@ -1776,205 +2012,249 @@ export const InfraFinancingStep = () => {
                         type="radio"
                         name="functional-financial-intermediary"
                         value="no"
-                        checked={ffiAvailable === "no"}
-                        onChange={(e) => {
-                          console.log("❌ Radio No clicked, current:", ffiAvailable);
-                          if (e.target.checked) {
-                            isManualChangeRef.current = true; // Prevent auto-sync immediately
-                            setFfiAvailable("no");
-                          }
+                        checked={formData.section1_5.hasIntermediary === "no"}
+                        onChange={() => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_5: {
+                              ...prev.section1_5,
+                              hasIntermediary: "no",
+                              ffiArray: [],
+                            },
+                          }));
                         }}
                         className="w-4 h-4 cursor-pointer accent-primary"
                       />
                       <span>No</span>
                     </label>
                   </div>
+                  {renderFieldError("section1_5.hasIntermediary")}
                 </div>
 
                 {/* If Yes → show intermediary fields (bound to section1_5.ffiArray) */}
-                {ffiAvailable === "yes" && (
+                {formData.section1_5.hasIntermediary === "yes" && (
                   <div className="space-y-4">
-                    {Array.isArray(formData.section1_5?.ffiArray) && formData.section1_5.ffiArray
-                      .filter((i) => i.hasIntermediary !== false)
-                      .map((intermediary) => (
-                        <div
-                          key={intermediary.id}
-                          className="grid grid-cols-5 gap-4"
-                        >
-                          <div>
-                            <Label>
-                              Organisation Name
-                              <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                              placeholder="Enter organisation name"
-                              value={intermediary.organisationName}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? {
-                                              ...item,
-                                              organisationName: e.target.value,
-                                            }
-                                          : item
-                                    ),
-                                  },
-                                }))
-                              }
-                            />
-                          </div>
-
-                          <div>
-                            <Label>
-                              Organisation Type
-                              <span className="text-red-500">*</span>
-                            </Label>
-                            <Select
-                              value={intermediary.organisationType}
-                              onValueChange={(value) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? { ...item, organisationType: value }
-                                          : item
-                                    ),
-                                  },
-                                }))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Government Corporation">
-                                  Government Corporation
-                                </SelectItem>
-                                <SelectItem value="Development Authority">
-                                  Development Authority
-                                </SelectItem>
-                                <SelectItem value="Financial Institution">
-                                  Financial Institution
-                                </SelectItem>
-                                <SelectItem value="Private Entity">
-                                  Private Entity
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label>
-                              Year of Establishment
-                              <span className="text-red-500">*</span>
-                            </Label>
-                            <Select
-                              value={intermediary.yearEstablished}
-                              onValueChange={(value) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? { ...item, yearEstablished: value }
-                                          : item
-                                    ),
-                                  },
-                                }))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Enter year" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Array.from(
-                                  { length: 30 },
-                                  (_, i) => 2024 - i
-                                ).map((year) => (
-                                  <SelectItem
-                                    key={year}
-                                    value={year.toString()}
-                                  >
-                                    {year}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label>Total Funding (INR)</Label>
-                            <Input
-                              placeholder="Enter total funding in INR"
-                              value={intermediary.totalFunding}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? {
-                                              ...item,
-                                              totalFunding: e.target.value,
-                                            }
-                                          : item
-                                    ),
-                                  },
-                                }))
-                              }
-                            />
-                          </div>
-
-                          <div className="flex items-end gap-2">
-                            <div className="flex-1">
-                              <Label>Website (Optional)</Label>
-                              <Input
-                                placeholder="Website link"
-                                value={intermediary.website}
-                                onChange={(e) =>
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    section1_5: {
-                                      ...prev.section1_5,
-                                      ffiArray: prev.section1_5.ffiArray.map(
-                                        (item) =>
-                                          item.id === intermediary.id
-                                            ? {
-                                                ...item,
-                                                website: e.target.value,
-                                              }
-                                            : item
-                                      ),
-                                    },
-                                  }))
-                                }
-                              />
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() =>
-                                removeIntermediary(intermediary.id)
-                              }
-                              className="text-red-500 hover:text-red-700 border-none bg-none"
-                            >
-                              <Trash2 className="h-6 w-6" />
-                            </Button>
-                          </div>
+                    {formData.section1_5.ffiArray.map((intermediary, index) => (
+                      <div
+                        key={intermediary.id}
+                        className="grid grid-cols-5 gap-4"
+                      >
+                        <div>
+                          <Label>
+                            Organisation Name
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            placeholder="Enter organisation name"
+                            value={intermediary.organisationName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              const value = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? {
+                                            ...item,
+                                            organisationName: value,
+                                          }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_5.ffiArray.${index}.organisationName`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.organisationName`
+                          )}
                         </div>
-                      ))}
+
+                        <div>
+                          <Label>
+                            Organisation Type
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={intermediary.organisationType}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? { ...item, organisationType: value }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section1_5.ffiArray.${index}.organisationType`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Trust">Trust</SelectItem>
+                              <SelectItem value="Society">Society</SelectItem>
+                              <SelectItem value="Corporation">
+                                Corporation
+                              </SelectItem>
+                              <SelectItem value="Company">Company</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.organisationType`
+                          )}
+                        </div>
+
+                        <div>
+                          <Label>
+                            Year of Establishment
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="YYYY"
+                            value={intermediary.yearEstablished}
+                            min="1900"
+                            max="9999"
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              const value = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? { ...item, yearEstablished: value }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_5.ffiArray.${index}.yearEstablished`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.yearEstablished`
+                          )}
+                        </div>
+
+                        <div>
+                          <Label>
+                            Total Funding (INR)
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            placeholder="Enter total funding in INR"
+                            value={intermediary.totalFunding}
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            min="0"
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              const value = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? {
+                                            ...item,
+                                            totalFunding: value,
+                                          }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_5.ffiArray.${index}.totalFunding`
+                              )
+                            )}
+                          />
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.totalFunding`
+                          )}
+                        </div>
+
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Label>
+                              Website
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              placeholder="Website link"
+                              value={intermediary.website}
+                              type="url"
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                const value = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  section1_5: {
+                                    ...prev.section1_5,
+                                    ffiArray: prev.section1_5.ffiArray.map(
+                                      (item) =>
+                                        item.id === intermediary.id
+                                          ? {
+                                              ...item,
+                                              website: value,
+                                            }
+                                          : item
+                                    ),
+                                  },
+                                }));
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section1_5.ffiArray.${index}.website`
+                                )
+                              )}
+                            />
+                            {renderFieldError(
+                              `section1_5.ffiArray.${index}.website`
+                            )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => removeIntermediary(intermediary.id)}
+                            className="text-red-500 hover:text-red-700 border-none bg-none"
+                          >
+                            <Trash2 className="h-6 w-6" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
 
                     <Button
                       type="button"
@@ -1985,18 +2265,98 @@ export const InfraFinancingStep = () => {
                       <Plus className="h-4 w-4" />
                       Add More Financial Intermediary
                     </Button>
+                    {formData.section1_5.hasIntermediary === "yes" &&
+                      formData.section1_5.ffiArray.length > 0 && (
+                        <div className="overflow-x-auto rounded-xl mt-4">
+                          <table className="min-w-full border-separate border-spacing-0">
+                            <thead>
+                              <tr className="bg-[#DDE3F9]">
+                                <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                  Organisation Name
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Organisation Type
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Year Established
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Total Funding (INR)
+                                </th>
+                                <th className="py-3 px-4 text-left text-sm font-normal">
+                                  Website
+                                </th>
+                                <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                                  Action
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {formData.section1_5.ffiArray.map(
+                                (intermediary) => (
+                                  <tr
+                                    key={intermediary.id}
+                                    className="bg-white"
+                                  >
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.organisationName}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.organisationType}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.yearEstablished}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.totalFunding}
+                                    </td>
+                                    <td className="py-3 px-4 text-sm font-normal">
+                                      {intermediary.website}
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeIntermediary(intermediary.id)
+                                        }
+                                        className="text-red-600 hover:text-red-800"
+                                        aria-label="Delete"
+                                      >
+                                        <Trash2 className="w-5 h-5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                   </div>
                 )}
 
-                {/* If 'No' -> show comment box. We persist this as a single ffiArray entry with hasIntermediary=false and comment */}
-                {ffiAvailable === "no" && (
+                {/* If 'No' -> show comment box */}
+                {formData.section1_5.hasIntermediary === "no" && (
                   <div>
                     <Label>Comments (Reason)</Label>
                     <Input
                       placeholder="Enter comments or reason"
-                      value={ffiComment}
-                      onChange={(e) => setFfiComment(e.target.value)}
+                      value={formData.section1_5.comment || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section1_5: {
+                            ...prev.section1_5,
+                            comment: e.target.value,
+                          },
+                        }));
+                      }}
+                      className={cn(
+                        getInputValidationClass("section1_5.comment")
+                      )}
                     />
+                    {renderFieldError("section1_5.comment")}
                   </div>
                 )}
               </div>
@@ -2029,6 +2389,12 @@ export const InfraFinancingStep = () => {
             </SectionCard>
           )}
 
+        {isNextDisabled && (
+          <p className="text-sm text-destructive mb-4">
+            Complete all required fields before continuing.
+          </p>
+        )}
+
         <FormActions
           onPrevious={isFirstStep ? undefined : goToPrevious}
           onNext={handleNext}
@@ -2040,7 +2406,7 @@ export const InfraFinancingStep = () => {
           isLastStep={isLastStep}
           nextLabel={isLastStep ? "Review & Submit" : "Next"}
           showSaveDraft={true}
-          isNextDisabled={false}
+          isNextDisabled={isNextDisabled}
         />
       </div>
     </div>

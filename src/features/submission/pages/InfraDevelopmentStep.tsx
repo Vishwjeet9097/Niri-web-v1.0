@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, Info, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -38,10 +37,10 @@ import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import { computeStepProgress } from "../utils/progress";
-import { useIndicatorSubmission } from "../hooks/useIndicatorSubmission";
-import { setIndicatorSubmitted, areAllIndicatorsSubmitted, getSubmittedIndicators, clearSubmittedIndicators } from "../utils/globalSubmissionUtils";
-import { notificationService } from "@/services/NotificationBus";
-import { apiService } from "@/services/api.service";
+import {
+  validateInfraDevelopment,
+  type InfraDevelopmentValidationResult,
+} from "../validation/infraDevelopmentValidation";
 
 // NOTE: The InfraDevelopmentData shape now wraps arrays inside objects.
 // This component was updated to use those nested arrays e.g. formData.section2_1.infraActArray
@@ -49,7 +48,11 @@ import { apiService } from "@/services/api.service";
 const defaultData: InfraDevelopmentData = {
   section2_1: { infraActArray: [] },
   section2_2: { specializedEntityArray: [] },
-  section2_3: { infraDevelopmentArray: [] },
+  section2_3: {
+    infraDevelopmentArray: [],
+    hasInfraDevelopmentPlan: "",
+    comment: "",
+  },
   section2_4: { investmentReadyArray: [] },
   section2_5: { assetMonetizationArray: [] },
 };
@@ -137,6 +140,9 @@ export const InfraDevelopmentStep = () => {
     section2_3: {
       infraDevelopmentArray:
         (loadedData.section2_3 as any)?.infraDevelopmentArray || [],
+      hasInfraDevelopmentPlan:
+        (loadedData.section2_3 as any)?.hasInfraDevelopmentPlan || "",
+      comment: (loadedData.section2_3 as any)?.comment || "",
     },
     section2_4: {
       investmentReadyArray:
@@ -150,8 +156,75 @@ export const InfraDevelopmentStep = () => {
 
   const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
 
-  // Sync with localStorage data when component mounts or data changes
+  // Calculate allowed indicators for validation - calculate before validation
+  const sectionIndicators = useMemo(
+    () => ["2.1", "2.2", "2.3", "2.4", "2.5"],
+    []
+  );
+  const allowedIndicators = useMemo(
+    () =>
+      (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter(
+        (ind) => sectionIndicators.includes(ind)
+      ) || [],
+    [isNodalOfficer, assignedIndicators, availableIndicators, sectionIndicators]
+  );
+
+  // Validation - only validate sections that are accessible based on indicators
+  const validation: InfraDevelopmentValidationResult = useMemo(() => {
+    // Determine which indicators to validate
+    // For Nodal Officer or State Approver: only validate assigned/available indicators
+    // For others: validate all (no restrictions)
+    const indicatorsToValidate =
+      (isNodalOfficer || user?.role === "STATE_APPROVER") &&
+      allowedIndicators.length > 0
+        ? allowedIndicators
+        : undefined; // undefined means validate all (backward compatibility)
+
+    return validateInfraDevelopment(formData, {
+      allowedIndicators: indicatorsToValidate,
+    });
+  }, [formData, isNodalOfficer, user?.role, allowedIndicators]);
+  const isNextDisabled = !validation.isValid;
+
+  // Debug logging
+  useEffect(() => {
+    console.log("🔍 InfraDevelopmentStep Validation:", {
+      isValid: validation.isValid,
+      errors: validation.errors,
+      hasInfraDevelopmentPlan: formData.section2_3.hasInfraDevelopmentPlan,
+      section2_1_count: formData.section2_1.infraActArray.length,
+      section2_2_count: formData.section2_2.specializedEntityArray.length,
+      section2_3_count: formData.section2_3.infraDevelopmentArray.length,
+      section2_4_count: formData.section2_4.investmentReadyArray.length,
+      section2_5_count: formData.section2_5.assetMonetizationArray.length,
+    });
+  }, [validation, formData]);
+
+  // Helper functions for error display
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validation.errors[fieldPath];
+  };
+
+  const renderFieldError = (fieldPath: string) => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return null;
+    return <p className="text-sm text-destructive mt-1">{error}</p>;
+  };
+
+  const getInputValidationClass = (fieldPath: string): string => {
+    const error = getFieldError(fieldPath);
+    if (!error || !showValidationErrors) return "";
+    return "border-destructive focus-visible:ring-destructive";
+  };
+
+  const showErrorsIfNeeded = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+    }
+  };
+
   useEffect(() => {
     const currentStepData = getStepData(
       "infraDevelopment"
@@ -171,10 +244,16 @@ export const InfraDevelopmentStep = () => {
         section2_3: {
           infraDevelopmentArray:
             (currentStepData.section2_3 as any)?.infraDevelopmentArray || [],
+          hasInfraDevelopmentPlan:
+            (currentStepData.section2_3 as any)?.hasInfraDevelopmentPlan || "",
+          comment: (currentStepData.section2_3 as any)?.comment || "",
         },
         section2_4: {
           investmentReadyArray:
             (currentStepData.section2_4 as any)?.investmentReadyArray || [],
+          hasInvestmentReady:
+            (currentStepData.section2_4 as any)?.hasInvestmentReady || "",
+          comment: (currentStepData.section2_4 as any)?.comment || "",
         },
         section2_5: {
           assetMonetizationArray:
@@ -182,13 +261,10 @@ export const InfraDevelopmentStep = () => {
         },
       };
       setFormData(syncedData);
-      console.log(
-        "🔄 Synced infraDevelopment data from localStorage in normal flow:",
-        syncedData
-      );
     }
+    // ⛔ Run this only once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getStepData]);
+  }, []);
 
   // Initialize form data only once when component mounts (editing flow)
   useEffect(() => {
@@ -220,6 +296,9 @@ export const InfraDevelopmentStep = () => {
             section2_3: {
               infraDevelopmentArray:
                 (stepData.section2_3 as any)?.infraDevelopmentArray || [],
+              hasInfraDevelopmentPlan:
+                (stepData.section2_3 as any)?.hasInfraDevelopmentPlan || "",
+              comment: (stepData.section2_3 as any)?.comment || "",
             },
             section2_4: {
               investmentReadyArray:
@@ -251,108 +330,48 @@ export const InfraDevelopmentStep = () => {
     }
   }, []);
 
-  // Server-first hydration of partial submission (independent of localStorage)
-  // Only populate fields that are empty/default - preserve ALL user's local edits
+  // Sync infraDevelopmentArray based on hasInfraDevelopmentPlan
   useEffect(() => {
-    if (!user?.id) return;
-    let hasHydrated = false;
-    
-    (async () => {
-      try {
-        const submission = await apiService.getSubmissionByUser(user.id);
-        if (!submission || hasHydrated) return;
-        hasHydrated = true;
-        
-        const remoteData = submission?.formData?.infraDevelopment;
-        if (!remoteData) return;
-        
-        setFormData((prev) => {
-          // Check each section independently - only hydrate sections that are empty
-          console.log("🌐 Hydrating infraDevelopment from server (per-section basis)");
-          
-          const hydrated: InfraDevelopmentData = {
-            // Section 2.1 - Only load from server if local is empty
-            section2_1: (() => {
-              const isLocal2_1Empty = !prev.section2_1.infraActArray || prev.section2_1.infraActArray.length === 0;
-              if (!isLocal2_1Empty) {
-                console.log("🔒 Section 2.1 has local data, keeping it");
-                return prev.section2_1;
-              }
-              console.log("⬇️ Section 2.1 empty, loading from server");
-              return { 
-                infraActArray: Array.isArray((remoteData.section2_1 as any)?.infraActArray) 
-                  ? (remoteData.section2_1 as any).infraActArray 
-                  : [] 
-              };
-            })(),
-            
-            // Section 2.2 - Only load from server if local is empty
-            section2_2: (() => {
-              const isLocal2_2Empty = !prev.section2_2.specializedEntityArray || prev.section2_2.specializedEntityArray.length === 0;
-              if (!isLocal2_2Empty) {
-                console.log("🔒 Section 2.2 has local data, keeping it");
-                return prev.section2_2;
-              }
-              console.log("⬇️ Section 2.2 empty, loading from server");
-              return { 
-                specializedEntityArray: Array.isArray((remoteData.section2_2 as any)?.specializedEntityArray)
-                  ? (remoteData.section2_2 as any).specializedEntityArray
-                  : []
-              };
-            })(),
-            
-            // Section 2.3 - Only load from server if local is empty
-            section2_3: (() => {
-              const isLocal2_3Empty = !prev.section2_3.infraDevelopmentArray || prev.section2_3.infraDevelopmentArray.length === 0;
-              if (!isLocal2_3Empty) {
-                console.log("🔒 Section 2.3 has local data, keeping it");
-                return prev.section2_3;
-              }
-              console.log("⬇️ Section 2.3 empty, loading from server");
-              return { 
-                infraDevelopmentArray: Array.isArray((remoteData.section2_3 as any)?.infraDevelopmentArray)
-                  ? (remoteData.section2_3 as any).infraDevelopmentArray
-                  : []
-              };
-            })(),
-            
-            // Section 2.4 - Only load from server if local is empty
-            section2_4: (() => {
-              const isLocal2_4Empty = !prev.section2_4.investmentReadyArray || prev.section2_4.investmentReadyArray.length === 0;
-              if (!isLocal2_4Empty) {
-                console.log("🔒 Section 2.4 has local data, keeping it");
-                return prev.section2_4;
-              }
-              console.log("⬇️ Section 2.4 empty, loading from server");
-              return { 
-                investmentReadyArray: Array.isArray((remoteData.section2_4 as any)?.investmentReadyArray)
-                  ? (remoteData.section2_4 as any).investmentReadyArray
-                  : []
-              };
-            })(),
-            
-            // Section 2.5 - Only load from server if local is empty
-            section2_5: (() => {
-              const isLocal2_5Empty = !prev.section2_5.assetMonetizationArray || prev.section2_5.assetMonetizationArray.length === 0;
-              if (!isLocal2_5Empty) {
-                console.log("🔒 Section 2.5 has local data, keeping it");
-                return prev.section2_5;
-              }
-              console.log("⬇️ Section 2.5 empty, loading from server");
-              return { 
-                assetMonetizationArray: Array.isArray((remoteData.section2_5 as any)?.assetMonetizationArray)
-                  ? (remoteData.section2_5 as any).assetMonetizationArray
-                  : []
-              };
-            })(),
+    setFormData((prev) => {
+      const prevInfra = prev.section2_3.infraDevelopmentArray || [];
+      const hasPlan = prev.section2_3.hasInfraDevelopmentPlan;
+
+      if (hasPlan === "no") {
+        // When "no", keep only comment entries (entries with hasPlan === false)
+        const noItems = prevInfra.filter((i: any) => i.hasPlan === false);
+        if (noItems.length === 0) {
+          // Create a new comment entry if none exists
+          return {
+            ...prev,
+            section2_3: {
+              ...prev.section2_3,
+              infraDevelopmentArray: [
+                {
+                  id: Date.now().toString(),
+                  sector: "",
+                  files: [],
+                  comment: prev.section2_3.comment || "",
+                },
+              ],
+            },
           };
-          return hydrated;
-        });
-      } catch (e) {
-        console.warn("⚠️ Failed server hydration (infraDevelopment)", e);
+        }
+        return prev; // Keep existing structure
+      } else if (hasPlan === "yes") {
+        // When "yes", filter out comment entries (entries with hasPlan === false)
+        const keep = prevInfra.filter((i: any) => i.hasPlan !== false);
+        return {
+          ...prev,
+          section2_3: {
+            ...prev.section2_3,
+            infraDevelopmentArray: keep,
+            comment: "", // Clear comment when yes is selected
+          },
+        };
       }
-    })();
-  }, [user?.id]);
+      return prev;
+    });
+  }, [formData.section2_3.hasInfraDevelopmentPlan]);
 
   // Autosave to localStorage with debouncing
   useEffect(() => {
@@ -388,6 +407,15 @@ export const InfraDevelopmentStep = () => {
           },
         } as any)
     );
+    if (section === "section2_3") {
+      setFormData((prev) => ({
+        ...prev,
+        section2_3: {
+          ...prev.section2_3,
+          hasInfraDevelopmentPlan: "yes",
+        },
+      }));
+    }
   };
 
   const removeEntry = (
@@ -467,7 +495,13 @@ export const InfraDevelopmentStep = () => {
 
   const updateProject = (
     id: string,
-    field: "projectName" | "dprFile",
+    field:
+      | "projectName"
+      | "sector"
+      | "status"
+      | "projectSize"
+      | "investmentType"
+      | "dprFile",
     value: any
   ) => {
     const arrKey = sectionArrayKeyMap["section2_4"];
@@ -553,201 +587,21 @@ export const InfraDevelopmentStep = () => {
     );
   };
 
-  // --- Validation (kept disabled) ---
-  const validateFields = () => {
-    return true;
-  };
+  const { toast } = useToast();
 
   // --- Navigation ---
   const handleNext = () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+      toast({
+        title: "Validation Error",
+        description: "Please complete all required fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateFormData("infraDevelopment", formData);
     goToNext();
-  };
-
-  const { toast } = useToast();
-
-  // Field preparation function for indicator submission
-  const prepareFieldsForInfraDev = (indicatorCode: string, sectionData: any) => {
-    const fields: any[] = [];
-    
-    switch (indicatorCode) {
-      case "2.1": // Infrastructure Act
-        if (sectionData?.infraActArray && sectionData.infraActArray.length > 0) {
-          sectionData.infraActArray.forEach((item: any) => {
-            fields.push({
-              nameOfAct: item.nameOfAct || "",
-              dateOfEnactment: item.dateOfEnactment || "",
-              file: item.file || null,
-            });
-          });
-        }
-        break;
-      case "2.2": // Specialized Entity
-        if (sectionData?.specializedEntityArray && sectionData.specializedEntityArray.length > 0) {
-          sectionData.specializedEntityArray.forEach((item: any) => {
-            fields.push({
-              nameOfEntity: item.nameOfEntity || "",
-              dateOfFormation: item.dateOfFormation || "",
-              file: item.file || null,
-            });
-          });
-        }
-        break;
-      case "2.3": // Infrastructure Development
-        if (sectionData?.infraDevelopmentArray && sectionData.infraDevelopmentArray.length > 0) {
-          sectionData.infraDevelopmentArray.forEach((item: any) => {
-            fields.push({
-              projectName: item.projectName || "",
-              sector: item.sector || "",
-              projectType: item.projectType || "",
-              ownership: item.ownership || "",
-              projectCost: item.projectCost || "",
-              file: item.file || null,
-            });
-          });
-        }
-        break;
-      case "2.4": // Investment Ready Projects
-        if (sectionData?.investmentReadyArray && sectionData.investmentReadyArray.length > 0) {
-          sectionData.investmentReadyArray.forEach((item: any) => {
-            fields.push({
-              projectName: item.projectName || "",
-              sector: item.sector || "",
-              projectType: item.projectType || "",
-              projectCost: item.projectCost || "",
-              file: item.file || null,
-            });
-          });
-        }
-        break;
-      case "2.5": // Asset Monetization
-        if (sectionData?.assetMonetizationArray && sectionData.assetMonetizationArray.length > 0) {
-          sectionData.assetMonetizationArray.forEach((item: any) => {
-            fields.push({
-              nameOfAsset: item.nameOfAsset || "",
-              sector: item.sector || "",
-              monetizationMode: item.monetizationMode || "",
-              monetizationStatus: item.monetizationStatus || "",
-              file: item.file || null,
-            });
-          });
-        }
-        break;
-    }
-    
-    return fields;
-  };
-
-  // Use the indicator submission hook
-  const {
-    submittingIndicators,
-    submittedIndicators: hookSubmittedIndicators,
-    handleIndicatorSubmit,
-  } = useIndicatorSubmission({
-    category: "infraDevelopment",
-    formData,
-    assignedIndicators: isNodalOfficer ? assignedIndicators : availableIndicators,
-    isNodalOfficer,
-    onAllSubmitted: undefined, // handled globally
-  });
-
-  // Check backend status on initial load to see if all sections are already complete
-  useEffect(() => {
-    const checkInitialStatus = async () => {
-      if (!user?.id) return;
-      
-      try {
-        console.log("🔍 [InfraDevelopmentStep - INITIAL CHECK] Checking backend submission status on mount");
-        const submission = await apiService.getSubmissionByUser(user.id);
-        
-        if (!submission || !submission.id) {
-          console.log("⚠️ No submission found yet");
-          return;
-        }
-
-        // Use the dedicated check-completion endpoint
-        const completionStatus = await apiService.checkSubmissionCompletion(submission.id);
-        console.log("📊 [InfraDevelopmentStep - INITIAL CHECK] Completion status:", completionStatus);
-        
-        const allSectionsComplete = completionStatus?.allCompleted === true;
-        
-        if (allSectionsComplete) {
-          console.log("✅ [InfraDevelopmentStep - INITIAL CHECK] All sections completed, redirecting");
-          toast({
-            title: "Success",
-            description: "All indicators completed. Redirecting to review page...",
-          });
-          setTimeout(() => {
-            navigate(`/data-submission/review/${submission.id}`);
-          }, 1500);
-        }
-      } catch (error) {
-        console.error("❌ [InfraDevelopmentStep - INITIAL CHECK] Error:", error);
-      }
-    };
-
-    checkInitialStatus();
-  }, [user, navigate, toast]);
-
-  // Update tab status when indicators change
-  useEffect(() => {
-    const submitted = getSubmittedIndicators();
-    setTabStatus({
-      infraFinancing: submitted.infraFinancing?.length === 5,
-      infraDevelopment: submitted.infraDevelopment?.length === 5,
-      pppDevelopment: submitted.pppDevelopment?.length === 4,
-      infraEnablers: submitted.infraEnablers?.length === 6,
-    });
-  }, [hookSubmittedIndicators]);
-
-  // Check backend after each indicator submission to see if all sections complete
-  useEffect(() => {
-    const checkBackendStatus = async () => {
-      try {
-        console.log("🔍 [InfraDevelopmentStep] Checking backend submission status");
-        const submission = await apiService.getSubmissionByUser(user.id);
-        
-        if (!submission || !submission.id) {
-          console.log("⚠️ No submission found yet");
-          return;
-        }
-
-        // Use the dedicated check-completion endpoint
-        const completionStatus = await apiService.checkSubmissionCompletion(submission.id);
-        console.log("� [InfraDevelopmentStep - AFTER SUBMIT] Completion status:", completionStatus);
-        
-        const allSectionsComplete = completionStatus?.allCompleted === true;
-        
-        if (allSectionsComplete) {
-          console.log("✅ [InfraDevelopmentStep - AFTER SUBMIT] All sections completed, redirecting");
-          toast({
-            title: "Success",
-            description: "All indicators in all steps submitted. Moving to review page.",
-          });
-          setTimeout(() => {
-            navigate(`/data-submission/review/${submission.id}`);
-          }, 1500);
-        } else {
-          console.log("ℹ️ [InfraDevelopmentStep - AFTER SUBMIT] Not all sections complete yet");
-        }
-      } catch (error) {
-        console.error("❌ [InfraDevelopmentStep - AFTER SUBMIT] Error:", error);
-      }
-    };
-
-    // Only check backend if we have submitted indicators
-    if (Object.keys(hookSubmittedIndicators).length > 0) {
-      checkBackendStatus();
-    }
-  }, [hookSubmittedIndicators, user, navigate, toast]); // Trigger when hookSubmittedIndicators changes
-
-  // Patch: after successful submit, update global state
-  const handleIndicatorSubmitPatched = async (
-    indicatorCode: string,
-    prepareFieldsFn: (code: string, data: any) => Record<string, any>[]
-  ) => {
-    await handleIndicatorSubmit(indicatorCode, prepareFieldsFn);
-    setIndicatorSubmitted("infraDevelopment", indicatorCode);
   };
 
   const handleSaveDraft = async () => {
@@ -760,20 +614,15 @@ export const InfraDevelopmentStep = () => {
 
   // Access control for NODAL_OFFICER & STATE_APPROVER
   if (isNodalOfficer || user?.role === "STATE_APPROVER") {
-    const sectionIndicators = ["2.1", "2.2", "2.3", "2.4", "2.5"];
-    const allowed = (
-      isNodalOfficer ? assignedIndicators : availableIndicators
-    )?.filter((ind) => sectionIndicators.includes(ind));
-
     console.log("🔍 InfraDevelopmentStep: Section indicator access", {
       role: user?.role,
       isNodalOfficer,
       assignedIndicators,
       availableIndicators,
-      allowed,
+      allowedIndicators,
     });
 
-    if (!allowed?.length) {
+    if (!allowedIndicators?.length) {
       return (
         <div className="w-full -mx-6 lg:-mx-8">
           <div className="px-6 lg:px-8">
@@ -883,11 +732,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.sector}
-                        onValueChange={(value) =>
-                          updateEntry("section2_1", entry.id, "sector", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateEntry("section2_1", entry.id, "sector", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select an option" />
                         </SelectTrigger>
                         <SelectContent>
@@ -903,16 +761,22 @@ export const InfraDevelopmentStep = () => {
                       <FileUploadSection
                         label="Upload File"
                         value={entry.files?.[0] || null}
-                        onChange={(file) =>
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
                           updateEntry(
                             "section2_1",
                             entry.id,
                             "files",
                             file ? [file] : []
-                          )
-                        }
+                          );
+                        }}
                         required
                       />
+                      {renderFieldError(
+                        `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.files`
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -941,12 +805,7 @@ export const InfraDevelopmentStep = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Upload copy of Act/Policy
                 </p>
-
-                {errors.section2_1 && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.section2_1}
-                  </p>
-                )}
+                {renderFieldError("section2_1.infraActArray")}
               </div>
 
               {formData.section2_1.infraActArray.length > 0 && (
@@ -1064,11 +923,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.sector}
-                        onValueChange={(value) =>
-                          updateEntry("section2_2", entry.id, "sector", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateEntry("section2_2", entry.id, "sector", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select an option" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1084,16 +952,22 @@ export const InfraDevelopmentStep = () => {
                       <FileUploadSection
                         label="Upload File"
                         value={entry.files?.[0] || null}
-                        onChange={(file) =>
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
                           updateEntry(
                             "section2_2",
                             entry.id,
                             "files",
                             file ? [file] : []
-                          )
-                        }
+                          );
+                        }}
                         required
                       />
+                      {renderFieldError(
+                        `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.files`
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -1122,11 +996,7 @@ export const InfraDevelopmentStep = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Upload evidence
                 </p>
-                {errors.section2_2 && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.section2_2}
-                  </p>
-                )}
+                {renderFieldError("section2_2.specializedEntityArray")}
               </div>
 
               {formData.section2_2.specializedEntityArray.length > 0 && (
@@ -1220,174 +1090,271 @@ export const InfraDevelopmentStep = () => {
           <SectionCard
             title={
               <div className="flex flex-col">
-                <span className="text-base font-semibold ">
+                <span className="text-base font-semibold">
                   <span className="text-primary">2.3 -</span> Availability of
                   Sector Infra Development Plan{" "}
                 </span>
               </div>
             }
-            subtitle=""
             className="mb-6"
           >
-            <div className="flex flex-col gap-4">
-              {formData.section2_3.infraDevelopmentArray.map((entry) => (
-                <div key={entry.id} className="mb-2 relative">
-                  <div className="flex flex-col gap-4 max-w-[70%]">
-                    <div className="flex-1 w-full">
-                      <Label>
-                        Select Sector{" "}
-                        <span className="text-destructive">*</span>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Select the sector</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Select
-                        value={entry.sector}
-                        onValueChange={(value) =>
-                          updateEntry("section2_3", entry.id, "sector", value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select an option" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex-1 w-full">
-                      <FileUploadSection
-                        label="Upload File"
-                        value={entry.files?.[0] || null}
-                        onChange={(file) =>
-                          updateEntry(
-                            "section2_3",
-                            entry.id,
-                            "files",
-                            file ? [file] : []
-                          )
-                        }
-                        required
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() => removeEntry("section2_3", entry.id)}
-                      aria-label="Remove"
-                    >
-                      <Trash2 className="w-5 h-5 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-6">
               <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addEntry("section2_3")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add More Entry
-                </Button>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Upload plan
-                </p>
-                {errors.section2_3 && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.section2_3}
-                  </p>
-                )}
+                <Label>
+                  Sector Infra Development Plan Available?{" "}
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="inline w-3 h-3 ml-1" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Select “Yes” if there is a Sector Infra Development Plan
+                      available
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <div className="flex gap-6 mt-2">
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="infra-development-plan"
+                      value="yes"
+                      checked={
+                        formData.section2_3.hasInfraDevelopmentPlan === "yes"
+                      }
+                      onChange={() => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_3: {
+                            ...prev.section2_3,
+                            hasInfraDevelopmentPlan: "yes",
+                            comment: "",
+                          },
+                        }));
+                      }}
+                    />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="infra-development-plan"
+                      value="no"
+                      checked={
+                        formData.section2_3.hasInfraDevelopmentPlan === "no"
+                      }
+                      onChange={() => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_3: {
+                            ...prev.section2_3,
+                            hasInfraDevelopmentPlan: "no",
+                            infraDevelopmentArray: [],
+                          },
+                        }));
+                      }}
+                    />
+                    No
+                  </label>
+                </div>
+                {renderFieldError("section2_3.hasInfraDevelopmentPlan")}
               </div>
 
-              {formData.section2_3.infraDevelopmentArray.length > 0 && (
-                <div className="overflow-x-auto rounded-xl">
-                  <table className="min-w-full border-separate border-spacing-0 ">
-                    <thead>
-                      <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                          Sector
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          Uploaded File
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
-                          File Size
-                        </th>
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formData.section2_3.infraDevelopmentArray.map(
-                        (entry) => (
-                          <tr key={entry.id} className="bg-white">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.sector}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.files?.[0]?.fileName || "No file uploaded"}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.files?.[0]?.fileSize
-                                ? `${(
-                                    entry.files[0].fileSize /
-                                    1024 /
-                                    1024
-                                  ).toFixed(1)} MB`
-                                : "N/A"}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  removeEntry("section2_3", entry.id)
-                                }
-                                className="text-red-600 hover:text-red-800"
-                                aria-label="Delete"
+              {/* If Yes → show infra plan fields */}
+              {formData.section2_3.hasInfraDevelopmentPlan === "yes" && (
+                <div className="space-y-4">
+                  {formData.section2_3.infraDevelopmentArray.map(
+                    (entry: any) => (
+                      <div key={entry.id} className="mb-2 relative">
+                        <div className="flex flex-col gap-4 max-w-[70%]">
+                          <div className="flex-1 w-full">
+                            <Label>
+                              Select Sector{" "}
+                              <span className="text-destructive">*</span>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="inline w-3 h-3 ml-1" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Select the sector
+                                </TooltipContent>
+                              </Tooltip>
+                            </Label>
+                            <Select
+                              value={entry.sector}
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
+                                updateEntry(
+                                  "section2_3",
+                                  entry.id,
+                                  "sector",
+                                  value
+                                );
+                              }}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.sector`
+                                  )
+                                )}
                               >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      )}
-                    </tbody>
-                  </table>
+                                <SelectValue placeholder="Select an option" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SECTOR_OPTIONS.map((sector) => (
+                                  <SelectItem key={sector} value={sector}>
+                                    {sector}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex-1 w-full">
+                            <FileUploadSection
+                              label="Upload File"
+                              value={entry.files?.[0] || null}
+                              onChange={(file) => {
+                                showErrorsIfNeeded();
+                                updateEntry(
+                                  "section2_3",
+                                  entry.id,
+                                  "files",
+                                  file ? [file] : []
+                                );
+                              }}
+                              required
+                            />
+                            {renderFieldError(
+                              `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.files`
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 👇 Delete button now visible, positioned exactly like 2.1 & 2.2 */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2"
+                          onClick={() => removeEntry("section2_3", entry.id)}
+                          aria-label="Remove"
+                        >
+                          <Trash2 className="w-5 h-5 text-destructive" />
+                        </Button>
+                      </div>
+                    )
+                  )}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addEntry("section2_3")}
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add More Entry
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload plan
+                  </p>
                 </div>
               )}
-              
-              {/* Submit Button for 2.3 */}
-              <div className="flex justify-end mt-4">
-                <Button
-                  onClick={() => handleIndicatorSubmitPatched("2.3", prepareFieldsForInfraDev)}
-                  disabled={submittingIndicators["2.3"] || hookSubmittedIndicators["2.3"]}
-                  className="bg-primary text-white"
-                >
-                  {submittingIndicators["2.3"] ? (
-                    "Submitting..."
-                  ) : hookSubmittedIndicators["2.3"] ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Submitted
-                    </>
-                  ) : (
-                    "Submit"
-                  )}
-                </Button>
-              </div>
+
+              {/* If No → show comment box */}
+              {formData.section2_3.hasInfraDevelopmentPlan === "no" && (
+                <div>
+                  <Label>Comments (Reason)</Label>
+                  <Input
+                    placeholder="Enter reason or comment"
+                    value={formData.section2_3.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_3: {
+                          ...prev.section2_3,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section2_3.comment")
+                    )}
+                  />
+                  {renderFieldError("section2_3.comment")}
+                </div>
+              )}
+
+              {renderFieldError("section2_3.infraDevelopmentArray")}
+
+              {/* Table view */}
+              {formData.section2_3.hasInfraDevelopmentPlan === "yes" &&
+                formData.section2_3.infraDevelopmentArray.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Uploaded File
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Size
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formData.section2_3.infraDevelopmentArray.map(
+                          (entry) => (
+                            <tr key={entry.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.files?.[0]?.fileName ||
+                                  "No file uploaded"}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.files?.[0]?.fileSize
+                                  ? `${(
+                                      entry.files[0].fileSize /
+                                      1024 /
+                                      1024
+                                    ).toFixed(1)} MB`
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeEntry("section2_3", entry.id)
+                                  }
+                                  className="text-red-600 hover:text-red-800"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
             </div>
           </SectionCard>
         )}
@@ -1403,90 +1370,390 @@ export const InfraDevelopmentStep = () => {
             title={
               <div className="flex flex-col">
                 <span className="text-base font-semibold ">
-                  <span className="text-primary">2.4 -</span> Availability of
-                  Investment Ready Project Pipeline{" "}
+                  <span className="text-primary">2.4 -</span> Investment Ready
+                  Project Pipeline
                 </span>
               </div>
             }
             className="mb-6"
           >
             <div className="flex flex-col gap-4">
-              {formData.section2_4.investmentReadyArray.map((entry) => (
-                <div key={entry.id} className="mb-2 relative">
-                  <div className="flex flex-col gap-4 max-w-[70%]">
-                    <div className="flex-1 w-full">
-                      <Label>
-                        Project Name <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter project name"
-                        value={entry.projectName}
-                        onChange={(e) =>
-                          updateProject(entry.id, "projectName", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div className="flex-1 w-full">
-                      <FileUploadSection
-                        label="Upload DPR/Feasibility Report"
-                        value={entry.dprFile}
-                        onChange={(file) =>
-                          updateProject(entry.id, "dprFile", file)
-                        }
-                        required
-                      />
-                    </div>
+              {/* Yes/No selection */}
+              <div>
+                <Label>
+                  Investment Ready Project Pipeline Available?{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
+                <div className="flex gap-6 mt-2">
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="investment-ready"
+                      value="yes"
+                      checked={formData.section2_4.hasInvestmentReady === "yes"}
+                      onChange={() => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_4: {
+                            ...prev.section2_4,
+                            hasInvestmentReady: "yes",
+                            comment: "",
+                          },
+                        }));
+                      }}
+                    />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="investment-ready"
+                      value="no"
+                      checked={formData.section2_4.hasInvestmentReady === "no"}
+                      onChange={() => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_4: {
+                            ...prev.section2_4,
+                            hasInvestmentReady: "no",
+                            investmentReadyArray: [],
+                            websiteLink: "",
+                          },
+                        }));
+                      }}
+                    />
+                    No
+                  </label>
+                </div>
+                {renderFieldError("section2_4.hasInvestmentReady")}
+              </div>
+
+              {/* If Yes → show fields */}
+              {formData.section2_4.hasInvestmentReady === "yes" && (
+                <>
+                  {/* Website link (one time) */}
+                  <div className="max-w-[60%]">
+                    <Label>
+                      Website Link <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="url"
+                      placeholder="Enter website URL"
+                      value={formData.section2_4.websiteLink || ""}
+                      onChange={(e) => {
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_4: {
+                            ...prev.section2_4,
+                            websiteLink: e.target.value,
+                          },
+                        }));
+                      }}
+                      className={cn(
+                        getInputValidationClass("section2_4.websiteLink")
+                      )}
+                    />
+                    {renderFieldError("section2_4.websiteLink")}
+                  </div>
+
+                  {/* Add Projects Section */}
+                  {formData.section2_4.investmentReadyArray.map(
+                    (entry: any) => (
+                      <div key={entry.id} className="mb-2">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                          <div>
+                            <Label>
+                              Project Name{" "}
+                              <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              type="text"
+                              placeholder="Enter project name"
+                              value={entry.projectName}
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                updateProject(
+                                  entry.id,
+                                  "projectName",
+                                  e.target.value
+                                );
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.projectName`
+                                )
+                              )}
+                            />
+                            {renderFieldError(
+                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.projectName`
+                            )}
+                          </div>
+
+                          <div>
+                            <Label>
+                              Sector <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                              value={entry.sector}
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
+                                updateProject(entry.id, "sector", value);
+                              }}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.sector`
+                                  )
+                                )}
+                              >
+                                <SelectValue placeholder="Select Sector" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SECTOR_OPTIONS.map((sector) => (
+                                  <SelectItem key={sector} value={sector}>
+                                    {sector}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label>
+                              Status <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                              value={entry.status}
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
+                                updateProject(entry.id, "status", value);
+                              }}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.status`
+                                  )
+                                )}
+                              >
+                                <SelectValue placeholder="Select Status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {["Tender Done", "Bidding", "Other"].map(
+                                  (s) => (
+                                    <SelectItem key={s} value={s}>
+                                      {s}
+                                    </SelectItem>
+                                  )
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label>
+                              Project Size (INR Cr){" "}
+                              <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Enter size"
+                              value={entry.projectSize || ""}
+                              onChange={(e) => {
+                                showErrorsIfNeeded();
+                                updateProject(
+                                  entry.id,
+                                  "projectSize",
+                                  e.target.value
+                                );
+                              }}
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.projectSize`
+                                )
+                              )}
+                            />
+                            {renderFieldError(
+                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.projectSize`
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <Label>
+                                Type of Investment{" "}
+                                <span className="text-destructive">*</span>
+                              </Label>
+                              <Select
+                                value={entry.investmentType}
+                                onValueChange={(value) => {
+                                  showErrorsIfNeeded();
+                                  updateProject(
+                                    entry.id,
+                                    "investmentType",
+                                    value
+                                  );
+                                }}
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    getInputValidationClass(
+                                      `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                        (e) => e.id === entry.id
+                                      )}.investmentType`
+                                    )
+                                  )}
+                                >
+                                  <SelectValue placeholder="Select Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {["Partner", "Investor", "Other"].map((t) => (
+                                    <SelectItem key={t} value={t}>
+                                      {t}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="self-start mt-6"
+                              onClick={() => removeProject(entry.id)}
+                              aria-label="Remove"
+                            >
+                              <Trash2 className="w-5 h-5 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )}
+
+                  {/* Add button */}
+                  <div>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() => removeProject(entry.id)}
-                      aria-label="Remove"
+                      variant="outline"
+                      size="sm"
+                      onClick={addProject}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                     >
-                      <Trash2 className="w-5 h-5 text-destructive" />
+                      <Plus className="w-4 h-4" />
+                      Add Project
                     </Button>
+                    {renderFieldError("section2_4.investmentReadyArray")}
                   </div>
-                </div>
-              ))}
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addProject}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Project
-                </Button>
-                {errors.section2_4 && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.section2_4}
-                  </p>
-                )}
-              </div>
-              
-              {/* Submit Button for 2.4 */}
-              <div className="flex justify-end mt-4">
-                <Button
-                  onClick={() => handleIndicatorSubmitPatched("2.4", prepareFieldsForInfraDev)}
-                  disabled={submittingIndicators["2.4"] || hookSubmittedIndicators["2.4"]}
-                  className="bg-primary text-white"
-                >
-                  {submittingIndicators["2.4"] ? (
-                    "Submitting..."
-                  ) : hookSubmittedIndicators["2.4"] ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Submitted
-                    </>
-                  ) : (
-                    "Submit"
+
+                  {/* Table view */}
+                  {formData.section2_4.investmentReadyArray.length > 0 && (
+                    <div className="overflow-x-auto rounded-xl">
+                      <table className="min-w-full border-separate border-spacing-0">
+                        <thead>
+                          <tr className="bg-[#DDE3F9]">
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Project Name
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Sector
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Status
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Project Size (Cr)
+                            </th>
+                            <th className="py-3 px-4 text-left text-sm font-normal">
+                              Type of Investment
+                            </th>
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formData.section2_4.investmentReadyArray.map(
+                            (entry: any) => (
+                              <tr key={entry.id} className="bg-white">
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.projectName}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.status}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.projectSize}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.investmentType}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeProject(entry.id)}
+                                    className="text-red-600 hover:text-red-800"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
-                </Button>
-              </div>
+                </>
+              )}
+
+              {/* If No → Comment */}
+              {formData.section2_4.hasInvestmentReady === "no" && (
+                <div>
+                  <Label>Comments (Reason)</Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter reason or comment"
+                    value={formData.section2_4.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_4: {
+                          ...prev.section2_4,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    className={cn(
+                      getInputValidationClass("section2_4.comment")
+                    )}
+                  />
+                  {renderFieldError("section2_4.comment")}
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -1522,10 +1789,23 @@ export const InfraDevelopmentStep = () => {
                         type="text"
                         placeholder="Enter project/asset name"
                         value={entry.projectName}
-                        onChange={(e) =>
-                          updateAsset(entry.id, "projectName", e.target.value)
-                        }
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "projectName", e.target.value);
+                        }}
+                        className={cn(
+                          getInputValidationClass(
+                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.projectName`
+                          )
+                        )}
                       />
+                      {renderFieldError(
+                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.projectName`
+                      )}
                     </div>
                     <div>
                       <Label>
@@ -1540,11 +1820,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.sector}
-                        onValueChange={(value) =>
-                          updateAsset(entry.id, "sector", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "sector", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select an Option" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1562,11 +1851,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.type}
-                        onValueChange={(value) =>
-                          updateAsset(entry.id, "type", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "type", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.type`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Select an Option" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1585,11 +1883,20 @@ export const InfraDevelopmentStep = () => {
                       </Label>
                       <Select
                         value={entry.ownership}
-                        onValueChange={(value) =>
-                          updateAsset(entry.id, "ownership", value)
-                        }
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "ownership", value);
+                        }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.ownership`
+                            )
+                          )}
+                        >
                           <SelectValue placeholder="Asset ownership" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1608,14 +1915,27 @@ export const InfraDevelopmentStep = () => {
                           type="number"
                           placeholder="Estimated Monetization"
                           value={entry.estimatedMonetization}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            showErrorsIfNeeded();
                             updateAsset(
                               entry.id,
                               "estimatedMonetization",
                               e.target.value
+                            );
+                          }}
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.estimatedMonetization`
                             )
-                          }
+                          )}
                         />
+                        {renderFieldError(
+                          `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                            (e) => e.id === entry.id
+                          )}.estimatedMonetization`
+                        )}
                       </div>
                       <Button
                         type="button"
@@ -1642,37 +1962,80 @@ export const InfraDevelopmentStep = () => {
                   <Plus className="w-4 h-4 " />
                   Add More Asset
                 </Button>
-                {errors.section2_5 && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.section2_5}
-                  </p>
-                )}
+                {renderFieldError("section2_5.assetMonetizationArray")}
               </div>
-              
-              {/* Submit Button for 2.5 */}
-              <div className="flex justify-end mt-4">
-                <Button
-                  onClick={() => handleIndicatorSubmitPatched("2.5", prepareFieldsForInfraDev)}
-                  disabled={submittingIndicators["2.5"] || hookSubmittedIndicators["2.5"]}
-                  className="bg-primary text-white"
-                >
-                  {submittingIndicators["2.5"] ? (
-                    "Submitting..."
-                  ) : hookSubmittedIndicators["2.5"] ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Submitted
-                    </>
-                  ) : (
-                    "Submit"
-                  )}
-                </Button>
-              </div>
+              {/* Table view for Asset Monetization entries */}
+              {formData.section2_5.assetMonetizationArray.length > 0 && (
+                <div className="overflow-x-auto rounded-xl mt-4">
+                  <table className="min-w-full border-separate border-spacing-0">
+                    <thead>
+                      <tr className="bg-[#DDE3F9]">
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Project / Asset Name
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Sector
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Type
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Ownership
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Estimated Monetization (INR Cr)
+                        </th>
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formData.section2_5.assetMonetizationArray.map(
+                        (entry) => (
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.projectName}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.type}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.ownership}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.estimatedMonetization}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeAsset(entry.id)}
+                                className="text-red-600 hover:text-red-800"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
 
       {/* Navigation Buttons */}
+      {isNextDisabled && showValidationErrors && (
+        <p className="text-sm text-destructive mb-4">
+          Complete all required fields before continuing.
+        </p>
+      )}
       <FormActions
         onPrevious={goToPrevious}
         onNext={handleNext}
@@ -1681,6 +2044,7 @@ export const InfraDevelopmentStep = () => {
         isLastStep={isLastStep}
         nextLabel={isLastStep ? "Review & Submit" : "Next"}
         showSaveDraft={true}
+        isNextDisabled={isNextDisabled}
       />
     </div>
   );

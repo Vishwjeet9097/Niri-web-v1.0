@@ -64,16 +64,19 @@ export const Dropdown = ({
   value,
   onChange,
   placeholder = "Select option",
-  isEditable = true
+  isEditable = true,
+  resetKey = 0
 }: {
   options: string[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   isEditable?: boolean;
+  resetKey?: number;
 }) => {
   return (
     <Select
+      key={`dropdown-${resetKey}`}
       value={value}
       onValueChange={onChange}
       disabled={!isEditable}

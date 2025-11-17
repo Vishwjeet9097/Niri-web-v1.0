@@ -3,10 +3,19 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Users, Search, Filter, Loader2 } from "lucide-react";
 import { getRoleDisplayName } from "@/utils/roles";
-import { userManagementService, NodalOfficer } from "./services/userManagement.service";
+import {
+  userManagementService,
+  NodalOfficer,
+} from "./services/userManagement.service";
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
 import { EmptyState } from "./components/EmptyState";
@@ -15,7 +24,7 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
-import { useIndicatorAccess } from "@/hooks/useIndicatorAccess"; 
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { useMemo } from "react";
 
 export function UserManagementPage() {
@@ -23,16 +32,18 @@ export function UserManagementPage() {
   const { toast } = useToast();
   const [officers, setOfficers] = useState<NodalOfficer[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingOfficer, setEditingOfficer] = useState<NodalOfficer | null>(null);
+  const [editingOfficer, setEditingOfficer] = useState<NodalOfficer | null>(
+    null
+  );
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<NodalOfficer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [states, setStates] = useState<any[]>([]);
   const [allIndicators, setAllIndicators] = useState<any[]>([]);
-const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
+  const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
 
- const { refresh } = useIndicatorAccess(); 
+  const { refresh } = useIndicatorAccess();
   const loadStates = async () => {
     try {
       const statesData = await statesService.getStates();
@@ -46,39 +57,45 @@ const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
     try {
       setIsLoading(true);
       // Debug logging removed for performance
-      
+
       // Try to load from backend API first
       // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
       let backendUsers;
       if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
         // Admin and MOSPI Approver can see all users across all states
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         backendUsers = await apiService.getAllUsers();
       } else {
         // State Approver can only see users from their state
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         backendUsers = await apiService.getUsersByState(user?.state || "");
       }
-    // Debug logging removed for performance
+      // Debug logging removed for performance
 
       // Transform backend users to NodalOfficer format
-      const transformedOfficers: NodalOfficer[] = backendUsers.map((user: any) => ({
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        contactNumber: user.contactNumber || "",
-        email: user.email,
-        role: user.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
-        state: user.stateUt || user.state || "",
-        stateId: user.stateId || "", // Will be set later when states are loaded
-        assignedIndicator: user.assignedIndicator,
-        assignedIndicators: user.assignedIndicators || [],
-        isActive: user.isActive,
-        createdAt: new Date(user.createdAt).getTime(),
-      }));
-      
+      const transformedOfficers: NodalOfficer[] = backendUsers.map(
+        (user: any) => ({
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          contactNumber: user.contactNumber || "",
+          email: user.email,
+          role: user.role as
+            | "NODAL_OFFICER"
+            | "STATE_APPROVER"
+            | "MOSPI_REVIEWER"
+            | "MOSPI_APPROVER",
+          state: user.stateUt || user.state || "",
+          stateId: user.stateId || "", // Will be set later when states are loaded
+          assignedIndicator: user.assignedIndicator,
+          assignedIndicators: user.assignedIndicators || [],
+          isActive: user.isActive,
+          createdAt: new Date(user.createdAt).getTime(),
+        })
+      );
+
       setOfficers(transformedOfficers);
     } catch (error) {
       console.warn("⚠️ Backend API failed, using local storage:", error);
@@ -91,23 +108,23 @@ const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
   }, [user?.role, user?.state]); // Add dependencies
 
   // New function to load indicators
-const loadIndicators = async () => {
-  try {
-    setIsIndicatorsLoading(true);
-    const indicators = await apiService.getAllIndicators();
-    // Expect each indicator object to have a unique `code` (or `id`) and `name`
-    setAllIndicators(indicators || []);
-  } catch (err) {
-    console.error("❌ Error loading indicators:", err);
-    setAllIndicators([]);
-  } finally {
-    setIsIndicatorsLoading(false);
-  }
-};
+  const loadIndicators = async () => {
+    try {
+      setIsIndicatorsLoading(true);
+      const indicators = await apiService.getAllIndicators();
+      // Expect each indicator object to have a unique `code` (or `id`) and `name`
+      setAllIndicators(indicators || []);
+    } catch (err) {
+      console.error("❌ Error loading indicators:", err);
+      setAllIndicators([]);
+    } finally {
+      setIsIndicatorsLoading(false);
+    }
+  };
 
-useEffect(() => {
-  loadIndicators();
-}, []);
+  useEffect(() => {
+    loadIndicators();
+  }, []);
 
   useEffect(() => {
     loadOfficers();
@@ -115,29 +132,34 @@ useEffect(() => {
     loadStates();
   }, [loadOfficers]); // Add loadOfficers dependency back
 
-  const computeAvailableIndicatorsForState = (stateName: string, editingOfficerId?: string) => {
-  // Build a set of codes that are already assigned in this state to all users (except editingOfficerId)
-  const assignedSet = new Set<string>();
+  const computeAvailableIndicatorsForState = (
+    stateName: string,
+    editingOfficerId?: string
+  ) => {
+    // Build a set of codes that are already assigned in this state to all users (except editingOfficerId)
+    const assignedSet = new Set<string>();
 
-  // Officers array already contains users for the current scope (for Admin it may contain all states)
-  officers.forEach((o) => {
-    // Only consider assigned indicators of users in the same state
-    const officerState = o.state || o.stateId || "";
-    if (!stateName || officerState === stateName) {
-      // assignedIndicators may be an array of codes
-      const assigned = o.assignedIndicators || (o.assignedIndicator ? [o.assignedIndicator] : []);
-      if (o.id !== editingOfficerId) {
-        assigned.forEach((code) => {
-          if (code) assignedSet.add(code);
-        });
+    // Officers array already contains users for the current scope (for Admin it may contain all states)
+    officers.forEach((o) => {
+      // Only consider assigned indicators of users in the same state
+      const officerState = o.state || o.stateId || "";
+      if (!stateName || officerState === stateName) {
+        // assignedIndicators may be an array of codes
+        const assigned =
+          o.assignedIndicators ||
+          (o.assignedIndicator ? [o.assignedIndicator] : []);
+        if (o.id !== editingOfficerId) {
+          assigned.forEach((code) => {
+            if (code) assignedSet.add(code);
+          });
+        }
       }
-    }
-  });
+    });
 
-  // Return indicators whose code is NOT in assignedSet
-  // Keep indicators that belong to other states out (we assumed codes globally unique and assignments by state)
-  return allIndicators.filter((ind: any) => !assignedSet.has(ind.code));
-};
+    // Return indicators whose code is NOT in assignedSet
+    // Keep indicators that belong to other states out (we assumed codes globally unique and assignments by state)
+    return allIndicators.filter((ind: any) => !assignedSet.has(ind.code));
+  };
   const handleAddUser = () => {
     setEditingOfficer(null);
     setShowForm(true);
@@ -148,14 +170,17 @@ useEffect(() => {
     setShowForm(true);
   };
 
-  const handleSaveUser = async (officerData: Omit<NodalOfficer, "id" | "state" | "createdAt" | "assignedIndicator"> & { password?: string; assignedIndicators?: string[] }) => {
-   
-    
+  const handleSaveUser = async (
+    officerData: Omit<
+      NodalOfficer,
+      "id" | "state" | "createdAt" | "assignedIndicator"
+    > & { password?: string; assignedIndicators?: string[] }
+  ) => {
     try {
       if (editingOfficer) {
         // Update existing user via backend API
         let selectedState = "";
-        
+
         if (user?.role === "ADMIN") {
           // Admin can select any state - convert stateId to state name
           if (officerData.stateId) {
@@ -163,33 +188,36 @@ useEffect(() => {
             // if (officerData.stateId.includes('q') || officerData.stateId.length < 3 || /\d.*[a-zA-Z]/.test(officerData.stateId)) {
             //   throw new Error(`Invalid state selected: "${officerData.stateId}". Please select a valid state.`);
             // }
-            
+
             // Check if stateId is a number (like "9") and convert to state name
             if (!isNaN(Number(officerData.stateId))) {
               // This is a state ID, we need to get the state name from states array
-              const state = states.find(s => s.id === officerData.stateId);
+              const state = states.find((s) => s.id === officerData.stateId);
               if (state) {
                 selectedState = state.name;
-    // Debug logging removed for performance
-
+                // Debug logging removed for performance
               } else {
                 selectedState = officerData.stateId; // Fallback to ID if not found
-                console.warn("⚠️ State not found in states array for update:", officerData.stateId);
+                console.warn(
+                  "⚠️ State not found in states array for update:",
+                  officerData.stateId
+                );
               }
             } else {
               // This is already a state name, find the ID
-              const state = states.find(s => s.name === officerData.stateId);
+              const state = states.find((s) => s.name === officerData.stateId);
               if (state) {
                 selectedState = state.name;
-    // Debug logging removed for performance
-
+                // Debug logging removed for performance
               } else {
                 selectedState = officerData.stateId; // Fallback
-                console.warn("⚠️ State not found in states array for update:", officerData.stateId);
+                console.warn(
+                  "⚠️ State not found in states array for update:",
+                  officerData.stateId
+                );
               }
             }
-    // Debug logging removed for performance
-
+            // Debug logging removed for performance
           } else {
             throw new Error("State selection is required for Admin");
           }
@@ -197,38 +225,40 @@ useEffect(() => {
           // STATE_APPROVER and MOSPI_APPROVER use their own state
           // For these roles, both stateId and stateUt should be the same (state name)
           selectedState = user?.state || "";
-    // Debug logging removed for performance
-
+          // Debug logging removed for performance
         }
-        
+
         // ✅ Validate state
         if (!selectedState && officerData.role !== "STATE_APPROVER") {
           //throw new Error("State is required but not provided");
         }
- 
-        
+
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
           contactNumber: officerData.contactNumber,
-          role: officerData.role as "NODAL_OFFICER" | "STATE_APPROVER" | "MOSPI_REVIEWER" | "MOSPI_APPROVER",
-          indicatorCodes: officerData.assignedIndicators || [], 
-          stateUt: officerData.stateUt
+          role: officerData.role as
+            | "NODAL_OFFICER"
+            | "STATE_APPROVER"
+            | "MOSPI_REVIEWER"
+            | "MOSPI_APPROVER",
+          indicatorCodes: officerData.assignedIndicators || [],
+          stateUt: officerData.stateUt,
           // Include assigned indicators in update payload with correct key
           // Note: email and stateUt are not included in update payload as they should not be changed
         } as any);
-        
+
         notificationService.success(
           "Officer updated successfully",
           "Update Successful"
         );
       } else {
         // Create new user via backend API
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         let selectedStateId = "";
         let selectedStateName = "";
-        
+
         if (user?.role === "ADMIN") {
           // Admin can select any state - convert stateId to state name
           if (officerData.stateId) {
@@ -236,43 +266,47 @@ useEffect(() => {
             // if (officerData.stateId.includes('q') || officerData.stateId.length < 3 || /\d.*[a-zA-Z]/.test(officerData.stateId)) {
             //   throw new Error(`Invalid state selected: "${officerData.stateId}". Please select a valid state.`);
             // }
-            
+
             // Check if stateId is a number (like "9") and convert to state name
             if (!isNaN(Number(officerData.stateId))) {
               // This is a state ID, we need to get the state name from states array
-              const state = states.find(s => s.id === officerData.stateId);
+              const state = states.find((s) => s.id === officerData.stateId);
               if (state) {
                 selectedStateId = state.id; // Keep original ID
                 selectedStateName = state.name; // Get state name
-    // Debug logging removed for performance
-
+                // Debug logging removed for performance
               } else {
                 selectedStateId = officerData.stateId; // Fallback to ID if not found
                 selectedStateName = officerData.stateId; // Fallback to ID if not found
-                console.warn("⚠️ State not found in states array:", officerData.stateId);
+                console.warn(
+                  "⚠️ State not found in states array:",
+                  officerData.stateId
+                );
               }
             } else {
               // This is already a state name, find the ID
-              const state = states.find(s => s.name === officerData.stateId);
+              const state = states.find((s) => s.name === officerData.stateId);
               if (state) {
                 selectedStateId = state.id; // Use state ID
                 selectedStateName = state.name; // Use state name
-    // Debug logging removed for performance
-
+                // Debug logging removed for performance
               } else {
                 selectedStateId = officerData.stateId; // Fallback
                 selectedStateName = officerData.stateId; // Fallback
-                console.warn("⚠️ State not found in states array:", officerData.stateId);
+                console.warn(
+                  "⚠️ State not found in states array:",
+                  officerData.stateId
+                );
               }
             }
-            
+
             console.log("🔍 ADMIN - Using selected state for creation:", {
               originalStateId: officerData.stateId,
               selectedStateId: selectedStateId,
               selectedStateName: selectedStateName,
               stateIdType: typeof officerData.stateId,
               stateIdLength: officerData.stateId.length,
-              isNumber: !isNaN(Number(officerData.stateId))
+              isNumber: !isNaN(Number(officerData.stateId)),
             });
           } else {
             throw new Error("State selection is required for Admin");
@@ -282,16 +316,19 @@ useEffect(() => {
           // For these roles, both stateId and stateUt should be the same (state name)
           selectedStateId = user?.state || "";
           selectedStateName = user?.state || "";
-    // Debug logging removed for performance
-
+          // Debug logging removed for performance
         }
-        
+
         // ✅ Validate state
         if (!selectedStateId || !selectedStateName) {
-         // throw new Error("State is required but not provided");
+          // throw new Error("State is required but not provided");
         }
-    
-        
+
+        // Before calling register, compute final values to send:
+        const stateUtToSend =
+          selectedStateName || officerData.stateUt || selectedStateId || "";
+
+        // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
         const newUser = await apiService.register(
           officerData.email,
           officerData.password || "password123",
@@ -299,19 +336,22 @@ useEffect(() => {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          officerData.stateUt,
-         // selectedStateName, // State NAME (e.g., "Bihar", "Delhi") - only stateUt needed
-          selectedStateId, // State ID for reference
-          officerData.assignedIndicators // Pass indicators directly in register call
+          stateUtToSend, // <- pass state NAME here (was officerData.stateUt)
+          selectedStateId, // <- state ID
+          officerData.assignedIndicators // indicators
         );
-    // Debug logging removed for performance
+
+        // Debug logging removed for performance
 
         // Note: Indicators are now included in the register call, no separate API call needed
-        if (officerData.role === "NODAL_OFFICER" && officerData.assignedIndicators && officerData.assignedIndicators.length > 0) {
-    // Debug logging removed for performance
-
+        if (
+          officerData.role === "NODAL_OFFICER" &&
+          officerData.assignedIndicators &&
+          officerData.assignedIndicators.length > 0
+        ) {
+          // Debug logging removed for performance
         }
-        
+
         notificationService.success(
           "Officer added successfully",
           "Registration Successful"
@@ -321,7 +361,7 @@ useEffect(() => {
       setShowForm(false);
       setEditingOfficer(null);
 
-       // >>> REFRESH: force indicator hook to re-fetch so approver UI sees updated availableIndicators
+      // >>> REFRESH: force indicator hook to re-fetch so approver UI sees updated availableIndicators
       try {
         console.log("🔁 Triggering indicator refresh after save user");
         await refresh?.({ clearCache: true });
@@ -331,14 +371,14 @@ useEffect(() => {
       // <<< REFRESH
     } catch (error: any) {
       console.error("❌ Error saving user:", error);
-      
+
       // Extract error message from response
       let errorMessage = "Failed to save officer. Please try again.";
       let errorTitle = "Operation Failed";
-      
+
       if (error?.response?.data) {
         const responseData = error.response.data;
-        
+
         // Priority: message > error > default
         if (responseData.message) {
           errorMessage = responseData.message;
@@ -346,11 +386,12 @@ useEffect(() => {
         } else if (responseData.error) {
           errorMessage = responseData.error;
         }
-        
+
         // Handle specific error cases
         if (responseData.statusCode === 409) {
           errorTitle = "User Already Exists";
-          errorMessage = "A user with this email address already exists. Please use a different email.";
+          errorMessage =
+            "A user with this email address already exists. Please use a different email.";
         } else if (responseData.statusCode === 400) {
           errorTitle = "Invalid Data";
           errorMessage = "Please check your input data and try again.";
@@ -361,13 +402,13 @@ useEffect(() => {
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       notificationService.error(errorMessage, errorTitle);
     }
   };
 
   const handleDeleteUser = async (id: string) => {
-    const officer = officers.find(o => o.id === id);
+    const officer = officers.find((o) => o.id === id);
     if (officer) {
       setUserToDelete(officer);
       setDeleteModalOpen(true);
@@ -376,7 +417,7 @@ useEffect(() => {
 
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
-    
+
     setIsDeleting(true);
     try {
       // Delete user via backend API
@@ -385,10 +426,10 @@ useEffect(() => {
         `${userToDelete.firstName} ${userToDelete.lastName} deactivated successfully`,
         "Deactivation Successful"
       );
-      
+
       // Refresh data
       await loadOfficers();
-       // >>> REFRESH: refresh available indicators for approver
+      // >>> REFRESH: refresh available indicators for approver
       try {
         console.log("🔁 Triggering indicator refresh after delete user");
         await refresh?.({ clearCache: true });
@@ -413,37 +454,41 @@ useEffect(() => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  
+
   // Sorting state
-  const [sortField, setSortField] = useState<"firstName" | "role" | "state" | "email">("firstName");
+  const [sortField, setSortField] = useState<
+    "firstName" | "role" | "state" | "email"
+  >("firstName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // ✅ getStateNameById function removed - using stateId directly as state name
 
   // Filter and sort officers
   const filteredOfficers = officers
-    .filter(officer => {
-      const matchesSearch = searchTerm === "" || 
+    .filter((officer) => {
+      const matchesSearch =
+        searchTerm === "" ||
         officer.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         officer.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         officer.email.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
       const isStateApprover = user?.role === "STATE_APPROVER";
-      const effectiveRoleFilter = isStateApprover && roleFilter === "all" ? "NODAL_OFFICER" : roleFilter;
-      const matchesRole = effectiveRoleFilter === "all" || officer.role === effectiveRoleFilter;
-      
-      
+      const effectiveRoleFilter =
+        isStateApprover && roleFilter === "all" ? "NODAL_OFFICER" : roleFilter;
+      const matchesRole =
+        effectiveRoleFilter === "all" || officer.role === effectiveRoleFilter;
+
       return matchesSearch && matchesRole;
     })
     .sort((a, b) => {
       let aValue = "";
       let bValue = "";
-      
+
       switch (sortField) {
         case "firstName":
           aValue = `${a.firstName} ${a.lastName}`.toLowerCase();
@@ -465,7 +510,7 @@ useEffect(() => {
           aValue = a.firstName.toLowerCase();
           bValue = b.firstName.toLowerCase();
       }
-      
+
       if (sortDirection === "asc") {
         return aValue.localeCompare(bValue);
       } else {
@@ -478,7 +523,6 @@ useEffect(() => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedOfficers = filteredOfficers.slice(startIndex, endIndex);
-  
 
   // Handle sorting
   const handleSort = (field: "firstName" | "role" | "state" | "email") => {
@@ -500,19 +544,19 @@ useEffect(() => {
       );
       return;
     }
-    
+
     // Delete selected users
     const selectedIdsArray = Array.from(selectedIds);
-    setUserToDelete({ 
-      id: "bulk", 
-      firstName: `${selectedIdsArray.length} Selected Users`, 
+    setUserToDelete({
+      id: "bulk",
+      firstName: `${selectedIdsArray.length} Selected Users`,
       lastName: "",
       email: "",
       role: "",
       state: user?.state || "",
       contactNumber: "",
       isActive: true,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     });
     setDeleteModalOpen(true);
   };
@@ -522,16 +566,18 @@ useEffect(() => {
       // Delete selected users
       const selectedIdsArray = Array.from(selectedIds);
       const result = await apiService.deactivateUsers(selectedIdsArray);
-      
+
       notificationService.success(
-        `${result.deactivatedCount || selectedIdsArray.length} users deactivated successfully`,
+        `${
+          result.deactivatedCount || selectedIdsArray.length
+        } users deactivated successfully`,
         "Bulk Deactivation Successful"
       );
-      
+
       // Clear selection and refresh data
       setSelectedIds(new Set());
       await loadOfficers();
-      
+
       // Close modal
       setDeleteModalOpen(false);
       setUserToDelete(null);
@@ -557,12 +603,15 @@ useEffect(() => {
         "Assignment Successful"
       );
       await loadOfficers();
-       try {
-      console.log("🔁 Triggering indicator refresh after assign indicator");
-      await refresh?.({ clearCache: true });
-    } catch (err) {
-      console.warn("⚠️ Indicator refresh failed after assign indicator:", err);
-    }
+      try {
+        console.log("🔁 Triggering indicator refresh after assign indicator");
+        await refresh?.({ clearCache: true });
+      } catch (err) {
+        console.warn(
+          "⚠️ Indicator refresh failed after assign indicator:",
+          err
+        );
+      }
     } catch (error) {
       console.error("❌ Error assigning indicator:", error);
       notificationService.error(
@@ -576,24 +625,23 @@ useEffect(() => {
     setShowForm(false);
     setEditingOfficer(null);
   };
- if (showForm) {
-  // Debug logging removed for performance
+  if (showForm) {
+    // Debug logging removed for performance
 
-  // Determine stateName to pass if needed (UserForm computes availability itself)
-  return (
-    <div className="p-6 space-y-6">
-      <UserForm
-        officer={editingOfficer}
-        onSave={handleSaveUser}
-        onCancel={handleCancel}
-        allIndicators={allIndicators}
-        officers={officers}
-        loadingIndicators={isIndicatorsLoading}
-      />
-    </div>
-  );
-}
-
+    // Determine stateName to pass if needed (UserForm computes availability itself)
+    return (
+      <div className="p-6 space-y-6">
+        <UserForm
+          officer={editingOfficer}
+          onSave={handleSaveUser}
+          onCancel={handleCancel}
+          allIndicators={allIndicators}
+          officers={officers}
+          loadingIndicators={isIndicatorsLoading}
+        />
+      </div>
+    );
+  }
 
   if (officers.length === 0) {
     // Debug logging removed for performance
@@ -605,9 +653,12 @@ useEffect(() => {
             <Users className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">User Management</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              User Management
+            </h1>
             <p className="text-muted-foreground">
-              Add or remove Nodal Officers for your State/UT and assign them specific indicators for data submission
+              Add or remove Nodal Officers for your State/UT and assign them
+              specific indicators for data submission
             </p>
           </div>
         </div>
@@ -615,15 +666,21 @@ useEffect(() => {
       </div>
     );
   }
-    // Debug logging removed for performance
+  // Debug logging removed for performance
 
   // Access control - Only STATE_APPROVER, MOSPI_APPROVER, and ADMIN can access user management
-  if (user?.role !== "STATE_APPROVER" && user?.role !== "MOSPI_APPROVER" && user?.role !== "ADMIN") {
+  if (
+    user?.role !== "STATE_APPROVER" &&
+    user?.role !== "MOSPI_APPROVER" &&
+    user?.role !== "ADMIN"
+  ) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <div className="text-6xl mb-4">🚫</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Access Denied
+          </h2>
           <p className="text-gray-600 mb-4">
             You don't have permission to access User Management.
           </p>
@@ -641,7 +698,9 @@ useEffect(() => {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Users</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Loading Users
+          </h2>
           <p className="text-gray-600">
             Please wait while we fetch the user data...
           </p>
@@ -658,17 +717,22 @@ useEffect(() => {
             <Users className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">Enter officer details</h1>
+            <h1 className="text-lg font-semibold text-foreground">
+              Enter officer details
+            </h1>
             <p className="text-[#000]">
-              Add or remove Nodal Officers for your State/UT and assign them specific indicators for data submission.
+              Add or remove Nodal Officers for your State/UT and assign them
+              specific indicators for data submission.
             </p>
           </div>
         </div>
         <div className="flex gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleDeleteAll}
-            disabled={isDeleting || (selectedIds.size === 0 && officers.length === 0)}
+            disabled={
+              isDeleting || (selectedIds.size === 0 && officers.length === 0)
+            }
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </Button>
@@ -695,31 +759,44 @@ useEffect(() => {
         </div>
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select value={roleFilter}           onValueChange={(value) => {
-            setRoleFilter(value);
-            setCurrentPage(1); // Reset to first page when filtering
-          }}>
+          <Select
+            value={roleFilter}
+            onValueChange={(value) => {
+              setRoleFilter(value);
+              setCurrentPage(1); // Reset to first page when filtering
+            }}
+          >
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="NODAL_OFFICER">{getRoleDisplayName("NODAL_OFFICER")}</SelectItem>
+              <SelectItem value="NODAL_OFFICER">
+                {getRoleDisplayName("NODAL_OFFICER")}
+              </SelectItem>
               {user?.role !== "STATE_APPROVER" && (
                 <>
-                  <SelectItem value="STATE_APPROVER">{getRoleDisplayName("STATE_APPROVER")}</SelectItem>
-                  <SelectItem value="MOSPI_REVIEWER">{getRoleDisplayName("MOSPI_REVIEWER")}</SelectItem>
-                  <SelectItem value="MOSPI_APPROVER">{getRoleDisplayName("MOSPI_APPROVER")}</SelectItem>
-                  <SelectItem value="ADMIN">{getRoleDisplayName("ADMIN")}</SelectItem>
+                  <SelectItem value="STATE_APPROVER">
+                    {getRoleDisplayName("STATE_APPROVER")}
+                  </SelectItem>
+                  <SelectItem value="MOSPI_REVIEWER">
+                    {getRoleDisplayName("MOSPI_REVIEWER")}
+                  </SelectItem>
+                  <SelectItem value="MOSPI_APPROVER">
+                    {getRoleDisplayName("MOSPI_APPROVER")}
+                  </SelectItem>
+                  <SelectItem value="ADMIN">
+                    {getRoleDisplayName("ADMIN")}
+                  </SelectItem>
                 </>
               )}
             </SelectContent>
           </Select>
         </div>
         {(searchTerm || roleFilter !== "all") && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setSearchTerm("");
               setRoleFilter("all");
@@ -733,7 +810,8 @@ useEffect(() => {
 
       {/* Results Count */}
       <div className="text-sm text-muted-foreground">
-        Showing {startIndex + 1}-{Math.min(endIndex, filteredOfficers.length)} of {filteredOfficers.length} users
+        Showing {startIndex + 1}-{Math.min(endIndex, filteredOfficers.length)}{" "}
+        of {filteredOfficers.length} users
         {filteredOfficers.length !== officers.length && (
           <span className="ml-2 text-primary">
             (filtered from {officers.length} total)
@@ -806,14 +884,22 @@ useEffect(() => {
           setDeleteModalOpen(false);
           setUserToDelete(null);
         }}
-        onConfirm={userToDelete?.id === "bulk" ? confirmDeleteAll : confirmDeleteUser}
-        title={userToDelete?.id === "bulk" ? "Delete Selected Users" : "Delete Officer"}
+        onConfirm={
+          userToDelete?.id === "bulk" ? confirmDeleteAll : confirmDeleteUser
+        }
+        title={
+          userToDelete?.id === "bulk"
+            ? "Delete Selected Users"
+            : "Delete Officer"
+        }
         description={
           userToDelete?.id === "bulk"
             ? `Are you sure you want to delete ${userToDelete?.firstName}? This action cannot be undone.`
             : `Are you sure you want to delete ${userToDelete?.firstName} ${userToDelete?.lastName}? This action cannot be undone.`
         }
-        confirmText={userToDelete?.id === "bulk" ? "Delete Selected" : "Delete Officer"}
+        confirmText={
+          userToDelete?.id === "bulk" ? "Delete Selected" : "Delete Officer"
+        }
         cancelText="Cancel"
         variant="destructive"
         isLoading={isDeleting}
@@ -821,8 +907,8 @@ useEffect(() => {
         {userToDelete?.id === "bulk" && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
             <p className="text-sm text-orange-800">
-              <strong>Warning:</strong> This will permanently delete the selected users. 
-              They will no longer be able to access the system.
+              <strong>Warning:</strong> This will permanently delete the
+              selected users. They will no longer be able to access the system.
             </p>
           </div>
         )}

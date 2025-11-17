@@ -239,16 +239,15 @@ const handleFinalSubmit = async () => {
 };
 
 const handlePreviewClick = (rowStateUt?: string, year?: string) => {
-  // Prefer: explicit state from the row -> user’s stateUt -> nothing
-  const userState = authService.getUser()?.stateUt;
-  const resolvedState = (rowStateUt || userState || "").toUpperCase();
+  const userState = authService.getUser()?.stateUt || authService.getUser()?.stateName || authService.getUser()?.state;
+  const resolvedState = (rowStateUt || userState || "").trim();
 
   const params = new URLSearchParams();
   if (resolvedState) params.set("state", resolvedState);
   if (year) params.set("year", year);
 
   const qs = params.toString();
-  navigate(`/submissions/preview${qs ? `?${qs}` : ""}`);
+  navigate(`/data-submission/state-aggregate${qs ? `?${qs}` : ""}`);
 };
 
 
@@ -282,6 +281,50 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
 
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((submission) => {
+      // Role-based status filter
+      let statusMatch = true; // Default: show all for roles without specific filtering
+      
+      if (user?.role === "MOSPI_REVIEWER") {
+        // MoSPI Reviewer should see:
+        // 1. Submissions submitted to them (SUBMITTED_TO_MOSPI_REVIEWER, SUBMITTED_TO_MOSPI, RETURNED_FROM_MOSPI)
+        // 2. Their own consolidated submissions submitted to MoSPI Approver (SUBMITTED_TO_MOSPI_APPROVER)
+        const allowedStatuses = [
+          "SUBMITTED_TO_MOSPI_REVIEWER",
+          "SUBMITTED_TO_MOSPI",
+          "RETURNED_FROM_MOSPI", // Include returned submissions that can be resubmitted
+        ];
+        const isOwnSubmission = submission.user?.id === user?.id || 
+          submission.submittedBy?.id === user?.id ||
+          (submission.user?.email && submission.user.email === user?.email);
+        const isConsolidatedSubmission = submission.status === "SUBMITTED_TO_MOSPI_APPROVER" && isOwnSubmission;
+        statusMatch = (submission.status && allowedStatuses.includes(submission.status)) || isConsolidatedSubmission;
+      } else if (user?.role === "MOSPI_APPROVER") {
+        // MoSPI Approver should only see submissions submitted to them
+        const allowedStatuses = [
+          "SUBMITTED_TO_MOSPI_APPROVER",
+        ];
+        statusMatch = submission.status && allowedStatuses.includes(submission.status);
+      } else if (user?.role === "STATE_APPROVER") {
+        // State Approver should see:
+        // 1. Submissions submitted to them (SUBMITTED_TO_STATE, RETURNED_FROM_STATE, RETURNED_FROM_MOSPI)
+        // 2. Their own consolidated submissions submitted to MoSPI Reviewer (SUBMITTED_TO_MOSPI_REVIEWER)
+        const allowedStatuses = [
+          "SUBMITTED_TO_STATE",
+          "RETURNED_FROM_STATE", // Include returned submissions
+          "RETURNED_FROM_MOSPI", // Include resubmissions from MoSPI
+        ];
+        const isOwnSubmission = submission.user?.id === user?.id || 
+          submission.submittedBy?.id === user?.id ||
+          (submission.user?.email && submission.user.email === user?.email);
+        const isConsolidatedSubmission = submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission;
+        statusMatch = (submission.status && allowedStatuses.includes(submission.status)) || isConsolidatedSubmission;
+      } else if (user?.role === "NODAL_OFFICER") {
+        // Nodal Officer should see their own submissions
+        // No status filter needed - they see all their submissions
+        statusMatch = true;
+      }
+      
+      // Search filter
       const title = (submission.title || submission.submissionId || `Submission ${submission.id}` || "").toLowerCase();
       const submitter =
         (submission.submittedBy?.name ||
@@ -291,15 +334,17 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
       const idStr = (submission.id || submission.submissionId || "").toLowerCase();
 
       const q = searchQuery.toLowerCase();
-      return (
+      const searchMatch = (
         searchQuery === "" ||
         title.includes(q) ||
         submitter.includes(q) ||
         category.includes(q) ||
         idStr.includes(q)
       );
+      
+      return statusMatch && searchMatch;
     });
-  }, [searchQuery, submissions]);
+  }, [searchQuery, submissions, user?.role]);
 
 
   // Handle export
@@ -581,6 +626,10 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   nextStep = "Complete all required sections";
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
                   nextStep = "Waiting for state approval";
+                } else if (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER") {
+                  nextStep = "Submitted to MoSPI Reviewer";
+                } else if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                  nextStep = "Submitted to MoSPI Approver";
                 } else if (submission.status === "APPROVED") {
                   nextStep = "Submission approved";
                 } else if (submission.status === "REJECTED" || submission.status === "REJECTED_FINAL") {
@@ -639,6 +688,10 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   nextStep = "Complete all required sections";
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
                   nextStep = "Waiting for state approval";
+                } else if (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER") {
+                  nextStep = "Submitted to MoSPI Reviewer";
+                } else if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                  nextStep = "Submitted to MoSPI Approver";
                 } else if (submission.status === "APPROVED") {
                   nextStep = "Submission approved";
                 } else if (submission.status === "REJECTED" || submission.status === "REJECTED_FINAL") {
