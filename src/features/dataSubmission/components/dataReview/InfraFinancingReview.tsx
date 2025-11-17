@@ -1036,7 +1036,7 @@ const renderActionButtons = (sectionId: string) => {
     return null;
   }
   
-  // For MOSPI_REVIEWER, no action buttons (comments are restricted to STATE_APPROVER only)
+  // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
   if (isMospiReviewer) {
     return (
       <div className="flex gap-2">
@@ -1049,23 +1049,17 @@ const renderActionButtons = (sectionId: string) => {
           <MessageSquare className="w-4 h-4" />
           Add Comment
         </Button>
-      </div>
-    );
-  }
-  
-  // For MOSPI_REVIEWER, show only Add Comment button
-  if (isMospiReviewer) {
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenModal(sectionId)}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Add Comment
-        </Button>
+        {commentCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
+          </Button>
+        )}
       </div>
     );
   }

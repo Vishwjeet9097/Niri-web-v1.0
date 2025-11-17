@@ -60,12 +60,23 @@ interface InfraDevelopmentReviewProps {
 }
 
 export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraDevelopmentReviewProps) => {
-  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
+  
+  // Use submissionState for the hook so it gets updated comments
+  // Merge submission prop updates with local submissionState
+  const currentSubmission = submissionState || submission;
+  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, currentSubmission);
+  
+  // Sync submissionState when submission prop changes from parent
+  useEffect(() => {
+    if (submission) {
+      setSubmissionState(submission);
+    }
+  }, [submission]);
   
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
@@ -1299,7 +1310,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     return null;
   }
   
-  // For MOSPI_REVIEWER, no action buttons (comments are restricted to STATE_APPROVER only)
+  // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
   if (isMospiReviewer) {
     return (
       <div className="flex gap-2">
@@ -1312,23 +1323,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           <MessageSquare className="w-4 h-4" />
           Add Comment
         </Button>
-      </div>
-    );
-  }
-  
-  // For MOSPI_REVIEWER, show only Add Comment button
-  if (isMospiReviewer) {
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenModal(sectionId)}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Add Comment
-        </Button>
+        {commentCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
+          </Button>
+        )}
       </div>
     );
   }
