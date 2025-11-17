@@ -44,7 +44,7 @@ export const EditableFileDisplay = ({
   submissionId,
   onFilesChange,
   accept = ".pdf,.doc,.docx",
-  maxSize = 10,
+  maxSize = 50,
   label,
   multiple = false,
 }: FileDisplayWithActionsProps) => {
