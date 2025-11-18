@@ -58,12 +58,23 @@ interface InfraEnablersReviewProps {
 }
 
 export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraEnablersReviewProps) => {
-  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
+  
+  // Use submissionState for the hook so it gets updated comments
+  // Merge submission prop updates with local submissionState
+  const currentSubmission = submissionState || submission;
+  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, currentSubmission);
+  
+  // Sync submissionState when submission prop changes from parent
+  useEffect(() => {
+    if (submission) {
+      setSubmissionState(submission);
+    }
+  }, [submission]);
   
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
@@ -1098,7 +1109,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     
-    // For MOSPI_REVIEWER, show only Add Comment button
+    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
+    const submissionStatus = submission?.status;
+    if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+      return null;
+    }
+    
+    // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
     if (isMospiReviewer) {
       return (
         <div className="flex gap-2">
@@ -1111,6 +1128,17 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <MessageSquare className="w-4 h-4" />
             Add Comment
           </Button>
+          {commentCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          )}
         </div>
       );
     }
