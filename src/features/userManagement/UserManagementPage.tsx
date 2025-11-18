@@ -42,6 +42,8 @@ export function UserManagementPage() {
   const [states, setStates] = useState<any[]>([]);
   const [allIndicators, setAllIndicators] = useState<any[]>([]);
   const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
+  const [hasSubmissions, setHasSubmissions] = useState(false);
+  const [checkingSubmissions, setCheckingSubmissions] = useState(false);
 
   const { refresh } = useIndicatorAccess();
   const loadStates = async () => {
@@ -407,9 +409,46 @@ export function UserManagementPage() {
     }
   };
 
+  // Check if a user has submissions
+  const checkUserHasSubmissions = async (userId: string): Promise<boolean> => {
+    try {
+      const response = await apiService.get(`/submission/user/${userId}`);
+      const submission = response?.data?.data || response?.data || response;
+      // Check if submission exists and has an id
+      return !!(
+        submission?.id ||
+        (Array.isArray(submission) && submission.length > 0)
+      );
+    } catch (error: any) {
+      // If 404 or no submissions, return false
+      if (error?.response?.status === 404) {
+        return false;
+      }
+      console.warn("⚠️ Error checking user submissions:", error);
+      // Return false on error to allow deletion
+      return false;
+    }
+  };
+
   const handleDeleteUser = async (id: string) => {
     const officer = officers.find((o) => o.id === id);
     if (officer) {
+      // Check if this is a NODAL_OFFICER and has submissions
+      if (officer.role === "NODAL_OFFICER") {
+        setCheckingSubmissions(true);
+        try {
+          const hasSubs = await checkUserHasSubmissions(officer.id);
+          setHasSubmissions(hasSubs);
+        } catch (error) {
+          console.warn("⚠️ Failed to check submissions:", error);
+          setHasSubmissions(false);
+        } finally {
+          setCheckingSubmissions(false);
+        }
+      } else {
+        setHasSubmissions(false);
+      }
+
       setUserToDelete(officer);
       setDeleteModalOpen(true);
     }
@@ -418,8 +457,45 @@ export function UserManagementPage() {
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
 
+    // Prevent deletion if nodal officer has submissions - just close modal
+    if (userToDelete.role === "NODAL_OFFICER" && hasSubmissions) {
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
+      setHasSubmissions(false);
+      notificationService.error(
+        "Cannot delete nodal officer with active submissions.",
+        "Deletion Restricted"
+      );
+      return;
+    }
+
     setIsDeleting(true);
     try {
+      // If deleting a NODAL_OFFICER with assigned indicators, unassign them first
+      if (
+        userToDelete.role === "NODAL_OFFICER" &&
+        userToDelete.assignedIndicators &&
+        userToDelete.assignedIndicators.length > 0
+      ) {
+        try {
+          console.log(
+            "🔁 Unassigning indicators before deleting nodal officer:",
+            userToDelete.assignedIndicators
+          );
+          // Unassign all indicators by setting indicatorCodes to empty array
+          await apiService.updateUser(userToDelete.id, {
+            indicatorCodes: [],
+          } as any);
+          console.log("✅ Indicators unassigned successfully");
+        } catch (unassignError) {
+          console.warn(
+            "⚠️ Failed to unassign indicators before deletion:",
+            unassignError
+          );
+          // Continue with deletion even if unassignment fails
+        }
+      }
+
       // Delete user via backend API
       await apiService.deactivateUser(userToDelete.id);
       notificationService.success(
@@ -440,6 +516,7 @@ export function UserManagementPage() {
       // Close modal
       setDeleteModalOpen(false);
       setUserToDelete(null);
+      setHasSubmissions(false);
     } catch (error) {
       console.error("❌ Error deleting user:", error);
       notificationService.error(
@@ -565,6 +642,42 @@ export function UserManagementPage() {
     try {
       // Delete selected users
       const selectedIdsArray = Array.from(selectedIds);
+
+      // Before bulk deletion, unassign indicators from NODAL_OFFICERs
+      const nodalOfficersToUnassign = officers.filter(
+        (officer) =>
+          selectedIdsArray.includes(officer.id) &&
+          officer.role === "NODAL_OFFICER" &&
+          officer.assignedIndicators &&
+          officer.assignedIndicators.length > 0
+      );
+
+      if (nodalOfficersToUnassign.length > 0) {
+        console.log(
+          `🔁 Unassigning indicators from ${nodalOfficersToUnassign.length} nodal officer(s) before bulk deletion`
+        );
+
+        // Unassign indicators for each nodal officer
+        const unassignPromises = nodalOfficersToUnassign.map((officer) =>
+          apiService
+            .updateUser(officer.id, {
+              indicatorCodes: [],
+            } as any)
+            .catch((err) => {
+              console.warn(
+                `⚠️ Failed to unassign indicators for officer ${officer.id}:`,
+                err
+              );
+              // Continue even if one fails
+            })
+        );
+
+        await Promise.all(unassignPromises);
+        console.log(
+          "✅ Indicators unassigned successfully for all nodal officers"
+        );
+      }
+
       const result = await apiService.deactivateUsers(selectedIdsArray);
 
       notificationService.success(
@@ -578,9 +691,22 @@ export function UserManagementPage() {
       setSelectedIds(new Set());
       await loadOfficers();
 
+      // >>> REFRESH: refresh available indicators for approver
+      try {
+        console.log("🔁 Triggering indicator refresh after bulk delete users");
+        await refresh?.({ clearCache: true });
+      } catch (err) {
+        console.warn(
+          "⚠️ Indicator refresh failed after bulk delete users:",
+          err
+        );
+      }
+      // <<< REFRESH
+
       // Close modal
       setDeleteModalOpen(false);
       setUserToDelete(null);
+      setHasSubmissions(false);
     } catch (error) {
       console.error("❌ Error deleting users:", error);
       notificationService.error(
@@ -883,28 +1009,65 @@ export function UserManagementPage() {
         onClose={() => {
           setDeleteModalOpen(false);
           setUserToDelete(null);
+          setHasSubmissions(false);
         }}
         onConfirm={
-          userToDelete?.id === "bulk" ? confirmDeleteAll : confirmDeleteUser
+          hasSubmissions && userToDelete?.role === "NODAL_OFFICER"
+            ? () => {
+                setDeleteModalOpen(false);
+                setUserToDelete(null);
+                setHasSubmissions(false);
+              }
+            : userToDelete?.id === "bulk"
+            ? confirmDeleteAll
+            : confirmDeleteUser
         }
         title={
           userToDelete?.id === "bulk"
             ? "Delete Selected Users"
+            : hasSubmissions && userToDelete?.role === "NODAL_OFFICER"
+            ? "Deletion Not Allowed"
             : "Delete Officer"
         }
         description={
           userToDelete?.id === "bulk"
             ? `Are you sure you want to delete ${userToDelete?.firstName}? This action cannot be undone.`
+            : hasSubmissions && userToDelete?.role === "NODAL_OFFICER"
+            ? `Cannot delete ${userToDelete?.firstName} ${userToDelete?.lastName} because they have active submissions.`
             : `Are you sure you want to delete ${userToDelete?.firstName} ${userToDelete?.lastName}? This action cannot be undone.`
         }
         confirmText={
-          userToDelete?.id === "bulk" ? "Delete Selected" : "Delete Officer"
+          hasSubmissions && userToDelete?.role === "NODAL_OFFICER"
+            ? "Close"
+            : userToDelete?.id === "bulk"
+            ? "Delete Selected"
+            : "Delete Officer"
         }
         cancelText="Cancel"
-        variant="destructive"
-        isLoading={isDeleting}
+        variant={
+          hasSubmissions && userToDelete?.role === "NODAL_OFFICER"
+            ? "warning"
+            : "destructive"
+        }
+        isLoading={isDeleting || checkingSubmissions}
       >
-        {userToDelete?.id === "bulk" && (
+        {checkingSubmissions && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">Checking for submissions...</p>
+          </div>
+        )}
+        {hasSubmissions &&
+          !checkingSubmissions &&
+          userToDelete?.role === "NODAL_OFFICER" && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800">
+                <strong>Deletion Restricted:</strong> This nodal officer has
+                active submissions. Deletion is not allowed to preserve
+                submission history.
+              </p>
+            </div>
+          )}
+        {userToDelete?.id === "bulk" && !hasSubmissions && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
             <p className="text-sm text-orange-800">
               <strong>Warning:</strong> This will permanently delete the
