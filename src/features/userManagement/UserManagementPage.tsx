@@ -471,32 +471,11 @@ export function UserManagementPage() {
 
     setIsDeleting(true);
     try {
-      // If deleting a NODAL_OFFICER with assigned indicators, unassign them first
-      if (
-        userToDelete.role === "NODAL_OFFICER" &&
-        userToDelete.assignedIndicators &&
-        userToDelete.assignedIndicators.length > 0
-      ) {
-        try {
-          console.log(
-            "🔁 Unassigning indicators before deleting nodal officer:",
-            userToDelete.assignedIndicators
-          );
-          // Unassign all indicators by setting indicatorCodes to empty array
-          await apiService.updateUser(userToDelete.id, {
-            indicatorCodes: [],
-          } as any);
-          console.log("✅ Indicators unassigned successfully");
-        } catch (unassignError) {
-          console.warn(
-            "⚠️ Failed to unassign indicators before deletion:",
-            unassignError
-          );
-          // Continue with deletion even if unassignment fails
-        }
-      }
-
       // Delete user via backend API
+      // Note: Backend's deactivate method already handles:
+      // 1. Checking for submissions (throws error if submissions exist)
+      // 2. Soft deleting the user (sets isActive: false)
+      // 3. Deleting all UserIndicatorScope records (unassigning indicators)
       await apiService.deactivateUser(userToDelete.id);
       notificationService.success(
         `${userToDelete.firstName} ${userToDelete.lastName} deactivated successfully`,
@@ -643,41 +622,10 @@ export function UserManagementPage() {
       // Delete selected users
       const selectedIdsArray = Array.from(selectedIds);
 
-      // Before bulk deletion, unassign indicators from NODAL_OFFICERs
-      const nodalOfficersToUnassign = officers.filter(
-        (officer) =>
-          selectedIdsArray.includes(officer.id) &&
-          officer.role === "NODAL_OFFICER" &&
-          officer.assignedIndicators &&
-          officer.assignedIndicators.length > 0
-      );
-
-      if (nodalOfficersToUnassign.length > 0) {
-        console.log(
-          `🔁 Unassigning indicators from ${nodalOfficersToUnassign.length} nodal officer(s) before bulk deletion`
-        );
-
-        // Unassign indicators for each nodal officer
-        const unassignPromises = nodalOfficersToUnassign.map((officer) =>
-          apiService
-            .updateUser(officer.id, {
-              indicatorCodes: [],
-            } as any)
-            .catch((err) => {
-              console.warn(
-                `⚠️ Failed to unassign indicators for officer ${officer.id}:`,
-                err
-              );
-              // Continue even if one fails
-            })
-        );
-
-        await Promise.all(unassignPromises);
-        console.log(
-          "✅ Indicators unassigned successfully for all nodal officers"
-        );
-      }
-
+      // Note: Backend's bulkDeactivate method already handles:
+      // 1. Checking for submissions for each user (throws error if submissions exist)
+      // 2. Soft deleting users (sets isActive: false)
+      // 3. Deleting all UserIndicatorScope records (unassigning indicators)
       const result = await apiService.deactivateUsers(selectedIdsArray);
 
       notificationService.success(
