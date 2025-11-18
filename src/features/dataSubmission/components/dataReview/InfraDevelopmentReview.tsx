@@ -1194,14 +1194,34 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
   // File upload handler - handles response structure correctly
   const handleFileUpload = async (file: File): Promise<FileUpload | null> => {
+    console.log("🚀 handleFileUpload called:");
+    console.log("  - File object:", file);
+    console.log("  - File name:", file?.name);
+    console.log("  - File size:", file?.size);
+    console.log("  - File type:", file?.type);
+    console.log("  - File instanceof File:", file instanceof File);
+    console.log("  - File constructor:", file?.constructor?.name);
+    console.log("  - submissionId:", submissionId);
+
     if (!submissionId) {
       console.error('No submissionId provided for file upload');
       return null;
     }
 
+    if (!file || !(file instanceof File)) {
+      console.error('❌ Invalid file object received:', file);
+      return null;
+    }
+
     try {
       // Upload file to server
+      console.log("📤 Calling apiService.uploadFile with:", {
+        submissionId,
+        fileName: file.name,
+        fileSize: file.size
+      });
       const response = await apiService.uploadFile(submissionId, file);
+      console.log("📥 Received response from apiService:", response);
       
       // Handle different response structures (same as EditableFileDisplay)
       // Response might be: { data: { fileName, filePath, ... } } or { fileName, filePath, ... } directly
@@ -2076,6 +2096,12 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                     accept=".pdf,.doc,.docx"
                                     onChange={async (e) => {
                                       const selectedFile = e.target.files?.[0];
+                                      console.log("📎 File selected:", {
+                                        name: selectedFile?.name,
+                                        size: selectedFile?.size,
+                                        type: selectedFile?.type,
+                                        file: selectedFile
+                                      });
                                       if (selectedFile) {
                                         const uploadedFile = await handleFileUpload(selectedFile);
                                         if (uploadedFile) {
@@ -2902,7 +2928,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                   item.dprFile && getFileName(item.dprFile) ? (
                                     <div className="flex items-center gap-2">
                                       <Upload className="w-4 h-4" />
-                                      <span className="text-sm">{item.dprgetFileName(file)}</span>
+                                      <span className="text-sm">{getFileName(item.dprFile)}</span>
                                     </div>
                                   ) : (
                                     <span className="text-muted-foreground text-xs">No file uploaded</span>
@@ -2912,7 +2938,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <td className="py-3 px-4 text-sm font-normal">
                                 {item.dprFile && getFileName(item.dprFile) ? (
                                   <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                                    {item.dprgetFileExtension(file)}
+                                    {getFileExtension(item.dprFile)}
                                   </Badge>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">N/A</span>

@@ -1075,16 +1075,56 @@ class ApiService implements HttpClient {
     data: any; url: string; filename: string; size: number 
 }> {
 
-   console.log("🔍 API Service - Upload File:", submissionId, file);
+   console.log("🔍 API Service - Upload File:", {
+     submissionId,
+     fileName: file?.name,
+     fileSize: file?.size,
+     fileType: file?.type,
+     file: file
+   });
+
+    // Validate file exists and is not empty
+    if (!file || !(file instanceof File)) {
+      console.error("❌ Invalid file object:", file);
+      throw new Error("Invalid file object provided");
+    }
+
+    if (file.size === 0) {
+      console.error("❌ File is empty:", file.name);
+      throw new Error("Cannot upload empty file");
+    }
+
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", file, file.name);
+      formData.append("filename", file.name); // Explicitly pass filename
 
+      // Debug FormData contents
+      console.log("📦 FormData created:");
+      console.log("  - File name:", file.name);
+      console.log("  - File size:", file.size);
+      console.log("  - File type:", file.type);
+      console.log("  - FormData entries:", Array.from(formData.entries()).map(([key, value]) => ({
+        key,
+        value: value instanceof File ? { name: value.name, size: value.size, type: value.type } : value
+      })));
+
+      // Verify FormData has the file
+      const fileEntry = formData.get("file");
+      console.log("  - File entry from FormData:", fileEntry);
+      console.log("  - File entry is File?", fileEntry instanceof File);
+
+      // Don't set Content-Type - let axios/browser set it with proper boundary
       const response = await this.axios.post(
         `/file/upload/${submissionId}`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
+          // Ensure FormData is not transformed
+          transformRequest: [(data) => {
+            console.log("🔄 transformRequest - data type:", data.constructor.name);
+            console.log("🔄 transformRequest - is FormData?", data instanceof FormData);
+            return data;
+          }],
         }
       );
       console.log(
@@ -1106,6 +1146,7 @@ class ApiService implements HttpClient {
         const cachedData = error.response?.data || {};
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }
+      console.error("❌ File upload error:", error);
       throw error;
     }
   }
