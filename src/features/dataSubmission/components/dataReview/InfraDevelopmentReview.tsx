@@ -2901,17 +2901,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                 ) : (
                                   item.dprFile && getFileName(item.dprFile) ? (
                                     <div className="flex items-center gap-2">
-<<<<<<< HEAD
                                       <Upload className="w-4 h-4" />
                                       <span className="text-sm">{item.dprgetFileName(file)}</span>
                                     </div>
                                   ) : (
-=======
-                            <Upload className="w-4 h-4" />
-                                      <span className="text-sm">{item.dprFile.fileName || 'Unknown file'}</span>
-                          </div>
-                        ) : (
->>>>>>> 9e2a3a68cd864767ceb568006d670b26b6ac3aa5
                                     <span className="text-muted-foreground text-xs">No file uploaded</span>
                                   )
                                 )}
