@@ -49,7 +49,6 @@ interface PPPDevelopmentReviewProps {
 }
 
 export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: PPPDevelopmentReviewProps) => {
-  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, submission);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   
@@ -88,6 +87,18 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
+  
+  // Use submissionState for the hook so it gets updated comments
+  // Merge submission prop updates with local submissionState
+  const currentSubmission = submissionState || submission;
+  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, currentSubmission);
+  
+  // Sync submissionState when submission prop changes from parent
+  useEffect(() => {
+    if (submission) {
+      setSubmissionState(submission);
+    }
+  }, [submission]);
   
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
@@ -926,9 +937,38 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     
-    // For MOSPI_REVIEWER, no action buttons (comments are restricted to STATE_APPROVER only)
-    if (isMospiReviewer) {
+    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
+    const submissionStatus = submission?.status;
+    if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
       return null;
+    }
+    
+    // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
+    if (isMospiReviewer) {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenModal(sectionId)}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Add Comment
+          </Button>
+          {commentCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          )}
+        </div>
+      );
     }
     
     // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
@@ -954,6 +994,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               <CheckCircle className="w-4 h-4" />
               Accepted
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
           </div>
         );
       }
@@ -969,6 +1018,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             >
               <RotateCcw className="w-4 h-4" />
               Sent Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
             </Button>
           </div>
         );
@@ -1007,6 +1065,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             <CheckCircle className="w-4 h-4" />
             Accept
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
         </div>
       );
     }
@@ -1031,6 +1098,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           >
             <CheckCircle className="w-4 h-4" />
             Accepted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
           </Button>
         </div>
       );
@@ -1092,6 +1168,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               Accept
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
         </div>
       );
     }
@@ -1142,6 +1227,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               <RotateCcw className="w-4 h-4" />
               Sent Back
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
           </div>
         );
       }
@@ -1157,6 +1251,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
           </Button>
         </div>
       );
@@ -1174,6 +1277,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           >
             <Clock className="w-4 h-4" />
             Under Review
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
           </Button>
         </div>
       );
@@ -1232,15 +1344,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </Button>
         )}
 
-        {/* <Button
+        <Button
           variant="outline"
           size="sm"
-          className="flex items-center gap-1"
+          className="flex items-center gap-1 h-7 px-2 text-xs"
           onClick={() => handleOpenTimeline(sectionId)}
         >
-          <Clock className="w-4 h-4" />
+          <Clock className="w-3 h-3" />
           Timeline ({commentCount})
-        </Button> */}
+        </Button>
 
         {!isNodalOfficer && (
           <Button
@@ -1656,22 +1768,27 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                     onChange={async (e) => {
                                       const selectedFile = e.target.files?.[0];
                                       if (selectedFile) {
-                                        const newFile: FileUpload = {
-                                          id: `file-${Date.now()}`,
-                                          file: selectedFile,
-                                          fileName: selectedFile.name,
-                                          fileSize: selectedFile.size,
-                                          uploadedAt: Date.now(),
-                                        };
-                                        console.log("📎 File uploaded:", {
-                                          fileName: newFile.fileName,
-                                          fileSize: newFile.fileSize,
-                                          fileType: selectedFile.type,
-                                          fileInstance: selectedFile instanceof File,
-                                          fileObject: selectedFile
-                                        });
-                                        await handleTableFieldUpdate(index, 'file', newFile);
-                                        e.target.value = ''; // Reset input
+                                        // Upload file immediately (same as create submission)
+                                        try {
+                                          const response = await apiService.uploadFile(submissionId, selectedFile);
+                                          const fileData = response?.data || response;
+                                          
+                                          const newFile: FileUpload = {
+                                            id: fileData.id ?? crypto.randomUUID(),
+                                            file: null, // File not stored locally when backend handles upload
+                                            fileName: fileData.fileName || fileData.filename || selectedFile.name,
+                                            fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
+                                            uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
+                                            filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
+                                            fileUrl: fileData.fileUrl || fileData.url,
+                                            mimeType: fileData.mimeType,
+                                          };
+                                          
+                                          await handleTableFieldUpdate(index, 'file', newFile);
+                                          e.target.value = ''; // Reset input
+                                        } catch (error: any) {
+                                          console.error('Failed to upload file:', error);
+                                        }
                                       }
                                     }}
                                     className="hidden"
@@ -2157,17 +2274,50 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         sectionId={activeSection || ""}
         submissionId={submissionId}
         existingMessage=""
-        onSendBack={
-          // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-          // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-          // Accept no longer requires comment, so it's not included here
-          // For other cases, use the normal flow
-          isMospiApproverSentBack
-            ? async () => {
-                // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-                console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+        commentType={(() => {
+          const getUserRole = () => {
+            try {
+              const authUser = localStorage.getItem('niri_app:auth_user');
+              if (authUser) {
+                const user = JSON.parse(authUser);
+                return user.value?.role;
               }
-            : (sectionId) => onIndicatorStatus(sectionId, false)
+            } catch (error) {
+              console.error('Error reading user role:', error);
+            }
+            return null;
+          };
+          const userRole = getUserRole();
+          return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
+        })()}
+        onSendBack={
+          // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
+          (() => {
+            const getUserRole = () => {
+              try {
+                const authUser = localStorage.getItem('niri_app:auth_user');
+                if (authUser) {
+                  const user = JSON.parse(authUser);
+                  return user.value?.role;
+                }
+              } catch (error) {
+                console.error('Error reading user role:', error);
+              }
+              return null;
+            };
+            return getUserRole() === 'MOSPI_REVIEWER';
+          })()
+            ? undefined
+            : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
+              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+              // Accept no longer requires comment, so it's not included here
+              // For other cases, use the normal flow
+              isMospiApproverSentBack
+              ? async () => {
+                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+                }
+              : (sectionId) => onIndicatorStatus(sectionId, false)
         }
       />
 

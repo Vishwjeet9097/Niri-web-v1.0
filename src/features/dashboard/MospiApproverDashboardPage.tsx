@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,12 @@ import { FileText, CheckCircle, Clock, AlertCircle, Eye } from "lucide-react";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
+import { useAuth } from "@/features/auth/AuthProvider";
 import ReviewerKPICards from "./components/reviewer/ReviewerKPICards";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +52,21 @@ export const MospiApproverDashboardPage = () => {
 
     loadSubmissions();
   }, []);
+
+  // Filter submissions to only show SUBMITTED_TO_MOSPI_APPROVER status for MoSPI Approver
+  const filteredSubmissions = useMemo(() => {
+    if (user?.role !== "MOSPI_APPROVER") {
+      return submissions;
+    }
+    
+    return submissions.filter((submission) => {
+      // MoSPI Approver should only see submissions submitted to them
+      const allowedStatuses = [
+        "SUBMITTED_TO_MOSPI_APPROVER",
+      ];
+      return submission.status && allowedStatuses.includes(submission.status);
+    });
+  }, [submissions, user?.role]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -149,7 +166,7 @@ export const MospiApproverDashboardPage = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate("/data-submission/mospi-approver")}
+                onClick={() => navigate("/data-submission/review")}
               >
                 View All
               </Button>
@@ -157,30 +174,59 @@ export const MospiApproverDashboardPage = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {submissions.length === 0 ? (
+              {filteredSubmissions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No submissions available for review.
                 </div>
               ) : (
-                submissions.slice(0, 5).map((submission) => (
-                  <UnifiedSubmissionCard
-                    key={submission.id}
-                    id={submission.id}
-                    title={submission.title || submission.submissionId || `Submission ${submission.id}`}
-                    status={submission.status}
-                    referenceId={submission.submissionId || submission.id}
-                    updatedDate={new Date(submission.updatedAt || submission.createdAt).toLocaleDateString()}
-                    dueDate={submission.deadline || "TBD"}
-                    progress={submission.progress || 40}
-                    nextStep={submission.status === "APPROVED" ? "Submission approved" : submission.status === "REJECTED" ? "Address reviewer feedback" : "Waiting for final approval"}
-                    reviewerNote={submission.reviewerNote}
-                    submission={submission}
-                    currentUserRole="MOSPI_APPROVER"
-                    submittedBy={submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown"}
-                    onReview={() => navigate(`/data-submission/review/${submission.id}`)}
-                    onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
-                  />
-                ))
+                filteredSubmissions.slice(0, 5).map((submission) => {
+                  // For submissions forwarded to MoSPI Approver, find who forwarded it
+                  let submittedByText = submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
+                  
+                  if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                    // Look for the most recent comment from MOSPI_REVIEWER who forwarded it
+                    if (submission.reviewComments && Array.isArray(submission.reviewComments)) {
+                      const reviewerComments = submission.reviewComments
+                        .filter((comment: any) => 
+                          comment.role === "MOSPI_REVIEWER"
+                        )
+                        .sort((a: any, b: any) => {
+                          const timeA = new Date(a.timestamp || 0).getTime();
+                          const timeB = new Date(b.timestamp || 0).getTime();
+                          return timeB - timeA; // Most recent first
+                        });
+                      
+                      if (reviewerComments.length > 0) {
+                        const lastReviewer = reviewerComments[0];
+                        submittedByText = lastReviewer.userName || "MoSPI Reviewer";
+                      } else {
+                        submittedByText = "MoSPI Reviewer";
+                      }
+                    } else {
+                      submittedByText = "MoSPI Reviewer";
+                    }
+                  }
+                  
+                  return (
+                    <UnifiedSubmissionCard
+                      key={submission.id}
+                      id={submission.id}
+                      title={submission.title || submission.submissionId || `Submission ${submission.id}`}
+                      status={submission.status}
+                      referenceId={submission.submissionId || submission.id}
+                      updatedDate={new Date(submission.updatedAt || submission.createdAt).toLocaleDateString()}
+                      dueDate={submission.deadline || "TBD"}
+                      progress={submission.progress || 40}
+                      nextStep={submission.status === "APPROVED" ? "Submission approved" : submission.status === "REJECTED" ? "Address reviewer feedback" : "Waiting for final approval"}
+                      reviewerNote={submission.reviewerNote}
+                      submission={submission}
+                      currentUserRole="MOSPI_APPROVER"
+                      submittedBy={submittedByText}
+                      onReview={() => navigate(`/data-submission/review/${submission.id}`)}
+                      onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
+                    />
+                  );
+                })
               )}
             </div>
           </CardContent>
