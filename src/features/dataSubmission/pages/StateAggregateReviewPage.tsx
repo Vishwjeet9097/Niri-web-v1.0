@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -610,6 +610,7 @@ export const StateAggregateReviewPage = () => {
   const [submittingFinal, setSubmittingFinal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [hasSubmittedToMospiReviewer, setHasSubmittedToMospiReviewer] = useState(false);
+  const justSubmittedRef = useRef(false); // Track if we just submitted to prevent check from resetting flag
 
   // Get state and year from URL params
   useEffect(() => {
@@ -887,22 +888,64 @@ export const StateAggregateReviewPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
 
+        // Get the current state being viewed (for multi-state scenarios)
+        const currentState = effectiveState || selectedState || user?.stateUt || user?.state;
+        const normalizedCurrentState = (currentState || "").toString().trim().toUpperCase();
+        
+        console.log("🔍 [Check] Checking for submitted submissions. Current state:", normalizedCurrentState);
+        console.log("🔍 [Check] Total submissions found:", submissionsArray.length);
+        
         const hasSubmitted = submissionsArray.some((submission) => {
           const isOwnSubmission = submission.user?.id === user?.id || 
             submission.submittedBy?.id === user?.id ||
             (submission.user?.email && submission.user.email === user?.email);
-          return submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission;
+          // Check if submission is for the current state and has been submitted to MOSPI reviewer or approver
+          // Use case-insensitive comparison for state matching
+          const submissionState = (submission.stateUt || submission.user?.stateUt || "").toString().trim().toUpperCase();
+          const isForCurrentState = !currentState || 
+            submissionState === normalizedCurrentState;
+          
+          // Check for SUBMITTED_TO_MOSPI_REVIEWER, SUBMITTED_TO_MOSPI_APPROVER, or APPROVED
+          const matches = (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" || 
+                          submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
+                          submission.status === "APPROVED") 
+            && isOwnSubmission && isForCurrentState;
+          
+          if ((submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" || submission.status === "SUBMITTED_TO_MOSPI_APPROVER" || submission.status === "APPROVED") && isOwnSubmission) {
+            console.log("🔍 [Check] Found submission:", {
+              submissionId: submission.id,
+              status: submission.status,
+              submissionState,
+              normalizedCurrentState,
+              isForCurrentState,
+              matches
+            });
+          }
+          
+          return matches;
         });
 
-        setHasSubmittedToMospiReviewer(hasSubmitted);
+        console.log("🔍 [Check] hasSubmitted result:", hasSubmitted);
+        // Only update if we found a submission, or if we haven't just submitted
+        // This prevents overwriting true with false right after submission
+        if (hasSubmitted || !justSubmittedRef.current) {
+          setHasSubmittedToMospiReviewer(hasSubmitted);
+        } else {
+          console.log("🔒 [Check] Skipping update - we just submitted, keeping flag as true");
+        }
       } catch (error) {
         console.error("Failed to check submission status:", error);
-        setHasSubmittedToMospiReviewer(false);
+        // Don't reset to false if we just submitted
+        if (!justSubmittedRef.current) {
+          setHasSubmittedToMospiReviewer(false);
+        } else {
+          console.log("🔒 [Check] Error occurred but keeping flag as true (just submitted)");
+        }
       }
     };
 
     checkSubmittedStatus();
-  }, [user?.role, user?.id, user?.email]);
+  }, [user?.role, user?.id, user?.email, effectiveState, selectedState]);
 
   // Handle final submit - Creates consolidated submission from aggregated formData
   const handleFinalSubmit = async () => {
@@ -1056,6 +1099,17 @@ export const StateAggregateReviewPage = () => {
       console.log("✅ Submission successful!");
       console.log("📦 Response:", response.data);
       
+      // Immediately disable submit button to prevent multiple submissions
+      console.log("🔒 [Submit] Immediately disabling Submit Now button to prevent multiple submissions");
+      justSubmittedRef.current = true; // Mark that we just submitted
+      setHasSubmittedToMospiReviewer(true);
+      console.log("🔒 [Submit] hasSubmittedToMospiReviewer set to:", true);
+      
+      // Reset the ref after 10 seconds (enough time for submission to appear in database)
+      setTimeout(() => {
+        justSubmittedRef.current = false;
+      }, 10000);
+      
       const successMessage = isMospiReviewer
         ? "Consolidated submission sent to MoSPI Approver successfully."
         : "Consolidated submission sent to MoSPI Reviewer successfully.";
@@ -1078,6 +1132,8 @@ export const StateAggregateReviewPage = () => {
       }
 
       // Refresh submissions list and update hasSubmittedToMospiReviewer flag
+      // Note: We already set hasSubmittedToMospiReviewer to true above, so this refresh is just to confirm
+      // We won't overwrite it to false if the check fails (submission might not appear immediately)
       try {
         const submissionsData = await apiService.getSubmissions(1, 100);
         
@@ -1091,18 +1147,32 @@ export const StateAggregateReviewPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
 
+        // Get the current state being viewed (for multi-state scenarios)
+        const currentState = effectiveState || selectedState || user?.stateUt || user?.state;
+        
         const hasSubmitted = submissionsArray.some((submission) => {
           const isOwnSubmission = submission.user?.id === user?.id || 
             submission.submittedBy?.id === user?.id ||
             (submission.user?.email && submission.user.email === user?.email);
-          return submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission;
+          // Check if submission is for the current state and has been submitted to MOSPI reviewer
+          // Use case-insensitive comparison for state matching
+          const submissionState = (submission.stateUt || submission.user?.stateUt || "").toString().trim().toUpperCase();
+          const normalizedCurrentState = (currentState || "").toString().trim().toUpperCase();
+          const isForCurrentState = !currentState || 
+            submissionState === normalizedCurrentState;
+          return submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission && isForCurrentState;
         });
 
-        setHasSubmittedToMospiReviewer(hasSubmitted);
+        // Only update if we found a submission - don't overwrite true with false
+        // (submission might not appear immediately after creation)
+        if (hasSubmitted) {
+          setHasSubmittedToMospiReviewer(true);
+        }
+        // If hasSubmitted is false, keep the current value (which should be true from line 1067)
       } catch (e) {
         console.error("⚠️ Failed to refresh submission status check", e);
-        // Still set to true since we just submitted successfully
-        setHasSubmittedToMospiReviewer(true);
+        // Keep the flag as true since we just submitted successfully
+        // Don't overwrite it
       }
 
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -1285,7 +1355,10 @@ export const StateAggregateReviewPage = () => {
                         ? "bg-[#1e3a8a] hover:bg-[#1e3299]" // Darker blue when enabled at 100%
                         : "bg-[#7888E3] hover:bg-[#6574CC]"  // Default lighter blue
                     }`}
-                    onClick={() => setShowConfirmModal(true)}
+                    onClick={() => {
+                      console.log("🔘 [Button] Submit Now clicked. hasSubmittedToMospiReviewer:", hasSubmittedToMospiReviewer);
+                      setShowConfirmModal(true);
+                    }}
                     disabled={
                       submittingFinal ||
                       progressLoading ||

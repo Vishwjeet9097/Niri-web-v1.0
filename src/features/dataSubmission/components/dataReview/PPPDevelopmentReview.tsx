@@ -812,6 +812,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         return next;
       });
       console.log(`✅ Indicator ${isMospiApprover ? 'mospi_' : ''}status updated successfully`);
+      
+      // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
+      if (isMospiApprover) {
+        window.dispatchEvent(new CustomEvent('niri-indicator-status-updated', {
+          detail: { sectionId, status: statusValue }
+        }));
+      }
     } catch (error) {
       console.error(`❌ Failed to update indicator ${isMospiApprover ? 'mospi_' : ''}status:`, error);
     }
@@ -941,6 +948,26 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const submissionStatus = submission?.status;
     if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
       return null;
+    }
+    
+    // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
+    // Only show Timeline button for viewing comments
+    if (submissionStatus === 'APPROVED') {
+      return (
+        <div className="flex gap-2">
+          {commentCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          )}
+        </div>
+      );
     }
     
     // For MOSPI_REVIEWER, show Add Comment and Timeline buttons

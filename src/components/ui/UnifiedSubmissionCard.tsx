@@ -23,6 +23,7 @@ import {
 } from "@/utils/auditUtils";
 import {
   getStatusInfo,
+  getRoleSpecificStatusInfo,
   getStatusPills,
   getWaitingMessage as getStatusWaitingMessage,
   shouldShowMultipleStatusPills,
@@ -203,8 +204,8 @@ export function UnifiedSubmissionCard({
     ? getStatusWaitingMessage(status, currentUserRole)
     : "";
 
-  // Use centralized status utilities
-  const statusInfo = getStatusInfo(status);
+  // Use centralized status utilities with role-specific labels
+  const statusInfo = getRoleSpecificStatusInfo(status, currentUserRole);
   const statusPills = getStatusPills(status, currentUserRole);
   const showMultiplePills = shouldShowMultipleStatusPills(
     status,
