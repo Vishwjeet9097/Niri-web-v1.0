@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
@@ -47,8 +48,57 @@ const DEFAULT_SECTIONS = [
 ];
 
 export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false, assignedIndicators, isNodalOfficer, sections }: DataReviewTabProps) => {
-  const [currentSection, setCurrentSection] = useState(0);
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get category from URL params or default to 0
+  const categoryParam = searchParams.get('category');
+  const initialSection = categoryParam ? parseInt(categoryParam, 10) : 0;
+  const [currentSection, setCurrentSection] = useState(initialSection);
+  const isUpdatingFromUrlRef = React.useRef(false);
+  
+  // Sync from URL param when it changes externally (e.g., browser back/forward)
+  // This only runs when categoryParam changes, not when currentSection changes
+  useEffect(() => {
+    // Skip if we're updating from our own URL change
+    if (isUpdatingFromUrlRef.current) {
+      isUpdatingFromUrlRef.current = false;
+      return;
+    }
+    
+    // Only sync if URL param exists and differs from current state
+    if (categoryParam !== null) {
+      const sectionIndex = parseInt(categoryParam, 10);
+      if (!isNaN(sectionIndex)) {
+        // Use a ref to get current value without adding to dependencies
+        setCurrentSection(prev => {
+          if (prev !== sectionIndex) {
+            return sectionIndex;
+          }
+          return prev;
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryParam]); // Only depend on categoryParam to avoid loops
+  
+  // Update URL when section changes (user interaction)
+  const updateUrlForSection = React.useCallback((sectionIndex: number) => {
+    isUpdatingFromUrlRef.current = true;
+    const newSearchParams = new URLSearchParams(searchParams);
+    if (sectionIndex !== 0) {
+      newSearchParams.set('category', sectionIndex.toString());
+    } else {
+      newSearchParams.delete('category');
+    }
+    setSearchParams(newSearchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+  
+  // Wrapper for setCurrentSection that also updates URL
+  const handleSectionChange = React.useCallback((sectionIndex: number) => {
+    setCurrentSection(sectionIndex);
+    updateUrlForSection(sectionIndex);
+  }, [updateUrlForSection]);
+  
   // Map category IDs to their indicator codes
   const categoryIndicatorMap: Record<string, string[]> = {
     "infra-financing": ["1.1", "1.2", "1.3", "1.4", "1.5"],
@@ -127,6 +177,18 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
     return anyHasData ? sectionsWithData.filter((s) => s.hasData) : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
   }, [sectionsWithData, isPreview, isNodalOfficer, assignedIndicators, formData]);
   
+  // Validate currentSection is within bounds when availableSections changes
+  useEffect(() => {
+    if (availableSections.length === 0) return;
+    
+    if (currentSection >= availableSections.length) {
+      // If current section is out of bounds, reset to 0
+      // Use setCurrentSection directly to avoid triggering URL update in this case
+      setCurrentSection(0);
+      updateUrlForSection(0);
+    }
+  }, [availableSections.length, currentSection, updateUrlForSection]);
+  
   const renderSectionContent = () => {
     // Filter formData based on assigned indicators for nodal officers in preview mode
     let filteredFormData = formData;
@@ -181,7 +243,7 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
             <Button
               key={section.id}
               variant={currentSection === index ? "default" : "outline"}
-              onClick={() => setCurrentSection(index)}
+              onClick={() => handleSectionChange(index)}
               className="whitespace-nowrap"
             >
               {section.label}
@@ -201,7 +263,7 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
         <div className="flex items-center justify-between pt-6">
           <Button
             variant="outline"
-            onClick={() => setCurrentSection((prev) => Math.max(0, prev - 1))}
+            onClick={() => handleSectionChange(Math.max(0, currentSection - 1))}
             disabled={currentSection === 0}
             className="gap-2"
           >
@@ -209,7 +271,7 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
             Previous
           </Button>
           <Button
-            onClick={() => setCurrentSection((prev) => Math.min(availableSections.length - 1, prev + 1))}
+            onClick={() => handleSectionChange(Math.min(availableSections.length - 1, currentSection + 1))}
             disabled={currentSection === availableSections.length - 1}
             className="gap-2"
           >

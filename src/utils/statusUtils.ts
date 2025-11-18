@@ -112,6 +112,38 @@ export const getStatusInfo = (status: string): StatusInfo => {
 };
 
 /**
+ * Get role-specific status information
+ * This helps avoid confusion for STATE_APPROVER when viewing SUBMITTED_TO_MOSPI_APPROVER status
+ * @param status - Submission status
+ * @param currentUserRole - Current user's role
+ * @returns StatusInfo with role-specific labels
+ */
+export const getRoleSpecificStatusInfo = (
+  status: string,
+  currentUserRole?: string
+): StatusInfo => {
+  // For STATE_APPROVER viewing SUBMITTED_TO_MOSPI_APPROVER
+  // Show "Under MoSPI Review" instead of "Waiting for Final Approval" to avoid confusion
+  // This makes it clear the submission went through MOSPI Reviewer first
+  if (
+    currentUserRole === "STATE_APPROVER" &&
+    status === "SUBMITTED_TO_MOSPI_APPROVER"
+  ) {
+    return {
+      label: "Under MoSPI Review",
+      description: "Forwarded by MOSPI Reviewer to MOSPI Approver",
+      className: "bg-blue-100 text-blue-800 border-blue-200",
+      badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
+      borderClass: "border-l-blue-400",
+      bgClass: "bg-blue-50",
+    };
+  }
+
+  // Default to regular status info for all other cases
+  return getStatusInfo(status);
+};
+
+/**
  * Get status pills for display (for multi-status scenarios)
  * @param status - Submission status
  * @param currentUserRole - Current user's role (optional)

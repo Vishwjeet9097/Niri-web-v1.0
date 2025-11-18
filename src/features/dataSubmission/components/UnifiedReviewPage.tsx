@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Send, CheckCircle, Edit3, AlertTriangle, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import { generateAuditEntries } from "@/utils/auditUtils";
 import { MospiOverviewTab } from "./tabs/MospiOverviewTab";
 import { MospiApproverDataReviewTab } from "./tabs/MospiApproverDataReviewTab";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { areAllIndicatorsMospiAccepted } from "@/utils/indicatorStatusUtils";
 
 interface Submission {
   id: string;
@@ -75,6 +76,7 @@ export const UnifiedReviewPage = ({
   const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { assignedIndicators, isNodalOfficer } = useIndicatorAccess();
   
   const [submission, setSubmission] = useState<Submission | null>(initialSubmission);
@@ -85,6 +87,16 @@ export const UnifiedReviewPage = ({
   const [sendToApproverModalOpen, setSendToApproverModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [actualEditMode, setActualEditMode] = useState(isEditMode);
+  
+  // Get active tab from URL params, default to "overview"
+  const activeTab = searchParams.get('tab') || 'overview';
+  
+  // Handler to update active tab
+  const handleTabChange = (value: string) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', value);
+    setSearchParams(newSearchParams, { replace: true });
+  };
 
   // Check for edit mode on mount
   useEffect(() => {
@@ -108,7 +120,12 @@ export const UnifiedReviewPage = ({
     if (!id) return;
     
     try {
-      setLoading(true);
+      // Don't set loading to true if we're just refreshing after indicator update
+      // This prevents the component from disappearing during reload
+      const isRefreshing = submission !== null;
+      if (!isRefreshing) {
+        setLoading(true);
+      }
       setError(null);
       
       const response = await apiService.getSubmission(id);
@@ -129,6 +146,32 @@ export const UnifiedReviewPage = ({
 
   useEffect(() => {
     loadSubmission();
+  }, [id, initialSubmission]);
+
+  // Listen for indicator status updates to reload submission and update Final Submit button
+  useEffect(() => {
+    const handleIndicatorStatusUpdate = () => {
+      // Reload submission when indicator status is updated
+      // Don't reload if we have initialSubmission (preview mode) - just update the state
+      if (id && !initialSubmission) {
+        // Use a small delay to ensure the backend has processed the update
+        setTimeout(() => {
+          loadSubmission();
+        }, 500);
+      } else if (initialSubmission) {
+        // For preview mode, just update the submission prop if needed
+        // The local state update in the review component should handle the UI update
+        console.log('Indicator status updated in preview mode - no reload needed');
+      }
+    };
+
+    // Listen for custom event when indicator status is updated
+    window.addEventListener('niri-indicator-status-updated', handleIndicatorStatusUpdate);
+
+    return () => {
+      window.removeEventListener('niri-indicator-status-updated', handleIndicatorStatusUpdate);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, initialSubmission]);
 
   // Show loading state
@@ -307,6 +350,7 @@ export const UnifiedReviewPage = ({
     // }
 
     // Send to Approver button
+    // Disable if already submitted to MOSPI_APPROVER
     if (currentUserRole === "MOSPI_REVIEWER" && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
       buttons.push(
         <Button
@@ -317,6 +361,27 @@ export const UnifiedReviewPage = ({
         >
           <Send className="w-4 h-4" />
           Send to Approver
+        </Button>
+      );
+    }
+    
+    // Hide Send to Approver button if already submitted to MOSPI_APPROVER
+    // (Button should not appear when status is SUBMITTED_TO_MOSPI_APPROVER)
+
+    // Final Submit button for MOSPI_APPROVER
+    if (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER") {
+      // Check if all indicators have mospi_status = "ACCEPTED" or "APPROVED"
+      const allIndicatorsAccepted = areAllIndicatorsMospiAccepted(submission);
+      
+      buttons.push(
+        <Button
+          key="final-submit"
+          onClick={() => setApproveModalOpen(true)}
+          disabled={!allIndicatorsAccepted || isSubmitting}
+          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          <CheckCircle className="w-4 h-4" />
+          {isSubmitting ? "Submitting..." : "Final Submit"}
         </Button>
       );
     }
@@ -403,7 +468,7 @@ export const UnifiedReviewPage = ({
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className={` w-full mb-6 `}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             {isMospiApprover && (

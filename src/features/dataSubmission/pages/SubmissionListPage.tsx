@@ -850,43 +850,77 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
 
 
   const filteredSubmissions = useMemo(() => {
-    return submissions.filter((submission) => {
+    // First, deduplicate submissions by ID to ensure each submission appears only once
+    // If duplicates exist, keep the one with the most recent updatedAt timestamp
+    const submissionMap = new Map<string, any>();
+    submissions.forEach((submission) => {
+      const existing = submissionMap.get(submission.id);
+      if (!existing) {
+        submissionMap.set(submission.id, submission);
+      } else {
+        // If duplicate exists, keep the one with more recent updatedAt
+        const existingDate = new Date(existing.updatedAt || existing.createdAt || 0);
+        const currentDate = new Date(submission.updatedAt || submission.createdAt || 0);
+        if (currentDate > existingDate) {
+          submissionMap.set(submission.id, submission);
+        }
+      }
+    });
+    const deduplicatedSubmissions = Array.from(submissionMap.values());
+    
+    // Sort by updatedAt (most recent first) to ensure latest status is shown
+    deduplicatedSubmissions.sort((a, b) => {
+      const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return dateB - dateA; // Descending order (newest first)
+    });
+
+    return deduplicatedSubmissions.filter((submission) => {
       // Role-based status filter
       let statusMatch = true; // Default: show all for roles without specific filtering
       
       if (user?.role === "MOSPI_REVIEWER") {
         // MoSPI Reviewer should see:
         // 1. Submissions submitted to them (SUBMITTED_TO_MOSPI_REVIEWER, SUBMITTED_TO_MOSPI, RETURNED_FROM_MOSPI)
-        // 2. Their own consolidated submissions submitted to MoSPI Approver (SUBMITTED_TO_MOSPI_APPROVER)
+        // 2. Submissions they've forwarded to MoSPI Approver (SUBMITTED_TO_MOSPI_APPROVER)
+        // 3. Approved submissions (APPROVED)
         const allowedStatuses = [
           "SUBMITTED_TO_MOSPI_REVIEWER",
           "SUBMITTED_TO_MOSPI",
           "RETURNED_FROM_MOSPI", // Include returned submissions that can be resubmitted
+          "SUBMITTED_TO_MOSPI_APPROVER", // Show submissions forwarded to approver
+          "APPROVED", // Show approved submissions
         ];
-        const isOwnSubmission = submission.user?.id === user?.id || 
-          submission.submittedBy?.id === user?.id ||
-          (submission.user?.email && submission.user.email === user?.email);
-        const isConsolidatedSubmission = submission.status === "SUBMITTED_TO_MOSPI_APPROVER" && isOwnSubmission;
-        statusMatch = (submission.status && allowedStatuses.includes(submission.status)) || isConsolidatedSubmission;
+        statusMatch = submission.status && allowedStatuses.includes(submission.status);
       } else if (user?.role === "MOSPI_APPROVER") {
-        // MoSPI Approver should only see submissions submitted to them
+        // MoSPI Approver should see:
+        // 1. Submissions submitted to them (SUBMITTED_TO_MOSPI_APPROVER)
+        // 2. Approved submissions (APPROVED)
         const allowedStatuses = [
           "SUBMITTED_TO_MOSPI_APPROVER",
+          "APPROVED", // Show approved submissions
         ];
         statusMatch = submission.status && allowedStatuses.includes(submission.status);
       } else if (user?.role === "STATE_APPROVER") {
         // State Approver should see:
         // 1. Submissions submitted to them (SUBMITTED_TO_STATE, RETURNED_FROM_STATE, RETURNED_FROM_MOSPI)
         // 2. Their own consolidated submissions submitted to MoSPI Reviewer (SUBMITTED_TO_MOSPI_REVIEWER)
+        // 3. Their own submissions forwarded to MoSPI Approver (SUBMITTED_TO_MOSPI_APPROVER)
+        // 4. Their own approved submissions (APPROVED)
         const allowedStatuses = [
           "SUBMITTED_TO_STATE",
           "RETURNED_FROM_STATE", // Include returned submissions
           "RETURNED_FROM_MOSPI", // Include resubmissions from MoSPI
+          "SUBMITTED_TO_MOSPI_APPROVER", // Show submissions forwarded to approver
+          "APPROVED", // Show approved submissions
         ];
         const isOwnSubmission = submission.user?.id === user?.id || 
           submission.submittedBy?.id === user?.id ||
           (submission.user?.email && submission.user.email === user?.email);
-        const isConsolidatedSubmission = submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission;
+        const isConsolidatedSubmission = 
+          (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission) ||
+          (submission.status === "SUBMITTED_TO_MOSPI_APPROVER" && isOwnSubmission) ||
+          (submission.status === "APPROVED" && isOwnSubmission);
         statusMatch = (submission.status && allowedStatuses.includes(submission.status)) || isConsolidatedSubmission;
       } else if (user?.role === "NODAL_OFFICER") {
         // Nodal Officer should see their own submissions
@@ -916,17 +950,28 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
     });
   }, [searchQuery, submissions, user?.role]);
 
-  // Check if there's already a consolidated submission with status SUBMITTED_TO_MOSPI_REVIEWER
+  // Check if there's already a consolidated submission with status SUBMITTED_TO_MOSPI_REVIEWER, SUBMITTED_TO_MOSPI_APPROVER, or APPROVED
   const hasSubmittedToMospiReviewer = useMemo(() => {
     if (user?.role !== "STATE_APPROVER") return false;
+    
+    // Get the current state (for multi-state scenarios)
+    const currentState = user?.stateUt || user?.stateName || user?.state;
     
     return submissions.some((submission) => {
       const isOwnSubmission = submission.user?.id === user?.id || 
         submission.submittedBy?.id === user?.id ||
         (submission.user?.email && submission.user.email === user?.email);
-      return submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission;
+      // Check if submission is for the current state and has been submitted to MOSPI reviewer, approver, or approved
+      const isForCurrentState = !currentState || 
+        submission.stateUt === currentState || 
+        (submission.user?.stateUt === currentState);
+      // Disable submit button if submission is with MOSPI reviewer, approver, or has been approved
+      return (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" || 
+              submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
+              submission.status === "APPROVED") 
+        && isOwnSubmission && isForCurrentState;
     });
-  }, [submissions, user?.role, user?.id, user?.email]);
+  }, [submissions, user?.role, user?.id, user?.email, user?.stateUt, user?.stateName, user?.state]);
 
 
   // Handle export
@@ -1203,18 +1248,32 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                 // Calculate progress
                 const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
                 
-                // Determine next step
+                // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
                 if (submission.status === "DRAFT") {
                   nextStep = "Complete all required sections";
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
                   nextStep = "Waiting for state approval";
                 } else if (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER") {
-                  nextStep = "Submitted to MoSPI Reviewer";
+                  if (user?.role === "STATE_APPROVER") {
+                    nextStep = "With MOSPI Reviewer for review";
+                  } else {
+                    nextStep = "Submitted to MoSPI Reviewer";
+                  }
                 } else if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
-                  nextStep = "Submitted to MoSPI Approver";
+                  if (user?.role === "STATE_APPROVER") {
+                    nextStep = "Forwarded to MOSPI Approver by MOSPI Reviewer";
+                  } else if (user?.role === "MOSPI_REVIEWER") {
+                    nextStep = "Forwarded to MOSPI Approver for final approval";
+                  } else {
+                    nextStep = "Submitted to MoSPI Approver";
+                  }
                 } else if (submission.status === "APPROVED") {
-                  nextStep = "Submission approved";
+                  if (user?.role === "STATE_APPROVER") {
+                    nextStep = "Approved by MOSPI Approver";
+                  } else {
+                    nextStep = "Submission approved";
+                  }
                 } else if (submission.status === "REJECTED" || submission.status === "REJECTED_FINAL") {
                   nextStep = "Address reviewer feedback";
                 }
@@ -1224,10 +1283,12 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   ? submission.reviewComments[submission.reviewComments.length - 1]?.text 
                   : undefined;
 
-                // For submissions forwarded to MoSPI Approver, find who forwarded it
+                // For submissions forwarded to MoSPI Approver or approved, find who forwarded it
                 let submittedByText = submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
                 
-                if (user?.role === "MOSPI_APPROVER" && submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                // For SUBMITTED_TO_MOSPI_APPROVER or APPROVED status, show MOSPI Reviewer as submitted by
+                // (since MOSPI Reviewer forwarded it to MOSPI Approver)
+                if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER" || submission.status === "APPROVED") {
                   // Look for the most recent comment from MOSPI_REVIEWER who forwarded it
                   if (submission.reviewComments && Array.isArray(submission.reviewComments)) {
                     const reviewerComments = submission.reviewComments
@@ -1292,18 +1353,32 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                 // Calculate progress
                 const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
                 
-                // Determine next step
+                // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
                 if (submission.status === "DRAFT") {
                   nextStep = "Complete all required sections";
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
                   nextStep = "Waiting for state approval";
                 } else if (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER") {
-                  nextStep = "Submitted to MoSPI Reviewer";
+                  if (user?.role === "STATE_APPROVER") {
+                    nextStep = "With MOSPI Reviewer for review";
+                  } else {
+                    nextStep = "Submitted to MoSPI Reviewer";
+                  }
                 } else if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
-                  nextStep = "Submitted to MoSPI Approver";
+                  if (user?.role === "STATE_APPROVER") {
+                    nextStep = "Forwarded to MOSPI Approver by MOSPI Reviewer";
+                  } else if (user?.role === "MOSPI_REVIEWER") {
+                    nextStep = "Forwarded to MOSPI Approver for final approval";
+                  } else {
+                    nextStep = "Submitted to MoSPI Approver";
+                  }
                 } else if (submission.status === "APPROVED") {
-                  nextStep = "Submission approved";
+                  if (user?.role === "STATE_APPROVER") {
+                    nextStep = "Approved by MOSPI Approver";
+                  } else {
+                    nextStep = "Submission approved";
+                  }
                 } else if (submission.status === "REJECTED" || submission.status === "REJECTED_FINAL") {
                   nextStep = "Address reviewer feedback";
                 }
@@ -1313,10 +1388,12 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   ? submission.reviewComments[submission.reviewComments.length - 1]?.text 
                   : undefined;
 
-                // For submissions forwarded to MoSPI Approver, find who forwarded it
+                // For submissions forwarded to MoSPI Approver or approved, find who forwarded it
                 let submittedByText = submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
                 
-                if (user?.role === "MOSPI_APPROVER" && submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                // For SUBMITTED_TO_MOSPI_APPROVER or APPROVED status, show MOSPI Reviewer as submitted by
+                // (since MOSPI Reviewer forwarded it to MOSPI Approver)
+                if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER" || submission.status === "APPROVED") {
                   // Look for the most recent comment from MOSPI_REVIEWER who forwarded it
                   if (submission.reviewComments && Array.isArray(submission.reviewComments)) {
                     const reviewerComments = submission.reviewComments

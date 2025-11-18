@@ -231,3 +231,113 @@ export function isSubmissionFromNodalOfficer(
   console.groupEnd();
   return false;
 }
+
+/**
+ * Check if all indicators in a submission have mospi_status = "ACCEPTED" or "APPROVED" (case-insensitive)
+ * This is used by MOSPI_APPROVER to determine if they can final submit
+ * @param submission - The submission object with formData
+ * @returns true if all indicators have mospi_status accepted, false otherwise
+ */
+export function areAllIndicatorsMospiAccepted(
+  submission: Record<string, any> | undefined
+): boolean {
+  console.group("🔍 [indicatorStatusUtils] areAllIndicatorsMospiAccepted");
+
+  if (!submission) {
+    console.log("❌ No submission provided");
+    console.groupEnd();
+    return false;
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    console.log("❌ No formData or formData is not an object");
+    console.groupEnd();
+    return false;
+  }
+
+  // Get all indicators present in the form
+  const indicators = getIndicatorsInFormData(formData);
+  console.log("📋 Indicators found in form:", indicators);
+
+  if (indicators.length === 0) {
+    console.log("⚠️ No indicators found, can't determine acceptance status");
+    console.groupEnd();
+    return false;
+  }
+
+  const acceptanceStatus: Record<string, boolean> = {};
+
+  // Check each indicator
+  for (const indicatorCode of indicators) {
+    // Map indicator code to category and section
+    const [sectionNum, indicatorNum] = indicatorCode.split(".");
+    const categoryMap: Record<string, string> = {
+      "1": "infraFinancing",
+      "2": "infraDevelopment",
+      "3": "pppDevelopment",
+      "4": "infraEnablers",
+    };
+
+    const category = categoryMap[sectionNum];
+    const section = `section${sectionNum}_${indicatorNum}`;
+
+    if (!category || !section) {
+      console.warn(
+        `⚠️ Could not map indicator ${indicatorCode} to category/section`
+      );
+      continue;
+    }
+
+    // Get category and section data
+    const categoryData = formData[category];
+    if (!categoryData || typeof categoryData !== "object") {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No category data found. Returning false.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    const sectionData = categoryData[section];
+    if (!sectionData) {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No section data found. Returning false.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    // Check mospi_status field (case-insensitive)
+    const mospiStatus = sectionData.mospi_status;
+    if (!mospiStatus) {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No mospi_status found. Returning false.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    const normalizedStatus = String(mospiStatus).trim().toUpperCase();
+    const isAccepted = normalizedStatus === "ACCEPTED" || normalizedStatus === "APPROVED";
+    acceptanceStatus[indicatorCode] = isAccepted;
+
+    console.log(
+      `  ${indicatorCode} (${category}.${section}): mospi_status = "${mospiStatus}" → ${
+        isAccepted ? "✅ ACCEPTED" : "❌ NOT ACCEPTED"
+      }`
+    );
+
+    if (!isAccepted) {
+      console.log(
+        `❌ Indicator ${indicatorCode} mospi_status is not ACCEPTED or APPROVED. Returning false.`
+      );
+      console.groupEnd();
+      return false;
+    }
+  }
+
+  console.log("✅ All indicators have mospi_status ACCEPTED or APPROVED:", acceptanceStatus);
+  console.groupEnd();
+  return true;
+}

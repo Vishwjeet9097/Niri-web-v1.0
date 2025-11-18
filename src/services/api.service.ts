@@ -863,7 +863,8 @@ class ApiService implements HttpClient {
 
   async forwardToMospiApprover(
     id: string,
-    comment: string
+    comment: string,
+    sectionId?: string
   ): Promise<NiriSubmission> {
     try {
       const response = await this.axios.post(
@@ -871,6 +872,7 @@ class ApiService implements HttpClient {
         {
           status: "SUBMITTED_TO_MOSPI_APPROVER",
           comment: comment,
+          sectionId: sectionId || "overall", // Default to "overall" if not provided
         }
       );
       console.log(
