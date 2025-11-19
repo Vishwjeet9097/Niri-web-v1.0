@@ -1807,7 +1807,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
               {renderActionButtons("2.1")}
             </div>
           </div>}
-          // subtitle="Annex 4: Provide link and funding details"
+          subtitle="Annex 4: Provide link and funding details"
           className="mb-6"
         >
           {/* <CardHeader className="bg-muted/30">
@@ -2817,9 +2817,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                   </div>
                 )}
 
-              {/* <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Annex 8: Upload DPR/Feasibility Report
-              </p> */}
+              </p>
                 </>
               )}
 

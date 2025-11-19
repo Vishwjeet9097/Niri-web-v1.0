@@ -1573,7 +1573,7 @@ const calculateAllocationPercentage = () => {
                 </div>
               </div>
             }
-            // subtitle="Annex 1: Verified with NBRP.csv / Budgeted Estimates for Capital Expenditure"
+            subtitle="Annex 1: Verified with NBRP.csv / Budgeted Estimates for Capital Expenditure"
             className="mb-6 relative"
           >
             {/* <CardHeader className="bg-muted/30">
@@ -1678,7 +1678,7 @@ const calculateAllocationPercentage = () => {
                 </div>
               </div>
             }
-            // subtitle="Annex 2: Verified with Actuals data"
+            subtitle="Annex 2: Verified with Actuals data"
             className="mb-6"
           >
             <div className="grid grid-cols-2 gap-4 max-w-[70%]">
@@ -1782,7 +1782,7 @@ const calculateAllocationPercentage = () => {
                 </div>
               </div>
             }
-            // subtitle="Annex 3: Verified with Muni.GOI"
+            subtitle="Annex 3: Verified with Muni.GOI"
             className="mb-6"
           >
             {/* <div className="space-y-4">
@@ -1912,7 +1912,7 @@ const calculateAllocationPercentage = () => {
                 </div>
               </div>
             }
-            // subtitle="Annex 4: Provide Bond Details"
+            subtitle="Annex 4: Provide Bond Details"
             className="mb-6"
           >
             <div className="space-y-4">
@@ -2001,7 +2001,7 @@ const calculateAllocationPercentage = () => {
                 </div>
               </div>
             }
-            // subtitle="Annex 4: Provide link and funding details"
+            subtitle="Annex 4: Provide link and funding details"
             className="mb-6"
           >
             <div className="space-y-4">

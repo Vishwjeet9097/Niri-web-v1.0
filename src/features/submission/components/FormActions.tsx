@@ -34,12 +34,12 @@ export const FormActions = ({
       </div>
 
       <div className="flex gap-3">
-        {/* {showSaveDraft && onSaveDraft && (
+        {showSaveDraft && onSaveDraft && (
           <Button variant="outline" onClick={onSaveDraft}>
             <Save className="w-4 h-4 mr-2" />
             Save Draft
           </Button>
-        )} */}
+        )}
         {onNext && (
           <Button
             onClick={onNext}

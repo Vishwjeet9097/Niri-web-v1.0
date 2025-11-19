@@ -1702,9 +1702,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </div>
             )} */}
 
-            {/* <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Annex 9: Self-certification required
-            </p> */}
+            </p>
             </div>
 
         </SectionCard>
@@ -2482,9 +2482,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               Upload RMB orders/Awards
             </p>
 
-            {/* <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Annex 10
-            </p> */}
+            </p>
             </div>
 
         </SectionCard>
