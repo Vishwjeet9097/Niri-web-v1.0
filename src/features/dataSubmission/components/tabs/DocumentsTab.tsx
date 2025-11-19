@@ -88,40 +88,112 @@ function downloadByLink(signedUrl: string, filename?: string) {
   a.remove();
 }
 
+/**
+ * Recursively extract file metadata from nested formData structure
+ * Files are stored as objects with filePath, fileName, originalName, etc.
+ */
+function extractFilesFromFormData(obj: any, collectedFiles: Document[] = [], seenPaths: Set<string> = new Set()): Document[] {
+  if (!obj || typeof obj !== "object") return collectedFiles;
+
+  // Check if this object itself is a file metadata object
+  // File metadata objects have filePath and (fileName or originalName)
+  if (obj.filePath && typeof obj.filePath === "string" && obj.filePath.trim() !== "") {
+    // Avoid duplicates by checking filePath
+    if (!seenPaths.has(obj.filePath)) {
+      seenPaths.add(obj.filePath);
+      collectedFiles.push({
+        id: obj.id ?? obj.filePath,
+        fileName: obj.fileName,
+        originalName: obj.originalName,
+        filePath: obj.filePath,
+        fileSize: typeof obj.fileSize === "number" ? obj.fileSize : Number(obj.fileSize) || undefined,
+        mimeType: obj.mimeType,
+        uploadedBy: obj.uploadedBy ?? "Unknown",
+        uploadedAt: obj.uploadedAt ?? obj.uploadedAtString ?? undefined,
+      });
+    }
+    // Don't recurse into file metadata objects
+    return collectedFiles;
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    obj.forEach((item) => {
+      extractFilesFromFormData(item, collectedFiles, seenPaths);
+    });
+    return collectedFiles;
+  }
+
+  // Handle objects - recurse into all properties
+  Object.values(obj).forEach((value) => {
+    extractFilesFromFormData(value, collectedFiles, seenPaths);
+  });
+
+  return collectedFiles;
+}
+
 export const DocumentsTab = ({
   documents = [],
   formData,
   authToken,
 }: DocumentsTabProps) => {
-  // Prefer `attachedFiles` stored on the submission (reliable)
+  // Extract files from formData (both attachedFiles and nested fields)
   const docsFromForm = React.useMemo(() => {
     if (!formData) return [];
 
-    if (
-      Array.isArray(formData.attachedFiles) &&
-      formData.attachedFiles.length
-    ) {
-      return formData.attachedFiles.map((f: any, idx: number) => ({
-        id: f.id ?? `attached-${idx}`,
-        fileName: f.fileName,
-        originalName: f.originalName,
-        filePath: f.filePath,
-        fileSize:
-          typeof f.fileSize === "number"
-            ? f.fileSize
-            : Number(f.fileSize) || undefined,
-        mimeType: f.mimeType,
-        uploadedBy: f.uploadedBy ?? "Unknown",
-        uploadedAt: f.uploadedAt ?? f.uploadedAtString ?? undefined,
-      })) as Document[];
+    const collectedFiles: Document[] = [];
+    const seenPaths = new Set<string>();
+
+    // First, check for attachedFiles array (if present)
+    if (Array.isArray(formData.attachedFiles) && formData.attachedFiles.length) {
+      formData.attachedFiles.forEach((f: any, idx: number) => {
+        if (f.filePath && !seenPaths.has(f.filePath)) {
+          seenPaths.add(f.filePath);
+          collectedFiles.push({
+            id: f.id ?? `attached-${idx}`,
+            fileName: f.fileName,
+            originalName: f.originalName,
+            filePath: f.filePath,
+            fileSize: typeof f.fileSize === "number" ? f.fileSize : Number(f.fileSize) || undefined,
+            mimeType: f.mimeType,
+            uploadedBy: f.uploadedBy ?? "Unknown",
+            uploadedAt: f.uploadedAt ?? f.uploadedAtString ?? undefined,
+          });
+        }
+      });
     }
 
-    // fallback: try to extract files from nested formData fields (if your app uses nested JSON)
-    // (You can keep your old extraction logic here; omitted for brevity)
-    return [];
+    // Then, recursively extract files from nested formData fields
+    // Skip the attachedFiles property to avoid double-processing
+    const { attachedFiles, ...restOfFormData } = formData;
+    extractFilesFromFormData(restOfFormData, collectedFiles, seenPaths);
+
+    return collectedFiles;
   }, [formData]);
 
-  const allDocuments = documents.length ? documents : docsFromForm;
+  // Merge documents prop and extracted files, deduplicating by filePath
+  const allDocuments = React.useMemo(() => {
+    const merged: Document[] = [];
+    const seenPaths = new Set<string>();
+
+    // First add documents from prop
+    documents.forEach((doc) => {
+      if (doc.filePath && !seenPaths.has(doc.filePath)) {
+        seenPaths.add(doc.filePath);
+        merged.push(doc);
+      }
+    });
+
+    // Then add documents extracted from formData (avoiding duplicates)
+    docsFromForm.forEach((doc) => {
+      if (doc.filePath && !seenPaths.has(doc.filePath)) {
+        seenPaths.add(doc.filePath);
+        merged.push(doc);
+      }
+    });
+
+    return merged;
+  }, [documents, docsFromForm]);
 
   const [loading, setLoading] = React.useState<Record<string, boolean>>({});
   const token =
