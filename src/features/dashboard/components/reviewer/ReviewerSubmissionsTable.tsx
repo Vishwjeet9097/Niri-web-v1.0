@@ -52,13 +52,9 @@ export default function ReviewerSubmissionsTable() {
   }, []);
 
   const filteredSubmissions = submissions.filter((submission) => {
-    // Status filter - Only show submissions submitted to MoSPI reviewer
-    const allowedStatuses = [
-      "SUBMITTED_TO_MOSPI_REVIEWER",
-      "SUBMITTED_TO_MOSPI",
-      "RETURNED_FROM_MOSPI", // Include returned submissions that can be resubmitted
-    ];
-    const statusMatch = submission.status && allowedStatuses.includes(submission.status);
+    // For MoSPI Reviewer: Show all submissions for all statuses
+    // This includes submissions at all stages (reviewer, approver, approved, rejected, etc.)
+    const statusMatch = submission.status; // Show all statuses
     
     // State filter
     const stateMatch = selectedState === "All" || submission.stateUt === selectedState;

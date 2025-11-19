@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UnifiedSubmissionCard } from "@/components/ui/UnifiedSubmissionCard";
-import { FileText, CheckCircle, Clock, AlertCircle, Eye } from "lucide-react";
+import { FileText, CheckCircle, Clock, AlertCircle, Eye, Search } from "lucide-react";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
@@ -16,6 +16,8 @@ export const MospiApproverDashboardPage = () => {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedState, setSelectedState] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const loadSubmissions = async () => {
@@ -53,20 +55,48 @@ export const MospiApproverDashboardPage = () => {
     loadSubmissions();
   }, []);
 
-  // Filter submissions to only show SUBMITTED_TO_MOSPI_APPROVER status for MoSPI Approver
+  // Filter submissions for the "Recent Submissions" card - show only SUBMITTED_TO_MOSPI_APPROVER
+  // Note: The latest submissions table should show all statuses (handled separately)
   const filteredSubmissions = useMemo(() => {
     if (user?.role !== "MOSPI_APPROVER") {
       return submissions;
     }
     
+    // For the "Recent Submissions for Final Approval" card, show only pending approvals
     return submissions.filter((submission) => {
-      // MoSPI Approver should only see submissions submitted to them
       const allowedStatuses = [
         "SUBMITTED_TO_MOSPI_APPROVER",
       ];
       return submission.status && allowedStatuses.includes(submission.status);
     });
   }, [submissions, user?.role]);
+  
+  // All submissions for the latest submissions table (show all statuses)
+  const allSubmissionsForTable = useMemo(() => {
+    // For MoSPI Approver: Show all submissions for all statuses
+    return submissions.filter((submission) => {
+      // State filter
+      const stateMatch = selectedState === "All" || submission.stateUt === selectedState;
+      
+      // Search filter
+      const searchMatch = !searchQuery || 
+        submission.submissionId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.stateUt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.user?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.user?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        submission.status?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      return stateMatch && searchMatch;
+    });
+  }, [submissions, selectedState, searchQuery]);
+  
+  // Get unique states for filter
+  const states = useMemo(() => {
+    return [
+      "All",
+      ...Array.from(new Set(submissions.map((s) => s.stateUt).filter(Boolean))),
+    ];
+  }, [submissions]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -228,6 +258,148 @@ export const MospiApproverDashboardPage = () => {
                   );
                 })
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Latest Submissions Table */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="p-6">Latest Submissions</CardTitle>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search submissions..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 py-2 border rounded-md text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="state-filter" className="mr-2 text-sm text-gray-600">
+                    States
+                  </label>
+                  <select
+                    id="state-filter"
+                    className="border rounded px-2 py-1 text-sm"
+                    value={selectedState}
+                    onChange={(e) => setSelectedState(e.target.value)}
+                  >
+                    {states.map((state) => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              All submissions across all statuses
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm border">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="px-3 py-2 border-b text-left">Submission ID</th>
+                    <th className="px-3 py-2 border-b text-left">State/UT</th>
+                    <th className="px-3 py-2 border-b text-left">Status</th>
+                    <th className="px-3 py-2 border-b text-left">Submitted By</th>
+                    <th className="px-3 py-2 border-b text-left">Submitted Date</th>
+                    <th className="px-3 py-2 border-b text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allSubmissionsForTable.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                        No submissions found
+                      </td>
+                    </tr>
+                  ) : (
+                    allSubmissionsForTable.map((submission) => {
+                      // For submissions forwarded to MoSPI Approver, find who forwarded it
+                      let submittedByText = submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
+                      
+                      if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                        // Look for the most recent comment from MOSPI_REVIEWER who forwarded it
+                        if (submission.reviewComments && Array.isArray(submission.reviewComments)) {
+                          const reviewerComments = submission.reviewComments
+                            .filter((comment: any) => 
+                              comment.role === "MOSPI_REVIEWER"
+                            )
+                            .sort((a: any, b: any) => {
+                              const timeA = new Date(a.timestamp || 0).getTime();
+                              const timeB = new Date(b.timestamp || 0).getTime();
+                              return timeB - timeA; // Most recent first
+                            });
+                          
+                          if (reviewerComments.length > 0) {
+                            const lastReviewer = reviewerComments[0];
+                            submittedByText = lastReviewer.userName || "MoSPI Reviewer";
+                          } else {
+                            submittedByText = "MoSPI Reviewer";
+                          }
+                        } else {
+                          submittedByText = "MoSPI Reviewer";
+                        }
+                      }
+                      
+                      return (
+                        <tr key={submission.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 border-b font-medium">
+                            {submission.submissionId || submission.id}
+                          </td>
+                          <td className="px-3 py-2 border-b">
+                            <span className="inline-flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
+                                {submission.stateUt?.charAt(0) || "N"}
+                              </span>
+                              {submission.stateUt || "N/A"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 border-b">
+                            <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(submission.status)}`}>
+                              {getStatusText(submission.status) || submission.status?.replace(/_/g, " ") || "Unknown"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 border-b">
+                            {submittedByText}
+                          </td>
+                          <td className="px-3 py-2 border-b">
+                            {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString() : "N/A"}
+                          </td>
+                          <td className="px-3 py-2 border-b text-center">
+                            <Button
+                              onClick={() => navigate(`/data-submission/review/${submission.id}`)}
+                              size="sm"
+                              variant="outline"
+                              className="gap-2"
+                            >
+                              <Eye className="w-4 h-4" />
+                              Review
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-center mt-4">
+              <Button
+                onClick={() => navigate("/data-submission/review")}
+                variant="outline"
+                className="gap-2"
+              >
+                View All
+              </Button>
             </div>
           </CardContent>
         </Card>
