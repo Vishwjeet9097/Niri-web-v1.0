@@ -22,10 +22,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  MoreVertical,
+  Pencil,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { NodalOfficer } from "../services/userManagement.service";
 import { Badge } from "@/components/ui/badge";
 import { getRoleDisplayName } from "@/utils/roles";
+import { State } from "@/services/states.service";
 
 interface UserTableProps {
   officers: NodalOfficer[];
@@ -37,6 +44,7 @@ interface UserTableProps {
   sortField?: "firstName" | "role" | "state" | "email";
   sortDirection?: "asc" | "desc";
   onSort?: (field: "firstName" | "role" | "state" | "email") => void;
+  states?: State[];
 }
 
 export function UserTable({
@@ -49,7 +57,42 @@ export function UserTable({
   sortField,
   sortDirection,
   onSort,
+  states = [],
 }: UserTableProps) {
+  // Helper function to get state name(s) from stateId(s) or state
+  const getStateName = (officer: NodalOfficer): string => {
+    // If multiple state IDs are available, show all of them
+    if (officer.stateIds && officer.stateIds.length > 0) {
+      const stateNames = officer.stateIds
+        .map((stateId) => {
+          const state = states.find((s) => s.id === stateId);
+          return state ? state.name : stateId;
+        })
+        .filter((name) => name); // Remove any undefined/null values
+
+      if (stateNames.length > 0) {
+        return stateNames.join(", ");
+      }
+    }
+
+    // Fallback to single stateId
+    if (officer.stateId) {
+      const state = states.find((s) => s.id === officer.stateId);
+      if (state) return state.name;
+    }
+
+    // If stateId lookup fails, try to find by state name
+    if (officer.state) {
+      const state = states.find((s) => s.name === officer.state);
+      if (state) return state.name;
+      // If not found in states array, return the state as-is (might already be a name)
+      return officer.state;
+    }
+
+    // Fallback to stateId if state is not available
+    return officer.stateId || "N/A";
+  };
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       onSelectionChange(new Set(officers.map((o) => o.id)));
@@ -68,22 +111,32 @@ export function UserTable({
     onSelectionChange(newSelected);
   };
 
-  const allSelected = officers.length > 0 && selectedIds.size === officers.length;
+  const allSelected =
+    officers.length > 0 && selectedIds.size === officers.length;
 
   // Sortable header component
-  const SortableHeader = ({ field, children }: { field: "firstName" | "role" | "state" | "email", children: React.ReactNode }) => {
+  const SortableHeader = ({
+    field,
+    children,
+  }: {
+    field: "firstName" | "role" | "state" | "email";
+    children: React.ReactNode;
+  }) => {
     if (!onSort) return <TableHead>{children}</TableHead>;
-    
+
     return (
-      <TableHead 
-        className="cursor-pointer hover:bg-muted/50 select-none text-[#212121] text-xs font-semibold"  
+      <TableHead
+        className="cursor-pointer hover:bg-muted/50 select-none text-[#212121] text-xs font-semibold"
         onClick={() => onSort(field)}
       >
         <div className="flex items-center gap-1">
           {children}
-          {sortField === field && (
-            sortDirection === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-          )}
+          {sortField === field &&
+            (sortDirection === "asc" ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            ))}
         </div>
       </TableHead>
     );
@@ -100,14 +153,20 @@ export function UserTable({
                 onCheckedChange={handleSelectAll}
               />
             </TableHead>
-            <TableHead className="w-20 text-[#212121] text-xs font-semibold">S.no.</TableHead>
+            <TableHead className="w-20 text-[#212121] text-xs font-semibold">
+              S.no.
+            </TableHead>
             <SortableHeader field="firstName">Officer Name</SortableHeader>
             <SortableHeader field="role">Role</SortableHeader>
             <SortableHeader field="state">State/UT</SortableHeader>
-            <TableHead className="text-[#212121] text-xs font-semibold">Contact Number</TableHead>
+            <TableHead className="text-[#212121] text-xs font-semibold">
+              Contact Number
+            </TableHead>
             <SortableHeader field="email">Email</SortableHeader>
             {/* <TableHead>Assigned Indicator</TableHead> */}
-            <TableHead className="w-24 text-[#212121] text-xs font-semibold">Action</TableHead>
+            <TableHead className="w-24 text-[#212121] text-xs font-semibold">
+              Action
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -121,7 +180,9 @@ export function UserTable({
                   }
                 />
               </TableCell>
-              <TableCell className="font-medium text-xs text-[#212121]">{index + 1}</TableCell>
+              <TableCell className="font-medium text-xs text-[#212121]">
+                {index + 1}
+              </TableCell>
               <TableCell className="font-medium text-xs text-[#212121]">
                 {officer.firstName} {officer.lastName}
               </TableCell>
@@ -130,9 +191,15 @@ export function UserTable({
                   {getRoleDisplayName(officer.role)}
                 </Badge>
               </TableCell>
-              <TableCell className="text-xs text-[#212121]">{officer.stateId || officer.state}</TableCell>
-              <TableCell className="text-xs text-[#212121]">+91 {officer.contactNumber}</TableCell>
-              <TableCell className="text-xs text-[#212121]">{officer.email}</TableCell>
+              <TableCell className="text-xs text-[#212121]">
+                {getStateName(officer)}
+              </TableCell>
+              <TableCell className="text-xs text-[#212121]">
+                +91 {officer.contactNumber}
+              </TableCell>
+              <TableCell className="text-xs text-[#212121]">
+                {officer.email}
+              </TableCell>
               {/* <TableCell>
                 {officer.assignedIndicator ? (
                   <div className="flex items-center gap-2">

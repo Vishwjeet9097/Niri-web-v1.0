@@ -76,26 +76,77 @@ export function UserManagementPage() {
       }
       // Debug logging removed for performance
 
+      // Helper function to parse stateUt JSON string and extract state IDs
+      const parseStateUt = (stateUt: string | undefined): string[] => {
+        if (!stateUt) return [];
+
+        try {
+          // Try to parse as JSON string
+          // Handle formats like: "[\"32\"]", "{\"32\"}", "[\"4\",\"5\",\"6\"]", etc.
+          const parsed = JSON.parse(stateUt);
+
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Valid JSON array: ["32"] or ["4","5","6"]
+            return parsed.map((id) => String(id));
+          } else if (typeof parsed === "string") {
+            // Valid JSON string: "32"
+            return [parsed];
+          } else if (typeof parsed === "object" && parsed !== null) {
+            // Handle object format like {"32": ...} - extract all keys
+            const keys = Object.keys(parsed);
+            return keys.map((key) => String(key));
+          }
+        } catch (e) {
+          // If JSON parsing fails, try to extract all numbers from the string
+          // Handle formats like: "{\"32\"}" or "{\"4\",\"5\",\"6\"}" by extracting all numbers
+          const regex = /"(\d+)"/g;
+          const matches: string[] = [];
+          let match;
+          while ((match = regex.exec(stateUt)) !== null) {
+            matches.push(match[1]); // match[1] is the captured group (the number)
+          }
+          if (matches.length > 0) {
+            return matches;
+          }
+          // If no match, treat it as a plain string (might already be a state ID)
+          return stateUt ? [stateUt] : [];
+        }
+
+        return [];
+      };
+
       // Transform backend users to NodalOfficer format
       const transformedOfficers: NodalOfficer[] = backendUsers.map(
-        (user: any) => ({
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          contactNumber: user.contactNumber || "",
-          email: user.email,
-          role: user.role as
-            | "NODAL_OFFICER"
-            | "STATE_APPROVER"
-            | "MOSPI_REVIEWER"
-            | "MOSPI_APPROVER",
-          state: user.stateUt || user.state || "",
-          stateId: user.stateId || "", // Will be set later when states are loaded
-          assignedIndicator: user.assignedIndicator,
-          assignedIndicators: user.assignedIndicators || [],
-          isActive: user.isActive,
-          createdAt: new Date(user.createdAt).getTime(),
-        })
+        (user: any) => {
+          const parsedStateIds = parseStateUt(user.stateUt);
+          return {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            contactNumber: user.contactNumber || "",
+            email: user.email,
+            role: user.role as
+              | "NODAL_OFFICER"
+              | "STATE_APPROVER"
+              | "MOSPI_REVIEWER"
+              | "MOSPI_APPROVER",
+            state: user.state || "",
+            stateId:
+              parsedStateIds.length > 0
+                ? parsedStateIds[0]
+                : user.stateId || "", // First state ID for backward compatibility
+            stateIds:
+              parsedStateIds.length > 0
+                ? parsedStateIds
+                : user.stateId
+                ? [user.stateId]
+                : [], // All state IDs
+            assignedIndicator: user.assignedIndicator,
+            assignedIndicators: user.assignedIndicators || [],
+            isActive: user.isActive,
+            createdAt: new Date(user.createdAt).getTime(),
+          };
+        }
       );
 
       setOfficers(transformedOfficers);
@@ -521,7 +572,31 @@ export function UserManagementPage() {
   >("firstName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  // ✅ getStateNameById function removed - using stateId directly as state name
+  // Helper function to get state name for sorting/display
+  const getStateNameForOfficer = (officer: NodalOfficer): string => {
+    // If multiple state IDs are available, use the first one for sorting
+    if (officer.stateIds && officer.stateIds.length > 0) {
+      const state = states.find((s) => s.id === officer.stateIds![0]);
+      if (state) return state.name;
+    }
+
+    // Fallback to single stateId
+    if (officer.stateId) {
+      const state = states.find((s) => s.id === officer.stateId);
+      if (state) return state.name;
+    }
+
+    // If stateId lookup fails, try to find by state name
+    if (officer.state) {
+      const state = states.find((s) => s.name === officer.state);
+      if (state) return state.name;
+      // If not found in states array, return the state as-is (might already be a name)
+      return officer.state;
+    }
+
+    // Fallback to stateId if state is not available
+    return officer.stateId || "";
+  };
 
   // Filter and sort officers
   const filteredOfficers = officers
@@ -555,8 +630,8 @@ export function UserManagementPage() {
           bValue = b.role.toLowerCase();
           break;
         case "state":
-          aValue = (a.stateId || a.state).toLowerCase();
-          bValue = (b.stateId || b.state).toLowerCase();
+          aValue = getStateNameForOfficer(a).toLowerCase();
+          bValue = getStateNameForOfficer(b).toLowerCase();
           break;
         case "email":
           aValue = a.email.toLowerCase();
@@ -903,6 +978,7 @@ export function UserManagementPage() {
         sortField={sortField}
         sortDirection={sortDirection}
         onSort={handleSort}
+        states={states}
       />
 
       {/* Pagination */}

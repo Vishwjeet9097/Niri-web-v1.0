@@ -7,7 +7,8 @@ export interface NodalOfficer {
   password?: string;
   role: string;
   state: string;
-  stateId?: string; // Added for API compatibility
+  stateId?: string; // Added for API compatibility (first state ID)
+  stateIds?: string[]; // Added for multiple state IDs (e.g., for MOSPI_REVIEWER)
   assignedIndicator?: string;
   assignedIndicators?: string[]; // Added for multiple indicator assignment
   isActive?: boolean; // Added for API compatibility
