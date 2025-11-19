@@ -39,6 +39,7 @@ export const API_ENDPOINTS = {
     uploadMultiple: (submissionId: string) =>
       `${BASE}/file/upload-multiple/${submissionId}`,
     url: (filePath: string) => `${BASE}/file/url/${filePath}`,
+    download: (filePath: string) => `${BASE}/file/download/${filePath}`,
     delete: (filePath: string) => `${BASE}/file/${filePath}`,
   },
   dashboard: {

@@ -37,31 +37,31 @@ const sectionData = [
         id: "1.1",
         title: "% Capex to GSDP",
         marks: "10 marks per 1%",
-        annex: "Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for Capital Expenditure)"
+        annex: ""
       },
       {
         id: "1.2",
         title: "% Capex Utilization",
         marks: "10 marks per 1%",
-        annex: "Annex 2: Verified with MoHUA data"
+        annex: ""
       },
       {
         id: "1.3",
         title: "% of Credit Rated ULBs",
         marks: "",
-        annex: "Annex 2: Verified with MoHUA data"
+        annex: ""
       },
       {
         id: "1.4",
         title: "% of ULBs Issuing Bonds",
         marks: "",
-        annex: "Annex 3: ULBs with population > 50,000"
+        annex: ""
       },
       {
         id: "1.5",
         title: "Functional Financial Intermediary",
         marks: "",
-        annex: "Annex 4: Provide website link and funding details"
+        annex: ""
       }
     ]
   },

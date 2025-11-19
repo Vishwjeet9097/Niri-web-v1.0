@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Send, CheckCircle, Edit3, AlertTriangle, MessageSquare } from "lucide-react";
+import {
+  ArrowLeft,
+  Send,
+  CheckCircle,
+  Edit3,
+  AlertTriangle,
+  MessageSquare,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -64,22 +71,24 @@ interface UnifiedReviewPageProps {
   isEditMode?: boolean;
 }
 
-export const UnifiedReviewPage = ({ 
+export const UnifiedReviewPage = ({
   submission: initialSubmission,
-  isPreview = false, 
-  isMospiApprover = false, 
-  onFinalSubmit, 
-  isSubmitting = false, 
-  isResubmit = false, 
-  isEditMode = false 
+  isPreview = false,
+  isMospiApprover = false,
+  onFinalSubmit,
+  isSubmitting = false,
+  isResubmit = false,
+  isEditMode = false,
 }) => {
   const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { assignedIndicators, isNodalOfficer } = useIndicatorAccess();
-  
-  const [submission, setSubmission] = useState<Submission | null>(initialSubmission);
+
+  const [submission, setSubmission] = useState<Submission | null>(
+    initialSubmission
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sendBackModalOpen, setSendBackModalOpen] = useState(false);
@@ -87,22 +96,22 @@ export const UnifiedReviewPage = ({
   const [sendToApproverModalOpen, setSendToApproverModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [actualEditMode, setActualEditMode] = useState(isEditMode);
-  
+
   // Get active tab from URL params, default to "overview"
-  const activeTab = searchParams.get('tab') || 'overview';
-  
+  const activeTab = searchParams.get("tab") || "overview";
+
   // Handler to update active tab
   const handleTabChange = (value: string) => {
     const newSearchParams = new URLSearchParams(searchParams);
-    newSearchParams.set('tab', value);
+    newSearchParams.set("tab", value);
     setSearchParams(newSearchParams, { replace: true });
   };
 
   // Check for edit mode on mount
   useEffect(() => {
-    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
-    const editingSubmission = localStorage.getItem('editing_submission');
-    
+    const isEditModeFlag = localStorage.getItem("is_edit_mode") === "true";
+    const editingSubmission = localStorage.getItem("editing_submission");
+
     if (isEditModeFlag || editingSubmission) {
       setActualEditMode(true);
     }
@@ -118,7 +127,7 @@ export const UnifiedReviewPage = ({
     }
 
     if (!id) return;
-    
+
     try {
       // Don't set loading to true if we're just refreshing after indicator update
       // This prevents the component from disappearing during reload
@@ -127,9 +136,9 @@ export const UnifiedReviewPage = ({
         setLoading(true);
       }
       setError(null);
-      
+
       const response = await apiService.getSubmission(id);
-    // Debug logging removed for performance
+      // Debug logging removed for performance
 
       if (response) {
         setSubmission(response as unknown as Submission);
@@ -161,15 +170,23 @@ export const UnifiedReviewPage = ({
       } else if (initialSubmission) {
         // For preview mode, just update the submission prop if needed
         // The local state update in the review component should handle the UI update
-        console.log('Indicator status updated in preview mode - no reload needed');
+        console.log(
+          "Indicator status updated in preview mode - no reload needed"
+        );
       }
     };
 
     // Listen for custom event when indicator status is updated
-    window.addEventListener('niri-indicator-status-updated', handleIndicatorStatusUpdate);
+    window.addEventListener(
+      "niri-indicator-status-updated",
+      handleIndicatorStatusUpdate
+    );
 
     return () => {
-      window.removeEventListener('niri-indicator-status-updated', handleIndicatorStatusUpdate);
+      window.removeEventListener(
+        "niri-indicator-status-updated",
+        handleIndicatorStatusUpdate
+      );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, initialSubmission]);
@@ -192,8 +209,12 @@ export const UnifiedReviewPage = ({
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Error Loading Submission</h2>
-          <p className="text-muted-foreground mb-4">{error || "Submission not found"}</p>
+          <h2 className="text-xl font-semibold mb-2">
+            Error Loading Submission
+          </h2>
+          <p className="text-muted-foreground mb-4">
+            {error || "Submission not found"}
+          </p>
           <Button onClick={() => navigate(-1)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Go Back
@@ -246,7 +267,13 @@ export const UnifiedReviewPage = ({
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
             >
               <CheckCircle className="w-4 h-4" />
-              {isSubmitting ? "Submitting..." : (actualEditMode ? "Resubmit" : isResubmit ? "Resubmit" : "Submit")}
+              {isSubmitting
+                ? "Submitting..."
+                : actualEditMode
+                ? "Resubmit"
+                : isResubmit
+                ? "Resubmit"
+                : "Submit"}
             </Button>
           )}
         </div>
@@ -258,8 +285,13 @@ export const UnifiedReviewPage = ({
     const currentOwnerRole = submission?.currentOwnerRole;
 
     // Only show actions if current user is the owner or if STATE_APPROVER is handling RETURNED_FROM_MOSPI
-    if (currentUserRole !== currentOwnerRole && 
-        !(currentUserRole === "STATE_APPROVER" && submissionStatus === "RETURNED_FROM_MOSPI")) {
+    if (
+      currentUserRole !== currentOwnerRole &&
+      !(
+        currentUserRole === "STATE_APPROVER" &&
+        submissionStatus === "RETURNED_FROM_MOSPI"
+      )
+    ) {
       return null;
     }
 
@@ -283,7 +315,7 @@ export const UnifiedReviewPage = ({
 
     //           // Store in localStorage for edit page
     //           localStorage.setItem('editing_submission', JSON.stringify(freshSubmissionData));
-              
+
     //           // Navigate to edit page
     //           navigate(`/data-submission/edit/${submission.id}`);
     //         } catch (error) {
@@ -351,7 +383,10 @@ export const UnifiedReviewPage = ({
 
     // Send to Approver button
     // Disable if already submitted to MOSPI_APPROVER
-    if (currentUserRole === "MOSPI_REVIEWER" && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
+    if (
+      currentUserRole === "MOSPI_REVIEWER" &&
+      submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER"
+    ) {
       buttons.push(
         <Button
           key="send-to-approver"
@@ -364,15 +399,18 @@ export const UnifiedReviewPage = ({
         </Button>
       );
     }
-    
+
     // Hide Send to Approver button if already submitted to MOSPI_APPROVER
     // (Button should not appear when status is SUBMITTED_TO_MOSPI_APPROVER)
 
     // Final Submit button for MOSPI_APPROVER
-    if (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER") {
+    if (
+      currentUserRole === "MOSPI_APPROVER" &&
+      submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER"
+    ) {
       // Check if all indicators have mospi_status = "ACCEPTED" or "APPROVED"
       const allIndicatorsAccepted = areAllIndicatorsMospiAccepted(submission);
-      
+
       buttons.push(
         <Button
           key="final-submit"
@@ -414,8 +452,8 @@ export const UnifiedReviewPage = ({
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className={getStatusBadgeColor(submission.status)}
               >
                 {submission.status.replace(/_/g, " ")}
@@ -428,21 +466,31 @@ export const UnifiedReviewPage = ({
           <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm font-semibold text-[#212121]">Submitted By</p>
+                <p className="text-sm font-semibold text-[#212121]">
+                  Submitted By
+                </p>
                 <p className="text-[#727272] text-sm">
                   {submission.user.firstName} {submission.user.lastName}
                 </p>
-                <p className="text-sm text-[#727272]">{submission.user.email}</p>
+                <p className="text-sm text-[#727272]">
+                  {submission.user.email}
+                </p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#212121]">Submission Date</p>
+                <p className="text-sm font-semibold text-[#212121]">
+                  Submission Date
+                </p>
                 <p className="text-[#727272] text-sm">
                   {new Date(submission.createdAt).toLocaleDateString()}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#212121]">Current Owner</p>
-                <p className="text-[#727272] text-sm">{submission.currentOwnerRole.replace(/_/g, " ")}</p>
+                <p className="text-sm font-semibold text-[#212121]">
+                  Current Owner
+                </p>
+                <p className="text-[#727272] text-sm">
+                  {submission.currentOwnerRole.replace(/_/g, " ")}
+                </p>
               </div>
             </div>
           </div>
@@ -468,11 +516,17 @@ export const UnifiedReviewPage = ({
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className="w-full"
+        >
           <TabsList className={` w-full mb-6 `}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             {isMospiApprover && (
-              <TabsTrigger value="reviewer-comments">MoSPI Reviewer Comments</TabsTrigger>
+              <TabsTrigger value="reviewer-comments">
+                MoSPI Reviewer Comments
+              </TabsTrigger>
             )}
             <TabsTrigger value="data-review">Data Review</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -491,16 +545,24 @@ export const UnifiedReviewPage = ({
             <TabsContent value="reviewer-comments">
               <div className="space-y-4">
                 {submission.sections?.map((section: any) => (
-                  <div key={section.id} className="p-4 border rounded-lg bg-card">
+                  <div
+                    key={section.id}
+                    className="p-4 border rounded-lg bg-card"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold">{section.name}</h3>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-primary">{section.progress}%</div>
-                        <p className="text-xs text-muted-foreground">Indicator Score</p>
+                        <div className="text-2xl font-bold text-primary">
+                          {section.progress}%
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Indicator Score
+                        </p>
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {section.points}/{section.maxPoints} points | {section.sectionsWithComments} sections with comments
+                      {section.points}/{section.maxPoints} points |{" "}
+                      {section.sectionsWithComments} sections with comments
                     </p>
                   </div>
                 ))}
@@ -510,16 +572,16 @@ export const UnifiedReviewPage = ({
 
           <TabsContent value="data-review">
             {isMospiApprover ? (
-              <MospiApproverDataReviewTab 
-                submissionId={submission.id} 
-                sections={submission.sections || []} 
+              <MospiApproverDataReviewTab
+                submissionId={submission.id}
+                sections={submission.sections || []}
                 formData={submission.formData}
               />
             ) : (
-              <DataReviewTab 
-                submissionId={submission.id} 
-                formData={submission.formData} 
-                submission={submission} 
+              <DataReviewTab
+                submissionId={submission.id}
+                formData={submission.formData}
+                submission={submission}
                 isPreview={isPreview}
                 assignedIndicators={assignedIndicators}
                 isNodalOfficer={isNodalOfficer}
@@ -528,8 +590,8 @@ export const UnifiedReviewPage = ({
           </TabsContent>
 
           <TabsContent value="documents">
-            <DocumentsTab 
-              documents={submission.attachedFiles || []} 
+            <DocumentsTab
+              documents={submission.attachedFiles || []}
               submissionId={submission.id}
               formData={submission.formData}
             />

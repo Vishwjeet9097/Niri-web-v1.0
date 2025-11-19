@@ -178,9 +178,9 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                   
                 </span>
               </span>
-              <span className="text-xs text-muted-foreground font-normal">
+              {/* <span className="text-xs text-muted-foreground font-normal">
                 Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for Capital Expenditure)
-              </span>
+              </span> */}
             </div>
           }
           subtitle=""
@@ -256,7 +256,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
         {/* Section 1.2 */}
         <SectionCard
           title="1.2 - % Capex Utilization"
-          subtitle="Annex 2: Verified with MoHUA data"
+          // subtitle="Annex 2: Verified with MoHUA data"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -329,7 +329,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
         {/* Section 1.3 - ULB Ratings */}
         <SectionCard
           title="1.3 - Credit Rating for ULBs (50 marks)"
-          subtitle="Annex 3: List of ULBs with credit ratings"
+          // subtitle="Annex 3: List of ULBs with credit ratings"
         >
           <div className="space-y-4">
             {formData.section1_3.map((ulb, index) => (
@@ -434,7 +434,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
         {/* Section 1.4 - Municipal Bonds */}
         <SectionCard
           title="1.4 - Municipal Bonds Issued (50 marks)"
-          subtitle="Annex 4: Details of municipal bonds issued"
+          // subtitle="Annex 4: Details of municipal bonds issued"
         >
           <div className="space-y-4">
             {formData.section1_4.map((bond, index) => (
@@ -539,7 +539,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
         {/* Section 1.5 - Financial Intermediaries */}
         <SectionCard
           title="1.5 - State-Level Financial Intermediaries (40 marks)"
-          subtitle="Annex 5: Details of financial intermediaries"
+          // subtitle="Annex 5: Details of financial intermediaries"
         >
           <div className="space-y-4">
             {formData.section1_5.map((org, index) => (
