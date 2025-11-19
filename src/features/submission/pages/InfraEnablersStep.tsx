@@ -1494,7 +1494,7 @@ export const InfraEnablersStep = () => {
                       {/* Upload File Below */}
                       <div className="mt-4">
                         <FileUploadSection
-                          label="Upload Evidence (Annex 10)"
+                          label="Upload Evidence"
                           value={entry.file || null}
                           accept=".pdf"
                           onChange={(file) => {
