@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,14 @@ const getDefaultFileUpload = (): FileUpload => ({
 });
 
 export const InfraDevelopmentStep = () => {
+  // Tab status state for visual feedback
+  const [tabStatus, setTabStatus] = useState({
+    infraFinancing: false,
+    infraDevelopment: false,
+    pppDevelopment: false,
+    infraEnablers: false,
+  });
+  const navigate = useNavigate();
   const {
     currentStep,
     goToStep,
@@ -309,6 +317,7 @@ export const InfraDevelopmentStep = () => {
 
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
+          localStorage.removeItem("editing_submission_id");
         }
       } catch (error) {
         console.error(
@@ -316,6 +325,7 @@ export const InfraDevelopmentStep = () => {
           error
         );
         localStorage.removeItem("editing_submission");
+        localStorage.removeItem("editing_submission_id");
       }
     }
   }, []);
@@ -853,6 +863,26 @@ export const InfraDevelopmentStep = () => {
                   </table>
                 </div>
               )}
+              
+              {/* Submit Button for 2.1 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("2.1", prepareFieldsForInfraDev)}
+                  disabled={submittingIndicators["2.1"] || hookSubmittedIndicators["2.1"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["2.1"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["2.1"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1026,6 +1056,26 @@ export const InfraDevelopmentStep = () => {
                   </table>
                 </div>
               )}
+              
+              {/* Submit Button for 2.2 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("2.2", prepareFieldsForInfraDev)}
+                  disabled={submittingIndicators["2.2"] || hookSubmittedIndicators["2.2"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["2.2"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["2.2"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}

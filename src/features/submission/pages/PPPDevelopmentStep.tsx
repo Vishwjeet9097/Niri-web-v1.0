@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Info, CalendarIcon, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
+import { useIndicatorSubmission } from "../hooks/useIndicatorSubmission";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -66,6 +67,15 @@ const defaultData: PPPDevelopmentData = {
 };
 
 export const PPPDevelopmentStep = () => {
+  // Tab status state for visual feedback
+  const [tabStatus, setTabStatus] = useState({
+    infraFinancing: false,
+    infraDevelopment: false,
+    pppDevelopment: false,
+    infraEnablers: false,
+  });
+
+  const navigate = useNavigate();
   const {
     currentStep,
     goToStep,
@@ -115,6 +125,17 @@ export const PPPDevelopmentStep = () => {
     indicatorError,
     user,
   ]);
+
+  // Update tab status on mount and when indicators change
+  useEffect(() => {
+    const submitted = getSubmittedIndicators();
+    setTabStatus({
+      infraFinancing: submitted.infraFinancing?.length === 5,
+      infraDevelopment: submitted.infraDevelopment?.length === 5,
+      pppDevelopment: submitted.pppDevelopment?.length === 4,
+      infraEnablers: submitted.infraEnablers?.length === 6,
+    });
+  }, []);
 
   // Merge loaded data with defaults
   const loadedData =
@@ -292,6 +313,7 @@ export const PPPDevelopmentStep = () => {
 
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
+          localStorage.removeItem("editing_submission_id");
         }
       } catch (error) {
         console.error(
@@ -299,6 +321,7 @@ export const PPPDevelopmentStep = () => {
           error
         );
         localStorage.removeItem("editing_submission");
+        localStorage.removeItem("editing_submission_id");
       }
     }
   }, []);
@@ -715,6 +738,26 @@ export const PPPDevelopmentStep = () => {
                     {renderFieldError("section3_1.comment")}
                   </div>
                 )}
+                
+                {/* Submit Button for 3.1 */}
+                <div className="flex justify-end mt-4">
+                  <Button
+                    onClick={() => handleIndicatorSubmitPatched("3.1", prepareFieldsForPPP)}
+                    disabled={submittingIndicators["3.1"] || hookSubmittedIndicators["3.1"]}
+                    className="bg-primary text-white"
+                  >
+                    {submittingIndicators["3.1"] ? (
+                      "Submitting..."
+                    ) : hookSubmittedIndicators["3.1"] ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Submitted
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
@@ -847,6 +890,26 @@ export const PPPDevelopmentStep = () => {
                     {renderFieldError("section3_2.comment")}
                   </div>
                 )}
+                
+                {/* Submit Button for 3.2 */}
+                <div className="flex justify-end mt-4">
+                  <Button
+                    onClick={() => handleIndicatorSubmitPatched("3.2", prepareFieldsForPPP)}
+                    disabled={submittingIndicators["3.2"] || hookSubmittedIndicators["3.2"]}
+                    className="bg-primary text-white"
+                  >
+                    {submittingIndicators["3.2"] ? (
+                      "Submitting..."
+                    ) : hookSubmittedIndicators["3.2"] ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Submitted
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
@@ -1501,6 +1564,26 @@ export const PPPDevelopmentStep = () => {
                       </table>
                     </div>
                   )}
+                </div>
+                
+                {/* Submit Button for 3.4 */}
+                <div className="flex justify-end mt-4">
+                  <Button
+                    onClick={() => handleIndicatorSubmitPatched("3.4", prepareFieldsForPPP)}
+                    disabled={submittingIndicators["3.4"] || hookSubmittedIndicators["3.4"]}
+                    className="bg-primary text-white"
+                  >
+                    {submittingIndicators["3.4"] ? (
+                      "Submitting..."
+                    ) : hookSubmittedIndicators["3.4"] ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Submitted
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
                 </div>
               </div>
             </SectionCard>

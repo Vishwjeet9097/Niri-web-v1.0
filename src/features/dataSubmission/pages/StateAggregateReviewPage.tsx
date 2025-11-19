@@ -105,9 +105,6 @@ const transformIndicatorsToFormData = (
   indicators: Record<string, AggregatedIndicator[]>,
   submissions?: any[]
 ): any => {
-  console.log("[Transform] Raw indicators input:", indicators);
-  console.log("[Transform] Indicator keys:", Object.keys(indicators));
-  
   // Start with empty categories - only create sections for indicators that actually exist in the API response
   // Don't initialize all sections upfront - this prevents unassigned/unfilled indicators from appearing
   const formData: any = {
@@ -136,11 +133,8 @@ const transformIndicatorsToFormData = (
 
   // Process each category
   Object.entries(indicators).forEach(([categoryKey, indicatorList]) => {
-    console.log(`[Transform] Processing category: ${categoryKey} with ${indicatorList?.length || 0} indicators`);
-    
     const formDataKey = categoryMap[categoryKey];
     if (!formDataKey || !formData[formDataKey]) {
-      console.warn(`[Transform] Unknown category: ${categoryKey}, skipping`);
       return;
     }
 
@@ -148,15 +142,8 @@ const transformIndicatorsToFormData = (
     indicatorList.forEach((indicator) => {
       const code = indicator.code?.trim();
       if (!code) {
-        console.warn(`[Transform] Indicator without code:`, indicator);
         return;
       }
-
-      console.log(`[Transform] Processing indicator ${code} in category ${categoryKey}`);
-      console.log(`[Transform] Full indicator object:`, indicator);
-      console.log(`[Transform] Indicator data:`, indicator.data);
-      console.log(`[Transform] Indicator data type:`, typeof indicator.data);
-      console.log(`[Transform] Indicator data keys:`, indicator.data && typeof indicator.data === 'object' ? Object.keys(indicator.data) : 'not an object');
 
       // Convert code to section key (e.g., "1.1" -> "section1_1")
       const sectionKey = `section${code.replace(".", "_")}`;
@@ -167,7 +154,6 @@ const transformIndicatorsToFormData = (
       // Handle null/undefined data - if indicator exists but has no data, skip creating empty section
       // Only proceed if indicator has data OR if we can extract data from submissions array
       if (!indicatorData && (!submissions || submissions.length === 0)) {
-        console.log(`[Transform] Skipping indicator ${code} - no data and no submissions to extract from`);
         return;
       }
       
@@ -188,7 +174,6 @@ const transformIndicatorsToFormData = (
         });
         
         if (!hasValidData) {
-          console.log(`[Transform] Skipping array ${sectionKey} in ${formDataKey} - empty array or array with no valid data (length: ${indicatorData.length})`);
           return;
         }
         
@@ -213,7 +198,6 @@ const transformIndicatorsToFormData = (
             default:
               formData[formDataKey][sectionKey] = indicatorData;
           }
-        console.log(`[Transform] Stored array ${sectionKey} in ${formDataKey}:`, formData[formDataKey][sectionKey], `(array length: ${indicatorData.length})`);
         return;
       }
 
@@ -226,10 +210,6 @@ const transformIndicatorsToFormData = (
         delete formFields.status;
         delete formFields.percentage;
         delete formFields.marksObtained;
-        
-        // Log what we're keeping for debugging
-        console.log(`[Transform] Indicator ${code} - keeping fields:`, Object.keys(formFields));
-        console.log(`[Transform] Indicator ${code} - formFields values:`, formFields);
 
         // Add year if available (from indicator.year or data.year)
         if (indicator.year) {
@@ -273,8 +253,6 @@ const transformIndicatorsToFormData = (
           case '1.1':
             // For section 1.1, check if data exists in the indicator object itself
             // The API might store data differently - check all possible locations
-            console.log(`[Transform] Section 1.1 - Full indicator:`, JSON.stringify(indicator, null, 2));
-            
             // Check if capitalAllocation/gsdpForFY exist with different field names
             // Common variations: capital_allocation, capitalAllocation, capital_allocation_fy, etc.
             const possibleCapAllocKeys = ['capitalAllocation', 'capital_allocation', 'capitalAllocationFY', 'capital_allocation_fy', 'a1', 'A1'];
@@ -285,7 +263,6 @@ const transformIndicatorsToFormData = (
               for (const key of possibleCapAllocKeys) {
                 if (indicatorData[key] !== undefined) {
                   formFields.capitalAllocation = String(indicatorData[key]);
-                  console.log(`[Transform] Found capitalAllocation as '${key}':`, indicatorData[key]);
                   break;
                 }
               }
@@ -296,7 +273,6 @@ const transformIndicatorsToFormData = (
               for (const key of possibleGsdpKeys) {
                 if (indicatorData[key] !== undefined) {
                   formFields.gsdpForFY = String(indicatorData[key]);
-                  console.log(`[Transform] Found gsdpForFY as '${key}':`, indicatorData[key]);
                   break;
                 }
               }
@@ -305,17 +281,14 @@ const transformIndicatorsToFormData = (
             // If still not found, check if they're in a nested structure
             if (!formFields.capitalAllocation && indicatorData.user_fill_value_a1 !== undefined) {
               formFields.capitalAllocation = String(indicatorData.user_fill_value_a1);
-              console.log(`[Transform] Found capitalAllocation as user_fill_value_a1:`, indicatorData.user_fill_value_a1);
             }
             
             if (!formFields.gsdpForFY && indicatorData.user_fill_value_a2 !== undefined) {
               formFields.gsdpForFY = String(indicatorData.user_fill_value_a2);
-              console.log(`[Transform] Found gsdpForFY as user_fill_value_a2:`, indicatorData.user_fill_value_a2);
             }
             
             // If still not found, check submissions array for formData (nodal officer submissions)
             if ((!formFields.capitalAllocation || !formFields.gsdpForFY) && submissions && Array.isArray(submissions)) {
-              console.log(`[Transform] Checking ${submissions.length} submissions for section 1.1 data`);
               for (const submission of submissions) {
                 const subFormData = submission.formData || submission.form_data || {};
                 const infraFinancing = subFormData.infraFinancing || subFormData.Infrastructure_Financing || {};
@@ -323,12 +296,10 @@ const transformIndicatorsToFormData = (
                 
                 if (section1_1.capitalAllocation && !formFields.capitalAllocation) {
                   formFields.capitalAllocation = String(section1_1.capitalAllocation);
-                  console.log(`[Transform] Found capitalAllocation in submission ${submission.id}:`, section1_1.capitalAllocation);
                 }
                 
                 if (section1_1.gsdpForFY && !formFields.gsdpForFY) {
                   formFields.gsdpForFY = String(section1_1.gsdpForFY);
-                  console.log(`[Transform] Found gsdpForFY in submission ${submission.id}:`, section1_1.gsdpForFY);
                 }
                 
                 // If we found both, break early
@@ -345,9 +316,6 @@ const transformIndicatorsToFormData = (
             if (!formFields.gsdpForFY) {
               formFields.gsdpForFY = '';
             }
-            
-            // Log what we have for section 1.1
-            console.log(`[Transform] Section 1.1 final fields:`, formFields);
             break;
           case '1.3':
             // Ensure ulbList exists (might be empty)
@@ -421,9 +389,6 @@ const transformIndicatorsToFormData = (
         
         if (shouldInclude) {
           formData[formDataKey][sectionKey] = formFields;
-          console.log(`[Transform] Stored ${sectionKey} in ${formDataKey}:`, formFields, `(hasData: ${hasMeaningfulData}, status: ${indicatorStatus}, existsInSubmissions: ${existsInSubmissions})`);
-        } else {
-          console.log(`[Transform] Skipping ${sectionKey} in ${formDataKey} - no meaningful data, NOT_STARTED status, and not in submissions`);
         }
       }
     });
@@ -433,15 +398,8 @@ const transformIndicatorsToFormData = (
   Object.keys(formData).forEach((categoryKey) => {
     if (Object.keys(formData[categoryKey]).length === 0) {
       delete formData[categoryKey];
-      console.log(`[Transform] Removed empty category: ${categoryKey}`);
     }
   });
-
-  console.log("[Transform] Final formData structure:", formData);
-  console.log("[Transform] infraFinancing sections:", Object.keys(formData.infraFinancing || {}));
-  console.log("[Transform] infraDevelopment sections:", Object.keys(formData.infraDevelopment || {}));
-  console.log("[Transform] pppDevelopment sections:", Object.keys(formData.pppDevelopment || {}));
-  console.log("[Transform] infraEnablers sections:", Object.keys(formData.infraEnablers || {}));
 
   return formData;
 };
@@ -535,11 +493,157 @@ const filterFormDataByAssignedIndicators = (formData: any, assignedIndicators: s
             filtered[mapping.category][mapping.sectionKey] = {};
         }
       }
-      console.log(`[Filter] Including ${indicatorCode} -> ${mapping.category}.${mapping.sectionKey}`);
     }
   });
 
   return filtered;
+};
+
+/**
+ * Extract all attached files from submissions array and indicators data
+ */
+const extractAttachedFilesFromSubmissions = (submissions?: any[], indicators?: Record<string, AggregatedIndicator[]>): any[] => {
+  if (!submissions || !Array.isArray(submissions) || submissions.length === 0) {
+    return [];
+  }
+
+  const allFiles: any[] = [];
+  
+  submissions.forEach((submission, subIdx) => {
+    // Check if submission has attachedFiles directly
+    if (submission.attachedFiles && Array.isArray(submission.attachedFiles)) {
+      allFiles.push(...submission.attachedFiles);
+    }
+    
+    // Check for attached_files (snake_case variant)
+    if (submission.attached_files && Array.isArray(submission.attached_files)) {
+      allFiles.push(...submission.attached_files);
+    }
+    
+    // Also check formData for embedded files
+    const subFormData = submission.formData || submission.form_data || {};
+    
+    if (subFormData.attachedFiles && Array.isArray(subFormData.attachedFiles)) {
+      allFiles.push(...subFormData.attachedFiles);
+    }
+    
+    if (subFormData.attached_files && Array.isArray(subFormData.attached_files)) {
+      allFiles.push(...subFormData.attached_files);
+    }
+    
+    // Check nested category sections for files
+    Object.entries(subFormData).forEach(([categoryKey, categoryData]: [string, any]) => {
+      if (categoryData && typeof categoryData === 'object' && !Array.isArray(categoryData)) {
+        Object.entries(categoryData).forEach(([sectionKey, sectionData]: [string, any]) => {
+          if (sectionData && typeof sectionData === 'object') {
+            
+            // Look for direct file fields
+            const fileKeys = ['documents', 'files', 'attachments', 'uploadedFiles', 'uploaded_files', 'document', 'file'];
+            fileKeys.forEach(fileKey => {
+              if (sectionData[fileKey]) {
+                if (Array.isArray(sectionData[fileKey])) {
+                  allFiles.push(...sectionData[fileKey]);
+                } else if (typeof sectionData[fileKey] === 'object') {
+                  // Single file object
+                  allFiles.push(sectionData[fileKey]);
+                }
+              }
+            });
+            
+            // CRITICAL: Check for array-based sections with nested files
+            // Infrastructure Development sections (2.1-2.5) store files in arrays
+            const arrayKeys = ['infraActArray', 'specializedEntityArray', 'infraDevelopmentArray', 'investmentReadyArray', 'assetMonetizationArray'];
+            arrayKeys.forEach(arrayKey => {
+              if (sectionData[arrayKey] && Array.isArray(sectionData[arrayKey])) {
+                sectionData[arrayKey].forEach((item: any, idx: number) => {
+                  if (item && typeof item === 'object') {
+                    // Each item may have a 'files' array
+                    if (item.files && Array.isArray(item.files)) {
+                      allFiles.push(...item.files);
+                    }
+                    // Or single file fields
+                    fileKeys.forEach(fileKey => {
+                      if (item[fileKey] && !Array.isArray(item[fileKey]) && typeof item[fileKey] === 'object') {
+                        allFiles.push(item[fileKey]);
+                      }
+                    });
+                  }
+                });
+              }
+            });
+            
+            // Check for other common array fields that might contain files
+            const otherArrayKeys = ['ulbList', 'bondList', 'ffiArray', 'VGFArray', 'projects', 'capacityArray'];
+            otherArrayKeys.forEach(arrayKey => {
+              if (sectionData[arrayKey] && Array.isArray(sectionData[arrayKey])) {
+                sectionData[arrayKey].forEach((item: any, idx: number) => {
+                  if (item && typeof item === 'object') {
+                    fileKeys.forEach(fileKey => {
+                      if (item[fileKey]) {
+                        if (Array.isArray(item[fileKey])) {
+                          allFiles.push(...item[fileKey]);
+                        } else if (typeof item[fileKey] === 'object') {
+                          allFiles.push(item[fileKey]);
+                        }
+                      }
+                    });
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+  });
+
+  // Also check indicators data for files
+  if (indicators) {
+    Object.entries(indicators).forEach(([category, indicatorList]) => {
+      indicatorList.forEach((indicator) => {
+        if (indicator.data && typeof indicator.data === 'object') {
+          const fileKeys = ['documents', 'files', 'attachments', 'uploadedFiles', 'uploaded_files', 'document', 'file'];
+          fileKeys.forEach(fileKey => {
+            if (indicator.data[fileKey]) {
+              if (Array.isArray(indicator.data[fileKey])) {
+                allFiles.push(...indicator.data[fileKey]);
+              } else if (typeof indicator.data[fileKey] === 'object') {
+                allFiles.push(indicator.data[fileKey]);
+              }
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // Deduplicate files by filePath (in case same file appears multiple times)
+  const uniqueFiles = allFiles.reduce((acc, file) => {
+    // Skip null/undefined files
+    if (!file) return acc;
+    
+    const key = file.filePath || file.file_path || file.fileName || file.file_name || file.id;
+    if (key && !acc.some((f: any) => {
+      const fKey = f.filePath || f.file_path || f.fileName || f.file_name || f.id;
+      return fKey === key;
+    })) {
+      // Normalize file object to ensure consistent property names
+      const normalizedFile = {
+        id: file.id,
+        fileName: file.fileName || file.file_name || file.originalName || file.original_name,
+        originalName: file.originalName || file.original_name || file.fileName || file.file_name,
+        filePath: file.filePath || file.file_path,
+        fileSize: file.fileSize || file.file_size,
+        mimeType: file.mimeType || file.mime_type || file.contentType || file.content_type,
+        uploadedBy: file.uploadedBy || file.uploaded_by || file.submittedBy || file.submitted_by,
+        uploadedAt: file.uploadedAt || file.uploaded_at || file.createdAt || file.created_at,
+      };
+      acc.push(normalizedFile);
+    }
+    return acc;
+  }, [] as any[]);
+
+  return uniqueFiles;
 };
 
 /**
@@ -551,13 +655,72 @@ const createMockSubmission = (
 ): any => {
   const latestSubmission = payload.submissions?.[0] || {};
   
+  // Extract all attached files from submissions and indicators
+  const attachedFiles = extractAttachedFilesFromSubmissions(
+    payload.submissions,
+    payload.indicators
+  );
+  
+  // ALSO extract files from the transformed formData (as a fallback)
+  // This ensures we catch files that are in the formData structure
+  const filesFromFormData: any[] = [];
+  if (formData) {
+    Object.entries(formData).forEach(([categoryKey, categoryData]: [string, any]) => {
+      if (categoryData && typeof categoryData === 'object') {
+        Object.entries(categoryData).forEach(([sectionKey, sectionData]: [string, any]) => {
+          if (sectionData && typeof sectionData === 'object') {
+            // Check array-based sections
+            const arrayKeys = ['infraActArray', 'specializedEntityArray', 'infraDevelopmentArray', 'investmentReadyArray', 'assetMonetizationArray', 'ulbList', 'bondList', 'ffiArray', 'VGFArray', 'projects', 'capacityArray'];
+            arrayKeys.forEach(arrayKey => {
+              if (sectionData[arrayKey] && Array.isArray(sectionData[arrayKey])) {
+                sectionData[arrayKey].forEach((item: any, idx: number) => {
+                  if (item && item.files && Array.isArray(item.files)) {
+                    filesFromFormData.push(...item.files);
+                  }
+                });
+              }
+            });
+            
+            // Check direct file fields
+            const fileKeys = ['documents', 'files', 'attachments', 'uploadedFiles', 'document', 'file'];
+            fileKeys.forEach(fileKey => {
+              if (sectionData[fileKey]) {
+                if (Array.isArray(sectionData[fileKey])) {
+                  filesFromFormData.push(...sectionData[fileKey]);
+                } else if (typeof sectionData[fileKey] === 'object') {
+                  filesFromFormData.push(sectionData[fileKey]);
+                }
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+  
+  // Merge files from both sources
+  const allAttachedFiles = [...attachedFiles, ...filesFromFormData];
+  
+  // Deduplicate merged files
+  const uniqueAttachedFiles = allAttachedFiles.reduce((acc, file) => {
+    if (!file) return acc;
+    const key = file.filePath || file.file_path || file.fileName || file.file_name || file.id;
+    if (key && !acc.some((f: any) => {
+      const fKey = f.filePath || f.file_path || f.fileName || f.file_name || f.id;
+      return fKey === key;
+    })) {
+      acc.push(file);
+    }
+    return acc;
+  }, [] as any[]);
+  
   return {
     id: `aggregate-${payload.stateUt}`,
     submissionId: `AGG-${payload.stateUt}`,
     stateUt: payload.stateUt,
     status: payload.summary?.percentage === 100 ? "APPROVED" : "SUBMITTED_TO_STATE",
     formData: formData,
-    attachedFiles: [], // Can be populated from submissions if needed
+    attachedFiles: uniqueAttachedFiles,
     reviewComments: [],
     currentOwnerRole: "STATE_APPROVER",
     createdAt: payload.summary?.lastUpdatedAt || new Date().toISOString(),
@@ -646,10 +809,8 @@ export const StateAggregateReviewPage = () => {
           const hasValidName = state.name && state.name.trim() !== "";
           return hasValidCode && hasValidName;
         });
-        console.log(`[StateAggregate] Filtered ${validStates.length} valid states from ${states.length} total`);
         setStateOptions(validStates);
       } catch (err: any) {
-        console.error("❌ Error fetching states:", err);
         notificationService.error(err.message || "Failed to load states");
       } finally {
         setLoadingStates(false);
@@ -674,12 +835,10 @@ export const StateAggregateReviewPage = () => {
       // Only wait for indicator loading if user is a nodal officer (they need assigned indicators for filtering)
       // State approvers don't need to wait - they see all data regardless
       if (indicatorLoading && isNodalOfficer) {
-        console.log("[StateAggregate] Waiting for indicator access to load (nodal officer)...");
         return;
       }
       
       if (!effectiveState) {
-        console.log("[StateAggregate] No effective state, skipping load");
         setLoading(false);
         return;
       }
@@ -688,21 +847,14 @@ export const StateAggregateReviewPage = () => {
         setLoading(true);
         setError(null);
 
-        console.log(`[StateAggregate] Loading preview for state: ${effectiveState}, year: ${selectedYear || "current"}`);
-        console.log(`[StateAggregate] User role - isNodalOfficer: ${isNodalOfficer}, isStateApprover: ${isStateApprover}`);
-        console.log(`[StateAggregate] assignedIndicators:`, assignedIndicators);
-
         const payload = await getCumulativePreview(effectiveState, {
           year: selectedYear || undefined,
         });
-
-        console.log("[StateAggregate] Cumulative preview payload:", payload);
 
         // The API returns the data directly or wrapped in a data property
         const data = (payload as any).data || payload;
         
         if (!data || !data.indicators) {
-          console.warn("[StateAggregate] Empty payload received");
           setAggregateData(null);
           setFormData(null);
           setMockSubmission(null);
@@ -711,56 +863,17 @@ export const StateAggregateReviewPage = () => {
 
         setAggregateData(data);
 
-        // Log raw indicators structure
-        console.log("[StateAggregate] Raw indicators from API:", data.indicators);
-        console.log("[StateAggregate] Indicator categories:", Object.keys(data.indicators || {}));
-        Object.entries(data.indicators || {}).forEach(([category, indicators]) => {
-          console.log(`[StateAggregate] Category ${category}:`, indicators);
-          if (Array.isArray(indicators) && indicators.length > 0) {
-            // Find indicator 1.1 specifically
-            const indicator1_1 = indicators.find((ind: any) => ind.code === '1.1');
-            if (indicator1_1) {
-              console.log(`[StateAggregate] 🔍 Indicator 1.1 FULL OBJECT:`, JSON.stringify(indicator1_1, null, 2));
-              console.log(`[StateAggregate] 🔍 Indicator 1.1 data:`, indicator1_1.data);
-              console.log(`[StateAggregate] 🔍 Indicator 1.1 data keys:`, indicator1_1.data ? Object.keys(indicator1_1.data) : 'no data');
-            }
-            // Find indicator 1.2 for comparison
-            const indicator1_2 = indicators.find((ind: any) => ind.code === '1.2');
-            if (indicator1_2) {
-              console.log(`[StateAggregate] 🔍 Indicator 1.2 FULL OBJECT:`, JSON.stringify(indicator1_2, null, 2));
-              console.log(`[StateAggregate] 🔍 Indicator 1.2 data:`, indicator1_2.data);
-              console.log(`[StateAggregate] 🔍 Indicator 1.2 data keys:`, indicator1_2.data ? Object.keys(indicator1_2.data) : 'no data');
-            }
-            console.log(`[StateAggregate] Sample indicator from ${category}:`, indicators[0]);
-            console.log(`[StateAggregate] Sample indicator data structure:`, indicators[0]?.data);
-          }
-        });
-
         // Transform indicators to formData structure
         // Also pass submissions array if available to extract form data
         let transformedFormData = transformIndicatorsToFormData(
           data.indicators || {},
           data.submissions || (payload as any).submissions
         );
-        console.log("[StateAggregate] Transformed formData:", transformedFormData);
-        console.log("[StateAggregate] FormData keys:", Object.keys(transformedFormData));
         
         // Filter formData for nodal officers ONLY: remove unassigned indicators
         // State approvers should see ALL data regardless of assigned indicators
         if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
-          console.log("[StateAggregate] Filtering formData for nodal officer");
-          console.log("[StateAggregate] Assigned indicators:", assignedIndicators);
-          console.log("[StateAggregate] FormData before filtering:", transformedFormData);
           transformedFormData = filterFormDataByAssignedIndicators(transformedFormData, assignedIndicators);
-          console.log("[StateAggregate] Filtered formData:", transformedFormData);
-          console.log("[StateAggregate] Filtered formData keys:", Object.keys(transformedFormData));
-          if (transformedFormData.infraFinancing) {
-            console.log("[StateAggregate] Filtered infraFinancing sections:", Object.keys(transformedFormData.infraFinancing));
-          }
-        } else {
-          // For state approvers or other roles, don't filter - show ALL data
-          console.log("[StateAggregate] Not filtering - showing all data. isNodalOfficer:", isNodalOfficer, "assignedIndicators:", assignedIndicators);
-          console.log("[StateAggregate] Full formData (no filtering):", transformedFormData);
         }
         
         setFormData(transformedFormData);
@@ -769,28 +882,7 @@ export const StateAggregateReviewPage = () => {
         const submission = createMockSubmission(data, transformedFormData);
         setMockSubmission(submission);
 
-        // Log aggregated formData for verification before submission
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("📋 [StateAggregate] AGGREGATED FORMDATA FOR SUBMISSION");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("📦 Complete aggregated formData structure:", JSON.stringify(transformedFormData, null, 2));
-        console.log("📊 FormData categories:", Object.keys(transformedFormData));
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        Object.keys(transformedFormData).forEach((category) => {
-          const categoryData = transformedFormData[category];
-          if (categoryData && typeof categoryData === 'object') {
-            const sections = Object.keys(categoryData);
-            console.log(`📁 Category: ${category}`);
-            console.log(`   Sections: ${sections.join(', ')}`);
-            sections.forEach((section) => {
-              console.log(`   ✅ Section ${section}:`, categoryData[section]);
-            });
-          }
-        });
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
       } catch (err: any) {
-        console.error("❌ Failed to load aggregate preview:", err);
         setError(err.message || "Failed to load aggregate preview");
         notificationService.error(err.message || "Failed to load aggregate preview");
       } finally {
@@ -807,19 +899,8 @@ export const StateAggregateReviewPage = () => {
     // Only re-filter if user is a nodal officer AND has assigned indicators
     // State approvers should see all data regardless
     if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0 && formData) {
-      console.log("[StateAggregate] Re-filtering formData due to assignedIndicators change (nodal officer)");
-      console.log("[StateAggregate] Current formData:", formData);
-      console.log("[StateAggregate] Assigned indicators:", assignedIndicators);
       const filteredFormData = filterFormDataByAssignedIndicators(formData, assignedIndicators);
-      console.log("[StateAggregate] Re-filtered formData:", filteredFormData);
-      if (filteredFormData.infraFinancing) {
-        console.log("[StateAggregate] Re-filtered infraFinancing sections:", Object.keys(filteredFormData.infraFinancing));
-      }
       setFormData(filteredFormData);
-    } else if (!isNodalOfficer && formData) {
-      // For state approvers: ensure we don't accidentally filter data
-      // If formData exists and user is not a nodal officer, keep it as-is (all data visible)
-      console.log("[StateAggregate] State approver viewing - keeping all data unfiltered");
     }
   }, [isNodalOfficer, assignedIndicators, formData]);
 
@@ -837,18 +918,14 @@ export const StateAggregateReviewPage = () => {
 
       try {
         setProgressLoading(true);
-        console.log("📊 [StateAggregate] Fetching /indicators/state-statuses...");
 
         const resp = await apiService.getStateIndicatorStatuses();
-        console.log("✅ [StateAggregate] Raw API response:", resp);
 
         const normalized = resp?.data ? resp : { data: resp };
         const stats = calculateStateProgressFromApi(normalized);
-        console.log("✅ [StateAggregate] calculateStateProgressFromApi(stats):", stats);
 
         setStateProgress(stats);
       } catch (e) {
-        console.error("Failed to load state indicator statuses", e);
         setStateProgress(null);
       } finally {
         setProgressLoading(false);
@@ -949,15 +1026,10 @@ export const StateAggregateReviewPage = () => {
 
   // Handle final submit - Creates consolidated submission from aggregated formData
   const handleFinalSubmit = async () => {
-    console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.group("🚀 [StateAggregate] STARTING CONSOLIDATED SUBMISSION");
-    console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    
     try {
       // Gate: must have progress and must be 100% approved
       if (!stateProgress || stateProgress.percentage !== 100 || stateProgress.approved !== stateProgress.total) {
         notificationService.warning("All indicators must be approved before final submission.");
-        console.warn("❌ Submission blocked: Not all indicators approved", stateProgress);
         setShowConfirmModal(false);
         return;
       }
@@ -965,62 +1037,12 @@ export const StateAggregateReviewPage = () => {
       // Gate: must have aggregated formData
       if (!formData) {
         notificationService.error("No aggregated data available to submit.");
-        console.error("❌ Submission blocked: No formData available");
         setShowConfirmModal(false);
         return;
       }
 
-      console.log("✅ Pre-submission checks passed");
-      console.log("📊 State Progress:", stateProgress);
-      console.log("📋 Available formData:", formData);
-      console.log("📊 FormData categories:", Object.keys(formData));
-
       setSubmittingFinal(true);
 
-      // Use the aggregated formData from the page (consolidated data)
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📦 STEP 1: Using aggregated formData from State Aggregate Review");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📋 Raw aggregated formData:", JSON.stringify(formData, null, 2));
-      
-      // Show breakdown by category with section details
-      Object.keys(formData).forEach((category) => {
-        const categoryData = formData[category];
-        if (categoryData && typeof categoryData === 'object') {
-          const sections = Object.keys(categoryData);
-          console.log(`\n📁 Category: ${category} (${sections.length} sections)`);
-          sections.forEach((section) => {
-            const sectionData = categoryData[section];
-            console.log(`   ✅ ${section}:`, sectionData);
-            
-            // Extract and log IDs
-            if (sectionData && typeof sectionData === 'object') {
-              if (sectionData.id) {
-                console.log(`      🔑 Section ID: ${sectionData.id}`);
-              }
-              // Check for arrays with items that have IDs
-              Object.keys(sectionData).forEach((key) => {
-                if (Array.isArray(sectionData[key])) {
-                  const items = sectionData[key];
-                  if (items.length > 0) {
-                    const itemsWithIds = items.filter((item: any) => item && item.id);
-                    if (itemsWithIds.length > 0) {
-                      console.log(`      🔑 ${key} item IDs:`, itemsWithIds.map((item: any) => item.id).join(', '));
-                    }
-                    console.log(`      📊 ${key} items count: ${items.length}`);
-                  }
-                }
-              });
-            }
-          });
-        }
-      });
-
-      // Transform formData for submission
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔄 STEP 2: Transforming formData for submission");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
       // Determine submission status based on role
       const submissionStatus = isMospiReviewer 
         ? "SUBMITTED_TO_MOSPI_APPROVER" 
@@ -1031,60 +1053,21 @@ export const StateAggregateReviewPage = () => {
         submissionStatus
       );
 
-      console.log("✅ Transformed data:");
-      console.log("   📝 Submission ID:", transformedData.submissionId);
-      console.log("   📊 Status:", transformedData.status);
-      console.log("   📋 FormData structure:", Object.keys(transformedData.formData || {}));
-      console.log("   📦 Complete transformed object:", JSON.stringify(transformedData, null, 2));
-
       // Create multipart FormData for file attachments
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📎 STEP 3: Preparing multipart FormData with file attachments");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
       const multipartData = new FormData();
       multipartData.append("submission", JSON.stringify(transformedData));
 
       // Append file attachments recursively
       appendFilesRecursively(multipartData, formData);
 
-      console.log("✅ Multipart FormData prepared");
-      console.log("📋 FormData entries:");
-      for (const [key, val] of multipartData.entries()) {
-        if (val instanceof File) {
-          console.log(`   📎 ${key}: File - ${val.name} (${val.size} bytes)`);
-        } else {
-          // For large JSON, show summary instead of full content
-          if (typeof val === 'string' && val.length > 500) {
-            console.log(`   📄 ${key}: ${val.substring(0, 200)}... (truncated, total length: ${val.length})`);
-          } else {
-            console.log(`   📄 ${key}:`, val);
-          }
-        }
-      }
-
       // Get authentication token
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔐 STEP 4: Preparing API request");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
       const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
       const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
       const tokenFromNewKey = tokenData?.value?.accessToken;
       const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
       const token = tokenFromNewKey || tokenFromLegacyKey || "";
 
-      console.log("✅ Token retrieved:", token ? "Yes" : "No");
-
       // Submit consolidated submission
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📤 STEP 5: Creating consolidated submission");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📡 API Endpoint: POST /submission");
-      console.log("📝 Submission ID:", transformedData.submissionId);
-      console.log("📊 Status:", submissionStatus);
-      console.log("📍 State/UT:", effectiveState || mockSubmission?.stateUt);
-      
       const response = await axios.post(
         `${config.apiBaseUrl}/submission`,
         multipartData,
@@ -1121,14 +1104,12 @@ export const StateAggregateReviewPage = () => {
 
       // Refresh progress so UI reflects the new state
       try {
-        console.log("\n🔄 Refreshing state progress...");
         const resp = await apiService.getStateIndicatorStatuses();
         const normalized = resp?.data ? resp : { data: resp };
         const stats = calculateStateProgressFromApi(normalized);
         setStateProgress(stats);
-        console.log("✅ Progress refreshed:", stats);
       } catch (e) {
-        console.error("⚠️ Failed to refresh progress", e);
+        // Silent fail
       }
 
       // Refresh submissions list and update hasSubmittedToMospiReviewer flag
@@ -1174,100 +1155,19 @@ export const StateAggregateReviewPage = () => {
         // Keep the flag as true since we just submitted successfully
         // Don't overwrite it
       }
-
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("✅ CONSOLIDATED SUBMISSION COMPLETED SUCCESSFULLY");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
       // Redirect to review page after successful submission
-      console.log("\n🔄 Redirecting to review page...");
       setTimeout(() => {
         navigate("/data-submission/review");
       }, 1000); // Small delay to ensure success message is visible
       
     } catch (e: any) {
-      console.error("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.error("❌ ERROR IN CONSOLIDATED SUBMISSION");
-      console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.error("Error details:", e);
-      console.error("Error message:", e?.message);
-      console.error("Error response:", e?.response?.data);
-      console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       notificationService.error(e?.message || "Error creating consolidated submission.");
       setShowConfirmModal(false);
     } finally {
       setSubmittingFinal(false);
-      console.groupEnd();
-      console.groupEnd();
-      console.groupEnd();
     }
   };
-
-  // Log submission data whenever formData changes (for verification before submit)
-  useEffect(() => {
-    if (!formData) return;
-
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("🔍 [StateAggregate] SUBMISSION DATA PREVIEW (Auto-log on data change)");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📋 Raw formData:", formData);
-    console.log("📊 FormData categories:", Object.keys(formData || {}));
-    
-    // Show detailed breakdown by category
-    Object.keys(formData || {}).forEach((category) => {
-      const categoryData = formData[category];
-      if (categoryData && typeof categoryData === 'object') {
-        const sections = Object.keys(categoryData);
-        console.log(`\n📁 Category: ${category}`);
-        console.log(`   Sections count: ${sections.length}`);
-        sections.forEach((section) => {
-          const sectionData = categoryData[section];
-          console.log(`   ✅ ${section}:`, sectionData);
-          
-          // Show IDs if they exist in the section data
-          if (sectionData && typeof sectionData === 'object') {
-            const sectionKeys = Object.keys(sectionData);
-            if (sectionKeys.includes('id')) {
-              console.log(`      🔑 ID: ${sectionData.id}`);
-            }
-            // Check for array items with IDs
-            Object.keys(sectionData).forEach((key) => {
-              if (Array.isArray(sectionData[key])) {
-                const itemsWithIds = sectionData[key].filter((item: any) => item && item.id);
-                if (itemsWithIds.length > 0) {
-                  console.log(`      🔑 ${key} item IDs:`, itemsWithIds.map((item: any) => item.id).join(', '));
-                }
-              }
-            });
-          }
-        });
-      }
-    });
-
-    // Preview transformed data (what will be sent)
-    try {
-      // Determine submission status based on role
-      const previewStatus = isMospiReviewer 
-        ? "SUBMITTED_TO_MOSPI_APPROVER" 
-        : "SUBMITTED_TO_MOSPI_REVIEWER";
-      
-      const previewTransformed = transformFormDataForSubmission(
-        formData,
-        previewStatus
-      );
-      console.log("\n🔄 Transformed data preview (what will be submitted):");
-      console.log("   📝 Submission ID:", previewTransformed.submissionId);
-      console.log("   📊 Status:", previewTransformed.status);
-      console.log("   📋 FormData structure:", Object.keys(previewTransformed.formData || {}));
-      console.log("   📦 Complete transformed object:", JSON.stringify(previewTransformed, null, 2));
-    } catch (error) {
-      console.warn("⚠️ Could not preview transformed data:", error);
-    }
-
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("💡 This data will be submitted when you click 'Submit Now'");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  }, [formData]);
 
   if (loadingStates) {
     return (

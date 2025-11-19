@@ -22,7 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Trash2, Info } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Info, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
@@ -41,6 +41,8 @@ import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
 
 export const InfraFinancingStep = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const {
     currentStep,
     goToStep,
@@ -56,6 +58,14 @@ export const InfraFinancingStep = () => {
     localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
 
+  // Tab status state for visual feedback
+  const [tabStatus, setTabStatus] = useState({
+    infraFinancing: false,
+    infraDevelopment: false,
+    pppDevelopment: false,
+    infraEnablers: false,
+  });
+
   // Indicator access
   const {
     loading: indicatorLoading,
@@ -69,7 +79,6 @@ export const InfraFinancingStep = () => {
   } = useIndicatorAccess();
 
   const currentFY = getCurrentFinancialYear();
-  const { toast } = useToast();
 
   // ------------------------
   // Default / initial data
@@ -326,6 +335,7 @@ export const InfraFinancingStep = () => {
           setFormData(updatedData);
 
           localStorage.removeItem("editing_submission");
+          localStorage.removeItem("editing_submission_id");
         }
       } catch (error) {
         console.error(
@@ -333,10 +343,116 @@ export const InfraFinancingStep = () => {
           error
         );
         localStorage.removeItem("editing_submission");
+        localStorage.removeItem("editing_submission_id");
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Server-first hydration of partial submission (independent of localStorage)
+  // Only populate fields that are empty/default - preserve ALL user's local edits
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    let hasHydrated = false;
+    
+    (async () => {
+      try {
+        const submission = await apiService.getSubmissionByUser(user.id);
+        if (!submission || cancelled || hasHydrated) return;
+        hasHydrated = true;
+        
+        const remoteData = submission?.formData?.infraFinancing;
+        if (!remoteData) return;
+        
+        setFormData((prev) => {
+          // Check each section independently - only hydrate sections that are empty
+          console.log("🌐 Hydrating infraFinancing from server (per-section basis)");
+          
+          const hydrated: InfraFinancingData = {
+            // Section 1.1 - Only load from server if local is empty
+            section1_1: (() => {
+              const isLocal1_1Empty = !prev.section1_1.capitalAllocation && !prev.section1_1.gsdpForFY;
+              if (!isLocal1_1Empty) {
+                console.log("🔒 Section 1.1 has local data, keeping it");
+                return prev.section1_1;
+              }
+              console.log("⬇️ Section 1.1 empty, loading from server");
+              return {
+                ...prev.section1_1,
+                ...(remoteData.section1_1 || {}),
+              };
+            })(),
+            
+            // Section 1.2 - Only load from server if local is empty
+            section1_2: (() => {
+              const isLocal1_2Empty = !prev.section1_2.actualCapex && !prev.section1_2.budgetaryCapex;
+              if (!isLocal1_2Empty) {
+                console.log("🔒 Section 1.2 has local data, keeping it");
+                return prev.section1_2;
+              }
+              console.log("⬇️ Section 1.2 empty, loading from server");
+              return {
+                ...prev.section1_2,
+                ...(remoteData.section1_2 || {}),
+              };
+            })(),
+            
+            // Section 1.3 - Only load from server if local is empty
+            section1_3: (() => {
+              const isLocal1_3Empty = !prev.section1_3.ulbList || prev.section1_3.ulbList.length === 0;
+              if (!isLocal1_3Empty) {
+                console.log("🔒 Section 1.3 has local data, keeping it");
+                return prev.section1_3;
+              }
+              console.log("⬇️ Section 1.3 empty, loading from server");
+              return {
+                totalULBs: remoteData.section1_3?.totalULBs ?? prev.section1_3.totalULBs,
+                ulbList: Array.isArray(remoteData.section1_3?.ulbList) 
+                  ? remoteData.section1_3.ulbList 
+                  : prev.section1_3.ulbList,
+              };
+            })(),
+            
+            // Section 1.4 - Only load from server if local is empty
+            section1_4: (() => {
+              const isLocal1_4Empty = !prev.section1_4.bondList || prev.section1_4.bondList.length === 0;
+              if (!isLocal1_4Empty) {
+                console.log("🔒 Section 1.4 has local data, keeping it");
+                return prev.section1_4;
+              }
+              console.log("⬇️ Section 1.4 empty, loading from server");
+              return {
+                totalULBs: remoteData.section1_4?.totalULBs ?? prev.section1_4.totalULBs,
+                bondList: Array.isArray(remoteData.section1_4?.bondList)
+                  ? remoteData.section1_4.bondList
+                  : prev.section1_4.bondList,
+              };
+            })(),
+            
+            // Section 1.5 - Only load from server if local is empty
+            section1_5: (() => {
+              const isLocal1_5Empty = !prev.section1_5.ffiArray || prev.section1_5.ffiArray.length === 0;
+              if (!isLocal1_5Empty) {
+                console.log("🔒 Section 1.5 has local data, keeping it");
+                return prev.section1_5;
+              }
+              console.log("⬇️ Section 1.5 empty, loading from server");
+              return {
+                ffiArray: Array.isArray(remoteData.section1_5?.ffiArray)
+                  ? remoteData.section1_5.ffiArray
+                  : prev.section1_5.ffiArray,
+              };
+            })(),
+          };
+          return hydrated;
+        });
+      } catch (e) {
+        console.warn("⚠️ Failed server hydration (infraFinancing)", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   // ------------------------
   // Calculation helpers
@@ -573,6 +689,153 @@ export const InfraFinancingStep = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData]);
 
+  // Use the indicator submission hook
+  const {
+    submittingIndicators,
+    submittedIndicators: hookSubmittedIndicators,
+    handleIndicatorSubmit,
+  } = useIndicatorSubmission({
+    category: "infraFinancing",
+    formData,
+    assignedIndicators: isNodalOfficer ? assignedIndicators : availableIndicators,
+    isNodalOfficer,
+    onAllSubmitted: undefined, // handled globally
+  });
+
+  // Clear submitted indicators on mount (when starting/editing a submission)
+  useEffect(() => {
+    clearSubmittedIndicators();
+    console.log("🧹 Cleared global submitted indicators tracking on form load");
+  }, []); // Only run once on mount
+
+  // Check backend status on initial load to see if all sections are already complete
+  useEffect(() => {
+    const checkInitialStatus = async () => {
+      if (!user?.id) {
+        console.log("⚠️ No user ID available");
+        return;
+      }
+      
+      try {
+        console.log("🔍 [INITIAL CHECK] Checking backend submission status on mount");
+        
+        // First get the submission to get the ID
+        const submission = await apiService.getSubmissionByUser(user.id);
+        
+        if (!submission || !submission.id) {
+          console.log("⚠️ No submission found yet");
+          return;
+        }
+
+        console.log("� [INITIAL CHECK] Submission ID:", submission.id);
+        
+        // Use the dedicated check-completion endpoint
+        const completionStatus = await apiService.checkSubmissionCompletion(submission.id);
+        console.log("� [INITIAL CHECK] Completion status from backend:", completionStatus);
+        
+        // The endpoint should return something like: { allCompleted: true/false, submission: {...} }
+        const allSectionsComplete = completionStatus?.allCompleted === true;
+        
+        console.log("📊 [INITIAL CHECK] All sections complete?", allSectionsComplete);
+        
+        if (allSectionsComplete) {
+          console.log("✅ [INITIAL CHECK] All sections completed, redirecting to review page");
+          console.log("✅ [INITIAL CHECK] Redirect URL:", `/data-submission/review/${submission.id}`);
+          toast({
+            title: "Success",
+            description: "All indicators completed. Redirecting to review page...",
+          });
+          
+          setTimeout(() => {
+            console.log("🚀 [INITIAL CHECK] Executing navigation now...");
+            navigate(`/data-submission/review/${submission.id}`);
+          }, 1500);
+        } else {
+          console.log("ℹ️ [INITIAL CHECK] Not all sections complete, staying on current page");
+        }
+      } catch (error) {
+        console.error("❌ [INITIAL CHECK] Error checking backend status:", error);
+      }
+    };
+
+    checkInitialStatus();
+  }, [user, navigate, toast]); // Run once on mount when user is available
+
+  // Update tab status when indicators change
+  useEffect(() => {
+    const submitted = getSubmittedIndicators();
+    setTabStatus({
+      infraFinancing: submitted.infraFinancing?.length === 5,
+      infraDevelopment: submitted.infraDevelopment?.length === 5,
+      pppDevelopment: submitted.pppDevelopment?.length === 4,
+      infraEnablers: submitted.infraEnablers?.length === 6,
+    });
+  }, [hookSubmittedIndicators]);
+
+  // Global auto-navigate: check all steps' indicators from backend
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      if (!user?.id) return;
+      
+      try {
+        console.log("🔍 [AFTER SUBMIT] Checking backend submission status");
+        
+        // First get the submission to get the ID
+        const submission = await apiService.getSubmissionByUser(user.id);
+        
+        if (!submission || !submission.id) {
+          console.log("⚠️ No submission found");
+          return;
+        }
+        
+        // Use the dedicated check-completion endpoint
+        const completionStatus = await apiService.checkSubmissionCompletion(submission.id);
+        console.log("📊 [AFTER SUBMIT] Completion status:", completionStatus);
+        
+        const allSectionsComplete = completionStatus?.allCompleted === true;
+        
+        if (allSectionsComplete) {
+          console.log("✅ [AFTER SUBMIT] All sections completed, redirecting to review page");
+          notificationService.success(
+            "All Steps Complete",
+            "All indicators in all steps have been submitted. Proceeding to review page."
+          );
+          toast({
+            title: "Success",
+            description: "All indicators in all steps submitted. Moving to review page.",
+          });
+          
+          setTimeout(() => {
+            navigate(`/data-submission/review/${submission.id}`);
+          }, 1500);
+        } else {
+          console.log("ℹ️ [AFTER SUBMIT] Not all sections complete yet");
+        }
+      } catch (error) {
+        console.error("❌ [AFTER SUBMIT] Error checking backend submission status:", error);
+      }
+    };
+    
+    // Check backend status after each indicator submission
+    if (Object.keys(hookSubmittedIndicators).length > 0) {
+      checkBackendStatus();
+    }
+  }, [hookSubmittedIndicators, user, navigate, toast]);
+
+  // Field preparation function for indicator submission
+  const prepareFieldsForInfraFin = (indicatorCode: string, sectionData: any) => {
+    // For infraFinancing, the data structure is simpler - just return the section data
+    return [sectionData];
+  };
+
+  // Patch: after successful submit, update global state
+  const handleIndicatorSubmitPatched = async (
+    indicatorCode: string,
+    prepareFieldsFn: (code: string, data: any) => Record<string, any>[]
+  ) => {
+    await handleIndicatorSubmit(indicatorCode, prepareFieldsFn);
+    setIndicatorSubmitted("infraFinancing", indicatorCode);
+  };
   // ------------------------
   // Navigation / Save
   // ------------------------
@@ -847,6 +1110,32 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_1.allocationToGSDP")}
                 </div>
               </div>
+              
+              {/* Submit Button for Section 1.1 */}
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("1.1", prepareFieldsForInfraFin)}
+                  disabled={submittingIndicators["1.1"] || hookSubmittedIndicators["1.1"]}
+                  className={cn(
+                    "gap-2",
+                    hookSubmittedIndicators["1.1"] && "bg-green-600 hover:bg-green-700"
+                  )}
+                >
+                  {submittingIndicators["1.1"] ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Submitting...
+                    </>
+                  ) : hookSubmittedIndicators["1.1"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </SectionCard>
           )}
 
@@ -985,6 +1274,32 @@ export const InfraFinancingStep = () => {
                   />
                   {renderFieldError("section1_2.capexActualsToGSDP")}
                 </div>
+              </div>
+              
+              {/* Submit Button for Section 1.2 */}
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("1.2", prepareFieldsForInfraFin)}
+                  disabled={submittingIndicators["1.2"] || hookSubmittedIndicators["1.2"]}
+                  className={cn(
+                    "gap-2",
+                    hookSubmittedIndicators["1.2"] && "bg-green-600 hover:bg-green-700"
+                  )}
+                >
+                  {submittingIndicators["1.2"] ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Submitting...
+                    </>
+                  ) : hookSubmittedIndicators["1.2"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
               </div>
             </SectionCard>
           )}
@@ -1303,6 +1618,32 @@ export const InfraFinancingStep = () => {
                   </div>
                 )}
               </div>
+              
+              {/* Submit Button for Section 1.3 */}
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("1.3", prepareFieldsForInfraFin)}
+                  disabled={submittingIndicators["1.3"] || hookSubmittedIndicators["1.3"]}
+                  className={cn(
+                    "gap-2",
+                    hookSubmittedIndicators["1.3"] && "bg-green-600 hover:bg-green-700"
+                  )}
+                >
+                  {submittingIndicators["1.3"] ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Submitting...
+                    </>
+                  ) : hookSubmittedIndicators["1.3"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </SectionCard>
           )}
 
@@ -1585,13 +1926,39 @@ export const InfraFinancingStep = () => {
                   </div>
                 )}
               </div>
+              
+              {/* Submit Button for Section 1.4 */}
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("1.4", prepareFieldsForInfraFin)}
+                  disabled={submittingIndicators["1.4"] || hookSubmittedIndicators["1.4"]}
+                  className={cn(
+                    "gap-2",
+                    hookSubmittedIndicators["1.4"] && "bg-green-600 hover:bg-green-700"
+                  )}
+                >
+                  {submittingIndicators["1.4"] ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Submitting...
+                    </>
+                  ) : hookSubmittedIndicators["1.4"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </SectionCard>
           )}
 
         {/* Section 1.5 */}
         {showIndicator("1.5") &&
           (!isEditMode ||
-            (Array.isArray(formData.section1_5.ffiArray) &&
+            (Array.isArray(formData.section1_5?.ffiArray) &&
               formData.section1_5.ffiArray.length > 0)) && (
             <SectionCard
               title={
@@ -1619,8 +1986,8 @@ export const InfraFinancingStep = () => {
                     </Tooltip>
                   </Label>
                   <div className="flex gap-6 mt-2">
-                    <label className="flex items-center gap-2">
-                      <Input
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
                         type="radio"
                         name="functional-financial-intermediary"
                         value="yes"
@@ -1636,11 +2003,12 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        className="w-4 h-4 cursor-pointer accent-primary"
                       />
-                      Yes
+                      <span>Yes</span>
                     </label>
-                    <label className="flex items-center gap-2">
-                      <Input
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
                         type="radio"
                         name="functional-financial-intermediary"
                         value="no"
@@ -1656,8 +2024,9 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        className="w-4 h-4 cursor-pointer accent-primary"
                       />
-                      No
+                      <span>No</span>
                     </label>
                   </div>
                   {renderFieldError("section1_5.hasIntermediary")}
@@ -1990,6 +2359,32 @@ export const InfraFinancingStep = () => {
                     {renderFieldError("section1_5.comment")}
                   </div>
                 )}
+              </div>
+              
+              {/* Submit Button for Section 1.5 */}
+              <div className="flex justify-end mt-4 pt-4 border-t">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("1.5", prepareFieldsForInfraFin)}
+                  disabled={submittingIndicators["1.5"] || hookSubmittedIndicators["1.5"]}
+                  className={cn(
+                    "gap-2",
+                    hookSubmittedIndicators["1.5"] && "bg-green-600 hover:bg-green-700"
+                  )}
+                >
+                  {submittingIndicators["1.5"] ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Submitting...
+                    </>
+                  ) : hookSubmittedIndicators["1.5"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
               </div>
             </SectionCard>
           )}

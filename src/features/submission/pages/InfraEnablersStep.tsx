@@ -77,6 +77,15 @@ const defaultData: InfraEnablersData = {
 };
 
 export const InfraEnablersStep = () => {
+  // Tab status state for visual feedback
+  const [tabStatus, setTabStatus] = useState({
+    infraFinancing: false,
+    infraDevelopment: false,
+    pppDevelopment: false,
+    infraEnablers: false,
+  });
+
+  const navigate = useNavigate();
   const { currentStep, goToStep, goToNext, goToPrevious, isLastStep } =
     useStepNavigation(4);
   const { getStepData, updateFormData } = useFormPersistence();
@@ -117,6 +126,17 @@ export const InfraEnablersStep = () => {
     indicatorError,
     user,
   ]);
+
+  // Update tab status on mount and when indicators change
+  useEffect(() => {
+    const submitted = getSubmittedIndicators();
+    setTabStatus({
+      infraFinancing: submitted.infraFinancing?.length === 5,
+      infraDevelopment: submitted.infraDevelopment?.length === 5,
+      pppDevelopment: submitted.pppDevelopment?.length === 4,
+      infraEnablers: submitted.infraEnablers?.length === 6,
+    });
+  }, []);
 
   // Merge loaded data with defaults
   const loadedData =
@@ -304,6 +324,7 @@ export const InfraEnablersStep = () => {
 
           // Clear the editing submission data after successful prefill
           localStorage.removeItem("editing_submission");
+          localStorage.removeItem("editing_submission_id");
         }
       } catch (error) {
         console.error(
@@ -311,6 +332,7 @@ export const InfraEnablersStep = () => {
           error
         );
         localStorage.removeItem("editing_submission");
+        localStorage.removeItem("editing_submission_id");
       }
     }
   }, []); // run once
@@ -550,6 +572,303 @@ export const InfraEnablersStep = () => {
     }
     updateFormData("infraEnablers", formData);
     goToNext();
+  };
+
+  // Field preparation function for indicator submission
+  const prepareFieldsForEnablers = (indicatorCode: string, sectionData: any) => {
+    const fields: any[] = [];
+    
+    switch (indicatorCode) {
+      case "4.1": // Eligibility Service
+        fields.push({
+          allEligible: sectionData?.allEligible || "",
+          websiteLink: sectionData?.websiteLink || "",
+        });
+        break;
+      case "4.2": // SOP
+        fields.push({
+          available: sectionData?.available || "",
+          file: sectionData?.file || null,
+        });
+        break;
+      case "4.3": // Projects Greenlit
+        fields.push({
+          numberOfProjects: sectionData?.numberOfProjects || "",
+        });
+        break;
+      case "4.4": // E-Office
+        fields.push({
+          adopted: sectionData?.adopted || "",
+          file: sectionData?.file || null,
+        });
+        break;
+      case "4.5": // Best Practices
+        fields.push({
+          implemented: sectionData?.implemented || "",
+          practiceName: sectionData?.practiceName || "",
+          impact: sectionData?.impact || "",
+          file: sectionData?.file || null,
+        });
+        break;
+      case "4.6": // Capacity Building
+        if (sectionData?.capacityArray && sectionData.capacityArray.length > 0) {
+          sectionData.capacityArray.forEach((item: any) => {
+            fields.push({
+              trainingType: item.trainingType || "",
+              numberOfOfficers: item.numberOfOfficers || "",
+              file: item.file || null,
+            });
+          });
+        }
+        break;
+    }
+    
+    return fields;
+  };
+
+  // Use the indicator submission hook
+  const {
+    submittingIndicators,
+    submittedIndicators: hookSubmittedIndicators,
+    handleIndicatorSubmit,
+  } = useIndicatorSubmission({
+    category: "infraEnablers",
+    formData,
+    assignedIndicators: isNodalOfficer ? assignedIndicators : availableIndicators,
+    isNodalOfficer,
+    onAllSubmitted: undefined, // handled globally
+  });
+
+  // Check backend status on initial load to see if all sections are already complete
+  useEffect(() => {
+    const checkInitialStatus = async () => {
+      if (!user?.id) return;
+      
+      try {
+        console.log("🔍 [InfraEnablersStep - INITIAL CHECK] Checking backend submission status on mount");
+        const submission = await apiService.getSubmissionByUser(user.id);
+        
+        if (!submission || !submission.id) {
+          console.log("⚠️ No submission found yet");
+          return;
+        }
+
+        const sectionStatus = submission.section_status || [];
+        const infraFinancing = sectionStatus.find((s: any) => s.sectionId === "infraFinancing");
+        const infraDevelopment = sectionStatus.find((s: any) => s.sectionId === "infraDevelopment");
+        const pppDevelopment = sectionStatus.find((s: any) => s.sectionId === "pppDevelopment");
+        const infraEnablers = sectionStatus.find((s: any) => s.sectionId === "infraEnablers");
+        
+        const allSectionsComplete = 
+          infraFinancing?.isCompleted === true &&
+          infraDevelopment?.isCompleted === true &&
+          pppDevelopment?.isCompleted === true &&
+          infraEnablers?.isCompleted === true;
+        
+        if (allSectionsComplete) {
+          console.log("✅ [InfraEnablersStep - INITIAL CHECK] All sections completed, redirecting");
+          toast({
+            title: "Success",
+            description: "All indicators completed. Redirecting to review page...",
+          });
+          setTimeout(() => {
+            navigate(`/data-submission/review/${submission.id}`);
+          }, 1500);
+        }
+      } catch (error) {
+        console.error("❌ [InfraEnablersStep - INITIAL CHECK] Error:", error);
+      }
+    };
+
+    checkInitialStatus();
+  }, [user, navigate, toast]);
+
+  // Check backend after each indicator submission to see if all sections complete
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      try {
+        console.log("🔍 [InfraEnablersStep] Checking backend submission status");
+        const submission = await apiService.getSubmissionByUser(user.id);
+        
+        if (!submission || !submission.id) {
+          console.log("⚠️ No submission found yet");
+          return;
+        }
+
+        const sectionStatus = submission.section_status || [];
+        console.log("📊 Backend section status:", sectionStatus);
+        
+        // Find each section in the array and check isCompleted
+        const infraFinancing = sectionStatus.find((s: any) => s.sectionId === "infraFinancing");
+        const infraDevelopment = sectionStatus.find((s: any) => s.sectionId === "infraDevelopment");
+        const pppDevelopment = sectionStatus.find((s: any) => s.sectionId === "pppDevelopment");
+        const infraEnablers = sectionStatus.find((s: any) => s.sectionId === "infraEnablers");
+        
+        console.log("🔍 Section completion status:", {
+          infraFinancing: infraFinancing?.isCompleted,
+          infraDevelopment: infraDevelopment?.isCompleted,
+          pppDevelopment: pppDevelopment?.isCompleted,
+          infraEnablers: infraEnablers?.isCompleted
+        });
+        
+        const allSectionsComplete = 
+          infraFinancing?.isCompleted === true &&
+          infraDevelopment?.isCompleted === true &&
+          pppDevelopment?.isCompleted === true &&
+          infraEnablers?.isCompleted === true;
+        
+        if (allSectionsComplete) {
+          console.log("✅ All sections completed on backend, redirecting to review page");
+          toast({
+            title: "Success",
+            description: "All indicators in all steps submitted. Moving to review page.",
+          });
+          setTimeout(() => {
+            navigate(`/data-submission/review/${submission.id}`);
+          }, 1500);
+        } else {
+          console.log("ℹ️ Not all sections are completed yet, staying on current step");
+        }
+      } catch (error) {
+        console.error("❌ Error checking backend status:", error);
+      }
+    };
+
+    // Only check backend if we have submitted indicators
+    if (Object.keys(hookSubmittedIndicators).length > 0) {
+      checkBackendStatus();
+    }
+  }, [hookSubmittedIndicators, user, navigate, toast]); // Trigger when hookSubmittedIndicators changes
+
+  // Callback when all indicators are submitted - navigate to review page
+  const handleAllSubmitted = useCallback(() => {
+    // This callback is no longer used - kept for compatibility
+    goToNext();
+  }, [goToNext]);
+
+  // Server-first hydration of partial submission (independent of localStorage)
+  // Only populate fields that are empty/default - preserve ALL user's local edits
+  useEffect(() => {
+    if (!user?.id) return;
+    let hasHydrated = false;
+    
+    (async () => {
+      try {
+        const submission = await apiService.getSubmissionByUser(user.id);
+        if (!submission || hasHydrated) return;
+        hasHydrated = true;
+        
+        const remoteData = submission?.formData?.infraEnablers;
+        if (!remoteData) return;
+        
+        setFormData((prev) => {
+          // Check each section independently - only hydrate sections that are empty
+          console.log("🌐 Hydrating infraEnablers from server (per-section basis)");
+          
+          const hydrated: InfraEnablersData = {
+            // Section 4.1 - Only load from server if local is empty
+            section4_1: (() => {
+              const isLocal4_1Empty = !prev.section4_1?.allEligible && !prev.section4_1?.websiteLink;
+              if (!isLocal4_1Empty) {
+                console.log("🔒 Section 4.1 has local data, keeping it");
+                return prev.section4_1;
+              }
+              console.log("⬇️ Section 4.1 empty, loading from server");
+              return {
+                allEligible: remoteData.section4_1?.allEligible || prev.section4_1?.allEligible || "",
+                websiteLink: remoteData.section4_1?.websiteLink || prev.section4_1?.websiteLink || "",
+              };
+            })(),
+            
+            // Section 4.2 - Only load from server if local is empty
+            section4_2: (() => {
+              const isLocal4_2Empty = !prev.section4_2?.available;
+              if (!isLocal4_2Empty) {
+                console.log("🔒 Section 4.2 has local data, keeping it");
+                return prev.section4_2;
+              }
+              console.log("⬇️ Section 4.2 empty, loading from server");
+              return {
+                available: remoteData.section4_2?.available || prev.section4_2?.available || "",
+                file: remoteData.section4_2?.file || prev.section4_2?.file || null,
+              };
+            })(),
+            
+            // Section 4.3 - Only load from server if local is empty
+            section4_3: (() => {
+              const isLocal4_3Empty = !prev.section4_3?.numberOfProjects;
+              if (!isLocal4_3Empty) {
+                console.log("🔒 Section 4.3 has local data, keeping it");
+                return prev.section4_3;
+              }
+              console.log("⬇️ Section 4.3 empty, loading from server");
+              return {
+                numberOfProjects: remoteData.section4_3?.numberOfProjects || prev.section4_3?.numberOfProjects || "",
+                marksObtained: remoteData.section4_3?.marksObtained ?? prev.section4_3?.marksObtained,
+              };
+            })(),
+            
+            // Section 4.4 - Only load from server if local is empty
+            section4_4: (() => {
+              const isLocal4_4Empty = !prev.section4_4?.adopted;
+              if (!isLocal4_4Empty) {
+                console.log("🔒 Section 4.4 has local data, keeping it");
+                return prev.section4_4;
+              }
+              console.log("⬇️ Section 4.4 empty, loading from server");
+              return {
+                adopted: remoteData.section4_4?.adopted || prev.section4_4?.adopted || "",
+                file: remoteData.section4_4?.file || prev.section4_4?.file || null,
+                marksObtained: remoteData.section4_4?.marksObtained ?? prev.section4_4?.marksObtained,
+              };
+            })(),
+            
+            // Section 4.5 - Only load from server if local is empty
+            section4_5: (() => {
+              const isLocal4_5Empty = !prev.section4_5?.implemented;
+              if (!isLocal4_5Empty) {
+                console.log("🔒 Section 4.5 has local data, keeping it");
+                return prev.section4_5;
+              }
+              console.log("⬇️ Section 4.5 empty, loading from server");
+              return {
+                implemented: remoteData.section4_5?.implemented || prev.section4_5?.implemented || "",
+                practiceName: remoteData.section4_5?.practiceName || prev.section4_5?.practiceName || "",
+                impact: remoteData.section4_5?.impact || prev.section4_5?.impact || "",
+                file: remoteData.section4_5?.file || prev.section4_5?.file || null,
+              };
+            })(),
+            
+            // Section 4.6 - Only load from server if local is empty
+            section4_6: (() => {
+              const isLocal4_6Empty = !prev.section4_6?.capacityArray || prev.section4_6.capacityArray.length === 0;
+              if (!isLocal4_6Empty) {
+                console.log("🔒 Section 4.6 has local data, keeping it");
+                return prev.section4_6;
+              }
+              console.log("⬇️ Section 4.6 empty, loading from server");
+              return {
+                capacityArray: Array.isArray(remoteData.section4_6?.capacityArray)
+                  ? remoteData.section4_6.capacityArray
+                  : (prev.section4_6?.capacityArray || []),
+              };
+            })(),
+          };
+          return hydrated;
+        });
+      } catch (e) {
+        console.warn("⚠️ Failed server hydration (infraEnablers)", e);
+      }
+    })();
+  }, [user?.id]);
+
+  // Patch: after successful submit, update global state
+  const handleIndicatorSubmitPatched = async (
+    indicatorCode: string,
+    prepareFieldsFn: (code: string, data: any) => Record<string, any>[]
+  ) => {
+    await handleIndicatorSubmit(indicatorCode, prepareFieldsFn);
+    setIndicatorSubmitted("infraEnablers", indicatorCode);
   };
 
   const handleSaveDraft = async () => {
@@ -881,6 +1200,26 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_2.comment")}
                 </div>
               )}
+              
+              {/* Submit Button for 4.2 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("4.2", prepareFieldsForEnablers)}
+                  disabled={submittingIndicators["4.2"] || hookSubmittedIndicators["4.2"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["4.2"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["4.2"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1309,6 +1648,26 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_4.comment")}
                 </div>
               )}
+              
+              {/* Submit Button for 4.4 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("4.4", prepareFieldsForEnablers)}
+                  disabled={submittingIndicators["4.4"] || hookSubmittedIndicators["4.4"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["4.4"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["4.4"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1553,6 +1912,26 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_5.comment")}
                 </div>
               )}
+              
+              {/* Submit Button for 4.5 */}
+              <div className="flex justify-end mt-4">
+                <Button
+                  onClick={() => handleIndicatorSubmitPatched("4.5", prepareFieldsForEnablers)}
+                  disabled={submittingIndicators["4.5"] || hookSubmittedIndicators["4.5"]}
+                  className="bg-primary text-white"
+                >
+                  {submittingIndicators["4.5"] ? (
+                    "Submitting..."
+                  ) : hookSubmittedIndicators["4.5"] ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Submitted
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
