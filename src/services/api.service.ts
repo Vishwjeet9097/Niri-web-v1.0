@@ -15,8 +15,7 @@ import type {
   DashboardSummary,
 } from "@/types";
 
-
-// 🧑‍💻Review Section API Interfaces 
+// 🧑‍💻Review Section API Interfaces
 export interface UpdateIndicatorField {
   [key: string]: any;
 }
@@ -35,10 +34,10 @@ export interface NiriUser {
   lastName: string;
   contactNumber?: string;
   role:
-  | "NODAL_OFFICER"
-  | "STATE_APPROVER"
-  | "MOSPI_REVIEWER"
-  | "MOSPI_APPROVER";
+    | "NODAL_OFFICER"
+    | "STATE_APPROVER"
+    | "MOSPI_REVIEWER"
+    | "MOSPI_APPROVER";
   stateUt: string;
   createdAt: string;
   updatedAt: string;
@@ -71,29 +70,31 @@ export interface HttpClient {
   delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
 }
 
-
 export type CumulativePreviewResponse = {
   status: boolean;
   message: string;
   data: {
     stateUt: string;
-    users: number;              // always 0 in lean mode
-    totalIndicators: number;    // should be 20
-    categories: string[];       // 4 categories
-    indicators: Record<string, Array<{
-      id: string;
-      code: string;
-      name: string;
-      category?: string;
-      sectionId?: string;
-      maxScore?: number | string;
-      data: any;
-      status: string;           // NOT_STARTED | SUBMITTED_TO_STATE | ACCEPTED | etc.
-      score: number | null;
-      remarks: string | null;
-      updatedAt: string | null;
-      year: string | null;
-    }>>;
+    users: number; // always 0 in lean mode
+    totalIndicators: number; // should be 20
+    categories: string[]; // 4 categories
+    indicators: Record<
+      string,
+      Array<{
+        id: string;
+        code: string;
+        name: string;
+        category?: string;
+        sectionId?: string;
+        maxScore?: number | string;
+        data: any;
+        status: string; // NOT_STARTED | SUBMITTED_TO_STATE | ACCEPTED | etc.
+        score: number | null;
+        remarks: string | null;
+        updatedAt: string | null;
+        year: string | null;
+      }>
+    >;
   };
 };
 
@@ -120,7 +121,7 @@ class ApiService implements HttpClient {
         return config;
       },
       (error) => Promise.reject(error)
-    )
+    );
 
     // Response interceptor - handle errors and token refresh
     this.axios.interceptors.response.use(
@@ -536,7 +537,6 @@ class ApiService implements HttpClient {
     return axios.post(url, data, { headers, ...config });
   }
 
-
   async createSubmission(submissionData: any): Promise<any> {
     try {
       console.log("🧩 Building multipart FormData payload...");
@@ -556,7 +556,12 @@ class ApiService implements HttpClient {
           }
 
           // Case 2: FileUpload object
-          else if (value && typeof value === "object" && "file" in value && value.file instanceof File) {
+          else if (
+            value &&
+            typeof value === "object" &&
+            "file" in value &&
+            value.file instanceof File
+          ) {
             formData.append(fullKey, value.file);
           }
 
@@ -565,7 +570,12 @@ class ApiService implements HttpClient {
             value.forEach((item, index) => {
               if (item instanceof File) {
                 formData.append(`${fullKey}[${index}]`, item);
-              } else if (item && typeof item === "object" && "file" in item && item.file instanceof File) {
+              } else if (
+                item &&
+                typeof item === "object" &&
+                "file" in item &&
+                item.file instanceof File
+              ) {
                 formData.append(`${fullKey}[${index}]`, item.file);
               } else {
                 appendFiles(item, `${fullKey}[${index}]`);
@@ -584,9 +594,13 @@ class ApiService implements HttpClient {
 
       const token = authService.getAuthHeaders()?.Authorization;
 
-      const response = await axios.post(`${config.apiBaseUrl}/submission`, formData, {
-        headers: { Authorization: token },
-      });
+      const response = await axios.post(
+        `${config.apiBaseUrl}/submission`,
+        formData,
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       console.log("✅ Submission successful:", response.data);
       return response.data;
@@ -1074,10 +1088,12 @@ class ApiService implements HttpClient {
     submissionId: string,
     file: File
   ): Promise<{
-    data: any; url: string; filename: string; size: number 
-}> {
-
-   console.log("🔍 API Service - Upload File:", submissionId, file);
+    data: any;
+    url: string;
+    filename: string;
+    size: number;
+  }> {
+    console.log("🔍 API Service - Upload File:", submissionId, file);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -1256,15 +1272,15 @@ class ApiService implements HttpClient {
   }
 
   // ✅ Fetch dashboard data for State Approver
-async getStateApproverDashboard(): Promise<any> {
-  try {
-    const response = await this.get("/dashboard/state-approver");
-    return response?.data || response;
-  } catch (error: any) {
-    console.error("Failed to fetch State Approver Dashboard:", error);
-    throw error.response?.data || error;
+  async getStateApproverDashboard(): Promise<any> {
+    try {
+      const response = await this.get("/dashboard/state-approver");
+      return response?.data || response;
+    } catch (error: any) {
+      console.error("Failed to fetch State Approver Dashboard:", error);
+      throw error.response?.data || error;
+    }
   }
-}
 
   // User management methods
   async getAllUsers(): Promise<NiriUser[]> {
@@ -1482,8 +1498,8 @@ async getStateApproverDashboard(): Promise<any> {
         console.error("❌ API Service - Error Response:", error.response.data);
         throw new Error(
           error.response.data?.message ||
-          error.response.data?.error ||
-          "Failed to deactivate users"
+            error.response.data?.error ||
+            "Failed to deactivate users"
         );
       }
       throw error;
@@ -2285,18 +2301,18 @@ async getStateApproverDashboard(): Promise<any> {
   }
 
   // ✅ Fetch indicators available for a STATE_APPROVER
-async getAvailableIndicatorsForApprover(stateUt: string) {
-  try {
-    const response = await this.axios.get(
-      `/indicators/available-for-approver`,
-      { params: { stateUt} }
-    );
-    return response.data; // array of {id, code, name, category}
-  } catch (error) {
-    console.error("Failed to get available indicators for approver", error);
-    throw error;
+  async getAvailableIndicatorsForApprover(stateUt: string) {
+    try {
+      const response = await this.axios.get(
+        `/indicators/available-for-approver`,
+        { params: { stateUt } }
+      );
+      return response.data; // array of {id, code, name, category}
+    } catch (error) {
+      console.error("Failed to get available indicators for approver", error);
+      throw error;
+    }
   }
-}
 
   async getAllIndicators(): Promise<any[]> {
     try {
@@ -2405,7 +2421,6 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     }
   }
 
-
   /**
    * Update indicator (generic handler used by components)
    * payload: { submissionId, category, section, fields }
@@ -2416,50 +2431,64 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     try {
       // Check if payload contains File objects
       const hasFiles = this.hasFileObjects(payload);
-      
+
       let response;
-      
+
       if (hasFiles) {
         // Convert to FormData if files are present
         const formData = new FormData();
-        
+
         // Create a sanitized payload without File objects for JSON serialization
         const sanitizedPayload = this.sanitizePayloadForJSON(payload);
         formData.append("payload", JSON.stringify(sanitizedPayload));
-        
+
         // Append files recursively with proper paths
         this.appendFilesToFormData(formData, payload, "");
-        
+
         // Get auth token
         const authHeaders = authService.getAuthHeaders();
         const authToken = token || authHeaders?.Authorization || "";
-        
+
         const config: AxiosRequestConfig = {
           headers: {
             "Content-Type": "multipart/form-data",
             Authorization: authToken,
           },
         };
-        
-        console.log("📤 Sending updateIndicator with FormData (files detected)");
-        response = await this.axios.post("/submission/update-indicator", formData, config);
+
+        console.log(
+          "📤 Sending updateIndicator with FormData (files detected)"
+        );
+        response = await this.axios.post(
+          "/submission/update-indicator",
+          formData,
+          config
+        );
       } else {
         // Send as JSON if no files
         const config: AxiosRequestConfig | undefined = token
           ? {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
-            },
-          }
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: token.startsWith("Bearer")
+                  ? token
+                  : `Bearer ${token}`,
+              },
+            }
           : undefined;
 
         console.log("📤 Sending updateIndicator as JSON (no files)");
-        response = await this.axios.post("/submission/update-indicator", payload, config);
+        response = await this.axios.post(
+          "/submission/update-indicator",
+          payload,
+          config
+        );
       }
 
       // Follow existing pattern used across the service: prefer response.data.data when present.
-      return response.data?.data !== undefined ? response.data.data : response.data;
+      return response.data?.data !== undefined
+        ? response.data.data
+        : response.data;
     } catch (error: any) {
       // Handle 304 as success (consistent with other methods)
       if (error.response?.status === 304) {
@@ -2474,13 +2503,13 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
   // Helper to check if payload contains File objects
   private hasFileObjects(obj: any): boolean {
     if (!obj || typeof obj !== "object") return false;
-    
+
     if (obj instanceof File) return true;
-    
+
     if (Array.isArray(obj)) {
-      return obj.some(item => this.hasFileObjects(item));
+      return obj.some((item) => this.hasFileObjects(item));
     }
-    
+
     for (const value of Object.values(obj)) {
       if (value instanceof File) return true;
       if (value && typeof value === "object") {
@@ -2490,58 +2519,77 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
         if (this.hasFileObjects(value)) return true;
       }
     }
-    
+
     return false;
   }
 
   // Helper to create a JSON-safe copy of payload (replaces File objects with placeholders)
   private sanitizePayloadForJSON(obj: any): any {
     if (!obj || typeof obj !== "object") return obj;
-    
+
     if (obj instanceof File) {
       return { _filePlaceholder: true, name: obj.name, size: obj.size };
     }
-    
+
     if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizePayloadForJSON(item));
+      return obj.map((item) => this.sanitizePayloadForJSON(item));
     }
-    
+
     const sanitized: any = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value instanceof File) {
-        sanitized[key] = { _filePlaceholder: true, name: value.name, size: value.size };
-      } else if (value && typeof value === "object" && value.file instanceof File) {
+        sanitized[key] = {
+          _filePlaceholder: true,
+          name: value.name,
+          size: value.size,
+        };
+      } else if (
+        value &&
+        typeof value === "object" &&
+        value.file instanceof File
+      ) {
         // For FileUpload objects, keep metadata but mark file as placeholder
         sanitized[key] = {
           ...value,
-          file: { _filePlaceholder: true, name: value.file.name, size: value.file.size },
+          file: {
+            _filePlaceholder: true,
+            name: value.file.name,
+            size: value.file.size,
+          },
         };
       } else {
         sanitized[key] = this.sanitizePayloadForJSON(value);
       }
     }
-    
+
     return sanitized;
   }
 
   // Helper to append files to FormData recursively
-  private appendFilesToFormData(formData: FormData, obj: any, parentKey: string = "") {
+  private appendFilesToFormData(
+    formData: FormData,
+    obj: any,
+    parentKey: string = ""
+  ) {
     if (!obj || typeof obj !== "object") return;
-    
+
     Object.entries(obj).forEach(([key, value]) => {
       const fullKey = parentKey ? `${parentKey}.${key}` : key;
-      
+
       if (value instanceof File) {
         console.log(`📎 Appending file: ${fullKey}`, value.name);
         formData.append(fullKey, value, value.name);
         return;
       }
-      
+
       if (value && typeof value === "object") {
         // Handle FileUpload objects
         if (value.file instanceof File) {
           const fileKey = `${fullKey}.file`;
-          console.log(`📎 Appending FileUpload file: ${fileKey}`, value.file.name);
+          console.log(
+            `📎 Appending FileUpload file: ${fileKey}`,
+            value.file.name
+          );
           formData.append(fileKey, value.file, value.file.name);
         } else if (Array.isArray(value)) {
           // Handle arrays (like VGFArray, projects array, etc.)
@@ -2556,27 +2604,43 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     });
   }
 
-
   /**
    * Update indicator status (generic handler used by components)
    * payload: { submissionId, category, section, accepted }
    * token: optional auth token (falls back to localStorage if not provided)
    */
-  async indicatorStatus(payload: { submissionId: string; category: string; section: string; status: boolean; mospi_status?: string }, token?: string) {
+  async indicatorStatus(
+    payload: {
+      submissionId: string;
+      category: string;
+      section: string;
+      status: boolean;
+      mospi_status?: string;
+    },
+    token?: string
+  ) {
     try {
       const config: AxiosRequestConfig | undefined = token
         ? {
             headers: {
               "Content-Type": "application/json",
-              Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
+              Authorization: token.startsWith("Bearer")
+                ? token
+                : `Bearer ${token}`,
             },
           }
         : undefined;
 
-      const response = await this.axios.post("/submission/indicator-submission-status", payload, config);
+      const response = await this.axios.post(
+        "/submission/indicator-submission-status",
+        payload,
+        config
+      );
 
       // Follow existing pattern used across the service: prefer response.data.data when present.
-      return response.data?.data !== undefined ? response.data.data : response.data;
+      return response.data?.data !== undefined
+        ? response.data.data
+        : response.data;
     } catch (error: any) {
       // Handle 304 as success (consistent with other methods)
       if (error.response?.status === 304) {
@@ -2588,67 +2652,152 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     }
   }
 
-//   async getStateIndicatorStatuses(): Promise<any> {
-//   try {
-//     const response = await this.axios.get("/indicators/state-statuses", {
-//       headers: { Accept: "application/json" },
-//     });
+  //   async getStateIndicatorStatuses(): Promise<any> {
+  //   try {
+  //     const response = await this.axios.get("/indicators/state-statuses", {
+  //       headers: { Accept: "application/json" },
+  //     });
 
-//     console.log(response.status);
-//     // normalize like you do elsewhere
-//     return response.data?.data !== undefined ? response.data.data : response.data;
-//     // If your backend shape is { status: true, data: {...} }, return response.data is fine,
-//     // since your calculator reads payload?.data?.submissions.
-//   } catch (error: any) {
-//     if (error.response?.status === 304) {
-//       const cached = error.response?.data || {};
-//       return cached?.data !== undefined ? cached.data : cached;
-//     }
-//     throw error;
-//   }
-// }
+  //     console.log(response.status);
+  //     // normalize like you do elsewhere
+  //     return response.data?.data !== undefined ? response.data.data : response.data;
+  //     // If your backend shape is { status: true, data: {...} }, return response.data is fine,
+  //     // since your calculator reads payload?.data?.submissions.
+  //   } catch (error: any) {
+  //     if (error.response?.status === 304) {
+  //       const cached = error.response?.data || {};
+  //       return cached?.data !== undefined ? cached.data : cached;
+  //     }
+  //     throw error;
+  //   }
+  // }
 
-// services/api.service.ts
+  // services/api.service.ts
 
-async getStateIndicatorStatuses(year?: string): Promise<{
-  status: boolean;
-  message?: string;
-  data: any;
-}> {
-  try {
-    const qs = year ? `?year=${encodeURIComponent(year)}` : "";
-    const resp = await this.axios.get(`/indicators/state-statuses${qs}`, {
-      headers: { Accept: "application/json" },
-    });
+  async getStateIndicatorStatuses(year?: string): Promise<{
+    status: boolean;
+    message?: string;
+    data: any;
+  }> {
+    try {
+      const qs = year ? `?year=${encodeURIComponent(year)}` : "";
+      const resp = await this.axios.get(`/indicators/state-statuses${qs}`, {
+        headers: { Accept: "application/json" },
+      });
 
-    // Always return the backend envelope so downstream can read .data.summary
-    // resp.data is expected to be { status, message, data }
-    return resp.data;
-  } catch (error: any) {
-    // If your server sometimes replies 304 with a payload, normalize it
-    if (error?.response?.status === 304) {
-      const fallback = error.response.data ?? {};
-      return typeof fallback.status === "boolean"
-        ? fallback
-        : { status: true, data: fallback };
+      // Always return the backend envelope so downstream can read .data.summary
+      // resp.data is expected to be { status, message, data }
+      return resp.data;
+    } catch (error: any) {
+      // If your server sometimes replies 304 with a payload, normalize it
+      if (error?.response?.status === 304) {
+        const fallback = error.response.data ?? {};
+        return typeof fallback.status === "boolean"
+          ? fallback
+          : { status: true, data: fallback };
+      }
+      throw error;
     }
-    throw error;
+  }
+
+  async getNodalMetrics() {
+    // Adjust depending on how your API client is set up (axios/fetch wrapper)
+    const res = await this.axios.get("/dashboard/nodal-metrics");
+    return res.data;
+  }
+
+  async getAssignedStateOnly(roleName: string) {
+    const res = await this.axios.get(
+      `/users/states/assigned-state-by-state-approver/${roleName}`
+    );
+    return res.data;
+  }
+
+  /**
+   * TESTING ONLY: Cleanup test data
+   * Deletes submissions and indicator assignments for testing purposes
+   * WARNING: This is a destructive operation!
+   */
+  async cleanupTestData(): Promise<{
+    success: boolean;
+    message: string;
+    deleted: {
+      submissions: number;
+      finalScores: number;
+      userIndicatorScopes: number;
+    };
+  }> {
+    try {
+      const response = await this.axios.delete(API_ENDPOINTS.test.cleanup);
+      console.log(
+        "🔍 API Service - Cleanup Test Data Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Cleanup Test Data Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const cleanupData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log("🔍 API Service - Processed Cleanup Test Data:", cleanupData);
+
+      return cleanupData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Cleanup Test Data 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * TESTING ONLY: Delete all users by role
+   * Deletes all users with the specified role
+   * WARNING: This is a destructive operation! ADMIN only.
+   */
+  async deleteUsersByRole(role: string): Promise<{
+    success: boolean;
+    message: string;
+    deletedCount: number;
+  }> {
+    try {
+      const response = await this.axios.delete(
+        API_ENDPOINTS.test.cleanupUsersByRole(role)
+      );
+      console.log(
+        "🔍 API Service - Delete Users By Role Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - Delete Users By Role Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const deleteData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed Delete Users By Role:",
+        deleteData
+      );
+
+      return deleteData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Delete Users By Role 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      throw error;
+    }
   }
 }
-
- async  getNodalMetrics() {
-  // Adjust depending on how your API client is set up (axios/fetch wrapper)
-  const res = await this.axios.get('/dashboard/nodal-metrics');
-  return res.data;
-}
-
- async  getAssignedStateOnly(roleName: string) { 
-  const res = await this.axios.get(`/users/states/assigned-state-by-state-approver/${roleName}`);
-  return res.data;
-}
- 
-}
-
 
 export async function getCumulativePreview(
   stateUt: string,
