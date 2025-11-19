@@ -66,9 +66,4 @@ export const API_ENDPOINTS = {
     user: (userId: string) => `${BASE}/audit/user/${userId}`,
     myActivity: `${BASE}/audit/my-activity`,
   },
-  test: {
-    cleanup: `${BASE}/submission/test/cleanup`,
-    cleanupUsersByRole: (role: string) =>
-      `${BASE}/users/test/delete-by-role?role=${encodeURIComponent(role)}`,
-  },
 };
