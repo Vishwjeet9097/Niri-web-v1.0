@@ -43,8 +43,12 @@ import { calculateStateProgressFromApi, ProgressStats } from "@/utils/progressUt
 import { authService } from "@/services/auth.service";
 import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
+import { buildIndicatorMapping } from "@/utils/indicatorMappingUtils";
 import axios from "axios";
 import { config } from "@/config/environment";
+import { getSubmissionStatus, getSubmissionDisplayStatus } from "@/utils/indicatorStatusUtils";
+import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
+import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
 
 // Type definitions for aggregated indicators
 type AggregatedIndicator = {
@@ -662,13 +666,106 @@ const handleFinalSubmit = async () => {
       
       console.log("✅ [FinalSubmit] FormData validation passed - has data:", hasData);
 
+      // Step 2.5: Get source submission IDs from approved submissions
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📋 STEP 2.5: Extracting source submission IDs");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Extract source submission IDs from approved submissions
+      let sourceSubmissionIds: string[] = [];
+      if (apiSubmissions && Array.isArray(apiSubmissions)) {
+        sourceSubmissionIds = apiSubmissions
+          .map((sub: any) => sub.submissionId || sub.id)
+          .filter((id: string) => id && !id.startsWith('CONS-')); // Exclude already consolidated submissions
+        
+        console.log("📋 Source submission IDs:", sourceSubmissionIds);
+        console.log("📋 Source submissions count:", sourceSubmissionIds.length);
+      }
+
+      // Step 2.6: Build indicator-level mapping for traceability
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🗺️ STEP 2.6: Building indicator-level mapping");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Filter out consolidated submissions and get full submission objects for mapping
+      const sourceSubmissionsForMapping = apiSubmissions && Array.isArray(apiSubmissions)
+        ? apiSubmissions.filter((sub: any) => {
+            // Exclude consolidated submissions by checking metadata
+            const formData = sub.formData || sub.form_data || {};
+            const metadata = formData._metadata;
+            return !metadata?.isConsolidated;
+          })
+        : [];
+      
+      console.log("🗺️ Source submissions for mapping:", sourceSubmissionsForMapping.length);
+      
+      // Build indicator mapping
+      const indicatorMapping = buildIndicatorMapping(sourceSubmissionsForMapping, formData);
+      
+      console.log("✅ [FinalSubmit] Indicator mapping built:", {
+        totalMapped: Object.keys(indicatorMapping).length,
+        mappedIndicators: Object.keys(indicatorMapping),
+      });
+
+      // Step 2.7: Check if there's an existing consolidated submission for this state/year
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔍 STEP 2.7: Checking for existing consolidated submission");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      let existingConsolidatedSubmission: any = null;
+      const currentYear = new Date().getFullYear();
+      
+      // Find existing consolidated submission for this state and year
+      if (submissions && Array.isArray(submissions)) {
+        existingConsolidatedSubmission = submissions.find((sub: any) => {
+          // Check if consolidated by metadata
+          const formData = sub.formData || sub.form_data || {};
+          const metadata = formData._metadata;
+          const isConsolidated = metadata?.isConsolidated === true;
+          
+          const isForCurrentState = sub.stateUt?.toUpperCase() === effectiveState.toUpperCase();
+          const isOwnSubmission = sub.user?.id === user?.id || sub.submittedBy === user?.id;
+          // Check year from submissionId (format: SUB-YYYY-XXXXXX)
+          const submissionId = sub.submissionId || '';
+          const isForCurrentYear = submissionId.includes(`-${currentYear}-`);
+          
+          return isConsolidated && isForCurrentState && isOwnSubmission && isForCurrentYear;
+        });
+      }
+      
+      if (existingConsolidatedSubmission) {
+        console.log("✅ [FinalSubmit] Found existing consolidated submission:", existingConsolidatedSubmission.submissionId);
+        console.log("✅ [FinalSubmit] Existing submission ID:", existingConsolidatedSubmission.id);
+        console.log("✅ [FinalSubmit] Existing submission status:", existingConsolidatedSubmission.status);
+      } else {
+        console.log("ℹ️ [FinalSubmit] No existing consolidated submission found - will create a new one");
+      }
+
       // Step 3: Transform formData for submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("🔄 STEP 3: Transforming formData for submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
-      const submissionStatus = "SUBMITTED_TO_MOSPI_REVIEWER";
-      const transformedData = transformFormDataForSubmission(formData, submissionStatus);
+      // Determine submission status - if updating existing, keep its status, otherwise create new with SUBMITTED_TO_MOSPI_REVIEWER
+      const submissionStatus = existingConsolidatedSubmission?.status || "SUBMITTED_TO_MOSPI_REVIEWER";
+      
+      // If updating existing submission, use its submissionId, otherwise generate new one
+      const submissionIdToUse = existingConsolidatedSubmission 
+        ? existingConsolidatedSubmission.submissionId 
+        : undefined;
+      
+      const transformedData = transformFormDataForSubmission(
+        formData, 
+        submissionStatus,
+        {
+          isConsolidated: true,
+          sourceSubmissionIds: sourceSubmissionIds,
+          consolidatedBy: user?.id || '',
+          stateUt: effectiveState,
+          existingSubmissionId: submissionIdToUse, // Pass existing ID if updating
+          indicatorMapping: indicatorMapping, // Pass indicator-level mapping for traceability
+        }
+      );
 
       // Step 4: Create multipart FormData with file attachments
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -679,9 +776,9 @@ const handleFinalSubmit = async () => {
       multipartData.append("submission", JSON.stringify(transformedData));
       appendFilesRecursively(multipartData, formData);
 
-      // Step 5: Get authentication token and submit
+      // Step 5: Get authentication token and submit/update
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📤 STEP 5: Submitting consolidated submission");
+      console.log(existingConsolidatedSubmission ? "🔄 STEP 5: Updating existing consolidated submission" : "📤 STEP 5: Creating new consolidated submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
       const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
@@ -697,49 +794,140 @@ const handleFinalSubmit = async () => {
         return;
       }
 
-      const response = await axios.post(
-        `${config.apiBaseUrl}/submission`,
-        multipartData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        }
-      );
+      let response: any;
+      let consolidatedSubmissionId: string;
+      let returnedStatus: string;
 
-      console.log("✅ Submission successful!");
-      console.log("📦 Response:", response.data);
-      
-      // Extract submission from response
-      const createdSubmission = response.data?.data || response.data;
-      const submissionId = createdSubmission?.id || createdSubmission?.submissionId;
-      const returnedStatus = createdSubmission?.status;
-      
-      console.log("📝 [FinalSubmit] Created submission ID:", submissionId);
-      console.log("📊 [FinalSubmit] Returned status from API:", returnedStatus);
-      console.log("📊 [FinalSubmit] Expected status: SUBMITTED_TO_MOSPI_REVIEWER");
-      
-      // If the status is not SUBMITTED_TO_MOSPI_REVIEWER, we need to forward it
-      if (returnedStatus !== "SUBMITTED_TO_MOSPI_REVIEWER" && submissionId) {
-        console.log("⚠️ [FinalSubmit] Status mismatch! Forwarding submission to MoSPI Reviewer...");
-        try {
-          const forwardedSubmission = await apiService.forwardToMospi(
-            submissionId,
-            "Consolidated state submission",
-            returnedStatus
-          );
-          console.log("✅ [FinalSubmit] Submission forwarded successfully!");
-          console.log("📊 [FinalSubmit] Final status:", forwardedSubmission?.status);
-        } catch (forwardError: any) {
-          console.error("❌ [FinalSubmit] Failed to forward submission:", forwardError);
-          notificationService.warning("Submission created but may not appear on reviewer dashboard. Please contact support.");
-        }
-      } else if (returnedStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
-        console.log("✅ [FinalSubmit] Status is correct - no forwarding needed");
+      if (existingConsolidatedSubmission) {
+        // Update existing consolidated submission
+        console.log("🔄 [FinalSubmit] Updating existing consolidated submission:", existingConsolidatedSubmission.id);
+        
+        // For update, we only need to send formData (not the full submission object)
+        const updatePayload = {
+          formData: transformedData.formData,
+          status: transformedData.status, // Ensure status is also updated
+        };
+        
+        response = await axios.put(
+          `${config.apiBaseUrl}/submission/${existingConsolidatedSubmission.id}`,
+          updatePayload,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        console.log("✅ Update successful!");
+        console.log("📦 Response:", response.data);
+        
+        // Extract submission from response
+        const updatedSubmission = response.data?.data || response.data;
+        consolidatedSubmissionId = existingConsolidatedSubmission.submissionId;
+        returnedStatus = updatedSubmission?.status || existingConsolidatedSubmission.status;
+      } else {
+        // Create new consolidated submission
+        console.log("📤 [FinalSubmit] Creating new consolidated submission");
+        
+        response = await axios.post(
+          `${config.apiBaseUrl}/submission`,
+          multipartData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        console.log("✅ Create successful!");
+        console.log("📦 Response:", response.data);
+        
+        // Extract submission from response
+        const createdSubmission = response.data?.data || response.data;
+        consolidatedSubmissionId = transformedData.submissionId;
+        returnedStatus = createdSubmission?.status || transformedData.status;
       }
       
-      notificationService.success("Consolidated submission sent to MoSPI Reviewer successfully.");
+      console.log("📝 [FinalSubmit] Consolidated submission ID:", consolidatedSubmissionId);
+      console.log("📊 [FinalSubmit] Returned status from API:", returnedStatus);
+      console.log("✅ [FinalSubmit] " + (existingConsolidatedSubmission ? "Update" : "Create") + " completed");
+      
+      // Update source submissions with consolidation metadata (for both create and update)
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔗 [FinalSubmit] STEP 6: Updating source submissions with consolidation metadata");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📝 Consolidated Submission ID:", consolidatedSubmissionId);
+      console.log("📝 Is Update:", !!existingConsolidatedSubmission);
+      console.log("📋 Source Submission IDs to update:", sourceSubmissionIds);
+      
+      if (sourceSubmissionIds.length > 0 && consolidatedSubmissionId) {
+        try {
+          // Get all submissions to find the actual submission IDs (not just submissionId field)
+          const allSubmissions = await apiService.getSubmissions(1, 100);
+          let submissionsArray: any[] = [];
+          if (Array.isArray(allSubmissions)) {
+            submissionsArray = allSubmissions;
+          } else if (allSubmissions?.submissions && Array.isArray(allSubmissions.submissions)) {
+            submissionsArray = allSubmissions.submissions;
+          } else if ((allSubmissions as any)?.data && Array.isArray((allSubmissions as any).data)) {
+            submissionsArray = (allSubmissions as any).data;
+          }
+          
+          // Update each source submission
+          const updatePromises = sourceSubmissionIds.map(async (sourceSubmissionId) => {
+            // Find the submission by submissionId or id
+            const sourceSubmission = submissionsArray.find(
+              (sub: any) => sub.submissionId === sourceSubmissionId || sub.id === sourceSubmissionId
+            );
+            
+            if (sourceSubmission) {
+              const actualSubmissionId = sourceSubmission.id; // Use the database ID
+              try {
+                // Get current formData
+                const currentSubmission = await apiService.getSubmission(actualSubmissionId);
+                const currentFormData = currentSubmission?.formData || {};
+                
+                // Add consolidation metadata to formData
+                const updatedFormData = {
+                  ...currentFormData,
+                  _consolidation: {
+                    consolidatedInto: consolidatedSubmissionId,
+                    consolidatedAt: new Date().toISOString(),
+                    consolidatedBy: user?.id || '',
+                  },
+                };
+                
+                // Update the submission with consolidation metadata
+                await apiService.updateSubmission(actualSubmissionId, updatedFormData);
+                console.log(`✅ [FinalSubmit] Updated source submission ${sourceSubmissionId} (ID: ${actualSubmissionId})`);
+              } catch (updateError: any) {
+                console.warn(`⚠️ [FinalSubmit] Failed to update source submission ${sourceSubmissionId}:`, updateError?.message);
+                // Don't fail the whole process if one update fails
+              }
+            } else {
+              console.warn(`⚠️ [FinalSubmit] Source submission ${sourceSubmissionId} not found in submissions list`);
+            }
+          });
+          
+          await Promise.allSettled(updatePromises);
+          console.log("✅ [FinalSubmit] Finished updating source submissions");
+        } catch (updateError: any) {
+          console.warn("⚠️ [FinalSubmit] Error updating source submissions:", updateError?.message);
+          // Don't fail the consolidation if metadata update fails
+        }
+      } else {
+        console.log("ℹ️ [FinalSubmit] No source submissions to update or missing consolidated submission ID");
+      }
+      
+      notificationService.success(
+        existingConsolidatedSubmission 
+          ? "Consolidated submission updated and sent to MoSPI Reviewer successfully."
+          : "Consolidated submission created and sent to MoSPI Reviewer successfully."
+      );
 
       // Refresh progress and submissions list
       try {
@@ -848,6 +1036,15 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
   //   });
   // }, [searchQuery, submissions]); // stateFilter, statusFilter removed from dependencies
 
+
+  // Group submissions for state approver
+  const groupedSubmissions = useMemo(() => {
+    if (user?.role === "STATE_APPROVER" && user?.id) {
+      const currentState = user?.stateUt || user?.stateName || user?.state;
+      return filterSubmissionsForStateApprover(submissions, user.id, currentState);
+    }
+    return null;
+  }, [submissions, user?.role, user?.id, user?.stateUt, user?.stateName, user?.state]);
 
   const filteredSubmissions = useMemo(() => {
     // First, deduplicate submissions by ID to ensure each submission appears only once

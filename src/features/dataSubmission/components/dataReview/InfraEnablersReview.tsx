@@ -55,9 +55,10 @@ interface InfraEnablersReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
+  isStateApprover?: boolean; // Whether the user is a state approver
 }
 
-export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraEnablersReviewProps) => {
+export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false, isStateApprover = false }: InfraEnablersReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
@@ -283,9 +284,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const hasData = hasInfraEnablersData({ infraEnablers: state });
   let sectionsWithData = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
   
-  // For preview mode with assigned indicators, always include assigned sections even if they have no data
-  // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+  console.log("🔍 [InfraEnablersReview] Initial sectionsWithData:", sectionsWithData);
+  console.log("🔍 [InfraEnablersReview] state:", state);
+  console.log("🔍 [InfraEnablersReview] isPreview:", isPreview, "isNodalOfficer:", isNodalOfficer);
+  console.log("🔍 [InfraEnablersReview] assignedIndicators:", assignedIndicators);
+  
+  // For nodal officers (both preview and review mode), always include assigned sections even if they have no data
+  // This ensures assigned indicators are visible, regardless of data presence
+  if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
     const assignedSectionKeys: string[] = [];
     const indicatorToSectionMap: Record<string, string> = {
       "4.1": "section4_1",
@@ -298,19 +304,62 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     
     assignedIndicators.forEach((indicator) => {
       const sectionKey = indicatorToSectionMap[indicator];
-      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
+      // Always include assigned sections, even if they don't have data or aren't in sectionsWithData
+      if (sectionKey && !assignedSectionKeys.includes(sectionKey)) {
         assignedSectionKeys.push(sectionKey);
       }
     });
     
-    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
+    // Merge and deduplicate - assigned sections take priority
+    sectionsWithData = Array.from(new Set([...assignedSectionKeys, ...sectionsWithData]));
+    console.log("🔍 [InfraEnablersReview] After adding assigned sections:", sectionsWithData);
   }
   
+  // For state approvers in review mode viewing nodal officer submissions: 
+  // Show only sections that correspond to the nodal officer's assigned indicators
+  // For other submissions (e.g., consolidated): show all sections that exist in formData
+  if (!isPreview && isStateApprover && state && typeof state === 'object') {
+    const isNodalOfficerSubmission = submission?.user?.role === "NODAL_OFFICER";
+    
+    if (isNodalOfficerSubmission && assignedIndicators && assignedIndicators.length > 0) {
+      // For nodal officer submissions: only show sections for their assigned indicators
+      const assignedSectionKeys: string[] = [];
+      const indicatorToSectionMap: Record<string, string> = {
+        "4.1": "section4_1",
+        "4.2": "section4_2",
+        "4.3": "section4_3",
+        "4.4": "section4_4",
+        "4.5": "section4_5",
+        "4.6": "section4_6",
+      };
+      
+      assignedIndicators.forEach((indicator) => {
+        const sectionKey = indicatorToSectionMap[indicator];
+        if (sectionKey && sectionKey in state && !assignedSectionKeys.includes(sectionKey)) {
+          assignedSectionKeys.push(sectionKey);
+        }
+      });
+      
+      // Merge assigned sections with sectionsWithData, avoiding duplicates
+      sectionsWithData = Array.from(new Set([...sectionsWithData, ...assignedSectionKeys]));
+      console.log("🔍 [InfraEnablersReview] State approver viewing nodal officer submission - showing assigned sections:", sectionsWithData);
+    } else {
+      // For non-nodal submissions (e.g., consolidated): show all sections that exist
+      const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+      const existingSections = allPossibleSections.filter(sectionKey => {
+        return sectionKey in state;
+      });
+      
+      // Merge existing sections with sectionsWithData, avoiding duplicates
+      sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+      console.log("🔍 [InfraEnablersReview] State approver - showing all existing sections:", sectionsWithData);
+    }
+  }
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
   // Include all sections that exist in formData
   // This ensures state approvers and other reviewers see all sections submitted by nodal officers
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && state && typeof state === 'object') {
+  else if ((!isPreview || (isPreview && !isNodalOfficer)) && !isStateApprover && state && typeof state === 'object') {
     const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
     const existingSections = allPossibleSections.filter(sectionKey => {
       // Check if section key exists in state (even if value is null, empty object, or empty array)
@@ -1565,7 +1614,16 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     );
   };
   // If no data, show message
-  if (!hasData) {
+  // For nodal officers (both preview and review mode), don't return early if they have assigned indicators
+  // For state approvers viewing nodal officer submissions, don't return early if sections exist (even if no data)
+  // Even if hasData is false, we want to show assigned sections
+  const isNodalOfficerSubmission = submission?.user?.role === "NODAL_OFFICER";
+  const hasAssignedIndicators = assignedIndicators && assignedIndicators.length > 0;
+  const shouldShowSections = (isNodalOfficer && hasAssignedIndicators) || 
+                             (isStateApprover && !isPreview && isNodalOfficerSubmission && hasAssignedIndicators) ||
+                             (isStateApprover && !isPreview && !isNodalOfficerSubmission && sectionsWithData.length > 0);
+  
+  if (!hasData && !shouldShowSections && sectionsWithData.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">No Infra Enablers data available for review</p>

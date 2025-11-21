@@ -23,7 +23,9 @@ import { generateAuditEntries } from "@/utils/auditUtils";
 import { MospiOverviewTab } from "./tabs/MospiOverviewTab";
 import { MospiApproverDataReviewTab } from "./tabs/MospiApproverDataReviewTab";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { areAllIndicatorsMospiAccepted } from "@/utils/indicatorStatusUtils";
+import { areAllIndicatorsMospiAccepted, getSubmissionStatus } from "@/utils/indicatorStatusUtils";
+import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
+import { ConsolidationInfo } from "@/components/submission/ConsolidationInfo";
 
 interface Submission {
   id: string;
@@ -77,7 +79,7 @@ export const UnifiedReviewPage = ({
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { assignedIndicators, isNodalOfficer } = useIndicatorAccess();
+  const { assignedIndicators, isNodalOfficer, isStateApprover } = useIndicatorAccess();
   
   const [submission, setSubmission] = useState<Submission | null>(initialSubmission);
   const [loading, setLoading] = useState(true);
@@ -426,7 +428,7 @@ export const UnifiedReviewPage = ({
 
           {/* Submission Info */}
           <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
                 <p className="text-sm font-semibold text-[#212121]">Submitted By</p>
                 <p className="text-[#727272] text-sm">
@@ -445,7 +447,25 @@ export const UnifiedReviewPage = ({
                 <p className="text-[#727272] text-sm">{submission.currentOwnerRole.replace(/_/g, " ")}</p>
               </div>
             </div>
+            
+            {/* Status Information */}
+            {user?.role === "NODAL_OFFICER" || user?.role === "STATE_APPROVER" ? (
+              <div className="mt-4 pt-4 border-t">
+                <SubmissionStatusBadge
+                  statusInfo={getSubmissionStatus(submission)}
+                  showProgress={true}
+                  showConsolidationLink={true}
+                />
+              </div>
+            ) : null}
           </div>
+
+          {/* Consolidation Information */}
+          {user?.role === "NODAL_OFFICER" && (
+            <div className="mb-6">
+              <ConsolidationInfo submission={submission} />
+            </div>
+          )}
 
           {/* Local Edits Alert */}
           {hasLocalEdits(submission.id) && (
@@ -523,6 +543,7 @@ export const UnifiedReviewPage = ({
                 isPreview={isPreview}
                 assignedIndicators={assignedIndicators}
                 isNodalOfficer={isNodalOfficer}
+                isStateApprover={isStateApprover}
               />
             )}
           </TabsContent>
@@ -532,6 +553,9 @@ export const UnifiedReviewPage = ({
               documents={submission.attachedFiles || []} 
               submissionId={submission.id}
               formData={submission.formData}
+              // For preview mode with filtered formData, pass original formData separately
+              // This ensures all files are visible even if formData is filtered for indicators
+              originalFormData={isPreview ? (submission as any).originalFormData : undefined}
             />
           </TabsContent>
 
