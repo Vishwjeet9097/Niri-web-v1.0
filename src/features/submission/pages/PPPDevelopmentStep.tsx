@@ -41,8 +41,8 @@ import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { apiService } from "@/services/api.service";
 import { computeStepProgress } from "../utils/progress";
-import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import {
   validatePPPDevelopment,
   type PPPDevelopmentValidationResult,
@@ -50,11 +50,11 @@ import {
 
 const defaultData: PPPDevelopmentData = {
   section3_1: {
-    available: "",
+      available: "no",
     file: null,
   },
   section3_2: {
-    available: "",
+      available: "no",
     file: null,
   },
   section3_3: { VGFArray: [] },
@@ -84,6 +84,7 @@ export const PPPDevelopmentStep = () => {
     typeof window !== "undefined" &&
     localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
+  const [sectionStatus, setSectionStatus] = useState<any>(undefined);
 
   // Indicator access control
   const {
@@ -116,34 +117,123 @@ export const PPPDevelopmentStep = () => {
     user,
   ]);
 
-  // Merge loaded data with defaults
-  const loadedData =
-    (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
 
-  const initialData: PPPDevelopmentData = {
-    ...defaultData,
-    ...loadedData,
-    section3_1: { ...defaultData.section3_1, ...(loadedData.section3_1 || {}) },
-    section3_2: { ...defaultData.section3_2, ...(loadedData.section3_2 || {}) },
-    section3_3: { VGFArray: (loadedData.section3_3 as any)?.VGFArray || [] },
+  // Helper to merge normalized and legacy data for each section
+  function getSectionFromNormalizedOrLegacy(normalized: any, legacy: any, code: string) {
+    if (normalized && normalized.byIndicatorCode && normalized.byIndicatorCode[code]) {
+      return { ...legacy, ...normalized.byIndicatorCode[code] };
+    }
+    return legacy || {};
+  }
 
-    section3_4: {
-      projects:
-        loadedData.section3_4?.projects || defaultData.section3_4.projects,
-      totalProjectsAwarded:
-        loadedData.section3_4?.totalProjectsAwarded ||
-        defaultData.section3_4.totalProjectsAwarded,
-      totalProjectCostAwarded:
-        loadedData.section3_4?.totalProjectCostAwarded ||
-        defaultData.section3_4.totalProjectCostAwarded,
-    },
-  };
+  // Defensive: always ensure section3_3 and section3_4 are objects with arrays
+  function safePPPFormData(data: Partial<PPPDevelopmentData>): PPPDevelopmentData {
+    return {
+      ...defaultData,
+      ...data,
+      section3_1: { ...defaultData.section3_1, ...(data.section3_1 || {}) },
+      section3_2: { ...defaultData.section3_2, ...(data.section3_2 || {}) },
+      section3_3: {
+        VGFArray: Array.isArray((data.section3_3 as any)?.VGFArray)
+          ? (data.section3_3 as any).VGFArray.map((entry: any) => ({
+              ...entry,
+              file: typeof entry.file !== 'undefined' ? entry.file : null,
+            }))
+          : [],
+      },
+      section3_4: {
+        projects: Array.isArray(data.section3_4?.projects)
+          ? data.section3_4.projects.map((proj: any) => ({
+              ...defaultData.section3_4.projects?.[0],
+              ...proj,
+              file: typeof proj.file !== 'undefined' ? proj.file : null,
+            }))
+          : [],
+        totalProjectsAwarded: data.section3_4?.totalProjectsAwarded || "",
+        totalProjectCostAwarded: data.section3_4?.totalProjectCostAwarded || "",
+      },
+    };
+  }
 
-  const [formData, setFormData] = useState<PPPDevelopmentData>(initialData);
+  // --- Data Initialization and Edit Mode Handling ---
+  const [formData, setFormData] = useState<PPPDevelopmentData>(safePPPFormData({}));
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Calculate allowed indicators for validation - calculate before validation
+  // Always prefer backend data in edit mode, clear localStorage
+  useEffect(() => {
+    if (localStorage.getItem("editing_submission")) {
+      console.log("[LocalStorage] Found editing_submission but ignoring in favor of DB data");
+      localStorage.removeItem("editing_submission");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user || !user.id || isDataLoaded) return;
+
+    (async () => {
+      try {
+        const submissionsResp = await apiService.getSubmissions(1, 100);
+        const userSubmission = submissionsResp.submissions.find(
+          (sub: any) =>
+            sub.status === "DRAFT" ||
+            sub.status === "IN_PROGRESS" ||
+            sub.status === "RETURNED_FROM_STATE" ||
+            sub.status === "PENDING_STATE_APPROVAL"
+        );
+
+        let sectionStatusFromDB = undefined;
+        if (userSubmission && userSubmission.id) {
+          const fullSubmission = await apiService.getSubmission(userSubmission.id);
+          let parsedFormData = fullSubmission.formData;
+          if (typeof fullSubmission.formData === 'string') {
+            try {
+              parsedFormData = JSON.parse(fullSubmission.formData);
+            } catch (e) {}
+          }
+          // Restore section_status from DB if present
+          sectionStatusFromDB = fullSubmission.section_status;
+          setSectionStatus(sectionStatusFromDB);
+          const normalized = parsedFormData?.normalizedFormData;
+          const legacy = parsedFormData?.pppDevelopment || {};
+          const newFormData: PPPDevelopmentData = safePPPFormData({
+            section3_1: getSectionFromNormalizedOrLegacy(normalized, legacy.section3_1, '3.1'),
+            section3_2: getSectionFromNormalizedOrLegacy(normalized, legacy.section3_2, '3.2'),
+            section3_3: getSectionFromNormalizedOrLegacy(normalized, legacy.section3_3, '3.3'),
+            section3_4: getSectionFromNormalizedOrLegacy(normalized, legacy.section3_4, '3.4'),
+          });
+          setFormData(newFormData);
+          setIsDataLoaded(true);
+        } else {
+          // If no backend data, use local storage or defaults
+          const loadedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
+          setFormData(safePPPFormData(loadedData));
+          setIsDataLoaded(true);
+        }
+      } catch (e) {
+        setIsDataLoaded(true);
+      }
+    })();
+  }, [user, isDataLoaded, getStepData]);
+
+  // Sync with localStorage data when component mounts or data changes (only if not loaded from backend)
+  useEffect(() => {
+    if (isDataLoaded) return;
+    const currentStepData = getStepData(
+      "pppDevelopment"
+    ) as Partial<PPPDevelopmentData>;
+    if (currentStepData && Object.keys(currentStepData).length > 0) {
+      setFormData(safePPPFormData(currentStepData));
+      console.log(
+        "🔄 Synced pppDevelopment data from localStorage in normal flow:",
+        currentStepData
+      );
+    }
+  }, [getStepData, isDataLoaded]);
+
+  // --- Indicator Access and Validation ---
   const sectionIndicators = useMemo(() => ["3.1", "3.2", "3.3", "3.4"], []);
   const allowedIndicators = useMemo(
     () =>
@@ -153,16 +243,11 @@ export const PPPDevelopmentStep = () => {
     [isNodalOfficer, assignedIndicators, availableIndicators, sectionIndicators]
   );
 
-  // Validation - only validate sections that are accessible based on indicators
   const validation: PPPDevelopmentValidationResult = useMemo(() => {
-    // Determine which indicators to validate
-    // For Nodal Officer or State Approver: only validate assigned/available indicators
-    // For others: validate all (no restrictions)
     const indicatorsToValidate =
       (isNodalOfficer || isStateApprover) && allowedIndicators.length > 0
         ? allowedIndicators
-        : undefined; // undefined means validate all (backward compatibility)
-
+        : undefined;
     return validatePPPDevelopment(formData, {
       allowedIndicators: indicatorsToValidate,
     });
@@ -203,105 +288,6 @@ export const PPPDevelopmentStep = () => {
       setShowValidationErrors(true);
     }
   };
-
-  // Sync with localStorage data when component mounts or data changes
-  useEffect(() => {
-    const currentStepData = getStepData(
-      "pppDevelopment"
-    ) as Partial<PPPDevelopmentData>;
-    if (currentStepData && Object.keys(currentStepData).length > 0) {
-      const syncedData: PPPDevelopmentData = {
-        ...defaultData,
-        ...currentStepData,
-        section3_1: {
-          ...defaultData.section3_1,
-          ...(currentStepData.section3_1 || {}),
-        },
-        section3_2: {
-          ...defaultData.section3_2,
-          ...(currentStepData.section3_2 || {}),
-        },
-        section3_3: {
-          VGFArray: (currentStepData.section3_3 as any)?.VGFArray || [],
-        },
-        section3_4: {
-          projects:
-            currentStepData.section3_4?.projects ||
-            defaultData.section3_4.projects,
-          totalProjectsAwarded:
-            currentStepData.section3_4?.totalProjectsAwarded ||
-            defaultData.section3_4.totalProjectsAwarded,
-          totalProjectCostAwarded:
-            currentStepData.section3_4?.totalProjectCostAwarded ||
-            defaultData.section3_4.totalProjectCostAwarded,
-        },
-      };
-      setFormData(syncedData);
-      console.log(
-        "🔄 Synced pppDevelopment data from localStorage in normal flow:",
-        syncedData
-      );
-    }
-  }, [getStepData]);
-
-  // Initialize form data only once when component mounts
-  useEffect(() => {
-    const editingSubmission = localStorage.getItem("editing_submission");
-    if (editingSubmission) {
-      try {
-        const submissionData = JSON.parse(editingSubmission);
-        console.log(
-          "🔍 Direct editing submission check in PPPDevelopmentStep:",
-          submissionData
-        );
-
-        if (submissionData.formData && submissionData.formData.pppDevelopment) {
-          const stepData = submissionData.formData
-            .pppDevelopment as Partial<PPPDevelopmentData>;
-          const updatedData: PPPDevelopmentData = {
-            ...defaultData,
-            ...stepData,
-            section3_1: {
-              ...defaultData.section3_1,
-              ...(stepData.section3_1 || {}),
-            },
-            section3_2: {
-              ...defaultData.section3_2,
-              ...(stepData.section3_2 || {}),
-            },
-            section3_3: {
-              VGFArray: (stepData.section3_3 as any)?.VGFArray || [],
-            },
-            section3_4: {
-              projects:
-                stepData.section3_4?.projects ||
-                defaultData.section3_4.projects,
-              totalProjectsAwarded:
-                stepData.section3_4?.totalProjectsAwarded ||
-                defaultData.section3_4.totalProjectsAwarded,
-              totalProjectCostAwarded:
-                stepData.section3_4?.totalProjectCostAwarded ||
-                defaultData.section3_4.totalProjectCostAwarded,
-            },
-          };
-          setFormData(updatedData);
-          console.log(
-            "✅ Direct prefill from editing submission:",
-            updatedData
-          );
-
-          // Clear the editing submission data after successful prefill
-          localStorage.removeItem("editing_submission");
-        }
-      } catch (error) {
-        console.error(
-          "❌ Failed to parse editing submission in PPPDevelopmentStep:",
-          error
-        );
-        localStorage.removeItem("editing_submission");
-      }
-    }
-  }, []);
 
   // Autosave to localStorage with debouncing (avoid infinite loop)
   useEffect(() => {
@@ -403,6 +389,21 @@ export const PPPDevelopmentStep = () => {
     }));
   };
 
+  // Deep merge utility for robust updates
+  function deepMerge(target: any, source: any): any {
+    if (typeof target !== 'object' || target === null) return source;
+    if (typeof source !== 'object' || source === null) return source;
+    const result = Array.isArray(target) ? [...target] : { ...target };
+    for (const key in source) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        result[key] = deepMerge(target[key], source[key]);
+      } else {
+        result[key] = source[key];
+      }
+    }
+    return result;
+  }
+
   const updateProject = (
     id: string,
     field: "projectName" | "sector" | "type" | "submissionDate" | "file",
@@ -412,9 +413,14 @@ export const PPPDevelopmentStep = () => {
       ...prev,
       section3_3: {
         ...(prev.section3_3 as any),
-        VGFArray: prev.section3_3.VGFArray.map((entry) =>
-          entry.id === id ? { ...entry, [field]: value } : entry
-        ),
+        VGFArray: prev.section3_3.VGFArray.map((entry) => {
+          if (entry.id !== id) return entry;
+          // Deep merge for file and nested objects
+          if (typeof value === 'object' && value !== null && field === 'file') {
+            return deepMerge(entry, { [field]: value });
+          }
+          return { ...entry, [field]: value };
+        }),
       },
     }));
   };
@@ -436,6 +442,7 @@ export const PPPDevelopmentStep = () => {
             dateOfAward: "",
             capexPercentage: "",
             totalProjectCost: "",
+            file: null,
           },
         ],
       },
@@ -463,16 +470,21 @@ export const PPPDevelopmentStep = () => {
       | "infrastructureSector"
       | "dateOfAward"
       | "capexPercentage"
-      | "totalProjectCost",
-    value: string
+      | "totalProjectCost"
+      | "file",
+    value: string | FileUpload | null
   ) => {
     setFormData((prev) => ({
       ...prev,
       section3_4: {
         ...prev.section3_4,
-        projects: (prev.section3_4.projects || []).map((entry) =>
-          entry.id === id ? { ...entry, [field]: value } : entry
-        ),
+        projects: (prev.section3_4.projects || []).map((entry) => {
+          if (entry.id !== id) return entry;
+          if (typeof value === 'object' && value !== null && field === 'file') {
+            return deepMerge(entry, { [field]: value });
+          }
+          return { ...entry, [field]: value };
+        }),
       },
     }));
   };
@@ -494,11 +506,179 @@ export const PPPDevelopmentStep = () => {
     goToNext();
   };
 
-  const handleSaveDraft = async () => {
-    const success = saveDraftToLocalStorage("pppDevelopment", formData);
+  // Remove unwanted keys and sanitize files before submit
+  function deepRemoveUnwantedKeys(obj) {
+    const keysToRemove = [
+      'sectionStatus',
+      'section_status',
+      'completedList',
+      'totalIndicators',
+      'completedIndicators',
+    ];
+    if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
+    if (obj && typeof obj === 'object') {
+      const newObj = {};
+      for (const key in obj) {
+        if (!keysToRemove.includes(key)) {
+          if (key === 'normalizedFormData' && obj[key] && typeof obj[key] === 'object') {
+            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            if (newObj[key].original) {
+              newObj[key].original = deepRemoveUnwantedKeys(newObj[key].original);
+            }
+          } else {
+            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+          }
+        }
+      }
+      return newObj;
+    }
+    return obj;
+  }
 
-    if (success) {
+  function sanitizeFilesInFormData(obj) {
+    if (Array.isArray(obj)) return obj.map(sanitizeFilesInFormData);
+    if (obj && typeof obj === 'object') {
+      const newObj = {};
+      for (const key in obj) {
+        if (key === 'file') {
+          const fileVal = obj[key];
+          // Allow FileUpload object (with fileName/fileSize) or null
+          if (
+            fileVal &&
+            typeof fileVal === 'object' &&
+            ('fileName' in fileVal || 'fileSize' in fileVal)
+          ) {
+            newObj[key] = fileVal;
+          } else {
+            newObj[key] = null;
+          }
+        } else {
+          newObj[key] = sanitizeFilesInFormData(obj[key]);
+        }
+      }
+      return newObj;
+    }
+    return obj;
+  }
+
+  const handleSubmitToStateApprover = async () => {
+    // Enforce file required for section3_1 if available is 'yes'
+    if (formData.section3_1.available === 'yes' && !formData.section3_1.file) {
+      toast({
+        title: "File Required",
+        description: "Please upload a file for 3.1 - Availability of PPP Act/Policy before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+      toast({
+        title: "Incomplete section",
+        description: "Please complete all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Debug: Log files before submit
+    console.log("[DEBUG] Submitting PPPDevelopmentStep, formData:", formData);
+
+    try {
+      setIsSubmitting(true);
+      // Get the indicators for this section
+      const sectionIndicators = allowedIndicators || ["3.1", "3.2", "3.3", "3.4"];
+      // Sanitize files and remove unwanted keys
+      let sanitizedFormData = deepRemoveUnwantedKeys(sanitizeFilesInFormData(formData));
+      // Debug: Log sanitized payload before submit
+      console.log("[DEBUG] Payload to submit PPPDevelopmentStep:", sanitizedFormData);
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormData,
+        "pppDevelopment",
+        sectionIndicators
+      );
+      toast({
+        title: "Success",
+        description: "PPP Development section submitted to State Approver successfully.",
+        variant: "default",
+      });
+      updateFormData("pppDevelopment", sanitizedFormData);
+    } catch (error: any) {
+      console.error("Submit error:", error);
+      toast({
+        title: "Submission Failed",
+        description: error?.response?.data?.message || error?.message || "Failed to submit section. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitIndicator = async (indicatorCode: string, indicatorTitle: string) => {
+    setShowValidationErrors(true);
+    // Validate only this specific indicator
+    const indicatorValidation = validatePPPDevelopment(formData, {
+      allowedIndicators: [indicatorCode],
+    });
+    if (!indicatorValidation.isValid) {
+      toast({
+        title: "Incomplete Indicator",
+        description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      // Sanitize files and remove unwanted keys
+      let sanitizedFormData = deepRemoveUnwantedKeys(sanitizeFilesInFormData(formData));
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormData,
+        "pppDevelopment",
+        [indicatorCode]
+      );
+
+      toast({
+        title: "Success",
+        description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
+        variant: "default",
+      });
+
+      // Update form data
       updateFormData("pppDevelopment", formData);
+    } catch (error: any) {
+      console.error("Submit error:", error);
+      toast({
+        title: "Submission Failed",
+        description: error?.response?.data?.message || error?.message || "Failed to submit indicator. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      await apiService.submitSectionToStateApprover(
+        formData,
+        "pppDevelopment",
+        allowedIndicators || ["3.1", "3.2", "3.3", "3.4"]
+      );
+      updateFormData("pppDevelopment", formData);
+      toast({
+        title: "Draft Saved",
+        description: "Your progress has been saved to the database.",
+        variant: "default",
+      });
+    } catch (error: any) {
+      console.error("Save draft error:", error);
+      toast({
+        title: "Save Failed",
+        description: error?.message || "Failed to save draft. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -671,12 +851,15 @@ export const PPPDevelopmentStep = () => {
                   <div className="flex flex-col gap-2">
                     <FileUploadSection
                       label="Upload File"
-                      value={formData.section3_1.file || null}
-                      onChange={(file) => {
+                      value={formData.section3_1.file ?? null}
+                      onChange={(fileUpload) => {
                         showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
-                          section3_1: { ...prev.section3_1, file },
+                          section3_1: {
+                            ...prev.section3_1,
+                            file: fileUpload,
+                          },
                         }));
                       }}
                     />
@@ -715,6 +898,16 @@ export const PPPDevelopmentStep = () => {
                     {renderFieldError("section3_1.comment")}
                   </div>
                 )}
+                <div className="mt-4">
+                  <Button
+                    onClick={() => handleSubmitIndicator("3.1", "Availability of PPP Act/Policy")}
+                    disabled={isSubmitting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    size="sm"
+                  >
+                    {isSubmitting ? "Saving..." : "Save"}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
@@ -803,12 +996,15 @@ export const PPPDevelopmentStep = () => {
                   <div className="flex flex-col gap-2">
                     <FileUploadSection
                       label="Upload File"
-                      value={formData.section3_2.file || null}
-                      onChange={(file) => {
+                      value={formData.section3_2.file ?? null}
+                      onChange={(fileUpload) => {
                         showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
-                          section3_2: { ...prev.section3_2, file },
+                          section3_2: {
+                            ...prev.section3_2,
+                            file: fileUpload,
+                          },
                         }));
                       }}
                     />
@@ -847,6 +1043,16 @@ export const PPPDevelopmentStep = () => {
                     {renderFieldError("section3_2.comment")}
                   </div>
                 )}
+                <div className="mt-4">
+                  <Button
+                    onClick={() => handleSubmitIndicator("3.2", "Availability of PPP Cell/Unit")}
+                    disabled={isSubmitting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    size="sm"
+                  >
+                    {isSubmitting ? "Saving..." : "Save"}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
@@ -871,7 +1077,7 @@ export const PPPDevelopmentStep = () => {
               className="mb-6"
             >
               <div className="flex flex-col gap-4">
-                {formData.section3_3.VGFArray.map((entry, idx) => (
+                {(Array.isArray(formData.section3_3?.VGFArray) ? formData.section3_3.VGFArray : []).map((entry, idx) => (
                   <div key={entry.id} className="mb-2">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                       <div>
@@ -1027,10 +1233,10 @@ export const PPPDevelopmentStep = () => {
                     <div className="mt-4">
                       <FileUploadSection
                         label="Upload File"
-                        value={entry.file || null}
-                        onChange={(file) => {
+                        value={entry.file ?? null}
+                        onChange={(fileUpload) => {
                           showErrorsIfNeeded();
-                          updateProject(entry.id, "file", file);
+                          updateProject(entry.id, "file", fileUpload);
                         }}
                       />
                     </div>
@@ -1083,7 +1289,7 @@ export const PPPDevelopmentStep = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {formData.section3_3.VGFArray.map((entry) => (
+                        {(Array.isArray(formData.section3_3?.VGFArray) ? formData.section3_3.VGFArray : []).map((entry) => (
                           <tr key={entry.id} className="bg-white">
                             <td className="py-3 px-4 text-sm">
                               {entry.projectName}
@@ -1128,6 +1334,16 @@ export const PPPDevelopmentStep = () => {
                     </table>
                   </div>
                 )}
+                <div className="mt-4">
+                  <Button
+                    onClick={() => handleSubmitIndicator("3.3", "VGF Proposals Submitted")}
+                    disabled={isSubmitting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    size="sm"
+                  >
+                    {isSubmitting ? "Saving..." : "Save"}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
@@ -1296,6 +1512,20 @@ export const PPPDevelopmentStep = () => {
                             )}.capexPercentage`
                           )}
                         </div>
+                        {/* File Upload for each project */}
+                        <div>
+                          <FileUploadSection
+                            label="Upload File"
+                            value={project.file ?? null}
+                            onChange={(fileUpload) => {
+                              showErrorsIfNeeded();
+                              updatePPPProject(project.id, "file", fileUpload);
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Upload supporting document (if any)
+                          </p>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -1457,7 +1687,7 @@ export const PPPDevelopmentStep = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {formData.section3_4.projects.map((project) => (
+                          {(Array.isArray(formData.section3_4?.projects) ? formData.section3_4.projects : []).map((project) => (
                             <tr key={project.id} className="bg-white">
                               <td className="py-3 px-4 text-sm">
                                 {project.nameOfProject}
@@ -1501,6 +1731,16 @@ export const PPPDevelopmentStep = () => {
                       </table>
                     </div>
                   )}
+                  <div className="mt-4">
+                    <Button
+                      onClick={() => handleSubmitIndicator("3.4", "Proportion of TPC of PPP Projects")}
+                      disabled={isSubmitting}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      size="sm"
+                    >
+                      {isSubmitting ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </SectionCard>
@@ -1512,16 +1752,17 @@ export const PPPDevelopmentStep = () => {
             Complete all required fields before continuing.
           </p>
         )}
+        
         <FormActions
-          onPrevious={goToPrevious}
-          onNext={handleNext}
-          onSaveDraft={handleSaveDraft}
-          isFirstStep={isFirstStep}
-          isLastStep={isLastStep}
-          nextLabel={isLastStep ? "Review & Submit" : "Next"}
-          showSaveDraft={true}
-          isNextDisabled={isNextDisabled}
-        />
+            onPrevious={goToPrevious}
+            onNext={handleNext}
+            onSaveDraft={handleSaveDraft}
+            isFirstStep={isFirstStep}
+            isLastStep={isLastStep}
+            nextLabel={isLastStep ? "Review & Submit" : "Next"}
+            showSaveDraft={true}
+            isNextDisabled={isNextDisabled}
+          />
       </div>
     </div>
   );

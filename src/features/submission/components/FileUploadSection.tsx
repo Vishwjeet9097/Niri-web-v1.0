@@ -3,7 +3,7 @@ import { Upload, X, File, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { apiService, type FileUploadResponse } from "@/services/api.service";
+import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import type { FileUpload } from "../types";
 
@@ -16,7 +16,7 @@ interface FileUploadSectionProps {
   maxSize?: number; // in MB
   required?: boolean;
   submissionId?: string; // For backend integration
-  onUploadComplete?: (uploadedFile: FileUploadResponse) => void;
+  onUploadComplete?: (uploadedFile: FileUpload) => void;
 }
 
 export const FileUploadSection = ({
@@ -57,7 +57,7 @@ export const FileUploadSection = ({
       // Local file handling (keep actual File instance)
       const fileUpload: FileUpload = {
         id: crypto.randomUUID(),
-        file, // ✅ real File instance retained
+        file: (file && file.constructor && file.constructor.name === "File") ? file : null,
         fileName: file.name,
         fileSize: file.size,
         uploadedAt: Date.now(),
@@ -92,7 +92,7 @@ export const FileUploadSection = ({
       };
 
       onChange(fileUpload);
-      onUploadComplete?.(response);
+      onUploadComplete?.(fileUpload);
 
       notificationService.success("File uploaded successfully", "Upload Complete");
     } catch (error: any) {
@@ -118,6 +118,7 @@ export const FileUploadSection = ({
         );
       }
     }
+    // Always call onChange with null (never an empty object)
     onChange(null);
   };
 

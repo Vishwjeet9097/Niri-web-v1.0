@@ -35,7 +35,7 @@ import { draftService } from "@/services/draft.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { FormActions } from "../components/FormActions";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { saveDraftToLocalStorage } from "@/utils/draftUtils";
+import { apiService } from "@/services/api.service";
 import { computeStepProgress } from "../utils/progress";
 import { cn } from "@/lib/utils";
 import {
@@ -86,6 +86,7 @@ export const InfraEnablersStep = () => {
     typeof window !== "undefined" &&
     localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
+  const [sectionStatus, setSectionStatus] = useState<any>(undefined);
 
   // Indicator access
   const {
@@ -118,24 +119,98 @@ export const InfraEnablersStep = () => {
     user,
   ]);
 
-  // Merge loaded data with defaults
-  const loadedData =
-    (getStepData("infraEnablers") as Partial<InfraEnablersData>) || {};
-  const initialData: InfraEnablersData = {
-    ...defaultData,
-    ...loadedData,
-    section4_1: { ...defaultData.section4_1, ...(loadedData.section4_1 || {}) },
-    section4_2: { ...defaultData.section4_2, ...(loadedData.section4_2 || {}) },
-    section4_3: { ...defaultData.section4_3, ...(loadedData.section4_3 || {}) },
-    section4_4: { ...defaultData.section4_4, ...(loadedData.section4_4 || {}) },
-    section4_5: { ...defaultData.section4_5, ...(loadedData.section4_5 || {}) },
-    section4_6: { ...defaultData.section4_6, ...(loadedData.section4_6 || {}) },
-  };
+  // Defensive: always ensure array fields are initialized
+  function safeInfraEnablersFormData(data: Partial<InfraEnablersData>): InfraEnablersData {
+    return {
+      ...defaultData,
+      ...data,
+      section4_1: { ...defaultData.section4_1, ...(data.section4_1 || {}) },
+      section4_2: { ...defaultData.section4_2, ...(data.section4_2 || {}) },
+      section4_3: {
+        ...defaultData.section4_3,
+        ...(data.section4_3 || {}),
+        projects: Array.isArray(data.section4_3?.projects) ? data.section4_3.projects : [],
+      },
+      section4_4: { ...defaultData.section4_4, ...(data.section4_4 || {}) },
+      section4_5: {
+        ...defaultData.section4_5,
+        ...(data.section4_5 || {}),
+        practices: Array.isArray(data.section4_5?.practices) ? data.section4_5.practices : [],
+      },
+      section4_6: {
+        ...defaultData.section4_6,
+        ...(data.section4_6 || {}),
+        capacityArray: Array.isArray(data.section4_6?.capacityArray) ? data.section4_6.capacityArray : [],
+      },
+    };
+  }
+
+  const loadedData = (getStepData("infraEnablers") as Partial<InfraEnablersData>) || {};
+  const initialData: InfraEnablersData = safeInfraEnablersFormData(loadedData);
 
   const [formData, setFormData] = useState<InfraEnablersData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const { toast } = useToast();
+
+  // On mount, fetch submission from DB and populate form
+  // Helper to merge normalized and legacy data for each section
+  function getSectionFromNormalizedOrLegacy(normalized: any, legacy: any, code: string) {
+    if (normalized && normalized.byIndicatorCode && normalized.byIndicatorCode[code]) {
+      return { ...legacy, ...normalized.byIndicatorCode[code] };
+    }
+    return legacy || {};
+  }
+
+  useEffect(() => {
+    if (!user || !user.id || isDataLoaded) return;
+
+    (async () => {
+      try {
+        const submissionsResp = await apiService.getSubmissions(1, 100);
+        const userSubmission = submissionsResp.submissions.find(
+          (sub: any) =>
+            sub.status === "DRAFT" ||
+            sub.status === "IN_PROGRESS" ||
+            sub.status === "RETURNED_FROM_STATE" ||
+            sub.status === "PENDING_STATE_APPROVAL"
+        );
+
+        let sectionStatusFromDB = undefined;
+        if (userSubmission && userSubmission.id) {
+          const fullSubmission = await apiService.getSubmission(userSubmission.id);
+          let parsedFormData = fullSubmission.formData;
+          if (typeof fullSubmission.formData === 'string') {
+            try {
+              parsedFormData = JSON.parse(fullSubmission.formData);
+            } catch (e) {}
+          }
+          // Restore section_status from DB if present
+          sectionStatusFromDB = fullSubmission.section_status;
+          setSectionStatus(sectionStatusFromDB);
+          const normalized = parsedFormData?.normalizedFormData;
+          const legacy = parsedFormData?.infraEnablers || {};
+          const newFormData: InfraEnablersData = safeInfraEnablersFormData({
+            section4_1: getSectionFromNormalizedOrLegacy(normalized, legacy.section4_1, '4.1'),
+            section4_2: getSectionFromNormalizedOrLegacy(normalized, legacy.section4_2, '4.2'),
+            section4_3: getSectionFromNormalizedOrLegacy(normalized, legacy.section4_3, '4.3'),
+            section4_4: getSectionFromNormalizedOrLegacy(normalized, legacy.section4_4, '4.4'),
+            section4_5: getSectionFromNormalizedOrLegacy(normalized, legacy.section4_5, '4.5'),
+            section4_6: getSectionFromNormalizedOrLegacy(normalized, legacy.section4_6, '4.6'),
+          });
+          setFormData(newFormData);
+          setIsDataLoaded(true);
+        } else {
+          setIsDataLoaded(true);
+        }
+      } catch (e) {
+        setIsDataLoaded(true);
+      }
+    })();
+  }, [user, isDataLoaded]);
+
 
   // Unified access control for both roles - calculate before validation
   const sectionIndicators = ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"];
@@ -217,34 +292,7 @@ export const InfraEnablersStep = () => {
       "infraEnablers"
     ) as Partial<InfraEnablersData>;
     if (currentStepData && Object.keys(currentStepData).length > 0) {
-      const syncedData: InfraEnablersData = {
-        ...defaultData,
-        ...currentStepData,
-        section4_1: {
-          ...defaultData.section4_1,
-          ...(currentStepData.section4_1 || {}),
-        },
-        section4_2: {
-          ...defaultData.section4_2,
-          ...(currentStepData.section4_2 || {}),
-        },
-        section4_3: {
-          ...defaultData.section4_3,
-          ...(currentStepData.section4_3 || {}),
-        },
-        section4_4: {
-          ...defaultData.section4_4,
-          ...(currentStepData.section4_4 || {}),
-        },
-        section4_5: {
-          ...defaultData.section4_5,
-          ...(currentStepData.section4_5 || {}),
-        },
-        section4_6: {
-          ...defaultData.section4_6,
-          ...(currentStepData.section4_6 || {}),
-        },
-      };
+      const syncedData: InfraEnablersData = safeInfraEnablersFormData(currentStepData);
       setFormData(syncedData);
       console.log(
         "🔄 Synced infraEnablers data from localStorage in normal flow:",
@@ -266,36 +314,8 @@ export const InfraEnablersStep = () => {
         );
 
         if (submissionData.formData && submissionData.formData.infraEnablers) {
-          const stepData = submissionData.formData
-            .infraEnablers as Partial<InfraEnablersData>;
-          const updatedData: InfraEnablersData = {
-            ...defaultData,
-            ...stepData,
-            section4_1: {
-              ...defaultData.section4_1,
-              ...(stepData.section4_1 || {}),
-            },
-            section4_2: {
-              ...defaultData.section4_2,
-              ...(stepData.section4_2 || {}),
-            },
-            section4_3: {
-              ...defaultData.section4_3,
-              ...(stepData.section4_3 || {}),
-            },
-            section4_4: {
-              ...defaultData.section4_4,
-              ...(stepData.section4_4 || {}),
-            },
-            section4_5: {
-              ...defaultData.section4_5,
-              ...(stepData.section4_5 || {}),
-            },
-            section4_6: {
-              ...defaultData.section4_6,
-              ...(stepData.section4_6 || {}),
-            },
-          };
+          const stepData = submissionData.formData.infraEnablers as Partial<InfraEnablersData>;
+          const updatedData: InfraEnablersData = safeInfraEnablersFormData(stepData);
           setFormData(updatedData);
           console.log(
             "✅ Direct prefill from editing submission:",
@@ -552,10 +572,170 @@ export const InfraEnablersStep = () => {
     goToNext();
   };
 
-  const handleSaveDraft = async () => {
-    const success = saveDraftToLocalStorage("infraEnablers", formData);
-    if (success) {
+  // Remove unwanted keys and sanitize files before submit
+  function deepRemoveUnwantedKeys(obj) {
+    const keysToRemove = [
+      'sectionStatus',
+      'section_status',
+      'completedList',
+      'totalIndicators',
+      'completedIndicators',
+    ];
+    if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
+    if (obj && typeof obj === 'object') {
+      const newObj = {};
+      for (const key in obj) {
+        if (!keysToRemove.includes(key)) {
+          if (key === 'normalizedFormData' && obj[key] && typeof obj[key] === 'object') {
+            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            if (newObj[key].original) {
+              newObj[key].original = deepRemoveUnwantedKeys(newObj[key].original);
+            }
+          } else {
+            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+          }
+        }
+      }
+      return newObj;
+    }
+    return obj;
+  }
+
+  function sanitizeFilesInFormData(obj) {
+    if (Array.isArray(obj)) return obj.map(sanitizeFilesInFormData);
+    if (obj && typeof obj === 'object') {
+      const newObj = {};
+      for (const key in obj) {
+        if (key === 'file') {
+          const fileVal = obj[key];
+          // Allow FileUpload object (with fileName/fileSize) or null
+          if (
+            fileVal &&
+            typeof fileVal === 'object' &&
+            ('fileName' in fileVal || 'fileSize' in fileVal)
+          ) {
+            newObj[key] = fileVal;
+          } else {
+            newObj[key] = null;
+          }
+        } else {
+          newObj[key] = sanitizeFilesInFormData(obj[key]);
+        }
+      }
+      return newObj;
+    }
+    return obj;
+  }
+
+  const handleSubmitToStateApprover = async () => {
+    if (!validation.isValid) {
+      setShowValidationErrors(true);
+      toast({
+        title: "Incomplete section",
+        description: "Please complete all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Debug: Log files before submit
+    console.log("[DEBUG] Submitting InfraEnablersStep, formData:", formData);
+
+    try {
+      setIsSubmitting(true);
+      // Get the indicators for this section
+      const sectionIndicators = allowedIndicators || ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"];
+      // Sanitize files and remove unwanted keys
+      let sanitizedFormData = deepRemoveUnwantedKeys(sanitizeFilesInFormData(formData));
+      // Debug: Log sanitized payload before submit
+      console.log("[DEBUG] Payload to submit InfraEnablersStep:", sanitizedFormData);
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormData,
+        "infraEnablers",
+        sectionIndicators
+      );
+      toast({
+        title: "Success",
+        description: "Infrastructure Enablers section submitted to State Approver successfully.",
+        variant: "default",
+      });
+      updateFormData("infraEnablers", sanitizedFormData);
+    } catch (error: any) {
+      console.error("Submit error:", error);
+      toast({
+        title: "Submission Failed",
+        description: error?.response?.data?.message || error?.message || "Failed to submit section. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitIndicator = async (indicatorCode: string, indicatorTitle: string) => {
+    setShowValidationErrors(true);
+    // Validate only this specific indicator
+    const indicatorValidation = validateInfraEnablers(formData, {
+      allowedIndicators: [indicatorCode],
+    });
+    if (!indicatorValidation.isValid) {
+      toast({
+        title: "Incomplete Indicator",
+        description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      // Sanitize files and remove unwanted keys
+      let sanitizedFormData = deepRemoveUnwantedKeys(sanitizeFilesInFormData(formData));
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormData,
+        "infraEnablers",
+        [indicatorCode]
+      );
+
+      toast({
+        title: "Success",
+        description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
+        variant: "default",
+      });
+
+      // Update form data
       updateFormData("infraEnablers", formData);
+    } catch (error: any) {
+      console.error("Submit error:", error);
+      toast({
+        title: "Submission Failed",
+        description: error?.response?.data?.message || error?.message || "Failed to submit indicator. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      await apiService.submitSectionToStateApprover(
+        formData,
+        "infraEnablers",
+        allowedIndicators || ["4.1", "4.2", "4.3", "4.4", "4.5"]
+      );
+      updateFormData("infraEnablers", formData);
+      toast({
+        title: "Draft Saved",
+        description: "Your progress has been saved to the database.",
+        variant: "default",
+      });
+    } catch (error: any) {
+      console.error("Save draft error:", error);
+      toast({
+        title: "Save Failed",
+        description: error?.message || "Failed to save draft. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -764,6 +944,16 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_1.comment")}
                 </div>
               )}
+              <div className="mt-4">
+                <Button
+                  onClick={() => handleSubmitIndicator("4.1", "Ease of Participation")}
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -881,6 +1071,16 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_2.comment")}
                 </div>
               )}
+              <div className="mt-4">
+                <Button
+                  onClick={() => handleSubmitIndicator("4.2", "PM GatiShakti Master Plan")}
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -968,7 +1168,7 @@ export const InfraEnablersStep = () => {
               {/* --- If YES --- */}
               {formData.section4_3.adopted === "yes" && (
                 <div className="flex flex-col gap-4">
-                  {formData.section4_3.projects.map((entry) => (
+                          {(Array.isArray(formData.section4_3?.projects) ? formData.section4_3.projects : []).map((entry) => (
                     <div key={entry.id} className="mb-2">
                       {/* Fields row */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -1110,7 +1310,7 @@ export const InfraEnablersStep = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {formData.section4_3.projects.map((entry) => (
+                          {(Array.isArray(formData.section4_3?.projects) ? formData.section4_3.projects : []).map((entry) => (
                             <tr key={entry.id} className="bg-white">
                               <td className="py-3 px-4 text-sm">
                                 {entry.projectName}
@@ -1177,6 +1377,16 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_3.comment")}
                 </div>
               )}
+              <div className="mt-4">
+                <Button
+                  onClick={() => handleSubmitIndicator("4.3", "PM GatiShakti NMP Projects")}
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1309,6 +1519,16 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_4.comment")}
                 </div>
               )}
+              <div className="mt-4">
+                <Button
+                  onClick={() => handleSubmitIndicator("4.4", "Adoption of ADR")}
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1553,6 +1773,16 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_5.comment")}
                 </div>
               )}
+              <div className="mt-4">
+                <Button
+                  onClick={() => handleSubmitIndicator("4.5", "Best Practices")}
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1921,6 +2151,16 @@ export const InfraEnablersStep = () => {
                   {renderFieldError("section4_6.comment")}
                 </div>
               )}
+              <div className="mt-4">
+                <Button
+                  onClick={() => handleSubmitIndicator("4.6", "Capacity Building")}
+                  disabled={isSubmitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -1931,16 +2171,17 @@ export const InfraEnablersStep = () => {
           Complete all required fields before continuing.
         </p>
       )}
+      
       <FormActions
-        onPrevious={goToPrevious}
-        onNext={handleNext}
-        onSaveDraft={handleSaveDraft}
-        isFirstStep={false}
-        isLastStep={isLastStep}
-        nextLabel={isLastStep ? "Review & Submit" : "Next"}
-        showSaveDraft={true}
-        isNextDisabled={isNextDisabled}
-      />
+          onPrevious={goToPrevious}
+          onNext={handleNext}
+          onSaveDraft={handleSaveDraft}
+          isFirstStep={false}
+          isLastStep={isLastStep}
+          nextLabel={isLastStep ? "Review & Submit" : "Next"}
+          showSaveDraft={true}
+          isNextDisabled={isNextDisabled}
+        />
     </div>
   );
 };
