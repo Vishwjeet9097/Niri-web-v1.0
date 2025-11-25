@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Send, CheckCircle, Edit3, AlertTriangle, MessageSquare } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle, Edit3, AlertTriangle, MessageSquare, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { DataReviewTab } from "./tabs/DataReviewTab";
 import { DocumentsTab } from "./tabs/DocumentsTab";
@@ -23,7 +33,7 @@ import { generateAuditEntries } from "@/utils/auditUtils";
 import { MospiOverviewTab } from "./tabs/MospiOverviewTab";
 import { MospiApproverDataReviewTab } from "./tabs/MospiApproverDataReviewTab";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { areAllIndicatorsMospiAccepted, getSubmissionStatus } from "@/utils/indicatorStatusUtils";
+import { areAllIndicatorsMospiAccepted, getSubmissionStatus, hasAnyIndicatorMospiReverted } from "@/utils/indicatorStatusUtils";
 import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
 import { ConsolidationInfo } from "@/components/submission/ConsolidationInfo";
 
@@ -89,6 +99,8 @@ export const UnifiedReviewPage = ({
   const [sendToApproverModalOpen, setSendToApproverModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [actualEditMode, setActualEditMode] = useState(isEditMode);
+  const [showSendBackConfirmationDialog, setShowSendBackConfirmationDialog] = useState(false);
+  const [isSendingBack, setIsSendingBack] = useState(false);
   
   // Get active tab from URL params, default to "overview"
   const activeTab = searchParams.get('tab') || 'overview';
@@ -370,11 +382,28 @@ export const UnifiedReviewPage = ({
     // Hide Send to Approver button if already submitted to MOSPI_APPROVER
     // (Button should not appear when status is SUBMITTED_TO_MOSPI_APPROVER)
 
-    // Final Submit button for MOSPI_APPROVER
+    // Final Submit and Send Back buttons for MOSPI_APPROVER
     if (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER") {
       // Check if all indicators have mospi_status = "ACCEPTED" or "APPROVED"
       const allIndicatorsAccepted = areAllIndicatorsMospiAccepted(submission);
+      // Check if any indicator has mospi_status = "REVERTED"
+      const hasRevertedIndicators = hasAnyIndicatorMospiReverted(submission);
       
+      // Send Back button - enabled only if at least one indicator is REVERTED
+      buttons.push(
+        <Button
+          key="send-back"
+          variant="outline"
+          onClick={() => setShowSendBackConfirmationDialog(true)}
+          disabled={!hasRevertedIndicators || isSendingBack}
+          className="gap-2 border-orange-500 text-orange-700 hover:bg-orange-50"
+        >
+          <RotateCcw className="w-4 h-4" />
+          {isSendingBack ? "Sending Back..." : "Send Back"}
+        </Button>
+      );
+      
+      // Final Submit button
       buttons.push(
         <Button
           key="final-submit"
@@ -591,6 +620,64 @@ export const UnifiedReviewPage = ({
               loadSubmission();
             }}
           />
+          
+          {/* Confirmation Dialog for Send Back to State */}
+          <AlertDialog open={showSendBackConfirmationDialog} onOpenChange={setShowSendBackConfirmationDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Send Back to State</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-3">
+                  <p>
+                    Are you sure you want to send this submission back to the State Approver?
+                  </p>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-orange-900 mb-2">⚠️ Important:</p>
+                    <ul className="text-sm text-orange-800 space-y-1 list-disc list-inside">
+                      <li>This form will not be visible to MOSPI Reviewer and MOSPI Approver</li>
+                      <li>It will be returned back to State Approver</li>
+                      <li>It will only be visible again when State Approver submits the form again</li>
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setShowSendBackConfirmationDialog(false)}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async () => {
+                    try {
+                      setIsSendingBack(true);
+                      // Send back to state using mospiApproverSendBack API
+                      await apiService.mospiApproverSendBack(submission.id);
+                      
+                      notificationService.success(
+                        "Submission sent back to State Approver successfully",
+                        "Send Back Successful"
+                      );
+                      
+                      setShowSendBackConfirmationDialog(false);
+                      // Reload submission to reflect the new status
+                      await loadSubmission();
+                      // Navigate back to review list
+                      navigate("/data-submission/review");
+                    } catch (error) {
+                      console.error("Failed to send back submission:", error);
+                      notificationService.error(
+                        error instanceof Error ? error.message : "Failed to send back submission. Please try again.",
+                        "Send Back Failed"
+                      );
+                    } finally {
+                      setIsSendingBack(false);
+                    }
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Confirm & Send Back
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
     </div>

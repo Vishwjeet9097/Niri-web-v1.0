@@ -1047,6 +1047,37 @@ export const StateAggregateReviewPage = () => {
         // Continue without source IDs - not critical for consolidation
       }
 
+      // Set status to "ACCEPTED" for all indicators before transformation
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("✅ STEP 2.5: Setting status to ACCEPTED for all indicators");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Create a deep copy of formData to avoid mutating the original
+      const formDataWithAcceptedStatus = JSON.parse(JSON.stringify(formData));
+      
+      // All possible categories
+      const categories = ['infraFinancing', 'infraDevelopment', 'pppDevelopment', 'infraEnablers'];
+      
+      // Iterate through all categories and sections to set status to "ACCEPTED"
+      categories.forEach((category) => {
+        const categoryData = formDataWithAcceptedStatus[category];
+        if (categoryData && typeof categoryData === 'object') {
+          Object.keys(categoryData).forEach((sectionKey) => {
+            // Only process section keys (section1_1, section2_1, etc.)
+            if (sectionKey.startsWith('section')) {
+              const sectionData = categoryData[sectionKey];
+              if (sectionData && typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+                // Set status to "ACCEPTED" for this indicator
+                sectionData.status = "ACCEPTED";
+                console.log(`   ✅ Set status to ACCEPTED for ${category}.${sectionKey}`);
+              }
+            }
+          });
+        }
+      });
+      
+      console.log("✅ All indicators set to ACCEPTED status");
+
       // Transform formData for submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("🔄 STEP 3: Transforming formData for submission");
@@ -1064,7 +1095,7 @@ export const StateAggregateReviewPage = () => {
       }
       
       const transformedData = transformFormDataForSubmission(
-        formData,
+        formDataWithAcceptedStatus, // Use formData with ACCEPTED status
         submissionStatus,
         {
           isConsolidated: true,

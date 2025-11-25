@@ -5,7 +5,8 @@ import { MessageSquare, Upload, Plus, Clock, RotateCcw, CheckCircle, X, Check, E
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useState, useEffect, useRef } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,6 +99,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
   const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<string | null>(null);
+  
+  // State to track checked indicators for consolidated submissions (MOSPI_APPROVER)
+  const [checkedIndicators, setCheckedIndicators] = useState<Set<string>>(new Set());
+  const [pendingCheckboxIndicator, setPendingCheckboxIndicator] = useState<string | null>(null);
 
   // State for Add More forms in sections 2.1, 2.2, 2.3, 2.4, and 2.5
   const [showAddForm2_1, setShowAddForm2_1] = useState(false);
@@ -117,12 +122,51 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       const authUser = localStorage.getItem('niri_app:auth_user');
       if (authUser) {
         const user = JSON.parse(authUser);
-        return user.value?.role;
+        const role = user.value?.role;
+        // Normalize role string (trim whitespace, convert to uppercase for comparison)
+        return role ? String(role).trim() : null;
       }
     } catch (error) {
       console.error('Error reading user role:', error);
     }
     return null;
+  };
+
+  // Helper function to check if submission is consolidated
+  const isConsolidatedSubmission = () => {
+    const formDataObj = formData as any;
+    return formDataObj?._metadata?.isConsolidated === true && formDataObj?._metadata?.indicatorMapping;
+  };
+
+  // Helper function to get indicator mapping
+  const getIndicatorMapping = () => {
+    const formDataObj = formData as any;
+    return formDataObj?._metadata?.indicatorMapping || {};
+  };
+
+  // Helper function to get indicators for a section
+  const getIndicatorsForSection = (sectionId: string) => {
+    const mapping = getIndicatorMapping();
+    const category = 'infraDevelopment';
+    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const mappingKey = `${category}.${sectionKey}`;
+    
+    // Return all indicators that match this section
+    return Object.keys(mapping).filter(key => key === mappingKey);
+  };
+
+  // Handler for checkbox click - opens comment dialog first
+  const handleCheckboxClick = (indicatorKey: string, sectionId: string) => {
+    // If already checked, don't do anything (or uncheck if needed)
+    if (checkedIndicators.has(indicatorKey)) {
+      return;
+    }
+    
+    // Set pending checkbox indicator and open comment modal
+    setPendingCheckboxIndicator(indicatorKey);
+    setIsMospiApproverSentBack(true);
+    setMospiSentBackSectionId(sectionId);
+    handleOpenModal(sectionId);
   };
  
   //State for edit button 
@@ -578,6 +622,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     // (Accept no longer uses comment modal, so no need to reset Accept flags)
     setIsMospiApproverSentBack(false);
     setMospiSentBackSectionId(null);
+    // Reset pending checkbox indicator if modal is closed without saving
+    if (pendingCheckboxIndicator) {
+      setPendingCheckboxIndicator(null);
+    }
   };
 
   const handleOpenTimeline = (sectionId: string) => {
@@ -588,6 +636,41 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     setTimelineSection(null);
   };
 
+  // Memoize onSendBack callback to ensure it updates when isMospiApproverSentBack changes
+  const onSendBackCallback = useMemo(() => {
+    const userRole = getUserRole();
+    const normalizedRole = userRole?.toUpperCase();
+    const isMospiReviewer = normalizedRole === 'MOSPI_REVIEWER';
+    const isMospiApprover = normalizedRole === 'MOSPI_APPROVER';
+    
+    console.log('🔍 useMemo onSendBack - Debug Info:', {
+      userRole,
+      normalizedRole,
+      isMospiReviewer,
+      isMospiApprover,
+      isMospiApproverSentBack,
+      activeSection,
+      willReturnUndefined: isMospiReviewer || (isMospiApprover && isMospiApproverSentBack)
+    });
+    
+    // Don't pass onSendBack for MOSPI_REVIEWER or MOSPI_APPROVER (when isMospiApproverSentBack is true)
+    // For MOSPI_APPROVER, handleSaveMessage will handle everything directly without confirmation dialog
+    if (isMospiReviewer) {
+      console.log('✅ useMemo: Returning undefined for MOSPI_REVIEWER');
+      return undefined;
+    }
+    if (isMospiApprover && isMospiApproverSentBack) {
+      console.log('✅ useMemo: Returning undefined for MOSPI_APPROVER (isMospiApproverSentBack=true)');
+      return undefined;
+    }
+    // For STATE_APPROVER and other roles, pass onSendBack callback to show confirmation
+    console.log('⚠️ useMemo: Returning onSendBack callback for role:', userRole);
+    return (sectionId: string) => {
+      console.log('⚠️ onSendBack callback called with sectionId:', sectionId);
+      onIndicatorStatus(sectionId, false);
+    };
+  }, [isMospiApproverSentBack, activeSection]);
+
   const handleSaveMessage = async (updatedSubmission: unknown) => {
     // MessageModal already saved the comment, so we just need to update state and check flags
         if (updatedSubmission) {
@@ -597,11 +680,71 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             setFormDataState((updatedSubmission as any).formData.infraDevelopment);
           }
 
+      // Check if this was from a checkbox click (consolidated submission)
+      if (pendingCheckboxIndicator) {
+        // Mark the checkbox as checked
+        setCheckedIndicators(prev => new Set([...prev, pendingCheckboxIndicator]));
+        setPendingCheckboxIndicator(null);
+        setIsMospiApproverSentBack(false);
+        setMospiSentBackSectionId(null);
+        handleCloseModal();
+        return;
+      }
+
       // Check flags BEFORE closing modal to determine if we need to show confirmation
       const shouldShowSentBackConfirmation = isMospiApproverSentBack && mospiSentBackSectionId;
+      const userRole = getUserRole();
+      // Normalize role comparison (case-insensitive, trimmed)
+      const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+      
+      // Debug logging
+      console.log('🔍 handleSaveMessage - Debug Info:', {
+        shouldShowSentBackConfirmation,
+        isMospiApproverSentBack,
+        mospiSentBackSectionId,
+        userRole,
+        isMospiApprover,
+        userRoleType: typeof userRole,
+        userRoleValue: userRole,
+        normalizedRole: userRole?.toUpperCase()
+      });
 
-      // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
-      if (shouldShowSentBackConfirmation) {
+      // If this was opened from MOSPI_APPROVER "Sent Back" button, directly update status without confirmation
+      if (shouldShowSentBackConfirmation && isMospiApprover) {
+        console.log('✅ MOSPI_APPROVER: Directly updating status to REVERTED without confirmation dialog');
+        // Store section ID before resetting flags
+        const sectionIdToUse = mospiSentBackSectionId;
+        // Reset the flags immediately
+        setIsMospiApproverSentBack(false);
+        setMospiSentBackSectionId(null);
+        // Close the comment modal immediately
+        handleCloseModal();
+        // Directly update mospi_status to REVERTED without confirmation dialog
+        try {
+          await performIndicatorStatus(sectionIdToUse, false);
+          // Refresh submission data to get latest state from backend
+          if (submissionId) {
+            try {
+              const refreshedSubmission = await apiService.getSubmission(submissionId);
+              if (refreshedSubmission) {
+                setSubmissionState(refreshedSubmission);
+                if (refreshedSubmission.formData) {
+                  setFormDataState(refreshedSubmission.formData.infraDevelopment);
+                }
+              }
+            } catch (refreshError) {
+              console.error('Failed to refresh submission:', refreshError);
+              // Continue even if refresh fails - local state is already updated
+            }
+          }
+        } catch (error) {
+          console.error('Failed to update indicator status:', error);
+        }
+        return;
+      }
+
+      // For STATE_APPROVER, show confirmation dialog (existing behavior)
+      if (shouldShowSentBackConfirmation && !isMospiApprover) {
         // Store section ID before resetting flags
         const sectionIdToUse = mospiSentBackSectionId;
         setPendingActionSectionId(sectionIdToUse);
@@ -846,6 +989,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    const isStateApprover = userRole === 'STATE_APPROVER';
     
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
@@ -858,6 +1002,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
+    }
+    
+    // If STATE_APPROVER is sending back (status = false), get sourceSubmissionId from indicatorMapping
+    if (isStateApprover && !status) {
+      const fullFormData = (submissionState as any)?.formData || (submission as any)?.formData || {};
+      const indicatorMapping = fullFormData?._metadata?.indicatorMapping || {};
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const mappingKey = `infraDevelopment.${sectionKey}`;
+      const indicatorInfo = indicatorMapping[mappingKey];
+      
+      if (indicatorInfo?.sourceSubmissionId) {
+        payload.sourceSubmissionId = indicatorInfo.sourceSubmissionId;
+        console.log(`📋 [STATE_APPROVER Send Back] Adding sourceSubmissionId: ${indicatorInfo.sourceSubmissionId} for ${mappingKey}`);
+      } else {
+        console.warn(`⚠️ [STATE_APPROVER Send Back] No sourceSubmissionId found in indicatorMapping for ${mappingKey}`);
+      }
     }
     
     try {
@@ -1312,7 +1472,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const isMospiApprover = userRole === 'MOSPI_APPROVER';
   
   // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
-  const submissionStatus = submission?.status;
+  const submissionStatus = (submission as any)?.status;
   if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
     return null;
   }
@@ -1400,16 +1560,37 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     }
     
     if (mospiStatus === 'REVERTED') {
+      // Get sectionStatus for MOSPI_APPROVER to check if status is also REVERTED
+      const sectionKeyForStatus = `section${sectionId.replace('.', '_')}`;
+      const sectionDataForStatus = state && state[sectionKeyForStatus];
+      const sectionStatusForMospi = Array.isArray(sectionDataForStatus) 
+        ? (sectionDataForStatus as any)?.status 
+        : sectionDataForStatus?.status;
+      const isStatusAlsoReverted = sectionStatusForMospi === 'REVERTED';
+      
       return (
         <div className="flex gap-2">
+          {/* Show "Sent Back" badge if status is also REVERTED */}
+          {isStatusAlsoReverted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
+          )}
+          {/* Show "Returned from MoSPI" badge if mospi_status is REVERTED */}
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 font-bold cursor-default"
             disabled
           >
             <RotateCcw className="w-4 h-4" />
-            Sent Back
+            Returned from MoSPI
           </Button>
           <Button
             variant="outline"
@@ -1424,7 +1605,57 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       );
     }
     
-    // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
+    // Show checkboxes for consolidated submissions, or Sent Back/Accept buttons for non-consolidated
+    const isConsolidated = isConsolidatedSubmission();
+    const indicators = isConsolidated ? getIndicatorsForSection(sectionId) : [];
+    
+    if (isConsolidated && indicators.length > 0) {
+      // Show checkboxes for consolidated submissions
+      return (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-3 items-center">
+            {indicators.map((indicatorKey) => {
+              const mapping = getIndicatorMapping();
+              const indicatorInfo = mapping[indicatorKey];
+              const isChecked = checkedIndicators.has(indicatorKey);
+              const sourceName = indicatorInfo?.sourceNodalOfficerName || 'Unknown Source';
+              const sourceId = indicatorInfo?.sourceSubmissionId || '';
+              const displayLabel = sourceName !== 'Unknown Nodal Officer' 
+                ? `${sourceName}${sourceId ? ` (${sourceId})` : ''}`
+                : sourceId || indicatorKey.split('.').pop() || 'Indicator';
+              
+              return (
+                <div key={indicatorKey} className="flex items-center gap-2">
+                  <Checkbox
+                    checked={isChecked}
+                    onCheckedChange={() => handleCheckboxClick(indicatorKey, sectionId)}
+                    disabled={isChecked}
+                    className="cursor-pointer"
+                  />
+                  <Label 
+                    className="text-sm font-normal cursor-pointer"
+                    onClick={() => !isChecked && handleCheckboxClick(indicatorKey, sectionId)}
+                  >
+                    {displayLabel}
+                  </Label>
+                </div>
+              );
+            })}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-3 h-3" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+    
+    // Show Sent Back and Accepted buttons for non-consolidated submissions
     return (
       <div className="flex gap-2">
         <Button
@@ -1477,8 +1708,282 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const sectionStatus = Array.isArray(sectionData) 
     ? (sectionData as any)?.status 
     : sectionData?.status;
+  
+  // Get mospi_status for all roles (needed to show both badges)
+  const mospiStatus = Array.isArray(sectionData) 
+    ? (sectionData as any)?.mospi_status 
+    : sectionData?.mospi_status;
+  
+  // Check if status is REVERTED or mospi_status is REVERTED
+  const isStatusReverted = sectionStatus === 'REVERTED';
+  const isMospiStatusReverted = mospiStatus === 'REVERTED';
     
+  // For STATE_APPROVER, check mospi_status to determine if indicator was returned from MoSPI
+  if (isStateApprover) {
+    // FIRST: Check if status is RESUBMITTED (this should take priority)
+    if (sectionStatus === 'RESUBMITTED') {
+      return (
+        <div className="flex gap-2">
+          {!isEditable(sectionId) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleEditStart(sectionId)}
+            >
+              <Edit3 className="w-4 h-4" />
+              Edit
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => onSaveSection(sectionId)}
+              >
+                <Check className="w-4 h-4" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleCancel(sectionId)}
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Re Submitted
+          </Button>
+          {/* Show "Returned from MoSPI" badge if mospi_status is also REVERTED */}
+          {isMospiStatusReverted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+    
+    // SECOND: If mospi_status is REVERTED (but status is not RESUBMITTED)
+    if (isMospiStatusReverted) {
+      // If both mospi_status and status are REVERTED, show only "Sent Back" badge
+      if (isStatusReverted) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // If mospi_status is REVERTED but status is NOT REVERTED, show Edit and Send Back buttons
+      return (
+        <div className="flex gap-2">
+          {!isEditable(sectionId) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleEditStart(sectionId)}
+            >
+              <Edit3 className="w-4 h-4" />
+              Edit
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => onSaveSection(sectionId)}
+              >
+                <Check className="w-4 h-4" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleCancel(sectionId)}
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </Button>
+            </>
+          )}
+          {/* Show "Returned from MoSPI" badge if mospi_status is REVERTED */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Returned from MoSPI
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenModal(sectionId)}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Send Back
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+    
+    // Rule 3: If status is ACCEPTED and mospi_status exists
+    if (sectionStatus === 'ACCEPTED') {
+      // If mospi_status = "REVERTED", show "Returned from MoSPI" badge
+      if (mospiStatus === 'REVERTED') {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      // Otherwise, show only "Accepted" and "Timeline"
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accepted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+  }
+  
+  // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
   if (sectionStatus === 'ACCEPTED') {
+    // If mospi_status = "REVERTED", show "Returned from MoSPI" badge
+    if (mospiStatus === 'REVERTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Returned from MoSPI
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+    // Otherwise, show only "Accepted" and "Timeline"
     return (
       <div className="flex gap-2">
         <Button
@@ -1503,77 +2008,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     );
   }
   
-  // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
-  if (isStateApprover && sectionStatus === 'RESUBMITTED') {
-    return (
-      <div className="flex gap-2">
-        {!isEditable(sectionId) ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1"
-            onClick={() => handleEditStart(sectionId)}
-          >
-            <Edit3 className="w-4 h-4" />
-            Edit
-          </Button>
-        ) : (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => onSaveSection(sectionId)}
-            >
-              <Check className="w-4 h-4" />
-              Save
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleCancel(sectionId)}
-            >
-              <X className="w-4 h-4" />
-              Cancel
-            </Button>
-          </>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
-          disabled
-        >
-          <CheckCircle className="w-4 h-4" />
-          Re Submitted
-        </Button>
-        {!isNodalOfficer && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => onIndicatorStatus(sectionId, true)}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Accept
-          </Button>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenTimeline(sectionId)}
-        >
-          <Clock className="w-4 h-4" />
-          Timeline ({commentCount})
-        </Button>
-      </div>
-    );
-  }
   
-  if (sectionStatus === 'REVERTED') {
-    // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
+  // Rule 2: If status = "REVERTED", show disabled "Sent Back" badge
+  // For NODAL_OFFICER, also show Edit button
+  if (isStatusReverted) {
+    // If NODAL_OFFICER, show Edit button + Sent Back badge
     if (isNodalOfficer) {
       return (
         <div className="flex gap-2">
@@ -1618,6 +2057,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
+          {/* Show "Returned from MoSPI" badge if mospi_status is also REVERTED */}
+          {isMospiStatusReverted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -1631,7 +2082,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       );
     }
     
-    // For reviewers/approvers, show only the disabled Sent Back button
+    // For other roles, show only disabled "Sent Back" badge (no Edit, no Send Back button)
     return (
       <div className="flex gap-2">
         <Button
@@ -1643,6 +2094,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           <RotateCcw className="w-4 h-4" />
           Sent Back
         </Button>
+        {/* Show "Returned from MoSPI" badge if mospi_status is also REVERTED */}
+        {isMospiStatusReverted && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Returned from MoSPI
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -1689,6 +2152,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
   // Debug logging removed for performance
 
+  // Rule 1: If status is not available, show Edit and Send Back button
+  // This is the default case when status is undefined/null
   return (
     <div className="flex gap-2">
       {!isEditable(sectionId) ? (
@@ -1724,7 +2189,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         </>
       )}
 
-      {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
+      {/* Show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
       {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
       <Button
         variant="outline"
@@ -3100,35 +3565,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           const userRole = getUserRole();
           return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
         })()}
-        onSendBack={
-          // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
-          (() => {
-            const getUserRole = () => {
-              try {
-                const authUser = localStorage.getItem('niri_app:auth_user');
-                if (authUser) {
-                  const user = JSON.parse(authUser);
-                  return user.value?.role;
-                }
-              } catch (error) {
-                console.error('Error reading user role:', error);
-              }
-              return null;
-            };
-            return getUserRole() === 'MOSPI_REVIEWER';
-          })()
-            ? undefined
-            : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-              // Accept no longer requires comment, so it's not included here
-              // For other cases, use the normal flow
-              isMospiApproverSentBack
-              ? async () => {
-                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
-                }
-              : (sectionId) => onIndicatorStatus(sectionId, false)
-        }
+        onSendBack={onSendBackCallback}
       />
 
       <TimelineModal

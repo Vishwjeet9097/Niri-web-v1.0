@@ -951,6 +951,41 @@ class ApiService implements HttpClient {
     }
   }
 
+  async mospiApproverSendBack(id: string): Promise<NiriSubmission> {
+    try {
+      const response = await this.axios.post(
+        `/submission/mospi-approver-send-back/${id}`,
+        {}
+      );
+      console.log(
+        "🔍 API Service - MOSPI Approver Send Back Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - MOSPI Approver Send Back Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const submissionData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed MOSPI Approver Send Back Data:",
+        submissionData
+      );
+
+      return submissionData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 MOSPI Approver Send Back 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      throw error;
+    }
+  }
+
   async finalReject(id: string, comment: string): Promise<NiriSubmission> {
     try {
       // Get current user's role to determine rejection status
@@ -2562,7 +2597,7 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
    * payload: { submissionId, category, section, accepted }
    * token: optional auth token (falls back to localStorage if not provided)
    */
-  async indicatorStatus(payload: { submissionId: string; category: string; section: string; status: boolean; mospi_status?: string }, token?: string) {
+  async indicatorStatus(payload: { submissionId: string; category: string; section: string; status: boolean; mospi_status?: string; sourceSubmissionId?: string }, token?: string) {
     try {
       const config: AxiosRequestConfig | undefined = token
         ? {
