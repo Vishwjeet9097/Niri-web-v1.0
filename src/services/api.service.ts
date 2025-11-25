@@ -98,6 +98,10 @@ export type CumulativePreviewResponse = {
 };
 
 class ApiService implements HttpClient {
+    // Mark a notification as read/handled
+    async markNotificationStatus(id: string): Promise<void> {
+      await this.axios.patch(`/api/notifications/status/${id}`);
+    }
   private axios: AxiosInstance;
 
   constructor() {
@@ -256,6 +260,20 @@ class ApiService implements HttpClient {
 
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.axios.delete(url, config);
+  }
+
+   // Fetch notifications for a user
+  async getNotifications(userId: string): Promise<any[]> {
+    try {
+      const response = await this.axios.get(`/api/notifications/${userId}`);
+      let data = response.data?.data !== undefined ? response.data.data : response.data;
+    console.log("🔍 API Service - Fetched Notifications Data:", data);
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.notifications)) return data.notifications;
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 
   // Enhanced error handling methods

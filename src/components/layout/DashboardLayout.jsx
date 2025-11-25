@@ -103,7 +103,7 @@ export function DashboardLayout() {
           </div>
 
           <div className="flex items-center gap-2">
-            <NotificationCenter />
+            <NotificationCenter />             
             <div className="hidden sm:flex items-center gap-2 ml-4 pl-4 border-l border-primary-foreground/20">
               <div className="text-left">
                 <p className="text-sm font-medium">
