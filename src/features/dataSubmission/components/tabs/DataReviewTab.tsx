@@ -172,6 +172,48 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
       return sectionsToShow.length > 0 ? sectionsToShow : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
     }
 
+    // For review mode (not preview): show ALL categories that exist in formData
+    // This ensures reviewers can see and review all submitted categories, even if they don't have meaningful data
+    if (!isPreview && formData && typeof formData === 'object') {
+      // Map section ID to formData category key
+      const categoryMap: Record<string, string> = {
+        "infra-financing": "infraFinancing",
+        "infra-development": "infraDevelopment",
+        "ppp-development": "pppDevelopment",
+        "infra-enablers": "infraEnablers",
+      };
+      
+      // Check which categories exist in formData (even if empty)
+      const existingCategories = DEFAULT_SECTIONS.filter((section) => {
+        const formDataCategory = categoryMap[section.id];
+        if (!formDataCategory) return false;
+        
+        // Check if category exists in formData (even if empty object)
+        const categoryExists = formDataCategory in formData && formData[formDataCategory] && typeof formData[formDataCategory] === 'object';
+        
+        // For each category, check if any sub-sections exist (e.g., section4_3 in infraEnablers)
+        if (categoryExists) {
+          const categoryData = formData[formDataCategory];
+          // Check if this category has any section keys (e.g., section4_3, section4_4, etc.)
+          const hasAnySections = Object.keys(categoryData).some(key => key.startsWith('section'));
+          return hasAnySections;
+        }
+        
+        return false;
+      });
+      
+      // Include categories that have data OR exist in formData
+      const categoriesToShow = DEFAULT_SECTIONS.map(section => {
+        const existsInFormData = existingCategories.some(s => s.id === section.id);
+        const hasData = sectionsWithData.find(s => s.id === section.id)?.hasData || false;
+        return { ...section, hasData: hasData || existsInFormData };
+      }).filter(section => section.hasData);
+      
+      if (categoriesToShow.length > 0) {
+        return categoriesToShow;
+      }
+    }
+
     // For aggregate view or non-preview: show sections with data, or all as fallback
     const anyHasData = sectionsWithData.some((s) => s.hasData);
     return anyHasData ? sectionsWithData.filter((s) => s.hasData) : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));

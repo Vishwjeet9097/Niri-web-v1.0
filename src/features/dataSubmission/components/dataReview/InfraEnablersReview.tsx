@@ -305,12 +305,26 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
+
+  // For review mode (not preview): State Approvers need to see ALL sections submitted by Nodal Officers
+  // This ensures State Approvers can review and accept/send back indicators even if sections have minimal data
+  if (!isPreview && state && typeof state === 'object') {
+    const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+    const existingSections = allPossibleSections.filter(sectionKey => {
+      // Check if section key exists in state (even if value is null, empty object, or empty array)
+      // This ensures State Approvers see all sections that Nodal Officers submitted
+      return sectionKey in state;
+    });
+    
+    // Merge existing sections with sectionsWithData, avoiding duplicates
+    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+  }
   
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
   // Include all sections that exist in formData
   // This ensures state approvers and other reviewers see all sections submitted by nodal officers
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && state && typeof state === 'object') {
+  if (isPreview && !isNodalOfficer && state && typeof state === 'object') {
     const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
     const existingSections = allPossibleSections.filter(sectionKey => {
       // Check if section key exists in state (even if value is null, empty object, or empty array)
@@ -320,6 +334,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
   }
+
+  
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -1564,8 +1580,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       </div>
     );
   };
-  // If no data, show message
-  if (!hasData) {
+
+  // Get user role using the existing getUserRole function (defined at line 127)
+  const userRole = getUserRole();
+  const isStateApprover = userRole === 'STATE_APPROVER';
+  
+  // Don't return early if:
+  // - Preview mode with assigned indicators (Nodal Officers)
+  // - Review mode with sections in state (State Approvers should see all submitted sections)
+  const shouldShowSections = 
+    (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) ||
+    (!isPreview && isStateApprover && state && typeof state === 'object' && Object.keys(state).length > 0) ||
+    (!isPreview && state && typeof state === 'object' && Object.keys(state).some(key => key.startsWith('section'))) ||
+    hasData;
+  
+  if (!shouldShowSections) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">No Infra Enablers data available for review</p>

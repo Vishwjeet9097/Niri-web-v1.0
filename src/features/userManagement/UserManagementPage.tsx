@@ -254,6 +254,15 @@ export function UserManagementPage() {
           "Officer updated successfully",
           "Update Successful"
         );
+
+        // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
+        // Check if indicators were actually updated
+        if (officerData.assignedIndicators !== undefined) {
+          console.log("📢 Dispatching indicatorsUpdated event after user update");
+          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
+            detail: { userId: editingOfficer.id, action: 'update' } 
+          }));
+        }
       } else {
         // Create new user via backend API
         // Debug logging removed for performance
@@ -358,6 +367,15 @@ export function UserManagementPage() {
           "Officer added successfully",
           "Registration Successful"
         );
+
+        // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
+        // Check if indicators were assigned to the new user
+        if (officerData.assignedIndicators && officerData.assignedIndicators.length > 0) {
+          console.log("📢 Dispatching indicatorsUpdated event after user creation");
+          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
+            detail: { action: 'create', assignedIndicators: officerData.assignedIndicators } 
+          }));
+        }
       }
       await loadOfficers();
       setShowForm(false);

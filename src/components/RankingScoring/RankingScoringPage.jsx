@@ -133,54 +133,75 @@ const RankingScoringPage = () => {
     period: "Data is updated quarterly based on the latest available information from state governments.",
   };
 
-  // Load data from API on component mount
-  useEffect(() => {
-    const loadScoringData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        setHasData(false);
+  // Function to load scoring data
+  const loadScoringData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setHasData(false);
 
-        console.log("🔍 Ranking Page - Loading data for user role:", user?.role);
+      console.log("🔍 Ranking Page - Loading data for user role:", user?.role);
 
-        // Load rankings and statistics in parallel based on user role
-        const [rankingsData, statisticsData] = await Promise.all([
-          scoringService.getRankingsByRole(user.role, user.state),
-          scoringService.getStatistics()
-        ]);
+      // Load rankings and statistics in parallel based on user role
+      const [rankingsData, statisticsData] = await Promise.all([
+        scoringService.getRankingsByRole(user.role, user.state),
+        scoringService.getStatistics()
+      ]);
 
-        console.log("🔍 Ranking Page - Received rankings data:", rankingsData);
-        console.log("🔍 Ranking Page - Received statistics data:", statisticsData);
+      console.log("🔍 Ranking Page - Received rankings data:", rankingsData);
+      console.log("🔍 Ranking Page - Received statistics data:", statisticsData);
 
-        // Check if we have valid data
-        if (rankingsData && rankingsData.length > 0) {
-          // Transform API data to match expected format using scoring service
-          const transformedStates = scoringService.transformRankingData(rankingsData);
-          console.log("🔍 Ranking Page - Transformed states:", transformedStates);
-          
-          setApiStates(transformedStates);
-          setApiStatistics(statisticsData);
-          setHasData(true);
-        } else {
-          console.log("🔍 Ranking Page - No ranking data available");
-          setApiStates([]);
-          setApiStatistics(null);
-          setHasData(false);
-        }
-      } catch (err) {
-        console.error("Error loading scoring data:", err);
-        setError(err.message);
+      // Check if we have valid data
+      if (rankingsData && rankingsData.length > 0) {
+        // Transform API data to match expected format using scoring service
+        const transformedStates = scoringService.transformRankingData(rankingsData);
+        console.log("🔍 Ranking Page - Transformed states:", transformedStates);
+        
+        setApiStates(transformedStates);
+        setApiStatistics(statisticsData);
+        setHasData(true);
+      } else {
+        console.log("🔍 Ranking Page - No ranking data available");
         setApiStates([]);
         setApiStatistics(null);
         setHasData(false);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error("Error loading scoring data:", err);
+      setError(err.message);
+      setApiStates([]);
+      setApiStatistics(null);
+      setHasData(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Load data from API on component mount
+  useEffect(() => {
     if (user) {
       loadScoringData();
     }
+  }, [user]);
+
+  // Listen for score update events (when MOSPI Approver approves a submission)
+  useEffect(() => {
+    const handleScoreUpdate = async (event) => {
+      console.log("🔄 Ranking Page - Score update event received:", event.detail);
+      // Wait a moment for backend to finish calculating and saving the score
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Refresh the ranking data when a new score is calculated
+      if (user) {
+        console.log("🔄 Ranking Page - Refreshing ranking data after score update...");
+        await loadScoringData();
+      }
+    };
+
+    window.addEventListener('niri-score-updated', handleScoreUpdate);
+
+    return () => {
+      window.removeEventListener('niri-score-updated', handleScoreUpdate);
+    };
   }, [user]);
 
 
