@@ -276,6 +276,22 @@ class ApiService implements HttpClient {
     }
   }
 
+  // Send notification
+  async sendNotification(payload: {
+    title: string;
+    message: string;
+    senderId: string;
+    submissionId: string;
+  }): Promise<any> {
+    try {
+      const response = await this.axios.post('/api/notifications', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+      throw error;
+    }
+  }
+
   // Enhanced error handling methods
   private getFallbackErrorMessage(status?: number, url?: string): string {
     if (!status) return "Network error occurred. Please check your connection.";
