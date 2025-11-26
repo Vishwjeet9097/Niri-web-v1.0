@@ -4,6 +4,8 @@
  * Backend expects: { submissionId: string, formData: object }
  */
 
+import { IndicatorMapping } from "./indicatorMappingUtils";
+
 export interface TransformedFormData {
   submissionId: string;
   formData: Record<string, unknown>;
@@ -11,19 +13,49 @@ export interface TransformedFormData {
 }
 
 /**
+ * Generate consolidated submission ID
+ * @param stateUt - State/UT name (not used in ID, kept for compatibility)
+ * @returns Consolidated submission ID in format: SUB-{YEAR}-{LAST_6_DIGITS_OF_TIMESTAMP}
+ */
+export const generateConsolidatedSubmissionId = (stateUt?: string): string => {
+  const year = new Date().getFullYear();
+  const timestamp = Date.now();
+  // Use last 6 digits of timestamp to match regular submission pattern
+  const lastSixDigits = String(timestamp).slice(-6);
+  return `SUB-${year}-${lastSixDigits}`;
+};
+
+/**
  * Transform form data to API submission format
  * @param formData - Original form data from localStorage
  * @param status - Submission status (SUBMITTED_TO_STATE for submit, DRAFT for save draft)
+ * @param options - Optional parameters for consolidation
  * @returns Transformed data for API submission
  */
 export const transformFormDataForSubmission = (
   formData: unknown,
-  status: string = "SUBMITTED_TO_STATE"
+  status: string = "SUBMITTED_TO_STATE",
+  options?: {
+    isConsolidated?: boolean;
+    sourceSubmissionIds?: string[];
+    consolidatedBy?: string;
+    stateUt?: string;
+    existingSubmissionId?: string; // Use this ID if updating existing submission
+    indicatorMapping?: IndicatorMapping; // Indicator-level mapping for traceability
+  }
 ): TransformedFormData => {
-  // Generate unique submission ID
-  const submissionId = `SUB-${new Date().getFullYear()}-${String(
-    Date.now()
-  ).slice(-6)}`;
+  // Generate submission ID based on whether it's consolidated or not
+  // If existingSubmissionId is provided, use it (for updates)
+  let submissionId: string;
+  if (options?.existingSubmissionId) {
+    submissionId = options.existingSubmissionId;
+  } else if (options?.isConsolidated && options?.stateUt) {
+    submissionId = generateConsolidatedSubmissionId(options.stateUt);
+  } else {
+    submissionId = `SUB-${new Date().getFullYear()}-${String(
+      Date.now()
+    ).slice(-6)}`;
+  }
 
   const formDataObj = formData as Record<string, any>;
 
@@ -63,6 +95,18 @@ export const transformFormDataForSubmission = (
     pppDevelopment: prune(formDataObj.pppDevelopment) || {},
     infraEnablers: prune(formDataObj.infraEnablers) || {},
   };
+
+  // Add consolidation metadata if this is a consolidated submission
+  if (options?.isConsolidated) {
+    cleaned._metadata = {
+      isConsolidated: true,
+      sourceSubmissionIds: options.sourceSubmissionIds || [],
+      consolidatedBy: options.consolidatedBy || '',
+      consolidatedAt: new Date().toISOString(),
+      // Add indicator-level mapping if provided
+      ...(options.indicatorMapping && { indicatorMapping: options.indicatorMapping }),
+    };
+  }
 
   return {
     submissionId,

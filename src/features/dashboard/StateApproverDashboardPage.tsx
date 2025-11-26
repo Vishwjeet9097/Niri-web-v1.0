@@ -35,6 +35,10 @@ import {
   hasMospiApproverComment,
   isReturnedFromMospi,
 } from "@/utils/auditUtils";
+import { getSubmissionStatus, getSubmissionDisplayStatus } from "@/utils/indicatorStatusUtils";
+import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
+import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
+import { useAuth } from "@/features/auth/AuthProvider";
 
 // Helper function to map backend status to frontend status (kept for compatibility)
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
@@ -59,6 +63,7 @@ const mapBackendStatusToFrontend = (backendStatus: string): string => {
 
 export function StateApproverDashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [kpis, setKpis] = useState<any[]>([]);
@@ -67,6 +72,15 @@ export function StateApproverDashboardPage() {
   const [totalAssignedState, setTotalAssignedState] = useState<number>(0);
   const [totalIndicatorsReceivedState, setTotalIndicatorsReceivedState] =
     useState<number>(0);
+  
+  // Group submissions for state approver
+  const groupedSubmissions = user?.id
+    ? filterSubmissionsForStateApprover(
+        submissions,
+        user.id,
+        user?.stateUt || user?.stateName || user?.state
+      )
+    : null;
 
   useEffect(() => {
     const loadDashboardData = async () => {

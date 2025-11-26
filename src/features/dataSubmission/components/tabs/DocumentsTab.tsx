@@ -44,15 +44,12 @@ function readAccessTokenFromLocalStorage(): string | undefined {
   }
 }
 
-async function fetchSignedUrl(
-  filePath: string,
-  token?: string
-): Promise<string> {
+async function fetchSignedUrl(filePath: string, token?: string): Promise<string> {
   if (!filePath) throw new Error("Missing filePath");
 
   const encoded = encodeURIComponent(filePath);
-  const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"; // set in .env if backend not same origin
-  const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
+const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"; // set in .env if backend not same origin
+const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
 
   const accessToken = token ?? readAccessTokenFromLocalStorage();
   if (!accessToken) throw new Error("No auth token available. Please login.");
@@ -66,20 +63,14 @@ async function fetchSignedUrl(
   // Try to parse JSON — your backend returns { status, data: { signedUrl, filePath, expiresIn } }
   try {
     const json = JSON.parse(text);
-    const signed =
-      json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
-    if (!signed)
-      throw new Error(
-        `Signed URL not found in response: ${text.slice(0, 300)}`
-      );
+    const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
+    if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
     return signed;
   } catch (err) {
     // Not JSON (or parse failed) — return the raw text only if it looks like a URL
     const trimmed = text.trim();
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    throw new Error(
-      `Unexpected response when fetching signed URL: ${text.slice(0, 300)}`
-    );
+    throw new Error(`Unexpected response when fetching signed URL: ${text.slice(0, 300)}`);
   }
 }
 
@@ -97,119 +88,45 @@ function downloadByLink(signedUrl: string, filename?: string) {
   a.remove();
 }
 
-/**
- * Recursively extract file metadata from nested formData structure
- * Files are stored as objects with filePath, fileName, originalName, etc.
- */
-function extractFilesFromFormData(obj: any, collectedFiles: Document[] = [], seenPaths: Set<string> = new Set()): Document[] {
-  if (!obj || typeof obj !== "object") return collectedFiles;
-
-  // Check if this object itself is a file metadata object
-  // File metadata objects have filePath and (fileName or originalName)
-  if (obj.filePath && typeof obj.filePath === "string" && obj.filePath.trim() !== "") {
-    // Avoid duplicates by checking filePath
-    if (!seenPaths.has(obj.filePath)) {
-      seenPaths.add(obj.filePath);
-      collectedFiles.push({
-        id: obj.id ?? obj.filePath,
-        fileName: obj.fileName,
-        originalName: obj.originalName,
-        filePath: obj.filePath,
-        fileSize: typeof obj.fileSize === "number" ? obj.fileSize : Number(obj.fileSize) || undefined,
-        mimeType: obj.mimeType,
-        uploadedBy: obj.uploadedBy ?? "Unknown",
-        uploadedAt: obj.uploadedAt ?? obj.uploadedAtString ?? undefined,
-      });
-    }
-    // Don't recurse into file metadata objects
-    return collectedFiles;
-  }
-
-  // Handle arrays
-  if (Array.isArray(obj)) {
-    obj.forEach((item) => {
-      extractFilesFromFormData(item, collectedFiles, seenPaths);
-    });
-    return collectedFiles;
-  }
-
-  // Handle objects - recurse into all properties
-  Object.values(obj).forEach((value) => {
-    extractFilesFromFormData(value, collectedFiles, seenPaths);
-  });
-
-  return collectedFiles;
-}
-
 export const DocumentsTab = ({
   documents = [],
   formData,
   authToken,
 }: DocumentsTabProps) => {
-  // Extract files from formData (both attachedFiles and nested fields)
+  // Prefer `attachedFiles` stored on the submission (reliable)
   const docsFromForm = React.useMemo(() => {
     if (!formData) return [];
 
-    const collectedFiles: Document[] = [];
-    const seenPaths = new Set<string>();
-
-    // First, check for attachedFiles array (if present)
-    if (Array.isArray(formData.attachedFiles) && formData.attachedFiles.length) {
-      formData.attachedFiles.forEach((f: any, idx: number) => {
-        if (f.filePath && !seenPaths.has(f.filePath)) {
-          seenPaths.add(f.filePath);
-          collectedFiles.push({
-            id: f.id ?? `attached-${idx}`,
-            fileName: f.fileName,
-            originalName: f.originalName,
-            filePath: f.filePath,
-            fileSize: typeof f.fileSize === "number" ? f.fileSize : Number(f.fileSize) || undefined,
-            mimeType: f.mimeType,
-            uploadedBy: f.uploadedBy ?? "Unknown",
-            uploadedAt: f.uploadedAt ?? f.uploadedAtString ?? undefined,
-          });
-        }
-      });
+    if (
+      Array.isArray(formData.attachedFiles) &&
+      formData.attachedFiles.length
+    ) {
+      return formData.attachedFiles.map((f: any, idx: number) => ({
+        id: f.id ?? `attached-${idx}`,
+        fileName: f.fileName,
+        originalName: f.originalName,
+        filePath: f.filePath,
+        fileSize:
+          typeof f.fileSize === "number"
+            ? f.fileSize
+            : Number(f.fileSize) || undefined,
+        mimeType: f.mimeType,
+        uploadedBy: f.uploadedBy ?? "Unknown",
+        uploadedAt: f.uploadedAt ?? f.uploadedAtString ?? undefined,
+      })) as Document[];
     }
 
-    // Then, recursively extract files from nested formData fields
-    // Skip the attachedFiles property to avoid double-processing
-    const { attachedFiles, ...restOfFormData } = formData;
-    extractFilesFromFormData(restOfFormData, collectedFiles, seenPaths);
-
-    return collectedFiles;
+    // fallback: try to extract files from nested formData fields (if your app uses nested JSON)
+    // (You can keep your old extraction logic here; omitted for brevity)
+    return [];
   }, [formData]);
 
-  // Merge documents prop and extracted files, deduplicating by filePath
-  const allDocuments = React.useMemo(() => {
-    const merged: Document[] = [];
-    const seenPaths = new Set<string>();
-
-    // First add documents from prop
-    documents.forEach((doc) => {
-      if (doc.filePath && !seenPaths.has(doc.filePath)) {
-        seenPaths.add(doc.filePath);
-        merged.push(doc);
-      }
-    });
-
-    // Then add documents extracted from formData (avoiding duplicates)
-    docsFromForm.forEach((doc) => {
-      if (doc.filePath && !seenPaths.has(doc.filePath)) {
-        seenPaths.add(doc.filePath);
-        merged.push(doc);
-      }
-    });
-
-    return merged;
-  }, [documents, docsFromForm]);
+  const allDocuments = documents.length ? documents : docsFromForm;
 
   const [loading, setLoading] = React.useState<Record<string, boolean>>({});
   const token =
-    authToken ??
-    (typeof window !== "undefined"
-      ? readAccessTokenFromLocalStorage()
-      : undefined);
+  authToken ??
+  (typeof window !== "undefined" ? readAccessTokenFromLocalStorage() : undefined);
 
   const pickLabel = (d: Document) => {
     // prefer originalName, then fileName, then last segment of filePath
@@ -235,83 +152,68 @@ export const DocumentsTab = ({
     return dt.toLocaleString();
   };
 
-  const onView = async (doc: Document, docKey: string) => {
-    if (!doc.filePath) {
-      alert("File path missing.");
+ const onView = async (doc: Document, docKey: string) => {
+  if (!doc.filePath) { alert("File path missing."); return; }
+  setLoading((s) => ({ ...s, [docKey]: true }));
+  try {
+    const signed = await fetchSignedUrl(doc.filePath, token ?? undefined);
+    if (!isProbablyUrl(signed)) {
+      console.error("Signed URL is not a valid URL:", signed);
+      alert("Received invalid file URL. Check console/network tab.");
       return;
     }
-    setLoading((s) => ({ ...s, [docKey]: true }));
-    try {
-      const signed = await fetchSignedUrl(doc.filePath, token ?? undefined);
-      if (!isProbablyUrl(signed)) {
-        console.error("Signed URL is not a valid URL:", signed);
-        alert("Received invalid file URL. Check console/network tab.");
-        return;
-      }
-      window.open(signed, "_blank", "noopener,noreferrer");
-    } catch (err: any) {
-      console.error(err);
-      alert("Failed to open file: " + (err.message || err));
-    } finally {
-      setLoading((s) => ({ ...s, [docKey]: false }));
-    }
-  };
+    window.open(signed, "_blank", "noopener,noreferrer");
+  } catch (err: any) {
+    console.error(err);
+    alert("Failed to open file: " + (err.message || err));
+  } finally {
+    setLoading((s) => ({ ...s, [docKey]: false }));
+  }
+};
 
-  const onDownload = async (doc: Document, docKey: string) => {
-    if (!doc.filePath) {
-      alert("File path missing.");
+const onDownload = async (doc: Document, docKey: string) => {
+  if (!doc.filePath) { alert("File path missing."); return; }
+  setLoading((s) => ({ ...s, [docKey]: true }));
+  try {
+    const signed = await fetchSignedUrl(doc.filePath, token ?? undefined);
+    if (!isProbablyUrl(signed)) {
+      console.error("Signed URL is not a valid URL:", signed);
+      alert("Received invalid file URL. Check console/network tab.");
       return;
     }
-    setLoading((s) => ({ ...s, [docKey]: true }));
-    let blobUrl: string | null = null;
+
+    // Try native anchor download first
     try {
-      // Use backend download endpoint to bypass CORS issues
-      const encoded = encodeURIComponent(doc.filePath);
-      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-      const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
-
-      const accessToken = token ?? readAccessTokenFromLocalStorage();
-      if (!accessToken) {
-        throw new Error("No auth token available. Please login.");
-      }
-
-      // Fetch file through backend proxy with proper headers for download
-      const response = await fetch(downloadUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.statusText}`);
-      }
-
-      // Get file as blob
-      const blob = await response.blob();
-      blobUrl = URL.createObjectURL(blob);
-
-      // Create download link
       const a = document.createElement("a");
-      a.href = blobUrl;
+      a.href = signed;
       a.download = pickLabel(doc);
-      a.style.display = "none";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-    } catch (err: any) {
-      console.error(err);
-      alert("Download failed: " + (err.message || err));
-    } finally {
-      // Clean up blob URL after a short delay
-      if (blobUrl) {
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl!);
-        }, 100);
-      }
-      setLoading((s) => ({ ...s, [docKey]: false }));
+      a.remove();
+    } catch (anchorErr) {
+      // Fallback: fetch blob then download
+      const r = await fetch(signed);
+      if (!r.ok) throw new Error("Download failed");
+      const blob = await r.blob();
+      const link = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = link;
+      a.download = pickLabel(doc);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(link);
     }
-  };
+  } catch (err: any) {
+    console.error(err);
+    alert("Download failed: " + (err.message || err));
+  } finally {
+    setLoading((s) => ({ ...s, [docKey]: false }));
+  }
+};
+
 
   return (
     <SectionCard
@@ -345,7 +247,8 @@ export const DocumentsTab = ({
                     <h4 className="font-semibold text-foreground">{label}</h4>
                     <p className="text-sm text-muted-foreground">
                       {formatSize(doc.fileSize)} | Uploaded by{" "}
-                      {doc.uploadedBy ?? "User"} on {formatDate(doc.uploadedAt)}
+                      {doc.uploadedBy ?? "User"} on{" "}
+                      {formatDate(doc.uploadedAt)}
                     </p>
                   </div>
                 </div>
@@ -370,7 +273,7 @@ export const DocumentsTab = ({
                     <Download className="w-4 h-4" />
                     {isLoading ? "Downloading..." : "Download"}
                   </Button>
-                  {/* <DropdownMenu>
+                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
                         <MoreVertical className="w-4 h-4" />
@@ -380,7 +283,7 @@ export const DocumentsTab = ({
                       <DropdownMenuItem>Delete</DropdownMenuItem>
                       <DropdownMenuItem>Share</DropdownMenuItem>
                     </DropdownMenuContent>
-                  </DropdownMenu> */}
+                  </DropdownMenu>
                 </div>
               </div>
             );

@@ -294,7 +294,11 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
           hasArrayData(section.projects) ||
           hasMeaningfulValue(section.proportion) ||
           hasMeaningfulValue(section.marksObtained) ||
-          hasMeaningfulValue(section.tpcOfPPPProjects)
+          hasMeaningfulValue(section.tpcOfPPPProjects) ||
+          hasMeaningfulValue(section.totalProjectsAwarded) ||
+          hasMeaningfulValue(section.totalProjectCostAwarded) ||
+          hasMeaningfulValue(section.totalProjects) ||
+          hasMeaningfulValue(section.totalProjectCost)
         );
 
       default:
@@ -556,7 +560,11 @@ const hasSectionData = (
             hasArrayData(section.projects) ||
             hasMeaningfulValue(section.proportion) ||
             hasMeaningfulValue(section.marksObtained) ||
-            hasMeaningfulValue(section.tpcOfPPPProjects)
+            hasMeaningfulValue(section.tpcOfPPPProjects) ||
+            hasMeaningfulValue(section.totalProjectsAwarded) ||
+            hasMeaningfulValue(section.totalProjectCostAwarded) ||
+            hasMeaningfulValue(section.totalProjects) ||
+            hasMeaningfulValue(section.totalProjectCost)
           );
         default:
           return false;

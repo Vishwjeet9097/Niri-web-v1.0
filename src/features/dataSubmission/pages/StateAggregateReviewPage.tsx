@@ -1016,9 +1016,71 @@ export const StateAggregateReviewPage = () => {
         }
       });
 
+      // Get source submission IDs from state progress data
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📋 STEP 2: Extracting source submission IDs");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Get source submission IDs from state indicator statuses
+      let sourceSubmissionIds: string[] = [];
+      try {
+        const statusResp = await apiService.getStateIndicatorStatuses();
+        const normalizedStatus = statusResp?.data ? statusResp : { data: statusResp };
+        const statusData = normalizedStatus.data || {};
+        const approvedSubmissions = statusData.submissions || [];
+        
+        // Extract submission IDs from approved submissions
+        sourceSubmissionIds = approvedSubmissions
+          .filter((sub: any) => {
+            // Exclude consolidated submissions by checking metadata
+            const formData = sub.formData || sub.form_data || {};
+            const metadata = formData._metadata;
+            return !metadata?.isConsolidated;
+          })
+          .map((sub: any) => sub.submissionId || sub.id)
+          .filter((id: string) => id); // Filter out any undefined/null IDs
+        
+        console.log("📋 Source submission IDs:", sourceSubmissionIds);
+        console.log("📋 Source submissions count:", sourceSubmissionIds.length);
+      } catch (error) {
+        console.warn("⚠️ Failed to get source submission IDs:", error);
+        // Continue without source IDs - not critical for consolidation
+      }
+
+      // Set status to "ACCEPTED" for all indicators before transformation
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("✅ STEP 2.5: Setting status to ACCEPTED for all indicators");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Create a deep copy of formData to avoid mutating the original
+      const formDataWithAcceptedStatus = JSON.parse(JSON.stringify(formData));
+      
+      // All possible categories
+      const categories = ['infraFinancing', 'infraDevelopment', 'pppDevelopment', 'infraEnablers'];
+      
+      // Iterate through all categories and sections to set status to "ACCEPTED"
+      categories.forEach((category) => {
+        const categoryData = formDataWithAcceptedStatus[category];
+        if (categoryData && typeof categoryData === 'object') {
+          Object.keys(categoryData).forEach((sectionKey) => {
+            // Only process section keys (section1_1, section2_1, etc.)
+            if (sectionKey.startsWith('section')) {
+              const sectionData = categoryData[sectionKey];
+              if (sectionData && typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+                // Set status to "ACCEPTED" for this indicator
+                sectionData.status = "ACCEPTED";
+                console.log(`   ✅ Set status to ACCEPTED for ${category}.${sectionKey}`);
+              }
+            }
+          });
+        }
+      });
+      
+      console.log("✅ All indicators set to ACCEPTED status");
+
       // Transform formData for submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔄 STEP 2: Transforming formData for submission");
+      console.log("🔄 STEP 3: Transforming formData for submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
       // Determine submission status based on role
@@ -1026,9 +1088,21 @@ export const StateAggregateReviewPage = () => {
         ? "SUBMITTED_TO_MOSPI_APPROVER" 
         : "SUBMITTED_TO_MOSPI_REVIEWER";
       
+      // Get effective state for consolidation ID generation
+      let effectiveState = selectedState || user?.stateUt || user?.stateName || user?.state || "";
+      if (effectiveState) {
+        effectiveState = effectiveState.toUpperCase();
+      }
+      
       const transformedData = transformFormDataForSubmission(
-        formData,
-        submissionStatus
+        formDataWithAcceptedStatus, // Use formData with ACCEPTED status
+        submissionStatus,
+        {
+          isConsolidated: true,
+          sourceSubmissionIds: sourceSubmissionIds,
+          consolidatedBy: user?.id || '',
+          stateUt: effectiveState,
+        }
       );
 
       console.log("✅ Transformed data:");
@@ -1039,7 +1113,7 @@ export const StateAggregateReviewPage = () => {
 
       // Create multipart FormData for file attachments
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📎 STEP 3: Preparing multipart FormData with file attachments");
+      console.log("📎 STEP 4: Preparing multipart FormData with file attachments");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
       const multipartData = new FormData();
@@ -1065,7 +1139,7 @@ export const StateAggregateReviewPage = () => {
 
       // Get authentication token
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔐 STEP 4: Preparing API request");
+      console.log("🔐 STEP 5: Preparing API request");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
       const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
@@ -1078,7 +1152,7 @@ export const StateAggregateReviewPage = () => {
 
       // Submit consolidated submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📤 STEP 5: Creating consolidated submission");
+      console.log("📤 STEP 6: Creating consolidated submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📡 API Endpoint: POST /submission");
       console.log("📝 Submission ID:", transformedData.submissionId);
@@ -1098,6 +1172,76 @@ export const StateAggregateReviewPage = () => {
 
       console.log("✅ Submission successful!");
       console.log("📦 Response:", response.data);
+      
+      // Extract created submission details
+      const createdSubmission = response.data?.data || response.data;
+      const consolidatedSubmissionId = createdSubmission?.id || createdSubmission?.submissionId || transformedData.submissionId;
+      
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔗 STEP 7: Updating source submissions with consolidation metadata");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📝 Consolidated Submission ID:", consolidatedSubmissionId);
+      console.log("📋 Source Submission IDs to update:", sourceSubmissionIds);
+      
+      // Update source submissions to mark them as consolidated
+      if (sourceSubmissionIds.length > 0 && consolidatedSubmissionId) {
+        try {
+          // Get all submissions to find the actual submission IDs (not just submissionId field)
+          const allSubmissions = await apiService.getSubmissions(1, 100);
+          let submissionsArray: any[] = [];
+          if (Array.isArray(allSubmissions)) {
+            submissionsArray = allSubmissions;
+          } else if (allSubmissions?.submissions && Array.isArray(allSubmissions.submissions)) {
+            submissionsArray = allSubmissions.submissions;
+          } else if ((allSubmissions as any)?.data && Array.isArray((allSubmissions as any).data)) {
+            submissionsArray = (allSubmissions as any).data;
+          }
+          
+          // Update each source submission
+          const updatePromises = sourceSubmissionIds.map(async (sourceSubmissionId) => {
+            // Find the submission by submissionId or id
+            const sourceSubmission = submissionsArray.find(
+              (sub: any) => sub.submissionId === sourceSubmissionId || sub.id === sourceSubmissionId
+            );
+            
+            if (sourceSubmission) {
+              const actualSubmissionId = sourceSubmission.id; // Use the database ID
+              try {
+                // Get current formData
+                const currentSubmission = await apiService.getSubmission(actualSubmissionId);
+                const currentFormData = currentSubmission?.formData || {};
+                
+                // Add consolidation metadata to formData
+                const updatedFormData = {
+                  ...currentFormData,
+                  _consolidation: {
+                    consolidatedInto: consolidatedSubmissionId,
+                    consolidatedAt: new Date().toISOString(),
+                    consolidatedBy: user?.id || '',
+                  },
+                };
+                
+                // Update the submission with consolidation metadata
+                await apiService.updateSubmission(actualSubmissionId, updatedFormData);
+                console.log(`✅ Updated source submission ${sourceSubmissionId} (ID: ${actualSubmissionId})`);
+              } catch (updateError: any) {
+                console.warn(`⚠️ Failed to update source submission ${sourceSubmissionId}:`, updateError?.message);
+                // Don't fail the whole process if one update fails
+              }
+            } else {
+              console.warn(`⚠️ Source submission ${sourceSubmissionId} not found in submissions list`);
+            }
+          });
+          
+          await Promise.allSettled(updatePromises);
+          console.log("✅ Finished updating source submissions");
+        } catch (updateError: any) {
+          console.warn("⚠️ Error updating source submissions:", updateError?.message);
+          // Don't fail the consolidation if metadata update fails
+        }
+      } else {
+        console.log("ℹ️ No source submissions to update or missing consolidated submission ID");
+      }
       
       // Immediately disable submit button to prevent multiple submissions
       console.log("🔒 [Submit] Immediately disabling Submit Now button to prevent multiple submissions");
