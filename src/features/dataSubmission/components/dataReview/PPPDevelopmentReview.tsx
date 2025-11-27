@@ -46,9 +46,10 @@ interface PPPDevelopmentReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
+  isStateApprover?: boolean; // Whether the user is a state approver
 }
 
-export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: PPPDevelopmentReviewProps) => {
+export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false, isStateApprover = false }: PPPDevelopmentReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   
@@ -363,15 +364,19 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   // Include all sections that exist in formData
   // This ensures state approvers and other reviewers see all sections submitted by nodal officers
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && formDataState && typeof formDataState === 'object') {
+  if ((!isPreview || (isPreview && !isNodalOfficer))) {
     const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
+    const submissionFormData = (submission as any)?.formData?.pppDevelopment || {};
+    const stateToCheck = formDataState || submissionFormData;
+    
     const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in formDataState (even if value is null, empty object, or empty array)
-      return sectionKey in formDataState;
+      // Check if section key exists in formDataState or submission formData (even if value is null, empty object, or empty array)
+      return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
     
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+    console.log("🔍 [PPPDevelopmentReview] Review/preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
   }
 
   const handleOpenModal = (sectionId: string) => {

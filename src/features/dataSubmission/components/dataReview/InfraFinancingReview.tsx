@@ -47,6 +47,7 @@ interface InfraFinancingReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
+  isStateApprover?: boolean; // Whether the user is a state approver
 }
 export const InfraFinancingReview = ({
   submissionId,
@@ -54,6 +55,7 @@ export const InfraFinancingReview = ({
   submission,
   isPreview = false,
   assignedIndicators = [],
+  isStateApprover = false,
   isNodalOfficer = false,
 }: InfraFinancingReviewProps) => {
   // Section 1.4 state management
@@ -208,11 +210,14 @@ export const InfraFinancingReview = ({
   // This ensures state approvers and other reviewers see all sections submitted by nodal officers
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
   // EXCEPT: sections 1.1 and 1.2 should not be automatically included (they will be filtered later)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && infraPayload && typeof infraPayload === 'object') {
+  if ((!isPreview || (isPreview && !isNodalOfficer))) {
+    const submissionFormData = (submission as any)?.formData?.infraFinancing || {};
+    const stateToCheck = infraPayload || submissionFormData;
+    
     const allPossibleSections = ["section1_3", "section1_4", "section1_5"]; // Exclude 1.1 and 1.2
     // Check sections 1.1 and 1.2 separately to see if they should be added (only if they have meaningful data)
-    const section1_1 = infraPayload.section1_1;
-    const section1_2 = infraPayload.section1_2;
+    const section1_1 = stateToCheck?.section1_1 || submissionFormData?.section1_1;
+    const section1_2 = stateToCheck?.section1_2 || submissionFormData?.section1_2;
     
     // Only add section 1.1 if it has meaningful data (excluding percentage, marksObtained, and year)
     // year is often a default value and alone should not determine visibility
@@ -243,8 +248,8 @@ export const InfraFinancingReview = ({
     }
     
     const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in infraPayload (even if value is null, empty object, or empty array)
-      return sectionKey in infraPayload;
+      // Check if section key exists in stateToCheck or submission formData (even if value is null, empty object, or empty array)
+      return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
     
     // Merge existing sections with merged array, avoiding duplicates
@@ -253,6 +258,7 @@ export const InfraFinancingReview = ({
         merged.push(sec);
       }
     });
+    console.log("🔍 [InfraFinancingReview] Review/preview mode (non-nodal) - showing all existing sections:", merged);
   }
 
   // Final safety filter: verify each section has actual data

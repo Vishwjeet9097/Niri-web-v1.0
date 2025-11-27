@@ -70,9 +70,10 @@ interface InfraDevelopmentReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
+  isStateApprover?: boolean; // Whether the user is a state approver
 }
 
-export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraDevelopmentReviewProps) => {
+export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false, isStateApprover = false }: InfraDevelopmentReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
@@ -580,80 +581,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   }
   
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Include all sections that exist in formData AND have meaningful data
-  // Array-based sections (2.1, 2.2, 2.3, 2.4, 2.5) should only be included if their arrays have actual data
-  // This prevents empty/unassigned indicators from appearing
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && state && typeof state === 'object') {
+  // Include all sections that exist in formData
+  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This includes sections even if they don't have meaningful data (e.g., empty objects)
+  if ((!isPreview || (isPreview && !isNodalOfficer))) {
     const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    const submissionFormData = (submission as any)?.formData?.infraDevelopment || {};
+    const stateToCheck = state || submissionFormData;
+    
     const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in state
-      if (!(sectionKey in state)) {
-        return false;
-      }
-      
-      const section = state[sectionKey];
-      
-      // For array-based sections (2.1, 2.2, 2.3, 2.4, 2.5), check if array has data
-      if (sectionKey === 'section2_1') {
-        const array = Array.isArray(section?.infraActArray) ? section.infraActArray : [];
-        if (array.length === 0) return false;
-        // Check if array has valid data (not just empty objects)
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      if (sectionKey === 'section2_2') {
-        const array = Array.isArray(section?.specializedEntityArray) ? section.specializedEntityArray : [];
-        if (array.length === 0) return false;
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      if (sectionKey === 'section2_3') {
-        const array = Array.isArray(section?.infraDevelopmentArray) ? section.infraDevelopmentArray : [];
-        // Section 2.3 also has a boolean field, so check that too
-        const hasBoolean = section?.hasInfraDevelopmentPlan !== null && section?.hasInfraDevelopmentPlan !== undefined && section?.hasInfraDevelopmentPlan !== '';
-        if (array.length === 0 && !hasBoolean) return false;
-        if (hasBoolean) return true;
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      if (sectionKey === 'section2_4') {
-        const array = Array.isArray(section?.investmentReadyArray) ? section.investmentReadyArray : [];
-        // Section 2.4 also has a boolean field (hasInvestmentReady), so check that too
-        const hasBoolean = section?.hasInvestmentReady !== null && section?.hasInvestmentReady !== undefined && section?.hasInvestmentReady !== '';
-        if (array.length === 0 && !hasBoolean) return false;
-        if (hasBoolean) return true;
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      if (sectionKey === 'section2_5') {
-        const array = Array.isArray(section?.assetMonetizationArray) ? section.assetMonetizationArray : [];
-        if (array.length === 0) return false;
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      
-      // For non-array sections, check if they have any meaningful data
-      if (!section || typeof section !== 'object') return false;
-      return Object.values(section).some(val => {
-        if (val === null || val === undefined || val === '') return false;
-        if (Array.isArray(val) && val.length === 0) return false;
-        if (typeof val === 'object' && Object.keys(val).length === 0) return false;
-        return true;
-      });
+      // Check if section key exists in state or submission formData (even if value is null, empty object, or empty array)
+      return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
     
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+    console.log("🔍 [InfraDevelopmentReview] Review/preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
   }
 
   const handleOpenModal = (sectionId: string) => {

@@ -302,17 +302,49 @@ export function areAllIndicatorsMospiAccepted(
     const sectionData = categoryData[section];
     if (!sectionData) {
       console.log(
-        `❌ Indicator ${indicatorCode}: No section data found. Returning false.`
+        `❌ Indicator ${indicatorCode}: No section data found. Category: ${category}, Section: ${section}`
       );
       console.groupEnd();
       return false;
     }
 
-    // Check mospi_status field (case-insensitive)
-    const mospiStatus = sectionData.mospi_status;
+    // Handle different section data structures:
+    // 1. Object with mospi_status directly (e.g., { mospi_status: "ACCEPTED", ... })
+    // 2. Object with nested array (e.g., { infraActArray: [...], mospi_status: "ACCEPTED" })
+    // 3. Array format (legacy - should have mospi_status on the object itself)
+    let mospiStatus: string | undefined;
+    
+    if (typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+      // Check for mospi_status directly on the section object
+      mospiStatus = sectionData.mospi_status;
+      
+      // Debug: Log the section data structure for troubleshooting
+      if (!mospiStatus) {
+        console.log(
+          `⚠️ Indicator ${indicatorCode}: Section data exists but no mospi_status. Keys:`,
+          Object.keys(sectionData).slice(0, 10),
+          `Type: ${typeof sectionData}, IsArray: ${Array.isArray(sectionData)}`
+        );
+      }
+    } else if (Array.isArray(sectionData)) {
+      // For array format, check if mospi_status is on the array object itself
+      // (some legacy data might have it this way)
+      mospiStatus = (sectionData as any).mospi_status;
+      
+      if (!mospiStatus) {
+        console.log(
+          `⚠️ Indicator ${indicatorCode}: Section data is an array but no mospi_status found. Array length: ${sectionData.length}`
+        );
+      }
+    }
+    
     if (!mospiStatus) {
       console.log(
-        `❌ Indicator ${indicatorCode}: No mospi_status found. Returning false.`
+        `❌ Indicator ${indicatorCode}: No mospi_status found. Section data structure:`,
+        Array.isArray(sectionData) ? 'Array' : typeof sectionData,
+        `Keys: ${Object.keys(sectionData || {}).slice(0, 10).join(', ')}`,
+        `Full section data:`,
+        JSON.stringify(sectionData, null, 2).substring(0, 200)
       );
       console.groupEnd();
       return false;
@@ -408,8 +440,17 @@ export function hasAnyIndicatorMospiReverted(
       continue;
     }
 
-    // Check mospi_status field (case-insensitive)
-    const mospiStatus = sectionData.mospi_status;
+    // Handle different section data structures (same as areAllIndicatorsMospiAccepted)
+    let mospiStatus: string | undefined;
+    
+    if (typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+      // Check for mospi_status directly on the section object
+      mospiStatus = sectionData.mospi_status;
+    } else if (Array.isArray(sectionData) && sectionData.length > 0) {
+      // For array format, check if mospi_status is on the array object itself
+      mospiStatus = (sectionData as any).mospi_status;
+    }
+    
     if (!mospiStatus) {
       continue;
     }

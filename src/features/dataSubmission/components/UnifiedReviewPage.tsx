@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Send, CheckCircle, Edit3, AlertTriangle, MessageSquare, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -187,6 +187,18 @@ export const UnifiedReviewPage = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, initialSubmission]);
+
+  // Memoize the indicator acceptance check to recalculate when submission changes
+  // IMPORTANT: These hooks must be called BEFORE any early returns to follow Rules of Hooks
+  const allIndicatorsMospiAccepted = useMemo(() => {
+    if (!submission) return false;
+    return areAllIndicatorsMospiAccepted(submission);
+  }, [submission]);
+
+  const hasRevertedIndicators = useMemo(() => {
+    if (!submission) return false;
+    return hasAnyIndicatorMospiReverted(submission);
+  }, [submission]);
 
   // Show loading state
   if (loading) {
@@ -384,10 +396,19 @@ export const UnifiedReviewPage = ({
 
     // Final Submit and Send Back buttons for MOSPI_APPROVER
     if (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER") {
-      // Check if all indicators have mospi_status = "ACCEPTED" or "APPROVED"
-      const allIndicatorsAccepted = areAllIndicatorsMospiAccepted(submission);
-      // Check if any indicator has mospi_status = "REVERTED"
-      const hasRevertedIndicators = hasAnyIndicatorMospiReverted(submission);
+      // Use memoized values to ensure we have the latest data
+      const allIndicatorsAccepted = allIndicatorsMospiAccepted;
+      const hasReverted = hasRevertedIndicators;
+      
+      // Debug logging for MOSPI_APPROVER
+      console.log('🔍 [MOSPI_APPROVER] Final Submit Button Check:', {
+        allIndicatorsAccepted,
+        hasRevertedIndicators: hasReverted,
+        submissionId: submission?.id,
+        submissionStatus,
+        formDataKeys: submission?.formData ? Object.keys(submission.formData) : [],
+        submissionUpdated: submission?.updatedAt
+      });
       
       // Send Back button - enabled only if at least one indicator is REVERTED
       buttons.push(

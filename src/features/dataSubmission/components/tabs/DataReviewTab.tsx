@@ -50,6 +50,24 @@ const DEFAULT_SECTIONS = [
 export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false, assignedIndicators, isNodalOfficer, sections }: DataReviewTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   
+  // Helper function to check user role
+  const getUserRole = () => {
+    try {
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const user = JSON.parse(authUser);
+        const role = user.value?.role;
+        return role ? String(role).trim() : null;
+      }
+    } catch (error) {
+      console.error('Error reading user role:', error);
+    }
+    return null;
+  };
+  
+  const userRole = getUserRole();
+  const isStateApprover = userRole?.toUpperCase() === 'STATE_APPROVER';
+  
   // Get category from URL params or default to 0
   const categoryParam = searchParams.get('category');
   const initialSection = categoryParam ? parseInt(categoryParam, 10) : 0;
@@ -264,13 +282,13 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
     switch (availableSections[currentSection]?.id) {
       case "infra-financing":
         console.log("🔍 [DataReviewTab] Rendering InfraFinancingReview with formData:", sectionFormData.infraFinancing);
-        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
+        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} isStateApprover={isStateApprover} />;
       case "infra-development":
-        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
+        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} isStateApprover={isStateApprover} />;
       case "ppp-development":
-        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
+        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} isStateApprover={isStateApprover} />;
       case "infra-enablers":
-        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
+        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} isStateApprover={isStateApprover} />;
       default:
         return null;
     }
