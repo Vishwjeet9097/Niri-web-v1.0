@@ -582,9 +582,7 @@ export const UnifiedReviewPage = ({
               documents={submission.attachedFiles || []} 
               submissionId={submission.id}
               formData={submission.formData}
-              // For preview mode with filtered formData, pass original formData separately
-              // This ensures all files are visible even if formData is filtered for indicators
-              originalFormData={isPreview ? (submission as any).originalFormData : undefined}
+              isPreview={isPreview}
             />
           </TabsContent>
 

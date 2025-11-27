@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { getRoleDisplayName } from "@/utils/roles";
@@ -40,6 +40,12 @@ export function DashboardLayout() {
   const { hasSubmission } = useUserSubmissionStatus();
   const { availableIndicators, loading: indicatorLoading, refresh: refreshIndicators } = useIndicatorAccess();
   
+  // ✅ Use ref to store refresh function to prevent effect re-runs
+  const refreshIndicatorsRef = useRef(refreshIndicators);
+  useEffect(() => {
+    refreshIndicatorsRef.current = refreshIndicators;
+  }, [refreshIndicators]);
+
   // Memoize the disabled state calculation to prevent flickering
   // Only recalculate when the actual values change, not during loading states
   const isCreateSubmissionDisabled = useMemo(() => {
@@ -58,11 +64,11 @@ export function DashboardLayout() {
       // Small delay to ensure the component is fully mounted
       const timer = setTimeout(() => {
         console.log('[DashboardLayout] Location changed, refreshing indicators');
-        refreshIndicators({ clearCache: true });
+        refreshIndicatorsRef.current({ clearCache: true });
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [location.pathname, user?.role, refreshIndicators]);
+  }, [location.pathname, user?.role]); // ✅ No refreshIndicators in deps - using ref instead
 
   // Auto-refresh indicators when window regains focus or storage changes
   useEffect(() => {
@@ -71,10 +77,10 @@ export function DashboardLayout() {
 
     let refreshTimer;
     
-    // Helper function to refresh (only update state if count changes)
+    // ✅ Helper function uses ref to avoid dependency issues
     const refreshAndUpdate = async (clearCache = false) => {
       console.log('[DashboardLayout] Refreshing indicators, clearCache:', clearCache);
-      await refreshIndicators({ clearCache });
+      await refreshIndicatorsRef.current({ clearCache });
       // State will update automatically through the hook, no need to force re-render
     };
     
@@ -127,7 +133,7 @@ export function DashboardLayout() {
         clearInterval(refreshTimer);
       }
     };
-  }, [user?.role, refreshIndicators]);
+  }, [user?.role]); // ✅ Only depend on user?.role - refreshIndicators removed from deps (using ref instead)
 
   const navigation = MENU_CONFIG.filter((item) =>
     item.roles.includes(user?.role)

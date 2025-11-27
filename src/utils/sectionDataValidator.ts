@@ -105,7 +105,15 @@ export const hasInfraEnablersData = (formData: any): boolean => {
         );
 
       case "section4_6":
-        return hasArrayData(section?.capacityArray);
+        // Section 4.6 has data if:
+        // 1. participated field is set (yes or no)
+        // 2. capacityArray has data (when participated === "yes")
+        // 3. comment has data (when participated === "no")
+        return (
+          hasMeaningfulValue(section?.participated) ||
+          hasArrayData(section?.capacityArray) ||
+          hasMeaningfulValue(section?.comment)
+        );
 
       default:
         return false;
@@ -441,8 +449,16 @@ const hasSectionData = (
             hasMeaningfulValue(section.implemented) ||
             hasMeaningfulValue(section.practiceName)
           );
-        case "section4_6":
-          return hasArrayData(section?.capacityArray);
+      case "section4_6":
+        // Section 4.6 has data if:
+        // 1. participated field is set (yes or no)
+        // 2. capacityArray has data (when participated === "yes")
+        // 3. comment has data (when participated === "no")
+        return (
+          hasMeaningfulValue(section?.participated) ||
+          hasArrayData(section?.capacityArray) ||
+          hasMeaningfulValue(section?.comment)
+        );
         default:
           return false;
       }

@@ -1592,6 +1592,7 @@ export const StateAggregateReviewPage = () => {
                 documents={mockSubmission.attachedFiles || []}
                 submissionId={mockSubmission.id}
                 formData={formData}
+                isPreview={false}
               />
             </TabsContent>
 

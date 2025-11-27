@@ -321,10 +321,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Show only sections that correspond to the nodal officer's assigned indicators
   // For other submissions (e.g., consolidated): show all sections that exist in formData
   if (!isPreview && isStateApprover && state && typeof state === 'object') {
-    const isNodalOfficerSubmission = submission?.user?.role === "NODAL_OFFICER";
+    const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
     
     if (isNodalOfficerSubmission && assignedIndicators && assignedIndicators.length > 0) {
       // For nodal officer submissions: only show sections for their assigned indicators
+      // Always include assigned sections, even if they don't exist in state yet
+      // This ensures all assigned indicators are visible to the state approver
       const assignedSectionKeys: string[] = [];
       const indicatorToSectionMap: Record<string, string> = {
         "4.1": "section4_1",
@@ -337,7 +339,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       
       assignedIndicators.forEach((indicator) => {
         const sectionKey = indicatorToSectionMap[indicator];
-        if (sectionKey && sectionKey in state && !assignedSectionKeys.includes(sectionKey)) {
+        // Always include assigned sections, even if they don't have data or aren't in state
+        // This ensures assigned indicators are visible, regardless of data presence
+        if (sectionKey && !assignedSectionKeys.includes(sectionKey)) {
           assignedSectionKeys.push(sectionKey);
         }
       });
@@ -1289,7 +1293,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     
     // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
-    const submissionStatus = submission?.status;
+    const submissionStatus = (submission as any)?.status;
     if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
       return null;
     }
@@ -2494,7 +2498,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // For nodal officers (both preview and review mode), don't return early if they have assigned indicators
   // For state approvers viewing nodal officer submissions, don't return early if sections exist (even if no data)
   // Even if hasData is false, we want to show assigned sections
-  const isNodalOfficerSubmission = submission?.user?.role === "NODAL_OFFICER";
+  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
   const hasAssignedIndicators = assignedIndicators && assignedIndicators.length > 0;
   const shouldShowSections = (isNodalOfficer && hasAssignedIndicators) || 
                              (isStateApprover && !isPreview && isNodalOfficerSubmission && hasAssignedIndicators) ||
