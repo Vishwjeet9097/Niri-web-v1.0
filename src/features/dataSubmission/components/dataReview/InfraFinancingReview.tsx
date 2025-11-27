@@ -1049,25 +1049,50 @@ export const InfraFinancingReview = ({
   const handleConfirmSendBack = async () => {
     if (pendingActionSectionId) {
       // Check if user is MOSPI_APPROVER
-      const getUserRole = () => {
+      const getUserInfo = () => {
         try {
           const authUser = localStorage.getItem('niri_app:auth_user');
           if (authUser) {
             const user = JSON.parse(authUser);
-            return user.value?.role;
+            return {
+              role: user.value?.role,
+              id: user.value?.id || user.value?._id
+            };
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error('Error reading user info:', error);
         }
-        return null;
+        return { role: null, id: null };
       };
-      const userRole = getUserRole();
+      const userInfo = getUserInfo();
+      const userRole = userInfo.role;
+      const userId = userInfo.id;
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      const isStateApprover = userRole === 'STATE_APPROVER';
       
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
+      
+      // Send notification if STATE_APPROVER
+      const submissionIdForNotification = (submission as any)?.submissionId;
+      if (isStateApprover && userId && submissionIdForNotification && pendingActionSectionId) {
+        try {
+          const category = 'infraFinancing';
+          const indicator = pendingActionSectionId;
+          await apiService.sendNotification({
+            title: "Submission Sent Back",
+            message: `The submission ${submissionIdForNotification} has been sent back by State Approver. Category: ${category}, Indicator: ${indicator}`,
+            senderId: userId,
+            submissionId: submissionIdForNotification
+          });
+          console.log('✅ Notification sent successfully');
+        } catch (notificationError) {
+          console.error('❌ Failed to send notification:', notificationError);
+          // Don't block the flow if notification fails
+        }
+      }
       
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
