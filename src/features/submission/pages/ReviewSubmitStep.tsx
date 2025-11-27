@@ -303,6 +303,15 @@ export const ReviewSubmitStep = () => {
           ? "Form resubmitted successfully"
           : "Form submitted successfully"
       );
+
+      // 🔒 Dispatch custom event to notify DashboardLayout - Scenario 2: Disable Create Submission button
+      if (isStateApprover) {
+        console.log("🔒 [ReviewSubmit] Dispatching submission-success event");
+        window.dispatchEvent(new CustomEvent('submission-success', {
+          detail: { submissionId, isStateApprover: true }
+        }));
+      }
+
       clearFormData();
       setShowSuccessModal(true);
     } catch (error) {

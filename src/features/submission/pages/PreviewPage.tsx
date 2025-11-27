@@ -206,6 +206,14 @@ export const PreviewPage = () => {
       localStorage.removeItem("editing_submission_id");
       localStorage.removeItem("is_edit_mode");
 
+      // 🔒 Dispatch custom event to notify DashboardLayout - Scenario 2: Disable Create Submission button
+      if (isStateApprover && submissionId) {
+        console.log("🔒 [PreviewPage] Dispatching submission-success event");
+        window.dispatchEvent(new CustomEvent('submission-success', {
+          detail: { submissionId, isStateApprover: true }
+        }));
+      }
+
       const successMessage = isEditMode
         ? "Form resubmitted successfully!"
         : "Form submitted successfully!";

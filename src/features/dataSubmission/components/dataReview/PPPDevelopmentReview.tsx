@@ -46,16 +46,55 @@ interface PPPDevelopmentReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
+  isStateApprover?: boolean; // Whether the user is a state approver
 }
 
-export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: PPPDevelopmentReviewProps) => {
+export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false, isStateApprover = false }: PPPDevelopmentReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   
+  // Helper function to normalize file objects (handles nested file.file structures)
+  const normalizeFileObject = (fileObj: any): any => {
+    if (!fileObj) return fileObj;
+    
+    // If file has a nested file.file structure and the outer doesn't have filePath, use the nested one
+    if (fileObj.file && typeof fileObj.file === 'object' && !fileObj.filePath && fileObj.file.filePath) {
+      return {
+        ...fileObj.file,
+        // Preserve outer id if nested doesn't have one
+        id: fileObj.file.id ?? fileObj.id,
+      };
+    }
+    
+    return fileObj;
+  };
+
   // Normalization function for PPP Development data
   const normalizePPPDevelopment = (data: any) => {
     if (!data) return data;
     const normalized: any = { ...data };
+
+    // Normalize section3_1 files (handle both 'file' and 'files' properties, and nested file.file structures)
+    if (normalized.section3_1) {
+      // Handle case where files are stored in 'file' (singular) property
+      if (normalized.section3_1.file && !normalized.section3_1.files) {
+        const file = normalized.section3_1.file;
+        if (Array.isArray(file)) {
+          normalized.section3_1.files = file.map(normalizeFileObject);
+        } else if (file) {
+          normalized.section3_1.files = [normalizeFileObject(file)];
+        }
+      }
+      // Handle case where files are stored in 'files' (plural) property
+      else if (normalized.section3_1.files) {
+        const files = normalized.section3_1.files;
+        if (Array.isArray(files)) {
+          normalized.section3_1.files = files.map(normalizeFileObject);
+        } else if (files) {
+          normalized.section3_1.files = [normalizeFileObject(files)];
+        }
+      }
+    }
 
     // Ensure section3_3 has VGFArray structure
     if (normalized.section3_3) {
@@ -325,15 +364,19 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   // Include all sections that exist in formData
   // This ensures state approvers and other reviewers see all sections submitted by nodal officers
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && formDataState && typeof formDataState === 'object') {
+  if ((!isPreview || (isPreview && !isNodalOfficer))) {
     const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
+    const submissionFormData = (submission as any)?.formData?.pppDevelopment || {};
+    const stateToCheck = formDataState || submissionFormData;
+    
     const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in formDataState (even if value is null, empty object, or empty array)
-      return sectionKey in formDataState;
+      // Check if section key exists in formDataState or submission formData (even if value is null, empty object, or empty array)
+      return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
     
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+    console.log("🔍 [PPPDevelopmentReview] Review/preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
   }
 
   const handleOpenModal = (sectionId: string) => {
@@ -2405,18 +2448,29 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               )}
             </div>
 
-            {(state?.section3_1?.available === "yes") && (
-              <div>
-                <EditableFileDisplay
-                  files={state?.section3_1?.files ?? null}
-                  isEditable={isEditable('3.1')}
-                  submissionId={submissionId}
-                  onFilesChange={(updatedFiles) => handleFileUpdate('3.1', updatedFiles)}
-                  label="Uploaded Files"
-                  multiple={true}
-                />
-              </div>
-            )}
+            {(state?.section3_1?.available === "yes") && (() => {
+              // Debug logging
+              console.log("🔍 [PPPDevelopmentReview] Section 3.1 files data:", {
+                section3_1: state?.section3_1,
+                files: state?.section3_1?.files,
+                filesType: typeof state?.section3_1?.files,
+                isArray: Array.isArray(state?.section3_1?.files),
+                file: state?.section3_1?.file,
+              });
+              
+              return (
+                <div>
+                  <EditableFileDisplay
+                    files={state?.section3_1?.files ?? state?.section3_1?.file ?? null}
+                    isEditable={isEditable('3.1')}
+                    submissionId={submissionId}
+                    onFilesChange={(updatedFiles) => handleFileUpdate('3.1', updatedFiles)}
+                    label="Uploaded Files"
+                    multiple={true}
+                  />
+                </div>
+              );
+            })()}
 
             {(state?.section3_1?.available === "no") && (
               <div>

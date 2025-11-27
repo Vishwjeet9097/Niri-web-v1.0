@@ -38,6 +38,7 @@ import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
+import { SECTOR_OPTIONS } from "@/features/submission/constants/steps";
 
 const toFileArray = (value: FileUpload | FileUpload[] | null | undefined): FileUpload[] => {
   if (!value) return [];
@@ -51,6 +52,17 @@ const toSingleFile = (value: FileUpload | FileUpload[] | null | undefined): File
   return value ?? null;
 };
 
+// Helper function to sort files by uploadedAt in ascending order (oldest first, most recent last)
+const sortFilesByUploadDate = (files: FileUpload[] | null | undefined): FileUpload[] => {
+  if (!files || !Array.isArray(files) || files.length === 0) return [];
+  
+  return [...files].sort((a, b) => {
+    const dateA = a.uploadedAt ? (typeof a.uploadedAt === 'number' ? a.uploadedAt : new Date(a.uploadedAt).getTime()) : 0;
+    const dateB = b.uploadedAt ? (typeof b.uploadedAt === 'number' ? b.uploadedAt : new Date(b.uploadedAt).getTime()) : 0;
+    return dateA - dateB; // Ascending order (oldest first, most recent last)
+  });
+};
+
 interface InfraDevelopmentReviewProps {
   submissionId: string;
   formData?: unknown;
@@ -58,9 +70,10 @@ interface InfraDevelopmentReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
+  isStateApprover?: boolean; // Whether the user is a state approver
 }
 
-export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraDevelopmentReviewProps) => {
+export const InfraDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false, isStateApprover = false }: InfraDevelopmentReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
@@ -113,7 +126,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const [newEntry2_1, setNewEntry2_1] = useState({ sector: "", files: [] as FileUpload[] });
   const [newEntry2_2, setNewEntry2_2] = useState({ sector: "", files: [] as FileUpload[] });
   const [newEntry2_3, setNewEntry2_3] = useState({ sector: "", files: [] as FileUpload[] });
-  const [newEntry2_4, setNewEntry2_4] = useState({ projectName: "", dprFile: null as FileUpload | null });
+  const [newEntry2_4, setNewEntry2_4] = useState({ 
+    projectName: "", 
+    sector: "",
+    status: "",
+    projectSize: "",
+    investmentType: "",
+    dprFile: null as FileUpload | null 
+  });
   const [newEntry2_5, setNewEntry2_5] = useState({ projectName: "", sector: "", type: "", ownership: "", estimatedMonetization: "" });
 
   // Helper function to check user role
@@ -209,7 +229,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       setNewEntry2_3({ sector: "", files: [] });
     } else if (sectionId === '2.4') {
       setShowAddForm2_4(false);
-      setNewEntry2_4({ projectName: "", dprFile: null });
+      setNewEntry2_4({ 
+        projectName: "", 
+        sector: "",
+        status: "",
+        projectSize: "",
+        investmentType: "",
+        dprFile: null 
+      });
     } else if (sectionId === '2.5') {
       setShowAddForm2_5(false);
       setNewEntry2_5({ projectName: "", sector: "", type: "", ownership: "", estimatedMonetization: "" });
@@ -318,7 +345,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     // If switching hasInvestmentReady to "no", reset the Add More form state
     if (sectionId === '2.4' && fieldName === 'hasInvestmentReady' && value === 'no') {
       setShowAddForm2_4(false);
-      setNewEntry2_4({ projectName: "", dprFile: null });
+      setNewEntry2_4({ 
+        projectName: "", 
+        sector: "",
+        status: "",
+        projectSize: "",
+        investmentType: "",
+        dprFile: null 
+      });
     }
 
     // If switching hasInfraDevelopmentPlan to "no", reset the Add More form state
@@ -351,6 +385,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     const newEntry = {
       id: `investment-ready-${Date.now()}`,
       projectName: newEntry2_4.projectName,
+      sector: newEntry2_4.sector,
+      status: newEntry2_4.status,
+      projectSize: newEntry2_4.projectSize,
+      investmentType: newEntry2_4.investmentType,
       dprFile: newEntry2_4.dprFile,
     };
 
@@ -366,7 +404,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     }));
 
     // Reset form
-    setNewEntry2_4({ projectName: "", dprFile: null });
+    setNewEntry2_4({ 
+      projectName: "", 
+      sector: "",
+      status: "",
+      projectSize: "",
+      investmentType: "",
+      dprFile: null 
+    });
     setShowAddForm2_4(false);
   };
 
@@ -536,80 +581,22 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   }
   
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Include all sections that exist in formData AND have meaningful data
-  // Array-based sections (2.1, 2.2, 2.3, 2.4, 2.5) should only be included if their arrays have actual data
-  // This prevents empty/unassigned indicators from appearing
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && state && typeof state === 'object') {
+  // Include all sections that exist in formData
+  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This includes sections even if they don't have meaningful data (e.g., empty objects)
+  if ((!isPreview || (isPreview && !isNodalOfficer))) {
     const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    const submissionFormData = (submission as any)?.formData?.infraDevelopment || {};
+    const stateToCheck = state || submissionFormData;
+    
     const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in state
-      if (!(sectionKey in state)) {
-        return false;
-      }
-      
-      const section = state[sectionKey];
-      
-      // For array-based sections (2.1, 2.2, 2.3, 2.4, 2.5), check if array has data
-      if (sectionKey === 'section2_1') {
-        const array = Array.isArray(section?.infraActArray) ? section.infraActArray : [];
-        if (array.length === 0) return false;
-        // Check if array has valid data (not just empty objects)
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      if (sectionKey === 'section2_2') {
-        const array = Array.isArray(section?.specializedEntityArray) ? section.specializedEntityArray : [];
-        if (array.length === 0) return false;
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      if (sectionKey === 'section2_3') {
-        const array = Array.isArray(section?.infraDevelopmentArray) ? section.infraDevelopmentArray : [];
-        // Section 2.3 also has a boolean field, so check that too
-        const hasBoolean = section?.hasInfraDevelopmentPlan !== null && section?.hasInfraDevelopmentPlan !== undefined && section?.hasInfraDevelopmentPlan !== '';
-        if (array.length === 0 && !hasBoolean) return false;
-        if (hasBoolean) return true;
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      if (sectionKey === 'section2_4') {
-        const array = Array.isArray(section?.investmentReadyArray) ? section.investmentReadyArray : [];
-        // Section 2.4 also has a boolean field (hasInvestmentReady), so check that too
-        const hasBoolean = section?.hasInvestmentReady !== null && section?.hasInvestmentReady !== undefined && section?.hasInvestmentReady !== '';
-        if (array.length === 0 && !hasBoolean) return false;
-        if (hasBoolean) return true;
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      if (sectionKey === 'section2_5') {
-        const array = Array.isArray(section?.assetMonetizationArray) ? section.assetMonetizationArray : [];
-        if (array.length === 0) return false;
-        return array.some(item => {
-          if (!item || typeof item !== 'object') return false;
-          return Object.keys(item).length > 0 && Object.values(item).some(val => val !== null && val !== undefined && val !== '');
-        });
-      }
-      
-      // For non-array sections, check if they have any meaningful data
-      if (!section || typeof section !== 'object') return false;
-      return Object.values(section).some(val => {
-        if (val === null || val === undefined || val === '') return false;
-        if (Array.isArray(val) && val.length === 0) return false;
-        if (typeof val === 'object' && Object.keys(val).length === 0) return false;
-        return true;
-      });
+      // Check if section key exists in state or submission formData (even if value is null, empty object, or empty array)
+      return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
     
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+    console.log("🔍 [InfraDevelopmentReview] Review/preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
   }
 
   const handleOpenModal = (sectionId: string) => {
@@ -2894,7 +2881,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <div className="space-y-1.5">
                         {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
-                            {item.files.map((file: any, fileIndex: number) => (
+                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                       <Badge 
                                         key={fileIndex} 
                                         variant="secondary" 
@@ -2952,7 +2939,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             ) : (
                               item.files && item.files.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {item.files.map((file: any, fileIndex: number) => (
+                                  {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                     <Badge 
                                       key={fileIndex} 
                                       variant="secondary" 
@@ -2972,7 +2959,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                         <td className="py-3 px-4 text-sm font-normal">
                           {item.files && item.files.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {item.files.map((file: any, fileIndex: number) => (
+                                {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                   <Badge 
                                     key={fileIndex} 
                                     variant="outline" 
@@ -3147,7 +3134,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <div className="space-y-1.5">
                         {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
-                            {item.files.map((file: any, fileIndex: number) => (
+                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                       <Badge 
                                         key={fileIndex} 
                                         variant="secondary" 
@@ -3205,7 +3192,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             ) : (
                               item.files && item.files.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {item.files.map((file: any, fileIndex: number) => (
+                                  {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                     <Badge 
                                       key={fileIndex} 
                                       variant="secondary" 
@@ -3225,7 +3212,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           <td className="py-3 px-4 text-sm font-normal">
                             {item.files && item.files.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
-                                {item.files.map((file: any, fileIndex: number) => (
+                                {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                   <Badge 
                                     key={fileIndex} 
                                     variant="outline" 
@@ -3433,7 +3420,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                   <div className="space-y-1.5">
                         {item.files && item.files.length > 0 ? (
                                       <div className="flex flex-wrap gap-1.5">
-                            {item.files.map((file: any, fileIndex: number) => (
+                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                           <Badge 
                                             key={fileIndex} 
                                             variant="secondary" 
@@ -3491,7 +3478,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                 ) : (
                                   item.files && item.files.length > 0 ? (
                                     <div className="flex flex-wrap gap-1.5">
-                                      {item.files.map((file: any, fileIndex: number) => (
+                                      {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                         <Badge 
                                           key={fileIndex} 
                                           variant="secondary" 
@@ -3511,7 +3498,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <td className="py-3 px-4 text-sm font-normal">
                                 {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
-                                    {item.files.map((file: any, fileIndex: number) => (
+                                    {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
                                       <Badge 
                                         key={fileIndex} 
                                         variant="outline" 
@@ -3686,9 +3673,40 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                     }`}>
                       {state?.section2_4?.hasInvestmentReady === "yes" ? "Yes" : state?.section2_4?.hasInvestmentReady === "no" ? "No" : "Not specified"}
                     </span>
-                  </div>
+                    </div>
                 )}
                     </div>
+
+              {/* Show website link if hasInvestmentReady is "yes" */}
+              {(state?.section2_4?.hasInvestmentReady === "yes") && (
+                <div className="max-w-[60%]">
+                  <Label>Website Link</Label>
+                  {isEditable('2.4') ? (
+                    <Input
+                      type="url"
+                      placeholder="Enter website URL"
+                      value={state?.section2_4?.websiteLink || ""}
+                      onChange={(e) => handleSectionFieldUpdate('2.4', 'websiteLink', e.target.value)}
+                      className="w-full"
+                    />
+                  ) : (
+                    <div className="p-2 bg-gray-50 rounded-md text-sm">
+                      {state?.section2_4?.websiteLink ? (
+                        <a 
+                          href={state.section2_4.websiteLink} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {state.section2_4.websiteLink}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">No website link provided</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Show table and Add More button if hasInvestmentReady is "yes" */}
               {(state?.section2_4?.hasInvestmentReady === "yes") && (
@@ -3699,8 +3717,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                       <thead>
                         <tr className="bg-[#DDE3F9]">
                           <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project Name</th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">Uploaded File</th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">File Type</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Status</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Project Size (Cr)</th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Type of Investment</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3712,7 +3732,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           if (!investmentReadyArray.length) {
                             return (
                               <tr>
-                                <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                                <td colSpan={5} className="py-8 text-center text-muted-foreground">
                                   No data available
                                 </td>
                               </tr>
@@ -3720,8 +3740,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           }
 
                           return investmentReadyArray.map((item: any, index: number) => (
-                            <tr key={item.id || index} className="border-b">
-                              <td className="py-3 px-4 text-sm font-normal">
+                            <tr key={item.id || index} className="border-b bg-white">
+                              <td className="py-3 px-4 text-sm">
                                 {isEditable('2.4') ? (
                                   <Input
                                     value={item.projectName || ""}
@@ -3733,34 +3753,82 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                   item.projectName || 'N/A'
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal">
+                              <td className="py-3 px-4 text-sm">
                                 {isEditable('2.4') ? (
-                                  <EditableFileDisplay
-                                    files={item.dprFile || null}
-                                    isEditable={true}
-                                    submissionId={submissionId}
-                                    onFilesChange={(updatedFiles) => handleFilesUpdate('2.4', index, updatedFiles)}
-                                    label=""
-                                    multiple={false}
-                                  />
+                                  <Select
+                                    value={item.sector || ""}
+                                    onValueChange={(value) => handleArrayFieldUpdate('2.4', index, 'sector', value)}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Select Sector" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {SECTOR_OPTIONS.map((sector) => (
+                                        <SelectItem key={sector} value={sector}>
+                                          {sector}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 ) : (
-                                  item.dprFile && item.dprFile.fileName ? (
-                                    <div className="flex items-center gap-2">
-                            <Upload className="w-4 h-4" />
-                                      <span className="text-sm">{item.dprFile.fileName || 'Unknown file'}</span>
-                          </div>
-                        ) : (
-                                    <span className="text-muted-foreground text-xs">No file uploaded</span>
-                                  )
+                                  item.sector || 'N/A'
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {item.dprFile && item.dprFile.fileName ? (
-                                  <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                                    {item.dprFile.fileName?.split('.').pop()?.toUpperCase() || 'N/A'}
-                                  </Badge>
+                              <td className="py-3 px-4 text-sm">
+                                {isEditable('2.4') ? (
+                                  <Select
+                                    value={item.status || ""}
+                                    onValueChange={(value) => handleArrayFieldUpdate('2.4', index, 'status', value)}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Select Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {["Tender Done", "Bidding", "Other"].map((s) => (
+                                        <SelectItem key={s} value={s}>
+                                          {s}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 ) : (
-                                  <span className="text-muted-foreground text-xs">N/A</span>
+                                  item.status || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {isEditable('2.4') ? (
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={item.projectSize || ""}
+                                    onChange={(e) => handleArrayFieldUpdate('2.4', index, 'projectSize', e.target.value)}
+                                    className="w-full"
+                                    placeholder="Enter size"
+                                  />
+                                ) : (
+                                  item.projectSize || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {isEditable('2.4') ? (
+                                  <Select
+                                    value={item.investmentType || ""}
+                                    onValueChange={(value) => handleArrayFieldUpdate('2.4', index, 'investmentType', value)}
+                                  >
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Select Type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {["Partner", "Investor", "Other"].map((t) => (
+                                        <SelectItem key={t} value={t}>
+                                          {t}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  item.investmentType || 'N/A'
                                 )}
                               </td>
                             </tr>
@@ -3787,16 +3855,82 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                   {showAddForm2_4 && isEditable('2.4') && (
                     <div className="border rounded-lg p-4 bg-gray-50">
                       <h4 className="font-medium mb-3">Add New Investment Ready Project Entry</h4>
-                      <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label>Project Name</Label>
+                          <Label>Project Name <span className="text-destructive">*</span></Label>
                           <Input
                             value={newEntry2_4.projectName}
                             onChange={(e) => setNewEntry2_4({...newEntry2_4, projectName: e.target.value})}
                             className="bg-white"
                             placeholder="Enter project name"
                           />
-                    </div>
+                        </div>
+                        <div>
+                          <Label>Sector <span className="text-destructive">*</span></Label>
+                          <Select
+                            value={newEntry2_4.sector}
+                            onValueChange={(value) => setNewEntry2_4({...newEntry2_4, sector: value})}
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Select Sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Status <span className="text-destructive">*</span></Label>
+                          <Select
+                            value={newEntry2_4.status}
+                            onValueChange={(value) => setNewEntry2_4({...newEntry2_4, status: value})}
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Select Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {["Tender Done", "Bidding", "Other"].map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {s}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Project Size (INR Cr) <span className="text-destructive">*</span></Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={newEntry2_4.projectSize}
+                            onChange={(e) => setNewEntry2_4({...newEntry2_4, projectSize: e.target.value})}
+                            className="bg-white"
+                            placeholder="Enter size"
+                          />
+                        </div>
+                        <div>
+                          <Label>Type of Investment <span className="text-destructive">*</span></Label>
+                          <Select
+                            value={newEntry2_4.investmentType}
+                            onValueChange={(value) => setNewEntry2_4({...newEntry2_4, investmentType: value})}
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Select Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {["Partner", "Investor", "Other"].map((t) => (
+                                <SelectItem key={t} value={t}>
+                                  {t}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div>
                           <Label>Upload DPR/Feasibility Report</Label>
                           <EditableFileDisplay
@@ -3807,8 +3941,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             label=""
                             multiple={false}
                           />
-                  </div>
-                </div>
+                        </div>
+                      </div>
                       <div className="flex gap-2 mt-4">
                         <Button
                           variant="default"
@@ -3824,7 +3958,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           size="sm"
                           onClick={() => {
                             setShowAddForm2_4(false);
-                            setNewEntry2_4({ projectName: "", dprFile: null });
+                            setNewEntry2_4({ 
+                              projectName: "", 
+                              sector: "",
+                              status: "",
+                              projectSize: "",
+                              investmentType: "",
+                              dprFile: null 
+                            });
                           }}
                           className="flex items-center gap-2"
                         >

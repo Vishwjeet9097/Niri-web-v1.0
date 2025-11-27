@@ -54,7 +54,16 @@ export const EditableFileDisplay = ({
 
   const normalizeFile = (fileLike: FileLike, fallbackIndex: number): FileUpload => {
     const anyFile = fileLike as any;
-    const rawFile = anyFile.file;
+    
+    // Handle nested file structure (e.g., file.file from backend)
+    // Check if there's a nested file object and use it if the outer one doesn't have filePath
+    let actualFile = anyFile;
+    if (anyFile.file && typeof anyFile.file === 'object' && !anyFile.filePath && anyFile.file.filePath) {
+      // Use nested file object if outer doesn't have filePath
+      actualFile = anyFile.file;
+    }
+    
+    const rawFile = actualFile.file;
     let normalizedFile: File | string | null = null;
     const globalFileCtor =
       typeof globalThis !== "undefined" && typeof (globalThis as any).File === "function"
@@ -67,28 +76,85 @@ export const EditableFileDisplay = ({
       normalizedFile = null;
     } else if (typeof rawFile === "string") {
       normalizedFile = rawFile;
+    } else if (typeof actualFile.filePath === "string") {
+      normalizedFile = actualFile.filePath;
     } else if (typeof anyFile.filePath === "string") {
       normalizedFile = anyFile.filePath;
     }
 
     return {
-      id: anyFile.id ?? `file-${fallbackIndex}`,
+      id: actualFile.id ?? anyFile.id ?? `file-${fallbackIndex}`,
       file: normalizedFile,
-      fileName: anyFile.fileName ?? anyFile.filename ?? "File",
-      fileSize: Number(anyFile.fileSize ?? anyFile.size ?? 0),
-      uploadedAt: Number(anyFile.uploadedAt ?? Date.now()),
-      filePath: anyFile.filePath ?? (typeof normalizedFile === "string" ? normalizedFile : undefined),
-      fileUrl: anyFile.fileUrl ?? anyFile.url,
-      mimeType: anyFile.mimeType,
+      fileName: actualFile.fileName ?? anyFile.fileName ?? actualFile.filename ?? anyFile.filename ?? "File",
+      originalName: actualFile.originalName ?? anyFile.originalName ?? actualFile.original_name ?? anyFile.original_name,
+      fileSize: Number(actualFile.fileSize ?? anyFile.fileSize ?? actualFile.size ?? anyFile.size ?? 0),
+      uploadedAt: Number(actualFile.uploadedAt ?? anyFile.uploadedAt ?? Date.now()),
+      filePath: actualFile.filePath ?? anyFile.filePath ?? (typeof normalizedFile === "string" ? normalizedFile : undefined),
+      fileUrl: actualFile.fileUrl ?? anyFile.fileUrl ?? actualFile.url ?? anyFile.url,
+      mimeType: actualFile.mimeType ?? anyFile.mimeType,
     };
   };
 
   const getNormalizedFiles = () => {
-    return files
-      ? (Array.isArray(files) ? files : [files]).map((fileLike, index) =>
-          normalizeFile(fileLike, index)
-        )
-      : [];
+    if (!files) {
+      console.log("🔍 [EditableFileDisplay] No files prop provided");
+      return [];
+    }
+    
+    console.log("🔍 [EditableFileDisplay] Raw files prop:", files, "Type:", typeof files, "IsArray:", Array.isArray(files));
+    
+    const fileArray = Array.isArray(files) ? files : [files];
+    const normalized = fileArray.map((fileLike, index) => {
+      console.log(`🔍 [EditableFileDisplay] Normalizing file ${index}:`, fileLike);
+      const normalizedFile = normalizeFile(fileLike, index);
+      console.log(`🔍 [EditableFileDisplay] Normalized file ${index} result:`, normalizedFile);
+      return normalizedFile;
+    });
+    
+    console.log("🔍 [EditableFileDisplay] Normalized files:", normalized);
+    
+    // Filter out files that don't have any identifying information
+    const validFiles = normalized.filter(file => {
+      const hasFilePath = !!file.filePath;
+      const hasFileName = !!file.fileName && file.fileName !== "File";
+      const hasFileSize = !!file.fileSize && file.fileSize > 0;
+      const hasFile = !!file.file;
+      
+      const isValid = hasFilePath || (hasFileName && hasFileSize) || hasFile;
+      if (!isValid) {
+        console.log(`🔍 [EditableFileDisplay] Filtering out invalid file:`, file);
+      }
+      return isValid;
+    });
+    
+    console.log("🔍 [EditableFileDisplay] Valid files after filtering:", validFiles);
+    
+    // Deduplicate files based on filePath (unique identifier for uploaded files)
+    const seenPaths = new Set<string>();
+    const uniqueFiles: FileUpload[] = [];
+    
+    for (const file of validFiles) {
+      // Use filePath as unique identifier, or fileName + fileSize as fallback
+      const uniqueKey = file.filePath || 
+        (file.file && typeof file.file === 'string' ? file.file : null) ||
+        `${file.fileName}_${file.fileSize}`;
+      
+      console.log(`🔍 [EditableFileDisplay] File unique key:`, uniqueKey, "for file:", file);
+      
+      if (uniqueKey && !seenPaths.has(uniqueKey)) {
+        seenPaths.add(uniqueKey);
+        uniqueFiles.push(file);
+      } else if (!uniqueKey) {
+        // Even if no unique key, include files that have fileName or fileSize
+        if (file.fileName || file.fileSize) {
+          console.log(`🔍 [EditableFileDisplay] Including file without unique key:`, file);
+          uniqueFiles.push(file);
+        }
+      }
+    }
+    
+    console.log("🔍 [EditableFileDisplay] Final unique files:", uniqueFiles);
+    return uniqueFiles;
   };
 
   const handleFileUpload = async (file: File) => {
@@ -195,7 +261,7 @@ export const EditableFileDisplay = ({
                 <File className="w-4 h-4 text-primary flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium truncate block">
-                    {file.fileName || "File"}
+                    {file.originalName || file.fileName || "File"}
                   </span>
                   {file.fileSize && (
                     <span className="text-xs text-muted-foreground">
