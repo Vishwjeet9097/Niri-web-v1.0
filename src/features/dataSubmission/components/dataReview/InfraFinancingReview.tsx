@@ -1846,6 +1846,15 @@ const renderActionButtons = (sectionId: string) => {
           <Button
             variant="outline"
             size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Re Submitted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
             disabled
           >
