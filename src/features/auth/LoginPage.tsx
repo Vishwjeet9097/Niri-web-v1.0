@@ -141,8 +141,8 @@ export function LoginPage() {
 
       if (result.success) {
         notificationService.success(`Welcome, ${result.user.firstName}! You have been successfully signed in.`, "Sign In Successful");
-        // Admin redirects to user management, others to dashboard
-        const defaultPath = result.user.role === "ADMIN" ? "/user-management" : "/dashboard";
+        // Admin and all users now redirect to dashboard for consistent sidebar
+        const defaultPath = "/dashboard";
         const from = location.state?.from?.pathname || defaultPath;
         navigate(from, { replace: true });
       } else {
