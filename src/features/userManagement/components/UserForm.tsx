@@ -231,10 +231,6 @@ export function UserForm({
         // Admin can create all roles (for system administration)
         return [
           {
-            value: "NODAL_OFFICER",
-            label: getRoleDisplayName("NODAL_OFFICER"),
-          },
-          {
             value: "STATE_APPROVER",
             label: getRoleDisplayName("STATE_APPROVER"),
           },
@@ -647,12 +643,8 @@ const handleStateChange = (values: string | string[]) => {
     <div className="max-w-4xl space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Enter officer details
-        </h2>
-        <p className="text-muted-foreground">
-          Add Nodal Officers for your State/UT and assign them specific
-          indicators for data submission.
-        </p>
+          User Management
+        </h2>        
       </div>
 
       <div className="grid grid-cols-2 gap-6">
