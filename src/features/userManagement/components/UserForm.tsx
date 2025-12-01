@@ -994,18 +994,8 @@ const handleStateChange = (values: string | string[]) => {
   })}
   value={Array.isArray(formData.stateId) ? formData.stateId : [formData.stateId].filter(Boolean)}
   onChange={(selected) => {
-    const filtered = selected.filter(value => {
-      const state = states.find(s => s.id === value);
-      const stateNameNorm = (state?.name || '').trim().toLowerCase();
-      const normalizedDisabledNames = disabledStateNames.map(n => n.toString().trim().toLowerCase());
-      const isAssigned = (officers || []).some(o =>
-        o.role === 'MOSPI_REVIEWER' &&
-        o.id !== officer?.id &&
-        ((Array.isArray(o.stateId) && o.stateId.includes(state?.id)) || (!Array.isArray(o.stateId) && o.stateId === state?.id))
-      );
-      return state?.isActive && !isAssigned && !normalizedDisabledNames.includes(stateNameNorm);
-    });
-    handleStateChange(filtered);
+    // Only keep the current selection, do not merge with previous state
+    handleStateChange(selected);
   }}
   placeholder={loadingStates ? "Loading states..." : "Select multiple states"}
   searchPlaceholder="Search states..."
