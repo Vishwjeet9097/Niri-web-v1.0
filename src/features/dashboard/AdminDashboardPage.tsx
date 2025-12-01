@@ -156,7 +156,7 @@ function AdminDashboardPage() {
       </div>
 
       {/* Users Table Section */}
-     <h2 className="text-xl font-semibold text-primary mb-3">User Management</h2>
+     <h2 className="text-xl font-semibold text-primary mb-3">Users List</h2>
       <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6 space-y-6">
         <div className="flex justify-between items-center mb-4 gap-4 flex-wrap">
           <div className="flex gap-4 items-center w-full md:w-auto">
@@ -186,6 +186,7 @@ function AdminDashboardPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Select Roles</SelectItem>
+                   <SelectItem value="NODAL_OFFICER">{getRoleDisplayName("NODAL_OFFICER")}</SelectItem>
                    <SelectItem value="STATE_APPROVER">{getRoleDisplayName("STATE_APPROVER")}</SelectItem>
                   <SelectItem value="MOSPI_REVIEWER">{getRoleDisplayName("MOSPI_REVIEWER")}</SelectItem>
                   <SelectItem value="MOSPI_APPROVER">{getRoleDisplayName("MOSPI_APPROVER")}</SelectItem>
