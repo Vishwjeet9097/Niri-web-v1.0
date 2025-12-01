@@ -51,8 +51,8 @@ const ReviewerDashboardPage: React.FC = () => {
           </div>
           {/* Recent Actions & Quick Actions */}
           <div className="flex flex-col gap-6">
-            <ReviewerRecentActions />
-            <ReviewerQuickActions />
+            {/* <ReviewerRecentActions /> */}
+            {/* <ReviewerQuickActions /> */}
           </div>
         </div>
       </main>
