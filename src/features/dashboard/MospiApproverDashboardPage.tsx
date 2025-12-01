@@ -9,7 +9,7 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
-import ReviewerKPICards from "./components/reviewer/ReviewerKPICards";
+import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
@@ -176,20 +176,34 @@ export const MospiApproverDashboardPage = () => {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h1 className="text-3xl font-bold text-foreground ">
-            MoSPI Approver Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Review and approve state submissions
-          </p>
+        <div className="bg-white p-6 rounded-lg shadow-md relative overflow-hidden">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Welcome!
+              </h1>
+              <p className="text-gray-600 text-base">
+                Review and provide feedback on NIRI submissions
+              </p>
+            </div>
+            {/* Laptop illustration */}
+            <div className="absolute right-6 top-0 hidden md:block">
+              <img
+                src="/images/dashboard.png"
+                alt="Dashboard"
+                className="h-32 w-auto"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* KPI Cards */}
-        <ReviewerKPICards />
+        {/* Overview Cards */}
+        <MospiApproverOverviewCards />
 
         {/* Recent Submissions */}
-        <Card>
+
+        
+        {/* <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="p-6">Recent Submissions for Final Approval</CardTitle>
@@ -260,7 +274,7 @@ export const MospiApproverDashboardPage = () => {
               )}
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         {/* Latest Submissions Table */}
         <Card>
