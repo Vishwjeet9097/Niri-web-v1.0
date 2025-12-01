@@ -3,7 +3,7 @@ import { Upload, X, File, Loader2, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { apiService, type FileUploadResponse } from "@/services/api.service";
+import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import type { FileUpload } from "../types";
 
@@ -63,7 +63,7 @@ interface FileUploadSectionProps {
   maxSize?: number; // in MB
   required?: boolean;
   submissionId?: string; // For backend integration
-  onUploadComplete?: (uploadedFile: FileUploadResponse) => void;
+  onUploadComplete?: (uploadedFile: any) => void;
 }
 
 export const FileUploadSection = ({
@@ -343,7 +343,7 @@ export const FileUploadSection = ({
             </p>
           </div>
           <div className="flex items-center gap-1">
-            {((value.file && value.file instanceof globalThis.File) || value.filePath || (typeof value.file === "string" && value.file)) && (
+            {(value && (value.fileName || (value.file && value.file instanceof globalThis.File) || value.filePath || value.fileUrl || (typeof value.file === "string" && value.file))) && (
               <>
                 <Button
                   type="button"
