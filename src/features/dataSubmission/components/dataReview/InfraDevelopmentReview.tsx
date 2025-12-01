@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Upload, Plus, Clock, RotateCcw, CheckCircle, X, Check, Edit3 } from "lucide-react";
+import { MessageSquare, Upload, Plus, Clock, RotateCcw, CheckCircle, X, Check, Edit3, Eye, Download, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -31,6 +31,7 @@ import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { hasInfraDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
+import { notificationService } from "@/services/notification.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 import { useEditableSectionStore } from '@/utils/EditableSection';
@@ -1189,6 +1190,192 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const handleCancelAccept = () => {
     setShowAcceptDialog(false);
     setPendingActionSectionId(null);
+  };
+
+  // Helper functions for file view and download
+  const [fileLoading, setFileLoading] = useState<Record<string, boolean>>({});
+
+  // Helper function to read access token from localStorage
+  const readAccessTokenFromLocalStorage = (): string | undefined => {
+    try {
+      // Try the new key first: niri_app:auth_tokens
+      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+      if (tokenDataRaw) {
+        const tokenData = JSON.parse(tokenDataRaw);
+        const tokenFromNewKey = tokenData?.value?.accessToken;
+        if (tokenFromNewKey) return tokenFromNewKey;
+      }
+      
+      // Try legacy key: access_token
+      const tokenFromLegacyKey = localStorage.getItem("access_token");
+      if (tokenFromLegacyKey) return tokenFromLegacyKey;
+      
+      // Try old auth_user key as fallback
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const parsed = JSON.parse(authUser);
+        return parsed?.token || parsed?.accessToken || parsed?.value?.token;
+      }
+    } catch (error) {
+      console.error('Error reading access token:', error);
+    }
+    return undefined;
+  };
+
+  // Helper function to fetch signed URL for S3 files
+  const fetchSignedUrl = async (filePath: string, token?: string): Promise<string> => {
+    if (!filePath) throw new Error("Missing filePath");
+
+    const encoded = encodeURIComponent(filePath);
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+    const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
+
+    const accessToken = token ?? readAccessTokenFromLocalStorage();
+    if (!accessToken) throw new Error("No auth token available. Please login.");
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
+      if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
+      return signed;
+    } catch (err) {
+      const trimmed = text.trim();
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      throw new Error(`Unexpected response when fetching signed URL: ${text.slice(0, 300)}`);
+    }
+  };
+
+  const isProbablyUrl = (s: string) => {
+    return typeof s === "string" && /^https?:\/\//i.test(s);
+  };
+
+  const handleFileView = async (file: any, fileKey: string) => {
+    // Handle nested file structures
+    let actualFile = file;
+    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
+      actualFile = file.file;
+    }
+
+    // Handle local File objects (preview mode)
+    if (actualFile.file && actualFile.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(actualFile.file);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      return;
+    }
+
+    // Handle S3 files (review mode) - check multiple possible properties
+    const filePath = actualFile.filePath || 
+                     actualFile.fileUrl || 
+                     actualFile.url ||
+                     actualFile.path ||
+                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
+    if (!filePath) {
+      console.error("File path missing. File object:", actualFile);
+      notificationService.warning("File path missing.", "Cannot View File");
+      return;
+    }
+
+    setFileLoading(prev => ({ ...prev, [fileKey]: true }));
+    try {
+      const signed = await fetchSignedUrl(filePath);
+      if (!isProbablyUrl(signed)) {
+        console.error("Signed URL is not a valid URL:", signed);
+        notificationService.error("Received invalid file URL. Check console/network tab.", "View Failed");
+        return;
+      }
+      window.open(signed, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      console.error(err);
+      notificationService.error("Failed to open file: " + (err.message || err), "View Failed");
+    } finally {
+      setFileLoading(prev => ({ ...prev, [fileKey]: false }));
+    }
+  };
+
+  const handleFileDownload = async (file: any, fileKey: string) => {
+    // Handle nested file structures
+    let actualFile = file;
+    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
+      actualFile = file.file;
+    }
+
+    // Handle local File objects (preview mode)
+    if (actualFile.file && actualFile.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(actualFile.file);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = actualFile.originalName || actualFile.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      return;
+    }
+
+    // Handle S3 files (review mode) - check multiple possible properties
+    const filePath = actualFile.filePath || 
+                     actualFile.fileUrl || 
+                     actualFile.url ||
+                     actualFile.path ||
+                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
+    if (!filePath) {
+      console.error("File path missing. File object:", actualFile);
+      notificationService.warning("File path missing.", "Cannot Download File");
+      return;
+    }
+
+    setFileLoading(prev => ({ ...prev, [fileKey]: true }));
+    let blobUrl: string | null = null;
+    try {
+      const encoded = encodeURIComponent(filePath);
+      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+      const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+
+      const accessToken = readAccessTokenFromLocalStorage();
+      if (!accessToken) {
+        throw new Error("No auth token available. Please login.");
+      }
+
+      const response = await fetch(downloadUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = actualFile.originalName || actualFile.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err: any) {
+      console.error(err);
+      notificationService.error("Download failed: " + (err.message || err), "Download Failed");
+    } finally {
+      if (blobUrl) {
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl!);
+        }, 100);
+      }
+      setFileLoading(prev => ({ ...prev, [fileKey]: false }));
+    }
   };
 
   // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
@@ -2931,27 +3118,68 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <div className="space-y-1.5">
                         {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
-                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
-                                      <Badge 
-                                        key={fileIndex} 
-                                        variant="secondary" 
-                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                        title={file.fileName || 'Unknown file'}
+                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => {
+                              const fileKey = `2.1-edit-${index}-${fileIndex}`;
+                              const isLoading = fileLoading[fileKey] || false;
+                              const hasFile = file && file.fileName; // Show buttons if file has a name
+                              
+                              return (
+                                <div key={fileIndex} className="flex items-center gap-1">
+                                  <Badge 
+                                    variant="secondary" 
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                    title={file.fileName || 'Unknown file'}
+                                  >
+                                    <Upload className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
+                                        handleFilesUpdate('2.1', index, updatedFiles.length > 0 ? updatedFiles : []);
+                                      }}
+                                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                    </button>
+                                  </Badge>
+                                  {hasFile && (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleFileView(file, fileKey)}
+                                        disabled={isLoading}
+                                        className="h-6 w-6 p-0"
+                                        title="View file"
                                       >
-                                        <Upload className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">{file.fileName || 'Unknown file'}</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                            handleFilesUpdate('2.1', index, updatedFiles.length > 0 ? updatedFiles : []);
-                                          }}
-                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                          <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                        </button>
-                                      </Badge>
-                            ))}
+                                        {isLoading ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Eye className="w-3 h-3" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleFileDownload(file, fileKey)}
+                                        disabled={isLoading}
+                                        className="h-6 w-6 p-0"
+                                        title="Download file"
+                                      >
+                                        {isLoading ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Download className="w-3 h-3" />
+                                        )}
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                                   <span className="text-muted-foreground text-xs">No files</span>
@@ -2989,17 +3217,58 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             ) : (
                               item.files && item.files.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
-                                    <Badge 
-                                      key={fileIndex} 
-                                      variant="secondary" 
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={file.fileName || 'Unknown file'}
-                                    >
-                                      <Upload className="w-3 h-3" />
-                                      <span className="truncate">{file.fileName || 'Unknown file'}</span>
-                                    </Badge>
-                                  ))}
+                                  {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => {
+                                    const fileKey = `2.1-${index}-${fileIndex}`;
+                                    const isLoading = fileLoading[fileKey] || false;
+                                    const hasFile = file && file.fileName; // Show buttons if file has a name
+                                    
+                                    return (
+                                      <div key={fileIndex} className="flex items-center gap-1">
+                                        <Badge 
+                                          variant="secondary" 
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                          title={file.fileName || 'Unknown file'}
+                                        >
+                                          <Upload className="w-3 h-3" />
+                                          <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                        </Badge>
+                                        {hasFile && (
+                                          <>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileView(file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="View file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Eye className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileDownload(file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="Download file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Download className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                   </div>
                               ) : (
                                 <span className="text-muted-foreground text-xs">No files</span>
@@ -3184,27 +3453,68 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <div className="space-y-1.5">
                         {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
-                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
-                                      <Badge 
-                                        key={fileIndex} 
-                                        variant="secondary" 
-                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                        title={file.fileName || 'Unknown file'}
+                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => {
+                              const fileKey = `2.2-edit-${index}-${fileIndex}`;
+                              const isLoading = fileLoading[fileKey] || false;
+                              const hasFile = file && file.fileName; // Show buttons if file has a name
+                              
+                              return (
+                                <div key={fileIndex} className="flex items-center gap-1">
+                                  <Badge 
+                                    variant="secondary" 
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                    title={file.fileName || 'Unknown file'}
+                                  >
+                                    <Upload className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
+                                        handleFilesUpdate('2.2', index, updatedFiles.length > 0 ? updatedFiles : []);
+                                      }}
+                                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                    </button>
+                                  </Badge>
+                                  {hasFile && (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleFileView(file, fileKey)}
+                                        disabled={isLoading}
+                                        className="h-6 w-6 p-0"
+                                        title="View file"
                                       >
-                                        <Upload className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">{file.fileName || 'Unknown file'}</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                            handleFilesUpdate('2.2', index, updatedFiles.length > 0 ? updatedFiles : []);
-                                          }}
-                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                          <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                        </button>
-                                      </Badge>
-                                    ))}
+                                        {isLoading ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Eye className="w-3 h-3" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleFileDownload(file, fileKey)}
+                                        disabled={isLoading}
+                                        className="h-6 w-6 p-0"
+                                        title="Download file"
+                                      >
+                                        {isLoading ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Download className="w-3 h-3" />
+                                        )}
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
                               </div>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">No files</span>
@@ -3242,17 +3552,58 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             ) : (
                               item.files && item.files.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
-                                    <Badge 
-                                      key={fileIndex} 
-                                      variant="secondary" 
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={file.fileName || 'Unknown file'}
-                                    >
-                                      <Upload className="w-3 h-3" />
-                                      <span className="truncate">{file.fileName || 'Unknown file'}</span>
-                                    </Badge>
-                            ))}
+                                  {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => {
+                                    const fileKey = `2.2-readonly-${index}-${fileIndex}`;
+                                    const isLoading = fileLoading[fileKey] || false;
+                                    const hasFile = file && file.fileName;
+                                    
+                                    return (
+                                      <div key={fileIndex} className="flex items-center gap-1">
+                                        <Badge 
+                                          variant="secondary" 
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
+                                          title={file.fileName || 'Unknown file'}
+                                        >
+                                          <Upload className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                        </Badge>
+                                        {hasFile && (
+                                          <>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileView(file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="View file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Eye className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileDownload(file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="Download file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Download className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                           </div>
                         ) : (
                                 <span className="text-muted-foreground text-xs">No files</span>
@@ -3470,27 +3821,68 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                   <div className="space-y-1.5">
                         {item.files && item.files.length > 0 ? (
                                       <div className="flex flex-wrap gap-1.5">
-                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
-                                          <Badge 
-                                            key={fileIndex} 
-                                            variant="secondary" 
-                                            className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                            title={file.fileName || 'Unknown file'}
-                                          >
-                                            <Upload className="w-3 h-3 flex-shrink-0" />
-                                            <span className="truncate">{file.fileName || 'Unknown file'}</span>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                                handleFilesUpdate('2.3', index, updatedFiles.length > 0 ? updatedFiles : []);
-                                              }}
-                                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                              <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                            </button>
-                                          </Badge>
-                                        ))}
+                            {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => {
+                              const fileKey = `2.3-edit-${index}-${fileIndex}`;
+                              const isLoading = fileLoading[fileKey] || false;
+                              const hasFile = file && file.fileName; // Show buttons if file has a name
+                              
+                              return (
+                                <div key={fileIndex} className="flex items-center gap-1">
+                                  <Badge 
+                                    variant="secondary" 
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                    title={file.fileName || 'Unknown file'}
+                                  >
+                                    <Upload className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
+                                        handleFilesUpdate('2.3', index, updatedFiles.length > 0 ? updatedFiles : []);
+                                      }}
+                                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                    </button>
+                                  </Badge>
+                                  {hasFile && (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleFileView(file, fileKey)}
+                                        disabled={isLoading}
+                                        className="h-6 w-6 p-0"
+                                        title="View file"
+                                      >
+                                        {isLoading ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Eye className="w-3 h-3" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleFileDownload(file, fileKey)}
+                                        disabled={isLoading}
+                                        className="h-6 w-6 p-0"
+                                        title="Download file"
+                                      >
+                                        {isLoading ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Download className="w-3 h-3" />
+                                        )}
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
                               </div>
                                     ) : (
                                       <span className="text-muted-foreground text-xs">No files</span>
@@ -3528,17 +3920,58 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                 ) : (
                                   item.files && item.files.length > 0 ? (
                                     <div className="flex flex-wrap gap-1.5">
-                                      {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
-                                        <Badge 
-                                          key={fileIndex} 
-                                          variant="secondary" 
-                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                          title={file.fileName || 'Unknown file'}
-                                        >
-                                          <Upload className="w-3 h-3" />
-                                          <span className="truncate">{file.fileName || 'Unknown file'}</span>
-                                        </Badge>
-                            ))}
+                                      {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => {
+                                        const fileKey = `2.3-${index}-${fileIndex}`;
+                                        const isLoading = fileLoading[fileKey] || false;
+                                        const hasFile = file && file.fileName; // Show buttons if file has a name
+                                        
+                                        return (
+                                          <div key={fileIndex} className="flex items-center gap-1">
+                                            <Badge 
+                                              variant="secondary" 
+                                              className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                              title={file.fileName || 'Unknown file'}
+                                            >
+                                              <Upload className="w-3 h-3" />
+                                              <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                            </Badge>
+                                            {hasFile && (
+                                              <>
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => handleFileView(file, fileKey)}
+                                                  disabled={isLoading}
+                                                  className="h-6 w-6 p-0"
+                                                  title="View file"
+                                                >
+                                                  {isLoading ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                  ) : (
+                                                    <Eye className="w-3 h-3" />
+                                                  )}
+                                                </Button>
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => handleFileDownload(file, fileKey)}
+                                                  disabled={isLoading}
+                                                  className="h-6 w-6 p-0"
+                                                  title="Download file"
+                                                >
+                                                  {isLoading ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                  ) : (
+                                                    <Download className="w-3 h-3" />
+                                                  )}
+                                                </Button>
+                                              </>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
                           </div>
                         ) : (
                                     <span className="text-muted-foreground text-xs">No files</span>

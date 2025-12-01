@@ -65,6 +65,7 @@ const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
   // Try to parse JSON — your backend returns { status, data: { signedUrl, filePath, expiresIn } }
   try {
     const json = JSON.parse(text);
+    console.log("📄 Signed URL:", json);
     const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
     if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
     return signed;

@@ -1255,10 +1255,10 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                 {filteredSubmissions.length !== 1 ? "s" : ""} Found
               </p>
             </div>
-            <Button variant="outline" className="gap-2" onClick={handleExport}>
+            {/* <Button variant="outline" className="gap-2" onClick={handleExport}>
               <Download className="w-4 h-4" />
               Export
-            </Button>
+            </Button> */}
           </div>
         </div>
 
@@ -1411,7 +1411,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
             </SelectContent>
           </Select> */}
           <div className="flex gap-2">
-            <Button
+            {/* <Button
               variant={viewMode === "list" ? "default" : "outline"}
               size="icon"
               onClick={() => setViewMode("list")}
@@ -1424,7 +1424,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
               onClick={() => setViewMode("grid")}
             >
               <LayoutGrid className="w-4 h-4" />
-            </Button>
+            </Button> */}
           </div>
         </div>
 

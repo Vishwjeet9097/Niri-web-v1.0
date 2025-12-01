@@ -634,7 +634,8 @@ class ApiService implements HttpClient {
   async getSubmissions(
     page = 1,
     limit = 10,
-    statusOrRole?: string
+    statusOrRole?: string,
+    status?: string
   ): Promise<{
     submissions: NiriSubmission[];
     total: number;
@@ -647,7 +648,11 @@ class ApiService implements HttpClient {
     // If statusOrRole is provided and it's a specific status, filter by that status
     // Otherwise, get all submissions
     let url = `/submission?page=${page}&limit=${limit}`;
-    if (statusOrRole && statusOrRole !== "all") {
+    
+    // Priority: use status parameter if provided, otherwise use statusOrRole
+    const statusToUse = status || statusOrRole;
+    
+    if (statusToUse && statusToUse !== "all") {
       // Check if it's a known role, if so ignore it and get all submissions
       const knownRoles = [
         "state_approver",
@@ -661,8 +666,8 @@ class ApiService implements HttpClient {
       ];
 
       // Only add status filter if it's not a role
-      if (!knownRoles.includes(statusOrRole)) {
-        url += `&status=${statusOrRole}`;
+      if (!knownRoles.includes(statusToUse)) {
+        url += `&status=${encodeURIComponent(statusToUse)}`;
       }
     }
 
@@ -3110,15 +3115,19 @@ async getStateIndicatorStatuses(year?: string): Promise<{
 
  /**
   * Get MOSPI metrics for Approver and Reviewer dashboards
+  * @param status Optional status filter query parameter
   */
- async getMospiMetrics(): Promise<{
+ async getMospiMetrics(status?: string): Promise<{
    role: string;
    groupedByStatus: Record<string, number>;
    totalSubmissions: number;
    assignedStatesCount?: number;
  }> {
    try {
-     const response = await this.get("/dashboard/mospi-metrics");
+     const url = status 
+       ? `/dashboard/mospi-metrics?status=${encodeURIComponent(status)}`
+       : "/dashboard/mospi-metrics";
+     const response = await this.get(url);
      return response?.data || response;
    } catch (error: any) {
      console.error("Failed to fetch MOSPI metrics:", error);

@@ -412,7 +412,7 @@ export function NodalDashboardPage() {
       </TooltipProvider>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-1">
         <div className="lg:col-span-2 space-y-6">
           <div className="space-y-4">
             <div className="bg-white shadow-xl rounded-xl p-6">
@@ -480,10 +480,10 @@ export function NodalDashboardPage() {
         </div>
 
         <div className="space-y-6 lg:w-[300px] ">
-          <UpcomingDeadlines deadlines={deadlines} />
+          {/* <UpcomingDeadlines deadlines={deadlines} /> */}
 
           {/* Quick Actions */}
-          <QuickActions
+          {/* <QuickActions
             actions={[
               {
                 id: "1",
@@ -514,9 +514,9 @@ export function NodalDashboardPage() {
                 onClick: () => console.log("Help center"),
               },
             ]}
-          />
+          /> */}
 
-          <QuickTips
+          {/* <QuickTips
             tips={[
               {
                 id: "1",
@@ -534,7 +534,7 @@ export function NodalDashboardPage() {
                 description: "Add relevant files to strengthen your submission",
               },
             ]}
-          />
+          /> */}
         </div>
       </div>
     </div>

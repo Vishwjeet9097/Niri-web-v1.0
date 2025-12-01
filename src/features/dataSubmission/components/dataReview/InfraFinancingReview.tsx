@@ -2570,7 +2570,7 @@ const calculateAllocationPercentage = () => {
               } readOnly className='bg-gray-50' />
             </div>
             <div>
-              <Label>Capital Allocation for FY (INR)</Label>
+              <Label>Capital Allocation for FY (INR-CRORES)</Label>
               <Input
                 value={capitalAllocation}
                 onChange={(e) => {
@@ -2582,12 +2582,12 @@ const calculateAllocationPercentage = () => {
                 readOnly={!isEditable('1.1')}
                 className={isEditable('1.1') ? 'bg-white' : 'bg-gray-50'}
               />
-              <div className="text-xs text-gray-500 mt-1">
+              {/* <div className="text-xs text-gray-500 mt-1">
                 Current value: "{capitalAllocation}"
-              </div>
+              </div> */}
             </div>
             <div>
-              <Label>GSDP for FY (INR)</Label>
+              <Label>GSDP for FY (INR-CRORES)</Label>
               <Input
                 value={gsdpForFY}
                 onChange={(e) => {
@@ -2599,9 +2599,9 @@ const calculateAllocationPercentage = () => {
                 readOnly={!isEditable('1.1')}
                 className={isEditable('1.1') ? 'bg-white' : 'bg-gray-50'}
               />
-              <div className="text-xs text-gray-500 mt-1">
+              {/* <div className="text-xs text-gray-500 mt-1">
                 Current value: "{gsdpForFY}"
-              </div>
+              </div> */}
             </div>
             <div>
               <Label>% Allocation to GSDP</Label>
@@ -2618,9 +2618,9 @@ const calculateAllocationPercentage = () => {
                   </div>
                 )}
               </div>
-              <div className="text-xs text-gray-500 mt-1">
+              {/* <div className="text-xs text-gray-500 mt-1">
                 Calculation result: "{calculateAllocationPercentage()}"
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -2657,13 +2657,13 @@ const calculateAllocationPercentage = () => {
                 />
               </div>
               <div>
-                <Label>A₁ - Actual Capex (INR)</Label>
+                <Label>A₁ - Actual Capex (INR-CRORES)</Label>
                 <Input
                   value={
                     isEditable('1.2')
                       ? actualCapex
                       : actualCapex
-                      ? `₹${actualCapex} Crores`
+                      ? `₹${actualCapex} `
                       : ""
                   }
                   onChange={(e) => {
@@ -2682,13 +2682,14 @@ const calculateAllocationPercentage = () => {
                 )}
               </div>
               <div>
-                <Label>State Capex Utilisation (INR)</Label>
+                <Label>State Capex Utilisation (INR-CRORES)</Label>
                 <Input
                   value={
                     isEditable('1.2')
                       ? stateCapexUtilisation
                       : stateCapexUtilisation
-                      ? `₹${stateCapexUtilisation} Crores`
+                      ? `₹${stateCapexUtilisation} 
+                      `
                       : ""
                   }
                   onChange={(e) => {

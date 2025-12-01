@@ -229,7 +229,7 @@ function AdminDashboardPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
-              Page {currentPage} of {totalPages}
+              {/* Page {currentPage} of {totalPages} */}
             </div>
             <div className="flex items-center space-x-2">
               <Button

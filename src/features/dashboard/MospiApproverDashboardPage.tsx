@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,11 @@ export const MospiApproverDashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedState, setSelectedState] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [isFilteredByCard, setIsFilteredByCard] = useState(false);
+  const tableRef = useRef<HTMLDivElement>(null);
 
+  // Initial load - no status filter (keep existing behavior)
   useEffect(() => {
     const loadSubmissions = async () => {
       try {
@@ -40,60 +44,8 @@ export const MospiApproverDashboardPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
         
-        // Calculate progress for each submission (MOSPI roles see all indicators)
-        // This reflects current state even if indicators are sent back
-        // For MOSPI roles: Count all 20 indicators (no filtering)
-        // If an indicator is sent back (REVERTED), it won't count as filled
-        // Example: 20 indicators total, 15 filled, 1 sent back = (14/20) × 100% = 70%
-        const submissionsWithProgress = submissionsArray.map((sub: any) => {
-          const fd = sub.formData || sub.form_data || {};
-          
-          // Calculate progress based on indicators that exist in the submission
-          // Total = all indicators present in formData
-          // Progress = (filled indicators / total indicators in submission) × 100%
-          const summary = computeAllStepsSummary(fd, {});
-          
-          // Calculate overall progress from all steps
-          const totalCompleted = 
-            summary.infraFinancing.completed +
-            summary.infraDevelopment.completed +
-            summary.pppDevelopment.completed +
-            summary.infraEnablers.completed;
-          
-          const totalSections = 
-            summary.infraFinancing.total +
-            summary.infraDevelopment.total +
-            summary.pppDevelopment.total +
-            summary.infraEnablers.total;
-          
-          // Progress based on all indicators
-          // If an indicator is sent back (REVERTED), only that one doesn't count as filled
-          const progress = totalSections > 0 
-            ? Math.round((totalCompleted / totalSections) * 100)
-            : 0;
-          
-          // Debug logging (can be removed in production)
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[Progress] MOSPI - Submission ${sub.id}:`, {
-              totalSections,
-              totalCompleted,
-              progress,
-              breakdown: {
-                infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
-                infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
-                pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
-                infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
-              }
-            });
-          }
-          
-          return {
-            ...sub,
-            progress,
-          };
-        });
-        
-        setSubmissions(submissionsWithProgress);
+        setSubmissions(submissionsArray);
+        setIsFilteredByCard(false);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
         notificationService.error(
@@ -106,8 +58,95 @@ export const MospiApproverDashboardPage = () => {
       }
     };
 
+    // Only load on initial mount
     loadSubmissions();
   }, []);
+
+  // Load submissions with status filter when card is clicked
+  useEffect(() => {
+    const loadSubmissionsByStatus = async () => {
+      if (!selectedStatus) {
+        // If status is cleared, reload all submissions (reset to initial state)
+        const loadAllSubmissions = async () => {
+          try {
+            setLoading(true);
+            setIsFilteredByCard(false);
+            const submissionsData = await apiService.getSubmissions(1, 100);
+            
+            let submissionsArray = [];
+            if (Array.isArray(submissionsData)) {
+              submissionsArray = submissionsData;
+            } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+              submissionsArray = submissionsData.submissions;
+            } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
+              submissionsArray = (submissionsData as any).data.submissions;
+            } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+              submissionsArray = (submissionsData as any).data;
+            }
+            
+            setSubmissions(submissionsArray);
+          } catch (error) {
+            console.error("❌ Failed to reload all submissions:", error);
+            notificationService.error(
+              "Failed to reload submissions. Please try again.",
+              "Load Error"
+            );
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        // Only reload if we were previously filtered
+        if (isFilteredByCard) {
+          loadAllSubmissions();
+        }
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setIsFilteredByCard(true);
+        
+        // Call API with status query parameter
+        const submissionsData = await apiService.getSubmissions(1, 100, undefined, selectedStatus);
+        
+        // Handle different response structures
+        let submissionsArray = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+          submissionsArray = submissionsData.submissions;
+        } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
+          submissionsArray = (submissionsData as any).data.submissions;
+        } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+          submissionsArray = (submissionsData as any).data;
+        }
+        
+        setSubmissions(submissionsArray);
+        
+        // Smooth scroll to table after loading filtered submissions
+        setTimeout(() => {
+          tableRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }, 100);
+      } catch (error) {
+        console.error("❌ Failed to load filtered submissions:", error);
+        notificationService.error(
+          "Failed to load filtered submissions. Please try again.",
+          "Load Error"
+        );
+        setSubmissions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Only call when status changes (card clicked or cleared)
+    loadSubmissionsByStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStatus]);
 
   // Filter submissions for the "Recent Submissions" card - show only SUBMITTED_TO_MOSPI_APPROVER
   // Note: The latest submissions table should show all statuses (handled separately)
@@ -125,9 +164,9 @@ export const MospiApproverDashboardPage = () => {
     });
   }, [submissions, user?.role]);
   
-  // All submissions for the latest submissions table (show all statuses)
+  // All submissions for the latest submissions table
+  // When filtered by card, submissions are already filtered by API, so just apply local filters
   const allSubmissionsForTable = useMemo(() => {
-    // For MoSPI Approver: Show all submissions for all statuses
     return submissions.filter((submission) => {
       // State filter
       const stateMatch = selectedState === "All" || submission.stateUt === selectedState;
@@ -252,7 +291,7 @@ export const MospiApproverDashboardPage = () => {
         </div>
 
         {/* Overview Cards */}
-        <MospiApproverOverviewCards />
+        <MospiApproverOverviewCards onStatusFilterChange={setSelectedStatus} />
 
         {/* Recent Submissions */}
 
@@ -331,6 +370,7 @@ export const MospiApproverDashboardPage = () => {
         </Card> */}
 
         {/* Latest Submissions Table */}
+        <div ref={tableRef}>
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -471,6 +511,7 @@ export const MospiApproverDashboardPage = () => {
             </div>
           </CardContent>
         </Card>
+        </div>
 
         {/* Quick Actions */}
         <Card>
