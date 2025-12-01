@@ -149,7 +149,7 @@ export default function NodalSubmissionsList() {
               </div>
               {sub.reviewerNote && (
                 <div className="bg-red-100 border border-red-300 text-red-700 text-xs rounded p-2 mt-2">
-                  <span className="font-semibold">Reviewer Note:</span>{" "}
+                  <span className="font-semibold"> :</span>{" "}
                   {sub.reviewerNote}
                 </div>
               )}

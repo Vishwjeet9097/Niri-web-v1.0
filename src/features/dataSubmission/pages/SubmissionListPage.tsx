@@ -1475,7 +1475,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   nextStep = "Address reviewer feedback";
                 }
 
-                // Get reviewer note
+                // Get  
                 const reviewerNote = submission.reviewComments && submission.reviewComments.length > 0 
                   ? submission.reviewComments[submission.reviewComments.length - 1]?.text 
                   : undefined;
@@ -1580,7 +1580,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   nextStep = "Address reviewer feedback";
                 }
 
-                // Get reviewer note
+                // Get  
                 const reviewerNote = submission.reviewComments && submission.reviewComments.length > 0 
                   ? submission.reviewComments[submission.reviewComments.length - 1]?.text 
                   : undefined;

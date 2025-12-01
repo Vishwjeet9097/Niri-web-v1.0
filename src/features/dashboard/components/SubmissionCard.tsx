@@ -219,7 +219,7 @@ export function SubmissionCard({
         <div className={`mt-3 p-3 ${getCommentBackgroundClass(status)} rounded-lg flex gap-2`}>
           <AlertCircle className={`w-4 h-4 ${getCommentIconColorClass(status)} flex-shrink-0 mt-0.5`} />
           <div className="flex-1">
-            <p className={`text-xs font-semibold ${getCommentTextColorClass(status)} mb-1`}>Reviewer Note:</p>
+            <p className={`text-xs font-semibold ${getCommentTextColorClass(status)} mb-1`}> :</p>
             <p className={`text-xs ${getCommentTextColorClass(status)}`}>{reviewerNote}</p>
           </div>
         </div>

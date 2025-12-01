@@ -446,7 +446,7 @@ export function UnifiedSubmissionCard({
         </p>
       </div>
 
-      {/* Reviewer note */}
+      {/*   */}
       {/* {reviewerNote && (
         <div
           className={`mt-4 p-3 ${getCommentBackgroundClass(
@@ -464,7 +464,7 @@ export function UnifiedSubmissionCard({
                 status
               )} mb-1`}
             >
-              Reviewer Note:
+               :
             </p>
             <p className={`text-xs ${getCommentTextColorClass(status)}`}>
               {reviewerNote}
