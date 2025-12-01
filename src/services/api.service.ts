@@ -35,6 +35,7 @@ export interface NiriUser {
   lastName: string;
   contactNumber?: string;
   role:
+  | "ADMIN"
   | "NODAL_OFFICER"
   | "STATE_APPROVER"
   | "MOSPI_REVIEWER"
@@ -3106,6 +3107,24 @@ async getStateIndicatorStatuses(year?: string): Promise<{
   const res = await this.axios.get('/dashboard/nodal-metrics');
   return res.data;
 }
+
+ /**
+  * Get MOSPI metrics for Approver and Reviewer dashboards
+  */
+ async getMospiMetrics(): Promise<{
+   role: string;
+   groupedByStatus: Record<string, number>;
+   totalSubmissions: number;
+   assignedStatesCount?: number;
+ }> {
+   try {
+     const response = await this.get("/dashboard/mospi-metrics");
+     return response?.data || response;
+   } catch (error: any) {
+     console.error("Failed to fetch MOSPI metrics:", error);
+     throw error;
+   }
+ }
 
  async  getAssignedStateOnly(roleName: string) { 
   const res = await this.axios.get(`/users/states/assigned-state-by-state-approver/${roleName}`);

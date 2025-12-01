@@ -754,6 +754,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
               setTimelineSection(activeSection);
             }, 100);
       }
+
+      // Close the comment modal after saving regular comments
+      handleCloseModal();
     }
   };
 
@@ -1186,6 +1189,51 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const handleCancelAccept = () => {
     setShowAcceptDialog(false);
     setPendingActionSectionId(null);
+  };
+
+  // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  const renderMOSPIReviewerComments = (sectionId: string) => {
+    const getUserRole = () => {
+      try {
+        const authUser = localStorage.getItem('niri_app:auth_user');
+        if (authUser) {
+          const user = JSON.parse(authUser);
+          return user.value?.role;
+        }
+      } catch (error) {
+        console.error('Error reading user role:', error);
+      }
+      return null;
+    };
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    if (!isMospiApprover) return null;
+    
+    const comments = getComments(sectionId);
+    if (!comments || comments.length === 0) return null;
+    
+    const mospiReviewerComments = comments.filter((comment: any) => {
+      const commentRole = comment.role || comment.userRole || '';
+      return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
+    });
+    
+    if (mospiReviewerComments.length === 0) return null;
+    
+    return (
+      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comments:</p>
+        {mospiReviewerComments.map((comment: any, index: number) => (
+          <div key={index} className="mb-2 last:mb-0">
+            <p className="text-sm text-green-800">{comment.message || comment.comment || comment.text}</p>
+            {comment.timestamp && (
+              <p className="text-xs text-green-600 mt-1">
+                {new Date(comment.timestamp).toLocaleString()}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   // Helper function to handle field updates for nested array items
@@ -1702,7 +1750,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           }}
         >
           <RotateCcw className="w-4 h-4" />
-          Sent Back
+          Send Back
         </Button>
           <Button
             variant="outline"
@@ -1755,18 +1803,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
     const isMospiStatusResubmitted = mospiStatus === 'RESUBMITTED';
     
-    // Row 1: status=ACCEPTED, mospi_status=NA → "Under Review"
+    // Row 1: status=ACCEPTED, mospi_status=NA → "ACCEPTED"
     if (sectionStatus === 'ACCEPTED' && isMospiStatusNA) {
       return (
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
             disabled
           >
-            <Clock className="w-4 h-4" />
-            Under Review
+            <CheckCircle className="w-4 h-4" />
+            Accepted
           </Button>
           <Button
             variant="outline"
@@ -2815,6 +2863,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           // subtitle="Annex 4: Provide link and funding details"
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("2.1")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">

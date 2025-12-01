@@ -10,7 +10,7 @@ export default function ApproverDashboardPage() {
       <main className="p-8">
         {/* Welcome and Alert */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-1 text-foreground">Welcome back</h1>
+          <h1 className="text-3xl font-bold mb-1 text-foreground">Welcome</h1>
           <p className="text-muted-foreground">
             Provide final approval and scoring for NIRI submissions
           </p>

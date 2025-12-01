@@ -478,6 +478,126 @@ export function hasAnyIndicatorMospiReverted(
 }
 
 /**
+ * Expected total number of indicators (20)
+ */
+const EXPECTED_INDICATOR_COUNT = 20;
+
+/**
+ * All expected indicator codes (20 indicators)
+ */
+const ALL_INDICATOR_CODES = [
+  "1.1", "1.2", "1.3", "1.4", "1.5", // Infra Financing (5)
+  "2.1", "2.2", "2.3", "2.4", "2.5", // Infra Development (5)
+  "3.1", "3.2", "3.3", "3.4",        // PPP Development (4)
+  "4.1", "4.2", "4.3", "4.4", "4.5", "4.6", // Infra Enablers (6)
+];
+
+/**
+ * Check if all 20 indicators have some action (either ACCEPTED or REVERTED)
+ * @param submission - The submission object with formData
+ * @returns true if all 20 indicators have mospi_status set to either ACCEPTED or REVERTED
+ */
+export function areAllIndicatorsActioned(
+  submission: Record<string, any> | undefined
+): boolean {
+  console.group("🔍 [indicatorStatusUtils] areAllIndicatorsActioned");
+
+  if (!submission) {
+    console.log("❌ No submission provided");
+    console.groupEnd();
+    return false;
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    console.log("❌ No formData or formData is not an object");
+    console.groupEnd();
+    return false;
+  }
+
+  let actionedCount = 0;
+
+  // Check each of the 20 expected indicators
+  for (const indicatorCode of ALL_INDICATOR_CODES) {
+    // Map indicator code to category and section
+    const [sectionNum, indicatorNum] = indicatorCode.split(".");
+    const categoryMap: Record<string, string> = {
+      "1": "infraFinancing",
+      "2": "infraDevelopment",
+      "3": "pppDevelopment",
+      "4": "infraEnablers",
+    };
+
+    const category = categoryMap[sectionNum];
+    const section = `section${sectionNum}_${indicatorNum}`;
+
+    if (!category || !section) {
+      console.warn(
+        `⚠️ Could not map indicator ${indicatorCode} to category/section`
+      );
+      continue;
+    }
+
+    // Get category and section data
+    const categoryData = formData[category];
+    if (!categoryData || typeof categoryData !== "object") {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No category data found.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    const sectionData = categoryData[section];
+    if (!sectionData) {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No section data found.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    // Handle different section data structures
+    let mospiStatus: string | undefined;
+    
+    if (typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+      mospiStatus = sectionData.mospi_status;
+    } else if (Array.isArray(sectionData)) {
+      mospiStatus = (sectionData as any).mospi_status;
+    }
+    
+    if (!mospiStatus) {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No mospi_status found.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    const normalizedStatus = String(mospiStatus).trim().toUpperCase();
+    const isActioned = normalizedStatus === "ACCEPTED" || normalizedStatus === "APPROVED" || normalizedStatus === "REVERTED";
+    
+    if (isActioned) {
+      actionedCount++;
+      console.log(
+        `  ${indicatorCode}: mospi_status = "${mospiStatus}" → ✅ ACTIONED`
+      );
+    } else {
+      console.log(
+        `❌ Indicator ${indicatorCode}: mospi_status = "${mospiStatus}" is not ACCEPTED or REVERTED.`
+      );
+      console.groupEnd();
+      return false;
+    }
+  }
+
+  const allActioned = actionedCount === EXPECTED_INDICATOR_COUNT;
+  console.log(`✅ Actioned indicators: ${actionedCount}/${EXPECTED_INDICATOR_COUNT}. All actioned: ${allActioned}`);
+  console.groupEnd();
+  return allActioned;
+}
+
+/**
  * Submission Status Types
  */
 export type SubmissionStatusType = 

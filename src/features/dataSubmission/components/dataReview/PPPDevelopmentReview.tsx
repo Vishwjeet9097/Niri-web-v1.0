@@ -523,6 +523,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           setTimelineSection(activeSection);
         }, 100);
       }
+
+      // Close the comment modal after saving regular comments
+      handleCloseModal();
     }
   };
 
@@ -1135,6 +1138,37 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     
+    // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+    const renderMOSPIReviewerComments = (sectionId: string) => {
+      if (!isMospiApprover) return null;
+      
+      const comments = getComments(sectionId);
+      if (!comments || comments.length === 0) return null;
+      
+      const mospiReviewerComments = comments.filter((comment: any) => {
+        const commentRole = comment.role || comment.userRole || '';
+        return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
+      });
+      
+      if (mospiReviewerComments.length === 0) return null;
+      
+      return (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+          <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comments:</p>
+          {mospiReviewerComments.map((comment: any, index: number) => (
+            <div key={index} className="mb-2 last:mb-0">
+              <p className="text-sm text-green-800">{comment.message || comment.comment || comment.text}</p>
+              {comment.timestamp && (
+                <p className="text-xs text-green-600 mt-1">
+                  {new Date(comment.timestamp).toLocaleString()}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    };
+    
     // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
     const submissionStatus = (submission as any)?.status;
     if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
@@ -1290,7 +1324,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             }}
           >
             <RotateCcw className="w-4 h-4" />
-            Sent Back
+            Send Back
           </Button>
           <Button
             variant="outline"
@@ -1346,18 +1380,18 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
       const isMospiStatusResubmitted = mospiStatus === 'RESUBMITTED';
       
-      // Row 1: status=ACCEPTED, mospi_status=NA → "Under Review"
+      // Row 1: status=ACCEPTED, mospi_status=NA → "ACCEPTED"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusNA) {
         return (
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
               disabled
             >
-              <Clock className="w-4 h-4" />
-              Under Review
+              <CheckCircle className="w-4 h-4" />
+              Accepted
             </Button>
             <Button
               variant="outline"

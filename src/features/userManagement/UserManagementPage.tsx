@@ -810,12 +810,8 @@ export function UserManagementPage() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">
-              Enter officer details
-            </h1>
-            <p className="text-[#000]">
-              Add or remove Nodal Officers for your State/UT and assign them
-              specific indicators for data submission.
-            </p>
+              User Management
+            </h1> 
           </div>
         </div>
         <div className="flex gap-3">
@@ -862,10 +858,13 @@ export function UserManagementPage() {
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
+              <SelectItem value="all">Select Roles</SelectItem>
+
+               {user?.role !== "ADMIN" && (
               <SelectItem value="NODAL_OFFICER">
                 {getRoleDisplayName("NODAL_OFFICER")}
               </SelectItem>
+               )}
               {user?.role !== "STATE_APPROVER" && (
                 <>
                   <SelectItem value="STATE_APPROVER">
@@ -877,11 +876,13 @@ export function UserManagementPage() {
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
                   </SelectItem>
-                  <SelectItem value="ADMIN">
-                    {getRoleDisplayName("ADMIN")}
-                  </SelectItem>
+                  
                 </>
               )}
+               {user?.role == "ADMIN" && (<SelectItem value="ADMIN">
+                    {getRoleDisplayName("ADMIN")}
+                  </SelectItem>
+                )}
             </SelectContent>
           </Select>
         </div>

@@ -131,7 +131,7 @@ export default function ReviewerSubmissionsTable() {
             </label>
             <select
               id="state-filter"
-              className="border rounded px-2 py-1 text-sm"
+              className="border rounded px-6  py-1 text-sm"
               value={selectedState}
               onChange={(e) => setSelectedState(e.target.value)}
             >

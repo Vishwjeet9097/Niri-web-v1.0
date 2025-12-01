@@ -760,6 +760,9 @@ export const InfraFinancingReview = ({
           setTimelineSection(activeSection);
         }, 100);
       }
+
+      // Close the comment modal after saving regular comments
+      handleCloseModal();
     }
   };
 
@@ -1153,6 +1156,50 @@ export const InfraFinancingReview = ({
     setPendingActionSectionId(null);
   };
 
+  // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  const renderMOSPIReviewerComments = (sectionId: string) => {
+    const getUserRole = () => {
+      try {
+        const authUser = localStorage.getItem('niri_app:auth_user');
+        if (authUser) {
+          const parsed = JSON.parse(authUser);
+          return parsed?.role || null;
+        }
+      } catch (error) {
+        console.error('Error reading user role:', error);
+      }
+      return null;
+    };
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    if (!isMospiApprover) return null;
+    
+    const comments = getComments(sectionId);
+    if (!comments || comments.length === 0) return null;
+    
+    const mospiReviewerComments = comments.filter((comment: any) => {
+      const commentRole = comment.role || comment.userRole || '';
+      return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
+    });
+    
+    if (mospiReviewerComments.length === 0) return null;
+    
+    return (
+      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comments:</p>
+        {mospiReviewerComments.map((comment: any, index: number) => (
+          <div key={index} className="mb-2 last:mb-0">
+            <p className="text-sm text-green-800">{comment.message || comment.comment || comment.text}</p>
+            {comment.timestamp && (
+              <p className="text-xs text-green-600 mt-1">
+                {new Date(comment.timestamp).toLocaleString()}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
 // 🧑‍💻🧑‍💻Edited by Harsh
 const renderActionButtons = (sectionId: string) => {
@@ -1338,7 +1385,7 @@ const renderActionButtons = (sectionId: string) => {
           }}
         >
           <RotateCcw className="w-4 h-4" />
-          Sent Back
+          Send Back
         </Button>
         <Button
           variant="outline"
@@ -1394,18 +1441,18 @@ const renderActionButtons = (sectionId: string) => {
     const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
     const isMospiStatusResubmitted = mospiStatus === 'RESUBMITTED';
     
-    // Row 1: status=ACCEPTED, mospi_status=NA → "Under Review"
+    // Row 1: status=ACCEPTED, mospi_status=NA → "ACCEPTED"
     if (sectionStatus === 'ACCEPTED' && isMospiStatusNA) {
       return (
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
             disabled
           >
-            <Clock className="w-4 h-4" />
-            Under Review
+            <CheckCircle className="w-4 h-4" />
+            Accepted
           </Button>
           <Button
             variant="outline"
@@ -2491,6 +2538,8 @@ const calculateAllocationPercentage = () => {
             // subtitle="Annex 1: Verified with NBRP.csv / Budgeted Estimates for Capital Expenditure"
             className="mb-6 relative"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("1.1")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2596,6 +2645,8 @@ const calculateAllocationPercentage = () => {
             // subtitle="Annex 2: Verified with Actuals data"
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("1.2")}
             <div className="grid grid-cols-2 gap-4 max-w-[70%]">
               <div>
                 <Label>Year</Label>
@@ -2700,6 +2751,8 @@ const calculateAllocationPercentage = () => {
             // subtitle="Annex 3: Verified with Muni.GOI"
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("1.3")}
             {/* <div className="space-y-4">
               {/* ✅ Show Total ULBs at the top */}
               {/* {formData?.section1_3?.totalULBs !== undefined && (
