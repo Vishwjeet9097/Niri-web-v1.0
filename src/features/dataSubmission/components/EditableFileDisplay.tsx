@@ -289,7 +289,7 @@ export const EditableFileDisplay = ({
 
   const handleView = async (file: FileUpload, fileKey: string) => {
     // Handle local File objects (preview mode)
-    if (file.file instanceof File) {
+    if (file.file && file.file instanceof globalThis.File) {
       const blobUrl = URL.createObjectURL(file.file);
       window.open(blobUrl, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
@@ -322,7 +322,7 @@ export const EditableFileDisplay = ({
 
   const handleDownload = async (file: FileUpload, fileKey: string) => {
     // Handle local File objects (preview mode)
-    if (file.file instanceof File) {
+    if (file.file && file.file instanceof globalThis.File) {
       const blobUrl = URL.createObjectURL(file.file);
       const a = document.createElement("a");
       a.href = blobUrl;
@@ -400,7 +400,7 @@ export const EditableFileDisplay = ({
           {normalizedFiles.map((file, index) => {
             const fileKey = file.id || `file-${index}`;
             const isLoading = loading[fileKey] || false;
-            const hasFile = file.file instanceof File || file.filePath || (typeof file.file === "string" && file.file);
+            const hasFile = file && (file.file instanceof globalThis.File || file.filePath || file.fileUrl || (typeof file.file === "string" && file.file) || file.fileName);
             
             return (
               <div

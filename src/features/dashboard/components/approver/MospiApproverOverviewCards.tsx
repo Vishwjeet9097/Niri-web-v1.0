@@ -11,6 +11,8 @@ interface OverviewCardProps {
   description: string;
   borderColor: string;
   iconColor: string;
+  onClick?: () => void;
+  isSelected?: boolean;
 }
 
 const OverviewCard: React.FC<OverviewCardProps> = ({
@@ -20,9 +22,16 @@ const OverviewCard: React.FC<OverviewCardProps> = ({
   description,
   borderColor,
   iconColor,
+  onClick,
+  isSelected,
 }) => {
   return (
-    <div className={`bg-white rounded-lg border-l-4 ${borderColor} p-6 shadow-sm`}>
+    <div 
+      className={`bg-white rounded-lg border-l-4 ${borderColor} p-6 shadow-sm ${
+        onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''
+      } ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex items-start gap-4">
         {/* Icon */}
         <div className={`${iconColor} p-3 rounded-lg flex-shrink-0`}>
@@ -67,7 +76,11 @@ const FilterBar: React.FC<FilterBarProps> = ({ selectedFilter, onFilterChange })
   );
 };
 
-export const MospiApproverOverviewCards = () => {
+interface MospiApproverOverviewCardsProps {
+  onStatusFilterChange?: (status: string | null) => void;
+}
+
+export const MospiApproverOverviewCards = ({ onStatusFilterChange }: MospiApproverOverviewCardsProps = {}) => {
   const { user } = useAuth();
   const userRole = user?.role;
   const isMospiApprover = userRole === "MOSPI_APPROVER";
@@ -79,6 +92,7 @@ export const MospiApproverOverviewCards = () => {
   const [underReview, setUnderReview] = useState({ count: 0, total: 36 });
   const [returnedToState, setReturnedToState] = useState({ count: 0, total: 36 });
   const [selectedFilter, setSelectedFilter] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const loadOverviewData = async () => {
@@ -216,6 +230,12 @@ export const MospiApproverOverviewCards = () => {
               description="States/UTs/Ministries with full submissions"
               borderColor="border-blue-500"
               iconColor="bg-blue-50"
+              onClick={() => {
+                const newStatus = selectedStatus === "FULL_SUBMISSION" ? null : "FULL_SUBMISSION";
+                setSelectedStatus(newStatus);
+                onStatusFilterChange?.(newStatus);
+              }}
+              isSelected={selectedStatus === "FULL_SUBMISSION"}
             />
           )}
           
@@ -227,6 +247,12 @@ export const MospiApproverOverviewCards = () => {
             description="No. of States/UTs/Ministries fully approved"
             borderColor="border-green-500"
             iconColor="bg-green-50"
+            onClick={() => {
+              const newStatus = selectedStatus === "APPROVED" ? null : "APPROVED";
+              setSelectedStatus(newStatus);
+              onStatusFilterChange?.(newStatus);
+            }}
+            isSelected={selectedStatus === "APPROVED"}
           />
           
           {/* Under Review - Show for both roles */}
@@ -237,6 +263,13 @@ export const MospiApproverOverviewCards = () => {
             description="Approval in progress"
             borderColor="border-orange-500"
             iconColor="bg-orange-50"
+            onClick={() => {
+              const status = isMospiApprover ? "SUBMITTED_TO_MOSPI_APPROVER" : "SUBMITTED_TO_MOSPI_REVIEWER";
+              const newStatus = selectedStatus === status ? null : status;
+              setSelectedStatus(newStatus);
+              onStatusFilterChange?.(newStatus);
+            }}
+            isSelected={selectedStatus === (isMospiApprover ? "SUBMITTED_TO_MOSPI_APPROVER" : "SUBMITTED_TO_MOSPI_REVIEWER")}
           />
           
           {/* Returned to State Approver - Only for MOSPI_APPROVER */}
@@ -248,6 +281,12 @@ export const MospiApproverOverviewCards = () => {
               description="Need Revision"
               borderColor="border-yellow-500"
               iconColor="bg-yellow-50"
+              onClick={() => {
+                const newStatus = selectedStatus === "RETURNED_FROM_MOSPI" ? null : "RETURNED_FROM_MOSPI";
+                setSelectedStatus(newStatus);
+                onStatusFilterChange?.(newStatus);
+              }}
+              isSelected={selectedStatus === "RETURNED_FROM_MOSPI"}
             />
           )}
         </div>

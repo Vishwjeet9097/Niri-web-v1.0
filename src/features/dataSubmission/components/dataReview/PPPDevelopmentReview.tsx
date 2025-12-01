@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Upload, Plus, Clock, Edit3, Check, X, RotateCcw, CheckCircle } from "lucide-react";
+import { MessageSquare, Upload, Plus, Clock, Edit3, Check, X, RotateCcw, CheckCircle, Eye, Download, Loader2 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { hasPPPDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
+import { notificationService } from "@/services/notification.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 import { useEditableSectionStore } from '@/utils/EditableSection';
@@ -147,6 +148,157 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   const [selectResetKey, setSelectResetKey] = useState(0);
   // Refresh key to force component re-render on cancel
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Helper functions for file view and download
+  const [fileLoading, setFileLoading] = useState<Record<string, boolean>>({});
+
+  // Helper function to read access token from localStorage
+  const readAccessTokenFromLocalStorage = (): string | undefined => {
+    try {
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const parsed = JSON.parse(authUser);
+        return parsed?.token || parsed?.accessToken || parsed?.value?.token;
+      }
+    } catch (error) {
+      console.error('Error reading access token:', error);
+    }
+    return undefined;
+  };
+
+  // Helper function to fetch signed URL for S3 files
+  const fetchSignedUrl = async (filePath: string, token?: string): Promise<string> => {
+    if (!filePath) throw new Error("Missing filePath");
+
+    const encoded = encodeURIComponent(filePath);
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+    const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
+
+    const accessToken = token ?? readAccessTokenFromLocalStorage();
+    if (!accessToken) throw new Error("No auth token available. Please login.");
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
+      if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
+      return signed;
+    } catch (err) {
+      const trimmed = text.trim();
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      throw new Error(`Unexpected response when fetching signed URL: ${text.slice(0, 300)}`);
+    }
+  };
+
+  const isProbablyUrl = (s: string) => {
+    return typeof s === "string" && /^https?:\/\//i.test(s);
+  };
+
+  const handleFileView = async (file: any, fileKey: string) => {
+    // Handle local File objects (preview mode)
+    if (file.file && file.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(file.file);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      return;
+    }
+
+    // Handle S3 files (review mode)
+    const filePath = file.filePath || (typeof file.file === "string" ? file.file : undefined);
+    if (!filePath) {
+      notificationService.warning("File path missing.", "Cannot View File");
+      return;
+    }
+
+    setFileLoading(prev => ({ ...prev, [fileKey]: true }));
+    try {
+      const signed = await fetchSignedUrl(filePath);
+      if (!isProbablyUrl(signed)) {
+        console.error("Signed URL is not a valid URL:", signed);
+        notificationService.error("Received invalid file URL. Check console/network tab.", "View Failed");
+        return;
+      }
+      window.open(signed, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      console.error(err);
+      notificationService.error("Failed to open file: " + (err.message || err), "View Failed");
+    } finally {
+      setFileLoading(prev => ({ ...prev, [fileKey]: false }));
+    }
+  };
+
+  const handleFileDownload = async (file: any, fileKey: string) => {
+    // Handle local File objects (preview mode)
+    if (file.file && file.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(file.file);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = file.originalName || file.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      return;
+    }
+
+    // Handle S3 files (review mode)
+    const filePath = file.filePath || (typeof file.file === "string" ? file.file : undefined);
+    if (!filePath) {
+      notificationService.warning("File path missing.", "Cannot Download File");
+      return;
+    }
+
+    setFileLoading(prev => ({ ...prev, [fileKey]: true }));
+    let blobUrl: string | null = null;
+    try {
+      const encoded = encodeURIComponent(filePath);
+      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+      const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+
+      const accessToken = readAccessTokenFromLocalStorage();
+      if (!accessToken) {
+        throw new Error("No auth token available. Please login.");
+      }
+
+      const response = await fetch(downloadUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = file.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err: any) {
+      console.error(err);
+      notificationService.error("Download failed: " + (err.message || err), "Download Failed");
+    } finally {
+      if (blobUrl) {
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl!);
+        }, 100);
+      }
+      setFileLoading(prev => ({ ...prev, [fileKey]: false }));
+    }
+  };
   
   // State for adding new project in section 3.4
   const [showAddProjectForm, setShowAddProjectForm] = useState(false);
@@ -2837,16 +2989,57 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                 </div>
                               </div>
                             ) : (
-                              item.file ? (
-                                <Badge 
-                                  variant="secondary" 
-                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                  title={item.file.fileName || 'Unknown file'}
-                                >
-                                  <Upload className="w-3 h-3" />
-                                  <span className="truncate">{item.file.fileName || 'Unknown file'}</span>
-                                </Badge>
-                              ) : (
+                              item.file ? (() => {
+                                const fileKey = `3.3-readonly-${index}`;
+                                const isLoading = fileLoading[fileKey] || false;
+                                const hasFile = item.file && item.file.fileName;
+                                return (
+                                  <div className="flex items-center gap-1">
+                                    <Badge 
+                                      variant="secondary" 
+                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
+                                      title={item.file.fileName || 'Unknown file'}
+                                    >
+                                      <Upload className="w-3 h-3 flex-shrink-0" />
+                                      <span className="truncate">{item.file.fileName || 'Unknown file'}</span>
+                                    </Badge>
+                                    {hasFile && (
+                                      <>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleFileView(item.file, fileKey)}
+                                          disabled={isLoading}
+                                          className="h-6 w-6 p-0"
+                                          title="View file"
+                                        >
+                                          {isLoading ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <Eye className="w-3 h-3" />
+                                          )}
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleFileDownload(item.file, fileKey)}
+                                          disabled={isLoading}
+                                          className="h-6 w-6 p-0"
+                                          title="Download file"
+                                        >
+                                          {isLoading ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <Download className="w-3 h-3" />
+                                          )}
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })() : (
                                 <span className="text-muted-foreground text-xs">No file</span>
                               )
                             )}
