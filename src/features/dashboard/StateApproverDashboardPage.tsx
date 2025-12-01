@@ -384,7 +384,7 @@ export function StateApproverDashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-1">
         {/* Left Column - Submissions (spans 2 columns) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="space-y-4 bg-[#fff] border border-[#0000001A] rounded-lg p-6">
@@ -415,9 +415,9 @@ export function StateApproverDashboardPage() {
                   <SelectContent>
                     <SelectItem value="all">All Submissions</SelectItem>
                     <SelectItem value="pending">Pending Review</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
+                    {/* <SelectItem value="overdue">Overdue</SelectItem> */}
                     <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
+                    {/* <SelectItem value="rejected">Rejected</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>
@@ -464,8 +464,8 @@ export function StateApproverDashboardPage() {
         </div>
 
         {/* Right Column - Sidebar */}
-        <div className="space-y-6">
-          <RecentActionsCard
+        <div className="space-y-6" >
+          {/* <RecentActionsCard
             actions={[
               {
                 id: "1",
@@ -482,14 +482,14 @@ export function StateApproverDashboardPage() {
                 submittedBy: "Pune Nodal Officer",
               },
             ]}
-          />
+          /> */}
 
-          <QuickActionsCard
+          {/* <QuickActionsCard
             reviewedThisMonth={6}
             totalThisMonth={8}
             averageReviewTime={2}
             targetReviewTime={3}
-          />
+          /> */}
         </div>
       </div>
     </div>
