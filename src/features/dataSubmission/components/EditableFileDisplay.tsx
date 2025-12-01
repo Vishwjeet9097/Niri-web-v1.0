@@ -85,6 +85,28 @@ function isProbablyUrl(s: string) {
   return typeof s === "string" && /^https?:\/\//i.test(s);
 }
 
+// Helper function to safely check if a value is a File instance
+function isFileInstance(value: any): boolean {
+  if (!value || typeof value !== "object") return false;
+  
+  try {
+    // Check if File constructor exists and is callable
+    if (typeof File === "undefined") return false;
+    if (typeof File !== "function") return false;
+    
+    // Use instanceof only if File is actually a constructor
+    return value instanceof File;
+  } catch (e) {
+    // If instanceof fails, check for File-like properties as fallback
+    return (
+      typeof value.name === "string" &&
+      typeof value.size === "number" &&
+      typeof value.type === "string" &&
+      typeof value.lastModified === "number"
+    );
+  }
+}
+
 export const EditableFileDisplay = ({
   files,
   isEditable,
@@ -113,13 +135,34 @@ export const EditableFileDisplay = ({
     
     const rawFile = actualFile.file;
     let normalizedFile: File | string | null = null;
-    const globalFileCtor =
-      typeof globalThis !== "undefined" && typeof (globalThis as any).File === "function"
-        ? (globalThis as any).File
-        : undefined;
+    
+    // Safely get File constructor
+    let globalFileCtor: typeof File | undefined = undefined;
+    try {
+      if (typeof globalThis !== "undefined" && typeof (globalThis as any).File === "function") {
+        const FileCtor = (globalThis as any).File;
+        // Verify it's actually a constructor by checking if it can be called with 'new'
+        if (FileCtor && typeof FileCtor === "function") {
+          globalFileCtor = FileCtor;
+        }
+      }
+    } catch (e) {
+      // If File constructor is not available, continue without it
+      console.warn("File constructor not available:", e);
+    }
 
-    if (globalFileCtor && rawFile instanceof globalFileCtor) {
-      normalizedFile = rawFile as File;
+    // Only use instanceof if we have a valid constructor
+    if (globalFileCtor && rawFile && typeof rawFile === "object") {
+      try {
+        if (rawFile instanceof globalFileCtor) {
+          normalizedFile = rawFile as File;
+        }
+      } catch (e) {
+        // If instanceof fails, check for File-like properties as fallback
+        if (isFileInstance(rawFile)) {
+          normalizedFile = rawFile as File;
+        }
+      }
     } else if (rawFile === null || rawFile === undefined) {
       normalizedFile = null;
     } else if (typeof rawFile === "string") {
@@ -289,7 +332,7 @@ export const EditableFileDisplay = ({
 
   const handleView = async (file: FileUpload, fileKey: string) => {
     // Handle local File objects (preview mode)
-    if (file.file instanceof File) {
+    if (file.file && isFileInstance(file.file)) {
       const blobUrl = URL.createObjectURL(file.file);
       window.open(blobUrl, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
@@ -322,7 +365,7 @@ export const EditableFileDisplay = ({
 
   const handleDownload = async (file: FileUpload, fileKey: string) => {
     // Handle local File objects (preview mode)
-    if (file.file instanceof File) {
+    if (file.file && isFileInstance(file.file)) {
       const blobUrl = URL.createObjectURL(file.file);
       const a = document.createElement("a");
       a.href = blobUrl;
@@ -400,7 +443,7 @@ export const EditableFileDisplay = ({
           {normalizedFiles.map((file, index) => {
             const fileKey = file.id || `file-${index}`;
             const isLoading = loading[fileKey] || false;
-            const hasFile = file.file instanceof File || file.filePath || (typeof file.file === "string" && file.file);
+            const hasFile = (file.file && isFileInstance(file.file)) || file.filePath || (typeof file.file === "string" && file.file);
             
             return (
               <div

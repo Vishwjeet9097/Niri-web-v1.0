@@ -10,6 +10,7 @@ import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
+import { computeAllStepsSummary } from "@/features/submission/utils/progress";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
@@ -39,7 +40,60 @@ export const MospiApproverDashboardPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
         
-        setSubmissions(submissionsArray);
+        // Calculate progress for each submission (MOSPI roles see all indicators)
+        // This reflects current state even if indicators are sent back
+        // For MOSPI roles: Count all 20 indicators (no filtering)
+        // If an indicator is sent back (REVERTED), it won't count as filled
+        // Example: 20 indicators total, 15 filled, 1 sent back = (14/20) × 100% = 70%
+        const submissionsWithProgress = submissionsArray.map((sub: any) => {
+          const fd = sub.formData || sub.form_data || {};
+          
+          // Calculate progress based on indicators that exist in the submission
+          // Total = all indicators present in formData
+          // Progress = (filled indicators / total indicators in submission) × 100%
+          const summary = computeAllStepsSummary(fd, {});
+          
+          // Calculate overall progress from all steps
+          const totalCompleted = 
+            summary.infraFinancing.completed +
+            summary.infraDevelopment.completed +
+            summary.pppDevelopment.completed +
+            summary.infraEnablers.completed;
+          
+          const totalSections = 
+            summary.infraFinancing.total +
+            summary.infraDevelopment.total +
+            summary.pppDevelopment.total +
+            summary.infraEnablers.total;
+          
+          // Progress based on all indicators
+          // If an indicator is sent back (REVERTED), only that one doesn't count as filled
+          const progress = totalSections > 0 
+            ? Math.round((totalCompleted / totalSections) * 100)
+            : 0;
+          
+          // Debug logging (can be removed in production)
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Progress] MOSPI - Submission ${sub.id}:`, {
+              totalSections,
+              totalCompleted,
+              progress,
+              breakdown: {
+                infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
+                infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
+                pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
+                infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
+              }
+            });
+          }
+          
+          return {
+            ...sub,
+            progress,
+          };
+        });
+        
+        setSubmissions(submissionsWithProgress);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
         notificationService.error(
@@ -260,7 +314,7 @@ export const MospiApproverDashboardPage = () => {
                       referenceId={submission.submissionId || submission.id}
                       updatedDate={new Date(submission.updatedAt || submission.createdAt).toLocaleDateString()}
                       dueDate={submission.deadline || "TBD"}
-                      progress={submission.progress || 40}
+                      progress={submission.progress ?? 0}
                       nextStep={submission.status === "APPROVED" ? "Submission approved" : submission.status === "REJECTED" ? "Address reviewer feedback" : "Waiting for final approval"}
                       reviewerNote={submission.reviewerNote}
                       submission={submission}

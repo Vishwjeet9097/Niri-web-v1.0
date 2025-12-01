@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { computeAllStepsSummary } from "@/features/submission/utils/progress";
 import {
   FileText,
   AlertCircle,
@@ -120,6 +122,7 @@ export function NodalDashboardPage() {
     pendingSubmission: 0,
   });
   const [loading, setLoading] = useState(true);
+  const { assignedIndicators, isNodalOfficer, loading: indicatorsLoading } = useIndicatorAccess();
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -213,11 +216,56 @@ export function NodalDashboardPage() {
         setSubmissions(
           submissionsArray.map((sub: any) => {
             const fd = sub.form_data || sub.formData || {};
-            const formDataKeys = Object.keys(fd || {});
-            const progress =
-              formDataKeys.length > 0
-                ? Math.min(100, (formDataKeys.length / 10) * 100)
-                : 0;
+            
+            // Calculate proper progress using computeAllStepsSummary
+            // For NODAL_OFFICER: Progress is based on assigned indicators
+            // Total = assigned indicators that exist in formData
+            // Progress = (filled assigned indicators / total assigned indicators) × 100%
+            // Example: If 3 indicators assigned and all 3 filled = 100%
+            // If an indicator is sent back (REVERTED), it won't count as filled but is still in total
+            const summary = computeAllStepsSummary(fd, {
+              assignedIndicators: assignedIndicators || [],
+              isNodalOfficer: isNodalOfficer || false,
+            });
+            
+            // Calculate overall progress from all steps
+            const totalCompleted = 
+              summary.infraFinancing.completed +
+              summary.infraDevelopment.completed +
+              summary.pppDevelopment.completed +
+              summary.infraEnablers.completed;
+            
+            const totalSections = 
+              summary.infraFinancing.total +
+              summary.infraDevelopment.total +
+              summary.pppDevelopment.total +
+              summary.infraEnablers.total;
+            
+            // Progress based on assigned indicators only
+            // If 3 indicators assigned and 2 filled = 66.67%
+            // If 1 sent back (REVERTED), only 1 counts as filled = 33.33%
+            // If no assigned indicators, progress is 0%
+            const progress = totalSections > 0 
+              ? Math.round((totalCompleted / totalSections) * 100)
+              : 0;
+            
+            // Debug logging (can be removed in production)
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[Progress] Submission ${sub.id}:`, {
+                assignedIndicators: assignedIndicators?.length || 0,
+                assignedIndicatorsList: assignedIndicators || [],
+                isNodalOfficer,
+                totalSections,
+                totalCompleted,
+                progress,
+                breakdown: {
+                  infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
+                  infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
+                  pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
+                  infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
+                }
+              });
+            }
 
             let nextStep = "Complete submission";
             if (sub.status === "DRAFT")
@@ -276,8 +324,15 @@ export function NodalDashboardPage() {
       }
     };
 
+    // Only load dashboard data if indicators are loaded (for NODAL_OFFICER)
+    // This ensures progress calculation has access to assignedIndicators
+    if (isNodalOfficer && indicatorsLoading) {
+      // Wait for assignedIndicators to load
+      return;
+    }
+    
     loadDashboardData();
-  }, []);
+  }, [assignedIndicators, isNodalOfficer, indicatorsLoading]);
 
   if (loading) {
     return (

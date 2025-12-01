@@ -49,6 +49,8 @@ import { config } from "@/config/environment";
 import { getSubmissionStatus, getSubmissionDisplayStatus } from "@/utils/indicatorStatusUtils";
 import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
 import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { computeAllStepsSummary } from "@/features/submission/utils/progress";
 
 // Type definitions for aggregated indicators
 type AggregatedIndicator = {
@@ -421,6 +423,7 @@ export const SubmissionListPage = () => {
   const selectedYear = undefined;
 
   const { stateUt: myState } = authService.getUser() ?? {};
+  const { assignedIndicators, availableIndicators, isNodalOfficer, isStateApprover } = useIndicatorAccess();
 
   // const selectedYear = uiState.year; // Removed because uiState is undefined
 
@@ -1442,8 +1445,31 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
               </Card>
             ) : (
               filteredSubmissions.map((submission) => {
-                // Calculate progress
-                const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
+                // Calculate proper progress using computeAllStepsSummary
+                // For NODAL_OFFICER: Progress is based on assigned indicators
+                // For STATE_APPROVER/MOSPI: Progress is based on indicators in submission
+                const fd = submission.formData || submission.form_data || {};
+                const summary = computeAllStepsSummary(fd, {
+                  assignedIndicators: isNodalOfficer ? (assignedIndicators || []) : [],
+                  isNodalOfficer: isNodalOfficer || false,
+                });
+                
+                // Calculate overall progress from all steps
+                const totalCompleted = 
+                  summary.infraFinancing.completed +
+                  summary.infraDevelopment.completed +
+                  summary.pppDevelopment.completed +
+                  summary.infraEnablers.completed;
+                
+                const totalSections = 
+                  summary.infraFinancing.total +
+                  summary.infraDevelopment.total +
+                  summary.pppDevelopment.total +
+                  summary.infraEnablers.total;
+                
+                const progress = submission.progress || (totalSections > 0 
+                  ? Math.round((totalCompleted / totalSections) * 100)
+                  : 0);
                 
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
@@ -1547,8 +1573,31 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
               </Card>
             ) : (
               filteredSubmissions.map((submission) => {
-                // Calculate progress
-                const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
+                // Calculate proper progress using computeAllStepsSummary
+                // For NODAL_OFFICER: Progress is based on assigned indicators
+                // For STATE_APPROVER/MOSPI: Progress is based on indicators in submission
+                const fd = submission.formData || submission.form_data || {};
+                const summary = computeAllStepsSummary(fd, {
+                  assignedIndicators: isNodalOfficer ? (assignedIndicators || []) : [],
+                  isNodalOfficer: isNodalOfficer || false,
+                });
+                
+                // Calculate overall progress from all steps
+                const totalCompleted = 
+                  summary.infraFinancing.completed +
+                  summary.infraDevelopment.completed +
+                  summary.pppDevelopment.completed +
+                  summary.infraEnablers.completed;
+                
+                const totalSections = 
+                  summary.infraFinancing.total +
+                  summary.infraDevelopment.total +
+                  summary.pppDevelopment.total +
+                  summary.infraEnablers.total;
+                
+                const progress = submission.progress || (totalSections > 0 
+                  ? Math.round((totalCompleted / totalSections) * 100)
+                  : 0);
                 
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
