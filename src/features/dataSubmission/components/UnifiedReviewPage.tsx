@@ -33,7 +33,7 @@ import { generateAuditEntries } from "@/utils/auditUtils";
 import { MospiOverviewTab } from "./tabs/MospiOverviewTab";
 import { MospiApproverDataReviewTab } from "./tabs/MospiApproverDataReviewTab";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { areAllIndicatorsMospiAccepted, getSubmissionStatus, hasAnyIndicatorMospiReverted } from "@/utils/indicatorStatusUtils";
+import { areAllIndicatorsMospiAccepted, getSubmissionStatus, hasAnyIndicatorMospiReverted, areAllIndicatorsActioned } from "@/utils/indicatorStatusUtils";
 import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
 import { ConsolidationInfo } from "@/components/submission/ConsolidationInfo";
 
@@ -198,6 +198,11 @@ export const UnifiedReviewPage = ({
   const hasRevertedIndicators = useMemo(() => {
     if (!submission) return false;
     return hasAnyIndicatorMospiReverted(submission);
+  }, [submission]);
+
+  const allIndicatorsActioned = useMemo(() => {
+    if (!submission) return false;
+    return areAllIndicatorsActioned(submission);
   }, [submission]);
 
   // Show loading state
@@ -399,24 +404,36 @@ export const UnifiedReviewPage = ({
       // Use memoized values to ensure we have the latest data
       const allIndicatorsAccepted = allIndicatorsMospiAccepted;
       const hasReverted = hasRevertedIndicators;
+      const allActioned = allIndicatorsActioned;
       
       // Debug logging for MOSPI_APPROVER
-      console.log('🔍 [MOSPI_APPROVER] Final Submit Button Check:', {
+      console.log('🔍 [MOSPI_APPROVER] Button State Check:', {
         allIndicatorsAccepted,
         hasRevertedIndicators: hasReverted,
+        allIndicatorsActioned: allActioned,
         submissionId: submission?.id,
         submissionStatus,
         formDataKeys: submission?.formData ? Object.keys(submission.formData) : [],
         submissionUpdated: submission?.updatedAt
       });
       
-      // Send Back button - enabled only if at least one indicator is REVERTED
+      // Final Submit button - enabled only if:
+      // 1. All 20 indicators have some action (ACCEPTED or REVERTED)
+      // 2. All 20 indicators are ACCEPTED
+      const canFinalSubmit = allActioned && allIndicatorsAccepted;
+      
+      // Send Back button - enabled only if:
+      // 1. All 20 indicators have some action (ACCEPTED or REVERTED)
+      // 2. At least one indicator is REVERTED
+      const canSendBack = allActioned && hasReverted;
+      
+      // Send Back button
       buttons.push(
         <Button
           key="send-back"
           variant="outline"
           onClick={() => setShowSendBackConfirmationDialog(true)}
-          disabled={!hasRevertedIndicators || isSendingBack}
+          disabled={!canSendBack || isSendingBack}
           className="gap-2 border-orange-500 text-orange-700 hover:bg-orange-50"
         >
           <RotateCcw className="w-4 h-4" />
@@ -429,7 +446,7 @@ export const UnifiedReviewPage = ({
         <Button
           key="final-submit"
           onClick={() => setApproveModalOpen(true)}
-          disabled={!allIndicatorsAccepted || isSubmitting}
+          disabled={!canFinalSubmit || isSubmitting}
           className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <CheckCircle className="w-4 h-4" />
