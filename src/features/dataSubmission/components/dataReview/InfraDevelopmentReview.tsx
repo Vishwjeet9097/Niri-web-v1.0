@@ -1243,17 +1243,28 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   };
 
   const handleFileView = async (file: any, fileKey: string) => {
+    // Handle nested file structures
+    let actualFile = file;
+    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
+      actualFile = file.file;
+    }
+
     // Handle local File objects (preview mode)
-    if (file.file && file.file instanceof globalThis.File) {
-      const blobUrl = URL.createObjectURL(file.file);
+    if (actualFile.file && actualFile.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(actualFile.file);
       window.open(blobUrl, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       return;
     }
 
-    // Handle S3 files (review mode)
-    const filePath = file.filePath || (typeof file.file === "string" ? file.file : undefined);
+    // Handle S3 files (review mode) - check multiple possible properties
+    const filePath = actualFile.filePath || 
+                     actualFile.fileUrl || 
+                     actualFile.url ||
+                     actualFile.path ||
+                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
     if (!filePath) {
+      console.error("File path missing. File object:", actualFile);
       notificationService.warning("File path missing.", "Cannot View File");
       return;
     }
@@ -1276,12 +1287,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   };
 
   const handleFileDownload = async (file: any, fileKey: string) => {
+    // Handle nested file structures
+    let actualFile = file;
+    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
+      actualFile = file.file;
+    }
+
     // Handle local File objects (preview mode)
-    if (file.file && file.file instanceof globalThis.File) {
-      const blobUrl = URL.createObjectURL(file.file);
+    if (actualFile.file && actualFile.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(actualFile.file);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = file.originalName || file.fileName || "file";
+      a.download = actualFile.originalName || actualFile.fileName || "file";
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
@@ -1290,9 +1307,14 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       return;
     }
 
-    // Handle S3 files (review mode)
-    const filePath = file.filePath || (typeof file.file === "string" ? file.file : undefined);
+    // Handle S3 files (review mode) - check multiple possible properties
+    const filePath = actualFile.filePath || 
+                     actualFile.fileUrl || 
+                     actualFile.url ||
+                     actualFile.path ||
+                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
     if (!filePath) {
+      console.error("File path missing. File object:", actualFile);
       notificationService.warning("File path missing.", "Cannot Download File");
       return;
     }
@@ -1325,7 +1347,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
 
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = file.fileName || "file";
+      a.download = actualFile.originalName || actualFile.fileName || "file";
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
@@ -3517,17 +3539,58 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                             ) : (
                               item.files && item.files.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
-                                  {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => (
-                                    <Badge 
-                                      key={fileIndex} 
-                                      variant="secondary" 
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={file.fileName || 'Unknown file'}
-                                    >
-                                      <Upload className="w-3 h-3" />
-                                      <span className="truncate">{file.fileName || 'Unknown file'}</span>
-                                    </Badge>
-                            ))}
+                                  {sortFilesByUploadDate(item.files).map((file: any, fileIndex: number) => {
+                                    const fileKey = `2.2-readonly-${index}-${fileIndex}`;
+                                    const isLoading = fileLoading[fileKey] || false;
+                                    const hasFile = file && file.fileName;
+                                    
+                                    return (
+                                      <div key={fileIndex} className="flex items-center gap-1">
+                                        <Badge 
+                                          variant="secondary" 
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
+                                          title={file.fileName || 'Unknown file'}
+                                        >
+                                          <Upload className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">{file.fileName || 'Unknown file'}</span>
+                                        </Badge>
+                                        {hasFile && (
+                                          <>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileView(file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="View file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Eye className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileDownload(file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="Download file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Download className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                           </div>
                         ) : (
                                 <span className="text-muted-foreground text-xs">No files</span>

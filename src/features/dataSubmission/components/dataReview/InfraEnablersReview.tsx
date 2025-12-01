@@ -192,17 +192,28 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   const handleFileView = async (file: any, fileKey: string) => {
+    // Handle nested file structures
+    let actualFile = file;
+    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
+      actualFile = file.file;
+    }
+
     // Handle local File objects (preview mode)
-    if (file.file && file.file instanceof globalThis.File) {
-      const blobUrl = URL.createObjectURL(file.file);
+    if (actualFile.file && actualFile.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(actualFile.file);
       window.open(blobUrl, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       return;
     }
 
-    // Handle S3 files (review mode)
-    const filePath = file.filePath || (typeof file.file === "string" ? file.file : undefined);
+    // Handle S3 files (review mode) - check multiple possible properties
+    const filePath = actualFile.filePath || 
+                     actualFile.fileUrl || 
+                     actualFile.url ||
+                     actualFile.path ||
+                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
     if (!filePath) {
+      console.error("File path missing. File object:", actualFile);
       notificationService.warning("File path missing.", "Cannot View File");
       return;
     }
@@ -225,12 +236,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   const handleFileDownload = async (file: any, fileKey: string) => {
+    // Handle nested file structures
+    let actualFile = file;
+    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
+      actualFile = file.file;
+    }
+
     // Handle local File objects (preview mode)
-    if (file.file && file.file instanceof globalThis.File) {
-      const blobUrl = URL.createObjectURL(file.file);
+    if (actualFile.file && actualFile.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(actualFile.file);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = file.originalName || file.fileName || "file";
+      a.download = actualFile.originalName || actualFile.fileName || "file";
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
@@ -239,9 +256,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       return;
     }
 
-    // Handle S3 files (review mode)
-    const filePath = file.filePath || (typeof file.file === "string" ? file.file : undefined);
+    // Handle S3 files (review mode) - check multiple possible properties
+    const filePath = actualFile.filePath || 
+                     actualFile.fileUrl || 
+                     actualFile.url ||
+                     actualFile.path ||
+                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
     if (!filePath) {
+      console.error("File path missing. File object:", actualFile);
       notificationService.warning("File path missing.", "Cannot Download File");
       return;
     }
@@ -274,7 +296,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = file.fileName || "file";
+      a.download = actualFile.originalName || actualFile.fileName || "file";
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
