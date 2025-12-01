@@ -192,7 +192,7 @@ export const FileUploadSection = ({
     if (!value) return;
 
     // Handle local File objects (preview mode)
-    if (value.file instanceof File) {
+    if (value.file && value.file instanceof globalThis.File) {
       const blobUrl = URL.createObjectURL(value.file);
       window.open(blobUrl, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
@@ -227,7 +227,7 @@ export const FileUploadSection = ({
     if (!value) return;
 
     // Handle local File objects (preview mode)
-    if (value.file instanceof File) {
+    if (value.file && value.file instanceof globalThis.File) {
       const blobUrl = URL.createObjectURL(value.file);
       const a = document.createElement("a");
       a.href = blobUrl;
@@ -343,7 +343,7 @@ export const FileUploadSection = ({
             </p>
           </div>
           <div className="flex items-center gap-1">
-            {(value.file instanceof File || value.filePath || (typeof value.file === "string" && value.file)) && (
+            {((value.file && value.file instanceof globalThis.File) || value.filePath || (typeof value.file === "string" && value.file)) && (
               <>
                 <Button
                   type="button"
