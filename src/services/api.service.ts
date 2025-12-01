@@ -35,6 +35,7 @@ export interface NiriUser {
   lastName: string;
   contactNumber?: string;
   role:
+  | "ADMIN"
   | "NODAL_OFFICER"
   | "STATE_APPROVER"
   | "MOSPI_REVIEWER"

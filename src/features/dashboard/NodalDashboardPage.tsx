@@ -312,7 +312,7 @@ export function NodalDashboardPage() {
       {/* Header */}
       <div className="bg-[#fff] p-6 rounded-lg relative">
         <div>
-          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome back</h1>
+          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome</h1>
           <p className="text-[#212121]">
             Manage your NIRI data submissions and track approval status
           </p>

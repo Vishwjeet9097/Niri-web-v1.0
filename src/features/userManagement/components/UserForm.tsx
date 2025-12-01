@@ -231,10 +231,6 @@ export function UserForm({
         // Admin can create all roles (for system administration)
         return [
           {
-            value: "NODAL_OFFICER",
-            label: getRoleDisplayName("NODAL_OFFICER"),
-          },
-          {
             value: "STATE_APPROVER",
             label: getRoleDisplayName("STATE_APPROVER"),
           },
@@ -647,12 +643,8 @@ const handleStateChange = (values: string | string[]) => {
     <div className="max-w-4xl space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Enter officer details
-        </h2>
-        <p className="text-muted-foreground">
-          Add Nodal Officers for your State/UT and assign them specific
-          indicators for data submission.
-        </p>
+          User Management
+        </h2>        
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -660,7 +652,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="firstName" className="flex items-center gap-2">
             First Name
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -669,7 +661,7 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Enter the officer's first name</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Input
             id="firstName"
@@ -689,7 +681,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="lastName" className="flex items-center gap-2">
             Last Name
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -698,7 +690,7 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Enter the officer's last name</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Input
             id="lastName"
@@ -718,7 +710,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="contactNumber" className="flex items-center gap-2">
             Contact Number
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -727,7 +719,7 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Enter 10-digit mobile number</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Input
             id="contactNumber"
@@ -747,7 +739,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="email" className="flex items-center gap-2">
             Email
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -756,7 +748,7 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Only @gov.in and @nic.in email addresses are allowed</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Input
             id="email"
@@ -802,7 +794,7 @@ const handleStateChange = (values: string | string[]) => {
             <Label htmlFor="password" className="flex items-center gap-2">
               Password
               <span className="text-destructive">*</span>
-              <TooltipProvider>
+              {/* <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -811,7 +803,7 @@ const handleStateChange = (values: string | string[]) => {
                     <p>Enter password for the new user</p>
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
+              </TooltipProvider> */}
             </Label>
             <div className="relative">
               <Input
@@ -848,7 +840,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="role" className="flex items-center gap-2">
             Role
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -857,7 +849,7 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Select the officer's role</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Select
             value={formData.role}
@@ -891,7 +883,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="stateId" className="flex items-center gap-2">
               State/UT
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -904,7 +896,7 @@ const handleStateChange = (values: string | string[]) => {
                   </p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           </>
       )}
@@ -1095,7 +1087,7 @@ const handleStateChange = (values: string | string[]) => {
             <Label className="flex items-center gap-2">
               Assign Indicators
               <span className="text-destructive">*</span>
-              <TooltipProvider>
+              {/* <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -1107,7 +1099,7 @@ const handleStateChange = (values: string | string[]) => {
                     </p>
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
+              </TooltipProvider> */}
             </Label>
 
             <MultiSelect
