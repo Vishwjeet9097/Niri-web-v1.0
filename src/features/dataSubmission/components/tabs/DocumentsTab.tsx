@@ -104,22 +104,60 @@ function extractFilesFromFormData(
 ): Document[] {
   if (!obj || typeof obj !== "object") return collectedFiles;
 
-  // In review mode: Check if this object itself is a file metadata object with filePath
-  if (!isPreview && obj.filePath && typeof obj.filePath === "string" && obj.filePath.trim() !== "") {
-    if (!seenPaths.has(obj.filePath)) {
-      seenPaths.add(obj.filePath);
-      collectedFiles.push({
-        id: obj.id ?? obj.filePath,
-        fileName: obj.fileName,
-        originalName: obj.originalName,
-        filePath: obj.filePath,
-        fileSize: typeof obj.fileSize === "number" ? obj.fileSize : Number(obj.fileSize) || undefined,
-        mimeType: obj.mimeType,
-        uploadedBy: obj.uploadedBy ?? "Unknown",
-        uploadedAt: obj.uploadedAt ?? obj.uploadedAtString ?? undefined,
-      });
+  // In review mode: Check for filePath in various nested structures
+  if (!isPreview) {
+    // Check if this object itself has a filePath
+    if (obj.filePath && typeof obj.filePath === "string" && obj.filePath.trim() !== "") {
+      if (!seenPaths.has(obj.filePath)) {
+        seenPaths.add(obj.filePath);
+        collectedFiles.push({
+          id: obj.id ?? obj.filePath,
+          fileName: obj.fileName,
+          originalName: obj.originalName,
+          filePath: obj.filePath,
+          fileSize: typeof obj.fileSize === "number" ? obj.fileSize : Number(obj.fileSize) || undefined,
+          mimeType: obj.mimeType,
+          uploadedBy: obj.uploadedBy ?? "Unknown",
+          uploadedAt: obj.uploadedAt ?? obj.uploadedAtString ?? undefined,
+        });
+      }
     }
-    return collectedFiles;
+    
+    // Check nested structures: obj.file.filePath (common structure like section3_1.file.filePath)
+    if (obj.file?.filePath && typeof obj.file.filePath === "string" && obj.file.filePath.trim() !== "") {
+      if (!seenPaths.has(obj.file.filePath)) {
+        seenPaths.add(obj.file.filePath);
+        collectedFiles.push({
+          id: obj.file.id ?? obj.id ?? obj.file.filePath,
+          fileName: obj.file.fileName,
+          originalName: obj.file.originalName,
+          filePath: obj.file.filePath,
+          fileSize: typeof obj.file.fileSize === "number" ? obj.file.fileSize : Number(obj.file.fileSize) || undefined,
+          mimeType: obj.file.mimeType,
+          uploadedBy: obj.file.uploadedBy ?? "Unknown",
+          uploadedAt: obj.file.uploadedAt ?? obj.file.uploadedAtString ?? undefined,
+        });
+      }
+    }
+    
+    // Check deeper nested structures: obj.file.file.filePath
+    if (obj.file?.file?.filePath && typeof obj.file.file.filePath === "string" && obj.file.file.filePath.trim() !== "") {
+      if (!seenPaths.has(obj.file.file.filePath)) {
+        seenPaths.add(obj.file.file.filePath);
+        collectedFiles.push({
+          id: obj.file.file.id ?? obj.file.id ?? obj.id ?? obj.file.file.filePath,
+          fileName: obj.file.file.fileName,
+          originalName: obj.file.file.originalName,
+          filePath: obj.file.file.filePath,
+          fileSize: typeof obj.file.file.fileSize === "number" ? obj.file.file.fileSize : Number(obj.file.file.fileSize) || undefined,
+          mimeType: obj.file.file.mimeType,
+          uploadedBy: obj.file.file.uploadedBy ?? "Unknown",
+          uploadedAt: obj.file.file.uploadedAt ?? obj.file.file.uploadedAtString ?? undefined,
+        });
+      }
+    }
+    
+    // Note: We don't return early here - allow recursion to continue to find more nested files
   }
 
   // In preview mode: Check if this is a FileUpload object with file: File

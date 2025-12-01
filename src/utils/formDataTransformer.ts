@@ -83,18 +83,48 @@ export const transformFormDataForSubmission = (
           prunedObj[key] = prunedVal;
         }
       });
+      
+      // REFINED: Check if object ONLY has calculation fields with zero values
+      // AND has no other meaningful data
+      const calculationFields = ['marksObtained', 'percentage'];
+      const allKeys = Object.keys(prunedObj);
+      const calculationKeys = allKeys.filter(key => calculationFields.includes(key));
+      const nonCalculationKeys = allKeys.filter(key => !calculationFields.includes(key));
+      
+      // Only remove if:
+      // 1. Has calculation fields
+      // 2. Has NO non-calculation fields (no other data)
+      // 3. All calculation values are zero
+      if (calculationKeys.length > 0 && nonCalculationKeys.length === 0) {
+        const allZero = calculationKeys.every(key => {
+          const val = prunedObj[key];
+          return val === 0 || val === "0" || val === "0.0" || val === "0.00" || val === null || val === undefined;
+        });
+        
+        if (allZero) {
+          // This object only has zero calculation fields and nothing else - safe to remove
+          return undefined;
+        }
+      }
+      
       return Object.keys(prunedObj).length > 0 ? prunedObj : undefined;
     }
 
     return value;
   };
 
-  const cleaned = {
-    infraFinancing: prune(formDataObj.infraFinancing) || {},
-    infraDevelopment: prune(formDataObj.infraDevelopment) || {},
-    pppDevelopment: prune(formDataObj.pppDevelopment) || {},
-    infraEnablers: prune(formDataObj.infraEnablers) || {},
-  };
+  // Only include categories that have meaningful data (not empty/undefined)
+  const cleaned: Record<string, any> = {};
+  const categories = ['infraFinancing', 'infraDevelopment', 'pppDevelopment', 'infraEnablers'];
+
+  categories.forEach(category => {
+    const prunedCategory = prune(formDataObj[category]);
+    // Only include category if it has meaningful data (not empty/undefined)
+    if (prunedCategory && typeof prunedCategory === 'object' && Object.keys(prunedCategory).length > 0) {
+      cleaned[category] = prunedCategory;
+    }
+    // If prunedCategory is undefined or empty, don't add it (prevents empty categories)
+  });
 
   // Add consolidation metadata if this is a consolidated submission
   if (options?.isConsolidated) {
