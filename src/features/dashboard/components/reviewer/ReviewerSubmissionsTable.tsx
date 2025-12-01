@@ -7,18 +7,36 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 
-export default function ReviewerSubmissionsTable() {
+interface ReviewerSubmissionsTableProps {
+  submissions?: any[];
+  loading?: boolean;
+}
+
+export default function ReviewerSubmissionsTable({ 
+  submissions: propSubmissions, 
+  loading: propLoading 
+}: ReviewerSubmissionsTableProps = {} as ReviewerSubmissionsTableProps) {
   const { user } = useAuth();
   const [selectedState, setSelectedState] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [submissions, setSubmissions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [internalSubmissions, setInternalSubmissions] = useState<any[]>([]);
+  const [internalLoading, setInternalLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Use prop submissions if provided, otherwise use internal state
+  const submissions = propSubmissions !== undefined ? propSubmissions : internalSubmissions;
+  const loading = propLoading !== undefined ? propLoading : internalLoading;
+
+  // Only load submissions if not provided as prop
   useEffect(() => {
+    if (propSubmissions !== undefined) {
+      // Submissions are provided as prop, don't load
+      return;
+    }
+
     const loadSubmissions = async () => {
       try {
-        setLoading(true);
+        setInternalLoading(true);
         const userRole = user?.role || "MOSPI_REVIEWER";
         const submissionsData = await apiService.getSubmissions(1, 20);
     // Debug logging removed for performance
@@ -35,21 +53,21 @@ export default function ReviewerSubmissionsTable() {
           submissionsArray = (submissionsData as any).data;
         }
         
-        setSubmissions(submissionsArray);
+        setInternalSubmissions(submissionsArray);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
         notificationService.error(
           "Failed to load submissions. Please try again.",
           "Load Error"
         );
-        setSubmissions([]);
+        setInternalSubmissions([]);
       } finally {
-        setLoading(false);
+        setInternalLoading(false);
       }
     };
 
     loadSubmissions();
-  }, []);
+  }, [propSubmissions, user?.role]);
 
   const filteredSubmissions = submissions.filter((submission) => {
     // For MoSPI Reviewer: Show all submissions for all statuses

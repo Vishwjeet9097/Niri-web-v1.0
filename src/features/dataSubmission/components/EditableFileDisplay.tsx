@@ -41,6 +41,19 @@ interface FileDisplayWithActionsProps {
 // Helper function to read access token from localStorage
 function readAccessTokenFromLocalStorage(): string | undefined {
   try {
+    // Try the new key first: niri_app:auth_tokens
+    const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+    if (tokenDataRaw) {
+      const tokenData = JSON.parse(tokenDataRaw);
+      const tokenFromNewKey = tokenData?.value?.accessToken;
+      if (tokenFromNewKey) return tokenFromNewKey;
+    }
+    
+    // Try legacy key: access_token
+    const tokenFromLegacyKey = localStorage.getItem("access_token");
+    if (tokenFromLegacyKey) return tokenFromLegacyKey;
+    
+    // Try old auth_user key as fallback
     const authUser = localStorage.getItem('niri_app:auth_user');
     if (authUser) {
       const parsed = JSON.parse(authUser);
@@ -50,6 +63,11 @@ function readAccessTokenFromLocalStorage(): string | undefined {
     console.error('Error reading access token:', error);
   }
   return undefined;
+}
+
+// Helper function to normalize file paths (convert backslashes to forward slashes)
+function normalizeFilePath(filePath: string): string {
+  return filePath.replace(/\\/g, '/');
 }
 
 // Helper function to fetch signed URL for S3 files
@@ -69,15 +87,33 @@ async function fetchSignedUrl(filePath: string, token?: string): Promise<string>
   });
 
   const text = await res.text();
+  console.log("🔍 [EditableFileDisplay] Signed URL response:", text);
   try {
     const json = JSON.parse(text);
-    const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
+    console.log("🔍 [EditableFileDisplay] Signed URL:", json);
+    const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? json?.data?.filePath ?? json?.filePath ?? null;
     if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
-    return signed;
+    
+    // If it's a valid URL, return it
+    if (isProbablyUrl(signed)) {
+      return signed;
+    }
+    
+    // If it's a path (not a URL), normalize it and return it
+    // The caller will construct the proper URL
+    const normalizedSigned = normalizeFilePath(signed);
+    return normalizedSigned;
   } catch (err) {
+    // If JSON parsing failed, check if the raw text is a URL
     const trimmed = text.trim();
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    throw new Error(`Unexpected response when fetching signed URL: ${text.slice(0, 300)}`);
+    
+    // If it's a path, normalize it and return it
+    const normalizedTrimmed = normalizeFilePath(trimmed);
+    if (/^https?:\/\//i.test(normalizedTrimmed)) return normalizedTrimmed;
+    
+    // Return the normalized path - caller will construct URL
+    return normalizedTrimmed;
   }
 }
 
@@ -303,15 +339,27 @@ export const EditableFileDisplay = ({
       return;
     }
 
+    // Normalize the file path before using it
+    const normalizedPath = normalizeFilePath(filePath);
+
     setLoading((s) => ({ ...s, [fileKey]: true }));
     try {
-      const signed = await fetchSignedUrl(filePath);
-      if (!isProbablyUrl(signed)) {
-        console.error("Signed URL is not a valid URL:", signed);
-        notificationService.error("Received invalid file URL. Check console/network tab.", "View Failed");
-        return;
+      const signed = await fetchSignedUrl(normalizedPath);
+      console.log("[EditableFileDisplay] Signed URL:", signed);
+      
+      // Check if it's a valid URL
+      if (isProbablyUrl(signed)) {
+        window.open(signed, "_blank", "noopener,noreferrer");
+      } else {
+        // If it's a path (not a URL), construct a download/view URL
+        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        // Normalize the path again in case it came back with backslashes
+        const pathToUse = normalizeFilePath(signed);
+        const encoded = encodeURIComponent(pathToUse);
+        const viewUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+        console.log("[EditableFileDisplay] Constructed view URL:", viewUrl);
+        window.open(viewUrl, "_blank", "noopener,noreferrer");
       }
-      window.open(signed, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       console.error(err);
       notificationService.error("Failed to open file: " + (err.message || err), "View Failed");
@@ -342,12 +390,36 @@ export const EditableFileDisplay = ({
       return;
     }
 
+    // Normalize the file path before using it
+    const normalizedPath = normalizeFilePath(filePath);
+
     setLoading((s) => ({ ...s, [fileKey]: true }));
-    let blobUrl: string | null = null;
     try {
-      const encoded = encodeURIComponent(filePath);
+      // First, try to get a signed URL
+      const signed = await fetchSignedUrl(normalizedPath);
+      console.log("[EditableFileDisplay] Download - Signed URL:", signed);
+      
+      // If we got a valid URL, use it directly for download
+      if (isProbablyUrl(signed)) {
+        const a = document.createElement("a");
+        a.href = signed;
+        a.download = file.originalName || file.fileName || "file";
+        a.rel = "noopener noreferrer";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        notificationService.success("File download started", "Download");
+        return;
+      }
+      
+      // If it's a path (not a URL), try to construct download URL
       const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+      const pathToUse = normalizeFilePath(signed);
+      const encoded = encodeURIComponent(pathToUse);
       const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+      
+      console.log("[EditableFileDisplay] Download URL:", downloadUrl);
 
       const accessToken = readAccessTokenFromLocalStorage();
       if (!accessToken) {
@@ -362,11 +434,13 @@ export const EditableFileDisplay = ({
       });
 
       if (!response.ok) {
-        throw new Error(`Download failed: ${response.statusText}`);
+        const errorText = await response.text().catch(() => response.statusText);
+        console.error("[EditableFileDisplay] Download failed:", response.status, errorText);
+        throw new Error(`Download failed: ${response.status} ${response.statusText}. ${errorText}`);
       }
 
       const blob = await response.blob();
-      blobUrl = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
 
       const a = document.createElement("a");
       a.href = blobUrl;
@@ -375,15 +449,25 @@ export const EditableFileDisplay = ({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      
+      // Clean up blob URL after a short delay
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      notificationService.success("File download started", "Download");
     } catch (err: any) {
-      console.error(err);
-      notificationService.error("Download failed: " + (err.message || err), "Download Failed");
+      console.error("[EditableFileDisplay] Download error:", err);
+      const errorMessage = err.message || err.toString();
+      console.error("[EditableFileDisplay] Error details:", {
+        filePath: normalizedPath,
+        error: errorMessage,
+      });
+      notificationService.error(
+        `Failed to download file: ${errorMessage}`,
+        "Download Failed"
+      );
     } finally {
-      if (blobUrl) {
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl!);
-        }, 100);
-      }
       setLoading((s) => ({ ...s, [fileKey]: false }));
     }
   };

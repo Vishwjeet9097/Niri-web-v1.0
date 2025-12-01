@@ -1,19 +1,153 @@
 // niri - web / src / features / dashboard / ReviewerDashboardPage.tsx;
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Navigate } from "react-router-dom";
 import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
 import ReviewerSubmissionsTable from "./components/reviewer/ReviewerSubmissionsTable";
 import ReviewerRecentActions from "./components/reviewer/ReviewerRecentActions";
 import ReviewerQuickActions from "./components/reviewer/ReviewerQuickActions";
+import { apiService } from "@/services/api.service";
+import { notificationService } from "@/services/notification.service";
 
 const ReviewerDashboardPage: React.FC = () => {
   const { hasRole } = useAuth();
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [isFilteredByCard, setIsFilteredByCard] = useState(false);
+  const tableRef = useRef<HTMLDivElement>(null);
 
   // Only allow MosPI reviewer role
   if (!hasRole("MOSPI_REVIEWER")) {
     return <Navigate to="/unauthorized" replace />;
   }
+
+  // Initial load - no status filter (keep existing behavior)
+  useEffect(() => {
+    const loadSubmissions = async () => {
+      try {
+        setLoading(true);
+        const submissionsData = await apiService.getSubmissions(1, 100);
+        
+        // Handle different response structures
+        let submissionsArray = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+          submissionsArray = submissionsData.submissions;
+        } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
+          submissionsArray = (submissionsData as any).data.submissions;
+        } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+          submissionsArray = (submissionsData as any).data;
+        }
+        
+        setSubmissions(submissionsArray);
+        setIsFilteredByCard(false);
+      } catch (error) {
+        console.error("❌ Failed to load submissions:", error);
+        notificationService.error(
+          "Failed to load submissions. Please try again.",
+          "Load Error"
+        );
+        setSubmissions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Only load on initial mount
+    loadSubmissions();
+  }, []);
+
+  // Load submissions with status filter when card is clicked
+  useEffect(() => {
+    const loadSubmissionsByStatus = async () => {
+      if (!selectedStatus) {
+        // If status is cleared, reload all submissions (reset to initial state)
+        const loadAllSubmissions = async () => {
+          try {
+            setLoading(true);
+            setIsFilteredByCard(false);
+            const submissionsData = await apiService.getSubmissions(1, 100);
+            
+            let submissionsArray = [];
+            if (Array.isArray(submissionsData)) {
+              submissionsArray = submissionsData;
+            } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+              submissionsArray = submissionsData.submissions;
+            } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
+              submissionsArray = (submissionsData as any).data.submissions;
+            } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+              submissionsArray = (submissionsData as any).data;
+            }
+            
+            setSubmissions(submissionsArray);
+          } catch (error) {
+            console.error("❌ Failed to reload all submissions:", error);
+            notificationService.error(
+              "Failed to reload submissions. Please try again.",
+              "Load Error"
+            );
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        // Only reload if we were previously filtered
+        if (isFilteredByCard) {
+          loadAllSubmissions();
+        }
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setIsFilteredByCard(true);
+        
+        // Call API with status query parameter
+        const submissionsData = await apiService.getSubmissions(1, 100, undefined, selectedStatus);
+        
+        // Handle different response structures
+        let submissionsArray = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+          submissionsArray = submissionsData.submissions;
+        } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
+          submissionsArray = (submissionsData as any).data.submissions;
+        } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+          submissionsArray = (submissionsData as any).data;
+        }
+        
+        setSubmissions(submissionsArray);
+        
+        // Smooth scroll to table after loading filtered submissions
+        setTimeout(() => {
+          tableRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }, 100);
+      } catch (error) {
+        console.error("❌ Failed to load filtered submissions:", error);
+        notificationService.error(
+          "Failed to load filtered submissions. Please try again.",
+          "Load Error"
+        );
+        setSubmissions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Only call when status changes (card clicked or cleared)
+    loadSubmissionsByStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStatus]);
+
+  const handleStatusFilterChange = (status: string | null) => {
+    setSelectedStatus(status);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -41,13 +175,13 @@ const ReviewerDashboardPage: React.FC = () => {
 
         {/* Overview Cards */}
         <div className="mb-8">
-          <MospiApproverOverviewCards />
+          <MospiApproverOverviewCards onStatusFilterChange={handleStatusFilterChange} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
           {/* Latest Submissions Table */}
-          <div className="lg:col-span-2">
-            <ReviewerSubmissionsTable />
+          <div ref={tableRef} className="lg:col-span-2">
+            <ReviewerSubmissionsTable submissions={submissions} loading={loading} />
           </div>
           {/* Recent Actions & Quick Actions */}
           <div className="flex flex-col gap-6">

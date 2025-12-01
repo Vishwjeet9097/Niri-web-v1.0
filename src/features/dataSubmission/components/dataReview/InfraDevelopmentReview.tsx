@@ -1198,6 +1198,19 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   // Helper function to read access token from localStorage
   const readAccessTokenFromLocalStorage = (): string | undefined => {
     try {
+      // Try the new key first: niri_app:auth_tokens
+      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+      if (tokenDataRaw) {
+        const tokenData = JSON.parse(tokenDataRaw);
+        const tokenFromNewKey = tokenData?.value?.accessToken;
+        if (tokenFromNewKey) return tokenFromNewKey;
+      }
+      
+      // Try legacy key: access_token
+      const tokenFromLegacyKey = localStorage.getItem("access_token");
+      if (tokenFromLegacyKey) return tokenFromLegacyKey;
+      
+      // Try old auth_user key as fallback
       const authUser = localStorage.getItem('niri_app:auth_user');
       if (authUser) {
         const parsed = JSON.parse(authUser);
