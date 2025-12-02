@@ -1297,6 +1297,80 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     setPendingActionSectionId(null);
   };
 
+  // Helper function to render "Returned from MoSPI" badge when submission status is SUBMITTED_TO_MOSPI_APPROVER or SUBMITTED_TO_MOSPI_REVIEWER
+  const renderReturnedFromMospiBadge = () => {
+    const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
+    if (submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+      return (
+        <div className="mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default w-full justify-center"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Returned from MoSPI
+          </Button>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  const renderMOSPIReviewerComments = (sectionId: string) => {
+    const getUserRole = () => {
+      try {
+        const authUser = localStorage.getItem('niri_app:auth_user');
+        if (authUser) {
+          const user = JSON.parse(authUser);
+          const role = user.value?.role;
+          // Normalize role string (trim whitespace, convert to uppercase for comparison)
+          return role ? String(role).trim() : null;
+        }
+      } catch (error) {
+        console.error('Error reading user role:', error);
+      }
+      return null;
+    };
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    if (!isMospiApprover) return null;
+    
+    const comments = getComments(sectionId);
+    if (!comments || comments.length === 0) return null;
+    
+    const mospiReviewerComments = comments.filter((comment: any) => {
+      const commentRole = comment.role || comment.userRole || '';
+      return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
+    });
+    
+    if (mospiReviewerComments.length === 0) return null;
+    
+    // Sort by timestamp (newest first) and get the last (most recent) comment
+    const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
+    });
+    const lastComment = sortedComments[0]; // Get the most recent comment
+    
+    return (
+      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comment:</p>
+        <div className="mb-2 last:mb-0">
+          <p className="text-sm text-green-800">{(lastComment as any).text || (lastComment as any).message || (lastComment as any).comment}</p>
+          {lastComment.timestamp && (
+            <p className="text-xs text-green-600 mt-1">
+              {new Date(lastComment.timestamp).toLocaleString()}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
  const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
@@ -1325,41 +1399,27 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     
-    // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
-    const renderMOSPIReviewerComments = (sectionId: string) => {
-      if (!isMospiApprover) return null;
-      
-      const comments = getComments(sectionId);
-      if (!comments || comments.length === 0) return null;
-      
-      const mospiReviewerComments = comments.filter((comment: any) => {
-        const commentRole = comment.role || comment.userRole || '';
-        return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
-      });
-      
-      if (mospiReviewerComments.length === 0) return null;
-      
+    // Get submission status
+    const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
+    
+    // Check if submission is with MoSPI (APPROVER or REVIEWER)
+    const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
+    
+    // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
+    if (isStateApprover && isWithMospi) {
       return (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-          <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comments:</p>
-          {mospiReviewerComments.map((comment: any, index: number) => (
-            <div key={index} className="mb-2 last:mb-0">
-              <p className="text-sm text-green-800">{comment.message || comment.comment || comment.text}</p>
-              {comment.timestamp && (
-                <p className="text-xs text-green-600 mt-1">
-                  {new Date(comment.timestamp).toLocaleString()}
-                </p>
-              )}
-            </div>
-          ))}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-secondary text-secondary-foreground cursor-default"
+            disabled
+          >
+            <Clock className="w-4 h-4" />
+            Under Review
+          </Button>
         </div>
       );
-    };
-    
-    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
-    const submissionStatus = (submission as any)?.status;
-    if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
-      return null;
     }
     
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
@@ -1559,9 +1619,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     // Check if status is REVERTED or mospi_status is REVERTED
     const isStatusReverted = sectionStatus === 'REVERTED';
     const isMospiStatusReverted = mospiStatus === 'REVERTED';
+    
+    // isWithMospi is already declared above using submissionStatus
 
     // For STATE_APPROVER, handle all edge cases based on status and mospi_status combinations
     if (isStateApprover) {
+      // Helper to check if status is NA/undefined
+      const isStatusNA = !sectionStatus || sectionStatus === 'NA' || sectionStatus === '';
       // Helper to check if mospi_status is NA/undefined
       const isMospiStatusNA = !mospiStatus || mospiStatus === 'NA' || mospiStatus === '';
       const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
@@ -2138,8 +2202,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         );
       }
       
-      // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept"
-      if (!sectionStatus && isMospiStatusNA) {
+      // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept, Timeline"
+      if (isStatusNA && isMospiStatusNA) {
         return (
           <div className="flex gap-2">
             {!isEditable(sectionId) ? (
@@ -2621,6 +2685,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("3.1")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2733,6 +2799,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("3.2")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2835,6 +2903,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("3.3")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3218,6 +3288,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("3.4")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">

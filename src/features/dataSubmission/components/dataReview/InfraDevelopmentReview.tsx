@@ -1378,6 +1378,27 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     }
   };
 
+  // Helper function to render "Returned from MoSPI" badge when submission status is SUBMITTED_TO_MOSPI_APPROVER or SUBMITTED_TO_MOSPI_REVIEWER
+  const renderReturnedFromMospiBadge = () => {
+    const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
+    if (submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+      return (
+        <div className="mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default w-full justify-center"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Returned from MoSPI
+          </Button>
+        </div>
+      );
+    }
+    return null;
+  };
+
   // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
   const renderMOSPIReviewerComments = (sectionId: string) => {
     const getUserRole = () => {
@@ -1406,19 +1427,25 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     
     if (mospiReviewerComments.length === 0) return null;
     
+    // Sort by timestamp (newest first) and get the last (most recent) comment
+    const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
+    });
+    const lastComment = sortedComments[0]; // Get the most recent comment
+    
     return (
       <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comments:</p>
-        {mospiReviewerComments.map((comment: any, index: number) => (
-          <div key={index} className="mb-2 last:mb-0">
-            <p className="text-sm text-green-800">{comment.message || comment.comment || comment.text}</p>
-            {comment.timestamp && (
-              <p className="text-xs text-green-600 mt-1">
-                {new Date(comment.timestamp).toLocaleString()}
-              </p>
-            )}
-          </div>
-        ))}
+        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comment:</p>
+        <div className="mb-2 last:mb-0">
+          <p className="text-sm text-green-800">{(lastComment as any).text || (lastComment as any).message || (lastComment as any).comment}</p>
+          {lastComment.timestamp && (
+            <p className="text-xs text-green-600 mt-1">
+              {new Date(lastComment.timestamp).toLocaleString()}
+            </p>
+          )}
+        </div>
       </div>
     );
   };
@@ -1736,10 +1763,27 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
   const isMospiApprover = userRole === 'MOSPI_APPROVER';
   
-  // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
-  const submissionStatus = (submission as any)?.status;
-  if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
-    return null;
+  // Get submission status
+  const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
+  
+  // Check if submission is with MoSPI (APPROVER or REVIEWER)
+  const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
+  
+  // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
+  if (isStateApprover && isWithMospi) {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-secondary text-secondary-foreground cursor-default"
+          disabled
+        >
+          <Clock className="w-4 h-4" />
+          Under Review
+        </Button>
+      </div>
+    );
   }
   
   // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
@@ -1982,10 +2026,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   // Check if status is REVERTED or mospi_status is REVERTED
   const isStatusReverted = sectionStatus === 'REVERTED';
   const isMospiStatusReverted = mospiStatus === 'REVERTED';
+  
+  // isWithMospi is already declared above using submissionStatus
     
   // For STATE_APPROVER, handle all edge cases based on status and mospi_status combinations
   if (isStateApprover) {
+    // Helper to check if status is NA/undefined
+    const isStatusNA = !sectionStatus || sectionStatus === 'NA' || sectionStatus === '';
     // Helper to check if mospi_status is NA/undefined
+    console.log("statttttus", isStatusNA)
     const isMospiStatusNA = !mospiStatus || mospiStatus === 'NA' || mospiStatus === '';
     const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
     const isMospiStatusResubmitted = mospiStatus === 'RESUBMITTED';
@@ -2180,15 +2229,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isWithMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2276,15 +2327,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isWithMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2343,15 +2396,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isWithMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2454,15 +2509,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <CheckCircle className="w-4 h-4" />
             Re Submitted
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isWithMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2530,15 +2587,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isWithMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2561,8 +2620,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       );
     }
     
-    // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept"
-    if (!sectionStatus && isMospiStatusNA) {
+    // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept, Timeline"
+    if (isStatusNA && isMospiStatusNA) {
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -2629,7 +2688,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     }
     
     // Row 14: status=NA, mospi_status=ACCEPTED → "Accepted(Disable)"
-    if (!sectionStatus && isMospiStatusAccepted) {
+    if (isStatusNA && isMospiStatusAccepted) {
       return (
         <div className="flex gap-2">
           <Button
@@ -2655,7 +2714,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     }
     
     // Row 15: status=NA, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
-    if (!sectionStatus && isMospiStatusReverted) {
+    if (isStatusNA && isMospiStatusReverted) {
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -2699,15 +2758,17 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isWithMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2733,8 +2794,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   
   // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
   if (sectionStatus === 'ACCEPTED') {
-    // If mospi_status = "REVERTED", show "Returned from MoSPI" badge
-    if (mospiStatus === 'REVERTED') {
+    // If mospi_status = "REVERTED" AND submission status is with MoSPI, show "Returned from MoSPI" badge
+    if (mospiStatus === 'REVERTED' && isWithMospi) {
       return (
         <div className="flex gap-2">
           <Button
@@ -2832,8 +2893,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          {/* Show "Returned from MoSPI" badge if mospi_status is also REVERTED */}
-          {isMospiStatusReverted && (
+          {/* Show "Returned from MoSPI" badge if submission status is RETURNED_FROM_MOSPI */}
+          {isWithMospi && (
             <Button
               variant="outline"
               size="sm"
@@ -2869,8 +2930,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           <RotateCcw className="w-4 h-4" />
           Sent Back
         </Button>
-        {/* Show "Returned from MoSPI" badge if mospi_status is also REVERTED */}
-        {isMospiStatusReverted && (
+        {/* Show "Returned from MoSPI" badge if submission status is SUBMITTED_TO_MOSPI_APPROVER or SUBMITTED_TO_MOSPI_REVIEWER */}
+        {isWithMospi && (
           <Button
             variant="outline"
             size="sm"
@@ -2894,8 +2955,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     );
   }
 
-  // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
-  if (isNodalOfficer && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
+  // For NODAL_OFFICER (but not STATE_APPROVER), show "Under Review" badge if status is RESUBMITTED or null/undefined
+  if (isNodalOfficer && !isStateApprover && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
     return (
       <div className="flex gap-2">
         <Button
@@ -2920,8 +2981,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     );
   }
 
-  // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
-  if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
+  // For NODAL_OFFICER (but not STATE_APPROVER), if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
+  if (isNodalOfficer && !isStateApprover && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
     return null;
   }
 
@@ -3387,6 +3448,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("2.2")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3720,6 +3783,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("2.3")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -4109,6 +4174,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("2.4")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -4502,6 +4569,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("2.5")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
