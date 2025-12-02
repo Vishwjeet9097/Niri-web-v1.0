@@ -53,6 +53,7 @@ import { calculateStateProgressFromApi, ProgressStats } from "@/utils/progressUt
 import { authService } from "@/services/auth.service";
 import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
+import { mergeAttachedFiles, extractFileMetadataFromFormData } from "@/utils/extractFileMetadata";
 import axios from "axios";
 import { config } from "@/config/environment";
 
@@ -1021,27 +1022,92 @@ export const StateAggregateReviewPage = () => {
       console.log("📋 STEP 2: Extracting source submission IDs");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
-      // Get source submission IDs from state indicator statuses
+      // Get source submission IDs and their full data from state indicator statuses
       let sourceSubmissionIds: string[] = [];
+      let sourceSubmissions: any[] = [];
       try {
         const statusResp = await apiService.getStateIndicatorStatuses();
         const normalizedStatus = statusResp?.data ? statusResp : { data: statusResp };
         const statusData = normalizedStatus.data || {};
         const approvedSubmissions = statusData.submissions || [];
         
-        // Extract submission IDs from approved submissions
-        sourceSubmissionIds = approvedSubmissions
-          .filter((sub: any) => {
-            // Exclude consolidated submissions by checking metadata
-            const formData = sub.formData || sub.form_data || {};
-            const metadata = formData._metadata;
-            return !metadata?.isConsolidated;
-          })
-          .map((sub: any) => sub.submissionId || sub.id)
-          .filter((id: string) => id); // Filter out any undefined/null IDs
+        // Filter and collect source submissions (exclude consolidated)
+        const filteredSubmissions = approvedSubmissions.filter((sub: any) => {
+          const formData = sub.formData || sub.form_data || {};
+          const metadata = formData._metadata;
+          return !metadata?.isConsolidated;
+        });
         
-        console.log("📋 Source submission IDs:", sourceSubmissionIds);
-        console.log("📋 Source submissions count:", sourceSubmissionIds.length);
+        // Extract database UUIDs (id) and submissionId strings for tracking
+        // We need UUIDs to fetch full submissions with attachedFiles
+        const sourceSubmissionUuids = filteredSubmissions
+          .map((sub: any) => sub.id) // Use database UUID (id), not submissionId string
+          .filter((id: string) => id && typeof id === 'string' && id.includes('-')); // Must be UUID format
+        
+        // Also extract submissionId strings for metadata tracking
+        sourceSubmissionIds = filteredSubmissions
+          .map((sub: any) => sub.submissionId || sub.id)
+          .filter((id: string) => id);
+        
+        console.log("📋 Source submission UUIDs (for fetching):", sourceSubmissionUuids);
+        console.log("📋 Source submission IDs (for metadata):", sourceSubmissionIds);
+        console.log("📋 Source submissions count:", sourceSubmissionUuids.length);
+        
+        // Fetch full submission data to get attachedFiles using database UUIDs
+        if (sourceSubmissionUuids.length > 0) {
+          console.log("📋 Fetching full submission data using UUIDs to get attachedFiles...");
+          
+          // Fetch each submission individually using its UUID to ensure we get complete data including attachedFiles
+          const individualFetches = await Promise.allSettled(
+            sourceSubmissionUuids.map(async (uuid) => {
+              try {
+                console.log(`📋 Fetching submission with UUID: ${uuid}`);
+                const fullSub: any = await apiService.getSubmission(uuid);
+                console.log(`✅ Fetched submission ${uuid}:`, {
+                  hasAttachedFiles: !!fullSub.attachedFiles,
+                  attachedFilesCount: fullSub.attachedFiles?.length || 0,
+                  submissionId: fullSub.submissionId
+                });
+                return fullSub;
+              } catch (e) {
+                console.warn(`⚠️ Failed to fetch submission ${uuid}:`, e);
+                return null;
+              }
+            })
+          );
+          
+          // Collect successfully fetched submissions
+          individualFetches.forEach((result, index) => {
+            if (result.status === 'fulfilled' && result.value) {
+              sourceSubmissions.push(result.value);
+            } else {
+              console.warn(`⚠️ Failed to fetch submission at index ${index} (UUID: ${sourceSubmissionUuids[index]})`);
+            }
+          });
+          
+          console.log(`✅ Fetched ${sourceSubmissions.length} full source submissions`);
+          console.log("📋 Source submissions with attachedFiles:", 
+            sourceSubmissions.filter((s: any) => s.attachedFiles && Array.isArray(s.attachedFiles) && s.attachedFiles.length > 0).length
+          );
+          console.log("📋 Total attachedFiles count from sources:", 
+            sourceSubmissions.reduce((sum: number, s: any) => sum + (s.attachedFiles?.length || 0), 0)
+          );
+          
+          // Log sample attachedFiles for debugging
+          sourceSubmissions.forEach((sub, index) => {
+            if (sub.attachedFiles && Array.isArray(sub.attachedFiles) && sub.attachedFiles.length > 0) {
+              console.log(`📎 Submission ${index + 1} (${sub.submissionId}): ${sub.attachedFiles.length} files`);
+              console.log(`   Sample files:`, sub.attachedFiles.slice(0, 2).map((f: any) => ({
+                fileName: f.fileName,
+                filePath: f.filePath
+              })));
+            }
+          });
+        } else {
+          console.warn("⚠️ No source submission UUIDs found, using filtered submissions as fallback");
+          // Use filtered submissions from status API as fallback
+          sourceSubmissions = filteredSubmissions;
+        }
       } catch (error) {
         console.warn("⚠️ Failed to get source submission IDs:", error);
         // Continue without source IDs - not critical for consolidation
@@ -1094,6 +1160,191 @@ export const StateAggregateReviewPage = () => {
         effectiveState = effectiveState.toUpperCase();
       }
       
+      // Extract attachedFiles BEFORE transformation (formData might be modified during transformation)
+      // CRITICAL: Extract from the original formData structure before any transformations
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📎 STEP 2.6: Collecting attachedFiles from all sources");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // PRIMARY: Manual extraction from known file locations (MOST RELIABLE)
+      // Extract directly from the formData structure we know has files
+      console.log("📋 [PRIMARY] Manual extraction from known file locations...");
+      const manualExtraction: any[] = [];
+      const seenManualPaths = new Set<string>();
+      
+      // Extract from pppDevelopment.section3_3.VGFArray
+      if (formData?.pppDevelopment?.section3_3?.VGFArray) {
+        formData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
+          const filePath = item?.file?.file?.filePath;
+          if (filePath && !seenManualPaths.has(filePath)) {
+            seenManualPaths.add(filePath);
+            manualExtraction.push({
+              fileName: item.file.file.fileName || filePath.split('/').pop() || "",
+              originalName: item.file.file.originalName || item.file.file.fileName || filePath.split('/').pop() || "",
+              filePath: filePath,
+              fileUrl: item.file.file.fileUrl || "",
+              fileSize: item.file.file.fileSize || 0,
+              mimeType: item.file.file.mimeType || "application/octet-stream",
+              uploadedAt: item.file.file.uploadedAt || new Date().toISOString(),
+            });
+          }
+        });
+      }
+      
+        // Extract from infraDevelopment.section2_1.infraActArray
+        // Structure: infraActArray[].files[].file.filePath
+        if (formData?.infraDevelopment?.section2_1?.infraActArray) {
+          formData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
+            if (item?.files && Array.isArray(item.files)) {
+              item.files.forEach((fileItem: any) => {
+                // Check both file.filePath and file.file.filePath (different nesting levels)
+                const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+                if (filePath && typeof filePath === 'string' && filePath.trim() !== "" && !seenManualPaths.has(filePath)) {
+                  seenManualPaths.add(filePath);
+                  const fileObj = fileItem?.file?.file || fileItem?.file; // Get the actual file object
+                  manualExtraction.push({
+                    fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                    originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                    filePath: filePath,
+                    fileUrl: fileObj?.fileUrl || "",
+                    fileSize: fileObj?.fileSize || 0,
+                    mimeType: fileObj?.mimeType || "application/octet-stream",
+                    uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                  });
+                }
+              });
+            }
+          });
+        }
+        
+        // Extract from infraDevelopment.section2_2.specializedEntityArray
+        // Structure: specializedEntityArray[].files[].file.filePath
+        if (formData?.infraDevelopment?.section2_2?.specializedEntityArray) {
+          formData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
+            if (item?.files && Array.isArray(item.files)) {
+              item.files.forEach((fileItem: any) => {
+                // Check both file.filePath and file.file.filePath (different nesting levels)
+                const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+                if (filePath && typeof filePath === 'string' && filePath.trim() !== "" && !seenManualPaths.has(filePath)) {
+                  seenManualPaths.add(filePath);
+                  const fileObj = fileItem?.file?.file || fileItem?.file; // Get the actual file object
+                  manualExtraction.push({
+                    fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                    originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                    filePath: filePath,
+                    fileUrl: fileObj?.fileUrl || "",
+                    fileSize: fileObj?.fileSize || 0,
+                    mimeType: fileObj?.mimeType || "application/octet-stream",
+                    uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                  });
+                }
+              });
+            }
+          });
+        }
+      
+      console.log(`✅ Manual extraction found ${manualExtraction.length} files from known locations`);
+      
+      // SECONDARY: Try recursive extraction (backup)
+      console.log("📋 [SECONDARY] Trying recursive extraction from formData...");
+      const extractedFromFormData = extractFileMetadataFromFormData(formData);
+      console.log(`✅ Recursive extraction found ${extractedFromFormData.length} files`);
+      
+      // Also try extracting from formDataWithAcceptedStatus as backup
+      if (extractedFromFormData.length === 0) {
+        console.log("📋 [FALLBACK] Trying extraction from formDataWithAcceptedStatus...");
+        const extractedFromAccepted = extractFileMetadataFromFormData(formDataWithAcceptedStatus);
+        console.log(`✅ Extracted ${extractedFromAccepted.length} files from formDataWithAcceptedStatus`);
+        if (extractedFromAccepted.length > 0) {
+          extractedFromFormData.push(...extractedFromAccepted);
+        }
+      }
+      
+      // SECONDARY: Merge from source submissions (backup/verification)
+      let mergedAttachedFiles: any[] = [];
+      if (sourceSubmissions.length > 0) {
+        console.log(`📋 [SECONDARY] Merging attachedFiles from ${sourceSubmissions.length} source submissions...`);
+        
+        // First, try to get attachedFiles directly from source submissions
+        sourceSubmissions.forEach((sub: any, idx) => {
+          if (sub.attachedFiles && Array.isArray(sub.attachedFiles) && sub.attachedFiles.length > 0) {
+            console.log(`   📦 Source ${idx + 1} (${sub.submissionId}): ${sub.attachedFiles.length} files in attachedFiles`);
+            mergedAttachedFiles.push(...sub.attachedFiles);
+          }
+        });
+        
+        // Also try mergeAttachedFiles utility (which also extracts from formData)
+        const mergedFromUtility = mergeAttachedFiles(sourceSubmissions);
+        if (mergedFromUtility.length > mergedAttachedFiles.length) {
+          console.log(`   📦 Utility merge found ${mergedFromUtility.length} files (more than direct)`);
+          mergedAttachedFiles = mergedFromUtility;
+        }
+        
+        // Deduplicate by filePath
+        const seen = new Set<string>();
+        mergedAttachedFiles = mergedAttachedFiles.filter((f: any) => {
+          const path = f.filePath || f.filepath;
+          if (path && !seen.has(path)) {
+            seen.add(path);
+            return true;
+          }
+          return false;
+        });
+        
+        console.log(`✅ Merged ${mergedAttachedFiles.length} unique files from source submissions`);
+      }
+      
+      // Combine all sources, deduplicating by filePath
+      // Priority: manual extraction (most reliable) > recursive extraction > source submissions
+      const seenPaths = new Set<string>(seenManualPaths); // Start with manually found paths
+      const allAttachedFiles: any[] = [...manualExtraction]; // Start with manually extracted files
+      
+      // Add recursively extracted files (skip duplicates)
+      extractedFromFormData.forEach((file) => {
+        if (file.filePath && file.filePath.trim() !== "" && !seenPaths.has(file.filePath)) {
+          seenPaths.add(file.filePath);
+          allAttachedFiles.push({
+            fileName: file.fileName || file.filePath.split('/').pop() || "",
+            originalName: file.originalName || file.fileName || file.filePath.split('/').pop() || "",
+            filePath: file.filePath,
+            fileUrl: file.fileUrl || "",
+            fileSize: file.fileSize || 0,
+            mimeType: file.mimeType || "application/octet-stream",
+            uploadedAt: file.uploadedAt || new Date().toISOString(),
+          });
+        }
+      });
+      
+      // Add merged files from source submissions (skip duplicates)
+      mergedAttachedFiles.forEach((file) => {
+        if (file.filePath && file.filePath.trim() !== "" && !seenPaths.has(file.filePath)) {
+          seenPaths.add(file.filePath);
+          allAttachedFiles.push({
+            fileName: file.fileName || file.filePath.split('/').pop() || "",
+            originalName: file.originalName || file.fileName || file.filePath.split('/').pop() || "",
+            filePath: file.filePath,
+            fileUrl: file.fileUrl || "",
+            fileSize: file.fileSize || 0,
+            mimeType: file.mimeType || "application/octet-stream",
+            uploadedAt: file.uploadedAt || new Date().toISOString(),
+          });
+        }
+      });
+      
+      if (allAttachedFiles.length === 0) {
+        console.error("❌ CRITICAL ERROR: No files found after all extraction methods!");
+        console.error("   FormData keys:", Object.keys(formData || {}));
+        console.error("   Manual extraction found:", manualExtraction.length);
+        console.error("   Recursive extraction found:", extractedFromFormData.length);
+        console.error("   Source submissions found:", mergedAttachedFiles.length);
+      } else {
+        console.log(`✅ Total unique files collected: ${allAttachedFiles.length}`);
+        console.log("   📎 Files:", allAttachedFiles.map(f => ({
+          fileName: f.fileName,
+          filePath: f.filePath?.substring(0, 60) + "..."
+        })));
+      }
+
       const transformedData = transformFormDataForSubmission(
         formDataWithAcceptedStatus, // Use formData with ACCEPTED status
         submissionStatus,
@@ -1105,21 +1356,301 @@ export const StateAggregateReviewPage = () => {
         }
       );
 
-      console.log("✅ Transformed data:");
+      // CRITICAL: Extract files from transformed formData as well (files might be structured differently after transformation)
+      console.log("📋 [FINAL] Extracting files from transformed formData structure...");
+      const transformedFormData = transformedData.formData as any;
+      const finalExtraction: any[] = [];
+      const seenFinal = new Set<string>(seenPaths);
+      
+      // Extract from transformed formData structure
+      if (transformedFormData?.pppDevelopment?.section3_3?.VGFArray) {
+        transformedFormData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
+          const filePath = item?.file?.file?.filePath || item?.file?.filePath;
+          if (filePath && !seenFinal.has(filePath)) {
+            seenFinal.add(filePath);
+            const fileObj = item?.file?.file || item?.file;
+            finalExtraction.push({
+              fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+              originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+              filePath: filePath,
+              fileUrl: fileObj?.fileUrl || "",
+              fileSize: fileObj?.fileSize || 0,
+              mimeType: fileObj?.mimeType || "application/octet-stream",
+              uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+            });
+          }
+        });
+      }
+      
+      if (transformedFormData?.infraDevelopment?.section2_1?.infraActArray) {
+        transformedFormData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenFinal.has(filePath)) {
+                seenFinal.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                finalExtraction.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      if (transformedFormData?.infraDevelopment?.section2_2?.specializedEntityArray) {
+        transformedFormData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenFinal.has(filePath)) {
+                seenFinal.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                finalExtraction.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      if (finalExtraction.length > 0) {
+        console.log(`✅ Final extraction from transformed formData found ${finalExtraction.length} additional files`);
+        allAttachedFiles.push(...finalExtraction);
+      }
+
+      // CRITICAL: Add attachedFiles to transformedData BEFORE any other operations
+      // This MUST be included in the JSON payload sent to backend
+      console.log("🔍 Setting attachedFiles on transformedData...");
+      console.log("   allAttachedFiles length:", allAttachedFiles.length);
+      console.log("   allAttachedFiles sample:", allAttachedFiles.slice(0, 2).map(f => ({ fileName: f.fileName, filePath: f.filePath?.substring(0, 50) })));
+      
+      // ALWAYS set attachedFiles, even if empty (backend expects an array)
+      transformedData.attachedFiles = allAttachedFiles.length > 0 ? allAttachedFiles : [];
+      
+      // IMMEDIATE VERIFICATION: Check that attachedFiles is set
+      console.log("🔍 After assignment:");
+      console.log("   transformedData.attachedFiles:", transformedData.attachedFiles);
+      console.log("   transformedData.attachedFiles type:", typeof transformedData.attachedFiles);
+      console.log("   transformedData.attachedFiles isArray:", Array.isArray(transformedData.attachedFiles));
+      console.log("   transformedData.attachedFiles length:", transformedData.attachedFiles?.length || 0);
+      console.log("   transformedData keys:", Object.keys(transformedData));
+      
+      if (!transformedData.attachedFiles || transformedData.attachedFiles.length === 0) {
+        console.error("❌ CRITICAL: attachedFiles is empty after assignment!");
+        console.error("   allAttachedFiles length:", allAttachedFiles.length);
+        console.error("   This means extraction failed - files exist in formData but weren't extracted!");
+      } else {
+        console.log("✅ attachedFiles assigned to transformedData:", transformedData.attachedFiles.length, "files");
+      }
+
+      // If attachedFiles is still empty, try one more time from formDataWithAcceptedStatus
+      // (the data that will actually be sent)
+      if (transformedData.attachedFiles.length === 0) {
+        console.error("❌ CRITICAL: attachedFiles is still empty! Trying extraction from formDataWithAcceptedStatus...");
+        
+        // Extract directly from the formData that will be sent
+        const finalExtraction: any[] = [];
+        const seenFinal = new Set<string>();
+        
+        // Extract from pppDevelopment.section3_3.VGFArray
+        if (formDataWithAcceptedStatus?.pppDevelopment?.section3_3?.VGFArray) {
+          formDataWithAcceptedStatus.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
+            const filePath = item?.file?.file?.filePath;
+            if (filePath && !seenFinal.has(filePath)) {
+              seenFinal.add(filePath);
+              finalExtraction.push({
+                fileName: item.file.file.fileName || filePath.split('/').pop() || "",
+                originalName: item.file.file.originalName || item.file.file.fileName || filePath.split('/').pop() || "",
+                filePath: filePath,
+                fileUrl: item.file.file.fileUrl || "",
+                fileSize: item.file.file.fileSize || 0,
+                mimeType: item.file.file.mimeType || "application/octet-stream",
+                uploadedAt: item.file.file.uploadedAt || new Date().toISOString(),
+              });
+            }
+          });
+        }
+        
+        // Extract from infraDevelopment.section2_1.infraActArray
+        // Structure: infraActArray[].files[].file.filePath
+        if (formDataWithAcceptedStatus?.infraDevelopment?.section2_1?.infraActArray) {
+          formDataWithAcceptedStatus.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
+            if (item?.files && Array.isArray(item.files)) {
+              item.files.forEach((fileItem: any) => {
+                // Check both file.filePath and file.file.filePath (different nesting levels)
+                const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+                if (filePath && typeof filePath === 'string' && filePath.trim() !== "" && !seenFinal.has(filePath)) {
+                  seenFinal.add(filePath);
+                  const fileObj = fileItem?.file?.file || fileItem?.file; // Get the actual file object
+                  finalExtraction.push({
+                    fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                    originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                    filePath: filePath,
+                    fileUrl: fileObj?.fileUrl || "",
+                    fileSize: fileObj?.fileSize || 0,
+                    mimeType: fileObj?.mimeType || "application/octet-stream",
+                    uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                  });
+                }
+              });
+            }
+          });
+        }
+        
+        // Extract from infraDevelopment.section2_2.specializedEntityArray
+        // Structure: specializedEntityArray[].files[].file.filePath
+        if (formDataWithAcceptedStatus?.infraDevelopment?.section2_2?.specializedEntityArray) {
+          formDataWithAcceptedStatus.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
+            if (item?.files && Array.isArray(item.files)) {
+              item.files.forEach((fileItem: any) => {
+                // Check both file.filePath and file.file.filePath (different nesting levels)
+                const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+                if (filePath && typeof filePath === 'string' && filePath.trim() !== "" && !seenFinal.has(filePath)) {
+                  seenFinal.add(filePath);
+                  const fileObj = fileItem?.file?.file || fileItem?.file; // Get the actual file object
+                  finalExtraction.push({
+                    fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                    originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                    filePath: filePath,
+                    fileUrl: fileObj?.fileUrl || "",
+                    fileSize: fileObj?.fileSize || 0,
+                    mimeType: fileObj?.mimeType || "application/octet-stream",
+                    uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                  });
+                }
+              });
+            }
+          });
+        }
+        
+        if (finalExtraction.length > 0) {
+          console.log(`✅ Final extraction from formDataWithAcceptedStatus found ${finalExtraction.length} files!`);
+          transformedData.attachedFiles = finalExtraction;
+        } else {
+          console.error("❌ Final extraction also found no files!");
+          console.error("   formDataWithAcceptedStatus keys:", Object.keys(formDataWithAcceptedStatus || {}));
+          console.error("   Checking pppDevelopment.section3_3:", !!formDataWithAcceptedStatus?.pppDevelopment?.section3_3);
+          console.error("   Checking infraDevelopment.section2_1:", !!formDataWithAcceptedStatus?.infraDevelopment?.section2_1);
+        }
+      }
+
+      // Final verification
+      console.log("✅ Transformed data verification:");
       console.log("   📝 Submission ID:", transformedData.submissionId);
       console.log("   📊 Status:", transformedData.status);
       console.log("   📋 FormData structure:", Object.keys(transformedData.formData || {}));
-      console.log("   📦 Complete transformed object:", JSON.stringify(transformedData, null, 2));
+      console.log("   📎 attachedFiles count:", transformedData.attachedFiles?.length || 0);
+      
+      if (transformedData.attachedFiles && transformedData.attachedFiles.length > 0) {
+        console.log("   ✅ attachedFiles is populated with", transformedData.attachedFiles.length, "files");
+        // Verify first file structure
+        const firstFile = transformedData.attachedFiles[0];
+        console.log("   📎 First file:", {
+          hasFilePath: !!firstFile.filePath,
+          hasFileName: !!firstFile.fileName,
+          hasOriginalName: !!firstFile.originalName,
+          filePath: firstFile.filePath?.substring(0, 50) + "..."
+        });
+      } else {
+        console.error("   ❌ ERROR: attachedFiles is STILL empty after all extraction attempts!");
+      }
 
       // Create multipart FormData for file attachments
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📎 STEP 4: Preparing multipart FormData with file attachments");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
+      // FINAL VERIFICATION: Ensure attachedFiles is in transformedData before stringifying
+      if (!transformedData.attachedFiles || transformedData.attachedFiles.length === 0) {
+        console.error("❌ CRITICAL ERROR: attachedFiles is empty before creating FormData!");
+        console.error("   This will result in empty attachedFiles in the database!");
+        console.error("   transformedData keys:", Object.keys(transformedData));
+        console.error("   transformedData.attachedFiles:", transformedData.attachedFiles);
+      } else {
+        console.log("✅ VERIFIED: attachedFiles has", transformedData.attachedFiles.length, "files before stringifying");
+      }
+      
+      // CRITICAL: Ensure attachedFiles is ALWAYS present in transformedData before stringifying
+      // Even if empty, it must be an array (not undefined/null)
+      if (!transformedData.attachedFiles) {
+        console.error("❌ CRITICAL: attachedFiles is undefined/null! Setting to empty array.");
+        transformedData.attachedFiles = [];
+      }
+      if (!Array.isArray(transformedData.attachedFiles)) {
+        console.error("❌ CRITICAL: attachedFiles is not an array! Converting to array.");
+        transformedData.attachedFiles = Array.isArray(transformedData.attachedFiles) ? transformedData.attachedFiles : [];
+      }
+      
+      // Final check: Log the exact structure before stringifying
+      console.log("🔍 FINAL CHECK before stringifying:");
+      console.log("   transformedData keys:", Object.keys(transformedData));
+      console.log("   transformedData.attachedFiles type:", typeof transformedData.attachedFiles);
+      console.log("   transformedData.attachedFiles isArray:", Array.isArray(transformedData.attachedFiles));
+      console.log("   transformedData.attachedFiles length:", transformedData.attachedFiles?.length || 0);
+      
       const multipartData = new FormData();
-      multipartData.append("submission", JSON.stringify(transformedData));
+      let submissionJson = JSON.stringify(transformedData);
+      
+      // Verify attachedFiles is in the JSON string
+      let jsonToUse = submissionJson;
+      try {
+        const parsed = JSON.parse(submissionJson);
+        console.log("🔍 Parsed JSON keys:", Object.keys(parsed));
+        console.log("🔍 parsed.attachedFiles:", parsed.attachedFiles);
+        console.log("🔍 parsed.attachedFiles type:", typeof parsed.attachedFiles);
+        console.log("🔍 parsed.attachedFiles isArray:", Array.isArray(parsed.attachedFiles));
+        
+        if (parsed.attachedFiles && Array.isArray(parsed.attachedFiles) && parsed.attachedFiles.length > 0) {
+          console.log("✅ VERIFIED: attachedFiles is present in JSON string with", parsed.attachedFiles.length, "files");
+        } else if (parsed.attachedFiles && Array.isArray(parsed.attachedFiles)) {
+          console.warn("⚠️ WARNING: attachedFiles is present but EMPTY in JSON string!");
+        } else {
+          console.error("❌ CRITICAL ERROR: attachedFiles is missing or not an array in JSON string!");
+          console.error("   parsed.attachedFiles:", parsed.attachedFiles);
+          console.error("   JSON string preview (first 500 chars):", submissionJson.substring(0, 500));
+          
+          // LAST RESORT: Manually add attachedFiles to the JSON
+          console.error("   🔧 Attempting to manually inject attachedFiles into JSON...");
+          try {
+            const parsedWithFiles = { ...parsed, attachedFiles: allAttachedFiles.length > 0 ? allAttachedFiles : [] };
+            jsonToUse = JSON.stringify(parsedWithFiles);
+            console.log("   ✅ Created corrected JSON with", parsedWithFiles.attachedFiles.length, "files");
+            
+            // Verify the corrected JSON
+            const verifyParsed = JSON.parse(jsonToUse);
+            if (verifyParsed.attachedFiles && Array.isArray(verifyParsed.attachedFiles)) {
+              console.log("   ✅ Verified corrected JSON has attachedFiles:", verifyParsed.attachedFiles.length, "files");
+            } else {
+              console.error("   ❌ Corrected JSON still missing attachedFiles!");
+            }
+          } catch (e) {
+            console.error("   ❌ Failed to create corrected JSON:", e);
+            // Use original JSON as fallback
+          }
+        }
+      } catch (e) {
+        console.error("❌ Failed to verify JSON:", e);
+      }
+      
+      multipartData.append("submission", jsonToUse);
 
-      // Append file attachments recursively
+      // Append file attachments recursively (for new files being uploaded)
+      // Note: For consolidated submissions, files are already in S3, so this might be empty
       appendFilesRecursively(multipartData, formData);
 
       console.log("✅ Multipart FormData prepared");
@@ -1127,13 +1658,17 @@ export const StateAggregateReviewPage = () => {
       for (const [key, val] of multipartData.entries()) {
         if (val instanceof File) {
           console.log(`   📎 ${key}: File - ${val.name} (${val.size} bytes)`);
-        } else {
-          // For large JSON, show summary instead of full content
-          if (typeof val === 'string' && val.length > 500) {
-            console.log(`   📄 ${key}: ${val.substring(0, 200)}... (truncated, total length: ${val.length})`);
-          } else {
-            console.log(`   📄 ${key}:`, val);
+        } else if (key === "submission") {
+          // For submission JSON, show summary
+          const jsonStr = val as string;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            console.log(`   📄 ${key}: JSON with attachedFiles count: ${parsed.attachedFiles?.length || 0}`);
+          } catch {
+            console.log(`   📄 ${key}: JSON string (${jsonStr.length} chars)`);
           }
+        } else {
+          console.log(`   📄 ${key}:`, typeof val === 'string' && val.length > 200 ? val.substring(0, 200) + "..." : val);
         }
       }
 
@@ -1184,52 +1719,42 @@ export const StateAggregateReviewPage = () => {
       console.log("📋 Source Submission IDs to update:", sourceSubmissionIds);
       
       // Update source submissions to mark them as consolidated
-      if (sourceSubmissionIds.length > 0 && consolidatedSubmissionId) {
+      // Use the already-fetched sourceSubmissions which have their UUIDs
+      if (sourceSubmissions.length > 0 && consolidatedSubmissionId) {
         try {
-          // Get all submissions to find the actual submission IDs (not just submissionId field)
-          const allSubmissions = await apiService.getSubmissions(1, 100);
-          let submissionsArray: any[] = [];
-          if (Array.isArray(allSubmissions)) {
-            submissionsArray = allSubmissions;
-          } else if (allSubmissions?.submissions && Array.isArray(allSubmissions.submissions)) {
-            submissionsArray = allSubmissions.submissions;
-          } else if ((allSubmissions as any)?.data && Array.isArray((allSubmissions as any).data)) {
-            submissionsArray = (allSubmissions as any).data;
-          }
+          console.log(`📝 Updating ${sourceSubmissions.length} source submissions with consolidation metadata...`);
           
-          // Update each source submission
-          const updatePromises = sourceSubmissionIds.map(async (sourceSubmissionId) => {
-            // Find the submission by submissionId or id
-            const sourceSubmission = submissionsArray.find(
-              (sub: any) => sub.submissionId === sourceSubmissionId || sub.id === sourceSubmissionId
-            );
+          // Update each source submission using its UUID
+          const updatePromises = sourceSubmissions.map(async (sourceSubmission) => {
+            const actualSubmissionId = sourceSubmission.id; // Use the database UUID
+            const submissionIdString = sourceSubmission.submissionId; // For logging
             
-            if (sourceSubmission) {
-              const actualSubmissionId = sourceSubmission.id; // Use the database ID
-              try {
-                // Get current formData
-                const currentSubmission = await apiService.getSubmission(actualSubmissionId);
-                const currentFormData = currentSubmission?.formData || {};
-                
-                // Add consolidation metadata to formData
-                const updatedFormData = {
-                  ...currentFormData,
-                  _consolidation: {
-                    consolidatedInto: consolidatedSubmissionId,
-                    consolidatedAt: new Date().toISOString(),
-                    consolidatedBy: user?.id || '',
-                  },
-                };
-                
-                // Update the submission with consolidation metadata
-                await apiService.updateSubmission(actualSubmissionId, updatedFormData);
-                console.log(`✅ Updated source submission ${sourceSubmissionId} (ID: ${actualSubmissionId})`);
-              } catch (updateError: any) {
-                console.warn(`⚠️ Failed to update source submission ${sourceSubmissionId}:`, updateError?.message);
-                // Don't fail the whole process if one update fails
-              }
-            } else {
-              console.warn(`⚠️ Source submission ${sourceSubmissionId} not found in submissions list`);
+            if (!actualSubmissionId) {
+              console.warn(`⚠️ Source submission ${submissionIdString} has no UUID, skipping update`);
+              return;
+            }
+            
+            try {
+              // Get current formData
+              const currentSubmission = await apiService.getSubmission(actualSubmissionId);
+              const currentFormData = currentSubmission?.formData || {};
+              
+              // Add consolidation metadata to formData
+              const updatedFormData = {
+                ...currentFormData,
+                _consolidation: {
+                  consolidatedInto: consolidatedSubmissionId,
+                  consolidatedAt: new Date().toISOString(),
+                  consolidatedBy: user?.id || '',
+                },
+              };
+              
+              // Update the submission with consolidation metadata
+              await apiService.updateSubmission(actualSubmissionId, updatedFormData);
+              console.log(`✅ Updated source submission ${submissionIdString} (UUID: ${actualSubmissionId})`);
+            } catch (updateError: any) {
+              console.warn(`⚠️ Failed to update source submission ${submissionIdString} (UUID: ${actualSubmissionId}):`, updateError?.message);
+              // Don't fail the whole process if one update fails
             }
           });
           

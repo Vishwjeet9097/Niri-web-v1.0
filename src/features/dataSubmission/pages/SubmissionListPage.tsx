@@ -44,6 +44,7 @@ import { authService } from "@/services/auth.service";
 import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 import { buildIndicatorMapping } from "@/utils/indicatorMappingUtils";
+import { extractFileMetadataFromFormData } from "@/utils/extractFileMetadata";
 import axios from "axios";
 import { config } from "@/config/environment";
 import { getSubmissionStatus, getSubmissionDisplayStatus } from "@/utils/indicatorStatusUtils";
@@ -770,13 +771,217 @@ const handleFinalSubmit = async () => {
         }
       );
 
+      // CRITICAL: Extract attachedFiles from formData before submission
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📎 STEP 3.5: Extracting attachedFiles from formData");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Extract files from formData
+      const allAttachedFiles: any[] = [];
+      const seenPaths = new Set<string>();
+      
+      // Manual extraction from known file locations (MOST RELIABLE)
+      console.log("📋 [PRIMARY] Manual extraction from known file locations...");
+      
+      // Extract from pppDevelopment.section3_3.VGFArray
+      if (formData?.pppDevelopment?.section3_3?.VGFArray) {
+        formData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
+          const filePath = item?.file?.file?.filePath || item?.file?.filePath;
+          if (filePath && !seenPaths.has(filePath)) {
+            seenPaths.add(filePath);
+            const fileObj = item?.file?.file || item?.file;
+            allAttachedFiles.push({
+              fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+              originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+              filePath: filePath,
+              fileUrl: fileObj?.fileUrl || "",
+              fileSize: fileObj?.fileSize || 0,
+              mimeType: fileObj?.mimeType || "application/octet-stream",
+              uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+            });
+          }
+        });
+      }
+      
+      // Extract from infraDevelopment.section2_1.infraActArray
+      if (formData?.infraDevelopment?.section2_1?.infraActArray) {
+        formData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                allAttachedFiles.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Extract from infraDevelopment.section2_2.specializedEntityArray
+      if (formData?.infraDevelopment?.section2_2?.specializedEntityArray) {
+        formData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                allAttachedFiles.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Also try recursive extraction as backup
+      console.log("📋 [SECONDARY] Trying recursive extraction...");
+      const extractedFromFormData = extractFileMetadataFromFormData(formData);
+      extractedFromFormData.forEach((file) => {
+        if (file.filePath && !seenPaths.has(file.filePath)) {
+          seenPaths.add(file.filePath);
+          allAttachedFiles.push({
+            fileName: file.fileName || file.filePath.split('/').pop() || "",
+            originalName: file.originalName || file.fileName || file.filePath.split('/').pop() || "",
+            filePath: file.filePath,
+            fileUrl: file.fileUrl || "",
+            fileSize: file.fileSize || 0,
+            mimeType: file.mimeType || "application/octet-stream",
+            uploadedAt: file.uploadedAt || new Date().toISOString(),
+          });
+        }
+      });
+      
+      // Extract from transformed formData as well
+      console.log("📋 [FINAL] Extracting from transformed formData...");
+      const transformedFormData = transformedData.formData as any;
+      
+      if (transformedFormData?.pppDevelopment?.section3_3?.VGFArray) {
+        transformedFormData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
+          const filePath = item?.file?.file?.filePath || item?.file?.filePath;
+          if (filePath && !seenPaths.has(filePath)) {
+            seenPaths.add(filePath);
+            const fileObj = item?.file?.file || item?.file;
+            allAttachedFiles.push({
+              fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+              originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+              filePath: filePath,
+              fileUrl: fileObj?.fileUrl || "",
+              fileSize: fileObj?.fileSize || 0,
+              mimeType: fileObj?.mimeType || "application/octet-stream",
+              uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+            });
+          }
+        });
+      }
+      
+      if (transformedFormData?.infraDevelopment?.section2_1?.infraActArray) {
+        transformedFormData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                allAttachedFiles.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      if (transformedFormData?.infraDevelopment?.section2_2?.specializedEntityArray) {
+        transformedFormData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                allAttachedFiles.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Set attachedFiles on transformedData
+      transformedData.attachedFiles = allAttachedFiles.length > 0 ? allAttachedFiles : [];
+      
+      console.log(`✅ Extracted ${allAttachedFiles.length} files for attachedFiles`);
+      if (allAttachedFiles.length > 0) {
+        console.log("   📎 Sample files:", allAttachedFiles.slice(0, 3).map(f => ({
+          fileName: f.fileName,
+          filePath: f.filePath?.substring(0, 60) + "..."
+        })));
+      } else {
+        console.warn("⚠️ WARNING: No files extracted! attachedFiles will be empty.");
+      }
+
       // Step 4: Create multipart FormData with file attachments
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📎 STEP 4: Preparing multipart FormData with file attachments");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
+      // Verify attachedFiles is in transformedData
+      if (!transformedData.attachedFiles || transformedData.attachedFiles.length === 0) {
+        console.error("❌ CRITICAL: attachedFiles is empty before stringifying!");
+      } else {
+        console.log("✅ VERIFIED: attachedFiles has", transformedData.attachedFiles.length, "files");
+      }
+      
       const multipartData = new FormData();
-      multipartData.append("submission", JSON.stringify(transformedData));
+      let submissionJson = JSON.stringify(transformedData);
+      
+      // Verify attachedFiles is in JSON
+      try {
+        const parsed = JSON.parse(submissionJson);
+        if (parsed.attachedFiles && Array.isArray(parsed.attachedFiles) && parsed.attachedFiles.length > 0) {
+          console.log("✅ VERIFIED: attachedFiles is present in JSON with", parsed.attachedFiles.length, "files");
+        } else {
+          console.error("❌ CRITICAL: attachedFiles is missing or empty in JSON! Injecting...");
+          const corrected = { ...parsed, attachedFiles: allAttachedFiles.length > 0 ? allAttachedFiles : [] };
+          submissionJson = JSON.stringify(corrected);
+          console.log("✅ Injected attachedFiles into JSON");
+        }
+      } catch (e) {
+        console.error("❌ Failed to verify JSON:", e);
+      }
+      
+      multipartData.append("submission", submissionJson);
       appendFilesRecursively(multipartData, formData);
 
       // Step 5: Get authentication token and submit/update

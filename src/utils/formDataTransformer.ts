@@ -10,6 +10,7 @@ export interface TransformedFormData {
   submissionId: string;
   formData: Record<string, unknown>;
   status?: string;
+  attachedFiles?: any[]; // File metadata array for consolidated submissions
 }
 
 /**
@@ -60,6 +61,7 @@ export const transformFormDataForSubmission = (
   const formDataObj = formData as Record<string, any>;
 
   // Helper: deep prune empty values ("", null, undefined) and empty arrays/objects
+  // CRITICAL: Preserve file objects (objects with filePath) even if they seem "empty"
   const prune = (value: any): any => {
     if (value === null || value === undefined) return undefined;
     if (typeof value === "string") return value.trim() === "" ? undefined : value;
@@ -72,6 +74,13 @@ export const transformFormDataForSubmission = (
     }
 
     if (typeof value === "object") {
+      // CRITICAL: Check if this is a file object (has filePath) - preserve it!
+      const hasFilePath = value.filePath || value.file?.filePath || value.file?.file?.filePath;
+      if (hasFilePath) {
+        // This is a file object - preserve it completely, don't prune
+        return value;
+      }
+      
       const prunedObj: Record<string, any> = {};
       Object.keys(value).forEach((key) => {
         const prunedVal = prune(value[key]);
