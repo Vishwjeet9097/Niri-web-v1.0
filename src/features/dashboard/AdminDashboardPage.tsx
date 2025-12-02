@@ -1,6 +1,6 @@
 // All imports at the top
 import React, { useEffect, useState } from "react";
-import { Users, Search, Filter } from "lucide-react";
+import { Users, Search, Filter, UserCheck, UserCog, User, UserCircle, Shield, LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiService } from "@/services/api.service";
 import { Input } from "@/components/ui/input";
@@ -143,16 +143,36 @@ function AdminDashboardPage() {
       {/* Overview Cards */}
       <h2 className="text-xl font-semibold text-primary mb-3">Overview</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        {dynamicStats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-lg shadow-sm p-4 flex flex-col items-start border">
-            <div className="flex items-center gap-2 mb-2">
-              <Users className="h-5 w-5 text-blue-500" />
-              <span className="font-medium text-gray-700 text-sm">{stat.label}</span>
+        {dynamicStats.map((stat) => {
+          const iconMap: Record<string, LucideIcon> = {
+            "Total Users": Users,
+            [getRoleDisplayName("STATE_APPROVER")]: UserCheck,
+            [getRoleDisplayName("NODAL_OFFICER")]: UserCog,
+            [getRoleDisplayName("MOSPI_REVIEWER")]: User,
+            [getRoleDisplayName("MOSPI_APPROVER")]: UserCircle,
+            [getRoleDisplayName("ADMIN")]: Shield,
+          };
+          const colorMap: Record<string, string> = {
+            "Total Users": "text-blue-500",
+            [getRoleDisplayName("STATE_APPROVER")]: "text-green-500",
+            [getRoleDisplayName("NODAL_OFFICER")]: "text-yellow-500",
+            [getRoleDisplayName("MOSPI_REVIEWER")]: "text-purple-500",
+            [getRoleDisplayName("MOSPI_APPROVER")]: "text-pink-500",
+            [getRoleDisplayName("ADMIN")]: "text-red-500",
+          };
+          const Icon = iconMap[stat.label] || Users;
+          const iconColor = colorMap[stat.label] || "text-blue-500";
+          return (
+            <div key={stat.label} className="bg-white rounded-lg shadow-sm p-4 flex flex-col items-start border">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon className={`h-5 w-5 ${iconColor}`} />
+                <span className="font-medium text-gray-700 text-sm">{stat.label}</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900">{stat.value.toLocaleString()}</div>
+              {/* <div className="text-xs text-green-600 mt-1">↑ +{stat.change}</div> */}
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stat.value.toLocaleString()}</div>
-            {/* <div className="text-xs text-green-600 mt-1">↑ +{stat.change}</div> */}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Users Table Section */}
