@@ -747,11 +747,7 @@ export function UserManagementPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               User Management
-            </h1>
-            <p className="text-muted-foreground">
-              Add or remove Nodal Officers for your State/UT and assign them
-              specific indicators for data submission
-            </p>
+            </h1>            
           </div>
         </div>
         <EmptyState onAddClick={handleAddUser} />
