@@ -1769,6 +1769,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   // Check if submission is with MoSPI (APPROVER or REVIEWER)
   const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
   
+  // Check if submission is returned from MoSPI and mospi_status is REVERTED
+  const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
+  
   // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
   if (isStateApprover && isWithMospi) {
     return (
@@ -1877,6 +1880,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         : sectionDataForStatus?.status;
       const isStatusAlsoReverted = sectionStatusForMospi === 'REVERTED';
       
+      // Check if submission status is RETURNED_FROM_MOSPI
+      const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
+      
       return (
         <div className="flex gap-2">
           {/* Show "Sent Back" badge if status is also REVERTED */}
@@ -1891,16 +1897,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
               Sent Back
             </Button>
           )}
-          {/* Show "Returned from MoSPI" badge if mospi_status is REVERTED */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 font-bold cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {/* Show "Returned from MoSPI" badge if submission.status is RETURNED_FROM_MOSPI and mospi_status is REVERTED */}
+          {isReturnedFromMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 font-bold cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2229,7 +2237,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          {isWithMospi && (
+          {isReturnedFromMospi && isMospiStatusReverted && (
             <Button
               variant="outline"
               size="sm"
@@ -2327,7 +2335,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          {isWithMospi && (
+          {isReturnedFromMospi && (
             <Button
               variant="outline"
               size="sm"
@@ -2396,7 +2404,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          {isWithMospi && (
+          {isReturnedFromMospi && isMospiStatusReverted && (
             <Button
               variant="outline"
               size="sm"
@@ -2509,7 +2517,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <CheckCircle className="w-4 h-4" />
             Re Submitted
           </Button>
-          {isWithMospi && (
+          {isReturnedFromMospi && (
             <Button
               variant="outline"
               size="sm"
@@ -2587,7 +2595,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          {isWithMospi && (
+          {isReturnedFromMospi && isMospiStatusResubmitted && (
             <Button
               variant="outline"
               size="sm"
@@ -2758,7 +2766,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          {isWithMospi && (
+          {isReturnedFromMospi && (
             <Button
               variant="outline"
               size="sm"
@@ -2794,8 +2802,33 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   
   // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
   if (sectionStatus === 'ACCEPTED') {
-    // If mospi_status = "REVERTED" AND submission status is with MoSPI, show "Returned from MoSPI" badge
-    if (mospiStatus === 'REVERTED' && isWithMospi) {
+    // If mospi_status is RESUBMITTED, show "Under Review"
+    if (mospiStatus === 'RESUBMITTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <Clock className="w-4 h-4" />
+            Under Review
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+    // If submission.status is RETURNED_FROM_MOSPI AND mospi_status is REVERTED, show "Returned from MoSPI" badge
+    if (mospiStatus === 'REVERTED' && isReturnedFromMospi) {
       return (
         <div className="flex gap-2">
           <Button
@@ -2893,8 +2926,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          {/* Show "Returned from MoSPI" badge if submission status is RETURNED_FROM_MOSPI */}
-          {isWithMospi && (
+          {/* Show "Returned from MoSPI" badge if submission.status is RETURNED_FROM_MOSPI and mospi_status is REVERTED */}
+          {isReturnedFromMospi && isMospiStatusReverted && (
             <Button
               variant="outline"
               size="sm"
@@ -2930,8 +2963,8 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           <RotateCcw className="w-4 h-4" />
           Sent Back
         </Button>
-        {/* Show "Returned from MoSPI" badge if submission status is SUBMITTED_TO_MOSPI_APPROVER or SUBMITTED_TO_MOSPI_REVIEWER */}
-        {isWithMospi && (
+        {/* Show "Returned from MoSPI" badge if submission.status is RETURNED_FROM_MOSPI and mospi_status is REVERTED */}
+        {isReturnedFromMospi && isMospiStatusReverted && (
           <Button
             variant="outline"
             size="sm"
