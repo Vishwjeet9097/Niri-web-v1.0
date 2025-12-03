@@ -947,6 +947,77 @@ export const StateAggregateReviewPage = () => {
     checkSubmittedStatus();
   }, [user?.role, user?.id, user?.email, effectiveState, selectedState]);
 
+  // Handle revert from MoSPI and submit
+  const handleRevertAndSubmit = async () => {
+    try {
+
+      console.log("🔄 [StateAggregate] Handling revert and submit");
+      // Get authentication token first
+      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
+      const tokenFromNewKey = tokenData?.value?.accessToken;
+      const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
+      const token = tokenFromNewKey || tokenFromLegacyKey || "";
+
+      const userId = user?.id;
+      if (!userId) {
+        notificationService.error("User ID not found. Cannot proceed with submission.");
+        console.error("❌ User ID is missing");
+        setShowConfirmModal(false);
+        setSubmittingFinal(false);
+        return;
+      }
+
+      // Call revert API
+      console.log("📡 API Endpoint: POST /submission/revert-from-mospi/{userId}");
+      console.log("👤 User ID:", userId);
+      
+      const revertResponse = await axios.post(
+        `${config.apiBaseUrl}/submission/revert-from-mospi/${userId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const revertData = revertResponse.data?.data || revertResponse.data;
+      const updatedCount = revertData?.updatedCount || 0;
+
+      console.log("✅ Revert API response received");
+      console.log("📊 Updated Count:", updatedCount);
+
+      // If updatedCount > 0, navigate back to review page
+      if (updatedCount > 0) {
+        console.log("ℹ️ Submissions were reverted. Navigating back to review page.");
+        
+        // Show success notification
+        notificationService.success("Your form has been submitted to MoSPI Reviewer.");
+        
+        // Close modal
+        setShowConfirmModal(false);
+        setSubmittingFinal(false);
+        
+        // Navigate to review page
+        navigate("/data-submission/review");
+        return;
+      }
+
+      // If updatedCount == 0, proceed with final submit
+      if (updatedCount == 0) {
+        console.log("FINAL SUBMIT CALLED INSTEAD OF REVERT BECAUSE FRESH FORM IS THERE:")
+        await handleFinalSubmit();
+      }
+      
+    } catch (revertError: any) {
+      console.warn("⚠️ Failed to call revert API:", revertError?.message);
+      // Continue with submission even if revert check fails
+      await handleFinalSubmit();
+    }
+  };
+
   // Handle final submit - Creates consolidated submission from aggregated formData
   const handleFinalSubmit = async () => {
     console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -954,11 +1025,21 @@ export const StateAggregateReviewPage = () => {
     console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     
     try {
+      setSubmittingFinal(true);
+
+      // Get authentication token first
+      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
+      const tokenFromNewKey = tokenData?.value?.accessToken;
+      const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
+      const token = tokenFromNewKey || tokenFromLegacyKey || "";
+
       // Gate: must have progress and must be 100% approved
       if (!stateProgress || stateProgress.percentage !== 100 || stateProgress.approved !== stateProgress.total) {
         notificationService.warning("All indicators must be approved before final submission.");
         console.warn("❌ Submission blocked: Not all indicators approved", stateProgress);
         setShowConfirmModal(false);
+        setSubmittingFinal(false);
         return;
       }
 
@@ -967,6 +1048,7 @@ export const StateAggregateReviewPage = () => {
         notificationService.error("No aggregated data available to submit.");
         console.error("❌ Submission blocked: No formData available");
         setShowConfirmModal(false);
+        setSubmittingFinal(false);
         return;
       }
 
@@ -974,8 +1056,6 @@ export const StateAggregateReviewPage = () => {
       console.log("📊 State Progress:", stateProgress);
       console.log("📋 Available formData:", formData);
       console.log("📊 FormData categories:", Object.keys(formData));
-
-      setSubmittingFinal(true);
 
       // Use the aggregated formData from the page (consolidated data)
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -1137,18 +1217,12 @@ export const StateAggregateReviewPage = () => {
         }
       }
 
-      // Get authentication token
+      // Get authentication token for submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("🔐 STEP 5: Preparing API request");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
-      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
-      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
-      const tokenFromNewKey = tokenData?.value?.accessToken;
-      const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
-      const token = tokenFromNewKey || tokenFromLegacyKey || "";
-
-      console.log("✅ Token retrieved:", token ? "Yes" : "No");
+      console.log("✅ Token already retrieved");
 
       // Submit consolidated submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -1619,7 +1693,7 @@ export const StateAggregateReviewPage = () => {
             <AlertDialogCancel disabled={submittingFinal}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                await handleFinalSubmit();
+                await handleRevertAndSubmit();
               }}
               disabled={submittingFinal}
               className="bg-[#1e3a8a] hover:bg-[#1e3299]"
