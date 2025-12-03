@@ -1133,8 +1133,11 @@ export const InfraFinancingReview = ({
       await performIndicatorStatus(pendingActionSectionId, true);
       
       // Refresh submission data to get latest state from backend
+      // Add a small delay to ensure backend has processed the update
       if (submissionId) {
         try {
+          // Wait a bit for backend to process the update
+          await new Promise(resolve => setTimeout(resolve, 500));
           const refreshedSubmission = await apiService.getSubmission(submissionId);
           if (refreshedSubmission) {
             setSubmissionData(refreshedSubmission.formData?.infraFinancing || formData);
@@ -1337,7 +1340,7 @@ const renderActionButtons = (sectionId: string) => {
   if (isMospiApprover) {
     // Check mospi_status instead of status for MOSPI_APPROVER
     const sectionKey = `section${sectionId.replace('.', '_')}`;
-    const sectionData = formData && formData[sectionKey];
+    const sectionData = submissionData && submissionData[sectionKey];
     const mospiStatus = sectionData
       ? Array.isArray(sectionData)
         ? (sectionData as any)?.mospi_status
@@ -1372,7 +1375,7 @@ const renderActionButtons = (sectionId: string) => {
     if (mospiStatus === 'REVERTED') {
       // Get sectionStatus for MOSPI_APPROVER to check if status is also REVERTED
       const sectionKeyForStatus = `section${sectionId.replace('.', '_')}`;
-      const sectionDataForStatus = formData && formData[sectionKeyForStatus];
+      const sectionDataForStatus = submissionData && submissionData[sectionKeyForStatus];
       const sectionStatusForMospi = sectionDataForStatus
         ? Array.isArray(sectionDataForStatus)
           ? (sectionDataForStatus as any).status
@@ -1467,7 +1470,7 @@ const renderActionButtons = (sectionId: string) => {
 
   // For all other roles, check status field as before
   const sectionKey = `section${sectionId.replace('.', '_')}`;
-  const sectionData = formData && formData[sectionKey];
+  const sectionData = submissionData && submissionData[sectionKey];
   const sectionStatus = sectionData
     ? Array.isArray(sectionData)
       ? (sectionData as any).status

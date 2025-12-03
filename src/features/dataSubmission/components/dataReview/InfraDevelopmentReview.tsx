@@ -1166,8 +1166,11 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       await performIndicatorStatus(pendingActionSectionId, true);
       
       // Refresh submission data to get latest state from backend
+      // Add a small delay to ensure backend has processed the update
       if (submissionId) {
         try {
+          // Wait a bit for backend to process the update
+          await new Promise(resolve => setTimeout(resolve, 500));
           const refreshedSubmission = await apiService.getSubmission(submissionId);
           if (refreshedSubmission) {
             setSubmissionState(refreshedSubmission);

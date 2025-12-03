@@ -374,7 +374,7 @@ export const MospiApproverDashboardPage = () => {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="p-6">Latest Submissions</CardTitle>
+              <CardTitle className="p-6">Submissions</CardTitle>
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -392,7 +392,7 @@ export const MospiApproverDashboardPage = () => {
                   </label>
                   <select
                     id="state-filter"
-                    className="border rounded px-2 py-1 text-sm"
+                    className="border rounded py-1 text-sm"
                     value={selectedState}
                     onChange={(e) => setSelectedState(e.target.value)}
                   >

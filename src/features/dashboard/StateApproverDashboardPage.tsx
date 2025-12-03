@@ -492,6 +492,10 @@ export function StateApproverDashboardPage() {
                         ? "Submission approved"
                         : submission.status === "REJECTED"
                         ? "Address reviewer feedback"
+                        : submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" || 
+                          submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
+                          submission.status === "RETURNED_FROM_MOSPI"
+                        ? "Waiting for MoSPI approval"
                         : "Waiting for state approval"
                     }
                     reviewerNote={submission.reviewerNote}
