@@ -102,65 +102,88 @@ export function UserForm({
     useState(false);
   const [disabledStateNames, setDisabledStateNames] = useState<string[]>([]);
 
-  // Compute available indicator codes for the selected state (or globally for non-admin)
-  const availableIndicatorCodes = useMemo(() => {
-    // Build set of assigned indicator codes in the same state (excluding the officer being edited)
-    const assignedSet = new Set<string>();
 
-    // Resolve selected state NAME (state name used in officers[].state)
-    const selectedStateName = (() => {
+  // State for API response
+  const [availableIndicatorsForState, setAvailableIndicatorsForState] = useState<any[]>([]);
+
+  // Fetch available indicators for selected state
+  useEffect(() => {
+    const fetchAvailableIndicators = async () => {
+      let stateName = "";
       if (user?.role === "ADMIN") {
-        // Admin sets state via stateId; convert to name if possible
-        if (!formData.stateId) return ""; // empty means admin hasn't chosen -> treat as "all"
-        const found = states.find((s) => s.id === formData.stateId);
-        return found ? found.name : formData.stateId;
+        if (!formData.stateId) return setAvailableIndicatorsForState([]);
+        let stateIdStr = Array.isArray(formData.stateId) ? formData.stateId[0] : formData.stateId;
+        const found = states.find((s) => s.id === stateIdStr);
+        stateName = found ? found.name : stateIdStr;
       } else {
-        // Non-admin use current user's state
-        return user?.state || "";
+        stateName = user?.state || "";
       }
-    })();
-
-    (officers || []).forEach((o) => {
-      const officerState = (o.state || o.stateId || "").toString();
-      // If selectedStateName is empty, treat as global (admin hasn't chosen state) -> don't block options
-      if (!selectedStateName || officerState === selectedStateName) {
-        const assigned = (o.assignedIndicators && Array.isArray(o.assignedIndicators))
-          ? o.assignedIndicators
-          : o.assignedIndicator ? [o.assignedIndicator] : [];
-        if (o.id !== officer?.id) {
-          assigned.forEach((code) => {
-            if (code) assignedSet.add(code);
-          });
-        }
+      if (!stateName) return setAvailableIndicatorsForState([]);
+      try {
+        const indicators = await apiService.getAvailableIndicatorsForApprover(stateName);
+        setAvailableIndicatorsForState(Array.isArray(indicators) ? indicators : []);
+      } catch (error) {
+        setAvailableIndicatorsForState([]);
       }
-    });
-
-    // Build list of all indicator codes from allIndicators (fallback: if allIndicators items are strings)
-    const allCodes = (allIndicators || []).map((i: any) => (typeof i === "string" ? i : i.code)).filter(Boolean);
-
-    // Return set of available codes (those that are not in assignedSet)
-    return new Set(allCodes.filter((c: string) => !assignedSet.has(c)));
-  }, [allIndicators, officers, formData.stateId, officer, user?.role, states]);
+    };
+    fetchAvailableIndicators();
+  }, [formData.stateId, user?.role, states]);
 
   // Build the options list from INDICATOR_SECTIONS but only include:
   //  - indicators present in availableIndicatorCodes OR
   //  - indicators already selected for this form (so editing doesn't drop them)
   const indicatorOptions: MultiSelectOption[] = useMemo(() => {
-    const selectedSet = new Set(formData.assignedIndicators || []);
-    return INDICATOR_SECTIONS.flatMap((section) =>
-      section.indicators
-        .filter((indicator) => {
-          // include if available OR currently selected for this officer
-          return availableIndicatorCodes.has(indicator) || selectedSet.has(indicator);
-        })
-        .map((indicator) => ({
-          value: indicator,
-          label: `${indicator} - ${getIndicatorDisplayName(indicator)}`,
-          section: section.name,
-          description: section.description,
-        }))
-    );
-  }, [availableIndicatorCodes, formData.assignedIndicators]);
+    // Collect all codes from API response
+    let apiCodes: string[] = [];
+    if (!availableIndicatorsForState || availableIndicatorsForState.length === 0) {
+      apiCodes = [];
+    } else if (typeof availableIndicatorsForState[0] === 'object') {
+      apiCodes = availableIndicatorsForState.map((item: any) => item.code);
+    } else {
+      apiCodes = availableIndicatorsForState;
+    }
+
+    // Sort: assigned indicators first (in their order), then API indicators (in their order, excluding duplicates)
+    const assigned = formData.assignedIndicators || [];
+    const apiUnique = apiCodes.filter(code => !assigned.includes(code));
+    const allCodes = [...assigned, ...apiUnique];
+
+    // Build name map from API response (object) or fallback
+    const indicatorNameMap: Record<string, string> = {};
+    if (typeof availableIndicatorsForState[0] === 'object') {
+      availableIndicatorsForState.forEach((item: any) => {
+        if (item && item.code && item.name) {
+          indicatorNameMap[item.code] = item.name;
+        }
+      });
+    }
+    // Fallback for codes not in API response
+    allCodes.forEach((code: string) => {
+      if (!indicatorNameMap[code]) {
+        indicatorNameMap[code] = getIndicatorDisplayName(code);
+      }
+    });
+
+    // Build options array
+    return allCodes.map((code: string) => {
+      // If API response is object, try to get section/category
+      let section = '';
+      let description = indicatorNameMap[code];
+      if (typeof availableIndicatorsForState[0] === 'object') {
+        const found = availableIndicatorsForState.find((item: any) => item.code === code);
+        if (found) {
+          section = found.category || '';
+          description = found.name || indicatorNameMap[code];
+        }
+      }
+      return {
+        value: code,
+        label: `${code} - ${indicatorNameMap[code]}`,
+        section,
+        description,
+      };
+    });
+  }, [availableIndicatorsForState]);
 
 // Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
 
