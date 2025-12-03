@@ -78,9 +78,10 @@ const FilterBar: React.FC<FilterBarProps> = ({ selectedFilter, onFilterChange })
 
 interface MospiApproverOverviewCardsProps {
   onStatusFilterChange?: (status: string | null) => void;
+  onCardTitleChange?: (title: string | null) => void;
 }
 
-export const MospiApproverOverviewCards = ({ onStatusFilterChange }: MospiApproverOverviewCardsProps = {}) => {
+export const MospiApproverOverviewCards = ({ onStatusFilterChange, onCardTitleChange }: MospiApproverOverviewCardsProps = {}) => {
   const { user } = useAuth();
   const userRole = user?.role;
   const isMospiApprover = userRole === "MOSPI_APPROVER";
@@ -93,6 +94,7 @@ export const MospiApproverOverviewCards = ({ onStatusFilterChange }: MospiApprov
   const [returnedToState, setReturnedToState] = useState({ count: 0, total: 36 });
   const [selectedFilter, setSelectedFilter] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedCardTitle, setSelectedCardTitle] = useState<string | null>(null);
 
   useEffect(() => {
     const loadOverviewData = async () => {
@@ -240,37 +242,41 @@ export const MospiApproverOverviewCards = ({ onStatusFilterChange }: MospiApprov
           )}
           
           {/* Approved - Show for both roles */}
-          <OverviewCard
-            icon={<CheckCircle className="w-6 h-6 text-green-600" />}
-            title="Approved"
-            value={`${approved.count}/${approved.total}`}
-            description="No. of States/UTs/Ministries fully approved"
-            borderColor="border-green-500"
-            iconColor="bg-green-50"
-            onClick={() => {
-              const newStatus = selectedStatus === "APPROVED" ? null : "APPROVED";
-              setSelectedStatus(newStatus);
-              onStatusFilterChange?.(newStatus);
-            }}
-            isSelected={selectedStatus === "APPROVED"}
-          />
+            <OverviewCard
+              icon={<CheckCircle className="w-6 h-6 text-green-600" />}
+              title="Approved"
+              value={`${approved.count}/${approved.total}`}
+              description="No. of States/UTs/Ministries fully approved"
+              borderColor="border-green-500"
+              iconColor="bg-green-50"
+              onClick={() => {
+                const newStatus = selectedStatus === "APPROVED" ? null : "APPROVED";
+                setSelectedStatus(newStatus);
+                setSelectedCardTitle(newStatus ? "Approved" : null);
+                onStatusFilterChange?.(newStatus);
+                onCardTitleChange?.(newStatus ? "Approved" : null);
+              }}
+              isSelected={selectedStatus === "APPROVED"}
+            />
           
           {/* Under Review - Show for both roles */}
-          <OverviewCard
-            icon={<Search className="w-6 h-6 text-orange-600" />}
-            title="Under Review"
-            value={`${underReview.count}/${underReview.total}`}
-            description="Approval in progress"
-            borderColor="border-orange-500"
-            iconColor="bg-orange-50"
-            onClick={() => {
-              const status = isMospiApprover ? "SUBMITTED_TO_MOSPI_APPROVER" : "SUBMITTED_TO_MOSPI_REVIEWER";
-              const newStatus = selectedStatus === status ? null : status;
-              setSelectedStatus(newStatus);
-              onStatusFilterChange?.(newStatus);
-            }}
-            isSelected={selectedStatus === (isMospiApprover ? "SUBMITTED_TO_MOSPI_APPROVER" : "SUBMITTED_TO_MOSPI_REVIEWER")}
-          />
+            <OverviewCard
+              icon={<Search className="w-6 h-6 text-orange-600" />}
+              title="Under Review"
+              value={`${underReview.count}/${underReview.total}`}
+              description="Approval in progress"
+              borderColor="border-orange-500"
+              iconColor="bg-orange-50"
+              onClick={() => {
+                const status = isMospiApprover ? "SUBMITTED_TO_MOSPI_APPROVER" : "SUBMITTED_TO_MOSPI_REVIEWER";
+                const newStatus = selectedStatus === status ? null : status;
+                setSelectedStatus(newStatus);
+                setSelectedCardTitle(newStatus ? "Under Review" : null);
+                onStatusFilterChange?.(newStatus);
+                onCardTitleChange?.(newStatus ? "Under Review" : null);
+              }}
+              isSelected={selectedStatus === (isMospiApprover ? "SUBMITTED_TO_MOSPI_APPROVER" : "SUBMITTED_TO_MOSPI_REVIEWER")}
+            />
           
           {/* Returned to State Approver - Only for MOSPI_APPROVER */}
           {isMospiApprover && (
@@ -284,7 +290,9 @@ export const MospiApproverOverviewCards = ({ onStatusFilterChange }: MospiApprov
               onClick={() => {
                 const newStatus = selectedStatus === "RETURNED_FROM_MOSPI" ? null : "RETURNED_FROM_MOSPI";
                 setSelectedStatus(newStatus);
+                setSelectedCardTitle(newStatus ? "Returned to State Approver" : null);
                 onStatusFilterChange?.(newStatus);
+                onCardTitleChange?.(newStatus ? "Returned to State Approver" : null);
               }}
               isSelected={selectedStatus === "RETURNED_FROM_MOSPI"}
             />
