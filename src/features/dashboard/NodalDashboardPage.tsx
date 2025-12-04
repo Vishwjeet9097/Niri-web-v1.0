@@ -142,11 +142,12 @@ export function NodalDashboardPage() {
 
         // derive KPI numbers from nodalMetrics if available, otherwise fallback to role KPIs
         const totalIndicators =
-          metrics.totalAssigned ?? kpiData?.mySubmissions ?? 0;
+          metrics.totalAssigned ?? 0;
         const pendingIndicators = metrics.pendingSubmission ?? 0;
         const underReviewIndicators = metrics.underReview ?? 0;
         const approvedIndicators = metrics.approved ?? 0;
         const sentBackIndicators = metrics.reverted ?? 0;
+        const totalSubmitted = metrics.totalSubmitted ?? 0;
 
         const kpisData = [
           {
@@ -160,7 +161,7 @@ export function NodalDashboardPage() {
           },
           {
             title: "Total Submitted",
-            value: String(metrics.totalSubmitted ?? 0),
+            value: String(totalSubmitted ?? 0),
             subtitle: "Submitted forms",
             icon: TrendingUp,
             variant: "blue" as const,
@@ -175,6 +176,15 @@ export function NodalDashboardPage() {
             variant: "blue" as const,
             description:
               "Submissions that have been sent by the Nodal Officer and are currently under review.",
+          },          
+          {
+            title: "Send Back",
+            value: `${sentBackIndicators}/${totalIndicators || 0}`,
+            subtitle:  "Send Back",
+            icon: Clock,
+            variant: "orange" as const,
+            description:
+              "Send Back submissions that require further action before approval.",
           },
           {
             title: "Approved",
@@ -184,16 +194,7 @@ export function NodalDashboardPage() {
             variant: "green" as const,
             description:
               "Submissions that have been reviewed and approved at all required levels.",
-          },
-          {
-            title: "Pending Submissions",
-            value: `${pendingIndicators}/${totalIndicators || 0}`,
-            subtitle: `${pendingIndicators} pending`,
-            icon: Clock,
-            variant: "orange" as const,
-            description:
-              "Indicators assigned to the Nodal Officer but for which forms have not yet been submitted.",
-          },
+          },          
         ];
 
         setKpis(kpisData);
@@ -427,13 +428,13 @@ export function NodalDashboardPage() {
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="flex justify-start items-center gap-6 px-1">
-                  <TabsTrigger value="all">All</TabsTrigger>
+                  {/* <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
                   <TabsTrigger value="SUBMITTED_TO_STATE">
                     Under Review
                   </TabsTrigger>
                   <TabsTrigger value="APPROVED">Approved</TabsTrigger>
-                  <TabsTrigger value="DRAFT">Draft</TabsTrigger>
+                  <TabsTrigger value="DRAFT">Draft</TabsTrigger> */}
                 </TabsList>
                 <TabsContent value={activeTab} className="mt-4">
                   <div className="space-y-4">
@@ -470,9 +471,9 @@ export function NodalDashboardPage() {
                       ))
                     )}
                   </div>
-                  <div className="mt-4 text-center">
+                  {/* <div className="mt-4 text-center">
                     <Button variant="outline">View All</Button>
-                  </div>
+                  </div> */}
                 </TabsContent>
               </Tabs>
             </div>

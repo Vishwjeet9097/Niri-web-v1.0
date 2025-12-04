@@ -9,6 +9,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SectionCard } from "@/features/submission/components/SectionCard";
+import { filterFilesByIndicatorAccess } from "@/utils/fileIndicatorMapping";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 interface Document {
   id: string;
@@ -28,6 +31,8 @@ interface DocumentsTabProps {
   authToken?: string; // optional token override
   submissionId?: string; // optional submission ID
   isPreview?: boolean; // true for preview mode (local files), false for review mode (S3 files)
+  assignedIndicators?: string[]; // Optional: explicitly pass assigned indicators (for preview mode)
+  userRole?: string; // Optional: explicitly pass user role
 }
 
 const getFileIcon = (fileType: string) => (
@@ -250,7 +255,38 @@ export const DocumentsTab = ({
   formData,
   authToken,
   isPreview = false,
+  assignedIndicators: propAssignedIndicators,
+  userRole: propUserRole,
 }: DocumentsTabProps) => {
+  // Get user info and indicator access
+  const { user } = useAuth();
+  const { assignedIndicators: hookAssignedIndicators, availableIndicators } = useIndicatorAccess();
+  
+  // Determine user role
+  const userRole = propUserRole || user?.role || "";
+  const isNodalOfficer = userRole === "NODAL_OFFICER";
+  const isStateApprover = userRole === "STATE_APPROVER";
+  const isMospiRole = userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER";
+  
+  // Determine assigned indicators
+  // Priority: prop > hook > availableIndicators (for state approver)
+  const assignedIndicators = React.useMemo(() => {
+    if (propAssignedIndicators && propAssignedIndicators.length > 0) {
+      return propAssignedIndicators;
+    }
+    if (isNodalOfficer && hookAssignedIndicators && hookAssignedIndicators.length > 0) {
+      return hookAssignedIndicators;
+    }
+    if (isStateApprover && availableIndicators && availableIndicators.length > 0) {
+      return availableIndicators;
+    }
+    // For MOSPI roles, return empty array (they see all)
+    if (isMospiRole) {
+      return [];
+    }
+    return [];
+  }, [propAssignedIndicators, hookAssignedIndicators, availableIndicators, isNodalOfficer, isStateApprover, isMospiRole]);
+
   // Extract files from formData
   const docsFromForm = React.useMemo(() => {
     if (!formData) return [];
@@ -621,21 +657,55 @@ export const DocumentsTab = ({
     ? (processedDocuments as Document[])
     : (Array.isArray(docsFromForm) ? (docsFromForm as Document[]) : []);
 
+  // Filter documents by indicator access
+  const filteredDocuments = React.useMemo(() => {
+    // In preview mode, formData might not have all sections filtered yet
+    // So we filter based on assigned indicators
+    if (!formData || allDocuments.length === 0) {
+      return allDocuments;
+    }
+
+    // Filter files based on indicator access
+    const filtered = filterFilesByIndicatorAccess(
+      allDocuments,
+      formData,
+      assignedIndicators,
+      userRole
+    );
+
+    console.log("📄 DocumentsTab - File Filtering:", {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      isMospiRole,
+      assignedIndicatorsCount: assignedIndicators.length,
+      assignedIndicators,
+      totalFilesBeforeFilter: allDocuments.length,
+      totalFilesAfterFilter: filtered.length,
+      filteredFilePaths: filtered.map(f => f.filePath).slice(0, 5), // Show first 5
+    });
+
+    return filtered;
+  }, [allDocuments, formData, assignedIndicators, userRole, isNodalOfficer, isStateApprover, isMospiRole]);
+
   // Debug logging
   React.useEffect(() => {
     console.log("📄 DocumentsTab Debug:", {
       isPreview,
+      userRole,
+      assignedIndicatorsCount: assignedIndicators.length,
       documentsCount: documents.length,
       processedDocumentsCount: Array.isArray(processedDocuments) ? processedDocuments.length : 0,
       docsFromFormCount: Array.isArray(docsFromForm) ? docsFromForm.length : 0,
       allDocumentsCount: Array.isArray(allDocuments) ? allDocuments.length : 0,
-      sampleDoc: allDocuments[0],
-      sampleDocHasFileObject: !!allDocuments[0]?._fileObject,
-      sampleDocHasFilePath: !!allDocuments[0]?.filePath,
+      filteredDocumentsCount: Array.isArray(filteredDocuments) ? filteredDocuments.length : 0,
+      sampleDoc: filteredDocuments[0],
+      sampleDocHasFileObject: !!filteredDocuments[0]?._fileObject,
+      sampleDocHasFilePath: !!filteredDocuments[0]?.filePath,
       formDataKeys: formData ? Object.keys(formData) : [],
       formDataPppDev: formData?.pppDevelopment ? Object.keys(formData.pppDevelopment) : [],
     });
-  }, [isPreview, documents, processedDocuments, docsFromForm, allDocuments, formData]);
+  }, [isPreview, documents, processedDocuments, docsFromForm, allDocuments, filteredDocuments, formData, userRole, assignedIndicators]);
 
   const [loading, setLoading] = React.useState<Record<string, boolean>>({});
   const token =
@@ -778,13 +848,18 @@ export const DocumentsTab = ({
       className="mb-6"
     >
       <CardContent className="space-y-4">
-        {(!Array.isArray(allDocuments) || allDocuments.length === 0) ? (
+        {(!Array.isArray(filteredDocuments) || filteredDocuments.length === 0) ? (
           <div className="text-center py-8 text-muted-foreground">
             <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p>No documents found in this submission</p>
+            {isNodalOfficer && assignedIndicators.length === 0 && (
+              <p className="text-sm mt-2 text-muted-foreground">
+                No indicators assigned. Please contact administrator.
+              </p>
+            )}
           </div>
         ) : (
-          allDocuments.map((doc, idx) => {
+          filteredDocuments.map((doc, idx) => {
             const docKey = doc.id ?? doc.filePath ?? `doc-${idx}`;
             const label = pickLabel(doc);
             const isLoading = !!loading[docKey];

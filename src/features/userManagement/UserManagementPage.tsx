@@ -235,6 +235,7 @@ export function UserManagementPage() {
           //throw new Error("State is required but not provided");
         }
 
+ 
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
@@ -290,7 +291,7 @@ export function UserManagementPage() {
                 selectedStateId = officerData.stateId; // Fallback to ID if not found
                 selectedStateName = officerData.stateId; // Fallback to ID if not found
                 console.warn(
-                  "⚠️ State not found in states array:",
+                  "⚠️ State not found in states array1:",
                   officerData.stateId
                 );
               }
@@ -305,7 +306,7 @@ export function UserManagementPage() {
                 selectedStateId = officerData.stateId; // Fallback
                 selectedStateName = officerData.stateId; // Fallback
                 console.warn(
-                  "⚠️ State not found in states array:",
+                  "⚠️ State not found in states array2:",
                   officerData.stateId
                 );
               }
@@ -336,8 +337,9 @@ export function UserManagementPage() {
         }
 
         // Before calling register, compute final values to send:
-        const stateUtToSend =
-          selectedStateName || officerData.stateUt || selectedStateId || "";
+        const stateUtToSend = 
+            selectedStateName || officerData.stateUt || selectedStateId || "";
+ 
 
         // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
         const newUser = await apiService.register(
@@ -347,7 +349,7 @@ export function UserManagementPage() {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          stateUtToSend, // <- pass state NAME here (was officerData.stateUt)
+          officerData.stateUt, // <- pass state NAME here (was officerData.stateUt)
           selectedStateId, // <- state ID
           officerData.assignedIndicators // indicators
         );
@@ -747,11 +749,7 @@ export function UserManagementPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               User Management
-            </h1>
-            <p className="text-muted-foreground">
-              Add or remove Nodal Officers for your State/UT and assign them
-              specific indicators for data submission
-            </p>
+            </h1>            
           </div>
         </div>
         <EmptyState onAddClick={handleAddUser} />

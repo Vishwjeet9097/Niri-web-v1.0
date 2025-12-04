@@ -1187,8 +1187,11 @@ export const InfraFinancingReview = ({
       await performIndicatorStatus(pendingActionSectionId, true);
       
       // Refresh submission data to get latest state from backend
+      // Add a small delay to ensure backend has processed the update
       if (submissionId) {
         try {
+          // Wait a bit for backend to process the update
+          await new Promise(resolve => setTimeout(resolve, 500));
           const refreshedSubmission = await apiService.getSubmission(submissionId);
           if (refreshedSubmission) {
             setSubmissionData(refreshedSubmission.formData?.infraFinancing || formData);
@@ -1210,14 +1213,37 @@ export const InfraFinancingReview = ({
     setPendingActionSectionId(null);
   };
 
+  // Helper function to render "Returned from MoSPI" badge when submission status is SUBMITTED_TO_MOSPI_APPROVER or SUBMITTED_TO_MOSPI_REVIEWER
+  const renderReturnedFromMospiBadge = () => {
+    const submissionStatus = (submission as any)?.status;
+    if (submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+      return (
+        <div className="mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default w-full justify-center"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Returned from MoSPI
+          </Button>
+        </div>
+      );
+    }
+    return null;
+  };
+
   // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
   const renderMOSPIReviewerComments = (sectionId: string) => {
     const getUserRole = () => {
       try {
         const authUser = localStorage.getItem('niri_app:auth_user');
         if (authUser) {
-          const parsed = JSON.parse(authUser);
-          return parsed?.role || null;
+          const user = JSON.parse(authUser);
+          const role = user.value?.role;
+          // Normalize role string (trim whitespace, convert to uppercase for comparison)
+          return role ? String(role).trim() : null;
         }
       } catch (error) {
         console.error('Error reading user role:', error);
@@ -1238,19 +1264,25 @@ export const InfraFinancingReview = ({
     
     if (mospiReviewerComments.length === 0) return null;
     
+    // Sort by timestamp (newest first) and get the last (most recent) comment
+    const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
+    });
+    const lastComment = sortedComments[0]; // Get the most recent comment
+    
     return (
       <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comments:</p>
-        {mospiReviewerComments.map((comment: any, index: number) => (
-          <div key={index} className="mb-2 last:mb-0">
-            <p className="text-sm text-green-800">{comment.message || comment.comment || comment.text}</p>
-            {comment.timestamp && (
-              <p className="text-xs text-green-600 mt-1">
-                {new Date(comment.timestamp).toLocaleString()}
-              </p>
-            )}
-          </div>
-        ))}
+        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comment:</p>
+        <div className="mb-2 last:mb-0">
+          <p className="text-sm text-green-800">{(lastComment as any).text || (lastComment as any).message || (lastComment as any).comment}</p>
+          {lastComment.timestamp && (
+            <p className="text-xs text-green-600 mt-1">
+              {new Date(lastComment.timestamp).toLocaleString()}
+            </p>
+          )}
+        </div>
       </div>
     );
   };
@@ -1284,10 +1316,48 @@ const renderActionButtons = (sectionId: string) => {
   const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
   const isMospiApprover = userRole === 'MOSPI_APPROVER';
   
-  // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
+  // Get submission status
   const submissionStatus = (submission as any)?.status;
-  if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
-    return null;
+  
+  // Check if submission is with MoSPI (APPROVER or REVIEWER)
+  const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
+  
+  // Check if submission is returned from MoSPI and mospi_status is REVERTED
+  const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
+  
+  // Helper function to get status text for MOSPI_APPROVER
+  const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
+    const userRole = getUserRole();
+    const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+    const currentSubmissionStatus = submissionStatus || (submission as any)?.status;
+    const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
+    
+    if (isMospiApprover && isReturned) {
+      if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
+        return 'RETURNED TO STATE';
+      }
+      if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
+        return 'Accepted';
+      }
+    }
+    return 'Returned from MoSPI';
+  };
+  
+  // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
+  if (isStateApprover && isWithMospi) {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1 bg-secondary text-secondary-foreground cursor-default"
+          disabled
+        >
+          <Clock className="w-4 h-4" />
+          Under Review
+        </Button>
+      </div>
+    );
   }
   
   // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
@@ -1342,7 +1412,7 @@ const renderActionButtons = (sectionId: string) => {
   if (isMospiApprover) {
     // Check mospi_status instead of status for MOSPI_APPROVER
     const sectionKey = `section${sectionId.replace('.', '_')}`;
-    const sectionData = formData && formData[sectionKey];
+    const sectionData = submissionData && submissionData[sectionKey];
     const mospiStatus = sectionData
       ? Array.isArray(sectionData)
         ? (sectionData as any)?.mospi_status
@@ -1377,7 +1447,7 @@ const renderActionButtons = (sectionId: string) => {
     if (mospiStatus === 'REVERTED') {
       // Get sectionStatus for MOSPI_APPROVER to check if status is also REVERTED
       const sectionKeyForStatus = `section${sectionId.replace('.', '_')}`;
-      const sectionDataForStatus = formData && formData[sectionKeyForStatus];
+      const sectionDataForStatus = submissionData && submissionData[sectionKeyForStatus];
       const sectionStatusForMospi = sectionDataForStatus
         ? Array.isArray(sectionDataForStatus)
           ? (sectionDataForStatus as any).status
@@ -1399,16 +1469,18 @@ const renderActionButtons = (sectionId: string) => {
               Sent Back
             </Button>
           )}
-          {/* Show "Returned from MoSPI" badge if mospi_status is REVERTED */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 font-bold cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {/* Show "Returned from MoSPI" badge if submission.status is RETURNED_FROM_MOSPI and mospi_status is REVERTED */}
+          {isReturnedFromMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 font-bold cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -1470,7 +1542,7 @@ const renderActionButtons = (sectionId: string) => {
 
   // For all other roles, check status field as before
   const sectionKey = `section${sectionId.replace('.', '_')}`;
-  const sectionData = formData && formData[sectionKey];
+  const sectionData = submissionData && submissionData[sectionKey];
   const sectionStatus = sectionData
     ? Array.isArray(sectionData)
       ? (sectionData as any).status
@@ -1487,9 +1559,13 @@ const renderActionButtons = (sectionId: string) => {
   // Check if status is REVERTED or mospi_status is REVERTED
   const isStatusReverted = sectionStatus === 'REVERTED';
   const isMospiStatusReverted = mospiStatus === 'REVERTED';
+  
+  // isWithMospi is already declared above using submissionStatus
 
   // For STATE_APPROVER, handle all edge cases based on status and mospi_status combinations
   if (isStateApprover) {
+    // Helper to check if status is NA/undefined
+    const isStatusNA = !sectionStatus || sectionStatus === 'NA' || sectionStatus === '';
     // Helper to check if mospi_status is NA/undefined
     const isMospiStatusNA = !mospiStatus || mospiStatus === 'NA' || mospiStatus === '';
     const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
@@ -1685,15 +1761,17 @@ const renderActionButtons = (sectionId: string) => {
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isReturnedFromMospi && isMospiStatusReverted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -1781,15 +1859,17 @@ const renderActionButtons = (sectionId: string) => {
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isReturnedFromMospi && isMospiStatusReverted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -1848,15 +1928,17 @@ const renderActionButtons = (sectionId: string) => {
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isReturnedFromMospi && isMospiStatusReverted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2066,8 +2148,8 @@ const renderActionButtons = (sectionId: string) => {
       );
     }
     
-    // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept"
-    if (!sectionStatus && isMospiStatusNA) {
+    // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept, Timeline"
+    if (isStatusNA && isMospiStatusNA) {
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -2204,15 +2286,17 @@ const renderActionButtons = (sectionId: string) => {
             <RotateCcw className="w-4 h-4" />
             Send Back
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
+          {isReturnedFromMospi && isMospiStatusReverted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -2238,8 +2322,33 @@ const renderActionButtons = (sectionId: string) => {
   
   // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
   if (sectionStatus === 'ACCEPTED') {
-    // If mospi_status = "REVERTED", show "Returned from MoSPI" badge
-    if (mospiStatus === 'REVERTED') {
+    // If mospi_status is RESUBMITTED, show "Under Review"
+    if (mospiStatus === 'RESUBMITTED') {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <Clock className="w-4 h-4" />
+            Under Review
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+    // If submission.status is RETURNED_FROM_MOSPI AND mospi_status is REVERTED, show "Returned from MoSPI" badge
+    if (mospiStatus === 'REVERTED' && isReturnedFromMospi) {
       return (
         <div className="flex gap-2">
           <Button
@@ -2249,7 +2358,7 @@ const renderActionButtons = (sectionId: string) => {
             disabled
           >
             <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
+            {getStatusTextForMospiApprover(mospiStatus)}
           </Button>
           <Button
             variant="outline"
@@ -2337,8 +2446,8 @@ const renderActionButtons = (sectionId: string) => {
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          {/* Show "Returned from MoSPI" badge if mospi_status is also REVERTED */}
-          {isMospiStatusReverted && (
+          {/* Show "Returned from MoSPI" badge if submission status is RETURNED_FROM_MOSPI */}
+          {isReturnedFromMospi && isMospiStatusReverted && (
             <Button
               variant="outline"
               size="sm"
@@ -2346,7 +2455,7 @@ const renderActionButtons = (sectionId: string) => {
               disabled
             >
               <RotateCcw className="w-4 h-4" />
-              Returned from MoSPI
+              {getStatusTextForMospiApprover(mospiStatus)}
             </Button>
           )}
           <Button
@@ -2374,8 +2483,8 @@ const renderActionButtons = (sectionId: string) => {
           <RotateCcw className="w-4 h-4" />
           Sent Back
         </Button>
-        {/* Show "Returned from MoSPI" badge if mospi_status is also REVERTED */}
-        {isMospiStatusReverted && (
+          {/* Show "Returned from MoSPI" badge if submission.status is RETURNED_FROM_MOSPI and mospi_status is REVERTED */}
+          {isReturnedFromMospi && isMospiStatusReverted && (
           <Button
             variant="outline"
             size="sm"
@@ -2383,7 +2492,7 @@ const renderActionButtons = (sectionId: string) => {
             disabled
           >
             <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
+            {getStatusTextForMospiApprover(mospiStatus)}
           </Button>
         )}
         <Button
@@ -2938,6 +3047,8 @@ const calculateAllocationPercentage = () => {
             // subtitle="Annex 4: Provide Bond Details"
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("1.4")}
             <div className="space-y-4">
               {/* ✅ Show Total ULBs at top */}
               {/* {formData?.section1_4?.totalULBs !== undefined && (
@@ -3027,6 +3138,8 @@ const calculateAllocationPercentage = () => {
             // subtitle="Annex 4: Provide link and funding details"
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("1.5")}
             <div className="space-y-4">
               {/* RadioGroup for hasIntermediary */}
               <div>

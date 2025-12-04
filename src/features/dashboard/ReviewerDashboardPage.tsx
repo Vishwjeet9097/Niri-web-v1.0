@@ -156,7 +156,7 @@ const ReviewerDashboardPage: React.FC = () => {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2 text-gray-900">
-                Welcome back
+                Welcome
               </h1>
               <p className="text-gray-600 text-base">
                 Review and provide feedback on NIRI submissions
