@@ -217,6 +217,11 @@ export const MospiApproverDashboardPage = () => {
   };
 
   const getStatusText = (status: string) => {
+    // Special handling for MOSPI_APPROVER when status is RETURNED_FROM_MOSPI
+    if (user?.role === "MOSPI_APPROVER" && status === "RETURNED_FROM_MOSPI") {
+      return "RETURNED TO STATE";
+    }
+    
     switch (status) {
       case "SUBMITTED_TO_MOSPI_APPROVER":
         return "Waiting for Final Approval";
@@ -490,7 +495,7 @@ export const MospiApproverDashboardPage = () => {
                               className="gap-2"
                             >
                               <Eye className="w-4 h-4" />
-                              Review
+                              {user?.role === "MOSPI_APPROVER" && submission.status === "RETURNED_FROM_MOSPI" ? "View" : "Review"}
                             </Button>
                           </td>
                         </tr>

@@ -1410,6 +1410,24 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   
   // Check if submission is returned from MoSPI and mospi_status is REVERTED
   const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
+  
+  // Helper function to get status text for MOSPI_APPROVER
+  const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
+    const userRole = getUserRole();
+    const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+    const currentSubmissionStatus = submissionStatus || (submission as any)?.status || (submissionState as any)?.status;
+    const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
+    
+    if (isMospiApprover && isReturned) {
+      if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
+        return 'RETURNED TO STATE';
+      }
+      if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
+        return 'Accepted';
+      }
+    }
+    return 'Returned from MoSPI';
+  };
     
     // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
     if (isStateApprover && isWithMospi) {

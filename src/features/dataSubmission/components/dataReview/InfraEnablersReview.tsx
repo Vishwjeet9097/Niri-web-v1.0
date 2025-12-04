@@ -1618,6 +1618,24 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   
   // Check if submission is returned from MoSPI and mospi_status is REVERTED
   const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
+  
+  // Helper function to get status text for MOSPI_APPROVER
+  const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
+    const userRole = getUserRole();
+    const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+    const currentSubmissionStatus = submissionStatus || (submission as any)?.status || (submissionState as any)?.status;
+    const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
+    
+    if (isMospiApprover && isReturned) {
+      if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
+        return 'RETURNED TO STATE';
+      }
+      if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
+        return 'Accepted';
+      }
+    }
+    return 'Returned from MoSPI';
+  };
     
     // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
     if (isStateApprover && isWithMospi) {
@@ -1742,7 +1760,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </Button>
             )}
             {/* Show "Returned from MoSPI" badge if submission.status is RETURNED_FROM_MOSPI and mospi_status is REVERTED */}
-            {isReturnedFromMospi && isMospiStatusReverted && (
+            {isReturnedFromMospi && mospiStatus === 'REVERTED' && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1750,7 +1768,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 disabled
               >
                 <RotateCcw className="w-4 h-4" />
-                Returned from MoSPI
+                {getStatusTextForMospiApprover(mospiStatus)}
               </Button>
             )}
             <Button
@@ -2037,18 +2055,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
                 disabled
               >
-                <RotateCcw className="w-4 h-4" />
-                Returned from MoSPI
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
             </Button>
             <Button
               variant="outline"
@@ -2204,18 +2222,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
                 disabled
               >
-                <RotateCcw className="w-4 h-4" />
-                Returned from MoSPI
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
             </Button>
             <Button
               variant="outline"
@@ -2562,18 +2580,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
                 disabled
               >
-                <RotateCcw className="w-4 h-4" />
-                Returned from MoSPI
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
             </Button>
             <Button
               variant="outline"
