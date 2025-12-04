@@ -21,6 +21,7 @@ export const MospiApproverDashboardPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [isFilteredByCard, setIsFilteredByCard] = useState(false);
+  const [selectedCardTitle, setSelectedCardTitle] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   // Initial load - no status filter (keep existing behavior)
@@ -296,7 +297,10 @@ export const MospiApproverDashboardPage = () => {
         </div>
 
         {/* Overview Cards */}
-        <MospiApproverOverviewCards onStatusFilterChange={setSelectedStatus} />
+        <MospiApproverOverviewCards 
+          onStatusFilterChange={setSelectedStatus}
+          onCardTitleChange={setSelectedCardTitle}
+        />
 
         {/* Recent Submissions */}
 
@@ -379,7 +383,11 @@ export const MospiApproverDashboardPage = () => {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="p-6">Submissions</CardTitle>
+              <CardTitle className="p-6">
+                {selectedCardTitle
+                  ? `${selectedCardTitle} Submissions`
+                  : "Latest Submissions"}
+              </CardTitle>
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -391,13 +399,13 @@ export const MospiApproverDashboardPage = () => {
                     className="pl-10 pr-4 py-2 border rounded-md text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div>
-                  <label htmlFor="state-filter" className="mr-2 text-sm text-gray-600">
-                    States
+                <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                  <label htmlFor="state-filter" className="text-sm text-gray-600 whitespace-nowrap">
+                    State
                   </label>
                   <select
                     id="state-filter"
-                    className="border rounded py-1 text-sm"
+                    className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[120px]"
                     value={selectedState}
                     onChange={(e) => setSelectedState(e.target.value)}
                   >
