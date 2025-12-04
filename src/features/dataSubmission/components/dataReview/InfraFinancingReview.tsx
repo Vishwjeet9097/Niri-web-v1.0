@@ -107,7 +107,14 @@ export const InfraFinancingReview = ({
       if (Array.isArray(formData?.section1_5)) {
         setSection15State({ ffiArray: formData.section1_5 });
       } else {
-        setSection15State(formData?.section1_5 || { ffiArray: [] });
+        const section1_5 = formData?.section1_5 || { ffiArray: [] };
+        // Log comment to verify it's present
+        if (section1_5.comment) {
+          console.log(`[InfraFinancingReview] ✅ Comment found in section1_5:`, section1_5.comment);
+        } else {
+          console.log(`[InfraFinancingReview] ⚠️ No comment in section1_5. Full section1_5:`, section1_5);
+        }
+        setSection15State(section1_5);
       }
     }
   }, [formData?.section1_5]);

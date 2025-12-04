@@ -507,8 +507,21 @@ export const getSectionsWithData = (
         ];
         infraEnablersSections.forEach((sectionId) => {
           const section = categoryData[sectionId];
-          if (section && hasSectionData(section, sectionId, "infraEnablers")) {
-            sectionsWithData.push(sectionId);
+          if (section) {
+            // Check if section has meaningful data
+            const hasData = hasSectionData(section, sectionId, "infraEnablers");
+            // Also check if section has "no" selected (even without comment) - this is still user input
+            const hasNoSelected = 
+              (sectionId === "section4_1" && (section.allEligible === "no" || section.allEligible === "No")) ||
+              (sectionId === "section4_2" && (section.available === "no" || section.available === "No")) ||
+              (sectionId === "section4_3" && (section.adopted === "no" || section.adopted === "No")) ||
+              (sectionId === "section4_4" && (section.adopted === "no" || section.adopted === "No")) ||
+              (sectionId === "section4_5" && (section.implemented === "no" || section.implemented === "No")) ||
+              (sectionId === "section4_6" && (section.participated === "no" || section.participated === "No"));
+            
+            if (hasData || hasNoSelected) {
+              sectionsWithData.push(sectionId);
+            }
           }
         });
       }
@@ -525,8 +538,16 @@ export const getSectionsWithData = (
         ];
         infraFinancingSections.forEach((sectionId) => {
           const section = categoryData[sectionId];
-          if (section && hasSectionData(section, sectionId, "infraFinancing")) {
-            sectionsWithData.push(sectionId);
+          if (section) {
+            // Check if section has meaningful data
+            const hasData = hasSectionData(section, sectionId, "infraFinancing");
+            // Also check if section has "no" selected (even without comment) - this is still user input
+            const hasNoSelected = sectionId === "section1_5" && 
+              (section.hasIntermediary === "no" || section.hasIntermediary === "No");
+            
+            if (hasData || hasNoSelected) {
+              sectionsWithData.push(sectionId);
+            }
           }
         });
       }
@@ -543,11 +564,17 @@ export const getSectionsWithData = (
         ];
         infraDevelopmentSections.forEach((sectionId) => {
           const section = categoryData[sectionId];
-          if (
-            section &&
-            hasSectionData(section, sectionId, "infraDevelopment")
-          ) {
-            sectionsWithData.push(sectionId);
+          if (section) {
+            // Check if section has meaningful data
+            const hasData = hasSectionData(section, sectionId, "infraDevelopment");
+            // Also check if section has "no" selected (even without comment) - this is still user input
+            const hasNoSelected = 
+              (sectionId === "section2_3" && (section.hasInfraDevelopmentPlan === "no" || section.hasInfraDevelopmentPlan === "No")) ||
+              (sectionId === "section2_4" && (section.hasInvestmentReady === "no" || section.hasInvestmentReady === "No"));
+            
+            if (hasData || hasNoSelected) {
+              sectionsWithData.push(sectionId);
+            }
           }
         });
       }
@@ -563,8 +590,17 @@ export const getSectionsWithData = (
         ];
         pppDevelopmentSections.forEach((sectionId) => {
           const section = categoryData[sectionId];
-          if (section && hasSectionData(section, sectionId, "pppDevelopment")) {
-            sectionsWithData.push(sectionId);
+          if (section) {
+            // Check if section has meaningful data
+            const hasData = hasSectionData(section, sectionId, "pppDevelopment");
+            // Also check if section has "no" selected (even without comment) - this is still user input
+            const hasNoSelected = 
+              (sectionId === "section3_1" && (section.available === "no" || section.available === "No")) ||
+              (sectionId === "section3_2" && (section.available === "no" || section.available === "No"));
+            
+            if (hasData || hasNoSelected) {
+              sectionsWithData.push(sectionId);
+            }
           }
         });
       }
@@ -576,8 +612,9 @@ export const getSectionsWithData = (
 
 /**
  * Check if a specific section has data
+ * Exported so it can be used in StateAggregateReviewPage
  */
-const hasSectionData = (
+export const hasSectionData = (
   section: any,
   sectionId: string,
   category: string

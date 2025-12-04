@@ -54,6 +54,7 @@ import { authService } from "@/services/auth.service";
 import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 import { mergeAttachedFiles, extractFileMetadataFromFormData } from "@/utils/extractFileMetadata";
+import { hasSectionData } from "@/utils/sectionDataValidator";
 import axios from "axios";
 import { config } from "@/config/environment";
 
@@ -108,6 +109,15 @@ const transformIndicatorsToFormData = (
 ): any => {
   console.log("[Transform] Raw indicators input:", indicators);
   console.log("[Transform] Indicator keys:", Object.keys(indicators));
+  console.log("[Transform] Submissions array provided:", submissions ? `${submissions.length} submissions` : "NO SUBMISSIONS");
+  if (submissions && Array.isArray(submissions) && submissions.length > 0) {
+    console.log("[Transform] First submission structure:", {
+      hasFormData: !!submissions[0].formData,
+      hasForm_data: !!submissions[0].form_data,
+      formDataKeys: submissions[0].formData ? Object.keys(submissions[0].formData) : [],
+      form_dataKeys: submissions[0].form_data ? Object.keys(submissions[0].form_data) : []
+    });
+  }
   
   // Start with empty categories - only create sections for indicators that actually exist in the API response
   // Don't initialize all sections upfront - this prevents unassigned/unfilled indicators from appearing
@@ -393,38 +403,95 @@ const transformIndicatorsToFormData = (
         // Only store sections if they have actual data OR if they're assigned to someone
         // Don't create empty sections for unassigned/unfilled indicators
         // Check if section has meaningful data before storing
-        const hasMeaningfulData = Object.keys(formFields).length > 0 && 
-          Object.values(formFields).some(val => {
-            if (val === null || val === undefined || val === '') return false;
-            if (Array.isArray(val) && val.length === 0) return false;
-            if (typeof val === 'object' && Object.keys(val).length === 0) return false;
-            return true;
-          });
+        // IMPORTANT: Use hasSectionData to properly handle "no" responses with comments
+        console.log(`[Transform] Checking hasSectionData for ${sectionKey} in ${formDataKey}`);
+        console.log(`[Transform] formFields structure:`, JSON.stringify(formFields, null, 2));
+        const hasMeaningfulData = hasSectionData(formFields, sectionKey, formDataKey);
+        console.log(`[Transform] hasSectionData result for ${sectionKey}:`, hasMeaningfulData);
         
         // Check if indicator is assigned/submitted (not NOT_STARTED status)
         // NOT_STARTED means the indicator hasn't been assigned or filled yet
-        const indicatorStatus = indicator?.status || indicatorData?.status || formFields.status;
+        // Note: status was deleted from formFields above, so get it from indicatorData or indicator
+        const indicatorStatus = indicator?.status || indicatorData?.status;
         const isNotStarted = indicatorStatus === 'NOT_STARTED' || indicatorStatus === null || indicatorStatus === undefined;
         
         // Check if this indicator exists in any submission (meaning it's been worked on)
-        const existsInSubmissions = submissions && Array.isArray(submissions) && submissions.some(submission => {
-          const subFormData = submission.formData || submission.form_data || {};
-          const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
-          return sectionKey in categoryData;
-        });
+        // IMPORTANT: Always merge submission data first, then check for meaningful data
+        // This ensures comments from submissions are included even if aggregated data doesn't have them
+        let existsInSubmissions = false;
+        
+        if (submissions && Array.isArray(submissions)) {
+          console.log(`[Transform] Checking ${submissions.length} submissions for section ${sectionKey} in category ${formDataKey}`);
+          for (const submission of submissions) {
+            const subFormData = submission.formData || submission.form_data || {};
+            const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
+            
+            console.log(`[Transform] Submission ${submission.id || submission.submissionId || 'unknown'}: categoryData keys:`, Object.keys(categoryData));
+            
+            if (sectionKey in categoryData) {
+              existsInSubmissions = true;
+              const submissionSection = categoryData[sectionKey];
+              if (submissionSection && typeof submissionSection === 'object') {
+                console.log(`[Transform] ✅ Found section ${sectionKey} in submission:`, submissionSection);
+                console.log(`[Transform] Section ${sectionKey} keys:`, Object.keys(submissionSection));
+                console.log(`[Transform] Section ${sectionKey} has comment:`, !!submissionSection.comment, submissionSection.comment);
+                // Always merge submission data into formFields, prioritizing submission data
+                // This ensures comments and other fields from submissions are included
+                Object.keys(submissionSection).forEach(key => {
+                  // Always merge comment field if it exists in submission (even if formFields has it or is empty)
+                  // Comments are critical and should always come from submissions if available
+                  if (key === 'comment') {
+                    if (submissionSection[key] && (submissionSection[key] !== null && submissionSection[key] !== undefined && String(submissionSection[key]).trim() !== '')) {
+                      formFields[key] = submissionSection[key];
+                      console.log(`[Transform] ✅ Merged comment from submission for ${sectionKey}:`, submissionSection[key]);
+                    } else {
+                      console.log(`[Transform] ⚠️ Submission has empty/null comment for ${sectionKey}`);
+                    }
+                  } else if (!formFields.hasOwnProperty(key) || !formFields[key]) {
+                    // For other fields, merge if formFields doesn't have it or if it's empty
+                    formFields[key] = submissionSection[key];
+                  }
+                });
+                console.log(`[Transform] formFields after merging submission data for ${sectionKey}:`, JSON.stringify(formFields, null, 2));
+              }
+            }
+          }
+        }
+        
+        // Re-check hasMeaningfulData after merging submission data
+        // This will now properly detect "no" + comment cases
+        const finalHasMeaningfulData = hasSectionData(formFields, sectionKey, formDataKey);
+        
+        // Check if section has "no" selected (even without comment) - this is still user input
+        const hasNoSelected = (() => {
+          const noFields = ['hasIntermediary', 'hasInfraDevelopmentPlan', 'hasInvestmentReady', 
+                           'available', 'allEligible', 'adopted', 'implemented', 'participated'];
+          return noFields.some(field => formFields[field] === 'no' || formFields[field] === 'No');
+        })();
+        
+        console.log(`[Transform] Final check for ${sectionKey}: hasMeaningfulData=${finalHasMeaningfulData}, hasNoSelected=${hasNoSelected}, isNotStarted=${isNotStarted}, existsInSubmissions=${existsInSubmissions}`);
+        console.log(`[Transform] formFields for ${sectionKey}:`, formFields);
         
         // Only create section if:
-        // 1. It has meaningful data, OR
-        // 2. It's not in NOT_STARTED status (has been assigned/submitted), OR
-        // 3. It exists in submissions array (has been worked on)
+        // 1. It has meaningful data (from indicator or submissions, including "no" + comment), OR
+        // 2. It has "no" selected (user input, even without comment), OR
+        // 3. It's not in NOT_STARTED status (has been assigned/submitted), OR
+        // 4. It exists in submissions array (has been worked on)
         // This prevents unassigned/unfilled indicators from appearing empty
-        const shouldInclude = hasMeaningfulData || !isNotStarted || existsInSubmissions;
+        // But includes sections where user selected "no" (with or without comment)
+        const shouldInclude = finalHasMeaningfulData || hasNoSelected || !isNotStarted || existsInSubmissions;
         
         if (shouldInclude) {
           formData[formDataKey][sectionKey] = formFields;
-          console.log(`[Transform] Stored ${sectionKey} in ${formDataKey}:`, formFields, `(hasData: ${hasMeaningfulData}, status: ${indicatorStatus}, existsInSubmissions: ${existsInSubmissions})`);
+          // Log comment field specifically for debugging
+          if (formFields.comment) {
+            console.log(`[Transform] ✅ Stored ${sectionKey} in ${formDataKey} WITH COMMENT:`, formFields.comment);
+          } else {
+            console.log(`[Transform] ⚠️ Stored ${sectionKey} in ${formDataKey} WITHOUT COMMENT`);
+          }
+          console.log(`[Transform] ✅ Stored ${sectionKey} in ${formDataKey}:`, formFields, `(hasData: ${finalHasMeaningfulData}, status: ${indicatorStatus}, existsInSubmissions: ${existsInSubmissions})`);
         } else {
-          console.log(`[Transform] Skipping ${sectionKey} in ${formDataKey} - no meaningful data, NOT_STARTED status, and not in submissions`);
+          console.log(`[Transform] ❌ Skipping ${sectionKey} in ${formDataKey} - no meaningful data, NOT_STARTED status, and not in submissions`);
         }
       }
     });
@@ -737,11 +804,60 @@ export const StateAggregateReviewPage = () => {
           }
         });
 
+        // Fetch submissions from getStateIndicatorStatuses API to get comments
+        // This API returns submissions with full formData including comments
+        let submissionsToUse: any[] = [];
+        try {
+          const statusResp = await apiService.getStateIndicatorStatuses(selectedYear || undefined);
+          const normalizedStatus = statusResp?.data ? statusResp : { data: statusResp };
+          const statusData = normalizedStatus.data || {};
+          const allSubmissions = statusData.submissions || [];
+          
+          // Filter to get only non-consolidated submissions (source submissions with comments)
+          submissionsToUse = allSubmissions.filter((sub: any) => {
+            const formData = sub.formData || sub.form_data || {};
+            const metadata = formData._metadata;
+            return !metadata?.isConsolidated;
+          });
+          
+          console.log("[StateAggregate] Fetched submissions from getStateIndicatorStatuses:", submissionsToUse.length);
+          if (submissionsToUse.length > 0) {
+            console.log("[StateAggregate] Sample submission structure:", {
+              id: submissionsToUse[0].id,
+              submissionId: submissionsToUse[0].submissionId,
+              hasFormData: !!submissionsToUse[0].formData,
+              hasForm_data: !!submissionsToUse[0].form_data
+            });
+            // Log a sample section to verify comments exist
+            const sampleSub = submissionsToUse[0];
+            const sampleFormData = sampleSub.formData || sampleSub.form_data || {};
+            const sampleSection = sampleFormData.infraFinancing?.section1_5 || 
+                                 sampleFormData.infraDevelopment?.section2_4 ||
+                                 sampleFormData.pppDevelopment?.section3_2 ||
+                                 sampleFormData.infraEnablers?.section4_1;
+            if (sampleSection) {
+              console.log("[StateAggregate] Sample section with comment check:", {
+                section: Object.keys(sampleFormData).find(cat => {
+                  const catData = sampleFormData[cat];
+                  return catData && typeof catData === 'object' && 
+                    Object.values(catData).some((sec: any) => sec && typeof sec === 'object' && sec.comment);
+                }),
+                hasComment: !!sampleSection.comment,
+                comment: sampleSection.comment
+              });
+            }
+          }
+        } catch (submissionError) {
+          console.warn("[StateAggregate] Failed to fetch submissions for comments:", submissionError);
+          // Continue without submissions - comments won't be merged but form will still work
+        }
+        
         // Transform indicators to formData structure
-        // Also pass submissions array if available to extract form data
+        // Pass submissions array to extract comments from source submissions
+        console.log("[StateAggregate] Submissions to pass to transform:", submissionsToUse ? `${submissionsToUse.length} submissions` : "NO SUBMISSIONS");
         let transformedFormData = transformIndicatorsToFormData(
           data.indicators || {},
-          data.submissions || (payload as any).submissions
+          submissionsToUse
         );
         console.log("[StateAggregate] Transformed formData:", transformedFormData);
         console.log("[StateAggregate] FormData keys:", Object.keys(transformedFormData));

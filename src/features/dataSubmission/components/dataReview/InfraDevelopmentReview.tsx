@@ -477,8 +477,20 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         ? items.map((item) => (transformItem ? transformItem(item) : item))
         : [];
 
+      // Preserve ALL fields from the original section, including comment, hasInfraDevelopmentPlan, hasInvestmentReady, etc.
+      // The spread operator should preserve all fields, but we'll be explicit about important ones
+      const preservedFields: any = {};
+      if (section && !Array.isArray(section)) {
+        // Preserve all non-array fields (comment, hasInfraDevelopmentPlan, hasInvestmentReady, etc.)
+        Object.keys(section).forEach(key => {
+          if (key !== arrayKey && key !== 'status') {
+            preservedFields[key] = section[key];
+          }
+        });
+      }
+      
       normalized[sectionKey] = {
-        ...(section && !Array.isArray(section) ? section : {}),
+        ...preservedFields,
         [arrayKey]: normalizedItems,
         ...(status !== undefined ? { status } : {}),
       };
@@ -507,7 +519,18 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   // Sync formDataState when formData prop changes (but not when restoring from cancel)
   useEffect(() => {
     if (formData && !isRestoringRef.current) {
-      setFormDataState(normalizeInfraDevelopment((formData as any)?.infraDevelopment || formData));
+      const rawFormData = (formData as any)?.infraDevelopment || formData;
+      console.log(`[InfraDevelopmentReview] Raw formData before normalization:`, rawFormData);
+      const normalized = normalizeInfraDevelopment(rawFormData);
+      // Log comments to verify they're preserved
+      Object.keys(normalized).forEach(sectionKey => {
+        if (normalized[sectionKey]?.comment) {
+          console.log(`[InfraDevelopmentReview] ✅ Comment found in ${sectionKey}:`, normalized[sectionKey].comment);
+        } else if (normalized[sectionKey] && (normalized[sectionKey].hasInfraDevelopmentPlan === 'no' || normalized[sectionKey].hasInvestmentReady === 'no')) {
+          console.log(`[InfraDevelopmentReview] ⚠️ ${sectionKey} has "no" but no comment. Full section:`, normalized[sectionKey]);
+        }
+      });
+      setFormDataState(normalized);
     }
   }, [formData]);
   
