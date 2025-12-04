@@ -559,10 +559,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   const hasData = hasInfraDevelopmentData({ infraDevelopment: state });
   let sectionsWithData = getSectionsWithData({ infraDevelopment: state }, 'infraDevelopment');
   
-  // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
-  // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
-    const assignedSectionKeys: string[] = [];
+  // For Nodal Officers (both preview and review mode): filter sections based on assigned indicators
+  // Nodal Officers should only see sections for indicators assigned to them
+  if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
     const indicatorToSectionMap: Record<string, string> = {
       "2.1": "section2_1",
       "2.2": "section2_2",
@@ -571,21 +570,73 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       "2.5": "section2_5",
     };
     
-    assignedIndicators.forEach((indicator) => {
-      const sectionKey = indicatorToSectionMap[indicator];
-      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
-        assignedSectionKeys.push(sectionKey);
-      }
-    });
+    // Get all assigned section keys
+    const assignedSectionKeys = assignedIndicators
+      .map((indicator) => indicatorToSectionMap[indicator])
+      .filter((sectionKey) => sectionKey !== undefined);
     
-    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
+    // For preview mode: add assigned sections even if they don't have data
+    if (isPreview) {
+      const missingAssignedSections = assignedSectionKeys.filter(
+        (sectionKey) => !sectionsWithData.includes(sectionKey)
+      );
+      sectionsWithData = [...sectionsWithData, ...missingAssignedSections];
+    } else {
+      // For review mode: filter sectionsWithData to only include assigned sections
+      const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
+        assignedSectionKeys.includes(sectionKey)
+      );
+      
+      // Add assigned sections that don't have data yet (to ensure they're visible)
+      const missingAssignedSections = assignedSectionKeys.filter(
+        (sectionKey) => !sectionsWithData.includes(sectionKey)
+      );
+      
+      // Combine filtered sections with missing assigned sections
+      sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
+      
+      console.log("🔍 [InfraDevelopmentReview] Nodal Officer (review mode) - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators);
+    }
   }
   
-  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // For State Approvers: filter sections based on their assigned indicators
+  // State Approvers should only see sections for indicators assigned to them, not all indicators in the state
+  // IMPORTANT: Include assigned sections even if they have no data (similar to Nodal Officers in preview mode)
+  if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
+    const indicatorToSectionMap: Record<string, string> = {
+      "2.1": "section2_1",
+      "2.2": "section2_2",
+      "2.3": "section2_3",
+      "2.4": "section2_4",
+      "2.5": "section2_5",
+    };
+    
+    // Get all assigned section keys
+    const assignedSectionKeys = assignedIndicators
+      .map((indicator) => indicatorToSectionMap[indicator])
+      .filter((sectionKey) => sectionKey !== undefined);
+    
+    // Filter sectionsWithData to only include assigned sections
+    const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
+      assignedSectionKeys.includes(sectionKey)
+    );
+    
+    // Add assigned sections that don't have data yet (to ensure they're visible)
+    const missingAssignedSections = assignedSectionKeys.filter(
+      (sectionKey) => !sectionsWithData.includes(sectionKey)
+    );
+    
+    // Combine filtered sections with missing assigned sections
+    sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
+    
+    console.log("🔍 [InfraDevelopmentReview] State Approver - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+  }
+  
+  // For review mode (not preview) OR preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers):
   // Include all sections that exist in formData
-  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This ensures MoSPI reviewers see all sections submitted
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer))) {
+  if ((!isPreview && !isStateApprover && !isNodalOfficer) || (isPreview && !isNodalOfficer && !isStateApprover)) {
     const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
     const submissionFormData = (submission as any)?.formData?.infraDevelopment || {};
     const stateToCheck = state || submissionFormData;
@@ -597,7 +648,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
     
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
-    console.log("🔍 [InfraDevelopmentReview] Review/preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
+    console.log("🔍 [InfraDevelopmentReview] Review/preview mode (non-nodal, non-state-approver) - showing all existing sections:", sectionsWithData);
   }
 
   const handleOpenModal = (sectionId: string) => {

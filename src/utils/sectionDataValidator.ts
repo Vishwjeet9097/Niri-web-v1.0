@@ -71,38 +71,110 @@ export const hasInfraEnablersData = (formData: any): boolean => {
     if (!section) return false;
 
     switch (sectionId) {
-      case "section4_1":
+      case "section4_1": {
+        // Check if allEligible field is set (yes or no)
+        if (hasMeaningfulValue(section?.allEligible)) {
+          // If "no" is selected, check for comment
+          if (section.allEligible === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for websiteLink or file
+          if (section.allEligible === "yes") {
+            return hasMeaningfulValue(section.websiteLink) || hasFileData(section.file);
+          }
+        }
+        // Backward compatibility: check for websiteLink or file directly
         return (
           hasMeaningfulValue(section.allEligible) ||
           hasMeaningfulValue(section.websiteLink) ||
           hasFileData(section.file)
         );
+      }
 
-      case "section4_2":
-        return (
-          hasMeaningfulValue(section.available) || hasFileData(section.files)
-        );
+      case "section4_2": {
+        // Check if available field is set (yes or no)
+        if (hasMeaningfulValue(section?.available)) {
+          // If "no" is selected, check for comment
+          if (section.available === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for files
+          if (section.available === "yes") {
+            return hasFileData(section.files);
+          }
+        }
+        // Backward compatibility: check for files directly
+        return hasMeaningfulValue(section.available) || hasFileData(section.files);
+      }
 
-      case "section4_3":
+      case "section4_3": {
+        // Check if adopted field is set (yes or no)
+        if (hasMeaningfulValue(section?.adopted)) {
+          // If "no" is selected, check for comment
+          if (section.adopted === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for projects array or other fields
+          if (section.adopted === "yes") {
+            return (
+              hasArrayData(section?.projects) ||
+              hasMeaningfulValue(section.marksObtained) ||
+              hasMeaningfulValue(section.numberOfProjects)
+            );
+          }
+        }
+        // Backward compatibility: check for marksObtained or numberOfProjects directly
         return (
           hasMeaningfulValue(section.marksObtained) ||
           hasMeaningfulValue(section.numberOfProjects)
         );
+      }
 
-      case "section4_4":
+      case "section4_4": {
+        // Check if adopted field is set (yes or no)
+        if (hasMeaningfulValue(section?.adopted)) {
+          // If "no" is selected, check for comment
+          if (section.adopted === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for files or marksObtained
+          if (section.adopted === "yes") {
+            return hasFileData(section.files) || hasMeaningfulValue(section.marksObtained);
+          }
+        }
+        // Backward compatibility: check for files or marksObtained directly
         return (
           hasFileData(section.files) ||
           hasMeaningfulValue(section.adopted) ||
           hasMeaningfulValue(section.marksObtained)
         );
+      }
 
-      case "section4_5":
+      case "section4_5": {
+        // Check if implemented field is set (yes or no)
+        if (hasMeaningfulValue(section?.implemented)) {
+          // If "no" is selected, check for comment
+          if (section.implemented === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for practices array or other fields
+          if (section.implemented === "yes") {
+            return (
+              hasArrayData(section?.practices) ||
+              hasFileData(section.file) ||
+              hasMeaningfulValue(section.impact) ||
+              hasMeaningfulValue(section.practiceName)
+            );
+          }
+        }
+        // Backward compatibility: check for file, impact, or practiceName directly
         return (
           hasFileData(section.file) ||
           hasMeaningfulValue(section.impact) ||
           hasMeaningfulValue(section.implemented) ||
           hasMeaningfulValue(section.practiceName)
         );
+      }
 
       case "section4_6":
         // Section 4.6 has data if:
@@ -173,8 +245,21 @@ export const hasInfraFinancingData = (formData: any): boolean => {
       case "section1_4":
         // Check for bondList array or totalULBs field
         return hasArrayData(section?.bondList) || hasMeaningfulValue(section?.totalULBs);
-      case "section1_5":
+      case "section1_5": {
+        // Check if hasIntermediary field is set (yes or no)
+        if (hasMeaningfulValue(section?.hasIntermediary)) {
+          // If "no" is selected, check for comment
+          if (section.hasIntermediary === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for ffiArray
+          if (section.hasIntermediary === "yes") {
+            return hasArrayData(section?.ffiArray) || hasArrayData(section);
+          }
+        }
+        // Backward compatibility: check for ffiArray directly
         return hasArrayData(section?.ffiArray) || hasArrayData(section);
+      }
 
       default:
         return false;
@@ -205,14 +290,11 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
 
     switch (sectionId) {
       case "section2_1":
-      case "section2_2":
-      case "section2_3": {
+      case "section2_2": {
         const arrayKey =
           sectionId === "section2_1"
             ? "infraActArray"
-            : sectionId === "section2_2"
-            ? "specializedEntityArray"
-            : "infraDevelopmentArray";
+            : "specializedEntityArray";
         const items = Array.isArray(section?.[arrayKey])
           ? section[arrayKey]
           : Array.isArray(section)
@@ -227,8 +309,70 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
           )
         );
       }
+      case "section2_3": {
+        // Check if hasInfraDevelopmentPlan field is set (yes or no)
+        if (hasMeaningfulValue(section?.hasInfraDevelopmentPlan)) {
+          // If "no" is selected, check for comment
+          if (section.hasInfraDevelopmentPlan === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for infraDevelopmentArray
+          if (section.hasInfraDevelopmentPlan === "yes") {
+            const items = Array.isArray(section?.infraDevelopmentArray)
+              ? section.infraDevelopmentArray
+              : Array.isArray(section)
+              ? section
+              : [];
+            return (
+              hasArrayData(items) &&
+              items.some(
+                (item: any) =>
+                  hasMeaningfulValue(item.sector) ||
+                  (item.files && hasArrayData(item.files))
+              )
+            );
+          }
+        }
+        // Backward compatibility: check for infraDevelopmentArray directly
+        const items = Array.isArray(section?.infraDevelopmentArray)
+          ? section.infraDevelopmentArray
+          : Array.isArray(section)
+          ? section
+          : [];
+        return (
+          hasArrayData(items) &&
+          items.some(
+            (item: any) =>
+              hasMeaningfulValue(item.sector) ||
+              (item.files && hasArrayData(item.files))
+          )
+        );
+      }
 
       case "section2_4": {
+        // Check if hasInvestmentReady field is set (yes or no)
+        if (hasMeaningfulValue(section?.hasInvestmentReady)) {
+          // If "no" is selected, check for comment
+          if (section.hasInvestmentReady === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for investmentReadyArray
+          if (section.hasInvestmentReady === "yes") {
+            const array = Array.isArray(section?.investmentReadyArray)
+              ? section.investmentReadyArray
+              : Array.isArray(section)
+              ? section
+              : [];
+            return (
+              hasArrayData(array) &&
+              array.some(
+                (item: any) =>
+                  hasMeaningfulValue(item.projectName) || hasFileData(item.dprFile)
+              )
+            );
+          }
+        }
+        // Backward compatibility: check for investmentReadyArray directly
         const array = Array.isArray(section?.investmentReadyArray)
           ? section.investmentReadyArray
           : Array.isArray(section)
@@ -284,15 +428,37 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
     if (!section) return false;
 
     switch (sectionId) {
-      case "section3_1":
-        return (
-          hasArrayData(section.files) || hasFileData(section.file) || hasMeaningfulValue(section.available)
-        );
+      case "section3_1": {
+        // Check if available field is set (yes or no)
+        if (hasMeaningfulValue(section?.available)) {
+          // If "no" is selected, check for comment
+          if (section.available === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for files
+          if (section.available === "yes") {
+            return hasArrayData(section.files) || hasFileData(section.file);
+          }
+        }
+        // Backward compatibility: check for files directly
+        return hasArrayData(section.files) || hasFileData(section.file) || hasMeaningfulValue(section.available);
+      }
 
-      case "section3_2":
-        return (
-          hasFileData(section.file) || hasMeaningfulValue(section.available)
-        );
+      case "section3_2": {
+        // Check if available field is set (yes or no)
+        if (hasMeaningfulValue(section?.available)) {
+          // If "no" is selected, check for comment
+          if (section.available === "no") {
+            return hasMeaningfulValue(section?.comment);
+          }
+          // If "yes" is selected, check for file
+          if (section.available === "yes") {
+            return hasFileData(section.file);
+          }
+        }
+        // Backward compatibility: check for file directly
+        return hasFileData(section.file) || hasMeaningfulValue(section.available);
+      }
 
       case "section3_3":
         return hasArrayData(section?.VGFArray) || hasArrayData(section);
@@ -421,34 +587,106 @@ const hasSectionData = (
   switch (category) {
     case "infraEnablers":
       switch (sectionId) {
-        case "section4_1":
+        case "section4_1": {
+          // Check if allEligible field is set (yes or no)
+          if (hasMeaningfulValue(section?.allEligible)) {
+            // If "no" is selected, check for comment
+            if (section.allEligible === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for websiteLink or file
+            if (section.allEligible === "yes") {
+              return hasMeaningfulValue(section.websiteLink) || hasFileData(section.file);
+            }
+          }
+          // Backward compatibility: check for websiteLink or file directly
           return (
             hasMeaningfulValue(section.allEligible) ||
             hasMeaningfulValue(section.websiteLink) ||
             hasFileData(section.file)
           );
-        case "section4_2":
-          return (
-            hasMeaningfulValue(section.available) || hasFileData(section.files)
-          );
-        case "section4_3":
+        }
+        case "section4_2": {
+          // Check if available field is set (yes or no)
+          if (hasMeaningfulValue(section?.available)) {
+            // If "no" is selected, check for comment
+            if (section.available === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for files
+            if (section.available === "yes") {
+              return hasFileData(section.files);
+            }
+          }
+          // Backward compatibility: check for files directly
+          return hasMeaningfulValue(section.available) || hasFileData(section.files);
+        }
+        case "section4_3": {
+          // Check if adopted field is set (yes or no)
+          if (hasMeaningfulValue(section?.adopted)) {
+            // If "no" is selected, check for comment
+            if (section.adopted === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for projects array or other fields
+            if (section.adopted === "yes") {
+              return (
+                hasArrayData(section?.projects) ||
+                hasMeaningfulValue(section.marksObtained) ||
+                hasMeaningfulValue(section.numberOfProjects)
+              );
+            }
+          }
+          // Backward compatibility: check for marksObtained or numberOfProjects directly
           return (
             hasMeaningfulValue(section.marksObtained) ||
             hasMeaningfulValue(section.numberOfProjects)
           );
-        case "section4_4":
+        }
+        case "section4_4": {
+          // Check if adopted field is set (yes or no)
+          if (hasMeaningfulValue(section?.adopted)) {
+            // If "no" is selected, check for comment
+            if (section.adopted === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for files or marksObtained
+            if (section.adopted === "yes") {
+              return hasFileData(section.files) || hasMeaningfulValue(section.marksObtained);
+            }
+          }
+          // Backward compatibility: check for files or marksObtained directly
           return (
             hasFileData(section.files) ||
             hasMeaningfulValue(section.adopted) ||
             hasMeaningfulValue(section.marksObtained)
           );
-        case "section4_5":
+        }
+        case "section4_5": {
+          // Check if implemented field is set (yes or no)
+          if (hasMeaningfulValue(section?.implemented)) {
+            // If "no" is selected, check for comment
+            if (section.implemented === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for practices array or other fields
+            if (section.implemented === "yes") {
+              return (
+                hasArrayData(section?.practices) ||
+                hasFileData(section.file) ||
+                hasMeaningfulValue(section.impact) ||
+                hasMeaningfulValue(section.practiceName)
+              );
+            }
+          }
+          // Backward compatibility: check for file, impact, or practiceName directly
           return (
             hasFileData(section.file) ||
             hasMeaningfulValue(section.impact) ||
             hasMeaningfulValue(section.implemented) ||
             hasMeaningfulValue(section.practiceName)
           );
+        }
       case "section4_6":
         // Section 4.6 has data if:
         // 1. participated field is set (yes or no)
@@ -491,8 +729,21 @@ const hasSectionData = (
         case "section1_4":
           // Check for bondList array or totalULBs field
           return hasArrayData(section?.bondList) || hasMeaningfulValue(section?.totalULBs);
-        case "section1_5":
+        case "section1_5": {
+          // Check if hasIntermediary field is set (yes or no)
+          if (hasMeaningfulValue(section?.hasIntermediary)) {
+            // If "no" is selected, check for comment
+            if (section.hasIntermediary === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for ffiArray
+            if (section.hasIntermediary === "yes") {
+              return hasArrayData(section?.ffiArray) || hasArrayData(section);
+            }
+          }
+          // Backward compatibility: check for ffiArray directly
           return hasArrayData(section?.ffiArray) || hasArrayData(section);
+        }
         default:
           return false;
       }
@@ -500,14 +751,11 @@ const hasSectionData = (
     case "infraDevelopment":
       switch (sectionId) {
         case "section2_1":
-        case "section2_2":
-        case "section2_3": {
+        case "section2_2": {
           const arrayKey =
             sectionId === "section2_1"
               ? "infraActArray"
-              : sectionId === "section2_2"
-              ? "specializedEntityArray"
-              : "infraDevelopmentArray";
+              : "specializedEntityArray";
           const items = Array.isArray(section?.[arrayKey])
             ? section[arrayKey]
             : Array.isArray(section)
@@ -522,7 +770,70 @@ const hasSectionData = (
             )
           );
         }
+        case "section2_3": {
+          // Check if hasInfraDevelopmentPlan field is set (yes or no)
+          if (hasMeaningfulValue(section?.hasInfraDevelopmentPlan)) {
+            // If "no" is selected, check for comment
+            if (section.hasInfraDevelopmentPlan === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for infraDevelopmentArray
+            if (section.hasInfraDevelopmentPlan === "yes") {
+              const items = Array.isArray(section?.infraDevelopmentArray)
+                ? section.infraDevelopmentArray
+                : Array.isArray(section)
+                ? section
+                : [];
+              return (
+                hasArrayData(items) &&
+                items.some(
+                  (item: any) =>
+                    hasMeaningfulValue(item.sector) ||
+                    (item.files && hasArrayData(item.files))
+                )
+              );
+            }
+          }
+          // Backward compatibility: check for infraDevelopmentArray directly
+          const items = Array.isArray(section?.infraDevelopmentArray)
+            ? section.infraDevelopmentArray
+            : Array.isArray(section)
+            ? section
+            : [];
+          return (
+            hasArrayData(items) &&
+            items.some(
+              (item: any) =>
+                hasMeaningfulValue(item.sector) ||
+                (item.files && hasArrayData(item.files))
+            )
+          );
+        }
         case "section2_4": {
+          // Check if hasInvestmentReady field is set (yes or no)
+          if (hasMeaningfulValue(section?.hasInvestmentReady)) {
+            // If "no" is selected, check for comment
+            if (section.hasInvestmentReady === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for investmentReadyArray
+            if (section.hasInvestmentReady === "yes") {
+              const items = Array.isArray(section?.investmentReadyArray)
+                ? section.investmentReadyArray
+                : Array.isArray(section)
+                ? section
+                : [];
+              return (
+                hasArrayData(items) &&
+                items.some(
+                  (item: any) =>
+                    hasMeaningfulValue(item.projectName) ||
+                    hasFileData(item.dprFile)
+                )
+              );
+            }
+          }
+          // Backward compatibility: check for investmentReadyArray directly
           const items = Array.isArray(section?.investmentReadyArray)
             ? section.investmentReadyArray
             : Array.isArray(section)
@@ -561,14 +872,36 @@ const hasSectionData = (
 
     case "pppDevelopment":
       switch (sectionId) {
-        case "section3_1":
-          return (
-            hasArrayData(section.files) || hasFileData(section.file) || hasMeaningfulValue(section.available)
-          );
-        case "section3_2":
-          return (
-            hasFileData(section.file) || hasMeaningfulValue(section.available)
-          );
+        case "section3_1": {
+          // Check if available field is set (yes or no)
+          if (hasMeaningfulValue(section?.available)) {
+            // If "no" is selected, check for comment
+            if (section.available === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for files
+            if (section.available === "yes") {
+              return hasArrayData(section.files) || hasFileData(section.file);
+            }
+          }
+          // Backward compatibility: check for files directly
+          return hasArrayData(section.files) || hasFileData(section.file) || hasMeaningfulValue(section.available);
+        }
+        case "section3_2": {
+          // Check if available field is set (yes or no)
+          if (hasMeaningfulValue(section?.available)) {
+            // If "no" is selected, check for comment
+            if (section.available === "no") {
+              return hasMeaningfulValue(section?.comment);
+            }
+            // If "yes" is selected, check for file
+            if (section.available === "yes") {
+              return hasFileData(section.file);
+            }
+          }
+          // Backward compatibility: check for file directly
+          return hasFileData(section.file) || hasMeaningfulValue(section.available);
+        }
         case "section3_3":
           return hasArrayData(section?.VGFArray) || hasArrayData(section);
         case "section3_4":

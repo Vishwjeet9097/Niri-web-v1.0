@@ -526,10 +526,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   const hasData = hasPPPDevelopmentData({ pppDevelopment: formDataState });
   let sectionsWithData = getSectionsWithData({ pppDevelopment: formDataState }, 'pppDevelopment');
   
-  // For preview mode with assigned indicators, always include assigned sections even if they have no data
-  // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
-    const assignedSectionKeys: string[] = [];
+  // For Nodal Officers (both preview and review mode): filter sections based on assigned indicators
+  // Nodal Officers should only see sections for indicators assigned to them
+  if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
     const indicatorToSectionMap: Record<string, string> = {
       "3.1": "section3_1",
       "3.2": "section3_2",
@@ -537,21 +536,72 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       "3.4": "section3_4",
     };
     
-    assignedIndicators.forEach((indicator) => {
-      const sectionKey = indicatorToSectionMap[indicator];
-      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
-        assignedSectionKeys.push(sectionKey);
-      }
-    });
+    // Get all assigned section keys
+    const assignedSectionKeys = assignedIndicators
+      .map((indicator) => indicatorToSectionMap[indicator])
+      .filter((sectionKey) => sectionKey !== undefined);
     
-    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
+    // For preview mode: add assigned sections even if they don't have data
+    if (isPreview) {
+      const missingAssignedSections = assignedSectionKeys.filter(
+        (sectionKey) => !sectionsWithData.includes(sectionKey)
+      );
+      sectionsWithData = [...sectionsWithData, ...missingAssignedSections];
+    } else {
+      // For review mode: filter sectionsWithData to only include assigned sections
+      const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
+        assignedSectionKeys.includes(sectionKey)
+      );
+      
+      // Add assigned sections that don't have data yet (to ensure they're visible)
+      const missingAssignedSections = assignedSectionKeys.filter(
+        (sectionKey) => !sectionsWithData.includes(sectionKey)
+      );
+      
+      // Combine filtered sections with missing assigned sections
+      sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
+      
+      console.log("🔍 [PPPDevelopmentReview] Nodal Officer (review mode) - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators);
+    }
   }
   
-  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // For State Approvers: filter sections based on their assigned indicators
+  // State Approvers should only see sections for indicators assigned to them, not all indicators in the state
+  // IMPORTANT: Include assigned sections even if they don't have data (similar to Nodal Officers in preview mode)
+  if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
+    const indicatorToSectionMap: Record<string, string> = {
+      "3.1": "section3_1",
+      "3.2": "section3_2",
+      "3.3": "section3_3",
+      "3.4": "section3_4",
+    };
+    
+    // Get all assigned section keys
+    const assignedSectionKeys = assignedIndicators
+      .map((indicator) => indicatorToSectionMap[indicator])
+      .filter((sectionKey) => sectionKey !== undefined);
+    
+    // Filter sectionsWithData to only include assigned sections
+    const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
+      assignedSectionKeys.includes(sectionKey)
+    );
+    
+    // Add assigned sections that don't have data yet (to ensure they're visible)
+    const missingAssignedSections = assignedSectionKeys.filter(
+      (sectionKey) => !sectionsWithData.includes(sectionKey)
+    );
+    
+    // Combine filtered sections with missing assigned sections
+    sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
+    
+    console.log("🔍 [PPPDevelopmentReview] State Approver - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+  }
+  
+  // For review mode (not preview) OR preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers):
   // Include all sections that exist in formData
-  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This ensures MoSPI reviewers see all sections submitted
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer))) {
+  if ((!isPreview && !isStateApprover && !isNodalOfficer) || (isPreview && !isNodalOfficer && !isStateApprover)) {
     const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
     const submissionFormData = (submission as any)?.formData?.pppDevelopment || {};
     const stateToCheck = formDataState || submissionFormData;

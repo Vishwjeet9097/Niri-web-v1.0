@@ -181,10 +181,9 @@ export const InfraFinancingReview = ({
     ])
   );
 
-  // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
-  // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
-    const assignedSectionKeys: string[] = [];
+  // For Nodal Officers (both preview and review mode): filter sections based on assigned indicators
+  // Nodal Officers should only see sections for indicators assigned to them
+  if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
     const indicatorToSectionMap: Record<string, string> = {
       "1.1": "section1_1",
       "1.2": "section1_2",
@@ -193,24 +192,79 @@ export const InfraFinancingReview = ({
       "1.5": "section1_5",
     };
     
-    assignedIndicators.forEach((indicator) => {
-      const sectionKey = indicatorToSectionMap[indicator];
-      // Exclude sections 1.1 and 1.2 from being added via assigned indicators
-      // They should only be shown if they have meaningful data (filtered later)
-      if (sectionKey && sectionKey !== "section1_1" && sectionKey !== "section1_2" && !merged.includes(sectionKey)) {
-        assignedSectionKeys.push(sectionKey);
-      }
-    });
+    // Get all assigned section keys
+    const assignedSectionKeys = assignedIndicators
+      .map((indicator) => indicatorToSectionMap[indicator])
+      .filter((sectionKey) => sectionKey !== undefined);
     
-    merged.push(...assignedSectionKeys);
+    // For preview mode: add assigned sections even if they don't have data
+    if (isPreview) {
+      assignedSectionKeys.forEach((sectionKey) => {
+        // Exclude sections 1.1 and 1.2 from being added via assigned indicators in preview
+        // They should only be shown if they have meaningful data (filtered later)
+        if (sectionKey !== "section1_1" && sectionKey !== "section1_2" && !merged.includes(sectionKey)) {
+          merged.push(sectionKey);
+        }
+      });
+    } else {
+      // For review mode: filter merged to only include assigned sections
+      const filteredMerged = merged.filter((sectionKey) => 
+        assignedSectionKeys.includes(sectionKey)
+      );
+      
+      // Add assigned sections that don't have data yet (to ensure they're visible)
+      const missingAssignedSections = assignedSectionKeys.filter(
+        (sectionKey) => !merged.includes(sectionKey)
+      );
+      
+      // Combine filtered sections with missing assigned sections
+      merged.length = 0;
+      merged.push(...filteredMerged, ...missingAssignedSections);
+      
+      console.log("🔍 [InfraFinancingReview] Nodal Officer (review mode) - filtered sections by assigned indicators:", merged, "assigned indicators:", assignedIndicators);
+    }
   }
   
-  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // For State Approvers: filter sections based on their assigned indicators
+  // State Approvers should only see sections for indicators assigned to them, not all indicators in the state
+  // IMPORTANT: Include assigned sections even if they don't have data (similar to Nodal Officers in preview mode)
+  if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
+    const indicatorToSectionMap: Record<string, string> = {
+      "1.1": "section1_1",
+      "1.2": "section1_2",
+      "1.3": "section1_3",
+      "1.4": "section1_4",
+      "1.5": "section1_5",
+    };
+    
+    // Get all assigned section keys
+    const assignedSectionKeys = assignedIndicators
+      .map((indicator) => indicatorToSectionMap[indicator])
+      .filter((sectionKey) => sectionKey !== undefined);
+    
+    // Filter merged to only include assigned sections
+    const filteredMerged = merged.filter((sectionKey) => 
+      assignedSectionKeys.includes(sectionKey)
+    );
+    
+    // Add assigned sections that don't have data yet (to ensure they're visible)
+    const missingAssignedSections = assignedSectionKeys.filter(
+      (sectionKey) => !merged.includes(sectionKey)
+    );
+    
+    // Combine filtered sections with missing assigned sections
+    merged.length = 0;
+    merged.push(...filteredMerged, ...missingAssignedSections);
+    
+    console.log("🔍 [InfraFinancingReview] State Approver - filtered sections by assigned indicators:", merged, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+  }
+  
+  // For review mode (not preview) OR preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers):
   // Include all sections that exist in formData
-  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This ensures MoSPI reviewers see all sections submitted
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
   // EXCEPT: sections 1.1 and 1.2 should not be automatically included (they will be filtered later)
-  if ((!isPreview || (isPreview && !isNodalOfficer))) {
+  if ((!isPreview && !isStateApprover && !isNodalOfficer) || (isPreview && !isNodalOfficer && !isStateApprover)) {
     const submissionFormData = (submission as any)?.formData?.infraFinancing || {};
     const stateToCheck = infraPayload || submissionFormData;
     

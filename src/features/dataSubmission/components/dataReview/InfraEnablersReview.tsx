@@ -504,49 +504,44 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     console.log("🔍 [InfraEnablersReview] After adding assigned sections:", sectionsWithData);
   }
   
-  // For state approvers in review mode: ALWAYS show ALL possible sections
-  // This ensures state approvers can see and accept/reject all indicators, regardless of data presence
-  if (!isPreview && isStateApprover) {
-    const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
+  // For State Approvers: filter sections based on their assigned indicators
+  // State Approvers should only see sections for indicators assigned to them, not all indicators in the state
+  // IMPORTANT: Include assigned sections even if they don't have data (similar to Nodal Officers)
+  if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
+    const indicatorToSectionMap: Record<string, string> = {
+      "4.1": "section4_1",
+      "4.2": "section4_2",
+      "4.3": "section4_3",
+      "4.4": "section4_4",
+      "4.5": "section4_5",
+      "4.6": "section4_6",
+    };
     
-    if (isNodalOfficerSubmission && assignedIndicators && assignedIndicators.length > 0) {
-      // For nodal officer submissions: show sections for their assigned indicators
-      // Always include assigned sections, even if they don't exist in state yet
-      const assignedSectionKeys: string[] = [];
-      const indicatorToSectionMap: Record<string, string> = {
-        "4.1": "section4_1",
-        "4.2": "section4_2",
-        "4.3": "section4_3",
-        "4.4": "section4_4",
-        "4.5": "section4_5",
-        "4.6": "section4_6",
-      };
-      
-      assignedIndicators.forEach((indicator) => {
-        const sectionKey = indicatorToSectionMap[indicator];
-        if (sectionKey && !assignedSectionKeys.includes(sectionKey)) {
-          assignedSectionKeys.push(sectionKey);
-        }
-      });
-      
-      // Merge assigned sections with sectionsWithData, avoiding duplicates
-      sectionsWithData = Array.from(new Set([...sectionsWithData, ...assignedSectionKeys]));
-      console.log("🔍 [InfraEnablersReview] State approver viewing nodal officer submission - showing assigned sections:", sectionsWithData);
-    } else {
-      // For consolidated submissions: ALWAYS show ALL possible sections for state approvers
-      // This ensures state approvers can see and accept/reject all indicators
-      const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
-      
-      // Always include all sections for state approvers, regardless of data presence
-      sectionsWithData = Array.from(new Set([...sectionsWithData, ...allPossibleSections]));
-      console.log("🔍 [InfraEnablersReview] State approver - showing ALL sections (forced):", sectionsWithData);
-    }
+    // Get all assigned section keys
+    const assignedSectionKeys = assignedIndicators
+      .map((indicator) => indicatorToSectionMap[indicator])
+      .filter((sectionKey) => sectionKey !== undefined);
+    
+    // Filter sectionsWithData to only include assigned sections
+    const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
+      assignedSectionKeys.includes(sectionKey)
+    );
+    
+    // Add assigned sections that don't have data yet (to ensure they're visible)
+    const missingAssignedSections = assignedSectionKeys.filter(
+      (sectionKey) => !sectionsWithData.includes(sectionKey)
+    );
+    
+    // Combine filtered sections with missing assigned sections
+    sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
+    
+    console.log("🔍 [InfraEnablersReview] State Approver - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
   }
-  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // For preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers viewing aggregate):
   // Include all sections that exist in formData
-  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This ensures MoSPI reviewers see all sections submitted
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if (isPreview && !isNodalOfficer) {
+  if (isPreview && !isNodalOfficer && !isStateApprover) {
     const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
     const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
     const stateToCheck = state || submissionFormData;
