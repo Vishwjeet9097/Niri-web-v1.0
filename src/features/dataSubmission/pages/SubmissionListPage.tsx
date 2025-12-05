@@ -43,8 +43,15 @@ import { calculateStateProgressFromApi, ProgressStats } from "@/utils/progressUt
 import { authService } from "@/services/auth.service";
 import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
+import { buildIndicatorMapping } from "@/utils/indicatorMappingUtils";
+import { extractFileMetadataFromFormData } from "@/utils/extractFileMetadata";
 import axios from "axios";
 import { config } from "@/config/environment";
+import { getSubmissionStatus, getSubmissionDisplayStatus } from "@/utils/indicatorStatusUtils";
+import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
+import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { computeAllStepsSummary } from "@/features/submission/utils/progress";
 
 // Type definitions for aggregated indicators
 type AggregatedIndicator = {
@@ -417,6 +424,7 @@ export const SubmissionListPage = () => {
   const selectedYear = undefined;
 
   const { stateUt: myState } = authService.getUser() ?? {};
+  const { assignedIndicators, availableIndicators, isNodalOfficer, isStateApprover } = useIndicatorAccess();
 
   // const selectedYear = uiState.year; // Removed because uiState is undefined
 
@@ -546,6 +554,78 @@ useEffect(() => {
   };
 }, [user?.role]);
 
+// Handle revert from MoSPI and submit
+const handleRevertAndSubmit = async () => {
+  try {
+    console.log("🔄 [SubmissionList] Handling revert and submit");
+    
+    // Get authentication token first
+    const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+    const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
+    const tokenFromNewKey = tokenData?.value?.accessToken;
+    const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
+    const token = tokenFromNewKey || tokenFromLegacyKey || "";
+
+    const userId = user?.id;
+    if (!userId) {
+      notificationService.error("User ID not found. Cannot proceed with submission.");
+      console.error("❌ User ID is missing");
+      setSubmittingFinal(false);
+      return;
+    }
+
+    // Call revert API
+    console.log("📡 API Endpoint: POST /submission/revert-from-mospi/{userId}");
+    console.log("👤 User ID:", userId);
+    
+    const revertResponse = await axios.post(
+      `${config.apiBaseUrl}/submission/revert-from-mospi/${userId}`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const revertData = revertResponse.data?.data || revertResponse.data;
+    const updatedCount = revertData?.updatedCount || 0;
+
+    console.log("✅ Revert API response received");
+    console.log("📊 Updated Count:", updatedCount);
+
+    // If updatedCount > 0, navigate back to review page
+    if (updatedCount > 0) {
+      console.log("ℹ️ Submissions were reverted. Navigating back to review page.");
+      
+      // Show success notification
+      notificationService.success("Your form has been submitted to MoSPI Reviewer.");
+      
+      // Close modal
+      setShowConfirmModal(false);
+      setSubmittingFinal(false);
+      
+      // Navigate to review page and refresh to reflect changes after 1 second
+      setTimeout(() => {
+        window.location.href = "/data-submission/review";
+      }, 1000);
+      return;
+    }
+
+    // If updatedCount == 0, proceed with final submit
+    if (updatedCount == 0) {
+      console.log("FINAL SUBMIT CALLED INSTEAD OF REVERT BECAUSE FRESH FORM IS THERE:")
+      await handleFinalSubmit();
+    }
+    
+  } catch (revertError: any) {
+    console.warn("⚠️ Failed to call revert API:", revertError?.message);
+    // Continue with submission even if revert check fails
+    await handleFinalSubmit();
+  }
+};
+
 const handleFinalSubmit = async () => {
   console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("🚀 [FinalSubmit] FUNCTION CALLED - STARTING CONSOLIDATED SUBMISSION");
@@ -662,26 +742,323 @@ const handleFinalSubmit = async () => {
       
       console.log("✅ [FinalSubmit] FormData validation passed - has data:", hasData);
 
+      // Step 2.5: Get source submission IDs from approved submissions
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📋 STEP 2.5: Extracting source submission IDs");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Extract source submission IDs from approved submissions
+      let sourceSubmissionIds: string[] = [];
+      if (apiSubmissions && Array.isArray(apiSubmissions)) {
+        sourceSubmissionIds = apiSubmissions
+          .map((sub: any) => sub.submissionId || sub.id)
+          .filter((id: string) => id && !id.startsWith('CONS-')); // Exclude already consolidated submissions
+        
+        console.log("📋 Source submission IDs:", sourceSubmissionIds);
+        console.log("📋 Source submissions count:", sourceSubmissionIds.length);
+      }
+
+      // Step 2.6: Build indicator-level mapping for traceability
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🗺️ STEP 2.6: Building indicator-level mapping");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Filter out consolidated submissions and get full submission objects for mapping
+      const sourceSubmissionsForMapping = apiSubmissions && Array.isArray(apiSubmissions)
+        ? apiSubmissions.filter((sub: any) => {
+            // Exclude consolidated submissions by checking metadata
+            const formData = sub.formData || sub.form_data || {};
+            const metadata = formData._metadata;
+            return !metadata?.isConsolidated;
+          })
+        : [];
+      
+      console.log("🗺️ Source submissions for mapping:", sourceSubmissionsForMapping.length);
+      
+      // Build indicator mapping
+      const indicatorMapping = buildIndicatorMapping(sourceSubmissionsForMapping, formData);
+      
+      console.log("✅ [FinalSubmit] Indicator mapping built:", {
+        totalMapped: Object.keys(indicatorMapping).length,
+        mappedIndicators: Object.keys(indicatorMapping),
+      });
+
+      // Step 2.7: Check if there's an existing consolidated submission for this state/year
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔍 STEP 2.7: Checking for existing consolidated submission");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      let existingConsolidatedSubmission: any = null;
+      const currentYear = new Date().getFullYear();
+      
+      // Find existing consolidated submission for this state and year
+      if (submissions && Array.isArray(submissions)) {
+        existingConsolidatedSubmission = submissions.find((sub: any) => {
+          // Check if consolidated by metadata
+          const formData = sub.formData || sub.form_data || {};
+          const metadata = formData._metadata;
+          const isConsolidated = metadata?.isConsolidated === true;
+          
+          const isForCurrentState = sub.stateUt?.toUpperCase() === effectiveState.toUpperCase();
+          const isOwnSubmission = sub.user?.id === user?.id || sub.submittedBy === user?.id;
+          // Check year from submissionId (format: SUB-YYYY-XXXXXX)
+          const submissionId = sub.submissionId || '';
+          const isForCurrentYear = submissionId.includes(`-${currentYear}-`);
+          
+          return isConsolidated && isForCurrentState && isOwnSubmission && isForCurrentYear;
+        });
+      }
+      
+      if (existingConsolidatedSubmission) {
+        console.log("✅ [FinalSubmit] Found existing consolidated submission:", existingConsolidatedSubmission.submissionId);
+        console.log("✅ [FinalSubmit] Existing submission ID:", existingConsolidatedSubmission.id);
+        console.log("✅ [FinalSubmit] Existing submission status:", existingConsolidatedSubmission.status);
+      } else {
+        console.log("ℹ️ [FinalSubmit] No existing consolidated submission found - will create a new one");
+      }
+
       // Step 3: Transform formData for submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("🔄 STEP 3: Transforming formData for submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
-      const submissionStatus = "SUBMITTED_TO_MOSPI_REVIEWER";
-      const transformedData = transformFormDataForSubmission(formData, submissionStatus);
+      // Determine submission status - if updating existing, keep its status, otherwise create new with SUBMITTED_TO_MOSPI_REVIEWER
+      const submissionStatus = existingConsolidatedSubmission?.status || "SUBMITTED_TO_MOSPI_REVIEWER";
+      
+      // If updating existing submission, use its submissionId, otherwise generate new one
+      const submissionIdToUse = existingConsolidatedSubmission 
+        ? existingConsolidatedSubmission.submissionId 
+        : undefined;
+      
+      const transformedData = transformFormDataForSubmission(
+        formData, 
+        submissionStatus,
+        {
+          isConsolidated: true,
+          sourceSubmissionIds: sourceSubmissionIds,
+          consolidatedBy: user?.id || '',
+          stateUt: effectiveState,
+          existingSubmissionId: submissionIdToUse, // Pass existing ID if updating
+          indicatorMapping: indicatorMapping, // Pass indicator-level mapping for traceability
+        }
+      );
+
+      // CRITICAL: Extract attachedFiles from formData before submission
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📎 STEP 3.5: Extracting attachedFiles from formData");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      
+      // Extract files from formData
+      const allAttachedFiles: any[] = [];
+      const seenPaths = new Set<string>();
+      
+      // Manual extraction from known file locations (MOST RELIABLE)
+      console.log("📋 [PRIMARY] Manual extraction from known file locations...");
+      
+      // Extract from pppDevelopment.section3_3.VGFArray
+      if (formData?.pppDevelopment?.section3_3?.VGFArray) {
+        formData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
+          const filePath = item?.file?.file?.filePath || item?.file?.filePath;
+          if (filePath && !seenPaths.has(filePath)) {
+            seenPaths.add(filePath);
+            const fileObj = item?.file?.file || item?.file;
+            allAttachedFiles.push({
+              fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+              originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+              filePath: filePath,
+              fileUrl: fileObj?.fileUrl || "",
+              fileSize: fileObj?.fileSize || 0,
+              mimeType: fileObj?.mimeType || "application/octet-stream",
+              uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+            });
+          }
+        });
+      }
+      
+      // Extract from infraDevelopment.section2_1.infraActArray
+      if (formData?.infraDevelopment?.section2_1?.infraActArray) {
+        formData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                allAttachedFiles.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Extract from infraDevelopment.section2_2.specializedEntityArray
+      if (formData?.infraDevelopment?.section2_2?.specializedEntityArray) {
+        formData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                allAttachedFiles.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Also try recursive extraction as backup
+      console.log("📋 [SECONDARY] Trying recursive extraction...");
+      const extractedFromFormData = extractFileMetadataFromFormData(formData);
+      extractedFromFormData.forEach((file) => {
+        if (file.filePath && !seenPaths.has(file.filePath)) {
+          seenPaths.add(file.filePath);
+          allAttachedFiles.push({
+            fileName: file.fileName || file.filePath.split('/').pop() || "",
+            originalName: file.originalName || file.fileName || file.filePath.split('/').pop() || "",
+            filePath: file.filePath,
+            fileUrl: file.fileUrl || "",
+            fileSize: file.fileSize || 0,
+            mimeType: file.mimeType || "application/octet-stream",
+            uploadedAt: file.uploadedAt || new Date().toISOString(),
+          });
+        }
+      });
+      
+      // Extract from transformed formData as well
+      console.log("📋 [FINAL] Extracting from transformed formData...");
+      const transformedFormData = transformedData.formData as any;
+      
+      if (transformedFormData?.pppDevelopment?.section3_3?.VGFArray) {
+        transformedFormData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
+          const filePath = item?.file?.file?.filePath || item?.file?.filePath;
+          if (filePath && !seenPaths.has(filePath)) {
+            seenPaths.add(filePath);
+            const fileObj = item?.file?.file || item?.file;
+            allAttachedFiles.push({
+              fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+              originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+              filePath: filePath,
+              fileUrl: fileObj?.fileUrl || "",
+              fileSize: fileObj?.fileSize || 0,
+              mimeType: fileObj?.mimeType || "application/octet-stream",
+              uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+            });
+          }
+        });
+      }
+      
+      if (transformedFormData?.infraDevelopment?.section2_1?.infraActArray) {
+        transformedFormData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                allAttachedFiles.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      if (transformedFormData?.infraDevelopment?.section2_2?.specializedEntityArray) {
+        transformedFormData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
+          if (item?.files && Array.isArray(item.files)) {
+            item.files.forEach((fileItem: any) => {
+              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const fileObj = fileItem?.file?.file || fileItem?.file;
+                allAttachedFiles.push({
+                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
+                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
+                  filePath: filePath,
+                  fileUrl: fileObj?.fileUrl || "",
+                  fileSize: fileObj?.fileSize || 0,
+                  mimeType: fileObj?.mimeType || "application/octet-stream",
+                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Set attachedFiles on transformedData
+      transformedData.attachedFiles = allAttachedFiles.length > 0 ? allAttachedFiles : [];
+      
+      console.log(`✅ Extracted ${allAttachedFiles.length} files for attachedFiles`);
+      if (allAttachedFiles.length > 0) {
+        console.log("   📎 Sample files:", allAttachedFiles.slice(0, 3).map(f => ({
+          fileName: f.fileName,
+          filePath: f.filePath?.substring(0, 60) + "..."
+        })));
+      } else {
+        console.warn("⚠️ WARNING: No files extracted! attachedFiles will be empty.");
+      }
 
       // Step 4: Create multipart FormData with file attachments
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📎 STEP 4: Preparing multipart FormData with file attachments");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
+      // Verify attachedFiles is in transformedData
+      if (!transformedData.attachedFiles || transformedData.attachedFiles.length === 0) {
+        console.error("❌ CRITICAL: attachedFiles is empty before stringifying!");
+      } else {
+        console.log("✅ VERIFIED: attachedFiles has", transformedData.attachedFiles.length, "files");
+      }
+      
       const multipartData = new FormData();
-      multipartData.append("submission", JSON.stringify(transformedData));
+      let submissionJson = JSON.stringify(transformedData);
+      
+      // Verify attachedFiles is in JSON
+      try {
+        const parsed = JSON.parse(submissionJson);
+        if (parsed.attachedFiles && Array.isArray(parsed.attachedFiles) && parsed.attachedFiles.length > 0) {
+          console.log("✅ VERIFIED: attachedFiles is present in JSON with", parsed.attachedFiles.length, "files");
+        } else {
+          console.error("❌ CRITICAL: attachedFiles is missing or empty in JSON! Injecting...");
+          const corrected = { ...parsed, attachedFiles: allAttachedFiles.length > 0 ? allAttachedFiles : [] };
+          submissionJson = JSON.stringify(corrected);
+          console.log("✅ Injected attachedFiles into JSON");
+        }
+      } catch (e) {
+        console.error("❌ Failed to verify JSON:", e);
+      }
+      
+      multipartData.append("submission", submissionJson);
       appendFilesRecursively(multipartData, formData);
 
-      // Step 5: Get authentication token and submit
+      // Step 5: Get authentication token and submit/update
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📤 STEP 5: Submitting consolidated submission");
+      console.log(existingConsolidatedSubmission ? "🔄 STEP 5: Updating existing consolidated submission" : "📤 STEP 5: Creating new consolidated submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
       const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
@@ -697,49 +1074,140 @@ const handleFinalSubmit = async () => {
         return;
       }
 
-      const response = await axios.post(
-        `${config.apiBaseUrl}/submission`,
-        multipartData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        }
-      );
+      let response: any;
+      let consolidatedSubmissionId: string;
+      let returnedStatus: string;
 
-      console.log("✅ Submission successful!");
-      console.log("📦 Response:", response.data);
-      
-      // Extract submission from response
-      const createdSubmission = response.data?.data || response.data;
-      const submissionId = createdSubmission?.id || createdSubmission?.submissionId;
-      const returnedStatus = createdSubmission?.status;
-      
-      console.log("📝 [FinalSubmit] Created submission ID:", submissionId);
-      console.log("📊 [FinalSubmit] Returned status from API:", returnedStatus);
-      console.log("📊 [FinalSubmit] Expected status: SUBMITTED_TO_MOSPI_REVIEWER");
-      
-      // If the status is not SUBMITTED_TO_MOSPI_REVIEWER, we need to forward it
-      if (returnedStatus !== "SUBMITTED_TO_MOSPI_REVIEWER" && submissionId) {
-        console.log("⚠️ [FinalSubmit] Status mismatch! Forwarding submission to MoSPI Reviewer...");
-        try {
-          const forwardedSubmission = await apiService.forwardToMospi(
-            submissionId,
-            "Consolidated state submission",
-            returnedStatus
-          );
-          console.log("✅ [FinalSubmit] Submission forwarded successfully!");
-          console.log("📊 [FinalSubmit] Final status:", forwardedSubmission?.status);
-        } catch (forwardError: any) {
-          console.error("❌ [FinalSubmit] Failed to forward submission:", forwardError);
-          notificationService.warning("Submission created but may not appear on reviewer dashboard. Please contact support.");
-        }
-      } else if (returnedStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
-        console.log("✅ [FinalSubmit] Status is correct - no forwarding needed");
+      if (existingConsolidatedSubmission) {
+        // Update existing consolidated submission
+        console.log("🔄 [FinalSubmit] Updating existing consolidated submission:", existingConsolidatedSubmission.id);
+        
+        // For update, we only need to send formData (not the full submission object)
+        const updatePayload = {
+          formData: transformedData.formData,
+          status: transformedData.status, // Ensure status is also updated
+        };
+        
+        response = await axios.put(
+          `${config.apiBaseUrl}/submission/${existingConsolidatedSubmission.id}`,
+          updatePayload,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        console.log("✅ Update successful!");
+        console.log("📦 Response:", response.data);
+        
+        // Extract submission from response
+        const updatedSubmission = response.data?.data || response.data;
+        consolidatedSubmissionId = existingConsolidatedSubmission.submissionId;
+        returnedStatus = updatedSubmission?.status || existingConsolidatedSubmission.status;
+      } else {
+        // Create new consolidated submission
+        console.log("📤 [FinalSubmit] Creating new consolidated submission");
+        
+        response = await axios.post(
+          `${config.apiBaseUrl}/submission`,
+          multipartData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        console.log("✅ Create successful!");
+        console.log("📦 Response:", response.data);
+        
+        // Extract submission from response
+        const createdSubmission = response.data?.data || response.data;
+        consolidatedSubmissionId = transformedData.submissionId;
+        returnedStatus = createdSubmission?.status || transformedData.status;
       }
       
-      notificationService.success("Consolidated submission sent to MoSPI Reviewer successfully.");
+      console.log("📝 [FinalSubmit] Consolidated submission ID:", consolidatedSubmissionId);
+      console.log("📊 [FinalSubmit] Returned status from API:", returnedStatus);
+      console.log("✅ [FinalSubmit] " + (existingConsolidatedSubmission ? "Update" : "Create") + " completed");
+      
+      // Update source submissions with consolidation metadata (for both create and update)
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔗 [FinalSubmit] STEP 6: Updating source submissions with consolidation metadata");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📝 Consolidated Submission ID:", consolidatedSubmissionId);
+      console.log("📝 Is Update:", !!existingConsolidatedSubmission);
+      console.log("📋 Source Submission IDs to update:", sourceSubmissionIds);
+      
+      if (sourceSubmissionIds.length > 0 && consolidatedSubmissionId) {
+        try {
+          // Get all submissions to find the actual submission IDs (not just submissionId field)
+          const allSubmissions = await apiService.getSubmissions(1, 100);
+          let submissionsArray: any[] = [];
+          if (Array.isArray(allSubmissions)) {
+            submissionsArray = allSubmissions;
+          } else if (allSubmissions?.submissions && Array.isArray(allSubmissions.submissions)) {
+            submissionsArray = allSubmissions.submissions;
+          } else if ((allSubmissions as any)?.data && Array.isArray((allSubmissions as any).data)) {
+            submissionsArray = (allSubmissions as any).data;
+          }
+          
+          // Update each source submission
+          const updatePromises = sourceSubmissionIds.map(async (sourceSubmissionId) => {
+            // Find the submission by submissionId or id
+            const sourceSubmission = submissionsArray.find(
+              (sub: any) => sub.submissionId === sourceSubmissionId || sub.id === sourceSubmissionId
+            );
+            
+            if (sourceSubmission) {
+              const actualSubmissionId = sourceSubmission.id; // Use the database ID
+              try {
+                // Get current formData
+                const currentSubmission = await apiService.getSubmission(actualSubmissionId);
+                const currentFormData = currentSubmission?.formData || {};
+                
+                // Add consolidation metadata to formData
+                const updatedFormData = {
+                  ...currentFormData,
+                  _consolidation: {
+                    consolidatedInto: consolidatedSubmissionId,
+                    consolidatedAt: new Date().toISOString(),
+                    consolidatedBy: user?.id || '',
+                  },
+                };
+                
+                // Update the submission with consolidation metadata
+                await apiService.updateSubmission(actualSubmissionId, updatedFormData);
+                console.log(`✅ [FinalSubmit] Updated source submission ${sourceSubmissionId} (ID: ${actualSubmissionId})`);
+              } catch (updateError: any) {
+                console.warn(`⚠️ [FinalSubmit] Failed to update source submission ${sourceSubmissionId}:`, updateError?.message);
+                // Don't fail the whole process if one update fails
+              }
+            } else {
+              console.warn(`⚠️ [FinalSubmit] Source submission ${sourceSubmissionId} not found in submissions list`);
+            }
+          });
+          
+          await Promise.allSettled(updatePromises);
+          console.log("✅ [FinalSubmit] Finished updating source submissions");
+        } catch (updateError: any) {
+          console.warn("⚠️ [FinalSubmit] Error updating source submissions:", updateError?.message);
+          // Don't fail the consolidation if metadata update fails
+        }
+      } else {
+        console.log("ℹ️ [FinalSubmit] No source submissions to update or missing consolidated submission ID");
+      }
+      
+      notificationService.success(
+        existingConsolidatedSubmission 
+          ? "Consolidated submission updated and sent to MoSPI Reviewer successfully."
+          : "Consolidated submission created and sent to MoSPI Reviewer successfully."
+      );
 
       // Refresh progress and submissions list
       try {
@@ -848,6 +1316,15 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
   //   });
   // }, [searchQuery, submissions]); // stateFilter, statusFilter removed from dependencies
 
+
+  // Group submissions for state approver
+  const groupedSubmissions = useMemo(() => {
+    if (user?.role === "STATE_APPROVER" && user?.id) {
+      const currentState = user?.stateUt || user?.stateName || user?.state;
+      return filterSubmissionsForStateApprover(submissions, user.id, currentState);
+    }
+    return null;
+  }, [submissions, user?.role, user?.id, user?.stateUt, user?.stateName, user?.state]);
 
   const filteredSubmissions = useMemo(() => {
     // First, deduplicate submissions by ID to ensure each submission appears only once
@@ -1055,10 +1532,10 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                 {filteredSubmissions.length !== 1 ? "s" : ""} Found
               </p>
             </div>
-            <Button variant="outline" className="gap-2" onClick={handleExport}>
+            {/* <Button variant="outline" className="gap-2" onClick={handleExport}>
               <Download className="w-4 h-4" />
               Export
-            </Button>
+            </Button> */}
           </div>
         </div>
 
@@ -1211,7 +1688,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
             </SelectContent>
           </Select> */}
           <div className="flex gap-2">
-            <Button
+            {/* <Button
               variant={viewMode === "list" ? "default" : "outline"}
               size="icon"
               onClick={() => setViewMode("list")}
@@ -1224,7 +1701,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
               onClick={() => setViewMode("grid")}
             >
               <LayoutGrid className="w-4 h-4" />
-            </Button>
+            </Button> */}
           </div>
         </div>
 
@@ -1245,8 +1722,31 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
               </Card>
             ) : (
               filteredSubmissions.map((submission) => {
-                // Calculate progress
-                const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
+                // Calculate proper progress using computeAllStepsSummary
+                // For NODAL_OFFICER: Progress is based on assigned indicators
+                // For STATE_APPROVER/MOSPI: Progress is based on indicators in submission
+                const fd = submission.formData || submission.form_data || {};
+                const summary = computeAllStepsSummary(fd, {
+                  assignedIndicators: isNodalOfficer ? (assignedIndicators || []) : [],
+                  isNodalOfficer: isNodalOfficer || false,
+                });
+                
+                // Calculate overall progress from all steps
+                const totalCompleted = 
+                  summary.infraFinancing.completed +
+                  summary.infraDevelopment.completed +
+                  summary.pppDevelopment.completed +
+                  summary.infraEnablers.completed;
+                
+                const totalSections = 
+                  summary.infraFinancing.total +
+                  summary.infraDevelopment.total +
+                  summary.pppDevelopment.total +
+                  summary.infraEnablers.total;
+                
+                const progress = submission.progress || (totalSections > 0 
+                  ? Math.round((totalCompleted / totalSections) * 100)
+                  : 0);
                 
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
@@ -1350,8 +1850,31 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
               </Card>
             ) : (
               filteredSubmissions.map((submission) => {
-                // Calculate progress
-                const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
+                // Calculate proper progress using computeAllStepsSummary
+                // For NODAL_OFFICER: Progress is based on assigned indicators
+                // For STATE_APPROVER/MOSPI: Progress is based on indicators in submission
+                const fd = submission.formData || submission.form_data || {};
+                const summary = computeAllStepsSummary(fd, {
+                  assignedIndicators: isNodalOfficer ? (assignedIndicators || []) : [],
+                  isNodalOfficer: isNodalOfficer || false,
+                });
+                
+                // Calculate overall progress from all steps
+                const totalCompleted = 
+                  summary.infraFinancing.completed +
+                  summary.infraDevelopment.completed +
+                  summary.pppDevelopment.completed +
+                  summary.infraEnablers.completed;
+                
+                const totalSections = 
+                  summary.infraFinancing.total +
+                  summary.infraDevelopment.total +
+                  summary.pppDevelopment.total +
+                  summary.infraEnablers.total;
+                
+                const progress = submission.progress || (totalSections > 0 
+                  ? Math.round((totalCompleted / totalSections) * 100)
+                  : 0);
                 
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
@@ -1457,8 +1980,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
             <AlertDialogCancel disabled={submittingFinal}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setShowConfirmModal(false);
-                handleFinalSubmit();
+                handleRevertAndSubmit();
               }}
               disabled={submittingFinal}
               className="bg-[#1e3a8a] hover:bg-[#1e3299]"

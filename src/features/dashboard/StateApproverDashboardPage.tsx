@@ -35,6 +35,12 @@ import {
   hasMospiApproverComment,
   isReturnedFromMospi,
 } from "@/utils/auditUtils";
+import { getSubmissionStatus, getSubmissionDisplayStatus } from "@/utils/indicatorStatusUtils";
+import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
+import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { computeAllStepsSummary } from "@/features/submission/utils/progress";
 
 // Helper function to map backend status to frontend status (kept for compatibility)
 const mapBackendStatusToFrontend = (backendStatus: string): string => {
@@ -59,6 +65,7 @@ const mapBackendStatusToFrontend = (backendStatus: string): string => {
 
 export function StateApproverDashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [kpis, setKpis] = useState<any[]>([]);
@@ -67,6 +74,16 @@ export function StateApproverDashboardPage() {
   const [totalAssignedState, setTotalAssignedState] = useState<number>(0);
   const [totalIndicatorsReceivedState, setTotalIndicatorsReceivedState] =
     useState<number>(0);
+  const { availableIndicators, isStateApprover, loading: indicatorsLoading } = useIndicatorAccess();
+  
+  // Group submissions for state approver
+  const groupedSubmissions = user?.id
+    ? filterSubmissionsForStateApprover(
+        submissions,
+        user.id,
+        user?.stateUt || user?.stateName || user?.state
+      )
+    : null;
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -193,11 +210,49 @@ export function StateApproverDashboardPage() {
         // Prepare submissions list for the unified cards
         setSubmissions(
           submissionsArray.map((sub: any) => {
-            const formDataKeys = Object.keys(sub.formData || {});
-            const progress =
-              formDataKeys.length > 0
-                ? Math.min(100, (formDataKeys.length / 10) * 100)
-                : 0;
+            const fd = sub.formData || {};
+            
+            // Calculate proper progress using computeAllStepsSummary
+            // Progress is now calculated based on indicators that exist in the submission
+            // Total = all indicators present in formData
+            // Progress = (filled indicators / total indicators in submission) × 100%
+            // If an indicator is sent back (REVERTED), it won't count as filled but is still in total
+            const summary = computeAllStepsSummary(fd, {});
+            
+            // Calculate overall progress from all steps
+            const totalCompleted = 
+              summary.infraFinancing.completed +
+              summary.infraDevelopment.completed +
+              summary.pppDevelopment.completed +
+              summary.infraEnablers.completed;
+            
+            const totalSections = 
+              summary.infraFinancing.total +
+              summary.infraDevelopment.total +
+              summary.pppDevelopment.total +
+              summary.infraEnablers.total;
+            
+            // Progress based on indicators in submission (for NODAL_OFFICER submissions)
+            // or available indicators (for consolidated submissions)
+            // If an indicator is sent back (REVERTED), only that one doesn't count as filled
+            const progress = totalSections > 0 
+              ? Math.round((totalCompleted / totalSections) * 100)
+              : 0;
+            
+            // Debug logging (can be removed in production)
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[Progress] State Approver - Submission ${sub.id}:`, {
+                totalSections,
+                totalCompleted,
+                progress,
+                breakdown: {
+                  infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
+                  infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
+                  pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
+                  infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
+                }
+              });
+            }
             const submittedDate = new Date(sub.createdAt);
             const currentDate = new Date();
             const timeDifference =
@@ -249,8 +304,15 @@ export function StateApproverDashboardPage() {
       }
     };
 
+    // Only load dashboard data if indicators are loaded (for STATE_APPROVER)
+    // This ensures progress calculation has access to availableIndicators
+    if (isStateApprover && indicatorsLoading) {
+      // Wait for availableIndicators to load
+      return;
+    }
+    
     loadDashboardData();
-  }, []);
+  }, [availableIndicators, isStateApprover, indicatorsLoading]);
 
   if (loading) {
     return (
@@ -370,7 +432,7 @@ export function StateApproverDashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-1">
         {/* Left Column - Submissions (spans 2 columns) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="space-y-4 bg-[#fff] border border-[#0000001A] rounded-lg p-6">
@@ -401,9 +463,9 @@ export function StateApproverDashboardPage() {
                   <SelectContent>
                     <SelectItem value="all">All Submissions</SelectItem>
                     <SelectItem value="pending">Pending Review</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
+                    {/* <SelectItem value="overdue">Overdue</SelectItem> */}
                     <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
+                    {/* <SelectItem value="rejected">Rejected</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>
@@ -430,6 +492,10 @@ export function StateApproverDashboardPage() {
                         ? "Submission approved"
                         : submission.status === "REJECTED"
                         ? "Address reviewer feedback"
+                        : submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" || 
+                          submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
+                          submission.status === "RETURNED_FROM_MOSPI"
+                        ? "Waiting for MoSPI approval"
                         : "Waiting for state approval"
                     }
                     reviewerNote={submission.reviewerNote}
@@ -450,8 +516,8 @@ export function StateApproverDashboardPage() {
         </div>
 
         {/* Right Column - Sidebar */}
-        <div className="space-y-6">
-          <RecentActionsCard
+        <div className="space-y-6" >
+          {/* <RecentActionsCard
             actions={[
               {
                 id: "1",
@@ -468,14 +534,14 @@ export function StateApproverDashboardPage() {
                 submittedBy: "Pune Nodal Officer",
               },
             ]}
-          />
+          /> */}
 
-          <QuickActionsCard
+          {/* <QuickActionsCard
             reviewedThisMonth={6}
             totalThisMonth={8}
             averageReviewTime={2}
             targetReviewTime={3}
-          />
+          /> */}
         </div>
       </div>
     </div>

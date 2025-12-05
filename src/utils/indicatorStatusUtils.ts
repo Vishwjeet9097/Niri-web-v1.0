@@ -302,17 +302,49 @@ export function areAllIndicatorsMospiAccepted(
     const sectionData = categoryData[section];
     if (!sectionData) {
       console.log(
-        `❌ Indicator ${indicatorCode}: No section data found. Returning false.`
+        `❌ Indicator ${indicatorCode}: No section data found. Category: ${category}, Section: ${section}`
       );
       console.groupEnd();
       return false;
     }
 
-    // Check mospi_status field (case-insensitive)
-    const mospiStatus = sectionData.mospi_status;
+    // Handle different section data structures:
+    // 1. Object with mospi_status directly (e.g., { mospi_status: "ACCEPTED", ... })
+    // 2. Object with nested array (e.g., { infraActArray: [...], mospi_status: "ACCEPTED" })
+    // 3. Array format (legacy - should have mospi_status on the object itself)
+    let mospiStatus: string | undefined;
+    
+    if (typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+      // Check for mospi_status directly on the section object
+      mospiStatus = sectionData.mospi_status;
+      
+      // Debug: Log the section data structure for troubleshooting
+      if (!mospiStatus) {
+        console.log(
+          `⚠️ Indicator ${indicatorCode}: Section data exists but no mospi_status. Keys:`,
+          Object.keys(sectionData).slice(0, 10),
+          `Type: ${typeof sectionData}, IsArray: ${Array.isArray(sectionData)}`
+        );
+      }
+    } else if (Array.isArray(sectionData)) {
+      // For array format, check if mospi_status is on the array object itself
+      // (some legacy data might have it this way)
+      mospiStatus = (sectionData as any).mospi_status;
+      
+      if (!mospiStatus) {
+        console.log(
+          `⚠️ Indicator ${indicatorCode}: Section data is an array but no mospi_status found. Array length: ${sectionData.length}`
+        );
+      }
+    }
+    
     if (!mospiStatus) {
       console.log(
-        `❌ Indicator ${indicatorCode}: No mospi_status found. Returning false.`
+        `❌ Indicator ${indicatorCode}: No mospi_status found. Section data structure:`,
+        Array.isArray(sectionData) ? 'Array' : typeof sectionData,
+        `Keys: ${Object.keys(sectionData || {}).slice(0, 10).join(', ')}`,
+        `Full section data:`,
+        JSON.stringify(sectionData, null, 2).substring(0, 200)
       );
       console.groupEnd();
       return false;
@@ -340,4 +372,499 @@ export function areAllIndicatorsMospiAccepted(
   console.log("✅ All indicators have mospi_status ACCEPTED or APPROVED:", acceptanceStatus);
   console.groupEnd();
   return true;
+}
+
+/**
+ * Check if any indicator in a submission has mospi_status = "REVERTED"
+ * This is used by MOSPI_APPROVER to determine if they can send back the submission
+ * @param submission - The submission object with formData
+ * @returns true if at least one indicator has mospi_status REVERTED, false otherwise
+ */
+export function hasAnyIndicatorMospiReverted(
+  submission: Record<string, any> | undefined
+): boolean {
+  console.group("🔍 [indicatorStatusUtils] hasAnyIndicatorMospiReverted");
+
+  if (!submission) {
+    console.log("❌ No submission provided");
+    console.groupEnd();
+    return false;
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    console.log("❌ No formData or formData is not an object");
+    console.groupEnd();
+    return false;
+  }
+
+  // Get all indicators present in the form
+  const indicators = getIndicatorsInFormData(formData);
+  console.log("📋 Indicators found in form:", indicators);
+
+  if (indicators.length === 0) {
+    console.log("⚠️ No indicators found, can't determine reverted status");
+    console.groupEnd();
+    return false;
+  }
+
+  // Check each indicator
+  for (const indicatorCode of indicators) {
+    // Map indicator code to category and section
+    const [sectionNum, indicatorNum] = indicatorCode.split(".");
+    const categoryMap: Record<string, string> = {
+      "1": "infraFinancing",
+      "2": "infraDevelopment",
+      "3": "pppDevelopment",
+      "4": "infraEnablers",
+    };
+
+    const category = categoryMap[sectionNum];
+    const section = `section${sectionNum}_${indicatorNum}`;
+
+    if (!category || !section) {
+      console.warn(
+        `⚠️ Could not map indicator ${indicatorCode} to category/section`
+      );
+      continue;
+    }
+
+    // Get category and section data
+    const categoryData = formData[category];
+    if (!categoryData || typeof categoryData !== "object") {
+      continue;
+    }
+
+    const sectionData = categoryData[section];
+    if (!sectionData) {
+      continue;
+    }
+
+    // Handle different section data structures (same as areAllIndicatorsMospiAccepted)
+    let mospiStatus: string | undefined;
+    
+    if (typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+      // Check for mospi_status directly on the section object
+      mospiStatus = sectionData.mospi_status;
+    } else if (Array.isArray(sectionData) && sectionData.length > 0) {
+      // For array format, check if mospi_status is on the array object itself
+      mospiStatus = (sectionData as any).mospi_status;
+    }
+    
+    if (!mospiStatus) {
+      continue;
+    }
+
+    const normalizedStatus = String(mospiStatus).trim().toUpperCase();
+    const isReverted = normalizedStatus === "REVERTED";
+
+    if (isReverted) {
+      console.log(
+        `✅ Indicator ${indicatorCode} (${category}.${section}): mospi_status = "${mospiStatus}" → REVERTED`
+      );
+      console.log("✅ Found at least one REVERTED indicator. Returning true.");
+      console.groupEnd();
+      return true;
+    }
+
+    console.log(
+      `  ${indicatorCode} (${category}.${section}): mospi_status = "${mospiStatus}" → NOT REVERTED`
+    );
+  }
+
+  console.log("❌ No indicators have mospi_status REVERTED");
+  console.groupEnd();
+  return false;
+}
+
+/**
+ * Expected total number of indicators (20)
+ */
+const EXPECTED_INDICATOR_COUNT = 20;
+
+/**
+ * All expected indicator codes (20 indicators)
+ */
+const ALL_INDICATOR_CODES = [
+  "1.1", "1.2", "1.3", "1.4", "1.5", // Infra Financing (5)
+  "2.1", "2.2", "2.3", "2.4", "2.5", // Infra Development (5)
+  "3.1", "3.2", "3.3", "3.4",        // PPP Development (4)
+  "4.1", "4.2", "4.3", "4.4", "4.5", "4.6", // Infra Enablers (6)
+];
+
+/**
+ * Check if all 20 indicators have some action (either ACCEPTED or REVERTED)
+ * @param submission - The submission object with formData
+ * @returns true if all 20 indicators have mospi_status set to either ACCEPTED or REVERTED
+ */
+export function areAllIndicatorsActioned(
+  submission: Record<string, any> | undefined
+): boolean {
+  console.group("🔍 [indicatorStatusUtils] areAllIndicatorsActioned");
+
+  if (!submission) {
+    console.log("❌ No submission provided");
+    console.groupEnd();
+    return false;
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    console.log("❌ No formData or formData is not an object");
+    console.groupEnd();
+    return false;
+  }
+
+  let actionedCount = 0;
+
+  // Check each of the 20 expected indicators
+  for (const indicatorCode of ALL_INDICATOR_CODES) {
+    // Map indicator code to category and section
+    const [sectionNum, indicatorNum] = indicatorCode.split(".");
+    const categoryMap: Record<string, string> = {
+      "1": "infraFinancing",
+      "2": "infraDevelopment",
+      "3": "pppDevelopment",
+      "4": "infraEnablers",
+    };
+
+    const category = categoryMap[sectionNum];
+    const section = `section${sectionNum}_${indicatorNum}`;
+
+    if (!category || !section) {
+      console.warn(
+        `⚠️ Could not map indicator ${indicatorCode} to category/section`
+      );
+      continue;
+    }
+
+    // Get category and section data
+    const categoryData = formData[category];
+    if (!categoryData || typeof categoryData !== "object") {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No category data found.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    const sectionData = categoryData[section];
+    if (!sectionData) {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No section data found.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    // Handle different section data structures
+    let mospiStatus: string | undefined;
+    
+    if (typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+      mospiStatus = sectionData.mospi_status;
+    } else if (Array.isArray(sectionData)) {
+      mospiStatus = (sectionData as any).mospi_status;
+    }
+    
+    if (!mospiStatus) {
+      console.log(
+        `❌ Indicator ${indicatorCode}: No mospi_status found.`
+      );
+      console.groupEnd();
+      return false;
+    }
+
+    const normalizedStatus = String(mospiStatus).trim().toUpperCase();
+    const isActioned = normalizedStatus === "ACCEPTED" || normalizedStatus === "APPROVED" || normalizedStatus === "REVERTED";
+    
+    if (isActioned) {
+      actionedCount++;
+      console.log(
+        `  ${indicatorCode}: mospi_status = "${mospiStatus}" → ✅ ACTIONED`
+      );
+    } else {
+      console.log(
+        `❌ Indicator ${indicatorCode}: mospi_status = "${mospiStatus}" is not ACCEPTED or REVERTED.`
+      );
+      console.groupEnd();
+      return false;
+    }
+  }
+
+  const allActioned = actionedCount === EXPECTED_INDICATOR_COUNT;
+  console.log(`✅ Actioned indicators: ${actionedCount}/${EXPECTED_INDICATOR_COUNT}. All actioned: ${allActioned}`);
+  console.groupEnd();
+  return allActioned;
+}
+
+/**
+ * Submission Status Types
+ */
+export type SubmissionStatusType = 
+  | "READY_FOR_CONSOLIDATION" 
+  | "UNDER_REVIEW" 
+  | "CONSOLIDATED" 
+  | "PENDING" 
+  | "UNKNOWN";
+
+/**
+ * Detailed status information for a submission
+ */
+export interface SubmissionStatusInfo {
+  status: SubmissionStatusType;
+  progress: number; // 0-100
+  totalIndicators: number;
+  acceptedIndicators: number;
+  pendingIndicators: number;
+  canConsolidate: boolean;
+  isConsolidated: boolean;
+  consolidatedInto?: string;
+  consolidatedAt?: string;
+  indicatorBreakdown: {
+    indicatorCode: string;
+    status: string;
+    isAccepted: boolean;
+  }[];
+}
+
+/**
+ * Get all indicators from formData with their status
+ */
+function getAllIndicatorsWithStatus(formData: Record<string, any>): Array<{
+  indicatorCode: string;
+  category: string;
+  section: string;
+  status: string;
+  isAccepted: boolean;
+}> {
+  const indicators: Array<{
+    indicatorCode: string;
+    category: string;
+    section: string;
+    status: string;
+    isAccepted: boolean;
+  }> = [];
+
+  for (const category of CATEGORIES) {
+    const categoryData = formData[category];
+    if (!categoryData || typeof categoryData !== "object") {
+      continue;
+    }
+
+    for (const sectionKey of Object.keys(categoryData)) {
+      const indicatorCode = SECTION_TO_INDICATOR_MAP[sectionKey];
+      if (!indicatorCode) {
+        continue;
+      }
+
+      const sectionData = categoryData[sectionKey];
+      if (!sectionData) {
+        continue;
+      }
+
+      // Get status from section data
+      const status = sectionData.status || "PENDING";
+      const isAccepted = status === "ACCEPTED";
+
+      indicators.push({
+        indicatorCode,
+        category,
+        section: sectionKey,
+        status,
+        isAccepted,
+      });
+    }
+  }
+
+  return indicators;
+}
+
+/**
+ * Calculate submission-level status based on indicator acceptance
+ * @param submission - The submission object with formData
+ * @returns Detailed status information
+ */
+export function getSubmissionStatus(
+  submission: Record<string, any> | undefined
+): SubmissionStatusInfo {
+  const defaultStatus: SubmissionStatusInfo = {
+    status: "UNKNOWN",
+    progress: 0,
+    totalIndicators: 0,
+    acceptedIndicators: 0,
+    pendingIndicators: 0,
+    canConsolidate: false,
+    isConsolidated: false,
+    indicatorBreakdown: [],
+  };
+
+  if (!submission) {
+    return defaultStatus;
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    return defaultStatus;
+  }
+
+  // Check if submission is consolidated
+  const consolidationInfo = formData._consolidation;
+  const isConsolidated = !!consolidationInfo?.consolidatedInto;
+
+  // Get all indicators with their status
+  const indicators = getAllIndicatorsWithStatus(formData);
+
+  if (indicators.length === 0) {
+    return {
+      ...defaultStatus,
+      status: "PENDING",
+    };
+  }
+
+  // Calculate statistics
+  const totalIndicators = indicators.length;
+  const acceptedIndicators = indicators.filter((ind) => ind.isAccepted).length;
+  const pendingIndicators = totalIndicators - acceptedIndicators;
+  const progress = totalIndicators > 0 ? (acceptedIndicators / totalIndicators) * 100 : 0;
+
+  // Determine status
+  let status: SubmissionStatusType;
+  if (isConsolidated) {
+    status = "CONSOLIDATED";
+  } else if (acceptedIndicators === totalIndicators && totalIndicators > 0) {
+    status = "READY_FOR_CONSOLIDATION";
+  } else if (acceptedIndicators > 0) {
+    status = "UNDER_REVIEW";
+  } else {
+    status = "PENDING";
+  }
+
+  return {
+    status,
+    progress: Math.round(progress),
+    totalIndicators,
+    acceptedIndicators,
+    pendingIndicators,
+    canConsolidate: status === "READY_FOR_CONSOLIDATION",
+    isConsolidated,
+    consolidatedInto: consolidationInfo?.consolidatedInto,
+    consolidatedAt: consolidationInfo?.consolidatedAt,
+    indicatorBreakdown: indicators.map((ind) => ({
+      indicatorCode: ind.indicatorCode,
+      status: ind.status,
+      isAccepted: ind.isAccepted,
+    })),
+  };
+}
+
+/**
+ * Check if submission is consolidated
+ * @param submission - The submission object
+ * @returns true if submission is consolidated, false otherwise
+ */
+export function isSubmissionConsolidated(
+  submission: Record<string, any> | undefined
+): boolean {
+  if (!submission) {
+    return false;
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    return false;
+  }
+
+  // Check consolidation metadata
+  const consolidationInfo = formData._consolidation;
+  if (consolidationInfo?.consolidatedInto) {
+    return true;
+  }
+
+  // Check metadata flag (primary way to identify consolidated submissions)
+  const metadata = formData._metadata;
+  if (metadata?.isConsolidated) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Get consolidation information from a submission
+ * @param submission - The submission object
+ * @returns Consolidation info or null
+ */
+export function getConsolidationInfo(
+  submission: Record<string, any> | undefined
+): {
+  consolidatedInto?: string;
+  consolidatedAt?: string;
+  consolidatedBy?: string;
+} | null {
+  if (!submission) {
+    return null;
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    return null;
+  }
+
+  const consolidationInfo = formData._consolidation;
+  if (consolidationInfo) {
+    return {
+      consolidatedInto: consolidationInfo.consolidatedInto,
+      consolidatedAt: consolidationInfo.consolidatedAt,
+      consolidatedBy: consolidationInfo.consolidatedBy,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Get source submission IDs from a consolidated submission
+ * @param submission - The consolidated submission object
+ * @returns Array of source submission IDs
+ */
+export function getSourceSubmissionIds(
+  submission: Record<string, any> | undefined
+): string[] {
+  if (!submission) {
+    return [];
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    return [];
+  }
+
+  const metadata = formData._metadata;
+  if (metadata?.isConsolidated && metadata?.sourceSubmissionIds) {
+    return metadata.sourceSubmissionIds;
+  }
+
+  return [];
+}
+
+/**
+ * Check if submission is a consolidated submission (not a source)
+ * @param submission - The submission object
+ * @returns true if this is a consolidated submission, false if it's a source
+ */
+export function isConsolidatedSubmission(
+  submission: Record<string, any> | undefined
+): boolean {
+  if (!submission) {
+    return false;
+  }
+
+  // Check metadata flag (primary way to identify consolidated submissions)
+  const formData = submission.formData || submission.form_data || {};
+  const metadata = formData._metadata;
+  if (metadata?.isConsolidated) {
+    return true;
+  }
+
+  return false;
 }

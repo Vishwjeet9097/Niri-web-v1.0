@@ -7,18 +7,36 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 
-export default function ReviewerSubmissionsTable() {
+interface ReviewerSubmissionsTableProps {
+  submissions?: any[];
+  loading?: boolean;
+}
+
+export default function ReviewerSubmissionsTable({ 
+  submissions: propSubmissions, 
+  loading: propLoading 
+}: ReviewerSubmissionsTableProps = {} as ReviewerSubmissionsTableProps) {
   const { user } = useAuth();
   const [selectedState, setSelectedState] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [submissions, setSubmissions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [internalSubmissions, setInternalSubmissions] = useState<any[]>([]);
+  const [internalLoading, setInternalLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Use prop submissions if provided, otherwise use internal state
+  const submissions = propSubmissions !== undefined ? propSubmissions : internalSubmissions;
+  const loading = propLoading !== undefined ? propLoading : internalLoading;
+
+  // Only load submissions if not provided as prop
   useEffect(() => {
+    if (propSubmissions !== undefined) {
+      // Submissions are provided as prop, don't load
+      return;
+    }
+
     const loadSubmissions = async () => {
       try {
-        setLoading(true);
+        setInternalLoading(true);
         const userRole = user?.role || "MOSPI_REVIEWER";
         const submissionsData = await apiService.getSubmissions(1, 20);
     // Debug logging removed for performance
@@ -35,30 +53,26 @@ export default function ReviewerSubmissionsTable() {
           submissionsArray = (submissionsData as any).data;
         }
         
-        setSubmissions(submissionsArray);
+        setInternalSubmissions(submissionsArray);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
         notificationService.error(
           "Failed to load submissions. Please try again.",
           "Load Error"
         );
-        setSubmissions([]);
+        setInternalSubmissions([]);
       } finally {
-        setLoading(false);
+        setInternalLoading(false);
       }
     };
 
     loadSubmissions();
-  }, []);
+  }, [propSubmissions, user?.role]);
 
   const filteredSubmissions = submissions.filter((submission) => {
-    // Status filter - Only show submissions submitted to MoSPI reviewer
-    const allowedStatuses = [
-      "SUBMITTED_TO_MOSPI_REVIEWER",
-      "SUBMITTED_TO_MOSPI",
-      "RETURNED_FROM_MOSPI", // Include returned submissions that can be resubmitted
-    ];
-    const statusMatch = submission.status && allowedStatuses.includes(submission.status);
+    // For MoSPI Reviewer: Show all submissions for all statuses
+    // This includes submissions at all stages (reviewer, approver, approved, rejected, etc.)
+    const statusMatch = submission.status; // Show all statuses
     
     // State filter
     const stateMatch = selectedState === "All" || submission.stateUt === selectedState;
@@ -135,7 +149,7 @@ export default function ReviewerSubmissionsTable() {
             </label>
             <select
               id="state-filter"
-              className="border rounded px-2 py-1 text-sm"
+              className="border rounded px-6  py-1 text-sm"
               value={selectedState}
               onChange={(e) => setSelectedState(e.target.value)}
             >

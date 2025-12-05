@@ -206,6 +206,14 @@ export const PreviewPage = () => {
       localStorage.removeItem("editing_submission_id");
       localStorage.removeItem("is_edit_mode");
 
+      // 🔒 Dispatch custom event to notify DashboardLayout - Scenario 2: Disable Create Submission button
+      if (isStateApprover && submissionId) {
+        console.log("🔒 [PreviewPage] Dispatching submission-success event");
+        window.dispatchEvent(new CustomEvent('submission-success', {
+          detail: { submissionId, isStateApprover: true }
+        }));
+      }
+
       const successMessage = isEditMode
         ? "Form resubmitted successfully!"
         : "Form submitted successfully!";
@@ -229,6 +237,132 @@ export const PreviewPage = () => {
     }
   };
 
+  // Extract attached files from original formData (not filtered) for documents tab
+  // This ensures all files are visible even if formData is filtered for indicators
+  const extractAttachedFiles = (data: any): any[] => {
+    if (!data || typeof data !== "object") return [];
+
+    const files: any[] = [];
+    const seenPaths = new Set<string>();
+    const seenIds = new Set<string>();
+
+    // Check for attachedFiles array
+    if (Array.isArray(data.attachedFiles)) {
+      data.attachedFiles.forEach((f: any) => {
+        if (f?.filePath && !seenPaths.has(f.filePath)) {
+          seenPaths.add(f.filePath);
+          files.push(f);
+        } else if (f?.id && !seenIds.has(f.id) && f?.fileName) {
+          // Preview file (no filePath yet)
+          seenIds.add(f.id);
+          files.push({
+            id: f.id,
+            fileName: f.fileName,
+            originalName: f.originalName ?? f.fileName,
+            filePath: undefined, // No filePath in preview mode
+            fileSize: f.fileSize,
+            mimeType: f.mimeType,
+            uploadedBy: f.uploadedBy ?? "Unknown",
+            uploadedAt: f.uploadedAt,
+          });
+        }
+      });
+    }
+    
+    // Recursively extract files from nested structure
+    const extractRecursive = (obj: any, depth: number = 0) => {
+      if (!obj || typeof obj !== "object" || depth > 10) return;
+      
+      // Check if this is a file object with filePath (uploaded file)
+      if (obj.filePath && typeof obj.filePath === "string" && obj.filePath.trim() !== "") {
+        if (!seenPaths.has(obj.filePath)) {
+          seenPaths.add(obj.filePath);
+          files.push({
+            id: obj.id ?? obj.filePath,
+            fileName: obj.fileName,
+            originalName: obj.originalName,
+            filePath: obj.filePath,
+            fileSize: obj.fileSize,
+            mimeType: obj.mimeType,
+            uploadedBy: obj.uploadedBy,
+            uploadedAt: obj.uploadedAt,
+          });
+        }
+        return;
+      }
+      
+      // Check if this is a preview file (has fileName/id but no filePath)
+      if (obj.fileName && obj.id && !seenIds.has(obj.id) && (obj.fileSize || obj.uploadedAt)) {
+        seenIds.add(obj.id);
+        files.push({
+          id: obj.id,
+          fileName: obj.fileName,
+          originalName: obj.originalName ?? obj.fileName,
+          filePath: undefined, // No filePath in preview mode
+          fileSize: obj.fileSize,
+          mimeType: obj.mimeType,
+          uploadedBy: obj.uploadedBy ?? "Unknown",
+          uploadedAt: obj.uploadedAt,
+        });
+        return; // Don't recurse into file metadata objects
+      }
+      
+      // Check for nested file structure (file.filePath or file.file)
+      if (obj.file && typeof obj.file === "object" && !(obj.file instanceof File)) {
+        // If file object has filePath, use it
+        if (obj.file.filePath && typeof obj.file.filePath === "string" && obj.file.filePath.trim() !== "") {
+          if (!seenPaths.has(obj.file.filePath)) {
+            seenPaths.add(obj.file.filePath);
+            files.push({
+              id: obj.id ?? obj.file.id ?? obj.file.filePath,
+              fileName: obj.fileName ?? obj.file.fileName,
+              originalName: obj.originalName ?? obj.file.originalName,
+              filePath: obj.file.filePath,
+              fileSize: obj.fileSize ?? obj.file.fileSize,
+              mimeType: obj.mimeType ?? obj.file.mimeType,
+              uploadedBy: obj.uploadedBy ?? obj.file.uploadedBy ?? "Unknown",
+              uploadedAt: obj.uploadedAt ?? obj.file.uploadedAt,
+            });
+          }
+          return;
+        }
+        // If file object is empty but we have fileName/id at parent level, treat as preview file
+        else if (obj.fileName && obj.id && !seenIds.has(obj.id) && Object.keys(obj.file).length === 0) {
+          seenIds.add(obj.id);
+          files.push({
+            id: obj.id,
+            fileName: obj.fileName,
+            originalName: obj.originalName ?? obj.fileName,
+            filePath: undefined, // No filePath in preview mode
+            fileSize: obj.fileSize,
+            mimeType: obj.mimeType,
+            uploadedBy: obj.uploadedBy ?? "Unknown",
+            uploadedAt: obj.uploadedAt,
+          });
+          return;
+        }
+      }
+      
+      // Recurse into arrays and objects
+      if (Array.isArray(obj)) {
+        obj.forEach((item) => extractRecursive(item, depth + 1));
+      } else {
+        // Skip certain keys to avoid infinite recursion
+        const skipKeys = ['_metadata', 'status', 'marksObtained', 'proportion', 'percentage'];
+        Object.entries(obj).forEach(([key, value]) => {
+          if (!skipKeys.includes(key)) {
+            extractRecursive(value, depth + 1);
+          }
+        });
+      }
+    };
+    
+    // Extract from all formData (including non-assigned sections for file visibility)
+    extractRecursive(data);
+    
+    return files;
+  };
+
   // Create a mock submission object for UnifiedReviewPage
   const mockSubmission = filteredFormData
     ? {
@@ -241,7 +375,10 @@ export const PreviewPage = () => {
         rejectionCount: 0,
         formData: filteredFormData,
         reviewComments: [],
-        attachedFiles: [],
+        // Extract attached files from original formData (not filtered) so all files are visible
+        attachedFiles: extractAttachedFiles(formData),
+        // Store original formData for DocumentsTab to extract all files
+        originalFormData: formData,
         status: isResubmit ? "RETURNED_FROM_STATE" : "PREVIEW",
         currentOwnerRole: "NODAL_OFFICER",
         createdAt: new Date().toISOString(),

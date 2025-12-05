@@ -337,9 +337,9 @@ export function UnifiedSubmissionCard({
 
           {/* Submission details */}
           <div className="flex items-center gap-6 text-xs text-gray-500 mb-3">
-            <span className="font-medium">ID: {referenceId}</span>
+            <span className="font-medium">State: {submissionData?.stateUt}</span>
             <span>Updated: {updatedDate}</span>
-            <span>Due: {dueDate}</span>
+            {/* <span>Due: {dueDate}</span> */}
             {submittedBy && <span>Submitted by: {submittedBy}</span>}
           </div>
 
@@ -447,7 +447,7 @@ export function UnifiedSubmissionCard({
       </div>
 
       {/* Reviewer note */}
-      {reviewerNote && (
+      {/* {reviewerNote && (
         <div
           className={`mt-4 p-3 ${getCommentBackgroundClass(
             status
@@ -471,7 +471,7 @@ export function UnifiedSubmissionCard({
             </p>
           </div>
         </div>
-      )}
+      )} */}
     </Card>
   );
 }

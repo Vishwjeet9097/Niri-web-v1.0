@@ -1,11 +1,58 @@
 import { useState } from "react";
-import { Upload, X, File, Loader2 } from "lucide-react";
+import { Upload, X, File, Loader2, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { apiService, type FileUploadResponse } from "@/services/api.service";
+import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import type { FileUpload } from "../types";
+
+// Helper function to read access token from localStorage
+function readAccessTokenFromLocalStorage(): string | undefined {
+  try {
+    const authUser = localStorage.getItem('niri_app:auth_user');
+    if (authUser) {
+      const parsed = JSON.parse(authUser);
+      return parsed?.token || parsed?.accessToken || parsed?.value?.token;
+    }
+  } catch (error) {
+    console.error('Error reading access token:', error);
+  }
+  return undefined;
+}
+
+// Helper function to fetch signed URL for S3 files
+async function fetchSignedUrl(filePath: string, token?: string): Promise<string> {
+  if (!filePath) throw new Error("Missing filePath");
+
+  const encoded = encodeURIComponent(filePath);
+  const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+  const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
+
+  const accessToken = token ?? readAccessTokenFromLocalStorage();
+  if (!accessToken) throw new Error("No auth token available. Please login.");
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  const text = await res.text();
+  try {
+    const json = JSON.parse(text);
+    const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
+    if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
+    return signed;
+  } catch (err) {
+    const trimmed = text.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    throw new Error(`Unexpected response when fetching signed URL: ${text.slice(0, 300)}`);
+  }
+}
+
+function isProbablyUrl(s: string) {
+  return typeof s === "string" && /^https?:\/\//i.test(s);
+}
 
 interface FileUploadSectionProps {
   label: string;
@@ -16,7 +63,7 @@ interface FileUploadSectionProps {
   maxSize?: number; // in MB
   required?: boolean;
   submissionId?: string; // For backend integration
-  onUploadComplete?: (uploadedFile: FileUploadResponse) => void;
+  onUploadComplete?: (uploadedFile: any) => void;
 }
 
 export const FileUploadSection = ({
@@ -33,6 +80,7 @@ export const FileUploadSection = ({
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const handleFile = async (file: File) => {
     if (file.size > maxSize * 1024 * 1024) {
@@ -140,6 +188,111 @@ export const FileUploadSection = ({
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+  const handleView = async () => {
+    if (!value) return;
+
+    // Handle local File objects (preview mode)
+    if (value.file && value.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(value.file);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      return;
+    }
+
+    // Handle S3 files (review mode)
+    const filePath = value.filePath || (typeof value.file === "string" ? value.file : undefined);
+    if (!filePath) {
+      notificationService.warning("File path missing.", "Cannot View File");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const signed = await fetchSignedUrl(filePath);
+      if (!isProbablyUrl(signed)) {
+        console.error("Signed URL is not a valid URL:", signed);
+        notificationService.error("Received invalid file URL. Check console/network tab.", "View Failed");
+        return;
+      }
+      window.open(signed, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      console.error(err);
+      notificationService.error("Failed to open file: " + (err.message || err), "View Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!value) return;
+
+    // Handle local File objects (preview mode)
+    if (value.file && value.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(value.file);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = value.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      return;
+    }
+
+    // Handle S3 files (review mode)
+    const filePath = value.filePath || (typeof value.file === "string" ? value.file : undefined);
+    if (!filePath) {
+      notificationService.warning("File path missing.", "Cannot Download File");
+      return;
+    }
+
+    setLoading(true);
+    let blobUrl: string | null = null;
+    try {
+      const encoded = encodeURIComponent(filePath);
+      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+      const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+
+      const accessToken = readAccessTokenFromLocalStorage();
+      if (!accessToken) {
+        throw new Error("No auth token available. Please login.");
+      }
+
+      const response = await fetch(downloadUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = value.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err: any) {
+      console.error(err);
+      notificationService.error("Download failed: " + (err.message || err), "Download Failed");
+    } finally {
+      if (blobUrl) {
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl!);
+        }, 100);
+      }
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-2">
       <Label>
@@ -188,26 +341,46 @@ export const FileUploadSection = ({
             <p className="text-xs text-muted-foreground">
               {formatFileSize(value.fileSize)}
             </p>
-            {value.fileUrl && (
-              <a
-                href={value.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline"
-              >
-                View File
-              </a>
-            )}
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleRemoveFile}
-            disabled={uploading}
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {(value && (value.fileName || (value.file && value.file instanceof globalThis.File) || value.filePath || value.fileUrl || (typeof value.file === "string" && value.file))) && (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleView}
+                  disabled={loading || uploading}
+                  className="h-8 w-8 p-0"
+                  title="View file"
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDownload}
+                  disabled={loading || uploading}
+                  className="h-8 w-8 p-0"
+                  title="Download file"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRemoveFile}
+              disabled={uploading || loading}
+              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Remove file"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       )}
     </div>

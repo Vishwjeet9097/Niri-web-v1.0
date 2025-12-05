@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Upload, Plus, Trash2, Clock, RotateCcw, CheckCircle, X, Check, Edit3 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { MessageSquare, Upload, Plus, Trash2, Clock, RotateCcw, CheckCircle, X, Check, Edit3, Eye, Download, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   AlertDialog,
@@ -38,6 +38,7 @@ import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { hasInfraEnablersData, getSectionsWithData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
+import { notificationService } from "@/services/notification.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
 import { useEditableSectionStore } from '@/utils/EditableSection';
@@ -55,9 +56,10 @@ interface InfraEnablersReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
+  isStateApprover?: boolean; // Whether the user is a state approver
 }
 
-export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraEnablersReviewProps) => {
+export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false, isStateApprover = false }: InfraEnablersReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
@@ -129,12 +131,200 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       const authUser = localStorage.getItem('niri_app:auth_user');
       if (authUser) {
         const user = JSON.parse(authUser);
-        return user.value?.role;
+        const role = user.value?.role;
+        // Normalize role string (trim whitespace, convert to uppercase for comparison)
+        return role ? String(role).trim() : null;
       }
     } catch (error) {
       console.error('Error reading user role:', error);
     }
     return null;
+  };
+
+  // Helper functions for file view and download
+  const [fileLoading, setFileLoading] = useState<Record<string, boolean>>({});
+
+  // Helper function to read access token from localStorage
+  const readAccessTokenFromLocalStorage = (): string | undefined => {
+    try {
+      // Try the new key first: niri_app:auth_tokens
+      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+      if (tokenDataRaw) {
+        const tokenData = JSON.parse(tokenDataRaw);
+        const tokenFromNewKey = tokenData?.value?.accessToken;
+        if (tokenFromNewKey) return tokenFromNewKey;
+      }
+      
+      // Try legacy key: access_token
+      const tokenFromLegacyKey = localStorage.getItem("access_token");
+      if (tokenFromLegacyKey) return tokenFromLegacyKey;
+      
+      // Try old auth_user key as fallback
+      const authUser = localStorage.getItem('niri_app:auth_user');
+      if (authUser) {
+        const parsed = JSON.parse(authUser);
+        return parsed?.token || parsed?.accessToken || parsed?.value?.token;
+      }
+    } catch (error) {
+      console.error('Error reading access token:', error);
+    }
+    return undefined;
+  };
+
+  // Helper function to fetch signed URL for S3 files
+  const fetchSignedUrl = async (filePath: string, token?: string): Promise<string> => {
+    if (!filePath) throw new Error("Missing filePath");
+
+    const encoded = encodeURIComponent(filePath);
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+    const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
+
+    const accessToken = token ?? readAccessTokenFromLocalStorage();
+    if (!accessToken) throw new Error("No auth token available. Please login.");
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
+      if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
+      return signed;
+    } catch (err) {
+      const trimmed = text.trim();
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      throw new Error(`Unexpected response when fetching signed URL: ${text.slice(0, 300)}`);
+    }
+  };
+
+  const isProbablyUrl = (s: string) => {
+    return typeof s === "string" && /^https?:\/\//i.test(s);
+  };
+
+  const handleFileView = async (file: any, fileKey: string) => {
+    // Handle nested file structures
+    let actualFile = file;
+    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
+      actualFile = file.file;
+    }
+
+    // Handle local File objects (preview mode)
+    if (actualFile.file && actualFile.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(actualFile.file);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      return;
+    }
+
+    // Handle S3 files (review mode) - check multiple possible properties
+    const filePath = actualFile.filePath || 
+                     actualFile.fileUrl || 
+                     actualFile.url ||
+                     actualFile.path ||
+                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
+    if (!filePath) {
+      console.error("File path missing. File object:", actualFile);
+      notificationService.warning("File path missing.", "Cannot View File");
+      return;
+    }
+
+    setFileLoading(prev => ({ ...prev, [fileKey]: true }));
+    try {
+      const signed = await fetchSignedUrl(filePath);
+      if (!isProbablyUrl(signed)) {
+        console.error("Signed URL is not a valid URL:", signed);
+        notificationService.error("Received invalid file URL. Check console/network tab.", "View Failed");
+        return;
+      }
+      window.open(signed, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      console.error(err);
+      notificationService.error("Failed to open file: " + (err.message || err), "View Failed");
+    } finally {
+      setFileLoading(prev => ({ ...prev, [fileKey]: false }));
+    }
+  };
+
+  const handleFileDownload = async (file: any, fileKey: string) => {
+    // Handle nested file structures
+    let actualFile = file;
+    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
+      actualFile = file.file;
+    }
+
+    // Handle local File objects (preview mode)
+    if (actualFile.file && actualFile.file instanceof globalThis.File) {
+      const blobUrl = URL.createObjectURL(actualFile.file);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = actualFile.originalName || actualFile.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      return;
+    }
+
+    // Handle S3 files (review mode) - check multiple possible properties
+    const filePath = actualFile.filePath || 
+                     actualFile.fileUrl || 
+                     actualFile.url ||
+                     actualFile.path ||
+                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
+    if (!filePath) {
+      console.error("File path missing. File object:", actualFile);
+      notificationService.warning("File path missing.", "Cannot Download File");
+      return;
+    }
+
+    setFileLoading(prev => ({ ...prev, [fileKey]: true }));
+    let blobUrl: string | null = null;
+    try {
+      const encoded = encodeURIComponent(filePath);
+      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+      const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+
+      const accessToken = readAccessTokenFromLocalStorage();
+      if (!accessToken) {
+        throw new Error("No auth token available. Please login.");
+      }
+
+      const response = await fetch(downloadUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = actualFile.originalName || actualFile.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err: any) {
+      console.error(err);
+      notificationService.error("Download failed: " + (err.message || err), "Download Failed");
+    } finally {
+      if (blobUrl) {
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl!);
+        }, 100);
+      }
+      setFileLoading(prev => ({ ...prev, [fileKey]: false }));
+    }
   };
 
   //State for edit button 
@@ -283,9 +473,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const hasData = hasInfraEnablersData({ infraEnablers: state });
   let sectionsWithData = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
   
-  // For preview mode with assigned indicators, always include assigned sections even if they have no data
-  // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+  console.log("🔍 [InfraEnablersReview] Initial sectionsWithData:", sectionsWithData);
+  console.log("🔍 [InfraEnablersReview] state:", state);
+  console.log("🔍 [InfraEnablersReview] isPreview:", isPreview, "isNodalOfficer:", isNodalOfficer);
+  console.log("🔍 [InfraEnablersReview] assignedIndicators:", assignedIndicators);
+  
+  // For nodal officers (both preview and review mode), always include assigned sections even if they have no data
+  // This ensures assigned indicators are visible, regardless of data presence
+  if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
     const assignedSectionKeys: string[] = [];
     const indicatorToSectionMap: Record<string, string> = {
       "4.1": "section4_1",
@@ -298,28 +493,99 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     
     assignedIndicators.forEach((indicator) => {
       const sectionKey = indicatorToSectionMap[indicator];
-      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
+      // Always include assigned sections, even if they don't have data or aren't in sectionsWithData
+      if (sectionKey && !assignedSectionKeys.includes(sectionKey)) {
         assignedSectionKeys.push(sectionKey);
       }
     });
     
-    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
+    // Merge and deduplicate - assigned sections take priority
+    sectionsWithData = Array.from(new Set([...assignedSectionKeys, ...sectionsWithData]));
+    console.log("🔍 [InfraEnablersReview] After adding assigned sections:", sectionsWithData);
   }
   
-  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // For State Approvers: filter sections based on their assigned indicators
+  // State Approvers should only see sections for indicators assigned to them, not all indicators in the state
+  // IMPORTANT: Include assigned sections even if they don't have data (similar to Nodal Officers)
+  if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
+    const indicatorToSectionMap: Record<string, string> = {
+      "4.1": "section4_1",
+      "4.2": "section4_2",
+      "4.3": "section4_3",
+      "4.4": "section4_4",
+      "4.5": "section4_5",
+      "4.6": "section4_6",
+    };
+    
+    // Get all assigned section keys
+    const assignedSectionKeys = assignedIndicators
+      .map((indicator) => indicatorToSectionMap[indicator])
+      .filter((sectionKey) => sectionKey !== undefined);
+    
+    // Filter sectionsWithData to only include assigned sections
+    const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
+      assignedSectionKeys.includes(sectionKey)
+    );
+    
+    // Add assigned sections that don't have data yet (to ensure they're visible)
+    const missingAssignedSections = assignedSectionKeys.filter(
+      (sectionKey) => !sectionsWithData.includes(sectionKey)
+    );
+    
+    // Combine filtered sections with missing assigned sections
+    sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
+    
+    console.log("🔍 [InfraEnablersReview] State Approver - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+  }
+  // For preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers viewing aggregate):
   // Include all sections that exist in formData
-  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
+  // This ensures MoSPI reviewers see all sections submitted
   // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && state && typeof state === 'object') {
+  if (isPreview && !isNodalOfficer && !isStateApprover) {
     const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+    const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
+    const stateToCheck = state || submissionFormData;
+    
     const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in state (even if value is null, empty object, or empty array)
-      return sectionKey in state;
+      // Check if section key exists in state or submission formData (even if value is null, empty object, or empty array)
+      return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
     
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+    console.log("🔍 [InfraEnablersReview] Preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
   }
+
+  // For MOSPI_APPROVER and MOSPI_REVIEWER in review mode (not preview):
+  // Show all sections that exist in formData, even if they don't have meaningful data
+  // This ensures MOSPI reviewers can see and accept/reject all indicators
+  if (!isPreview) {
+    const userRole = getUserRole();
+    const normalizedRole = userRole?.toUpperCase();
+    const isMospiReviewer = normalizedRole === 'MOSPI_REVIEWER';
+    const isMospiApprover = normalizedRole === 'MOSPI_APPROVER';
+    
+    if (isMospiReviewer || isMospiApprover) {
+      const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+      
+      // Check both state and submission.formData to ensure we catch all existing sections
+      const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
+      const stateToCheck = state || submissionFormData;
+      
+      const existingSections = allPossibleSections.filter(sectionKey => {
+        // Check if section key exists in state or submission formData (even if value is null, empty object, or empty array)
+        return sectionKey in stateToCheck || sectionKey in submissionFormData;
+      });
+      
+      // Merge existing sections with sectionsWithData, avoiding duplicates
+      sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+      console.log("🔍 [InfraEnablersReview] MOSPI reviewer/approver - showing all existing sections:", sectionsWithData);
+      console.log("🔍 [InfraEnablersReview] State sections:", Object.keys(stateToCheck || {}));
+      console.log("🔍 [InfraEnablersReview] Submission formData sections:", Object.keys(submissionFormData || {}));
+    }
+  }
+
+  
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -341,6 +607,41 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     setTimelineSection(null);
   };
 
+  // Memoize onSendBack callback to ensure it updates when isMospiApproverSentBack changes
+  const onSendBackCallback = useMemo(() => {
+    const userRole = getUserRole();
+    const normalizedRole = userRole?.toUpperCase();
+    const isMospiReviewer = normalizedRole === 'MOSPI_REVIEWER';
+    const isMospiApprover = normalizedRole === 'MOSPI_APPROVER';
+    
+    console.log('🔍 useMemo onSendBack - Debug Info:', {
+      userRole,
+      normalizedRole,
+      isMospiReviewer,
+      isMospiApprover,
+      isMospiApproverSentBack,
+      activeSection,
+      willReturnUndefined: isMospiReviewer || (isMospiApprover && isMospiApproverSentBack)
+    });
+    
+    // Don't pass onSendBack for MOSPI_REVIEWER or MOSPI_APPROVER (when isMospiApproverSentBack is true)
+    // For MOSPI_APPROVER, handleSaveMessage will handle everything directly without confirmation dialog
+    if (isMospiReviewer) {
+      console.log('✅ useMemo: Returning undefined for MOSPI_REVIEWER');
+      return undefined;
+    }
+    if (isMospiApprover && isMospiApproverSentBack) {
+      console.log('✅ useMemo: Returning undefined for MOSPI_APPROVER (isMospiApproverSentBack=true)');
+      return undefined;
+    }
+    // For STATE_APPROVER and other roles, pass onSendBack callback to show confirmation
+    console.log('⚠️ useMemo: Returning onSendBack callback for role:', userRole);
+    return (sectionId: string) => {
+      console.log('⚠️ onSendBack callback called with sectionId:', sectionId);
+      onIndicatorStatus(sectionId, false);
+    };
+  }, [isMospiApproverSentBack, activeSection]);
+
   const handleSaveMessage = async (updatedSubmission: unknown) => {
     // MessageModal already saved the comment, so we just need to update state and check flags
     if (updatedSubmission) {
@@ -352,9 +653,58 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
       const shouldShowSentBackConfirmation = isMospiApproverSentBack && mospiSentBackSectionId;
+      const userRole = getUserRole();
+      // Normalize role comparison (case-insensitive, trimmed)
+      const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+      
+      // Debug logging
+      console.log('🔍 handleSaveMessage - Debug Info:', {
+        shouldShowSentBackConfirmation,
+        isMospiApproverSentBack,
+        mospiSentBackSectionId,
+        userRole,
+        isMospiApprover,
+        userRoleType: typeof userRole,
+        userRoleValue: userRole,
+        normalizedRole: userRole?.toUpperCase()
+      });
 
-      // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
-      if (shouldShowSentBackConfirmation) {
+      // If this was opened from MOSPI_APPROVER "Sent Back" button, directly update status without confirmation
+      if (shouldShowSentBackConfirmation && isMospiApprover) {
+        console.log('✅ MOSPI_APPROVER: Directly updating status to REVERTED without confirmation dialog');
+        // Store section ID before resetting flags
+        const sectionIdToUse = mospiSentBackSectionId;
+        // Reset the flags immediately
+        setIsMospiApproverSentBack(false);
+        setMospiSentBackSectionId(null);
+        // Close the comment modal immediately
+        handleCloseModal();
+        // Directly update mospi_status to REVERTED without confirmation dialog
+        try {
+          await performIndicatorStatus(sectionIdToUse, false);
+          // Refresh submission data to get latest state from backend
+          if (submissionId) {
+            try {
+              const refreshedSubmission = await apiService.getSubmission(submissionId);
+              if (refreshedSubmission) {
+                setSubmissionState(refreshedSubmission);
+                if (refreshedSubmission.formData) {
+                  setFormDataState(refreshedSubmission.formData.infraEnablers);
+                }
+              }
+            } catch (refreshError) {
+              console.error('Failed to refresh submission:', refreshError);
+              // Continue even if refresh fails - local state is already updated
+            }
+          }
+        } catch (error) {
+          console.error('Failed to update indicator status:', error);
+        }
+        return;
+      }
+
+      // For STATE_APPROVER, show confirmation dialog (existing behavior)
+      if (shouldShowSentBackConfirmation && !isMospiApprover) {
         // Store section ID before resetting flags
         const sectionIdToUse = mospiSentBackSectionId;
         setPendingActionSectionId(sectionIdToUse);
@@ -377,6 +727,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           setTimelineSection(activeSection);
         }, 100);
       }
+
+      // Close the comment modal after saving regular comments
+      handleCloseModal();
     }
   };
 
@@ -612,6 +965,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    const isStateApprover = userRole === 'STATE_APPROVER';
     
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
@@ -624,6 +978,24 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
+    }
+    
+    // If STATE_APPROVER is accepting or sending back, get sourceSubmissionId from indicatorMapping
+    if (isStateApprover) {
+      const fullFormData = (submission as any)?.formData || {};
+      const indicatorMapping = fullFormData?._metadata?.indicatorMapping || {};
+      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const mappingKey = `infraEnablers.${sectionKey}`;
+      const indicatorInfo = indicatorMapping[mappingKey];
+      
+      if (indicatorInfo?.sourceSubmissionId) {
+        payload.sourceSubmissionId = indicatorInfo.sourceSubmissionId;
+        const action = status ? 'Accept' : 'Send Back';
+        console.log(`📋 [STATE_APPROVER ${action}] Adding sourceSubmissionId: ${indicatorInfo.sourceSubmissionId} for ${mappingKey}`);
+      } else {
+        const action = status ? 'Accept' : 'Send Back';
+        console.warn(`⚠️ [STATE_APPROVER ${action}] No sourceSubmissionId found in indicatorMapping for ${mappingKey}`);
+      }
     }
     
     try {
@@ -698,25 +1070,50 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const handleConfirmSendBack = async () => {
     if (pendingActionSectionId) {
       // Check if user is MOSPI_APPROVER
-      const getUserRole = () => {
+      const getUserInfo = () => {
         try {
           const authUser = localStorage.getItem('niri_app:auth_user');
           if (authUser) {
             const user = JSON.parse(authUser);
-            return user.value?.role;
+            return {
+              role: user.value?.role,
+              id: user.value?.id || user.value?._id
+            };
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error('Error reading user info:', error);
         }
-        return null;
+        return { role: null, id: null };
       };
-      const userRole = getUserRole();
+      const userInfo = getUserInfo();
+      const userRole = userInfo.role;
+      const userId = userInfo.id;
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      const isStateApprover = userRole === 'STATE_APPROVER';
       
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
+      
+      // Send notification if STATE_APPROVER
+      const submissionIdForNotification = (submissionState as any)?.submissionId || (submission as any)?.submissionId;
+      if (isStateApprover && userId && submissionIdForNotification && pendingActionSectionId) {
+        try {
+          const category = 'infraEnablers';
+          const indicator = pendingActionSectionId;
+          await apiService.sendNotification({
+            title: "Submission Sent Back",
+            message: `The submission ${submissionIdForNotification} has been sent back by State Approver. Category: ${category}, Indicator: ${indicator}`,
+            senderId: userId,
+            submissionId: submissionIdForNotification
+          });
+          console.log('✅ Notification sent successfully');
+        } catch (notificationError) {
+          console.error('❌ Failed to send notification:', notificationError);
+          // Don't block the flow if notification fails
+        }
+      }
       
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
@@ -752,6 +1149,25 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, true);
+      
+      // Refresh submission data to get latest state from backend
+      // Add a small delay to ensure backend has processed the update
+      if (submissionId) {
+        try {
+          // Wait a bit for backend to process the update
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const refreshedSubmission = await apiService.getSubmission(submissionId);
+          if (refreshedSubmission) {
+            setSubmissionState(refreshedSubmission);
+            if (refreshedSubmission.formData) {
+              setFormDataState(refreshedSubmission.formData.infraEnablers);
+            }
+          }
+        } catch (refreshError) {
+          console.error('Failed to refresh submission:', refreshError);
+          // Continue even if refresh fails - local state is already updated
+        }
+      }
       
       setShowAcceptDialog(false);
       setPendingActionSectionId(null);
@@ -1087,6 +1503,79 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     setShowAddCapacityForm(false);
   };
 
+  // Helper function to render "Returned from MoSPI" badge when submission status is SUBMITTED_TO_MOSPI_APPROVER or SUBMITTED_TO_MOSPI_REVIEWER
+  const renderReturnedFromMospiBadge = () => {
+    const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
+    if (submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+      return (
+        <div className="mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default w-full justify-center"
+            disabled
+          >
+            <RotateCcw className="w-4 h-4" />
+            Returned from MoSPI
+          </Button>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  const renderMOSPIReviewerComments = (sectionId: string) => {
+    const getUserRole = () => {
+      try {
+        const authUser = localStorage.getItem('niri_app:auth_user');
+        if (authUser) {
+          const user = JSON.parse(authUser);
+          const role = user.value?.role;
+          // Normalize role string (trim whitespace, convert to uppercase for comparison)
+          return role ? String(role).trim() : null;
+        }
+      } catch (error) {
+        console.error('Error reading user role:', error);
+      }
+      return null;
+    };
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    if (!isMospiApprover) return null;
+    
+    const comments = getComments(sectionId);
+    if (!comments || comments.length === 0) return null;
+    
+    const mospiReviewerComments = comments.filter((comment: any) => {
+      const commentRole = comment.role || comment.userRole || '';
+      return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
+    });
+    
+    if (mospiReviewerComments.length === 0) return null;
+    
+    // Sort by timestamp (newest first) and get the last (most recent) comment
+    const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
+    });
+    const lastComment = sortedComments[0]; // Get the most recent comment
+    
+    return (
+      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comment:</p>
+        <div className="mb-2 last:mb-0">
+          <p className="text-sm text-green-800">{(lastComment as any).text || (lastComment as any).message || (lastComment as any).comment}</p>
+          {lastComment.timestamp && (
+            <p className="text-xs text-green-600 mt-1">
+              {new Date(lastComment.timestamp).toLocaleString()}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
@@ -1116,10 +1605,48 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     
-    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
-    const submissionStatus = submission?.status;
-    if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
-      return null;
+  // Get submission status
+  const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
+  
+  // Check if submission is with MoSPI (APPROVER or REVIEWER)
+  const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
+  
+  // Check if submission is returned from MoSPI and mospi_status is REVERTED
+  const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
+  
+  // Helper function to get status text for MOSPI_APPROVER
+  const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
+    const userRole = getUserRole();
+    const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+    const currentSubmissionStatus = submissionStatus || (submission as any)?.status || (submissionState as any)?.status;
+    const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
+    
+    if (isMospiApprover && isReturned) {
+      if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
+        return 'RETURNED TO STATE';
+      }
+      if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
+        return 'Accepted';
+      }
+    }
+    return 'Returned from MoSPI';
+  };
+    
+    // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
+    if (isStateApprover && isWithMospi) {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-secondary text-secondary-foreground cursor-default"
+            disabled
+          >
+            <Clock className="w-4 h-4" />
+            Under Review
+          </Button>
+        </div>
+      );
     }
     
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
@@ -1205,17 +1732,40 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
       
       if (mospiStatus === 'REVERTED') {
+        // Get sectionStatus for MOSPI_APPROVER to check if status is also REVERTED
+        const sectionKeyForStatus = `section${sectionId.replace('.', '_')}`;
+        const sectionDataForStatus = state && state[sectionKeyForStatus];
+        const sectionStatusForMospi = Array.isArray(sectionDataForStatus) 
+          ? (sectionDataForStatus as any)?.status 
+          : sectionDataForStatus?.status;
+        const isStatusAlsoReverted = sectionStatusForMospi === 'REVERTED';
+        
         return (
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
-              disabled
-            >
-              <RotateCcw className="w-4 h-4" />
-              Sent Back
-            </Button>
+            {/* Show "Sent Back" badge if status is also REVERTED */}
+            {isStatusAlsoReverted && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+                disabled
+              >
+                <RotateCcw className="w-4 h-4" />
+                Sent Back
+              </Button>
+            )}
+            {/* Show "Returned from MoSPI" badge if submission.status is RETURNED_FROM_MOSPI and mospi_status is REVERTED */}
+            {isReturnedFromMospi && mospiStatus === 'REVERTED' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 font-bold cursor-default"
+                disabled
+              >
+                <RotateCcw className="w-4 h-4" />
+                {getStatusTextForMospiApprover(mospiStatus)}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -1246,7 +1796,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             }}
           >
             <RotateCcw className="w-4 h-4" />
-            Sent Back
+            Send Back
           </Button>
           <Button
             variant="outline"
@@ -1282,78 +1832,124 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const sectionStatus = Array.isArray(sectionData) 
       ? (sectionData as any)?.status 
       : sectionData?.status;
-      
-    if (sectionStatus === 'ACCEPTED') {
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
-            disabled
-          >
-            <CheckCircle className="w-4 h-4" />
-            Accepted
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1"
-            onClick={() => handleOpenTimeline(sectionId)}
-          >
-            <Clock className="w-4 h-4" />
-            Timeline ({commentCount})
-          </Button>
-        </div>
-      );
-    }
     
-    // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
-    if (isStateApprover && sectionStatus === 'RESUBMITTED') {
-      return (
-        <div className="flex gap-2">
-          {!isEditable(sectionId) ? (
+    // Get mospi_status for all roles (needed to show both badges)
+    const mospiStatus = Array.isArray(sectionData) 
+      ? (sectionData as any)?.mospi_status 
+      : sectionData?.mospi_status;
+    
+    // Check if status is REVERTED or mospi_status is REVERTED
+    const isStatusReverted = sectionStatus === 'REVERTED';
+    const isMospiStatusReverted = mospiStatus === 'REVERTED';
+    
+    // isWithMospi is already declared above using submissionStatus
+      
+    // For STATE_APPROVER, handle all edge cases based on status and mospi_status combinations
+    if (isStateApprover) {
+      // Helper to check if status is NA/undefined
+      const isStatusNA = !sectionStatus || sectionStatus === 'NA' || sectionStatus === '';
+      // Helper to check if mospi_status is NA/undefined
+      const isMospiStatusNA = !mospiStatus || mospiStatus === 'NA' || mospiStatus === '';
+      const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
+      const isMospiStatusResubmitted = mospiStatus === 'RESUBMITTED';
+      
+      // Row 1: status=ACCEPTED, mospi_status=NA → "ACCEPTED"
+      if (sectionStatus === 'ACCEPTED' && isMospiStatusNA) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
             <Button
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => handleEditStart(sectionId)}
+              onClick={() => handleOpenTimeline(sectionId)}
             >
-              <Edit3 className="w-4 h-4" />
-              Edit
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
             </Button>
-          ) : (
-            <>
+          </div>
+        );
+      }
+      
+      // Row 2: status=REVERTED, mospi_status=NA → "Sent Back"
+      if (isStatusReverted && isMospiStatusNA) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 3: status=RESUBMITTED, mospi_status=NA → "Edit, Resubmitted (Disable), Accept"
+      if (sectionStatus === 'RESUBMITTED' && isMospiStatusNA) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
               <Button
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => onSaveSection(sectionId)}
+                onClick={() => handleEditStart(sectionId)}
               >
-                <Check className="w-4 h-4" />
-                Save
+                <Edit3 className="w-4 h-4" />
+                Edit
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleCancel(sectionId)}
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </Button>
-            </>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
-            disabled
-          >
-            <CheckCircle className="w-4 h-4" />
-            Re Submitted
-          </Button>
-          {!isNodalOfficer && (
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Re Submitted
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1363,23 +1959,403 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <CheckCircle className="w-4 h-4" />
               Accept
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 4: status=ACCEPTED, mospi_status=ACCEPTED → "Accepted(Disable)"
+      if (sectionStatus === 'ACCEPTED' && isMospiStatusAccepted) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 5: status=ACCEPTED, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
+      if (sectionStatus === 'ACCEPTED' && isMospiStatusReverted) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleEditStart(sectionId)}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenModal(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+            {isReturnedFromMospi && isMospiStatusReverted && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+                disabled
+              >
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
           )}
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center gap-1"
-            onClick={() => handleOpenTimeline(sectionId)}
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
           >
-            <Clock className="w-4 h-4" />
-            Timeline ({commentCount})
-          </Button>
+            <CheckCircle className="w-4 h-4" />
+            Accept
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
         </div>
       );
     }
     
-    if (sectionStatus === 'REVERTED') {
-      // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
-      if (isNodalOfficer) {
+    // Row 6: status=ACCEPTED, mospi_status=RESUBMITTED → "Under Review"
+      if (sectionStatus === 'ACCEPTED' && isMospiStatusResubmitted) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+              disabled
+            >
+              <Clock className="w-4 h-4" />
+              Under Review
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 7: status=REVERTED, mospi_status=ACCEPTED → "Accepted(Disable)"
+      if (isStatusReverted && isMospiStatusAccepted) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 8: status=REVERTED, mospi_status=REVERTED → "Sent Back(Disable), Returned From Mospi (if submission status is RETURNED_FROM_MOSPI)"
+      if (isStatusReverted && isMospiStatusReverted) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
+            {isReturnedFromMospi && isMospiStatusReverted && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+                disabled
+              >
+                <RotateCcw className="w-4 h-4" />
+                Returned from MoSPI
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 9: status=REVERTED, mospi_status=RESUBMITTED → "Edit, Send Back, Returned From Mospi, Accept"
+      if (isStatusReverted && isMospiStatusResubmitted) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleEditStart(sectionId)}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenModal(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+            {isReturnedFromMospi && isMospiStatusReverted && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+                disabled
+              >
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+        </div>
+      );
+    }
+    
+    // Row 10: status=RESUBMITTED, mospi_status=ACCEPTED → "Accepted(Disable)"
+      if (sectionStatus === 'RESUBMITTED' && isMospiStatusAccepted) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 11: status=RESUBMITTED, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
+      if (sectionStatus === 'RESUBMITTED' && isMospiStatusReverted) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleEditStart(sectionId)}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenModal(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Re Submitted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 12: status=RESUBMITTED, mospi_status=RESUBMITTED → "Edit, Sent Back, Returned From Mospi, Accept"
+      if (sectionStatus === 'RESUBMITTED' && isMospiStatusResubmitted) {
         return (
           <div className="flex gap-2">
             {!isEditable(sectionId) ? (
@@ -1426,6 +2402,24 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <Button
               variant="outline"
               size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               className="flex items-center gap-1"
               onClick={() => handleOpenTimeline(sectionId)}
             >
@@ -1436,7 +2430,330 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         );
       }
       
-      // For reviewers/approvers, show only the disabled Sent Back button
+      // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept, Timeline"
+      if (isStatusNA && isMospiStatusNA) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleEditStart(sectionId)}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenModal(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 14: status=NA, mospi_status=ACCEPTED → "Accepted(Disable)"
+      if (!sectionStatus && isMospiStatusAccepted) {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // Row 15: status=NA, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
+      if (!sectionStatus && isMospiStatusReverted) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleEditStart(sectionId)}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenModal(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+            {isReturnedFromMospi && isMospiStatusReverted && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+                disabled
+              >
+              <RotateCcw className="w-4 h-4" />
+              {getStatusTextForMospiApprover(mospiStatus)}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+        </div>
+      );
+    }
+  }
+  
+  // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
+    if (sectionStatus === 'ACCEPTED') {
+      // If mospi_status is RESUBMITTED, show "Under Review"
+      if (mospiStatus === 'RESUBMITTED') {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+              disabled
+            >
+              <Clock className="w-4 h-4" />
+              Under Review
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      // If mospi_status = "REVERTED", show "Returned from MoSPI" badge
+      if (mospiStatus === 'REVERTED') {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      // Otherwise, show only "Accepted" and "Timeline"
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accepted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+    
+    
+    // Rule 2: If status = "REVERTED", show disabled "Sent Back" badge
+    // For NODAL_OFFICER, also show Edit button
+    if (isStatusReverted) {
+      // If NODAL_OFFICER, show Edit button + Sent Back badge
+      if (isNodalOfficer) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleEditStart(sectionId)}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
+            {/* Show "Returned from MoSPI" badge if submission status is RETURNED_FROM_MOSPI */}
+            {isReturnedFromMospi && isMospiStatusReverted && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+                disabled
+              >
+                <RotateCcw className="w-4 h-4" />
+                Returned from MoSPI
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+      
+      // For other roles, show only disabled "Sent Back" badge (no Edit, no Send Back button)
       return (
         <div className="flex gap-2">
           <Button
@@ -1448,6 +2765,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
+          {/* Show "Returned from MoSPI" badge if submission status is RETURNED_FROM_MOSPI */}
+          {isWithMospi && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from MoSPI
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -1527,7 +2856,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </>
         )}
 
-        {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
+        {/* Rule 1: Show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
         {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
           <Button
             variant="outline"
@@ -1565,7 +2894,16 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     );
   };
   // If no data, show message
-  if (!hasData) {
+  // For nodal officers (both preview and review mode), don't return early if they have assigned indicators
+  // For state approvers viewing nodal officer submissions, don't return early if sections exist (even if no data)
+  // Even if hasData is false, we want to show assigned sections
+  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
+  const hasAssignedIndicators = assignedIndicators && assignedIndicators.length > 0;
+  const shouldShowSections = (isNodalOfficer && hasAssignedIndicators) || 
+                             (isStateApprover && !isPreview && isNodalOfficerSubmission && hasAssignedIndicators) ||
+                             (isStateApprover && !isPreview && !isNodalOfficerSubmission && sectionsWithData.length > 0);
+  
+  if (!hasData && !shouldShowSections && sectionsWithData.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">No Infra Enablers data available for review</p>
@@ -1611,6 +2949,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("4.1")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -1702,9 +3042,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </div>
             )} */}
 
-            <p className="text-xs text-muted-foreground">
+            {/* <p className="text-xs text-muted-foreground">
               Annex 9: Self-certification required
-            </p>
+            </p> */}
             </div>
 
         </SectionCard>
@@ -1724,6 +3064,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("4.2")}
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
@@ -1803,6 +3145,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("4.3")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -1975,16 +3319,57 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                   </div>
                                 </div>
                               ) : (
-                                project.file ? (
-                                  <Badge 
-                                    variant="secondary" 
-                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                    title={project.file.fileName || 'Unknown file'}
-                                  >
-                                    <Upload className="w-3 h-3" />
-                                    <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
-                                  </Badge>
-                                ) : (
+                                project.file ? (() => {
+                                  const fileKey = `4.3-readonly-${idx}`;
+                                  const isLoading = fileLoading[fileKey] || false;
+                                  const hasFile = project.file && project.file.fileName;
+                                  return (
+                                    <div className="flex items-center gap-1">
+                                      <Badge 
+                                        variant="secondary" 
+                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
+                                        title={project.file.fileName || 'Unknown file'}
+                                      >
+                                        <Upload className="w-3 h-3 flex-shrink-0" />
+                                        <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
+                                      </Badge>
+                                      {hasFile && (
+                                        <>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleFileView(project.file, fileKey)}
+                                            disabled={isLoading}
+                                            className="h-6 w-6 p-0"
+                                            title="View file"
+                                          >
+                                            {isLoading ? (
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                              <Eye className="w-3 h-3" />
+                                            )}
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleFileDownload(project.file, fileKey)}
+                                            disabled={isLoading}
+                                            className="h-6 w-6 p-0"
+                                            title="Download file"
+                                          >
+                                            {isLoading ? (
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                              <Download className="w-3 h-3" />
+                                            )}
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
+                                  );
+                                })() : (
                                   <span className="text-muted-foreground text-xs">No file</span>
                                 )
                               )}
@@ -2111,6 +3496,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("4.4")}
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">Adoption of Alternate Dispute Resolution (ADR)?*</Label>
@@ -2194,6 +3581,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("4.5")}
           {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2364,16 +3753,57 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                   </div>
                                 </div>
                               ) : (
-                                practice.file ? (
-                                  <Badge 
-                                    variant="secondary" 
-                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                    title={practice.file.fileName || 'Unknown file'}
-                                  >
-                                    <Upload className="w-3 h-3" />
-                                    <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
-                                  </Badge>
-                                ) : (
+                                practice.file ? (() => {
+                                  const fileKey = `4.5-readonly-${idx}`;
+                                  const isLoading = fileLoading[fileKey] || false;
+                                  const hasFile = practice.file && practice.file.fileName;
+                                  return (
+                                    <div className="flex items-center gap-1">
+                                      <Badge 
+                                        variant="secondary" 
+                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
+                                        title={practice.file.fileName || 'Unknown file'}
+                                      >
+                                        <Upload className="w-3 h-3 flex-shrink-0" />
+                                        <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
+                                      </Badge>
+                                      {hasFile && (
+                                        <>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleFileView(practice.file, fileKey)}
+                                            disabled={isLoading}
+                                            className="h-6 w-6 p-0"
+                                            title="View file"
+                                          >
+                                            {isLoading ? (
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                              <Eye className="w-3 h-3" />
+                                            )}
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleFileDownload(practice.file, fileKey)}
+                                            disabled={isLoading}
+                                            className="h-6 w-6 p-0"
+                                            title="Download file"
+                                          >
+                                            {isLoading ? (
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                              <Download className="w-3 h-3" />
+                                            )}
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
+                                  );
+                                })() : (
                                   <span className="text-muted-foreground text-xs">No file</span>
                                 )
                               )}
@@ -2505,6 +3935,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           subtitle=""
           className="mb-6"
         >
+          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+          {renderMOSPIReviewerComments("4.6")}
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">Capacity Building – Officer Participation*</Label>
@@ -2765,21 +4197,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           const userRole = getUserRole();
           return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
         })()}
-        onSendBack={
-          // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
-          getUserRole() === 'MOSPI_REVIEWER'
-            ? undefined
-            : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-              // Accept no longer requires comment, so it's not included here
-              // For other cases, use the normal flow
-              isMospiApproverSentBack
-              ? async () => {
-                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
-                }
-              : (sectionId) => onIndicatorStatus(sectionId, false)
-        }
+        onSendBack={onSendBackCallback}
       />
 
       <TimelineModal

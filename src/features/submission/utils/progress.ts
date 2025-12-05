@@ -93,42 +93,181 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.issuingAuthority) &&
         hasMeaningfulValue(r.value)
     ),
-  section1_5: (data: any) =>
-  anyValid(
-    data?.ffiArray,
-    (r) =>
-      hasMeaningfulValue(r.organisationName) &&
-      hasMeaningfulValue(r.organisationType) &&
-      hasMeaningfulValue(r.yearEstablished) &&
-      hasMeaningfulValue(r.totalFunding)
-  ),
+  section1_5: (data: any) => {
+    const d = data as Record<string, unknown>;
+    // If hasIntermediary is "no", section is considered filled
+    if (d?.hasIntermediary === "no") return true;
+    // If hasIntermediary is "yes", check for valid entries in ffiArray
+    if (d?.hasIntermediary === "yes") {
+      return anyValid(
+        data?.ffiArray,
+        (r) =>
+          hasMeaningfulValue(r.organisationName) &&
+          hasMeaningfulValue(r.organisationType) &&
+          hasMeaningfulValue(r.totalFunding) &&
+          hasMeaningfulValue(r.website)
+      );
+    }
+    // If hasIntermediary is not set, check if ffiArray has valid entries (backward compatibility)
+    return anyValid(
+      data?.ffiArray,
+      (r) =>
+        hasMeaningfulValue(r.organisationName) &&
+        hasMeaningfulValue(r.organisationType) &&
+        hasMeaningfulValue(r.totalFunding)
+    );
+  },
 
 
    // 2.x Infra Development (updated to handle new nested array structure)
-  section2_1: (data: any) =>
-    anyValid(
+  section2_1: (data: any) => {
+    // Check if files array exists and has items with file data
+    return anyValid(
       data?.infraActArray,
-      (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
-    ),
+      (r) => {
+        if (!hasMeaningfulValue(r.sector)) return false;
+        // Check if files array has items with actual file data
+        if (Array.isArray(r.files) && r.files.length > 0) {
+          return r.files.some((f: any) => 
+            f && (f.id || f.fileName || f.filePath || (f.file && (f.file.id || f.file.fileName || f.file.filePath)))
+          );
+        }
+        return false;
+      }
+    );
+  },
 
-  section2_2: (data: any) =>
-    anyValid(
+  section2_2: (data: any) => {
+    // Check if files array exists and has items with file data
+    return anyValid(
       data?.specializedEntityArray,
-      (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
-    ),
+      (r) => {
+        if (!hasMeaningfulValue(r.sector)) return false;
+        // Check if files array has items with actual file data
+        if (Array.isArray(r.files) && r.files.length > 0) {
+          return r.files.some((f: any) => 
+            f && (f.id || f.fileName || f.filePath || (f.file && (f.file.id || f.file.fileName || f.file.filePath)))
+          );
+        }
+        return false;
+      }
+    );
+  },
 
-  section2_3: (data: any) =>
-    anyValid(
+  section2_3: (data: any) => {
+    const d = data as Record<string, unknown>;
+    // Check if hasInfraDevelopmentPlan field exists (yes/no)
+    if (hasMeaningfulValue(d?.hasInfraDevelopmentPlan)) {
+      // If "no", section is considered filled (just like other binary yes/no sections)
+      if (d?.hasInfraDevelopmentPlan === "no") return true;
+      // If "yes", check for infraDevelopmentArray with valid entries
+      if (d?.hasInfraDevelopmentPlan === "yes") {
+        return anyValid(
+          data?.infraDevelopmentArray,
+          (r) => {
+            if (!hasMeaningfulValue(r.sector)) return false;
+            // Check if files array has items with actual file data
+            if (Array.isArray(r.files) && r.files.length > 0) {
+              return r.files.some((f: any) => 
+                f && (f.id || f.fileName || f.filePath || (f.file && (f.file.id || f.file.fileName || f.file.filePath)))
+              );
+            }
+            return false;
+          }
+        );
+      }
+    }
+    // Backward compatibility: if hasInfraDevelopmentPlan is not set, check infraDevelopmentArray directly
+    return anyValid(
       data?.infraDevelopmentArray,
-      (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
-    ),
+      (r) => {
+        if (!hasMeaningfulValue(r.sector)) return false;
+        // Check if files array has items with actual file data
+        if (Array.isArray(r.files) && r.files.length > 0) {
+          return r.files.some((f: any) => 
+            f && (f.id || f.fileName || f.filePath || (f.file && (f.file.id || f.file.fileName || f.file.filePath)))
+          );
+        }
+        return false;
+      }
+    );
+  },
 
-  section2_4: (data: any) =>
-    anyValid(
-      data?.investmentReadyArray,
-      (r) =>
-        hasMeaningfulValue(r.projectName) && hasMeaningfulValue(r.dprFile)
-    ),
+  section2_4: (data: any) => {
+    // Section 2.4 can have either:
+    // 1. A websiteLink at the section level (sufficient for all projects), OR
+    // 2. Projects with dprFile
+    const d = data as Record<string, unknown>;
+    
+    // Check if hasInvestmentReady field exists (yes/no)
+    if (hasMeaningfulValue(d?.hasInvestmentReady)) {
+      // If "no", section is considered filled (just like other binary yes/no sections)
+      if (d?.hasInvestmentReady === "no") return true;
+      // If "yes", check for websiteLink OR projects with dprFile
+      if (d?.hasInvestmentReady === "yes") {
+        // Check if section has websiteLink
+        if (hasMeaningfulValue(d?.websiteLink)) {
+          // If websiteLink exists, check if there are any projects in the array
+          if (Array.isArray(d?.investmentReadyArray) && d.investmentReadyArray.length > 0) {
+            return anyValid(
+              d.investmentReadyArray,
+              (r) => hasMeaningfulValue(r.projectName)
+            );
+          }
+          // Even if no projects, websiteLink alone is sufficient
+          return true;
+        }
+        
+        // If no websiteLink, check for projects with dprFile
+        return anyValid(
+          d?.investmentReadyArray,
+          (r) => {
+            if (!hasMeaningfulValue(r.projectName)) return false;
+            // Check if dprFile exists (can be object with id/fileName/filePath or nested file structure)
+            if (r.dprFile) {
+              if (typeof r.dprFile === 'object') {
+                return !!(r.dprFile.id || r.dprFile.fileName || r.dprFile.filePath || 
+                         (r.dprFile.file && (r.dprFile.file.id || r.dprFile.file.fileName || r.dprFile.file.filePath)));
+              }
+              return true; // If it's a truthy value, consider it valid
+            }
+            return false;
+          }
+        );
+      }
+    }
+    
+    // Backward compatibility: if hasInvestmentReady is not set, check websiteLink or projects
+    // Check if section has websiteLink
+    if (hasMeaningfulValue(d?.websiteLink)) {
+      // If websiteLink exists, check if there are any projects in the array
+      if (Array.isArray(d?.investmentReadyArray) && d.investmentReadyArray.length > 0) {
+        return anyValid(
+          d.investmentReadyArray,
+          (r) => hasMeaningfulValue(r.projectName)
+        );
+      }
+      // Even if no projects, websiteLink alone is sufficient
+      return true;
+    }
+    
+    // If no websiteLink, check for projects with dprFile
+    return anyValid(
+      d?.investmentReadyArray,
+      (r) => {
+        if (!hasMeaningfulValue(r.projectName)) return false;
+        // Check if dprFile exists (can be object with id/fileName/filePath or nested file structure)
+        if (r.dprFile) {
+          if (typeof r.dprFile === 'object') {
+            return !!(r.dprFile.id || r.dprFile.fileName || r.dprFile.filePath || 
+                     (r.dprFile.file && (r.dprFile.file.id || r.dprFile.file.fileName || r.dprFile.file.filePath)));
+          }
+          return true; // If it's a truthy value, consider it valid
+        }
+        return false;
+      }
+    );
+  },
 
   section2_5: (data: any) =>
     anyValid(
@@ -155,28 +294,36 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     if (d?.available === "yes") return hasMeaningfulValue(d?.file);
     return true;
   },
-  section3_3: (data) =>
-    anyValid(
-      data,
-      (r) =>
-        hasMeaningfulValue(r.projectName) &&
-        hasMeaningfulValue(r.sector) &&
-        hasMeaningfulValue(r.type) &&
-        hasMeaningfulValue(r.submissionDate) &&
-        hasMeaningfulValue(r.file)
-    ),
-  section3_4: (data) => {
-    const d = data as { projects?: unknown[] } | undefined;
-    return anyValid(
-      d?.projects,
-      (r) =>
-        hasMeaningfulValue(r.nameOfProject) &&
-        hasMeaningfulValue(r.nipId) &&
-        hasMeaningfulValue(r.fundingSource) &&
-        hasMeaningfulValue(r.infrastructureSector) &&
-        hasMeaningfulValue(r.dateOfAward) &&
-        hasMeaningfulValue(r.capexPercentage)
-    );
+  section3_3: (data: any) => {
+    // Check if VGFArray exists and has valid entries
+    return Array.isArray(data?.VGFArray) && 
+           data.VGFArray.length > 0 &&
+           anyValid(
+             data.VGFArray,
+             (r) =>
+               hasMeaningfulValue(r.projectName) &&
+               hasMeaningfulValue(r.sector) &&
+               hasMeaningfulValue(r.type) &&
+               hasMeaningfulValue(r.submissionDate) &&
+               hasMeaningfulValue(r.file)
+           );
+  },
+  section3_4: (data: any) => {
+    const d = data as { projects?: unknown[]; totalProjectCostAwarded?: unknown; totalTPC?: unknown } | undefined;
+    // Section 3.4 is considered filled if:
+    // 1. It has a projects array with at least one project that has essential data, OR
+    // 2. It has totalProjectCostAwarded or totalTPC (which indicates data was entered)
+    if (Array.isArray(d?.projects) && d.projects.length > 0) {
+      // If there are projects, check if at least one has essential fields
+      // Essential fields: nameOfProject OR totalProjectCost (at least one should exist)
+      return anyValid(
+        d.projects,
+        (r) =>
+          hasMeaningfulValue(r.nameOfProject) || hasMeaningfulValue(r.totalProjectCost)
+      );
+    }
+    // Also check if totalProjectCostAwarded or totalTPC exists (indicates data was entered)
+    return hasMeaningfulValue(d?.totalProjectCostAwarded) || hasMeaningfulValue(d?.totalTPC);
   },
 
   // 4.x Infra Enablers
@@ -195,7 +342,20 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
   },
   section4_3: (data) => {
     const d = data as Record<string, unknown>;
-    return hasMeaningfulValue(d?.numberOfProjects);
+    // Check if adopted field exists (yes/no)
+    if (!hasMeaningfulValue(d?.adopted)) return false;
+    // If "yes", check for projects array with valid entries
+    if (d?.adopted === "yes") {
+      return Array.isArray(d?.projects) && 
+             d.projects.length > 0 &&
+             d.projects.some((p: any) => 
+               hasMeaningfulValue(p?.projectName) && 
+               hasMeaningfulValue(p?.sector) &&
+               (p?.file && (p.file.id || p.file.fileName || p.file.filePath))
+             );
+    }
+    // If "no", section is considered filled (just like other binary yes/no sections)
+    return true;
   },
   section4_4: (data) => {
     const d = data as Record<string, unknown>;
@@ -203,27 +363,52 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     if (d?.adopted === "yes") return hasMeaningfulValue(d?.file);
     return true;
   },
-  section4_5: (data) => {
+  section4_5: (data: any) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.implemented)) return false;
-    if (d?.implemented === "yes")
-      return (
-        hasMeaningfulValue(d?.practiceName) && hasMeaningfulValue(d?.impact)
-      );
+    // If "yes", check for practices array with valid entries
+    if (d?.implemented === "yes") {
+      return Array.isArray(d?.practices) && 
+             d.practices.length > 0 &&
+             d.practices.some((p: any) => 
+               hasMeaningfulValue(p?.practiceName) && 
+               hasMeaningfulValue(p?.impact) &&
+               (p?.file && (p.file.id || p.file.fileName || p.file.filePath))
+             );
+    }
+    // If "no", section is considered filled (just like other binary yes/no sections)
     return true;
   },
-  section4_6: (data) =>{
-  const d = data as Record<string, any>;
-  return anyValid(
-    d?.capacityArray,
-    (r) =>
-      hasMeaningfulValue(r.officerName) &&
-      hasMeaningfulValue(r.designation) &&
-      hasMeaningfulValue(r.programName) &&
-      hasMeaningfulValue(r.organiser) &&
-      hasMeaningfulValue(r.trainingType)
-  );
-},
+  section4_6: (data) => {
+    const d = data as Record<string, any>;
+    // Check if participated field exists (yes/no)
+    if (hasMeaningfulValue(d?.participated)) {
+      // If "no", section is considered filled (just like other binary yes/no sections)
+      if (d?.participated === "no") return true;
+      // If "yes", check for capacityArray with valid entries
+      if (d?.participated === "yes") {
+        return anyValid(
+          d?.capacityArray,
+          (r) =>
+            hasMeaningfulValue(r.officerName) &&
+            hasMeaningfulValue(r.designation) &&
+            hasMeaningfulValue(r.programName) &&
+            hasMeaningfulValue(r.organiser) &&
+            hasMeaningfulValue(r.trainingType)
+        );
+      }
+    }
+    // Backward compatibility: if participated is not set, check capacityArray directly
+    return anyValid(
+      d?.capacityArray,
+      (r) =>
+        hasMeaningfulValue(r.officerName) &&
+        hasMeaningfulValue(r.designation) &&
+        hasMeaningfulValue(r.programName) &&
+        hasMeaningfulValue(r.organiser) &&
+        hasMeaningfulValue(r.trainingType)
+    );
+  },
 };
 
 function hasMeaningfulValue(value: unknown): boolean {
@@ -241,11 +426,51 @@ export function isSectionFilled(
   stepData: Record<string, unknown> | undefined,
   sectionKey: string
 ): boolean {
+  // If stepData doesn't exist, section is not filled
   if (!stepData) return false;
+  
   const data = (stepData as Record<string, unknown>)[sectionKey];
+  
+  // If section doesn't exist at all, it's not filled
   if (!data) return false;
+  
+  // 🚨 Check if section was sent back (REVERTED or REJECTED)
+  // If sent back, don't count as filled even if it has data (needs resubmission)
+  // Check status at the section level (handle both object and array cases)
+  let sectionStatus: string | undefined;
+  let mospiStatus: string | undefined;
+  
+  // Handle both object and array cases
+  if (Array.isArray(data)) {
+    // For array-based sections, check if the array itself has status
+    sectionStatus = (data as any)?.status;
+    mospiStatus = (data as any)?.mospi_status;
+  } else if (typeof data === 'object' && data !== null) {
+    // For object-based sections, check status on the object
+    sectionStatus = (data as any)?.status;
+    mospiStatus = (data as any)?.mospi_status;
+  }
+  
+  // ⚠️ IMPORTANT: Only mark as NOT filled if THIS specific section is REVERTED
+  // Other sections should still count as filled if they have data
+  if (sectionStatus === "REVERTED" || sectionStatus === "REJECTED") {
+    // This specific section was sent back - don't count as filled
+    return false;
+  }
+  
+  // If mospi_status is REVERTED, section is not filled (needs resubmission)
+  if (mospiStatus === "REVERTED") {
+    // This specific section was sent back by MOSPI - don't count as filled
+    return false;
+  }
+  
+  // If section exists and is NOT REVERTED, check if it has meaningful data
+  // Note: Binary yes/no sections return true when "no" is selected, which counts as filled
   const checker = REQUIRED_SECTION_CHECKS[sectionKey];
-  if (checker) return checker(data);
+  if (checker) {
+    const isFilled = checker(data);
+    return isFilled;
+  }
   return hasMeaningfulValue(data);
 }
 
@@ -261,9 +486,7 @@ export function computeStepProgress(
 ) {
   const {
     assignedIndicators = [],
-    availableIndicators = [],
     isNodalOfficer = false,
-    isStateApprover = false,
   } = options;
 
   const sections = STEP_SECTIONS[stepKey];
@@ -271,20 +494,77 @@ export function computeStepProgress(
     allFormData as Record<string, unknown>
   )?.[stepKey] as Record<string, unknown> | undefined;
 
-  // 🎯 Role-based filtering logic
-  const applicable = isNodalOfficer
-    ? sections.filter((s) => assignedIndicators.includes(s.indicator))
-    : isStateApprover
-    ? sections.filter((s) => availableIndicators.includes(s.indicator))
-    : sections;
+  // 🎯 For NODAL_OFFICER: Start with assigned indicators (if available)
+  // For others: Count indicators that exist in the submission
+  let sectionsInSubmission: typeof sections;
+  
+  if (isNodalOfficer && assignedIndicators.length > 0) {
+    // For NODAL_OFFICER: Only consider assigned indicators that exist in formData
+    // This ensures progress is based on assigned indicators, not all indicators in submission
+    sectionsInSubmission = sections.filter((s) => {
+      // Must be in assigned indicators
+      if (!assignedIndicators.includes(s.indicator)) return false;
+      // And must exist in formData
+      if (!stepData) return false;
+      return stepData[s.sectionKey] !== undefined && stepData[s.sectionKey] !== null;
+    });
+    
+    // Debug logging for NODAL_OFFICER
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Progress] ${stepKey} - NODAL_OFFICER:`, {
+        assignedIndicators,
+        sectionsInSubmission: sectionsInSubmission.map(s => s.indicator),
+        total: sectionsInSubmission.length,
+      });
+    }
+  } else {
+    // For STATE_APPROVER/MOSPI: Count all indicators that exist in the submission
+    sectionsInSubmission = sections.filter((s) => {
+      if (!stepData) return false;
+      // Check if this section exists in the formData
+      return stepData[s.sectionKey] !== undefined && stepData[s.sectionKey] !== null;
+    });
+  }
 
-  const total = applicable.length;
+  const total = sectionsInSubmission.length;
 
-  const completed = applicable.filter((s) =>
-    isSectionFilled(stepData, s.sectionKey)
-  ).length;
+  // ⚠️ IMPORTANT: If total is 0 (no sections in submission), return early
+  if (total === 0) {
+    return { completed: 0, total: 0, progress: 0 };
+  }
 
-  const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
+  // Count how many sections are filled (excluding REVERTED ones)
+  // A section is filled if:
+  // 1. It exists in stepData AND
+  // 2. It has meaningful data AND
+  // 3. It's NOT REVERTED/REJECTED
+  const completed = sectionsInSubmission.filter((s) => {
+    // Check if section is filled (handles REVERTED status internally)
+    // This will return false if:
+    // - Section has no meaningful data
+    // - Section status is REVERTED or REJECTED
+    // - Section mospi_status is REVERTED
+    const isFilled = isSectionFilled(stepData, s.sectionKey);
+    
+    // Debug logging for each section (for all categories, not just pppDevelopment)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Progress] ${stepKey} - ${s.indicator} (${s.sectionKey}):`, {
+        exists: stepData?.[s.sectionKey] !== undefined,
+        isFilled,
+        hasData: stepData?.[s.sectionKey] !== null && stepData?.[s.sectionKey] !== undefined,
+        dataKeys: stepData?.[s.sectionKey] && typeof stepData[s.sectionKey] === 'object' 
+          ? Object.keys(stepData[s.sectionKey] as object) 
+          : 'not an object',
+      });
+    }
+    
+    return isFilled;
+  }).length;
+
+  // Calculate progress: (completed / total) × 100%
+  // Example: Submission has 5 indicators, 4 filled, 1 sent back = (3/5) × 100% = 60%
+  // Note: REVERTED indicators are counted in total but not in completed
+  const progress = Math.round((completed / total) * 100);
 
   return { completed, total, progress };
 }

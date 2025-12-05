@@ -14,6 +14,7 @@ export interface FileUpload {
   id: string;
   file: File | null; // Local file (null once uploaded to backend)
   fileName: string;
+  originalName?: string; // Original filename before UUID prefix (from S3)
   fileSize: number;
   uploadedAt: number;
   filePath?: string; // ✅ path returned from backend (e.g. submissions/...pdf)

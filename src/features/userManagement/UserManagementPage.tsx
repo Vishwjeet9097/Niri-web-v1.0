@@ -236,6 +236,7 @@ export function UserManagementPage() {
           //throw new Error("State is required but not provided");
         }
 
+ 
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
@@ -255,6 +256,15 @@ export function UserManagementPage() {
           "Officer updated successfully",
           "Update Successful"
         );
+
+        // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
+        // Check if indicators were actually updated
+        if (officerData.assignedIndicators !== undefined) {
+          console.log("📢 Dispatching indicatorsUpdated event after user update");
+          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
+            detail: { userId: editingOfficer.id, action: 'update' } 
+          }));
+        }
       } else {
         // Create new user via backend API
         // Debug logging removed for performance
@@ -282,7 +292,7 @@ export function UserManagementPage() {
                 selectedStateId = officerData.stateId; // Fallback to ID if not found
                 selectedStateName = officerData.stateId; // Fallback to ID if not found
                 console.warn(
-                  "⚠️ State not found in states array:",
+                  "⚠️ State not found in states array1:",
                   officerData.stateId
                 );
               }
@@ -297,7 +307,7 @@ export function UserManagementPage() {
                 selectedStateId = officerData.stateId; // Fallback
                 selectedStateName = officerData.stateId; // Fallback
                 console.warn(
-                  "⚠️ State not found in states array:",
+                  "⚠️ State not found in states array2:",
                   officerData.stateId
                 );
               }
@@ -328,8 +338,9 @@ export function UserManagementPage() {
         }
 
         // Before calling register, compute final values to send:
-        const stateUtToSend =
-          selectedStateName || officerData.stateUt || selectedStateId || "";
+        const stateUtToSend = 
+            selectedStateName || officerData.stateUt || selectedStateId || "";
+ 
 
         // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
         const newUser = await apiService.register(
@@ -339,7 +350,7 @@ export function UserManagementPage() {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          stateUtToSend, // <- pass state NAME here (was officerData.stateUt)
+          officerData.stateUt, // <- pass state NAME here (was officerData.stateUt)
           selectedStateId, // <- state ID
           officerData.assignedIndicators // indicators
         );
@@ -359,6 +370,15 @@ export function UserManagementPage() {
           "Officer added successfully",
           "Registration Successful"
         );
+
+        // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
+        // Check if indicators were assigned to the new user
+        if (officerData.assignedIndicators && officerData.assignedIndicators.length > 0) {
+          console.log("📢 Dispatching indicatorsUpdated event after user creation");
+          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
+            detail: { action: 'create', assignedIndicators: officerData.assignedIndicators } 
+          }));
+        }
       }
       await loadOfficers();
       setShowForm(false);
@@ -730,11 +750,7 @@ export function UserManagementPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               User Management
-            </h1>
-            <p className="text-muted-foreground">
-              Add or remove Nodal Officers for your State/UT and assign them
-              specific indicators for data submission
-            </p>
+            </h1>            
           </div>
         </div>
         <EmptyState onAddClick={handleAddUser} />
@@ -793,12 +809,8 @@ export function UserManagementPage() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">
-              Enter officer details
-            </h1>
-            <p className="text-[#000]">
-              Add or remove Nodal Officers for your State/UT and assign them
-              specific indicators for data submission.
-            </p>
+              User Management
+            </h1> 
           </div>
         </div>
         <div className="flex gap-3">
@@ -856,10 +868,13 @@ export function UserManagementPage() {
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
+              <SelectItem value="all">Select Roles</SelectItem>
+
+               {user?.role !== "ADMIN" && (
               <SelectItem value="NODAL_OFFICER">
                 {getRoleDisplayName("NODAL_OFFICER")}
               </SelectItem>
+               )}
               {user?.role !== "STATE_APPROVER" && (
                 <>
                   <SelectItem value="STATE_APPROVER">
@@ -871,11 +886,13 @@ export function UserManagementPage() {
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
                   </SelectItem>
-                  <SelectItem value="ADMIN">
-                    {getRoleDisplayName("ADMIN")}
-                  </SelectItem>
+                  
                 </>
               )}
+               {user?.role == "ADMIN" && (<SelectItem value="ADMIN">
+                    {getRoleDisplayName("ADMIN")}
+                  </SelectItem>
+                )}
             </SelectContent>
           </Select>
         </div>
@@ -915,14 +932,13 @@ export function UserManagementPage() {
         sortField={sortField}
         sortDirection={sortDirection}
         onSort={handleSort}
-        states={states}
       />
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
+            {/* Page {currentPage} of {totalPages} */}
           </div>
           <div className="flex items-center space-x-2">
             <Button

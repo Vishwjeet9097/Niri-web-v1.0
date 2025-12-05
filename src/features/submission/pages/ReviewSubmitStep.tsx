@@ -39,6 +39,7 @@ import {
   getFormDataSummary,
   debugFormData,
 } from "@/utils/formDataTransformer";
+import { filterSectionFormDataByIndicators } from "@/utils/indicatorUtils";
 import { SectionCard } from "../components/SectionCard";
 import { Plus, Trash2, Info } from "lucide-react";
 import {
@@ -182,9 +183,22 @@ export const ReviewSubmitStep = () => {
     try {
       console.log("🚀 Preparing NIRI submission...");
 
+      // Filter formData based on assigned indicators BEFORE transformation
+      let formDataToSubmit = formData;
+      
+      // Only filter if user has assigned indicators (safe fallback)
+      if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+        formDataToSubmit = filterSectionFormDataByIndicators(formData, assignedIndicators);
+        console.log("✅ Filtered formData for nodal officer:", formDataToSubmit);
+      } else if (isStateApprover && availableIndicators && availableIndicators.length > 0) {
+        formDataToSubmit = filterSectionFormDataByIndicators(formData, availableIndicators);
+        console.log("✅ Filtered formData for state approver:", formDataToSubmit);
+      }
+      // If no indicators assigned, use original formData (existing behavior preserved)
+
       // 1️⃣ Transform the data
       const transformedSubmission = transformFormDataForSubmission(
-        formData,
+        formDataToSubmit,
         "SUBMITTED_TO_STATE"
       );
 
@@ -229,7 +243,7 @@ export const ReviewSubmitStep = () => {
         });
       };
 
-      appendAllFiles(formData);
+      appendAllFiles(formDataToSubmit);
 
       // 4️⃣ Debug: confirm files attached
       console.group("🧾 Final FormData contents:");
@@ -303,6 +317,15 @@ export const ReviewSubmitStep = () => {
           ? "Form resubmitted successfully"
           : "Form submitted successfully"
       );
+
+      // 🔒 Dispatch custom event to notify DashboardLayout - Scenario 2: Disable Create Submission button
+      if (isStateApprover) {
+        console.log("🔒 [ReviewSubmit] Dispatching submission-success event");
+        window.dispatchEvent(new CustomEvent('submission-success', {
+          detail: { submissionId, isStateApprover: true }
+        }));
+      }
+
       clearFormData();
       setShowSuccessModal(true);
     } catch (error) {
