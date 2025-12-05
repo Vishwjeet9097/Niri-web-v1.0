@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Users, Search, Filter, Loader2, Trash2 } from "lucide-react";
+import { Plus, Users, Search, Filter, Loader2 } from "lucide-react";
 import { getRoleDisplayName } from "@/utils/roles";
 import {
   userManagementService,
@@ -19,6 +19,7 @@ import {
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
 import { EmptyState } from "./components/EmptyState";
+import { CleanupButtons } from "./components/CleanupButtons";
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
@@ -44,11 +45,6 @@ export function UserManagementPage() {
   const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
   const [hasSubmissions, setHasSubmissions] = useState(false);
   const [checkingSubmissions, setCheckingSubmissions] = useState(false);
-  const [cleanupModalOpen, setCleanupModalOpen] = useState(false);
-  const [isCleaningUp, setIsCleaningUp] = useState(false);
-  const [deleteUsersModalOpen, setDeleteUsersModalOpen] = useState(false);
-  const [selectedRoleToDelete, setSelectedRoleToDelete] = useState<string>("");
-  const [isDeletingUsers, setIsDeletingUsers] = useState(false);
 
   const { refresh } = useIndicatorAccess();
   const loadStates = async () => {
@@ -700,71 +696,6 @@ export function UserManagementPage() {
     }
   };
 
-  const handleCleanupTestData = async () => {
-    setIsCleaningUp(true);
-    try {
-      const result = await apiService.cleanupTestData();
-
-      notificationService.success(
-        `Test data cleanup completed successfully. Deleted: ${result.deleted.submissions} submissions, ${result.deleted.finalScores} final scores, ${result.deleted.userIndicatorScopes} indicator assignments.`,
-        "Cleanup Successful"
-      );
-
-      // Refresh the officers list to reflect any changes
-      await loadOfficers();
-
-      // Close modal
-      setCleanupModalOpen(false);
-    } catch (error: any) {
-      console.error("❌ Error cleaning up test data:", error);
-      const errorMessage =
-        error?.message ||
-        error?.response?.data?.message ||
-        "Failed to cleanup test data. Please try again.";
-      notificationService.error(errorMessage, "Cleanup Failed");
-    } finally {
-      setIsCleaningUp(false);
-    }
-  };
-
-  const handleDeleteUsersByRole = async () => {
-    if (!selectedRoleToDelete) {
-      notificationService.warning(
-        "Please select a role to delete",
-        "No Role Selected"
-      );
-      return;
-    }
-
-    setIsDeletingUsers(true);
-    try {
-      const result = await apiService.deleteUsersByRole(selectedRoleToDelete);
-
-      notificationService.success(
-        `Successfully deleted ${
-          result.deletedCount || 0
-        } users with role ${getRoleDisplayName(selectedRoleToDelete)}.`,
-        "Users Deleted Successfully"
-      );
-
-      // Refresh the officers list to reflect changes
-      await loadOfficers();
-
-      // Reset and close modal
-      setSelectedRoleToDelete("");
-      setDeleteUsersModalOpen(false);
-    } catch (error: any) {
-      console.error("❌ Error deleting users by role:", error);
-      const errorMessage =
-        error?.message ||
-        error?.response?.data?.message ||
-        "Failed to delete users. Please try again.";
-      notificationService.error(errorMessage, "Delete Failed");
-    } finally {
-      setIsDeletingUsers(false);
-    }
-  };
-
   const handleCancel = () => {
     setShowForm(false);
     setEditingOfficer(null);
@@ -871,46 +802,18 @@ export function UserManagementPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          {user?.role === "ADMIN" && (
-            <>
-              <Button
-                variant="destructive"
-                onClick={() => setDeleteUsersModalOpen(true)}
-                disabled={isDeleting || isCleaningUp || isDeletingUsers}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Users by Role
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => setCleanupModalOpen(true)}
-                disabled={isDeleting || isCleaningUp || isDeletingUsers}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Cleanup Test Data
-              </Button>
-            </>
-          )}
-          {user?.role === "MOSPI_APPROVER" && (
-            <Button
-              variant="destructive"
-              onClick={() => setCleanupModalOpen(true)}
-              disabled={isDeleting || isCleaningUp || isDeletingUsers}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Cleanup Test Data
-            </Button>
-          )}
+          {/* Cleanup Buttons Component - Comment/Uncomment to enable/disable */}
+          <CleanupButtons
+            userRole={user?.role}
+            onRefresh={loadOfficers}
+            isDeleting={isDeleting}
+          />
+          {/* End Cleanup Buttons Component */}
           <Button
             variant="outline"
             onClick={handleDeleteAll}
             disabled={
               isDeleting ||
-              isCleaningUp ||
-              isDeletingUsers ||
               (selectedIds.size === 0 && officers.length === 0)
             }
           >
@@ -918,7 +821,7 @@ export function UserManagementPage() {
           </Button>
           <Button
             onClick={handleAddUser}
-            disabled={isDeleting || isCleaningUp || isDeletingUsers}
+            disabled={isDeleting}
           >
             <Plus className="w-4 h-4 mr-2" />
             Add User
@@ -1133,101 +1036,6 @@ export function UserManagementPage() {
             </p>
           </div>
         )}
-      </ConfirmationModal>
-
-      {/* Confirmation Modal for Test Data Cleanup */}
-      <ConfirmationModal
-        open={cleanupModalOpen}
-        onClose={() => setCleanupModalOpen(false)}
-        onConfirm={handleCleanupTestData}
-        title="Cleanup Test Data"
-        description="This will permanently delete all test submissions and indicator assignments. This action cannot be undone."
-        confirmText="Cleanup Test Data"
-        cancelText="Cancel"
-        variant="destructive"
-        isLoading={isCleaningUp}
-      >
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-sm text-red-800 mb-3">
-            <strong>WARNING:</strong> This is a destructive operation that will
-            delete:
-          </p>
-          <ul className="text-sm text-red-800 list-disc list-inside space-y-1">
-            <li>
-              All submissions made by NODAL_OFFICER, STATE_APPROVER, and
-              MOSPI_REVIEWER users
-            </li>
-            <li>All FinalScore records related to those submissions</li>
-            <li>All UserIndicatorScope records for NODAL_OFFICER users</li>
-          </ul>
-          <p className="text-sm text-red-800 mt-3">
-            <strong>
-              This action is for testing purposes only and cannot be undone!
-            </strong>
-          </p>
-        </div>
-      </ConfirmationModal>
-
-      {/* Confirmation Modal for Delete Users by Role */}
-      <ConfirmationModal
-        open={deleteUsersModalOpen}
-        onClose={() => {
-          setDeleteUsersModalOpen(false);
-          setSelectedRoleToDelete("");
-        }}
-        onConfirm={handleDeleteUsersByRole}
-        title="Delete Users by Role"
-        description="This will permanently delete all users with the selected role. This action cannot be undone."
-        confirmText="Delete Users"
-        cancelText="Cancel"
-        variant="destructive"
-        isLoading={isDeletingUsers}
-      >
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-4">
-          <p className="text-sm text-red-800">
-            <strong>WARNING:</strong> This is a destructive operation that will
-            permanently delete all users with the selected role.
-          </p>
-          <div>
-            <label className="text-sm font-medium text-red-900 mb-2 block">
-              Select Role to Delete:
-            </label>
-            <Select
-              value={selectedRoleToDelete}
-              onValueChange={setSelectedRoleToDelete}
-              disabled={isDeletingUsers}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NODAL_OFFICER">
-                  {getRoleDisplayName("NODAL_OFFICER")}
-                </SelectItem>
-                <SelectItem value="STATE_APPROVER">
-                  {getRoleDisplayName("STATE_APPROVER")}
-                </SelectItem>
-                <SelectItem value="MOSPI_REVIEWER">
-                  {getRoleDisplayName("MOSPI_REVIEWER")}
-                </SelectItem>
-                <SelectItem value="MOSPI_APPROVER">
-                  {getRoleDisplayName("MOSPI_APPROVER")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {selectedRoleToDelete && (
-            <p className="text-sm text-red-800 mt-2">
-              <strong>Selected:</strong>{" "}
-              {getRoleDisplayName(selectedRoleToDelete)}
-            </p>
-          )}
-          <p className="text-sm text-red-800 mt-3">
-            <strong>
-              This action is for testing purposes only and cannot be undone!
-            </strong>
-          </p>
-        </div>
       </ConfirmationModal>
     </div>
   );
