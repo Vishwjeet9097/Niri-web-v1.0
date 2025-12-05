@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 export interface NodalOfficer {
   id: string;
   firstName: string;

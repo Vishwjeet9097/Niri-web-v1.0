@@ -4,6 +4,7 @@
  */
 
 // Removed mock data import - using actual API data
+import crypto from "crypto";
 
 export interface PrefillData {
   infraFinancing: any;

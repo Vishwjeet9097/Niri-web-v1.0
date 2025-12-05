@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Upload, Plus, Clock, Edit3, Check, X, RotateCcw, CheckCircle, Eye, Download, Loader2 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect, useRef, useMemo } from "react";
+import crypto from "crypto";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,

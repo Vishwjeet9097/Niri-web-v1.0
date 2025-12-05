@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import type { FileUpload } from "../types";
+import crypto from "crypto";
 
 // Helper function to read access token from localStorage
 function readAccessTokenFromLocalStorage(): string | undefined {

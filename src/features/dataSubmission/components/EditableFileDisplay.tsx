@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import type { FileUpload } from "@/types";
+import crypto from "crypto";
 import {
   AlertDialog,
   AlertDialogAction,

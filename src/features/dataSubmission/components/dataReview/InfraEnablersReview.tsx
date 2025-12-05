@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Upload, Plus, Trash2, Clock, RotateCcw, CheckCircle, X, Check, Edit3, Eye, Download, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
+import crypto from "crypto";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   AlertDialog,
