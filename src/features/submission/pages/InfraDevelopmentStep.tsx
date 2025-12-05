@@ -5,6 +5,7 @@ import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { v4 as uuidv4 } from 'uuid';
 import crypto from "crypto";
 import {
   Select,
@@ -393,7 +394,7 @@ export const InfraDevelopmentStep = () => {
             ...(prev as any)[section],
             [arrKey]: [
               ...((prev as any)[section]?.[arrKey] || []),
-              { id: crypto.randomUUID(), sector: "", files: [] },
+              { id: randomUUID() || uuidv4(), sector: "", files: [] },
             ],
           },
         } as any)
@@ -461,7 +462,7 @@ export const InfraDevelopmentStep = () => {
             ...(prev as any).section2_4,
             [arrKey]: [
               ...((prev as any).section2_4?.[arrKey] || []),
-              { id: crypto.randomUUID(), projectName: "", dprFile: null },
+              { id: randomUUID() || uuidv4(), projectName: "", dprFile: null },
             ],
           },
         } as any)
@@ -523,7 +524,7 @@ export const InfraDevelopmentStep = () => {
             [arrKey]: [
               ...((prev as any).section2_5?.[arrKey] || []),
               {
-                id: crypto.randomUUID(),
+                id: randomUUID() || uuidv4(),
                 projectName: "",
                 sector: "",
                 type: "",

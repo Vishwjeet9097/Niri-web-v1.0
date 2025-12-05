@@ -86,7 +86,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
       ...prev,
       [section]: [
         ...prev[section],
-        { id: crypto.randomUUID(), sector: "", files: [] },
+        { id: crypto.randomUUID() || uuidv4(), sector: "", files: [] },
       ],
     }));
   };

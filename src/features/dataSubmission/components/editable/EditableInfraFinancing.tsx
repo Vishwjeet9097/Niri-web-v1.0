@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import crypto from "crypto";
+import { randomUUID } from "crypto";
+import { v4 as uuidv4 } from 'uuid';
 import {
   Select,
   SelectContent,
@@ -102,7 +104,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
       section1_3: [
         ...formData.section1_3,
         {
-          id: crypto.randomUUID(),
+          id: randomUUID() || uuidv4(),
           cityName: "",
           ulb: "",
           ratingDate: "",
@@ -125,7 +127,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
       section1_4: [
         ...formData.section1_4,
         {
-          id: crypto.randomUUID(),
+          id: randomUUID() || uuidv4(),
           bondType: "",
           cityName: "",
           issuingAuthority: "",
@@ -148,7 +150,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
       section1_5: [
         ...formData.section1_5,
         {
-          id: crypto.randomUUID(),
+          id: randomUUID() || uuidv4(),
           organisationName: "",
           organisationType: "",
           yearEstablished: "",

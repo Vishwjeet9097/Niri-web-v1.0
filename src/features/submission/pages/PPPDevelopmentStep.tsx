@@ -5,6 +5,7 @@ import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { v4 as uuidv4 } from 'uuid';
 import crypto from "crypto";
 import {
   Select,
@@ -382,7 +383,7 @@ export const PPPDevelopmentStep = () => {
         VGFArray: [
           ...prev.section3_3.VGFArray,
           {
-            id: crypto.randomUUID(),
+            id: crypto.randomUUID() || uuidv4(),
             projectName: "",
             sector: "",
             type: "",
@@ -429,7 +430,7 @@ export const PPPDevelopmentStep = () => {
         projects: [
           ...(prev.section3_4.projects || []),
           {
-            id: crypto.randomUUID(),
+            id: crypto.randomUUID() || uuidv4(),
             nameOfProject: "",
             nipId: "",
             fundingSource: "",

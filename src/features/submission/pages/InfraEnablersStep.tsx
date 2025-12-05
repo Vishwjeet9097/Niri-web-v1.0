@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import crypto from "crypto";
+import { v4 as uuidv4 } from 'uuid';
 import {
   Select,
   SelectContent,
@@ -397,7 +398,7 @@ export const InfraEnablersStep = () => {
             id:
               typeof crypto !== "undefined" &&
               typeof crypto.randomUUID === "function"
-                ? crypto.randomUUID()
+                ? crypto.randomUUID() || uuidv4()
                 : Date.now().toString(),
             projectName: "",
             sector: "",
@@ -446,7 +447,7 @@ export const InfraEnablersStep = () => {
             id:
               typeof crypto !== "undefined" &&
               typeof crypto.randomUUID === "function"
-                ? crypto.randomUUID()
+                ? crypto.randomUUID() || uuidv4()
                 : Date.now().toString(),
             practiceName: "",
             impact: "",
@@ -488,7 +489,7 @@ export const InfraEnablersStep = () => {
     const newEntry = {
       id:
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
+          ? crypto.randomUUID() || uuidv4()
           : Date.now().toString(),
       officerName: "",
       designation: "",
