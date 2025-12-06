@@ -35,9 +35,18 @@ export function CleanupButtons({
     setIsCleaningUp(true);
     try {
       const result = await apiService.cleanupTestData();
+      
+      console.log("🔍 Cleanup result:", result);
+
+      // Safely access deleted property with fallback
+      const deleted = result?.deleted || {};
+      const submissions = deleted.submissions || 0;
+      const finalScores = deleted.finalScores || 0;
+      const userIndicatorScopes = deleted.userIndicatorScopes || 0;
+      const auditLogs = deleted.auditLogs || 0;
 
       notificationService.success(
-        `Test data cleanup completed successfully. Deleted: ${result.deleted.submissions} submissions, ${result.deleted.finalScores} final scores, ${result.deleted.userIndicatorScopes} indicator assignments.`,
+        `Test data cleanup completed successfully. Deleted: ${submissions} submissions, ${finalScores} final scores, ${userIndicatorScopes} indicator assignments, ${auditLogs} audit logs.`,
         "Cleanup Successful"
       );
 
@@ -100,24 +109,22 @@ export function CleanupButtons({
     }
   };
 
-  // Don't render anything if user doesn't have permission
-  if (userRole !== "ADMIN" && userRole !== "MOSPI_APPROVER") {
+  // Don't render anything if user doesn't have permission (ADMIN only)
+  if (userRole !== "ADMIN") {
     return null;
   }
 
   return (
     <>
-      {userRole === "ADMIN" && (
-        <Button
-          variant="destructive"
-          onClick={() => setDeleteUsersModalOpen(true)}
-          disabled={isDeleting || isCleaningUp || isDeletingUsers}
-          className="bg-red-600 hover:bg-red-700"
-        >
-          <Trash2 className="w-4 h-4 mr-2" />
-          Delete Users by Role
-        </Button>
-      )}
+      <Button
+        variant="destructive"
+        onClick={() => setDeleteUsersModalOpen(true)}
+        disabled={isDeleting || isCleaningUp || isDeletingUsers}
+        className="bg-red-600 hover:bg-red-700"
+      >
+        <Trash2 className="w-4 h-4 mr-2" />
+        Delete Users by Role
+      </Button>
       <Button
         variant="destructive"
         onClick={() => setCleanupModalOpen(true)}

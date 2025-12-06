@@ -804,7 +804,7 @@ class ApiService implements HttpClient {
         // Append files
         this.appendFilesToFormData(multipartFormData, formData, "formData");
         
-        response = await this.axios.patch(`/submission/${id}`, multipartFormData, {
+        response = await this.axios.put(`/submission/${id}`, multipartFormData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
@@ -812,7 +812,7 @@ class ApiService implements HttpClient {
         console.log("📤 Using regular JSON payload");
         console.log("📦 Full payload:", JSON.stringify(formData, null, 2));
         
-        response = await this.axios.patch(`/submission/${id}`, formData);
+        response = await this.axios.put(`/submission/${id}`, formData);
       }
       
       console.log(
@@ -1904,6 +1904,160 @@ async getStateApproverDashboard(): Promise<any> {
         );
       }
       throw error;
+    }
+  }
+
+  /**
+   * TESTING ONLY: Cleanup test data
+   * Deletes all test submissions, final scores, and user indicator scopes
+   * WARNING: This is a destructive operation for testing purposes only!
+   */
+  async cleanupTestData(): Promise<{
+    success: boolean;
+    message: string;
+    deleted: {
+      submissions: number;
+      finalScores: number;
+      userIndicatorScopes: number;
+      auditLogs: number;
+    };
+  }> {
+    try {
+      // Note: The response interceptor already extracts response.data, so 'data' is already the response body
+      const data = await this.axios.post(`/submission/cleanup-test-data`);
+      console.log(
+        "🔍 API Service - Cleanup Test Data Response:",
+        JSON.stringify(data, null, 2)
+      );
+
+      // Handle different response structures
+      let cleanupData = data;
+      
+      // If data has a data property (nested structure), use it
+      if (data?.data !== undefined && typeof data.data === 'object') {
+        cleanupData = data.data;
+      }
+      
+      // Ensure the response has the expected structure
+      if (!cleanupData || typeof cleanupData !== 'object') {
+        console.error("❌ API Service - Invalid response structure:", cleanupData);
+        console.error("❌ API Service - Raw response:", data);
+        throw new Error("Invalid response from server");
+      }
+
+      // Ensure deleted property exists with defaults
+      if (!cleanupData.deleted) {
+        console.warn("⚠️ API Service - Response missing 'deleted' property, using defaults");
+        cleanupData.deleted = {
+          submissions: 0,
+          finalScores: 0,
+          userIndicatorScopes: 0,
+          auditLogs: 0,
+        };
+      }
+
+      console.log(
+        "🔍 API Service - Processed Cleanup Test Data:",
+        JSON.stringify(cleanupData, null, 2)
+      );
+
+      return cleanupData;
+    } catch (error: any) {
+      console.error("❌ API Service - Cleanup Test Data Error:", error);
+      if (error.response) {
+        console.error("❌ API Service - Error Response:", error.response.data);
+        throw new Error(
+          error.response.data?.message ||
+          error.response.data?.error ||
+          "Failed to cleanup test data"
+        );
+      }
+      // If error is already a string/Error, use it directly
+      if (error.message) {
+        throw error;
+      }
+      throw new Error("Failed to cleanup test data");
+    }
+  }
+
+  /**
+   * TESTING ONLY: Delete users by role
+   * Deletes all users with the specified role along with their related data
+   * WARNING: This is a destructive operation for testing purposes only!
+   */
+  async deleteUsersByRole(role: string): Promise<{
+    success: boolean;
+    message: string;
+    deletedCount: number;
+    deleted: {
+      users: number;
+      userIndicatorScopes: number;
+      submissions: number;
+      finalScores: number;
+      auditLogs: number;
+    };
+  }> {
+    try {
+      // Note: The response interceptor already extracts response.data, so 'data' is already the response body
+      const data = await this.axios.delete(`/users/by-role/${role}`);
+      console.log(
+        "🔍 API Service - Delete Users By Role Response:",
+        JSON.stringify(data, null, 2)
+      );
+
+      // Handle different response structures
+      let deleteData = data;
+      
+      // If data has a data property (nested structure), use it
+      if (data?.data !== undefined && typeof data.data === 'object') {
+        deleteData = data.data;
+      }
+      
+      // Ensure the response has the expected structure
+      if (!deleteData || typeof deleteData !== 'object') {
+        console.error("❌ API Service - Invalid response structure:", deleteData);
+        console.error("❌ API Service - Raw response:", data);
+        throw new Error("Invalid response from server");
+      }
+
+      // Ensure deleted property exists with defaults
+      if (!deleteData.deleted) {
+        console.warn("⚠️ API Service - Response missing 'deleted' property, using defaults");
+        deleteData.deleted = {
+          users: 0,
+          userIndicatorScopes: 0,
+          submissions: 0,
+          finalScores: 0,
+          auditLogs: 0,
+        };
+      }
+
+      // Ensure deletedCount exists
+      if (deleteData.deletedCount === undefined) {
+        deleteData.deletedCount = deleteData.deleted?.users || 0;
+      }
+
+      console.log(
+        "🔍 API Service - Processed Delete Users By Role Data:",
+        JSON.stringify(deleteData, null, 2)
+      );
+
+      return deleteData;
+    } catch (error: any) {
+      console.error("❌ API Service - Delete Users By Role Error:", error);
+      if (error.response) {
+        console.error("❌ API Service - Error Response:", error.response.data);
+        throw new Error(
+          error.response.data?.message ||
+          error.response.data?.error ||
+          "Failed to delete users by role"
+        );
+      }
+      // If error is already a string/Error, use it directly
+      if (error.message) {
+        throw error;
+      }
+      throw new Error("Failed to delete users by role");
     }
   }
 

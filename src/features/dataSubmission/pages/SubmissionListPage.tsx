@@ -45,6 +45,7 @@ import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 import { buildIndicatorMapping } from "@/utils/indicatorMappingUtils";
 import { extractFileMetadataFromFormData } from "@/utils/extractFileMetadata";
+import { extractSubmissionId } from "@/services/autoAcceptance.service";
 import axios from "axios";
 import { config } from "@/config/environment";
 import { getSubmissionStatus, getSubmissionDisplayStatus } from "@/utils/indicatorStatusUtils";
@@ -822,13 +823,13 @@ const handleFinalSubmit = async () => {
       console.log("🔄 STEP 3: Transforming formData for submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
-      // Determine submission status - if updating existing, keep its status, otherwise create new with SUBMITTED_TO_MOSPI_REVIEWER
-      const submissionStatus = existingConsolidatedSubmission?.status || "SUBMITTED_TO_MOSPI_REVIEWER";
+      // Always create a NEW submission when forwarding to MOSPI_REVIEWER
+      // This maintains history - the existing SUBMITTED_TO_STATE submission remains unchanged
+      // The new submission will have status SUBMITTED_TO_MOSPI_REVIEWER with a new submission ID
+      const submissionStatus = "SUBMITTED_TO_MOSPI_REVIEWER";
       
-      // If updating existing submission, use its submissionId, otherwise generate new one
-      const submissionIdToUse = existingConsolidatedSubmission 
-        ? existingConsolidatedSubmission.submissionId 
-        : undefined;
+      // Always generate a new submission ID (don't reuse existing one)
+      const submissionIdToUse = undefined;
       
       const transformedData = transformFormDataForSubmission(
         formData, 
@@ -1078,63 +1079,37 @@ const handleFinalSubmit = async () => {
       let consolidatedSubmissionId: string;
       let returnedStatus: string;
 
+      // Always CREATE a new consolidated submission when forwarding to MOSPI_REVIEWER
+      // This maintains submission history - existing SUBMITTED_TO_STATE submission remains unchanged
+      console.log("📤 [FinalSubmit] Creating new consolidated submission for MOSPI_REVIEWER");
       if (existingConsolidatedSubmission) {
-        // Update existing consolidated submission
-        console.log("🔄 [FinalSubmit] Updating existing consolidated submission:", existingConsolidatedSubmission.id);
-        
-        // For update, we only need to send formData (not the full submission object)
-        const updatePayload = {
-          formData: transformedData.formData,
-          status: transformedData.status, // Ensure status is also updated
-        };
-        
-        response = await axios.put(
-          `${config.apiBaseUrl}/submission/${existingConsolidatedSubmission.id}`,
-          updatePayload,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        console.log("✅ Update successful!");
-        console.log("📦 Response:", response.data);
-        
-        // Extract submission from response
-        const updatedSubmission = response.data?.data || response.data;
-        consolidatedSubmissionId = existingConsolidatedSubmission.submissionId;
-        returnedStatus = updatedSubmission?.status || existingConsolidatedSubmission.status;
-      } else {
-        // Create new consolidated submission
-        console.log("📤 [FinalSubmit] Creating new consolidated submission");
-        
-        response = await axios.post(
-          `${config.apiBaseUrl}/submission`,
-          multipartData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-
-        console.log("✅ Create successful!");
-        console.log("📦 Response:", response.data);
-        
-        // Extract submission from response
-        const createdSubmission = response.data?.data || response.data;
-        consolidatedSubmissionId = transformedData.submissionId;
-        returnedStatus = createdSubmission?.status || transformedData.status;
+        console.log("ℹ️ [FinalSubmit] Existing consolidated submission found but will create new one:", existingConsolidatedSubmission.submissionId);
+        console.log("ℹ️ [FinalSubmit] Existing submission will remain in status:", existingConsolidatedSubmission.status);
       }
+      
+      response = await axios.post(
+        `${config.apiBaseUrl}/submission`,
+        multipartData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      console.log("✅ Create successful!");
+      console.log("📦 Response:", response.data);
+      
+      // Extract submission from response
+      const createdSubmission = response.data?.data || response.data;
+      consolidatedSubmissionId = extractSubmissionId(response);
+      returnedStatus = createdSubmission?.status || transformedData.status;
       
       console.log("📝 [FinalSubmit] Consolidated submission ID:", consolidatedSubmissionId);
       console.log("📊 [FinalSubmit] Returned status from API:", returnedStatus);
-      console.log("✅ [FinalSubmit] " + (existingConsolidatedSubmission ? "Update" : "Create") + " completed");
+      console.log("✅ [FinalSubmit] Create completed - new submission created with status:", returnedStatus);
       
       // Update source submissions with consolidation metadata (for both create and update)
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
