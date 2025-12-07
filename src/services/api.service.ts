@@ -3293,7 +3293,76 @@ async getStateIndicatorStatuses(year?: string): Promise<{
   const res = await this.axios.get(`/users/states/assigned-state-by-state-approver/${roleName}`);
   return res.data;
 }
- 
+
+  async checkEmailAvailability(
+    email: string,
+    excludeUserId?: string
+  ): Promise<boolean> {
+    try {
+      const params = excludeUserId ? { excludeUserId } : {};
+      // Note: The response interceptor already extracts response.data, so 'response' is already the data object
+      const response = await this.axios.get(
+        `/users/check-email/${encodeURIComponent(email)}`,
+        { params }
+      );
+      
+      // Log response for debugging
+      console.log("Email availability check response:", {
+        email,
+        response: response,
+        available: response?.data?.available
+      });
+      
+      // Return availability status, default to true if unclear
+      // Response interceptor returns response.data, so response is already { status, data, message }
+      const isAvailable = response?.data?.available ?? true;
+      return isAvailable;
+    } catch (error: any) {
+      // If error (network, 404, etc.), assume available (don't block user)
+      // Only return false if we get a clear 200 response saying it's not available
+      console.warn("Error checking email availability, assuming available:", {
+        email,
+        error: error.response?.data || error.message,
+        status: error.response?.status
+      });
+      return true; // Assume available on error to avoid false positives
+    }
+  }
+
+  async checkContactAvailability(
+    contactNumber: string,
+    excludeUserId?: string
+  ): Promise<boolean> {
+    try {
+      const params = excludeUserId ? { excludeUserId } : {};
+      // Note: The response interceptor already extracts response.data, so 'response' is already the data object
+      const response = await this.axios.get(
+        `/users/check-contact/${encodeURIComponent(contactNumber)}`,
+        { params }
+      );
+      
+      // Log response for debugging
+      console.log("Contact availability check response:", {
+        contactNumber,
+        response: response,
+        available: response?.data?.available
+      });
+      
+      // Return availability status, default to true if unclear
+      // Response interceptor returns response.data, so response is already { status, data, message }
+      const isAvailable = response?.data?.available ?? true;
+      return isAvailable;
+    } catch (error: any) {
+      // If error (network, 404, etc.), assume available (don't block user)
+      // Only return false if we get a clear 200 response saying it's not available
+      console.warn("Error checking contact availability, assuming available:", {
+        contactNumber,
+        error: error.response?.data || error.message,
+        status: error.response?.status
+      });
+      return true; // Assume available on error to avoid false positives
+    }
+  }
 }
 
 

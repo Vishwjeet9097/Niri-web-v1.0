@@ -90,9 +90,9 @@ export const validateInfraDevelopment = (
   // Section 2.1 - Availability of Infrastructure Act/Policy
   if (shouldValidateSection("2.1")) {
     const section21 = data.section2_1;
-    if (!section21.infraActArray || section21.infraActArray.length < 3) {
+    if (!section21.infraActArray || section21.infraActArray.length < 1) {
       errors["section2_1.infraActArray"] =
-        "Minimum 3 sectors required. Add at least 3 entries.";
+        "At least one entry is required.";
     } else {
       section21.infraActArray.forEach((entry, index) => {
         if (!entry.sector || entry.sector.trim() === "") {

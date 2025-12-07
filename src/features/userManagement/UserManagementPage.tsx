@@ -135,6 +135,20 @@ export function UserManagementPage() {
     loadStates();
   }, [loadOfficers]); // Add loadOfficers dependency back
 
+  // Refresh officers list when window regains focus (handles multi-tab scenarios)
+  useEffect(() => {
+    const handleFocus = () => {
+      // Refresh officers list when user switches back to this tab
+      // This ensures UI stays in sync if user creates/deletes users in another tab
+      loadOfficers();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loadOfficers]);
+
   const computeAvailableIndicatorsForState = (
     stateName: string,
     editingOfficerId?: string

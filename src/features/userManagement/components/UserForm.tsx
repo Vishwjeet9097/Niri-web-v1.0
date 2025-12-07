@@ -25,6 +25,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { statesService, State } from "@/services/states.service";
 import { apiService } from "@/services/api.service";
 import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
@@ -106,9 +107,23 @@ export function UserForm({
   // State for API response
   const [availableIndicatorsForState, setAvailableIndicatorsForState] = useState<any[]>([]);
 
+  // State for checking duplicates
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [checkingContact, setCheckingContact] = useState(false);
+
+  // Debounced values for real-time validation
+  const debouncedEmail = useDebounce(formData.email, 500);
+  const debouncedContactNumber = useDebounce(formData.contactNumber, 500);
+
   // Fetch available indicators for selected state
   useEffect(() => {
     const fetchAvailableIndicators = async () => {
+      // Only fetch indicators if creating a NODAL_OFFICER
+      if (formData.role !== "NODAL_OFFICER") {
+        setAvailableIndicatorsForState([]);
+        return;
+      }
+
       let stateName = "";
       if (user?.role === "ADMIN") {
         if (!formData.stateId) return setAvailableIndicatorsForState([]);
@@ -127,7 +142,7 @@ export function UserForm({
       }
     };
     fetchAvailableIndicators();
-  }, [formData.stateId, user?.role, states]);
+  }, [formData.stateId, formData.role, user?.role, states]);
 
   // Build the options list from INDICATOR_SECTIONS but only include:
   //  - indicators present in availableIndicatorCodes OR
@@ -433,6 +448,19 @@ export function UserForm({
       newErrors.contactNumber = "Contact number is required";
     } else if (!/^\d{10}$/.test(formData.contactNumber.replace(/\s/g, ""))) {
       newErrors.contactNumber = "Please enter a valid 10-digit phone number";
+    } else {
+      // Check for duplicate contact number
+      const normalizedContactNumber = formData.contactNumber.replace(/\s/g, "");
+      const duplicateContact = officers.find(
+        (o) =>
+          o.id !== officer?.id && // Exclude current officer if editing
+          o.contactNumber &&
+          o.contactNumber.replace(/\s/g, "") === normalizedContactNumber
+      );
+      if (duplicateContact) {
+        newErrors.contactNumber =
+          "This contact number is already assigned to another user";
+      }
     }
 
     if (!formData.email.trim()) {
@@ -662,6 +690,182 @@ const handleStateChange = (values: string | string[]) => {
     fetchDisabledStates();
   }, [formData.role]); // Re-fetch when role changes
 
+  // Real-time email availability check
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkEmail = async () => {
+      // Skip if editing and email hasn't changed
+      if (officer && debouncedEmail === officer.email) {
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors.email;
+            return newErrors;
+          });
+        }
+        return;
+      }
+
+      // Clear duplicate error if email is empty or invalid format
+      if (!debouncedEmail || !/@(gov\.in|nic\.in)$/i.test(debouncedEmail)) {
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            // Only clear duplicate error, keep format errors
+            if (newErrors.email === "This email is already registered to another user") {
+              delete newErrors.email;
+            }
+            return newErrors;
+          });
+        }
+        return; // Don't check if email format is invalid
+      }
+
+      if (!isCancelled) {
+        setCheckingEmail(true);
+      }
+
+      try {
+        const isAvailable = await apiService.checkEmailAvailability(
+          debouncedEmail,
+          officer?.id
+        );
+        
+        // Only update state if this request hasn't been cancelled
+        if (!isCancelled) {
+          if (!isAvailable) {
+            setErrors((prev) => ({
+              ...prev,
+              email: "This email is already registered to another user",
+            }));
+          } else {
+            setErrors((prev) => {
+              const newErrors = { ...prev };
+              // Only clear email error if it's a duplicate error, keep format errors
+              if (newErrors.email === "This email is already registered to another user") {
+                delete newErrors.email;
+              }
+              return newErrors;
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error checking email availability:", error);
+        // On error, clear the duplicate error (assume available)
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            if (newErrors.email === "This email is already registered to another user") {
+              delete newErrors.email;
+            }
+            return newErrors;
+          });
+        }
+      } finally {
+        if (!isCancelled) {
+          setCheckingEmail(false);
+        }
+      }
+    };
+
+    checkEmail();
+
+    // Cleanup: cancel this effect if email changes
+    return () => {
+      isCancelled = true;
+    };
+  }, [debouncedEmail, officer?.id, officer?.email]);
+
+  // Real-time contact number availability check
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkContact = async () => {
+      // Skip if editing and contact number hasn't changed
+      if (officer && debouncedContactNumber === officer.contactNumber) {
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors.contactNumber;
+            return newErrors;
+          });
+        }
+        return;
+      }
+
+      // Only check if it's a valid 10-digit number
+      const normalizedContact = debouncedContactNumber.replace(/\s/g, "");
+      if (!normalizedContact || !/^\d{10}$/.test(normalizedContact)) {
+        // Clear duplicate error if contact number is empty or invalid format
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            // Only clear duplicate error, keep format errors
+            if (newErrors.contactNumber === "This contact number is already registered to another user") {
+              delete newErrors.contactNumber;
+            }
+            return newErrors;
+          });
+        }
+        return; // Don't check if format is invalid
+      }
+
+      if (!isCancelled) {
+        setCheckingContact(true);
+      }
+
+      try {
+        const isAvailable = await apiService.checkContactAvailability(
+          normalizedContact,
+          officer?.id
+        );
+        
+        // Only update state if this request hasn't been cancelled
+        if (!isCancelled) {
+          if (!isAvailable) {
+            setErrors((prev) => ({
+              ...prev,
+              contactNumber: "This contact number is already registered to another user",
+            }));
+          } else {
+            setErrors((prev) => {
+              const newErrors = { ...prev };
+              // Only clear duplicate error, keep format errors
+              if (newErrors.contactNumber === "This contact number is already registered to another user") {
+                delete newErrors.contactNumber;
+              }
+              return newErrors;
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error checking contact availability:", error);
+        // On error, clear the duplicate error (assume available)
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            if (newErrors.contactNumber === "This contact number is already registered to another user") {
+              delete newErrors.contactNumber;
+            }
+            return newErrors;
+          });
+        }
+      } finally {
+        if (!isCancelled) {
+          setCheckingContact(false);
+        }
+      }
+    };
+
+    checkContact();
+
+    // Cleanup: cancel this effect if contact number changes
+    return () => {
+      isCancelled = true;
+    };
+  }, [debouncedContactNumber, officer?.id, officer?.contactNumber]);
+
   return (
     <div className="max-w-4xl space-y-6">
       <div>
@@ -748,11 +952,24 @@ const handleStateChange = (values: string | string[]) => {
             id="contactNumber"
             placeholder="Enter you 10-digit phone number"
             value={formData.contactNumber}
-            onChange={(e) =>
-              setFormData({ ...formData, contactNumber: e.target.value })
-            }
+            onChange={(e) => {
+              const contactNumber = e.target.value;
+              setFormData({ ...formData, contactNumber });
+
+              // Clear duplicate error when user starts typing
+              if (errors.contactNumber?.includes("already registered")) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.contactNumber;
+                  return newErrors;
+                });
+              }
+            }}
             className={errors.contactNumber ? "border-destructive" : ""}
           />
+          {checkingContact && (
+            <p className="text-sm text-muted-foreground">Checking availability...</p>
+          )}
           {errors.contactNumber && (
             <p className="text-sm text-destructive">{errors.contactNumber}</p>
           )}
@@ -778,9 +995,19 @@ const handleStateChange = (values: string | string[]) => {
             type="email"
             placeholder="e.g. user@gujarat.gov.in or user@nic.in"
             value={formData.email}
+            disabled={!!officer} // Disable email field when editing existing user
             onChange={(e) => {
               const email = e.target.value;
               setFormData({ ...formData, email });
+
+              // Clear duplicate error immediately when user starts typing
+              if (errors.email?.includes("already registered")) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.email;
+                  return newErrors;
+                });
+              }
 
               // Real-time validation for email domain
               if (email.trim() === "") {
@@ -797,16 +1024,21 @@ const handleStateChange = (values: string | string[]) => {
                   email: "Only @gov.in and @nic.in email addresses are allowed",
                 }));
               } else {
-                // Clear error if domain is correct
+                // Clear format error if domain is correct (but keep duplicate error if exists, it will be cleared by debounced check)
                 setErrors((prev) => {
                   const newErrors = { ...prev };
-                  delete newErrors.email;
+                  if (newErrors.email === "Only @gov.in and @nic.in email addresses are allowed") {
+                    delete newErrors.email;
+                  }
                   return newErrors;
                 });
               }
             }}
-            className={errors.email ? "border-destructive" : ""}
+            className={errors.email ? "border-destructive" : officer ? "bg-muted cursor-not-allowed" : ""}
           />
+          {checkingEmail && !officer && (
+            <p className="text-sm text-muted-foreground">Checking availability...</p>
+          )}
           {errors.email && (
             <p className="text-sm text-destructive">{errors.email}</p>
           )}
@@ -1058,8 +1290,22 @@ const handleStateChange = (values: string | string[]) => {
             const isDisabledByName = disabledStateNames.some(
               n => n.trim().toLowerCase() === state.name.trim().toLowerCase()
             );
+            
+            // Check if STATE_APPROVER already exists for this state
+            // Each state can have only one active STATE_APPROVER
+            const hasStateApprover = formData.role === "STATE_APPROVER" && (officers || []).some(o =>
+              o.role === 'STATE_APPROVER' &&
+              o.id !== officer?.id && // Exclude current officer if editing
+              o.isActive !== false && // Only check active STATE_APPROVERs (exclude explicitly deactivated ones)
+              (
+                (typeof o.state === 'string' && o.state.trim().toLowerCase() === state.name.trim().toLowerCase()) ||
+                (typeof o.stateId === 'string' && o.stateId === state.id) ||
+                (Array.isArray(o.stateId) && o.stateId.includes(state.id))
+              )
+            );
+            
             return (
-              <SelectItem key={state.id} value={state.id} disabled={!state.isActive || isDisabledByName}>
+              <SelectItem key={state.id} value={state.id} disabled={!state.isActive || isDisabledByName || hasStateApprover}>
                 {state.name}
               </SelectItem>
             );
