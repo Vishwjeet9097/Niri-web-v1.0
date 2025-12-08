@@ -3430,7 +3430,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                   )}
                 </div>
                 <div>
-                  <Label>Total Project Cost Awarded</Label>
+                  <Label>Total Project Cost Awarded(INR - values is in CRORES)</Label>
                   {isEditable('3.4') ? (
                     <Input
                       value={state?.section3_4?.totalProjectCostAwarded || ""}
