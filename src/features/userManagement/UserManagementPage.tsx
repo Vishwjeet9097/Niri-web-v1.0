@@ -814,13 +814,15 @@ export function UserManagementPage() {
           </div>
         </div>
         <div className="flex gap-3">
+          {/* DO NOT REMOVE THIS CLEANUPBUTTONS CODE. IT SHOULD BE REMAINED AND COMMENTED OUT IN THE CODE. */}
           {/* Cleanup Buttons Component - Comment/Uncomment to enable/disable */}
-          <CleanupButtons
+          {/* <CleanupButtons
             userRole={user?.role}
             onRefresh={loadOfficers}
             isDeleting={isDeleting}
-          />
+          /> */}
           {/* End Cleanup Buttons Component */}
+          {/* DO NOT REMOVE THIS CLEANUPBUTTONS CODE. IT SHOULD BE REMAINED AND COMMENTED OUT IN THE CODE. */}
           <Button
             variant="outline"
             onClick={handleDeleteAll}
