@@ -192,46 +192,52 @@ export function StateApproverDashboardPage() {
 
         // Prepare submissions list for the unified cards
         setSubmissions(
-          submissionsArray.map((sub: any) => {
-            const formDataKeys = Object.keys(sub.formData || {});
-            const progress =
-              formDataKeys.length > 0
-                ? Math.min(100, (formDataKeys.length / 10) * 100)
-                : 0;
-            const submittedDate = new Date(sub.createdAt);
-            const currentDate = new Date();
-            const timeDifference =
-              currentDate.getTime() - submittedDate.getTime();
-            const pendingDays = Math.max(
-              0,
-              Math.floor(timeDifference / (1000 * 60 * 60 * 24))
-            );
+          submissionsArray
+            // Hide drafts from the approver dashboard
+            .filter(
+              (sub: any) =>
+                mapBackendStatusToFrontend(sub.status || "") !== "DRAFT"
+            )
+            .map((sub: any) => {
+              const formDataKeys = Object.keys(sub.formData || {});
+              const progress =
+                formDataKeys.length > 0
+                  ? Math.min(100, (formDataKeys.length / 10) * 100)
+                  : 0;
+              const submittedDate = new Date(sub.createdAt);
+              const currentDate = new Date();
+              const timeDifference =
+                currentDate.getTime() - submittedDate.getTime();
+              const pendingDays = Math.max(
+                0,
+                Math.floor(timeDifference / (1000 * 60 * 60 * 24))
+              );
 
-            const submittedByName = sub.user
-              ? `${sub.user.firstName || ""} ${
-                  sub.user.lastName || ""
-                }`.trim() || "Unknown"
-              : "Unknown";
+              const submittedByName = sub.user
+                ? `${sub.user.firstName || ""} ${
+                    sub.user.lastName || ""
+                  }`.trim() || "Unknown"
+                : "Unknown";
 
-            return {
-              id: sub.id,
-              title: sub.submissionId || `Submission ${sub.id}`,
-              status: mapBackendStatusToFrontend(sub.status || ""),
-              submittedBy: submittedByName,
-              submissionDate: new Date(sub.createdAt).toLocaleDateString(),
-              deadline:
-                sub.dueDate ||
-                new Date(
-                  Date.now() + 7 * 24 * 60 * 60 * 1000
-                ).toLocaleDateString(),
-              category: "Infrastructure",
-              progress: Math.round(progress),
-              documents: sub.attachedFiles?.length || 0,
-              pendingDays: pendingDays,
-              completionPercent: Math.round(progress),
-              submission: sub,
-            };
-          })
+              return {
+                id: sub.id,
+                title: sub.submissionId || `Submission ${sub.id}`,
+                status: mapBackendStatusToFrontend(sub.status || ""),
+                submittedBy: submittedByName,
+                submissionDate: new Date(sub.createdAt).toLocaleDateString(),
+                deadline:
+                  sub.dueDate ||
+                  new Date(
+                    Date.now() + 7 * 24 * 60 * 60 * 1000
+                  ).toLocaleDateString(),
+                category: "Infrastructure",
+                progress: Math.round(progress),
+                documents: sub.attachedFiles?.length || 0,
+                pendingDays: pendingDays,
+                completionPercent: Math.round(progress),
+                submission: sub,
+              };
+            })
         );
       } catch (error: any) {
         console.error("Failed to load state approver dashboard data:", error);
