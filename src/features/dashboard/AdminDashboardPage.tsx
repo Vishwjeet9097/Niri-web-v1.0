@@ -80,11 +80,14 @@ function AdminDashboardPage() {
   // Filtering, sorting, and pagination logic
   const filteredUsers = users
     .filter((user) => {
+      const lowerSearch = searchTerm.toLowerCase();
       const matchesSearch =
         searchTerm === "" ||
-        (user.firstName && user.firstName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (user.lastName && user.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
+        (user.firstName && user.firstName.toLowerCase().includes(lowerSearch)) ||
+        (user.lastName && user.lastName.toLowerCase().includes(lowerSearch)) ||
+        (user.email && user.email.toLowerCase().includes(lowerSearch)) ||
+        (user.stateUt && user.stateUt.toLowerCase().includes(lowerSearch)) ||
+        (user.state && user.state.toLowerCase().includes(lowerSearch));
       const matchesRole = roleFilter === "all" || user.role === roleFilter;
       return matchesSearch && matchesRole;
     })
@@ -181,15 +184,15 @@ function AdminDashboardPage() {
         <div className="flex justify-between items-center mb-4 gap-4 flex-wrap">
           <div className="flex gap-4 items-center w-full md:w-auto">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-6 h-4" />
               <Input
-                placeholder="Search by name or email..."
+                placeholder="Search by name, email or state name..."
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="pl-10"
+                className="pl-10 w-80"
               />
             </div>
             <div className="flex items-center gap-2">
