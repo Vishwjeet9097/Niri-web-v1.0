@@ -4397,7 +4397,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project Name</th>
                           <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
                           <th className="py-3 px-4 text-left text-sm font-normal">Status</th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">Project Size (Cr)</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Project Size (INR - values is in CRORES)</th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Type of Investment</th>
                         </tr>
                       </thead>
@@ -4580,7 +4580,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                           </Select>
                         </div>
                         <div>
-                          <Label>Project Size (INR Cr) <span className="text-destructive">*</span></Label>
+                          <Label>Project Size (INR - values is in CRORES) <span className="text-destructive">*</span></Label>
                           <Input
                             type="number"
                             min="0"
@@ -4725,7 +4725,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                       <th className="py-3 px-4 text-left text-sm font-normal">Select Sector</th>
                       <th className="py-3 px-4 text-left text-sm font-normal">Select Type</th>
                       <th className="py-3 px-4 text-left text-sm font-normal">Asset Ownership</th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Estimated Monetization</th>
+                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Estimated Monetization(INR - values is in CRORES)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4808,7 +4808,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               placeholder="Enter amount"
                             />
                           ) : (
-                            item.estimatedMonetization ? `₹ ${item.estimatedMonetization} Crores` : ""
+                            item.estimatedMonetization ? ` ${item.estimatedMonetization}` : ""
                           )}
                         </td>
                       </tr>
