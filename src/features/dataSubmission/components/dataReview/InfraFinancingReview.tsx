@@ -2740,7 +2740,7 @@ const calculateAllocationPercentage = () => {
               } readOnly className='bg-gray-50' />
             </div>
             <div>
-              <Label>Capital Allocation for FY (INR-CRORES)</Label>
+              <Label>Capital Allocation for FY ( INR - values is in CRORES)</Label>
               <Input
                 value={capitalAllocation}
                 onChange={(e) => {
@@ -2757,7 +2757,7 @@ const calculateAllocationPercentage = () => {
               </div> */}
             </div>
             <div>
-              <Label>GSDP for FY (INR-CRORES)</Label>
+              <Label>GSDP for FY ( INR - values is in CRORES)</Label>
               <Input
                 value={gsdpForFY}
                 onChange={(e) => {
@@ -2827,7 +2827,7 @@ const calculateAllocationPercentage = () => {
                 />
               </div>
               <div>
-                <Label>A₁ - Actual Capex (INR-CRORES)</Label>
+                <Label>A₁ - Actual Capex ( INR - values is in CRORES)</Label>
                 <Input
                   value={
                     isEditable('1.2')
@@ -2852,7 +2852,7 @@ const calculateAllocationPercentage = () => {
                 )}
               </div>
               <div>
-                <Label>State Capex Utilisation (INR-CRORES)</Label>
+                <Label>State Capex Utilisation ( INR - values is in CRORES)</Label>
                 <Input
                   value={
                     isEditable('1.2')
