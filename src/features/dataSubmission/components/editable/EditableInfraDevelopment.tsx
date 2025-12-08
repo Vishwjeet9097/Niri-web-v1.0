@@ -33,11 +33,11 @@ interface EditableInfraDevelopmentProps {
 }
 
 const defaultData: InfraDevelopmentData = {
-  section2_1: [],
-  section2_2: [],
-  section2_3: [],
-  section2_4: [],
-  section2_5: [],
+  section2_1: { infraActArray: [] },
+  section2_2: { specializedEntityArray: [] },
+  section2_3: { infraDevelopmentArray: [] },
+  section2_4: { investmentReadyArray: [] },
+  section2_5: { assetMonetizationArray: [] },
 };
 
 export const EditableInfraDevelopment = ({ submissionId, submission }: EditableInfraDevelopmentProps) => {
@@ -51,11 +51,21 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
   const createFormData = (data: Partial<InfraDevelopmentData>): InfraDevelopmentData => ({
     ...defaultData,
     ...data,
-    section2_1: data.section2_1 || [],
-    section2_2: data.section2_2 || [],
-    section2_3: data.section2_3 || [],
-    section2_4: data.section2_4 || [],
-    section2_5: data.section2_5 || [],
+    section2_1: data.section2_1 && Array.isArray(data.section2_1.infraActArray)
+      ? { infraActArray: data.section2_1.infraActArray }
+      : { infraActArray: [] },
+    section2_2: data.section2_2 && Array.isArray(data.section2_2.specializedEntityArray)
+      ? { specializedEntityArray: data.section2_2.specializedEntityArray }
+      : { specializedEntityArray: [] },
+    section2_3: data.section2_3 && Array.isArray(data.section2_3.infraDevelopmentArray)
+      ? { infraDevelopmentArray: data.section2_3.infraDevelopmentArray }
+      : { infraDevelopmentArray: [] },
+    section2_4: data.section2_4 && Array.isArray(data.section2_4.investmentReadyArray)
+      ? { investmentReadyArray: data.section2_4.investmentReadyArray }
+      : { investmentReadyArray: [] },
+    section2_5: data.section2_5 && Array.isArray(data.section2_5.assetMonetizationArray)
+      ? { assetMonetizationArray: data.section2_5.assetMonetizationArray }
+      : { assetMonetizationArray: [] },
   });
 
   const [formData, setFormData] = useState<InfraDevelopmentData>(() => 
@@ -81,12 +91,19 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
 
   // Section 2.1, 2.2, 2.3 handlers
   const addEntry = (section: "section2_1" | "section2_2" | "section2_3") => {
+    const arrayKey = section === "section2_1"
+      ? "infraActArray"
+      : section === "section2_2"
+      ? "specializedEntityArray"
+      : "infraDevelopmentArray";
     setFormData((prev) => ({
       ...prev,
-      [section]: [
-        ...prev[section],
-        { id: crypto.randomUUID(), sector: "", files: [] },
-      ],
+      [section]: {
+        [arrayKey]: [
+          ...(prev[section]?.[arrayKey] || []),
+          { id: crypto.randomUUID(), sector: "", files: [] },
+        ],
+      },
     }));
   };
 
@@ -94,9 +111,16 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     section: "section2_1" | "section2_2" | "section2_3",
     id: string
   ) => {
+    const arrayKey = section === "section2_1"
+      ? "infraActArray"
+      : section === "section2_2"
+      ? "specializedEntityArray"
+      : "infraDevelopmentArray";
     setFormData((prev) => ({
       ...prev,
-      [section]: prev[section].filter((entry) => entry.id !== id),
+      [section]: {
+        [arrayKey]: (prev[section]?.[arrayKey] || []).filter((entry) => entry.id !== id),
+      },
     }));
   };
 
@@ -106,29 +130,54 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     field: "sector" | "files",
     value: any
   ) => {
+    const arrayKey = section === "section2_1"
+      ? "infraActArray"
+      : section === "section2_2"
+      ? "specializedEntityArray"
+      : "infraDevelopmentArray";
     setFormData((prev) => ({
       ...prev,
-      [section]: prev[section].map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
+      [section]: {
+        [arrayKey]: (prev[section]?.[arrayKey] || []).map((entry) =>
+          entry.id === id ? { ...entry, [field]: value } : entry
+        ),
+      },
     }));
   };
 
   // Section 2.4 handlers
   const addProject = () => {
+    const generateId = () => {
+      if (typeof crypto !== "undefined" && crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+      return Math.random().toString(36).substr(2, 9);
+    };
     setFormData((prev) => ({
       ...prev,
-      section2_4: [
-        ...prev.section2_4,
-        { id: crypto.randomUUID(), projectName: "", dprFile: null },
-      ],
+      section2_4: {
+        investmentReadyArray: [
+          ...(prev.section2_4?.investmentReadyArray || []),
+          {
+            id: generateId(),
+            projectName: "",
+            dprFile: null,
+            sector: "",
+            status: "",
+            projectSize: "",
+            investmentType: ""
+          },
+        ],
+      },
     }));
   };
 
   const removeProject = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      section2_4: prev.section2_4.filter((entry) => entry.id !== id),
+      section2_4: {
+        investmentReadyArray: (prev.section2_4?.investmentReadyArray || []).filter((entry) => entry.id !== id),
+      },
     }));
   };
 
@@ -139,34 +188,47 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
   ) => {
     setFormData((prev) => ({
       ...prev,
-      section2_4: prev.section2_4.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
+      section2_4: {
+        investmentReadyArray: (prev.section2_4?.investmentReadyArray || []).map((entry) =>
+          entry.id === id ? { ...entry, [field]: value } : entry
+        ),
+      },
     }));
   };
 
   // Section 2.5 handlers
+  const generateId = () => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substr(2, 9);
+  };
+
   const addAsset = () => {
     setFormData((prev) => ({
       ...prev,
-      section2_5: [
-        ...prev.section2_5,
-        {
-          id: crypto.randomUUID(),
-          projectName: "",
-          sector: "",
-          type: "",
-          ownership: "",
-          estimatedMonetization: "",
-        },
-      ],
+      section2_5: {
+        assetMonetizationArray: [
+          ...(prev.section2_5?.assetMonetizationArray || []),
+          {
+            id: generateId(),
+            projectName: "",
+            sector: "",
+            type: "",
+            ownership: "",
+            estimatedMonetization: "",
+          },
+        ],
+      },
     }));
   };
 
   const removeAsset = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      section2_5: prev.section2_5.filter((entry) => entry.id !== id),
+      section2_5: {
+        assetMonetizationArray: (prev.section2_5?.assetMonetizationArray || []).filter((entry) => entry.id !== id),
+      },
     }));
   };
 
@@ -182,9 +244,11 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
   ) => {
     setFormData((prev) => ({
       ...prev,
-      section2_5: prev.section2_5.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
+      section2_5: {
+        assetMonetizationArray: (prev.section2_5?.assetMonetizationArray || []).map((entry) =>
+          entry.id === id ? { ...entry, [field]: value } : entry
+        ),
+      },
     }));
   };
 
@@ -197,7 +261,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
-            {formData.section2_1.map((entry, idx) => (
+            {formData.section2_1.infraActArray.map((entry, idx) => (
               <div key={entry.id} className="border rounded-lg p-4 bg-card">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
                   <div className="flex-1 w-full">
@@ -269,7 +333,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
-            {formData.section2_2.map((entry, idx) => (
+            {formData.section2_2.specializedEntityArray.map((entry, idx) => (
               <div key={entry.id} className="border rounded-lg p-4 bg-card">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
                   <div className="flex-1 w-full">
@@ -341,7 +405,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
-            {formData.section2_3.map((entry, idx) => (
+            {formData.section2_3.infraDevelopmentArray.map((entry, idx) => (
               <div key={entry.id} className="border rounded-lg p-4 bg-card">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
                   <div className="flex-1 w-full">
@@ -413,38 +477,44 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per project)"
         >
           <div className="space-y-4">
-            {formData.section2_4.map((project, index) => (
-              <div key={project.id} className="p-4 border rounded-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium">Project {index + 1}</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeProject(project.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Project Name*</Label>
-                    <Input
-                      placeholder="Enter project name"
-                      value={project.projectName}
-                      onChange={(e) =>
-                        updateProject(project.id, "projectName", e.target.value)
-                      }
+            {formData.section2_4.investmentReadyArray.map((rawProject, index) => {
+              const project = {
+                dprFile: null,
+                ...rawProject
+              };
+              return (
+                <div key={project.id} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-medium">Project {index + 1}</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeProject(project.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Project Name*</Label>
+                      <Input
+                        placeholder="Enter project name"
+                        value={project.projectName}
+                        onChange={(e) =>
+                          updateProject(project.id, "projectName", e.target.value)
+                        }
+                      />
+                    </div>
+                    <FileUploadSection
+                      label="Upload DPR/Feasibility Report"
+                      value={project.dprFile}
+                      onChange={(file) => updateProject(project.id, "dprFile", file)}
+                      required
                     />
                   </div>
-                  <FileUploadSection
-                    label="Upload DPR/Feasibility Report"
-                    value={project.dprFile}
-                    onChange={(file) => updateProject(project.id, "dprFile", file)}
-                    required
-                  />
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <Button onClick={addProject} variant="outline" className="w-full gap-2">
               <Plus className="w-4 h-4" />
               Add Project
@@ -458,7 +528,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per asset)"
         >
           <div className="space-y-4">
-            {formData.section2_5.map((asset, index) => (
+            {formData.section2_5.assetMonetizationArray.map((asset, index) => (
               <div key={asset.id} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Asset {index + 1}</h4>
@@ -540,7 +610,8 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                     </Select>
                   </div>
                   <div>
-                    <Label>Estimated Monetization Value</Label>
+                    <Label>Estimated Monetization (INR - values is in CRORES)
+</Label>
                     <Input
                       placeholder="INR - values is in CRORES"
                       value={asset.estimatedMonetization}
