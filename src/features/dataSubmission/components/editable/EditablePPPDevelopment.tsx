@@ -11,9 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  TooltipProvider,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Calendar } from "@/components/ui/calendar";
@@ -90,40 +90,55 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
   }, [formData, updateFormData]);
 
   // Section 3.3 handlers
+  const generateId = () => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    // Fallback for environments without crypto.randomUUID
+    return Math.random().toString(36).substr(2, 9);
+  };
+
   const addProject = () => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: [
-        ...prev.section3_3,
-        {
-          id: crypto.randomUUID(),
-          projectName: "",
-          sector: "",
-          type: "",
-          submissionDate: "",
-          file: null,
-        },
-      ],
+      section3_3: {
+        VGFArray: [
+          ...(prev.section3_3?.VGFArray || []),
+          {
+            id: generateId(),
+            projectName: "",
+            sector: "",
+            type: "",
+            submissionDate: "",
+            file: null,
+            marksObtained: 0,
+          },
+        ],
+      },
     }));
   };
 
   const removeProject = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: prev.section3_3.filter((entry) => entry.id !== id),
+      section3_3: {
+        VGFArray: (prev.section3_3?.VGFArray || []).filter((entry) => entry.id !== id),
+      },
     }));
   };
 
   const updateProject = (
     id: string,
-    field: "projectName" | "sector" | "type" | "submissionDate" | "file",
+    field: "projectName" | "sector" | "type" | "submissionDate" | "file" | "marksObtained",
     value: any
   ) => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: prev.section3_3.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
+      section3_3: {
+        VGFArray: (prev.section3_3?.VGFArray || []).map((entry) =>
+          entry.id === id ? { ...entry, [field]: value } : entry
+        ),
+      },
     }));
   };
 
@@ -136,13 +151,14 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
         projects: [
           ...(prev.section3_4.projects || []),
           {
-            id: crypto.randomUUID(),
+            id: generateId(),
             nameOfProject: "",
             nipId: "",
             fundingSource: "",
             infrastructureSector: "",
             dateOfAward: "",
             capexPercentage: "",
+            totalProjectCost: "",
           },
         ],
       },
@@ -320,105 +336,119 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
           subtitle="(50 marks - 10 marks per project)"
         >
           <div className="flex flex-col gap-4">
-            {formData.section3_3.map((entry, idx) => (
-              <div key={entry.id} className="border rounded-lg p-4 bg-card">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium">Project {idx + 1}</h4>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeProject(entry.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <Label>Project Name*</Label>
-                    <Input
-                      placeholder="Enter project name"
-                      value={entry.projectName}
-                      onChange={(e) =>
-                        updateProject(entry.id, "projectName", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Select Sector*</Label>
-                    <Select
-                      value={entry.sector}
-                      onValueChange={(value) =>
-                        updateProject(entry.id, "sector", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select sector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SECTOR_OPTIONS.map((sector) => (
-                          <SelectItem key={sector} value={sector}>
-                            {sector}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Select Type*</Label>
-                    <Select
-                      value={entry.type}
-                      onValueChange={(value) => updateProject(entry.id, "type", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PROJECT_TYPE_OPTIONS.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Submission Date*</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
+            {Array.isArray(formData.section3_3?.VGFArray)
+              ? formData.section3_3.VGFArray.map((rawEntry, idx) => {
+                  const entry = {
+                    id: '',
+                    projectName: '',
+                    sector: '',
+                    type: '',
+                    submissionDate: '',
+                    file: null,
+                    marksObtained: 0,
+                    ...rawEntry
+                  };
+                  return (
+                    <div key={entry.id} className="border rounded-lg p-4 bg-card">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-medium">Project {idx + 1}</h4>
                         <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                            !entry.submissionDate && "text-muted-foreground"
-                          )}
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeProject(entry.id)}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "DD-MM-YYYY"}
+                          <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={entry.submissionDate ? new Date(entry.submissionDate) : undefined}
-                          onSelect={(date) =>
-                            updateProject(entry.id, "submissionDate", date ? date.toISOString() : "")
-                          }
-                          initialFocus
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <Label>Project Name*</Label>
+                          <Input
+                            placeholder="Enter project name"
+                            value={entry.projectName}
+                            onChange={(e) =>
+                              updateProject(entry.id, "projectName", e.target.value)
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label>Select Sector*</Label>
+                          <Select
+                            value={entry.sector}
+                            onValueChange={(value) =>
+                              updateProject(entry.id, "sector", value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Select Type*</Label>
+                          <Select
+                            value={entry.type}
+                            onValueChange={(value) => updateProject(entry.id, "type", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROJECT_TYPE_OPTIONS.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Submission Date*</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
+                                  !entry.submissionDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "DD-MM-YYYY"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={entry.submissionDate ? new Date(entry.submissionDate) : undefined}
+                                onSelect={(date) =>
+                                  updateProject(entry.id, "submissionDate", date ? date.toISOString() : "")
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <FileUploadSection
+                          label="Upload File"
+                          value={entry.file}
+                          onChange={(file) => updateProject(entry.id, "file", file)}
                         />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <FileUploadSection
-                    label="Upload File"
-                    value={entry.file}
-                    onChange={(file) => updateProject(entry.id, "file", file)}
-                  />
-                </div>
-              </div>
-            ))}
+                      </div>
+                    </div>
+                  );
+                })
+              : []}
             <Button
               type="button"
               variant="outline"
@@ -441,8 +471,20 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
           subtitle="(100 marks - 10 marks per 10% PPP funding)"
         >
           <div className="flex flex-col gap-4">
-            {(formData.section3_4.projects || []).map((project, idx) => (
-              <div key={project.id} className="mb-4 p-4 border rounded-lg">
+            {(formData.section3_4.projects || []).map((rawProject, idx) => {
+              const project = {
+                id: '',
+                nameOfProject: '',
+                nipId: '',
+                fundingSource: '',
+                infrastructureSector: '',
+                dateOfAward: '',
+                capexPercentage: '',
+                totalProjectCost: '',
+                ...rawProject
+              };
+              return (
+                <div key={project.id} className="mb-4 p-4 border rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Column 1 */}
                   <div className="space-y-4">
@@ -615,7 +657,8 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
                   </Button>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Add More Project Button */}
             <div>
