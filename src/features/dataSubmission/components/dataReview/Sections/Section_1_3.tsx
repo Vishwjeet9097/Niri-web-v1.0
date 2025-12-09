@@ -117,7 +117,11 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                     {isEditable("1.3") ? (
                       <Input
                         value={item.cityName || ""}
-                        onChange={(e) => handleUlbChange(index, "cityName", e.target.value)}
+                        onChange={(e) => {
+                          let value = e.target.value;
+                          value = value.replace(/[^a-zA-Z\s]/g, "");
+                          handleUlbChange(index, "cityName", value);
+                        }}
                         className="w-full"
                         placeholder="Enter city name"
                       />
@@ -198,7 +202,11 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
               <Label>City Name</Label>
               <Input 
                 value={newULBEntry.cityName} 
-                onChange={(e) => setNewULBEntry({...newULBEntry, cityName: e.target.value})}
+                onChange={(e) => {
+                  let value = e.target.value;
+                  value = value.replace(/[^a-zA-Z\s]/g, "");
+                  setNewULBEntry({...newULBEntry, cityName: value});
+                }}
                 className="bg-white"
                 placeholder="Enter city name"
               />

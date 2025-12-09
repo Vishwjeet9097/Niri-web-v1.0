@@ -1185,14 +1185,14 @@ export const PPPDevelopmentStep = () => {
                   <div>
                     <Label className="block min-h-[40px] leading-snug">
                       Total Project Cost of Infrastructure Projects awarded in
-                      the financial year of assessment (INR Crore)
+                      the financial year of assessment (INR - values is in CRORES)
                       <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
-                      placeholder="Enter total cost in crore INR"
+                      placeholder="Enter total cost"
                       value={formData.section3_4.totalProjectCostAwarded || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
@@ -1342,7 +1342,7 @@ export const PPPDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>Total Project Cost (INR Crore)</Label>
+                          <Label>Total Project Cost (INR - values is in CRORES)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -1449,7 +1449,7 @@ export const PPPDevelopmentStep = () => {
                               Date of Award
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
-                              Total Cost (INR Cr)
+                              Total Cost (INR - values is in CRORES)
                             </th>
                             <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                               Action

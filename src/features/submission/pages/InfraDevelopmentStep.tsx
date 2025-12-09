@@ -1514,7 +1514,7 @@ export const InfraDevelopmentStep = () => {
 
                           <div>
                             <Label>
-                              Project Size (INR Cr){" "}
+                              Project Size (INR - values is in CRORES){" "}
                               <span className="text-destructive">*</span>
                             </Label>
                             <Input
@@ -1860,7 +1860,7 @@ export const InfraDevelopmentStep = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <div>
-                        <Label>Estimated Monetization</Label>
+                        <Label>Estimated Monetization (INR - values is in CRORES)</Label>
                         <Input
                           type="number"
                           placeholder="Estimated Monetization"
@@ -1933,7 +1933,7 @@ export const InfraDevelopmentStep = () => {
                           Ownership
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
-                          Estimated Monetization (INR Cr)
+                          Estimated Monetization (INR - values is in CRORES)
                         </th>
                         <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                           Action
