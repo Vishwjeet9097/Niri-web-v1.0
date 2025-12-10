@@ -25,6 +25,7 @@ import { SectionCard } from "@/features/submission/components/SectionCard";
 import {
   hasInfraFinancingData,
   getSectionsWithData,
+  hasSectionData,
 } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
@@ -58,6 +59,8 @@ export const InfraFinancingReview = ({
   isStateApprover = false,
   isNodalOfficer = false,
 }: InfraFinancingReviewProps) => {
+  // State to store nodal officer's assigned indicators when reviewing their submission
+  const [nodalOfficerAssignedIndicators, setNodalOfficerAssignedIndicators] = useState<string[]>([]);
   // Section 1.4 state management
   const [section14State, setSection14State] = useState({
     totalULBs: formData?.section1_4?.totalULBs || 0,
@@ -119,6 +122,29 @@ export const InfraFinancingReview = ({
     }
   }, [formData?.section1_5]);
 
+  // Fetch nodal officer's assigned indicators when state approver reviews their submission
+  useEffect(() => {
+    const fetchNodalOfficerIndicators = async () => {
+      if (isStateApprover && !isPreview && (submission as any)?.user?.role === "NODAL_OFFICER") {
+        const nodalOfficerId = (submission as any)?.user?.id || (submission as any)?.submittedBy;
+        if (nodalOfficerId) {
+          try {
+            const response = await apiService.get(`/user-indicators/user/${nodalOfficerId}`);
+            const indicators = response?.data?.data?.map((scope: any) => scope.indicator?.code || scope.indicatorCode) || [];
+            setNodalOfficerAssignedIndicators(indicators);
+            console.log("🔍 [InfraFinancingReview] Fetched nodal officer's assigned indicators:", indicators);
+          } catch (error) {
+            console.warn("⚠️ Could not fetch nodal officer's assigned indicators:", error);
+            setNodalOfficerAssignedIndicators([]);
+          }
+        }
+      } else {
+        setNodalOfficerAssignedIndicators([]);
+      }
+    };
+    fetchNodalOfficerIndicators();
+  }, [isStateApprover, isPreview, submission]);
+
   // Check if this section has any data
   console.log("💡 InfraFinancing formData (raw):", formData);
   console.log(
@@ -131,6 +157,11 @@ export const InfraFinancingReview = ({
   );
 
   const hasData = hasInfraFinancingData({ infraFinancing: formData });
+  
+  // Check if this is a nodal officer submission or aggregate submission (needed for useMemo dependencies)
+  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
+  const isAggregateSubmission = (submission as any)?.submissionId?.startsWith("AGG-") || (submission as any)?.id?.startsWith("aggregate-");
+  
   const sectionsWithData = useMemo(() => {
     const detectedSections =
       getSectionsWithData({ infraFinancing: formData }, "infraFinancing") || [];
@@ -188,6 +219,10 @@ export const InfraFinancingReview = ({
     ])
   );
 
+  // Check if this is a nodal officer submission or aggregate submission
+  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
+  const isAggregateSubmission = (submission as any)?.submissionId?.startsWith("AGG-") || (submission as any)?.id?.startsWith("aggregate-");
+
   // For Nodal Officers (both preview and review mode): filter sections based on assigned indicators
   // Nodal Officers should only see sections for indicators assigned to them
   if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
@@ -233,37 +268,135 @@ export const InfraFinancingReview = ({
   }
   
   // For State Approvers: filter sections based on their assigned indicators
-  // State Approvers should only see sections for indicators assigned to them, not all indicators in the state
-  // IMPORTANT: Include assigned sections even if they don't have data (similar to Nodal Officers in preview mode)
+  // IMPORTANT: Only filter when STATE_APPROVER is creating their own submission (preview mode)
+  // When reviewing NODAL_OFFICER submissions, STATE_APPROVERs should see ALL indicators
+  // that the NODAL_OFFICER has filled, regardless of assignment
+  // Also, in preview mode showing consolidated/aggregate form, STATE_APPROVERs should see ALL indicators
+  // Note: isNodalOfficerSubmission and isAggregateSubmission are defined outside useMemo
   if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
-    const indicatorToSectionMap: Record<string, string> = {
-      "1.1": "section1_1",
-      "1.2": "section1_2",
-      "1.3": "section1_3",
-      "1.4": "section1_4",
-      "1.5": "section1_5",
-    };
+    // Only filter if:
+    // 1. It's preview mode AND it's NOT an aggregate submission (STATE_APPROVER creating their own submission)
+    // 2. OR it's not a NODAL_OFFICER submission (STATE_APPROVER reviewing another STATE_APPROVER's submission)
+    // When reviewing NODAL_OFFICER submissions or viewing aggregate/consolidated forms, show all sections with data
+    if ((isPreview && !isAggregateSubmission) || (!isPreview && !isNodalOfficerSubmission)) {
+      const indicatorToSectionMap: Record<string, string> = {
+        "1.1": "section1_1",
+        "1.2": "section1_2",
+        "1.3": "section1_3",
+        "1.4": "section1_4",
+        "1.5": "section1_5",
+      };
+      
+      // Get all assigned section keys
+      const assignedSectionKeys = assignedIndicators
+        .map((indicator) => indicatorToSectionMap[indicator])
+        .filter((sectionKey) => sectionKey !== undefined);
+      
+      // Filter merged to only include assigned sections
+      const filteredMerged = merged.filter((sectionKey) => 
+        assignedSectionKeys.includes(sectionKey)
+      );
+      
+      // Add assigned sections that don't have data yet (to ensure they're visible)
+      const missingAssignedSections = assignedSectionKeys.filter(
+        (sectionKey) => !merged.includes(sectionKey)
+      );
+      
+      // Combine filtered sections with missing assigned sections
+      merged.length = 0;
+      merged.push(...filteredMerged, ...missingAssignedSections);
+      
+      console.log("🔍 [InfraFinancingReview] State Approver - filtered sections by assigned indicators:", merged, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+    } else {
+      // STATE_APPROVER reviewing NODAL_OFFICER submission - show all sections with data
+      console.log("🔍 [InfraFinancingReview] State Approver reviewing NODAL_OFFICER submission - showing all sections with data:", merged);
+    }
+  }
+  
+  // For STATE_APPROVERs reviewing NODAL_OFFICER submissions:
+  // Show only sections that the NODAL_OFFICER was assigned AND has meaningful data
+  if (isStateApprover && !isPreview && isNodalOfficerSubmission) {
+    const submissionFormData = (submission as any)?.formData?.infraFinancing || {};
     
-    // Get all assigned section keys
-    const assignedSectionKeys = assignedIndicators
-      .map((indicator) => indicatorToSectionMap[indicator])
-      .filter((sectionKey) => sectionKey !== undefined);
+    // Get sections that have meaningful data using proper validation
+    // This ensures "no" selections with comments are properly detected
+    const sectionsWithMeaningfulData = Object.keys(submissionFormData).filter(sectionKey => {
+      const sectionData = submissionFormData[sectionKey];
+      if (!sectionData || typeof sectionData !== 'object') return false;
+      
+      // Use hasSectionData for proper validation that handles:
+      // - "no" selections with mandatory comments
+      // - "yes" selections with required data
+      // - Array-based sections
+      // - All edge cases
+      return hasSectionData(sectionData, sectionKey, 'infraFinancing');
+    });
     
-    // Filter merged to only include assigned sections
-    const filteredMerged = merged.filter((sectionKey) => 
-      assignedSectionKeys.includes(sectionKey)
-    );
+    // Filter by nodal officer's assigned indicators if available
+    if (nodalOfficerAssignedIndicators.length > 0) {
+      const indicatorToSectionMap: Record<string, string> = {
+        "1.1": "section1_1",
+        "1.2": "section1_2",
+        "1.3": "section1_3",
+        "1.4": "section1_4",
+        "1.5": "section1_5",
+      };
+      
+      const assignedSectionKeys = nodalOfficerAssignedIndicators
+        .map((indicator: string) => indicatorToSectionMap[indicator])
+        .filter((sectionKey: string) => sectionKey !== undefined);
+      
+      // Only show sections that are both assigned AND have meaningful data
+      const allowedSections = assignedSectionKeys.filter((sectionKey: string) => 
+        sectionsWithMeaningfulData.includes(sectionKey)
+      );
+      
+      // Filter merged to only include allowed sections
+      const filteredMerged = merged.filter((sectionKey: string) => 
+        allowedSections.includes(sectionKey)
+      );
+      
+      merged.length = 0;
+      merged.push(...filteredMerged);
+      
+      console.log("🔍 [InfraFinancingReview] State Approver - filtered by nodal's assigned indicators:", {
+        nodalOfficerAssignedIndicators,
+        sectionsWithMeaningfulData,
+        allowedSections,
+        finalSections: merged
+      });
+    } else {
+      // Fallback: show only sections with meaningful data
+      const filteredMerged = merged.filter((sectionKey: string) => 
+        sectionsWithMeaningfulData.includes(sectionKey)
+      );
+      merged.length = 0;
+      merged.push(...filteredMerged);
+      console.log("🔍 [InfraFinancingReview] State Approver - showing only sections with meaningful data (nodal indicators not available):", merged);
+    }
+  }
+  
+  // For STATE_APPROVERs viewing aggregate/consolidated forms in preview mode:
+  // Show only sections that exist in the formData AND have meaningful data
+  if (isStateApprover && isPreview && isAggregateSubmission) {
+    const allPossibleSections = ["section1_1", "section1_2", "section1_3", "section1_4", "section1_5"];
+    const submissionFormData = (submission as any)?.formData?.infraFinancing || {};
+    const formDataToCheck = formData || submissionFormData;
     
-    // Add assigned sections that don't have data yet (to ensure they're visible)
-    const missingAssignedSections = assignedSectionKeys.filter(
-      (sectionKey) => !merged.includes(sectionKey)
-    );
+    // Only include sections that have meaningful data, not just empty objects
+    const existingSections = allPossibleSections.filter(sectionKey => {
+      const sectionData = formDataToCheck[sectionKey] || submissionFormData[sectionKey];
+      // Check if section exists AND has meaningful data
+      if (!sectionData || typeof sectionData !== 'object') return false;
+      return hasSectionData(sectionData, sectionKey, 'infraFinancing');
+    });
     
-    // Combine filtered sections with missing assigned sections
-    merged.length = 0;
-    merged.push(...filteredMerged, ...missingAssignedSections);
-    
-    console.log("🔍 [InfraFinancingReview] State Approver - filtered sections by assigned indicators:", merged, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+    existingSections.forEach(sectionKey => {
+      if (!merged.includes(sectionKey)) {
+        merged.push(sectionKey);
+      }
+    });
+    console.log("🔍 [InfraFinancingReview] State Approver viewing aggregate submission - showing only sections with meaningful data:", merged);
   }
   
   // For review mode (not preview) OR preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers):
@@ -401,7 +534,7 @@ export const InfraFinancingReview = ({
   });
 
   return final;
-}, [formData, isPreview, isNodalOfficer, assignedIndicators]);
+}, [formData, isPreview, isNodalOfficer, assignedIndicators, isStateApprover, isNodalOfficerSubmission, isAggregateSubmission, nodalOfficerAssignedIndicators, submission]);
 
 
   // State for real-time calculation

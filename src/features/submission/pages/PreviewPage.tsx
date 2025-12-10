@@ -41,7 +41,7 @@ export const PreviewPage = () => {
   const navigate = useNavigate();
   const { formData, clearFormData, isResubmit } = useFormPersistence();
   const { user } = useAuth();
-  const { availableIndicators, isStateApprover, assignedIndicators, isNodalOfficer } = useIndicatorAccess();
+  const { availableIndicators, isStateApprover, assignedIndicators, effectiveIndicators, isNodalOfficer } = useIndicatorAccess();
   const [hasPreviewed, setHasPreviewed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -72,9 +72,9 @@ export const PreviewPage = () => {
   const filteredFormData = useMemo(() => {
     if (!formData) return null;
     
-    // For nodal officers, filter formData to only include assigned indicators
-    if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
-      return filterSectionFormDataByIndicators(formData, assignedIndicators);
+    // For nodal officers, filter formData to only include effective indicators
+    if (isNodalOfficer && effectiveIndicators && effectiveIndicators.length > 0) {
+      return filterSectionFormDataByIndicators(formData, effectiveIndicators);
     }
     
     // For state approvers, filter formData to only include available indicators

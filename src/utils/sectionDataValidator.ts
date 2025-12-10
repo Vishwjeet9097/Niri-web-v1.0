@@ -98,13 +98,14 @@ export const hasInfraEnablersData = (formData: any): boolean => {
           if (section.available === "no") {
             return hasMeaningfulValue(section?.comment);
           }
-          // If "yes" is selected, check for files
+          // If "yes" is selected, check for files (handle both singular and plural)
           if (section.available === "yes") {
-            return hasFileData(section.files);
+            // Check both 'file' (singular) and 'files' (plural) for backward compatibility
+            return hasFileData(section.files) || hasFileData(section.file);
           }
         }
-        // Backward compatibility: check for files directly
-        return hasMeaningfulValue(section.available) || hasFileData(section.files);
+        // Backward compatibility: check for files directly (both singular and plural)
+        return hasMeaningfulValue(section.available) || hasFileData(section.files) || hasFileData(section.file);
       }
 
       case "section4_3": {
@@ -650,13 +651,14 @@ export const hasSectionData = (
             if (section.available === "no") {
               return hasMeaningfulValue(section?.comment);
             }
-            // If "yes" is selected, check for files
+            // If "yes" is selected, check for files (handle both singular and plural)
             if (section.available === "yes") {
-              return hasFileData(section.files);
+              // Check both 'file' (singular) and 'files' (plural) for backward compatibility
+              return hasFileData(section.files) || hasFileData(section.file);
             }
           }
-          // Backward compatibility: check for files directly
-          return hasMeaningfulValue(section.available) || hasFileData(section.files);
+          // Backward compatibility: check for files directly (both singular and plural)
+          return hasMeaningfulValue(section.available) || hasFileData(section.files) || hasFileData(section.file);
         }
         case "section4_3": {
           // Check if adopted field is set (yes or no)

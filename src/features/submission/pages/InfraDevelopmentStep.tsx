@@ -87,8 +87,10 @@ export const InfraDevelopmentStep = () => {
 
   const {
     isNodalOfficer,
+    isStateApprover,
     availableIndicators,
     assignedIndicators,
+    effectiveIndicators,
     refresh,
     hasIndicatorAccess,
     loading: indicatorLoading,
@@ -157,22 +159,54 @@ export const InfraDevelopmentStep = () => {
   );
   const allowedIndicators = useMemo(
     () =>
-      (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter(
+      (isNodalOfficer ? effectiveIndicators : availableIndicators)?.filter(
         (ind) => sectionIndicators.includes(ind)
       ) || [],
-    [isNodalOfficer, assignedIndicators, availableIndicators, sectionIndicators]
+    [isNodalOfficer, effectiveIndicators, availableIndicators, sectionIndicators]
   );
+
+  // Debug logging for category 2 indicators
+  useEffect(() => {
+    console.log("🔍 InfraDevelopmentStep (Category 2) - Indicator Access:", {
+      isNodalOfficer,
+      isStateApprover,
+      effectiveIndicators,
+      availableIndicators,
+      allowedIndicators,
+      sectionIndicators,
+      hasAccess2_1: hasIndicatorAccess("2.1"),
+      hasAccess2_2: hasIndicatorAccess("2.2"),
+      hasAccess2_3: hasIndicatorAccess("2.3"),
+      hasAccess2_4: hasIndicatorAccess("2.4"),
+      hasAccess2_5: hasIndicatorAccess("2.5"),
+      category2InEffective: effectiveIndicators?.filter(i => i.startsWith("2.")),
+      category2InAvailable: availableIndicators?.filter(i => i.startsWith("2.")),
+    });
+  }, [
+    isNodalOfficer,
+    isStateApprover,
+    effectiveIndicators,
+    availableIndicators,
+    allowedIndicators,
+    hasIndicatorAccess,
+  ]);
 
   // Validation - only validate sections that are accessible based on indicators
   const validation: InfraDevelopmentValidationResult = useMemo(() => {
     // Determine which indicators to validate
     // For Nodal Officer or State Approver: only validate assigned/available indicators
     // For others: validate all (no restrictions)
-    const indicatorsToValidate =
-      (isNodalOfficer || user?.role === "STATE_APPROVER") &&
-      allowedIndicators.length > 0
-        ? allowedIndicators
-        : undefined; // undefined means validate all (backward compatibility)
+    let indicatorsToValidate: string[] | undefined;
+    
+    if (isNodalOfficer || user?.role === "STATE_APPROVER") {
+      // If no indicators assigned/available in this category, validate nothing (empty array = skip validation)
+      indicatorsToValidate = allowedIndicators.length > 0 
+        ? allowedIndicators 
+        : []; // Empty array means validate nothing (category not applicable)
+    } else {
+      // Other roles: validate all (backward compatibility)
+      indicatorsToValidate = undefined; // undefined means validate all
+    }
 
     return validateInfraDevelopment(formData, {
       allowedIndicators: indicatorsToValidate,
@@ -687,9 +721,8 @@ export const InfraDevelopmentStep = () => {
       })()}
 
       {/* Section 2.1 */}
-      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
-        availableIndicators.includes("2.1") ||
-        assignedIndicators.includes("2.1")) &&
+      {((!isNodalOfficer && !isStateApprover) ||
+        hasIndicatorAccess("2.1")) &&
         (!isEditMode ||
           (Array.isArray(formData.section2_1.infraActArray) &&
             formData.section2_1.infraActArray.length > 0)) && (
@@ -858,9 +891,8 @@ export const InfraDevelopmentStep = () => {
         )}
 
       {/* Section 2.2 */}
-      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
-        availableIndicators.includes("2.2") ||
-        assignedIndicators.includes("2.2")) &&
+      {((!isNodalOfficer && !isStateApprover) ||
+        hasIndicatorAccess("2.2")) &&
         (!isEditMode ||
           (Array.isArray(formData.section2_2.specializedEntityArray) &&
             formData.section2_2.specializedEntityArray.length > 0)) && (
@@ -1031,9 +1063,8 @@ export const InfraDevelopmentStep = () => {
         )}
 
       {/* Section 2.3 */}
-      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
-        availableIndicators.includes("2.3") ||
-        assignedIndicators.includes("2.3")) &&
+      {((!isNodalOfficer && !isStateApprover) ||
+        hasIndicatorAccess("2.3")) &&
         (!isEditMode ||
           (Array.isArray(formData.section2_3.infraDevelopmentArray) &&
             formData.section2_3.infraDevelopmentArray.length > 0)) && (
@@ -1310,9 +1341,8 @@ export const InfraDevelopmentStep = () => {
         )}
 
       {/* Section 2.4 */}
-      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
-        availableIndicators.includes("2.4") ||
-        assignedIndicators.includes("2.4")) &&
+      {((!isNodalOfficer && !isStateApprover) ||
+        hasIndicatorAccess("2.4")) &&
         (!isEditMode ||
           (Array.isArray(formData.section2_4.investmentReadyArray) &&
             formData.section2_4.investmentReadyArray.length > 0)) && (
@@ -1709,9 +1739,8 @@ export const InfraDevelopmentStep = () => {
         )}
 
       {/* Section 2.5 */}
-      {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
-        availableIndicators.includes("2.5") ||
-        assignedIndicators.includes("2.5")) &&
+      {((!isNodalOfficer && !isStateApprover) ||
+        hasIndicatorAccess("2.5")) &&
         (!isEditMode ||
           (Array.isArray(formData.section2_5.assetMonetizationArray) &&
             formData.section2_5.assetMonetizationArray.length > 0)) && (

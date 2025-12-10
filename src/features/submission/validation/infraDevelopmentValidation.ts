@@ -79,9 +79,13 @@ export const validateInfraDevelopment = (
 
   // Helper function to check if a section should be validated
   const shouldValidateSection = (indicator: string): boolean => {
-    // If no allowedIndicators provided, validate all (for backward compatibility)
-    if (!allowedIndicators || allowedIndicators.length === 0) {
+    // If allowedIndicators is undefined, validate all (for backward compatibility with other roles)
+    if (allowedIndicators === undefined) {
       return true;
+    }
+    // If allowedIndicators is an empty array, validate nothing (category not applicable)
+    if (Array.isArray(allowedIndicators) && allowedIndicators.length === 0) {
+      return false;
     }
     // Only validate if the indicator is in the allowed list
     return allowedIndicators.includes(indicator);

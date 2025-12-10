@@ -101,6 +101,7 @@ export function NiriSubmissionForm({
     error: indicatorError,
     assignedIndicators,
     availableIndicators,
+    effectiveIndicators,
     isNodalOfficer,
     isStateApprover,
     hasAnyAccess,
@@ -206,10 +207,10 @@ export function NiriSubmissionForm({
       // Decide which indicator set to use for filtering
       let submissionFormData = formData;
 
-      if (isNodalOfficer && assignedIndicators.length > 0) {
+      if (isNodalOfficer && effectiveIndicators.length > 0) {
         submissionFormData = filterFormDataByIndicators(
           formData,
-          assignedIndicators
+          effectiveIndicators
         );
       } else if (isStateApprover && availableIndicators.length > 0) {
         submissionFormData = filterFormDataByIndicators(

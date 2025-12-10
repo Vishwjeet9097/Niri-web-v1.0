@@ -40,6 +40,7 @@ interface UserFormProps {
   allIndicators?: { code?: string }[];
   officers?: NodalOfficer[];
   loadingIndicators?: boolean;
+  stateApproverHasSubmission?: boolean;
 }
 
 
@@ -50,6 +51,7 @@ export function UserForm({
   allIndicators = [],
   officers = [],
   loadingIndicators = false,
+  stateApproverHasSubmission = false,
 }: UserFormProps) {
   const { user } = useAuth();
 
@@ -102,6 +104,8 @@ export function UserForm({
   const [showAllSelectedIndicators, setShowAllSelectedIndicators] =
     useState(false);
   const [disabledStateNames, setDisabledStateNames] = useState<string[]>([]);
+  const [nodalHasSubmission, setNodalHasSubmission] = useState(false);
+  const [checkingNodalSubmission, setCheckingNodalSubmission] = useState(false);
 
 
   // State for API response
@@ -115,10 +119,10 @@ export function UserForm({
   const debouncedEmail = useDebounce(formData.email, 500);
   const debouncedContactNumber = useDebounce(formData.contactNumber, 500);
 
-  // Fetch available indicators for selected state
+  // Compute available indicators for selected state (frontend filtering)
   useEffect(() => {
-    const fetchAvailableIndicators = async () => {
-      // Only fetch indicators if creating a NODAL_OFFICER
+    const computeAvailableIndicators = () => {
+      // Only compute indicators if creating a NODAL_OFFICER
       if (formData.role !== "NODAL_OFFICER") {
         setAvailableIndicatorsForState([]);
         return;
@@ -126,23 +130,60 @@ export function UserForm({
 
       let stateName = "";
       if (user?.role === "ADMIN") {
-        if (!formData.stateId) return setAvailableIndicatorsForState([]);
+        if (!formData.stateId) {
+          setAvailableIndicatorsForState([]);
+          return;
+        }
         let stateIdStr = Array.isArray(formData.stateId) ? formData.stateId[0] : formData.stateId;
         const found = states.find((s) => s.id === stateIdStr);
         stateName = found ? found.name : stateIdStr;
       } else {
         stateName = user?.state || "";
       }
-      if (!stateName) return setAvailableIndicatorsForState([]);
-      try {
-        const indicators = await apiService.getAvailableIndicatorsForApprover(stateName);
-        setAvailableIndicatorsForState(Array.isArray(indicators) ? indicators : []);
-      } catch (error) {
+      
+      if (!stateName || allIndicators.length === 0) {
         setAvailableIndicatorsForState([]);
+        return;
       }
+
+      // Build a set of codes that are already assigned in this state to all users (except current officer)
+      const assignedSet = new Set<string>();
+
+      // Officers array already contains users for the current scope (for Admin it may contain all states)
+      officers.forEach((o) => {
+        // Only consider assigned indicators of users in the same state
+        const officerState = o.state || o.stateId || "";
+        if (!stateName || officerState === stateName) {
+          // assignedIndicators may be an array of codes
+          const assigned =
+            o.assignedIndicators ||
+            (o.assignedIndicator ? [o.assignedIndicator] : []);
+          // Exclude current officer being edited
+          if (o.id !== officer?.id) {
+            assigned.forEach((code) => {
+              if (code) assignedSet.add(code);
+            });
+          }
+        }
+      });
+
+      // Return indicators whose code is NOT in assignedSet
+      // Convert to the same format as API response (array of objects with code, name, category)
+      const available = allIndicators.filter((ind: any) => !assignedSet.has(ind.code));
+      
+      // Transform to match API response format
+      const formattedAvailable = available.map((ind: any) => ({
+        code: ind.code,
+        name: ind.name || getIndicatorDisplayName(ind.code),
+        category: ind.category || '',
+        id: ind.id,
+      }));
+      
+      setAvailableIndicatorsForState(formattedAvailable);
     };
-    fetchAvailableIndicators();
-  }, [formData.stateId, formData.role, user?.role, states]);
+    
+    computeAvailableIndicators();
+  }, [formData.stateId, formData.role, user?.role, states, allIndicators, officers, officer?.id]);
 
   // Build the options list from INDICATOR_SECTIONS but only include:
   //  - indicators present in availableIndicatorCodes OR
@@ -235,6 +276,45 @@ export function UserForm({
     } catch (error) {
       console.error("❌ Failed to fetch assigned indicators:", error);
       // Don't show error to user as this is for edit mode
+    }
+  };
+
+  // Check if nodal officer has submitted their form
+  const checkNodalOfficerSubmission = async (userId: string) => {
+    if (!userId || formData.role !== "NODAL_OFFICER") {
+      setNodalHasSubmission(false);
+      return;
+    }
+
+    setCheckingNodalSubmission(true);
+    try {
+      const response = await apiService.get(`/submission/user/${userId}`);
+      const submission = response?.data?.data || response?.data;
+      
+      if (submission?.id && submission?.formData) {
+        const formData = submission.formData;
+        // Check if any step has data
+        const hasData = Object.keys(formData).some((stepKey) => {
+          const stepData = formData[stepKey];
+          if (typeof stepData === "object" && stepData !== null) {
+            return Object.keys(stepData).length > 0;
+          }
+          return false;
+        });
+        setNodalHasSubmission(hasData);
+      } else {
+        setNodalHasSubmission(false);
+      }
+    } catch (error: any) {
+      // If 404 or no submissions, set to false
+      if (error?.response?.status === 404) {
+        setNodalHasSubmission(false);
+      } else {
+        console.warn("⚠️ Error checking nodal officer submission:", error);
+        setNodalHasSubmission(false);
+      }
+    } finally {
+      setCheckingNodalSubmission(false);
     }
   };
 
@@ -343,6 +423,10 @@ export function UserForm({
       // Fetch assigned indicators from API for NODAL_OFFICER
       if (officer.role === "NODAL_OFFICER" && officer.id) {
         fetchAssignedIndicators(officer.id);
+        // Check if nodal officer has submitted
+        checkNodalOfficerSubmission(officer.id);
+      } else {
+        setNodalHasSubmission(false);
       }
     } else {
       // Reset form when no officer (new user)
@@ -362,6 +446,8 @@ export function UserForm({
         assignedIndicators: [], 
         stateUt: "", 
       });
+      // Reset nodal submission check for new user
+      setNodalHasSubmission(false);
     }
   }, [officer, user?.state, user?.role, getAvailableRoles, states]);
 
@@ -492,14 +578,8 @@ export function UserForm({
    }
 
 
-    // ✅ Indicator validation for NODAL_OFFICER
-    if (
-      formData.role === "NODAL_OFFICER" &&
-      formData.assignedIndicators.length === 0
-    ) {
-      newErrors.assignedIndicators =
-        "At least one indicator must be assigned to Nodal Officer";
-    }
+    // Indicator assignment is optional for NODAL_OFFICER
+    // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
     // ✅ State validation for MOSPI_APPROVER and ADMIN
    if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
@@ -1115,6 +1195,13 @@ const handleStateChange = (values: string | string[]) => {
                 stateId: value === "MOSPI_REVIEWER" ? [] : '',
                 stateUt: ''
               }));
+              // Reset nodal submission check when role changes
+              if (value !== "NODAL_OFFICER") {
+                setNodalHasSubmission(false);
+              } else if (officer?.id && value === "NODAL_OFFICER") {
+                // Re-check if switching back to NODAL_OFFICER
+                checkNodalOfficerSubmission(officer.id);
+              }
             }}
           >
             <SelectTrigger className={errors.role ? "border-destructive" : ""}>
@@ -1345,7 +1432,6 @@ const handleStateChange = (values: string | string[]) => {
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               Assign Indicators
-              <span className="text-destructive">*</span>
               {/* <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1360,6 +1446,30 @@ const handleStateChange = (values: string | string[]) => {
                 </Tooltip>
               </TooltipProvider> */}
             </Label>
+
+            {/* Warning if state approver has submitted */}
+            {stateApproverHasSubmission && officer && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> Indicator reassignment is disabled because you have already submitted your consolidated submission.
+                </p>
+              </div>
+            )}
+
+            {/* Warning if nodal officer has submitted */}
+            {nodalHasSubmission && officer && !stateApproverHasSubmission && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm text-orange-800">
+                  <strong>Note:</strong> Indicator modification is disabled because this nodal officer has already submitted their submission. No indicator changes are allowed.
+                </p>
+              </div>
+            )}
+
+            {checkingNodalSubmission && (
+              <p className="text-sm text-muted-foreground">
+                Checking submission status...
+              </p>
+            )}
 
             <MultiSelect
               options={indicatorOptions}
@@ -1377,7 +1487,7 @@ const handleStateChange = (values: string | string[]) => {
               groupBySection={true}
               className="w-full"
               maxHeight="250px"
-              disabled={loadingIndicators}
+              disabled={loadingIndicators || (stateApproverHasSubmission && !!officer) || (nodalHasSubmission && !!officer)}
             />
             {loadingIndicators && (
               <p className="text-sm text-muted-foreground mt-1">

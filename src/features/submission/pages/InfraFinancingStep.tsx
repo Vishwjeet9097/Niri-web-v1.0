@@ -62,6 +62,7 @@ export const InfraFinancingStep = () => {
     error: indicatorError,
     assignedIndicators,
     availableIndicators,
+    effectiveIndicators,
     hasIndicatorAccess,
     isNodalOfficer,
     isStateApprover,
@@ -138,7 +139,7 @@ export const InfraFinancingStep = () => {
   const allowedIndicators = useMemo(
     () =>
       (isNodalOfficer
-        ? assignedIndicators
+        ? effectiveIndicators // Use effectiveIndicators (includes fallback to all if empty)
         : isStateApprover
         ? availableIndicators
         : null
@@ -146,7 +147,7 @@ export const InfraFinancingStep = () => {
     [
       isNodalOfficer,
       isStateApprover,
-      assignedIndicators,
+      effectiveIndicators,
       availableIndicators,
       sectionIndicators,
     ]
@@ -615,8 +616,8 @@ export const InfraFinancingStep = () => {
     );
   }
 
-  // Nodal access check (unchanged logic)
-  if (isNodalOfficer) {
+  // Access check for both NODAL_OFFICER and STATE_APPROVER
+  if (isNodalOfficer || isStateApprover) {
     const hasAccessToSection =
       hasIndicatorAccess("1.1") ||
       hasIndicatorAccess("1.2") ||
@@ -625,7 +626,9 @@ export const InfraFinancingStep = () => {
       hasIndicatorAccess("1.5");
     console.log("🔍 InfraFinancingStep: Access control check", {
       isNodalOfficer,
+      isStateApprover,
       assignedIndicators,
+      availableIndicators,
       hasAccessToSection,
       hasAccess1_1: hasIndicatorAccess("1.1"),
       hasAccess1_2: hasIndicatorAccess("1.2"),

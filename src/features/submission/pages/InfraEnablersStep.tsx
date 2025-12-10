@@ -93,6 +93,8 @@ export const InfraEnablersStep = () => {
     isStateApprover,
     assignedIndicators,
     availableIndicators,
+    effectiveIndicators,
+    hasIndicatorAccess,
     refresh,
     loading: indicatorLoading,
     error: indicatorError,
@@ -140,7 +142,7 @@ export const InfraEnablersStep = () => {
   // Unified access control for both roles - calculate before validation
   const sectionIndicators = ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"];
   const allowedIndicators =
-    (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter((i) =>
+    (isNodalOfficer ? effectiveIndicators : availableIndicators)?.filter((i) =>
       sectionIndicators.includes(i)
     ) || [];
 
@@ -151,10 +153,17 @@ export const InfraEnablersStep = () => {
     // Determine which indicators to validate
     // For Nodal Officer or State Approver: only validate assigned/available indicators
     // For others: validate all (no restrictions)
-    const indicatorsToValidate =
-      (isNodalOfficer || isStateApprover) && allowedIndicators.length > 0
-        ? allowedIndicators
-        : undefined; // undefined means validate all (backward compatibility)
+    let indicatorsToValidate: string[] | undefined;
+    
+    if (isNodalOfficer || isStateApprover) {
+      // If no indicators assigned/available in this category, validate nothing (empty array = skip validation)
+      indicatorsToValidate = allowedIndicators.length > 0 
+        ? allowedIndicators 
+        : []; // Empty array means validate nothing (category not applicable)
+    } else {
+      // Other roles: validate all (backward compatibility)
+      indicatorsToValidate = undefined; // undefined means validate all
+    }
 
     return validateInfraEnablers(formData, {
       allowedIndicators: indicatorsToValidate,
@@ -632,8 +641,7 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.1 */}
       {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.1") ||
-        availableIndicators.includes("4.1")) &&
+        hasIndicatorAccess("4.1")) &&
         (!isEditMode ||
           formData.section4_1?.allEligible ||
           (formData.section4_1?.websiteLink &&
@@ -770,8 +778,7 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.2 */}
       {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.2") ||
-        availableIndicators.includes("4.2")) &&
+        hasIndicatorAccess("4.2")) &&
         (!isEditMode ||
           formData.section4_2?.available ||
           !!formData.section4_2?.file) && (
@@ -887,8 +894,7 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.3 */}
       {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.3") ||
-        availableIndicators.includes("4.3")) &&
+        hasIndicatorAccess("4.3")) &&
         (!isEditMode ||
           formData.section4_3?.adopted ||
           (Array.isArray(formData.section4_3?.projects) &&
@@ -1183,8 +1189,7 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.4 */}
       {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.4") ||
-        availableIndicators.includes("4.4")) &&
+        hasIndicatorAccess("4.4")) &&
         (!isEditMode ||
           formData.section4_4?.adopted ||
           !!formData.section4_4?.file ||
@@ -1315,8 +1320,7 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.5 */}
       {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.5") ||
-        availableIndicators.includes("4.5")) &&
+        hasIndicatorAccess("4.5")) &&
         (!isEditMode ||
           formData.section4_5?.implemented ||
           (Array.isArray(formData.section4_5?.practices) &&
@@ -1559,8 +1563,7 @@ export const InfraEnablersStep = () => {
 
       {/* Section 4.6 */}
       {((!isNodalOfficer && !isStateApprover) ||
-        assignedIndicators.includes("4.6") ||
-        availableIndicators.includes("4.6")) &&
+        hasIndicatorAccess("4.6")) &&
         (!isEditMode ||
           formData.section4_6?.participated ||
           (Array.isArray(formData.section4_6?.capacityArray) &&

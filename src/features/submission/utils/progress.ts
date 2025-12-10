@@ -486,19 +486,28 @@ export function computeStepProgress(
   )?.[stepKey] as Record<string, unknown> | undefined;
 
   // 🎯 For NODAL_OFFICER: Start with assigned indicators (if available)
+  // If no indicators assigned, count all sections (fallback behavior)
   // For others: Count indicators that exist in the submission
   let sectionsInSubmission: typeof sections;
   
-  if (isNodalOfficer && assignedIndicators.length > 0) {
-    // For NODAL_OFFICER: Only consider assigned indicators that exist in formData
-    // This ensures progress is based on assigned indicators, not all indicators in submission
-    sectionsInSubmission = sections.filter((s) => {
-      // Must be in assigned indicators
-      if (!assignedIndicators.includes(s.indicator)) return false;
-      // And must exist in formData
-      if (!stepData) return false;
-      return stepData[s.sectionKey] !== undefined && stepData[s.sectionKey] !== null;
-    });
+  if (isNodalOfficer) {
+    if (assignedIndicators.length > 0) {
+      // For NODAL_OFFICER: Only consider assigned indicators that exist in formData
+      // This ensures progress is based on assigned indicators, not all indicators in submission
+      sectionsInSubmission = sections.filter((s) => {
+        // Must be in assigned indicators
+        if (!assignedIndicators.includes(s.indicator)) return false;
+        // And must exist in formData
+        if (!stepData) return false;
+        return stepData[s.sectionKey] !== undefined && stepData[s.sectionKey] !== null;
+      });
+    } else {
+      // If no indicators assigned, count all sections that exist in formData (fallback)
+      sectionsInSubmission = sections.filter((s) => {
+        if (!stepData) return false;
+        return stepData[s.sectionKey] !== undefined && stepData[s.sectionKey] !== null;
+      });
+    }
     
     // Debug logging for NODAL_OFFICER
     if (process.env.NODE_ENV === 'development') {
@@ -506,6 +515,7 @@ export function computeStepProgress(
         assignedIndicators,
         sectionsInSubmission: sectionsInSubmission.map(s => s.indicator),
         total: sectionsInSubmission.length,
+        usingFallback: assignedIndicators.length === 0,
       });
     }
   } else {

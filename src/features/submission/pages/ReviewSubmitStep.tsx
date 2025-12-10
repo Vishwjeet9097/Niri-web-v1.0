@@ -53,6 +53,7 @@ export const ReviewSubmitStep = () => {
   const {
     assignedIndicators,
     availableIndicators,
+    effectiveIndicators,
     isNodalOfficer,
     isStateApprover,
   } = useIndicatorAccess();
@@ -187,8 +188,8 @@ export const ReviewSubmitStep = () => {
       let formDataToSubmit = formData;
       
       // Only filter if user has assigned indicators (safe fallback)
-      if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
-        formDataToSubmit = filterSectionFormDataByIndicators(formData, assignedIndicators);
+      if (isNodalOfficer && effectiveIndicators && effectiveIndicators.length > 0) {
+        formDataToSubmit = filterSectionFormDataByIndicators(formData, effectiveIndicators);
         console.log("✅ Filtered formData for nodal officer:", formDataToSubmit);
       } else if (isStateApprover && availableIndicators && availableIndicators.length > 0) {
         formDataToSubmit = filterSectionFormDataByIndicators(formData, availableIndicators);
