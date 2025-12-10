@@ -1631,7 +1631,7 @@ class ApiService implements HttpClient {
             [category]: filteredSectionData,
           },
           indicators: completedIndicators, // Use completedIndicators instead of all indicators
-          status: "DRAFT",
+          status: "SUBMITTED_TO_STATE",
           section_status: initialSectionStatus,
         };
 
