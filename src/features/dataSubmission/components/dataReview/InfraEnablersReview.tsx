@@ -11,7 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Upload, Plus, Trash2, Clock, RotateCcw, CheckCircle, X, Check, Edit3 } from "lucide-react";
+import {
+  MessageSquare,
+  Upload,
+  Plus,
+  Trash2,
+  Clock,
+  RotateCcw,
+  CheckCircle,
+  X,
+  Check,
+  Edit3,
+} from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -36,17 +47,26 @@ import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
-import { hasInfraEnablersData, getSectionsWithData } from "@/utils/sectionDataValidator";
+import {
+  hasInfraEnablersData,
+  getSectionsWithData,
+} from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
-import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
-import { useEditableSectionStore } from '@/utils/EditableSection';
+import {
+  computeStepProgress,
+  STEP_SECTIONS,
+} from "@/features/submission/utils/progress";
+import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { Badge } from "@/components/ui/badge";
-import { IMPACT_OPTIONS, TRAINING_TYPE_OPTIONS } from "@/features/submission/constants/steps";
+import {
+  IMPACT_OPTIONS,
+  TRAINING_TYPE_OPTIONS,
+} from "@/features/submission/constants/steps";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -57,7 +77,14 @@ interface InfraEnablersReviewProps {
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
 }
 
-export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: InfraEnablersReviewProps) => {
+export const InfraEnablersReview = ({
+  submissionId,
+  formData,
+  submission,
+  isPreview = false,
+  assignedIndicators = [],
+  isNodalOfficer = false,
+}: InfraEnablersReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
@@ -67,7 +94,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
   const currentSubmission = submissionState || submission;
-  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, currentSubmission);
+  const { saveMessage, getMessage, getComments, getAllComments } =
+    useSectionMessages(submissionId, currentSubmission);
   
   // Sync submissionState when submission prop changes from parent
   useEffect(() => {
@@ -77,7 +105,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   }, [submission]);
   
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
-  const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
+  const [originalFormDataSnapshot, setOriginalFormDataSnapshot] =
+    useState<any>(null);
   // Flag to prevent useEffect from overriding cancel restore
   const isRestoringRef = useRef(false);
   // Counter to force remount of Select components on cancel
@@ -85,17 +114,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
+    string | null
+  >(null);
 
   // State for Send Back and Accept confirmation dialogs
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
-  const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
+  const [pendingActionSectionId, setPendingActionSectionId] = useState<
+    string | null
+  >(null);
   
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
-  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<string | null>(null);
+  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<
+    string | null
+  >(null);
 
   // State for adding new project in section 4.3
   const [showAddProjectForm, setShowAddProjectForm] = useState(false);
@@ -126,19 +161,20 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Helper function to check user role
   const getUserRole = () => {
     try {
-      const authUser = localStorage.getItem('niri_app:auth_user');
+      const authUser = localStorage.getItem("niri_app:auth_user");
       if (authUser) {
         const user = JSON.parse(authUser);
         return user.value?.role;
       }
     } catch (error) {
-      console.error('Error reading user role:', error);
+      console.error("Error reading user role:", error);
     }
     return null;
   };
 
   //State for edit button 
-  const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
   
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
@@ -155,10 +191,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       setOriginalFormDataSnapshot(null);
       setEditable(sectionId, false);
       // Increment reset key to force Select components to remount
-      setSelectResetKey(prev => prev + 1);
+      setSelectResetKey((prev) => prev + 1);
       
       // Close and reset "Add Project" form for section 4.3
-      if (sectionId === '4.3') {
+      if (sectionId === "4.3") {
         setShowAddProjectForm(false);
         setNewProject({
           projectName: "",
@@ -168,7 +204,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
       
       // Close and reset "Add Practice" form for section 4.5
-      if (sectionId === '4.5') {
+      if (sectionId === "4.5") {
         setShowAddPracticeForm(false);
         setNewPractice({
           practiceName: "",
@@ -178,7 +214,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
       
       // Close and reset "Add Capacity Entry" form for section 4.6
-      if (sectionId === '4.6') {
+      if (sectionId === "4.6") {
         setShowAddCapacityForm(false);
         setNewCapacityEntry({
           officerName: "",
@@ -198,7 +234,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     } else {
       setEditable(sectionId, false);
       // Still close forms even if no snapshot exists
-      if (sectionId === '4.3') {
+      if (sectionId === "4.3") {
         setShowAddProjectForm(false);
         setNewProject({
           projectName: "",
@@ -206,7 +242,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           file: null,
         });
       }
-      if (sectionId === '4.5') {
+      if (sectionId === "4.5") {
         setShowAddPracticeForm(false);
         setNewPractice({
           practiceName: "",
@@ -214,7 +250,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           file: null,
         });
       }
-      if (sectionId === '4.6') {
+      if (sectionId === "4.6") {
         setShowAddCapacityForm(false);
         setNewCapacityEntry({
           officerName: "",
@@ -244,10 +280,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       if (eventSubmissionId === submissionId) {
         // Force re-render by updating a dummy state
         // 1. Update submission with fresh comments data
-        setSubmissionState(prev => ({
+        setSubmissionState((prev) => ({
           ...prev,
           indicatorComment: comments,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         }));
         
         // 2. Refresh complete submission data (same as first load)
@@ -272,20 +308,34 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
     };
 
-    window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    window.addEventListener(
+      "niri-comment-updated",
+      handleCommentUpdate as EventListener
+    );
     
     return () => {
-      window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+      window.removeEventListener(
+        "niri-comment-updated",
+        handleCommentUpdate as EventListener
+      );
     };
   }, [submissionId]);
   
   // Check if this section has any data
   const hasData = hasInfraEnablersData({ infraEnablers: state });
-  let sectionsWithData = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
+  let sectionsWithData = getSectionsWithData(
+    { infraEnablers: state },
+    "infraEnablers"
+  );
   
   // For preview mode with assigned indicators, always include assigned sections even if they have no data
   // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+  if (
+    isPreview &&
+    isNodalOfficer &&
+    assignedIndicators &&
+    assignedIndicators.length > 0
+  ) {
     const assignedSectionKeys: string[] = [];
     const indicatorToSectionMap: Record<string, string> = {
       "4.1": "section4_1",
@@ -307,18 +357,62 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   }
   
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Include all sections that exist in formData
-  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
-  // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && state && typeof state === 'object') {
-    const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
-    const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in state (even if value is null, empty object, or empty array)
-      return sectionKey in state;
+  // Only include sections that have meaningful data - don't show empty/unsubmitted indicators
+  // This ensures state approvers only see indicators that were actually saved/submitted by nodal officers
+  if (
+    (!isPreview || (isPreview && !isNodalOfficer)) &&
+    state &&
+    typeof state === "object"
+  ) {
+    const allPossibleSections = [
+      "section4_1",
+      "section4_2",
+      "section4_3",
+      "section4_4",
+      "section4_5",
+      "section4_6",
+    ];
+    const existingSections = allPossibleSections.filter((sectionKey) => {
+      // Check if section key exists in state
+      if (!(sectionKey in state)) {
+        return false;
+      }
+
+      const section = state[sectionKey];
+
+      // Check if section has meaningful data (not just empty object, null, or empty array)
+      if (!section || typeof section !== "object") return false;
+
+      // For array-based sections, check if array has data
+      if (Array.isArray(section)) {
+        return (
+          section.length > 0 &&
+          section.some((item) => {
+            if (!item || typeof item !== "object") return false;
+            return (
+              Object.keys(item).length > 0 &&
+              Object.values(item).some(
+                (val) => val !== null && val !== undefined && val !== ""
+              )
+            );
+          })
+        );
+      }
+
+      // For object sections, check if they have any meaningful values
+      return Object.values(section).some((val) => {
+        if (val === null || val === undefined || val === "") return false;
+        if (Array.isArray(val) && val.length === 0) return false;
+        if (typeof val === "object" && Object.keys(val).length === 0)
+          return false;
+        return true;
+      });
     });
     
     // Merge existing sections with sectionsWithData, avoiding duplicates
-    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+    sectionsWithData = Array.from(
+      new Set([...sectionsWithData, ...existingSections])
+    );
   }
 
   const handleOpenModal = (sectionId: string) => {
@@ -351,7 +445,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
-      const shouldShowSentBackConfirmation = isMospiApproverSentBack && mospiSentBackSectionId;
+      const shouldShowSentBackConfirmation =
+        isMospiApproverSentBack && mospiSentBackSectionId;
 
       // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
       if (shouldShowSentBackConfirmation) {
@@ -395,7 +490,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const onSaveSection = async (sectionId: string) => {
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
-    const isNodalOfficer = userRole === 'NODAL_OFFICER';
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
 
     // If NODAL_OFFICER, show confirmation dialog first
     if (isNodalOfficer) {
@@ -404,7 +499,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       return;
     }
 
-    // For non-NODAL_OFFICER users, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with submit directly
     await performSave(sectionId);
   };
 
@@ -412,30 +507,32 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const performSave = async (sectionId: string) => {
     try {
       // Map visual section id to payload section key (e.g. "4.1" -> "section4_1")
-      const payloadSection = `section${sectionId.replace('.', '_')}`;
+      const payloadSection = `section${sectionId.replace(".", "_")}`;
 
       // Use the local formData state (formDataState) to build fields for this section
       let fields: Record<string, any>[] = [];
 
       // Check if user is NODAL_OFFICER to add status to payload
       const userRole = getUserRole();
-      const isNodalOfficer = userRole === 'NODAL_OFFICER';
+      const isNodalOfficer = userRole === "NODAL_OFFICER";
 
       switch (sectionId) {
-        case '4.1':
+        case "4.1":
           // Use local state for section 4.1 data
-          console.log("Section_4_1 state", state?.section4_1)
-          fields = [{
+          console.log("Section_4_1 state", state?.section4_1);
+          fields = [
+            {
             allEligible: state?.section4_1?.allEligible ?? null,
             websiteLink: state?.section4_1?.websiteLink ?? null,
             file: state?.section4_1?.file ?? null,
             comment: state?.section4_1?.comment ?? null,
-          }];
+            },
+          ];
           break;
 
-        case '4.2':
+        case "4.2":
           // Use local state for section 4.2 data
-          console.log("Section_4_2 state", state?.section4_2)
+          console.log("Section_4_2 state", state?.section4_2);
           const section4_2Files = Array.isArray(state?.section4_2?.files)
             ? state.section4_2.files
             : state?.section4_2?.files
@@ -447,7 +544,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           // Format files for payload - ensure file property is string path
           const files4_2 = section4_2Files.map((file: FileUpload) => ({
             id: file.id,
-            file: typeof file.file === 'string' ? file.file : file.filePath || file.fileUrl || null,
+            file:
+              typeof file.file === "string"
+                ? file.file
+                : file.filePath || file.fileUrl || null,
             fileName: file.fileName,
             fileSize: file.fileSize,
             uploadedAt: file.uploadedAt,
@@ -456,34 +556,40 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             mimeType: file.mimeType,
           }));
           
-          fields = [{
+          fields = [
+            {
             available: state?.section4_2?.available ?? null,
             files: files4_2,
             file: toSingleFile(section4_2Files),
             websiteLink: state?.section4_2?.websiteLink ?? null,
             comment: state?.section4_2?.comment ?? null,
-          }];
+            },
+          ];
           break;
 
-        case '4.3':
+        case "4.3":
           // Use local state for section 4.3 data
-          console.log("Section_4_3 state", state?.section4_3)
-          const projects4_3 = (state?.section4_3?.projects || []).map((project: any) => ({
+          console.log("Section_4_3 state", state?.section4_3);
+          const projects4_3 = (state?.section4_3?.projects || []).map(
+            (project: any) => ({
             id: project.id,
             projectName: project.projectName ?? null,
             sector: project.sector ?? null,
             file: project.file ?? null,
-          }));
-          fields = [{
+            })
+          );
+          fields = [
+            {
             adopted: state?.section4_3?.adopted ?? null,
             projects: projects4_3,
             comment: state?.section4_3?.comment ?? null,
-          }];
+            },
+          ];
           break;
 
-        case '4.4':
+        case "4.4":
           // Use local state for section 4.4 data
-          console.log("Section_4_4 state", state?.section4_4)
+          console.log("Section_4_4 state", state?.section4_4);
           const section4_4Files = Array.isArray(state?.section4_4?.files)
             ? state.section4_4.files
             : state?.section4_4?.files
@@ -495,7 +601,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           // Format files for payload - ensure file property is string path
           const files4_4 = section4_4Files.map((file: FileUpload) => ({
             id: file.id,
-            file: typeof file.file === 'string' ? file.file : file.filePath || file.fileUrl || null,
+            file:
+              typeof file.file === "string"
+                ? file.file
+                : file.filePath || file.fileUrl || null,
             fileName: file.fileName,
             fileSize: file.fileSize,
             uploadedAt: file.uploadedAt,
@@ -504,43 +613,51 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             mimeType: file.mimeType,
           }));
           
-          fields = [{
+          fields = [
+            {
             adopted: state?.section4_4?.adopted ?? null,
             files: files4_4,
             file: toSingleFile(section4_4Files),
             marksObtained: state?.section4_4?.marksObtained ?? null,
             comment: state?.section4_4?.comment ?? null,
-          }];
+            },
+          ];
           break;
 
-        case '4.5':
+        case "4.5":
           // Use local state for section 4.5 data
-          console.log("Section_4_5 state", state?.section4_5)
-          const practices4_5 = (state?.section4_5?.practices || []).map((practice: any) => ({
+          console.log("Section_4_5 state", state?.section4_5);
+          const practices4_5 = (state?.section4_5?.practices || []).map(
+            (practice: any) => ({
             id: practice.id,
             practiceName: practice.practiceName ?? null,
             impact: practice.impact ?? null,
             file: practice.file ?? null,
-          }));
-          fields = [{
+            })
+          );
+          fields = [
+            {
             implemented: state?.section4_5?.implemented ?? null,
             practices: practices4_5,
             comment: state?.section4_5?.comment ?? null,
-          }];
+            },
+          ];
           break;
 
-        case '4.6':
+        case "4.6":
           // Use local state for section 4.6 data
           console.log("Section_4_6 state", state?.section4_6);
           fields = [
             {
-              capacityArray: (state?.section4_6?.capacityArray || []).map((item: any) => ({
+              capacityArray: (state?.section4_6?.capacityArray || []).map(
+                (item: any) => ({
                 officerName: item?.officerName ?? null,
                 designation: item?.designation ?? null,
                 programName: item?.programName ?? null,
                 trainingType: item?.trainingType ?? null,
                 organiser: item?.organiser ?? null,
-              })),
+                })
+              ),
               participated: state?.section4_6?.participated ?? null,
               comment: state?.section4_6?.comment ?? null,
             },
@@ -557,28 +674,28 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         // Add status to the first field object
         fields[0] = {
           ...fields[0],
-          status: 'RESUBMITTED',
+          status: "RESUBMITTED",
         };
       }
 
       await handleSaveSection({
         submissionId,
-        category: 'infraEnablers',
+        category: "infraEnablers",
         section: payloadSection,
-        fields
+        fields,
       });
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
       if (isNodalOfficer) {
         // Update formDataState to set status to RESUBMITTED
-        const sectionKey = `section${sectionId.replace('.', '_')}`;
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
         setFormDataState((prev: any) => {
           if (!prev) return prev;
           const updated = { ...prev };
           if (updated[sectionKey]) {
             updated[sectionKey] = {
               ...updated[sectionKey],
-              status: 'RESUBMITTED',
+              status: "RESUBMITTED",
             };
           }
           return updated;
@@ -590,7 +707,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       // Clear the snapshot since save was successful
       setOriginalFormDataSnapshot(null);
     } catch (error) {
-      console.error('Error saving section:', error);
+      console.error("Error saving section:", error);
     }
   };
 
@@ -611,27 +728,27 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Actual function that performs the status update
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
-    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
     
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
       submissionId,
-      category: 'infraEnablers',
-      section: `section${sectionId.replace('.', '_')}`,
+      category: "infraEnablers",
+      section: `section${sectionId.replace(".", "_")}`,
       status: status,
     };
     
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
-      payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
+      payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
     }
     
     try {
       await apiService.indicatorStatus(payload);
       // Update local formData to trigger re-render of action buttons
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
-      const statusField = isMospiApprover ? 'mospi_status' : 'status';
-      const statusValue = status ? 'ACCEPTED' : 'REVERTED';
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const statusField = isMospiApprover ? "mospi_status" : "status";
+      const statusValue = status ? "ACCEPTED" : "REVERTED";
       
       // Defensive: update formDataState if section exists
       if (formDataState && (formDataState as any)[sectionKey] !== undefined) {
@@ -646,7 +763,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               ...prev,
               [sectionKey]: updatedArray,
             };
-          } else if (sectionData && typeof sectionData === 'object') {
+          } else if (sectionData && typeof sectionData === "object") {
             // For object sections, add/update status property
             return {
               ...prev,
@@ -659,23 +776,34 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           return prev;
         });
       }
-      console.log(`✅ Indicator ${isMospiApprover ? 'mospi_' : ''}status updated successfully`);
+      console.log(
+        `✅ Indicator ${
+          isMospiApprover ? "mospi_" : ""
+        }status updated successfully`
+      );
       
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
-        window.dispatchEvent(new CustomEvent('niri-indicator-status-updated', {
-          detail: { sectionId, status: statusValue }
-        }));
+        window.dispatchEvent(
+          new CustomEvent("niri-indicator-status-updated", {
+            detail: { sectionId, status: statusValue },
+          })
+        );
       }
     } catch (error) {
-      console.error(`❌ Failed to update indicator ${isMospiApprover ? 'mospi_' : ''}status:`, error);
+      console.error(
+        `❌ Failed to update indicator ${
+          isMospiApprover ? "mospi_" : ""
+        }status:`,
+        error
+      );
     }
   };
 
   // Wrapper function that checks for STATE_APPROVER and shows dialog if needed
   const onIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
-    const isStateApprover = userRole === 'STATE_APPROVER';
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     if (isStateApprover) {
       // Show appropriate dialog based on action
@@ -700,18 +828,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       // Check if user is MOSPI_APPROVER
       const getUserRole = () => {
         try {
-          const authUser = localStorage.getItem('niri_app:auth_user');
+          const authUser = localStorage.getItem("niri_app:auth_user");
           if (authUser) {
             const user = JSON.parse(authUser);
             return user.value?.role;
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error("Error reading user role:", error);
         }
         return null;
       };
       const userRole = getUserRole();
-      const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      const isMospiApprover = userRole === "MOSPI_APPROVER";
       
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
@@ -735,18 +863,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       // Check if user is MOSPI_APPROVER
       const getUserRole = () => {
         try {
-          const authUser = localStorage.getItem('niri_app:auth_user');
+          const authUser = localStorage.getItem("niri_app:auth_user");
           if (authUser) {
             const user = JSON.parse(authUser);
             return user.value?.role;
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error("Error reading user role:", error);
         }
         return null;
       };
       const userRole = getUserRole();
-      const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      const isMospiApprover = userRole === "MOSPI_APPROVER";
       
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
@@ -773,7 +901,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     return value ?? null;
   };
 
-  const toFileArray = (value: FileUpload | FileUpload[] | null | undefined): FileUpload[] => {
+  const toFileArray = (
+    value: FileUpload | FileUpload[] | null | undefined
+  ): FileUpload[] => {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
   };
@@ -783,13 +913,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     sectionId: string,
     updatedValue: FileUpload | FileUpload[] | null
   ) => {
-    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
     const previousSection = state?.[sectionKey] || {};
-    const targetKey = ['4.2', '4.4'].includes(sectionId) ? 'files' : 'file';
+    const targetKey = ["4.2", "4.4"].includes(sectionId) ? "files" : "file";
     
     // For sections that use 'files' array, ensure we always work with arrays
     let filesArray: FileUpload[] = [];
-    if (targetKey === 'files') {
+    if (targetKey === "files") {
       // If updatedValue is null, set empty array
       if (updatedValue === null) {
         filesArray = [];
@@ -804,11 +934,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
     }
     
-    const normalizedValue =
-      targetKey === 'files' ? filesArray : updatedValue;
+    const normalizedValue = targetKey === "files" ? filesArray : updatedValue;
 
     const updatedSection =
-      targetKey === 'files'
+      targetKey === "files"
         ? {
             ...previousSection,
             files: filesArray,
@@ -826,7 +955,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }));
 
     // Auto-save for sections 4.2 and 4.4
-    if (['4.2', '4.4'].includes(sectionId)) {
+    if (["4.2", "4.4"].includes(sectionId)) {
       try {
         // Ensure files array is properly formatted for API
         const filesForPayload = filesArray.map((file) => ({
@@ -841,7 +970,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         }));
 
         const fields =
-          sectionId === '4.2'
+          sectionId === "4.2"
             ? [
                 {
                   available: updatedSection?.available ?? null,
@@ -856,11 +985,16 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 },
               ];
 
-        console.log('📤 Saving files for section', sectionId, 'with payload:', fields);
+        console.log(
+          "📤 Saving files for section",
+          sectionId,
+          "with payload:",
+          fields
+        );
         
         await handleSaveSection({
           submissionId,
-          category: 'infraEnablers',
+          category: "infraEnablers",
           section: sectionKey,
           fields,
         });
@@ -869,21 +1003,29 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           await onIndicatorStatus(sectionId, false);
         }
       } catch (error) {
-        console.error('Failed to auto-save files for section', sectionId, error);
+        console.error(
+          "Failed to auto-save files for section",
+          sectionId,
+          error
+        );
       }
     }
   };
 
   // Helper functions to handle field updates
-  const handleFieldUpdate = (sectionId: string, fieldName: string, value: any) => {
+  const handleFieldUpdate = (
+    sectionId: string,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
       return {
         ...prev,
         [sectionKey]: {
           ...prev?.[sectionKey],
-          [fieldName]: value
-        }
+          [fieldName]: value,
+        },
       };
     });
   };
@@ -924,7 +1066,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Handle updating project fields in section 4.3
-  const handleProjectFieldUpdate = (index: number, fieldName: string, value: any) => {
+  const handleProjectFieldUpdate = (
+    index: number,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
       const projects = [...(prev?.section4_3?.projects || [])];
       projects[index] = {
@@ -942,7 +1088,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Handle updating project file in section 4.3
-  const handleProjectFileUpdate = (index: number, updatedFile: FileUpload | null) => {
+  const handleProjectFileUpdate = (
+    index: number,
+    updatedFile: FileUpload | null
+  ) => {
     setFormDataState((prev: any) => {
       const projects = [...(prev?.section4_3?.projects || [])];
       projects[index] = {
@@ -995,7 +1144,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Handle updating practice fields in section 4.5
-  const handlePracticeFieldUpdate = (index: number, fieldName: string, value: any) => {
+  const handlePracticeFieldUpdate = (
+    index: number,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
       const practices = [...(prev?.section4_5?.practices || [])];
       practices[index] = {
@@ -1013,7 +1166,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Handle updating practice file in section 4.5
-  const handlePracticeFileUpdate = (index: number, updatedFile: FileUpload | null) => {
+  const handlePracticeFileUpdate = (
+    index: number,
+    updatedFile: FileUpload | null
+  ) => {
     setFormDataState((prev: any) => {
       const practices = [...(prev?.section4_5?.practices || [])];
       practices[index] = {
@@ -1031,7 +1187,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Helper to update table row items for section 4.6
-  const handleTableFieldUpdate = (rowIndex: number, fieldName: string, value: any) => {
+  const handleTableFieldUpdate = (
+    rowIndex: number,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
       const current = prev?.section4_6?.capacityArray;
       const rows = Array.isArray(current) ? [...current] : [];
@@ -1087,7 +1247,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     setShowAddCapacityForm(false);
   };
 
-
   const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
@@ -1100,31 +1259,31 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
     const getUserRole = () => {
       try {
-        const authUser = localStorage.getItem('niri_app:auth_user');
+        const authUser = localStorage.getItem("niri_app:auth_user");
         if (authUser) {
           const user = JSON.parse(authUser);
           return user.value?.role;
         }
       } catch (error) {
-        console.error('Error reading user role:', error);
+        console.error("Error reading user role:", error);
       }
       return null;
     };
     const userRole = getUserRole();
-    const isNodalOfficer = userRole === 'NODAL_OFFICER';
-    const isStateApprover = userRole === 'STATE_APPROVER';
-    const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
-    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const isStateApprover = userRole === "STATE_APPROVER";
+    const isMospiReviewer = userRole === "MOSPI_REVIEWER";
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
     
     // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
     const submissionStatus = submission?.status;
-    if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+    if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
       return null;
     }
     
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
     // Only show Timeline button for viewing comments
-    if (submissionStatus === 'APPROVED') {
+    if (submissionStatus === "APPROVED") {
       return (
         <div className="flex gap-2">
           {commentCount > 0 && (
@@ -1173,13 +1332,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
     if (isMospiApprover) {
       // Check mospi_status instead of status for MOSPI_APPROVER
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
       const sectionData = state && state[sectionKey];
       const mospiStatus = Array.isArray(sectionData) 
         ? (sectionData as any)?.mospi_status 
         : sectionData?.mospi_status;
       
-      if (mospiStatus === 'ACCEPTED') {
+      if (mospiStatus === "ACCEPTED") {
         return (
           <div className="flex gap-2">
             <Button
@@ -1204,7 +1363,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         );
       }
       
-      if (mospiStatus === 'REVERTED') {
+      if (mospiStatus === "REVERTED") {
         return (
           <div className="flex gap-2">
             <Button
@@ -1276,14 +1435,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
 
     // For all other roles, check status field as before
-    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
     const sectionData = state && state[sectionKey];
     // Handle both array and object sections
     const sectionStatus = Array.isArray(sectionData) 
       ? (sectionData as any)?.status 
       : sectionData?.status;
       
-    if (sectionStatus === 'ACCEPTED') {
+    // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
+    // REVERTED is excluded because user can resubmit after being sent back
+    const isSubmitted =
+      sectionStatus === "SUBMITTED" ||
+      sectionStatus === "RESUBMITTED" ||
+      sectionStatus === "ACCEPTED";
+
+    if (sectionStatus === "ACCEPTED") {
       return (
         <div className="flex gap-2">
           <Button
@@ -1309,7 +1475,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
     
     // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
-    if (isStateApprover && sectionStatus === 'RESUBMITTED') {
+    if (isStateApprover && sectionStatus === "RESUBMITTED") {
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -1329,6 +1495,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => onSaveSection(sectionId)}
+                disabled={true} // Already submitted (RESUBMITTED), disable button
               >
                 <Check className="w-4 h-4" />
                 Save
@@ -1377,7 +1544,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       );
     }
     
-    if (sectionStatus === 'REVERTED') {
+    if (sectionStatus === "REVERTED") {
       // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
       if (isNodalOfficer) {
         return (
@@ -1399,6 +1566,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   size="sm"
                   className="flex items-center gap-1"
                   onClick={() => onSaveSection(sectionId)}
+                  disabled={false} // Can resubmit after being sent back
                 >
                   <Check className="w-4 h-4" />
                   Save
@@ -1462,7 +1630,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
 
     // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
-    if (isNodalOfficer && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
+    if (isNodalOfficer && (sectionStatus === "RESUBMITTED" || !sectionStatus)) {
       return (
         <div className="flex gap-2">
           <Button
@@ -1488,7 +1656,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
 
     // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
-    if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
+    if (
+      isNodalOfficer &&
+      sectionStatus !== "REVERTED" &&
+      sectionStatus !== "ACCEPTED" &&
+      sectionStatus !== "RESUBMITTED"
+    ) {
       return null;
     }
 
@@ -1511,6 +1684,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               size="sm"
               className="flex items-center gap-1"
               onClick={() => onSaveSection(sectionId)}
+              disabled={isSubmitted}
             >
               <Check className="w-4 h-4" />
               Save
@@ -1528,7 +1702,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         )}
 
         {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
-        {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
+        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
           <Button
             variant="outline"
             size="sm"
@@ -1568,7 +1742,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   if (!hasData) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">No Infra Enablers data available for review</p>
+        <p className="text-muted-foreground">
+          No Infra Enablers data available for review
+        </p>
       </div>
     );
   }
@@ -1577,7 +1753,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     <>
       <div className="space-y-6">
         {(() => {
-          const sections = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
+          const sections = getSectionsWithData(
+            { infraEnablers: state },
+            "infraEnablers"
+          );
           const assignedIndicators = STEP_SECTIONS.infraEnablers
             .filter((s) => sections.includes(s.sectionKey))
             .map((s) => s.indicator);
@@ -1598,16 +1777,19 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           );
         })()}
         {/* Section 4.1 */}
-        {sectionsWithData.includes('section4_1') && (
+        {sectionsWithData.includes("section4_1") && (
         <SectionCard
-          title={<div className="flex flex-col relative">
+            title={
+              <div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
-                <span className="text-primary">4.1 -</span> Eligible Infrastructure Projects{" "}
+                    <span className="text-primary">4.1 -</span> Eligible
+                    Infrastructure Projects{" "}
               </span>
               {renderActionButtons("4.1")}
             </div>
-          </div>}
+              </div>
+            }
           subtitle=""
           className="mb-6"
         >
@@ -1631,11 +1813,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </CardHeader> */}
           <div className="flex flex-col gap-4 w-[40%]">
             <div>
-              <Label className="mb-3 block">All Eligible Infra Projects on NIP Portal?*</Label>
-              {isEditable('4.1') ? (
+                <Label className="mb-3 block">
+                  All Eligible Infra Projects on NIP Portal?*
+                </Label>
+                {isEditable("4.1") ? (
                 <RadioGroup
                   value={state?.section4_1?.allEligible || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.1', 'allEligible', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.1", "allEligible", value)
+                    }
                   className="flex flex-row gap-6"
                 >
                   <div className="flex items-center space-x-2">
@@ -1649,35 +1835,42 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_1?.allEligible === "yes"
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_1?.allEligible === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
-                    }`}>
+                      }`}
+                    >
                     {state?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
             </div>
 
-            {(state?.section4_1?.allEligible === "yes") && (
+              {state?.section4_1?.allEligible === "yes" && (
               <div>
                 <Label>Website Link</Label>
                 <Input 
                   value={state?.section4_1?.websiteLink || ""} 
-                  readOnly={!isEditable('4.1')}
-                  className={isEditable('4.1') ? 'bg-white' : 'bg-gray-50'}
-                  onChange={(e) => handleFieldUpdate('4.1', 'websiteLink', e.target.value)}
+                    readOnly={!isEditable("4.1")}
+                    className={isEditable("4.1") ? "bg-white" : "bg-gray-50"}
+                    onChange={(e) =>
+                      handleFieldUpdate("4.1", "websiteLink", e.target.value)
+                    }
                 />
               </div>
             )}
 
-            {(state?.section4_1?.allEligible === "no") && (
+              {state?.section4_1?.allEligible === "no" && (
               <div>
                 <Label className="mb-2 block">Comment</Label>
-                {isEditable('4.1') ? (
+                  {isEditable("4.1") ? (
                   <Textarea
                     value={state?.section4_1?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.1', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.1", "comment", e.target.value)
+                      }
                     placeholder="Please provide a comment..."
                     className="min-h-[100px]"
                   />
@@ -1706,31 +1899,40 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               Annex 9: Self-certification required
             </p> */}
             </div>
-
         </SectionCard>
         )}
 
         {/* Section 4.2 */}
-        {sectionsWithData.includes('section4_2') && (
+        {sectionsWithData.includes("section4_2") && (
         <SectionCard
-          title={<div className="flex flex-col relative">
+            title={
+              <div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
-                <span className="text-primary">4.2 -</span> Availability & Use of State/UT PMG <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
+                    <span className="text-primary">4.2 -</span> Availability &
+                    Use of State/UT PMG{" "}
+                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                      (5 marks per 1%)
+                    </span>{" "}
               </span>
               {renderActionButtons("4.2")}
             </div>
-          </div>}
+              </div>
+            }
           subtitle=""
           className="mb-6"
         >
           <div className="space-y-4">
             <div>
-              <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
-              {isEditable('4.2') ? (
+                <Label className="mb-3 block">
+                  Availability and Use of EaseMPR?*
+                </Label>
+                {isEditable("4.2") ? (
                 <RadioGroup
                   value={state?.section4_2?.available || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.2', 'available', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.2", "available", value)
+                    }
                   className="flex flex-row gap-6"
                 >
                   <div className="flex items-center space-x-2">
@@ -1744,36 +1946,46 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_2?.available === "yes"
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_2?.available === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
-                    }`}>
+                      }`}
+                    >
                     {state?.section4_2?.available === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
             </div>
 
-            {(state?.section4_2?.available === "yes") && (
+              {state?.section4_2?.available === "yes" && (
               <div>
                 <EditableFileDisplay
-                  files={state?.section4_2?.files ?? (state?.section4_2?.file ? [state.section4_2.file] : null)}
-                  isEditable={isEditable('4.2')}
+                    files={
+                      state?.section4_2?.files ??
+                      (state?.section4_2?.file ? [state.section4_2.file] : null)
+                    }
+                    isEditable={isEditable("4.2")}
                   submissionId={submissionId}
-                  onFilesChange={(updatedFiles) => handleFileUpdate('4.2', updatedFiles)}
+                    onFilesChange={(updatedFiles) =>
+                      handleFileUpdate("4.2", updatedFiles)
+                    }
                   label="Uploaded File"
                   multiple={true}
                 />
               </div>
             )}
 
-            {(state?.section4_2?.available === "no") && (
+              {state?.section4_2?.available === "no" && (
               <div>
                 <Label className="mb-2 block">Comment</Label>
-                {isEditable('4.2') ? (
+                  {isEditable("4.2") ? (
                   <Textarea
                     value={state?.section4_2?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.2', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.2", "comment", e.target.value)
+                      }
                     placeholder="Please provide a comment..."
                     className="min-h-[100px]"
                   />
@@ -1785,21 +1997,26 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </div>
             )}
             </div>
-
         </SectionCard>
         )}
 
         {/* Section 4.3 */}
-        {sectionsWithData.includes('section4_3') && (
+        {sectionsWithData.includes("section4_3") && (
         <SectionCard
-          title={<div className="flex flex-col relative">
+            title={
+              <div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
-                <span className="text-primary">4.3 -</span> Adoption of PM GatiShakti <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per 1%)</span>{" "}
+                    <span className="text-primary">4.3 -</span> Adoption of PM
+                    GatiShakti{" "}
+                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                      (10 marks per 1%)
+                    </span>{" "}
               </span>
               {renderActionButtons("4.3")}
             </div>
-          </div>}
+              </div>
+            }
           subtitle=""
           className="mb-6"
         >
@@ -1823,11 +2040,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </CardHeader> */}
           <div className="space-y-4">
             <div>
-              <Label className="mb-3 block">Adoption of PM GatiShakti?*</Label>
-              {isEditable('4.3') ? (
+                <Label className="mb-3 block">
+                  Adoption of PM GatiShakti?*
+                </Label>
+                {isEditable("4.3") ? (
                 <RadioGroup
                   value={state?.section4_3?.adopted || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.3', 'adopted', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.3", "adopted", value)
+                    }
                   className="flex flex-row gap-6"
                 >
                   <div className="flex items-center space-x-2">
@@ -1841,38 +2062,52 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_3?.adopted === "yes"
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_3?.adopted === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
-                    }`}>
+                      }`}
+                    >
                     {state?.section4_3?.adopted === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
             </div>
 
-            {(state?.section4_3?.adopted === "yes") && (
+              {state?.section4_3?.adopted === "yes" && (
               <>
                 {/* Projects Table */}
                 <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project Name</th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Project Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Uploaded File
+                          </th>
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const projects = Array.isArray(state?.section4_3?.projects)
+                          const projects = Array.isArray(
+                            state?.section4_3?.projects
+                          )
                           ? state.section4_3.projects
                           : [];
 
                         if (!projects.length) {
                           return (
                             <tr>
-                              <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                                <td
+                                  colSpan={3}
+                                  className="py-8 text-center text-muted-foreground"
+                                >
                                 No projects available
                               </td>
                             </tr>
@@ -1882,40 +2117,58 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                         return projects.map((project: any, idx: number) => (
                           <tr key={project.id || idx} className="border-b">
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.3') ? (
+                                {isEditable("4.3") ? (
                                 <Input
                                   value={project.projectName || ""}
-                                  onChange={(e) => handleProjectFieldUpdate(idx, 'projectName', e.target.value)}
+                                    onChange={(e) =>
+                                      handleProjectFieldUpdate(
+                                        idx,
+                                        "projectName",
+                                        e.target.value
+                                      )
+                                    }
                                   className="w-full"
                                   placeholder="Enter project name"
                                 />
                               ) : (
-                                project.projectName || 'N/A'
+                                  project.projectName || "N/A"
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.3') ? (
+                                {isEditable("4.3") ? (
                                 <Dropdown
                                   value={project.sector || ""}
-                                  onChange={(value) => handleProjectFieldUpdate(idx, 'sector', value)}
+                                    onChange={(value) =>
+                                      handleProjectFieldUpdate(
+                                        idx,
+                                        "sector",
+                                        value
+                                      )
+                                    }
                                   options={dropdownValues.sector}
                                   placeholder="Select sector"
                                 />
                               ) : (
-                                project.sector || 'N/A'
+                                  project.sector || "N/A"
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.3') ? (
+                                {isEditable("4.3") ? (
                                 <div className="space-y-1.5">
                                   {project.file ? (
                                     <Badge 
                                       variant="secondary" 
                                       className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                      title={project.file.fileName || 'Unknown file'}
+                                        title={
+                                          project.file.fileName ||
+                                          "Unknown file"
+                                        }
                                     >
                                       <Upload className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
+                                        <span className="truncate">
+                                          {project.file.fileName ||
+                                            "Unknown file"}
+                                        </span>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -1927,35 +2180,68 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                       </button>
                                     </Badge>
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">No file</span>
+                                      <span className="text-muted-foreground text-xs">
+                                        No file
+                                      </span>
                                   )}
                                   <div className="flex items-center">
                                     <input
                                       type="file"
                                       accept=".pdf,.doc,.docx"
                                       onChange={async (e) => {
-                                        const selectedFile = e.target.files?.[0];
+                                          const selectedFile =
+                                            e.target.files?.[0];
                                         if (selectedFile) {
                                           // Upload file immediately (same as create submission)
                                           try {
-                                            const response = await apiService.uploadFile(submissionId, selectedFile);
-                                            const fileData = response?.data || response;
+                                              const response =
+                                                await apiService.uploadFile(
+                                                  submissionId,
+                                                  selectedFile
+                                                );
+                                              const fileData =
+                                                response?.data || response;
                                             
                                             const newFile: FileUpload = {
-                                              id: fileData.id ?? crypto.randomUUID(),
+                                                id:
+                                                  fileData.id ??
+                                                  crypto.randomUUID(),
                                               file: null, // File not stored locally when backend handles upload
-                                              fileName: fileData.fileName || fileData.filename || selectedFile.name,
-                                              fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
-                                              uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
-                                              filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
-                                              fileUrl: fileData.fileUrl || fileData.url,
+                                                fileName:
+                                                  fileData.fileName ||
+                                                  fileData.filename ||
+                                                  selectedFile.name,
+                                                fileSize: Number(
+                                                  fileData.fileSize ??
+                                                    fileData.size ??
+                                                    selectedFile.size ??
+                                                    0
+                                                ),
+                                                uploadedAt: Number(
+                                                  fileData.uploadedAt ??
+                                                    Date.now()
+                                                ),
+                                                filePath:
+                                                  fileData.filePath ??
+                                                  fileData.file ??
+                                                  fileData.url ??
+                                                  fileData.path,
+                                                fileUrl:
+                                                  fileData.fileUrl ||
+                                                  fileData.url,
                                               mimeType: fileData.mimeType,
                                             };
                                             
-                                            await handleProjectFileUpdate(idx, newFile);
-                                            e.target.value = ''; // Reset input
+                                              await handleProjectFileUpdate(
+                                                idx,
+                                                newFile
+                                              );
+                                              e.target.value = ""; // Reset input
                                           } catch (error: any) {
-                                            console.error('Failed to upload file:', error);
+                                              console.error(
+                                                "Failed to upload file:",
+                                                error
+                                              );
                                           }
                                         }
                                       }}
@@ -1966,7 +2252,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => document.getElementById(`file-input-4.3-${idx}`)?.click()}
+                                        onClick={() =>
+                                          document
+                                            .getElementById(
+                                              `file-input-4.3-${idx}`
+                                            )
+                                            ?.click()
+                                        }
                                       className="h-6 px-2 text-xs"
                                     >
                                       <Plus className="w-3 h-3 mr-1" />
@@ -1974,19 +2266,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                     </Button>
                                   </div>
                                 </div>
-                              ) : (
-                                project.file ? (
+                                ) : project.file ? (
                                   <Badge 
                                     variant="secondary" 
                                     className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                    title={project.file.fileName || 'Unknown file'}
+                                    title={
+                                      project.file.fileName || "Unknown file"
+                                    }
                                   >
                                     <Upload className="w-3 h-3" />
-                                    <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
+                                    <span className="truncate">
+                                      {project.file.fileName || "Unknown file"}
+                                    </span>
                                   </Badge>
                                 ) : (
-                                  <span className="text-muted-foreground text-xs">No file</span>
-                                )
+                                  <span className="text-muted-foreground text-xs">
+                                    No file
+                                  </span>
                               )}
                             </td>
                           </tr>
@@ -1997,7 +2293,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </div>
 
                 {/* Add More Button - Only visible when adopted is "yes" and in edit mode */}
-                {isEditable('4.3') && !showAddProjectForm && (
+                  {isEditable("4.3") && !showAddProjectForm && (
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -2010,7 +2306,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 )}
 
                 {/* Add Project Form - Only visible when showAddProjectForm is true */}
-                {showAddProjectForm && isEditable('4.3') && (
+                  {showAddProjectForm && isEditable("4.3") && (
                   <div className="border rounded-lg p-4 bg-gray-50">
                     <h4 className="font-medium mb-3">Add New Project</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2018,7 +2314,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                         <Label>Project Name</Label>
                         <Input 
                           value={newProject.projectName} 
-                          onChange={(e) => setNewProject({...newProject, projectName: e.target.value})}
+                            onChange={(e) =>
+                              setNewProject({
+                                ...newProject,
+                                projectName: e.target.value,
+                              })
+                            }
                           className="bg-white"
                           placeholder="Enter project name"
                         />
@@ -2027,7 +2328,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                         <Label>Sector</Label>
                         <Dropdown
                           value={newProject.sector}
-                          onChange={(value) => setNewProject({...newProject, sector: value})}
+                            onChange={(value) =>
+                              setNewProject({ ...newProject, sector: value })
+                            }
                           options={dropdownValues.sector}
                           placeholder="Select sector"
                         />
@@ -2039,7 +2342,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                           isEditable={true}
                           submissionId={submissionId}
                           onFilesChange={(updatedFile) => {
-                            setNewProject({...newProject, file: updatedFile as FileUpload | null});
+                              setNewProject({
+                                ...newProject,
+                                file: updatedFile as FileUpload | null,
+                              });
                           }}
                           label=""
                           multiple={false}
@@ -2071,13 +2377,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </>
             )}
 
-            {(state?.section4_3?.adopted === "no") && (
+              {state?.section4_3?.adopted === "no" && (
               <div>
                 <Label className="mb-2 block">Comment</Label>
-                {isEditable('4.3') ? (
+                  {isEditable("4.3") ? (
                   <Textarea
                     value={state?.section4_3?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.3', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.3", "comment", e.target.value)
+                      }
                     placeholder="Please provide a comment..."
                     className="min-h-[100px]"
                   />
@@ -2093,31 +2401,39 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               Upload GatiShakti evidence
             </p>
             </div>
-
         </SectionCard>
         )}
 
         {/* Section 4.4 */}
-        {sectionsWithData.includes('section4_4') && (
+        {sectionsWithData.includes("section4_4") && (
         <SectionCard
-          title={<div className="flex flex-col relative">
+            title={
+              <div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
-                <span className="text-primary">4.4 -</span> Adoption of ADR <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
+                    <span className="text-primary">4.4 -</span> Adoption of ADR{" "}
+                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                      (5 marks per 1%)
+                    </span>{" "}
               </span>
               {renderActionButtons("4.4")}
             </div>
-          </div>}
+              </div>
+            }
           subtitle=""
           className="mb-6"
         >
           <div className="space-y-4">
             <div>
-              <Label className="mb-3 block">Adoption of Alternate Dispute Resolution (ADR)?*</Label>
-              {isEditable('4.4') ? (
+                <Label className="mb-3 block">
+                  Adoption of Alternate Dispute Resolution (ADR)?*
+                </Label>
+                {isEditable("4.4") ? (
                 <RadioGroup
                   value={state?.section4_4?.adopted || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.4', 'adopted', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.4", "adopted", value)
+                    }
                   className="flex flex-row gap-6"
                 >
                   <div className="flex items-center space-x-2">
@@ -2131,10 +2447,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_4?.adopted === "yes"
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_4?.adopted === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
-                    }`}>
+                      }`}
+                    >
                     {state?.section4_4?.adopted === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
@@ -2144,23 +2463,30 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             {state?.section4_4?.adopted === "yes" && (
               <div>
                 <EditableFileDisplay
-                  files={state?.section4_4?.files ?? (state?.section4_4?.file ? [state.section4_4.file] : null)}
-                  isEditable={isEditable('4.4')}
+                    files={
+                      state?.section4_4?.files ??
+                      (state?.section4_4?.file ? [state.section4_4.file] : null)
+                    }
+                    isEditable={isEditable("4.4")}
                   submissionId={submissionId}
-                  onFilesChange={(updatedFiles) => handleFileUpdate('4.4', updatedFiles)}
+                    onFilesChange={(updatedFiles) =>
+                      handleFileUpdate("4.4", updatedFiles)
+                    }
                   label="Uploaded File"
                   multiple={true}
                 />
               </div>
             )}
 
-            {(state?.section4_4?.adopted === "no") && (
+              {state?.section4_4?.adopted === "no" && (
               <div>
                 <Label className="mb-2 block">Comment</Label>
-                {isEditable('4.4') ? (
+                  {isEditable("4.4") ? (
                   <Textarea
                     value={state?.section4_4?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.4', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.4", "comment", e.target.value)
+                      }
                     placeholder="Please provide a comment..."
                     className="min-h-[100px]"
                   />
@@ -2176,21 +2502,26 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               Upload ADR orders/notification
             </p>
             </div>
-
         </SectionCard>
         )}
 
         {/* Section 4.5 */}
-        {sectionsWithData.includes('section4_5') && (
+        {sectionsWithData.includes("section4_5") && (
         <SectionCard
-          title={<div className="flex flex-col relative">
+            title={
+              <div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
-                <span className="text-primary">4.5 -</span>Innovative Practices <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per practice)</span>{" "}
+                    <span className="text-primary">4.5 -</span>Innovative
+                    Practices{" "}
+                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                      (10 marks per practice)
+                    </span>{" "}
               </span>
               {renderActionButtons("4.5")}
             </div>
-          </div>}
+              </div>
+            }
           subtitle=""
           className="mb-6"
         >
@@ -2213,10 +2544,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           <div className="space-y-4">
             <div>
               <Label className="mb-3 block">Implemented?*</Label>
-              {isEditable('4.5') ? (
+                {isEditable("4.5") ? (
                 <RadioGroup
                   value={state?.section4_5?.implemented || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.5', 'implemented', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.5", "implemented", value)
+                    }
                   className="flex flex-row gap-6"
                 >
                   <div className="flex items-center space-x-2">
@@ -2230,38 +2563,52 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_5?.implemented === "yes"
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_5?.implemented === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
-                    }`}>
+                      }`}
+                    >
                     {state?.section4_5?.implemented === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
             </div>
 
-            {(state?.section4_5?.implemented === "yes") && (
+              {state?.section4_5?.implemented === "yes" && (
               <>
                 {/* Practices Table */}
                 <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Practice Name</th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">Impact</th>
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Practice Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Impact
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Uploaded File
+                          </th>
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const practices = Array.isArray(state?.section4_5?.practices)
+                          const practices = Array.isArray(
+                            state?.section4_5?.practices
+                          )
                           ? state.section4_5.practices
                           : [];
 
                         if (!practices.length) {
                           return (
                             <tr>
-                              <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                                <td
+                                  colSpan={3}
+                                  className="py-8 text-center text-muted-foreground"
+                                >
                                 No practices available
                               </td>
                             </tr>
@@ -2271,40 +2618,58 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                         return practices.map((practice: any, idx: number) => (
                           <tr key={practice.id || idx} className="border-b">
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.5') ? (
+                                {isEditable("4.5") ? (
                                 <Input
                                   value={practice.practiceName || ""}
-                                  onChange={(e) => handlePracticeFieldUpdate(idx, 'practiceName', e.target.value)}
+                                    onChange={(e) =>
+                                      handlePracticeFieldUpdate(
+                                        idx,
+                                        "practiceName",
+                                        e.target.value
+                                      )
+                                    }
                                   className="w-full"
                                   placeholder="Enter practice name"
                                 />
                               ) : (
-                                practice.practiceName || 'N/A'
+                                  practice.practiceName || "N/A"
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.5') ? (
+                                {isEditable("4.5") ? (
                                 <Dropdown
                                   value={practice.impact || ""}
-                                  onChange={(value) => handlePracticeFieldUpdate(idx, 'impact', value)}
+                                    onChange={(value) =>
+                                      handlePracticeFieldUpdate(
+                                        idx,
+                                        "impact",
+                                        value
+                                      )
+                                    }
                                   options={IMPACT_OPTIONS}
                                   placeholder="Select impact"
                                 />
                               ) : (
-                                practice.impact || 'N/A'
+                                  practice.impact || "N/A"
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.5') ? (
+                                {isEditable("4.5") ? (
                                 <div className="space-y-1.5">
                                   {practice.file ? (
                                     <Badge 
                                       variant="secondary" 
                                       className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                      title={practice.file.fileName || 'Unknown file'}
+                                        title={
+                                          practice.file.fileName ||
+                                          "Unknown file"
+                                        }
                                     >
                                       <Upload className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
+                                        <span className="truncate">
+                                          {practice.file.fileName ||
+                                            "Unknown file"}
+                                        </span>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -2316,35 +2681,68 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                       </button>
                                     </Badge>
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">No file</span>
+                                      <span className="text-muted-foreground text-xs">
+                                        No file
+                                      </span>
                                   )}
                                   <div className="flex items-center">
                                     <input
                                       type="file"
                                       accept=".pdf,.doc,.docx"
                                       onChange={async (e) => {
-                                        const selectedFile = e.target.files?.[0];
+                                          const selectedFile =
+                                            e.target.files?.[0];
                                         if (selectedFile) {
                                           // Upload file immediately (same as create submission)
                                           try {
-                                            const response = await apiService.uploadFile(submissionId, selectedFile);
-                                            const fileData = response?.data || response;
+                                              const response =
+                                                await apiService.uploadFile(
+                                                  submissionId,
+                                                  selectedFile
+                                                );
+                                              const fileData =
+                                                response?.data || response;
                                             
                                             const newFile: FileUpload = {
-                                              id: fileData.id ?? crypto.randomUUID(),
+                                                id:
+                                                  fileData.id ??
+                                                  crypto.randomUUID(),
                                               file: null, // File not stored locally when backend handles upload
-                                              fileName: fileData.fileName || fileData.filename || selectedFile.name,
-                                              fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
-                                              uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
-                                              filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
-                                              fileUrl: fileData.fileUrl || fileData.url,
+                                                fileName:
+                                                  fileData.fileName ||
+                                                  fileData.filename ||
+                                                  selectedFile.name,
+                                                fileSize: Number(
+                                                  fileData.fileSize ??
+                                                    fileData.size ??
+                                                    selectedFile.size ??
+                                                    0
+                                                ),
+                                                uploadedAt: Number(
+                                                  fileData.uploadedAt ??
+                                                    Date.now()
+                                                ),
+                                                filePath:
+                                                  fileData.filePath ??
+                                                  fileData.file ??
+                                                  fileData.url ??
+                                                  fileData.path,
+                                                fileUrl:
+                                                  fileData.fileUrl ||
+                                                  fileData.url,
                                               mimeType: fileData.mimeType,
                                             };
                                             
-                                            await handlePracticeFileUpdate(idx, newFile);
-                                            e.target.value = ''; // Reset input
+                                              await handlePracticeFileUpdate(
+                                                idx,
+                                                newFile
+                                              );
+                                              e.target.value = ""; // Reset input
                                           } catch (error: any) {
-                                            console.error('Failed to upload file:', error);
+                                              console.error(
+                                                "Failed to upload file:",
+                                                error
+                                              );
                                           }
                                         }
                                       }}
@@ -2355,7 +2753,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => document.getElementById(`file-input-4.5-${idx}`)?.click()}
+                                        onClick={() =>
+                                          document
+                                            .getElementById(
+                                              `file-input-4.5-${idx}`
+                                            )
+                                            ?.click()
+                                        }
                                       className="h-6 px-2 text-xs"
                                     >
                                       <Plus className="w-3 h-3 mr-1" />
@@ -2363,19 +2767,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                     </Button>
                                   </div>
                                 </div>
-                              ) : (
-                                practice.file ? (
+                                ) : practice.file ? (
                                   <Badge 
                                     variant="secondary" 
                                     className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                    title={practice.file.fileName || 'Unknown file'}
+                                    title={
+                                      practice.file.fileName || "Unknown file"
+                                    }
                                   >
                                     <Upload className="w-3 h-3" />
-                                    <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
+                                    <span className="truncate">
+                                      {practice.file.fileName || "Unknown file"}
+                                    </span>
                                   </Badge>
                                 ) : (
-                                  <span className="text-muted-foreground text-xs">No file</span>
-                                )
+                                  <span className="text-muted-foreground text-xs">
+                                    No file
+                                  </span>
                               )}
                             </td>
                           </tr>
@@ -2386,7 +2794,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </div>
 
                 {/* Add More Practice Button - Only visible when in edit mode */}
-                {isEditable('4.5') && !showAddPracticeForm && (
+                  {isEditable("4.5") && !showAddPracticeForm && (
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -2399,7 +2807,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 )}
 
                 {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
-                {showAddPracticeForm && isEditable('4.5') && (
+                  {showAddPracticeForm && isEditable("4.5") && (
                   <div className="border rounded-lg p-4 bg-gray-50">
                     <h4 className="font-medium mb-3">Add New Practice</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2407,7 +2815,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                         <Label>Practice Name</Label>
                         <Input 
                           value={newPractice.practiceName} 
-                          onChange={(e) => setNewPractice({...newPractice, practiceName: e.target.value})}
+                            onChange={(e) =>
+                              setNewPractice({
+                                ...newPractice,
+                                practiceName: e.target.value,
+                              })
+                            }
                           className="bg-white"
                           placeholder="Enter practice name"
                         />
@@ -2416,7 +2829,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                         <Label>Impact</Label>
                         <Dropdown
                           value={newPractice.impact}
-                          onChange={(value) => setNewPractice({...newPractice, impact: value})}
+                            onChange={(value) =>
+                              setNewPractice({ ...newPractice, impact: value })
+                            }
                           options={IMPACT_OPTIONS}
                           placeholder="Select impact"
                         />
@@ -2428,7 +2843,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                           isEditable={true}
                           submissionId={submissionId}
                           onFilesChange={(updatedFile) => {
-                            setNewPractice({...newPractice, file: updatedFile as FileUpload | null});
+                              setNewPractice({
+                                ...newPractice,
+                                file: updatedFile as FileUpload | null,
+                              });
                           }}
                           label=""
                           multiple={false}
@@ -2460,13 +2878,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </>
             )}
 
-            {(state?.section4_5?.implemented === "no") && (
+              {state?.section4_5?.implemented === "no" && (
               <div>
                 <Label className="mb-2 block">Comment</Label>
-                {isEditable('4.5') ? (
+                  {isEditable("4.5") ? (
                   <Textarea
                     value={state?.section4_5?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.5', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.5", "comment", e.target.value)
+                      }
                     placeholder="Please provide a comment..."
                     className="min-h-[100px]"
                   />
@@ -2482,41 +2902,42 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               Upload RMB orders/Awards
             </p>
 
-            <p className="text-xs text-muted-foreground">
-              Annex 10
-            </p>
+              <p className="text-xs text-muted-foreground">Annex 10</p>
             </div>
-
         </SectionCard>
         )}
 
-
         {/* Section 4.6 */}
-        {sectionsWithData.includes('section4_6') && (
+        {sectionsWithData.includes("section4_6") && (
         <SectionCard
-          title={<div className="flex flex-col relative">
+            title={
+              <div className="flex flex-col relative">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold ">
-                <span className="text-primary">4.6 -</span> Capacity Building - Officer Participation{" "}
+                    <span className="text-primary">4.6 -</span> Capacity
+                    Building - Officer Participation{" "}
               </span>
               {renderActionButtons("4.6")}
             </div>
-          </div>}
+              </div>
+            }
           subtitle=""
           className="mb-6"
         >
           <div className="space-y-4">
             <div>
-              <Label className="mb-3 block">Capacity Building – Officer Participation*</Label>
-              {isEditable('4.6') ? (
+                <Label className="mb-3 block">
+                  Capacity Building – Officer Participation*
+                </Label>
+                {isEditable("4.6") ? (
                 <RadioGroup
                   value={state?.section4_6?.participated || ""}
                   onValueChange={(value) => {
-                    handleFieldUpdate('4.6', 'participated', value);
+                      handleFieldUpdate("4.6", "participated", value);
                     if (value === "yes") {
-                      handleFieldUpdate('4.6', 'comment', '');
+                        handleFieldUpdate("4.6", "comment", "");
                     } else {
-                      handleFieldUpdate('4.6', 'capacityArray', []);
+                        handleFieldUpdate("4.6", "capacityArray", []);
                     }
                   }}
                   className="flex flex-row gap-6"
@@ -2532,38 +2953,56 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </RadioGroup>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_6?.participated === "yes"
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_6?.participated === "yes"
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
-                    }`}>
+                      }`}
+                    >
                     {state?.section4_6?.participated === "yes" ? "Yes" : "No"}
                   </span>
                 </div>
               )}
             </div>
 
-            {(state?.section4_6?.participated === "yes") && (
+              {state?.section4_6?.participated === "yes" && (
             <div className="overflow-x-auto rounded-xl">
               <table className="min-w-full border-separate border-spacing-0">
                 <thead>
                   <tr className="bg-[#DDE3F9]">
-                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Officer Name</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Designation</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Program Name</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Training Type</th>
-                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Organiser</th>
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Officer Name
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Designation
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Program Name
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Training Type
+                        </th>
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Organiser
+                        </th>
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
-                    const capacityArray = Array.isArray(state?.section4_6?.capacityArray)
+                        const capacityArray = Array.isArray(
+                          state?.section4_6?.capacityArray
+                        )
                       ? state.section4_6.capacityArray
                       : [];
 
                     if (!capacityArray.length) {
                       return (
                         <tr>
-                          <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                              <td
+                                colSpan={5}
+                                className="py-8 text-center text-muted-foreground"
+                              >
                             No capacity building data available
                           </td>
                         </tr>
@@ -2573,63 +3012,93 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     return capacityArray.map((item: any, idx: number) => (
                       <tr key={item.id || idx} className="border-b">
                         <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                             <Input
                               value={item.officerName || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'officerName', e.target.value)}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "officerName",
+                                      e.target.value
+                                    )
+                                  }
                               className="w-full"
                               placeholder="Enter officer name"
                             />
                           ) : (
-                            item.officerName || 'N/A'
+                                item.officerName || "N/A"
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                             <Input
                               value={item.designation || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'designation', e.target.value)}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "designation",
+                                      e.target.value
+                                    )
+                                  }
                               className="w-full"
                               placeholder="Enter designation"
                             />
                           ) : (
-                            item.designation || 'N/A'
+                                item.designation || "N/A"
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                             <Input
                               value={item.programName || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'programName', e.target.value)}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "programName",
+                                      e.target.value
+                                    )
+                                  }
                               className="w-full"
                               placeholder="Enter program name"
                             />
                           ) : (
-                            item.programName || 'N/A'
+                                item.programName || "N/A"
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                             <Dropdown
                               value={item.trainingType || ""}
-                              onChange={(value) => handleTableFieldUpdate(idx, 'trainingType', value)}
+                                  onChange={(value) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "trainingType",
+                                      value
+                                    )
+                                  }
                               options={TRAINING_TYPE_OPTIONS}
                               placeholder="Select training type"
                             />
                           ) : (
-                            item.trainingType || 'N/A'
+                                item.trainingType || "N/A"
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                             <Input
                               value={item.organiser || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'organiser', e.target.value)}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "organiser",
+                                      e.target.value
+                                    )
+                                  }
                               className="w-full"
                               placeholder="Enter organiser"
                             />
                           ) : (
-                            item.organiser || 'N/A'
+                                item.organiser || "N/A"
                           )}
                         </td>
                       </tr>
@@ -2640,13 +3109,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             </div>
             )}
 
-            {(state?.section4_6?.participated === "no") && (
+              {state?.section4_6?.participated === "no" && (
               <div>
                 <Label className="mb-2 block">Comments (Reason)</Label>
-                {isEditable('4.6') ? (
+                  {isEditable("4.6") ? (
                   <Textarea
                     value={state?.section4_6?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.6', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.6", "comment", e.target.value)
+                      }
                     placeholder="Please provide a comment..."
                     className="min-h-[100px]"
                   />
@@ -2659,7 +3130,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             )}
 
             {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
-            {state?.section4_6?.participated === "yes" && isEditable('4.6') && !showAddCapacityForm && (
+              {state?.section4_6?.participated === "yes" &&
+                isEditable("4.6") &&
+                !showAddCapacityForm && (
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -2672,15 +3145,24 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             )}
 
             {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
-            {state?.section4_6?.participated === "yes" && showAddCapacityForm && isEditable('4.6') && (
+              {state?.section4_6?.participated === "yes" &&
+                showAddCapacityForm &&
+                isEditable("4.6") && (
               <div className="border rounded-lg p-4 bg-gray-50">
-                <h4 className="font-medium mb-3">Add New Capacity Building Entry</h4>
+                    <h4 className="font-medium mb-3">
+                      Add New Capacity Building Entry
+                    </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Officer Name</Label>
                     <Input 
                       value={newCapacityEntry.officerName} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, officerName: e.target.value})}
+                          onChange={(e) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              officerName: e.target.value,
+                            })
+                          }
                       className="bg-white"
                       placeholder="Enter officer name"
                     />
@@ -2689,7 +3171,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     <Label>Designation</Label>
                     <Input 
                       value={newCapacityEntry.designation} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, designation: e.target.value})}
+                          onChange={(e) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              designation: e.target.value,
+                            })
+                          }
                       className="bg-white"
                       placeholder="Enter designation"
                     />
@@ -2698,7 +3185,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     <Label>Program Name</Label>
                     <Input 
                       value={newCapacityEntry.programName} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, programName: e.target.value})}
+                          onChange={(e) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              programName: e.target.value,
+                            })
+                          }
                       className="bg-white"
                       placeholder="Enter program name"
                     />
@@ -2707,7 +3199,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     <Label>Training Type</Label>
                     <Dropdown
                       value={newCapacityEntry.trainingType}
-                      onChange={(value) => setNewCapacityEntry({...newCapacityEntry, trainingType: value})}
+                          onChange={(value) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              trainingType: value,
+                            })
+                          }
                       options={TRAINING_TYPE_OPTIONS}
                       placeholder="Select training type"
                     />
@@ -2716,7 +3213,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     <Label>Organiser</Label>
                     <Input 
                       value={newCapacityEntry.organiser} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, organiser: e.target.value})}
+                          onChange={(e) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              organiser: e.target.value,
+                            })
+                          }
                       className="bg-white"
                       placeholder="Enter organiser"
                     />
@@ -2763,11 +3265,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         existingMessage=""
         commentType={(() => {
           const userRole = getUserRole();
-          return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
+          return userRole === "MOSPI_REVIEWER"
+            ? "comment"
+            : "indicator_comment";
         })()}
         onSendBack={
           // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
-          getUserRole() === 'MOSPI_REVIEWER'
+          getUserRole() === "MOSPI_REVIEWER"
             ? undefined
             : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
               // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
@@ -2776,7 +3280,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               isMospiApproverSentBack
               ? async () => {
                   // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+                console.log(
+                  "MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage"
+                );
                 }
               : (sectionId) => onIndicatorStatus(sectionId, false)
         }
@@ -2788,7 +3294,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         sectionId={timelineSection || ""}
         sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
         comments={getAllComments()}
-        key={`timeline-${timelineSection}-${getAllComments().length}-${Date.now()}`} // Force re-render when comments change
+        key={`timeline-${timelineSection}-${
+          getAllComments().length
+        }-${Date.now()}`} // Force re-render when comments change
       />
 
       {/* Confirmation Dialog for NODAL_OFFICER Save */}
@@ -2797,18 +3305,25 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Save</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to save this section? This will send the data to the State Approver for review.
+              Are you sure you want to save this indicator?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSave}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>Confirm & Save</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              Confirm & Save
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Confirmation Dialog for STATE_APPROVER and MOSPI_APPROVER Send Back */}
-      <AlertDialog open={showSendBackDialog} onOpenChange={setShowSendBackDialog}>
+      <AlertDialog
+        open={showSendBackDialog}
+        onOpenChange={setShowSendBackDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Send Back</AlertDialogTitle>
@@ -2816,18 +3331,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               {(() => {
                 const getUserRole = () => {
                   try {
-                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    const authUser = localStorage.getItem("niri_app:auth_user");
                     if (authUser) {
                       const user = JSON.parse(authUser);
                       return user.value?.role;
                     }
                   } catch (error) {
-                    console.error('Error reading user role:', error);
+                    console.error("Error reading user role:", error);
                   }
                   return null;
                 };
                 const userRole = getUserRole();
-                const isMospiApprover = userRole === 'MOSPI_APPROVER';
+                const isMospiApprover = userRole === "MOSPI_APPROVER";
                 
                 return isMospiApprover
                   ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
@@ -2836,8 +3351,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSendBack}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSendBack}>Confirm & Send Back</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelSendBack}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSendBack}>
+              Confirm & Send Back
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2851,18 +3370,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               {(() => {
                 const getUserRole = () => {
                   try {
-                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    const authUser = localStorage.getItem("niri_app:auth_user");
                     if (authUser) {
                       const user = JSON.parse(authUser);
                       return user.value?.role;
                     }
                   } catch (error) {
-                    console.error('Error reading user role:', error);
+                    console.error("Error reading user role:", error);
                   }
                   return null;
                 };
                 const userRole = getUserRole();
-                const isMospiApprover = userRole === 'MOSPI_APPROVER';
+                const isMospiApprover = userRole === "MOSPI_APPROVER";
                 
                 return isMospiApprover
                   ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
@@ -2871,8 +3390,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelAccept}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>
+              Confirm & Accept
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

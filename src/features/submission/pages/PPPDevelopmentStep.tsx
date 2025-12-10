@@ -47,14 +47,24 @@ import {
   validatePPPDevelopment,
   type PPPDevelopmentValidationResult,
 } from "../validation/pppDevelopmentValidation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const defaultData: PPPDevelopmentData = {
   section3_1: {
-      available: "no",
+    available: "no",
     file: null,
   },
   section3_2: {
-      available: "no",
+    available: "no",
     file: null,
   },
   section3_3: { VGFArray: [] },
@@ -84,7 +94,11 @@ export const PPPDevelopmentStep = () => {
     typeof window !== "undefined" &&
     localStorage.getItem("is_edit_mode") === "true";
   const { user } = useAuth();
-  const [sectionStatus, setSectionStatus] = useState<any>(undefined);
+  const [sectionStatus, setSectionStatus] = useState<any>({
+    completedIndicators: [],
+    completedCount: 0,
+    totalAssigned: 0,
+  });
 
   // Indicator access control
   const {
@@ -117,55 +131,85 @@ export const PPPDevelopmentStep = () => {
     user,
   ]);
 
-
   // Helper to merge normalized and legacy data for each section
-  function getSectionFromNormalizedOrLegacy(normalized: any, legacy: any, code: string) {
-    if (normalized && normalized.byIndicatorCode && normalized.byIndicatorCode[code]) {
+  function getSectionFromNormalizedOrLegacy(
+    normalized: any,
+    legacy: any,
+    code: string
+  ) {
+    if (
+      normalized &&
+      normalized.byIndicatorCode &&
+      normalized.byIndicatorCode[code]
+    ) {
       return { ...legacy, ...normalized.byIndicatorCode[code] };
     }
     return legacy || {};
   }
 
   // Defensive: always ensure section3_3 and section3_4 are objects with arrays
-  function safePPPFormData(data: Partial<PPPDevelopmentData>): PPPDevelopmentData {
+  function safePPPFormData(
+    data: Partial<PPPDevelopmentData>
+  ): PPPDevelopmentData {
     return {
       ...defaultData,
       ...data,
-      section3_1: { ...defaultData.section3_1, ...(data.section3_1 || {}) },
-      section3_2: { ...defaultData.section3_2, ...(data.section3_2 || {}) },
+      section3_1: {
+        ...defaultData.section3_1,
+        ...(data.section3_1 || {}),
+        status: (data.section3_1 as any)?.status,
+      },
+      section3_2: {
+        ...defaultData.section3_2,
+        ...(data.section3_2 || {}),
+        status: (data.section3_2 as any)?.status,
+      },
       section3_3: {
+        ...(data.section3_3 || {}),
         VGFArray: Array.isArray((data.section3_3 as any)?.VGFArray)
           ? (data.section3_3 as any).VGFArray.map((entry: any) => ({
               ...entry,
-              file: typeof entry.file !== 'undefined' ? entry.file : null,
+              file: typeof entry.file !== "undefined" ? entry.file : null,
             }))
           : [],
+        status: (data.section3_3 as any)?.status,
       },
       section3_4: {
+        ...(data.section3_4 || {}),
         projects: Array.isArray(data.section3_4?.projects)
           ? data.section3_4.projects.map((proj: any) => ({
               ...defaultData.section3_4.projects?.[0],
               ...proj,
-              file: typeof proj.file !== 'undefined' ? proj.file : null,
+              file: typeof proj.file !== "undefined" ? proj.file : null,
             }))
           : [],
         totalProjectsAwarded: data.section3_4?.totalProjectsAwarded || "",
         totalProjectCostAwarded: data.section3_4?.totalProjectCostAwarded || "",
+        status: (data.section3_4 as any)?.status,
       },
     };
   }
 
   // --- Data Initialization and Edit Mode Handling ---
-  const [formData, setFormData] = useState<PPPDevelopmentData>(safePPPFormData({}));
+  const [formData, setFormData] = useState<PPPDevelopmentData>(
+    safePPPFormData({})
+  );
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+  const [pendingIndicator, setPendingIndicator] = useState<{
+    code: string;
+    title: string;
+  } | null>(null);
 
   // Always prefer backend data in edit mode, clear localStorage
   useEffect(() => {
     if (localStorage.getItem("editing_submission")) {
-      console.log("[LocalStorage] Found editing_submission but ignoring in favor of DB data");
+      console.log(
+        "[LocalStorage] Found editing_submission but ignoring in favor of DB data"
+      );
       localStorage.removeItem("editing_submission");
     }
   }, []);
@@ -186,33 +230,131 @@ export const PPPDevelopmentStep = () => {
 
         let sectionStatusFromDB = undefined;
         if (userSubmission && userSubmission.id) {
-          const fullSubmission = await apiService.getSubmission(userSubmission.id);
+          const fullSubmission = await apiService.getSubmission(
+            userSubmission.id
+          );
           let parsedFormData = fullSubmission.formData;
-          if (typeof fullSubmission.formData === 'string') {
+          if (typeof fullSubmission.formData === "string") {
             try {
               parsedFormData = JSON.parse(fullSubmission.formData);
             } catch (e) {}
           }
           // Restore section_status from DB if present
           sectionStatusFromDB = fullSubmission.section_status;
-          setSectionStatus(sectionStatusFromDB);
+          // Ensure sectionStatus is always an object with completedIndicators array
+          setSectionStatus(
+            sectionStatusFromDB || {
+              completedIndicators: [],
+              completedCount: 0,
+              totalAssigned: 0,
+            }
+          );
           const normalized = parsedFormData?.normalizedFormData;
           const legacy = parsedFormData?.pppDevelopment || {};
+
+          // Helper function to get status: check section data first, then check completedIndicators
+          const getStatusForIndicator = (
+            indicatorCode: string,
+            sectionData: any
+          ): string | undefined => {
+            // First check if status exists in section data
+            if (sectionData?.status) {
+              return sectionData.status;
+            }
+            // If not in section data, check if indicator is in completedIndicators
+            const completedIndicators =
+              sectionStatusFromDB?.completedIndicators || [];
+            if (completedIndicators.includes(indicatorCode)) {
+              return "SUBMITTED_TO_STATE";
+            }
+            return undefined;
+          };
+
           const newFormData: PPPDevelopmentData = safePPPFormData({
-            section3_1: getSectionFromNormalizedOrLegacy(normalized, legacy.section3_1, '3.1'),
-            section3_2: getSectionFromNormalizedOrLegacy(normalized, legacy.section3_2, '3.2'),
-            section3_3: getSectionFromNormalizedOrLegacy(normalized, legacy.section3_3, '3.3'),
-            section3_4: getSectionFromNormalizedOrLegacy(normalized, legacy.section3_4, '3.4'),
+            section3_1: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section3_1,
+                "3.1"
+              ),
+              status: getStatusForIndicator(
+                "3.1",
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section3_1,
+                  "3.1"
+                )
+              ),
+            },
+            section3_2: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section3_2,
+                "3.2"
+              ),
+              status: getStatusForIndicator(
+                "3.2",
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section3_2,
+                  "3.2"
+                )
+              ),
+            },
+            section3_3: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section3_3,
+                "3.3"
+              ),
+              status: getStatusForIndicator(
+                "3.3",
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section3_3,
+                  "3.3"
+                )
+              ),
+            },
+            section3_4: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section3_4,
+                "3.4"
+              ),
+              status: getStatusForIndicator(
+                "3.4",
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section3_4,
+                  "3.4"
+                )
+              ),
+            },
           });
           setFormData(newFormData);
           setIsDataLoaded(true);
         } else {
           // If no backend data, use local storage or defaults
-          const loadedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
+          const loadedData =
+            (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) ||
+            {};
           setFormData(safePPPFormData(loadedData));
+          // No submission found, but still initialize sectionStatus
+          setSectionStatus({
+            completedIndicators: [],
+            completedCount: 0,
+            totalAssigned: 0,
+          });
           setIsDataLoaded(true);
         }
       } catch (e) {
+        // On error, still initialize sectionStatus to prevent undefined state
+        setSectionStatus({
+          completedIndicators: [],
+          completedCount: 0,
+          totalAssigned: 0,
+        });
         setIsDataLoaded(true);
       }
     })();
@@ -391,11 +533,15 @@ export const PPPDevelopmentStep = () => {
 
   // Deep merge utility for robust updates
   function deepMerge(target: any, source: any): any {
-    if (typeof target !== 'object' || target === null) return source;
-    if (typeof source !== 'object' || source === null) return source;
+    if (typeof target !== "object" || target === null) return source;
+    if (typeof source !== "object" || source === null) return source;
     const result = Array.isArray(target) ? [...target] : { ...target };
     for (const key in source) {
-      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      if (
+        source[key] &&
+        typeof source[key] === "object" &&
+        !Array.isArray(source[key])
+      ) {
         result[key] = deepMerge(target[key], source[key]);
       } else {
         result[key] = source[key];
@@ -416,7 +562,7 @@ export const PPPDevelopmentStep = () => {
         VGFArray: prev.section3_3.VGFArray.map((entry) => {
           if (entry.id !== id) return entry;
           // Deep merge for file and nested objects
-          if (typeof value === 'object' && value !== null && field === 'file') {
+          if (typeof value === "object" && value !== null && field === "file") {
             return deepMerge(entry, { [field]: value });
           }
           return { ...entry, [field]: value };
@@ -480,7 +626,7 @@ export const PPPDevelopmentStep = () => {
         ...prev.section3_4,
         projects: (prev.section3_4.projects || []).map((entry) => {
           if (entry.id !== id) return entry;
-          if (typeof value === 'object' && value !== null && field === 'file') {
+          if (typeof value === "object" && value !== null && field === "file") {
             return deepMerge(entry, { [field]: value });
           }
           return { ...entry, [field]: value };
@@ -509,21 +655,27 @@ export const PPPDevelopmentStep = () => {
   // Remove unwanted keys and sanitize files before submit
   function deepRemoveUnwantedKeys(obj) {
     const keysToRemove = [
-      'sectionStatus',
-      'section_status',
-      'completedList',
-      'totalIndicators',
-      'completedIndicators',
+      "sectionStatus",
+      "section_status",
+      "completedList",
+      "totalIndicators",
+      "completedIndicators",
     ];
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
-    if (obj && typeof obj === 'object') {
+    if (obj && typeof obj === "object") {
       const newObj = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
-          if (key === 'normalizedFormData' && obj[key] && typeof obj[key] === 'object') {
+          if (
+            key === "normalizedFormData" &&
+            obj[key] &&
+            typeof obj[key] === "object"
+          ) {
             newObj[key] = deepRemoveUnwantedKeys(obj[key]);
             if (newObj[key].original) {
-              newObj[key].original = deepRemoveUnwantedKeys(newObj[key].original);
+              newObj[key].original = deepRemoveUnwantedKeys(
+                newObj[key].original
+              );
             }
           } else {
             newObj[key] = deepRemoveUnwantedKeys(obj[key]);
@@ -537,16 +689,16 @@ export const PPPDevelopmentStep = () => {
 
   function sanitizeFilesInFormData(obj) {
     if (Array.isArray(obj)) return obj.map(sanitizeFilesInFormData);
-    if (obj && typeof obj === 'object') {
+    if (obj && typeof obj === "object") {
       const newObj = {};
       for (const key in obj) {
-        if (key === 'file') {
+        if (key === "file") {
           const fileVal = obj[key];
           // Allow FileUpload object (with fileName/fileSize) or null
           if (
             fileVal &&
-            typeof fileVal === 'object' &&
-            ('fileName' in fileVal || 'fileSize' in fileVal)
+            typeof fileVal === "object" &&
+            ("fileName" in fileVal || "fileSize" in fileVal)
           ) {
             newObj[key] = fileVal;
           } else {
@@ -563,10 +715,11 @@ export const PPPDevelopmentStep = () => {
 
   const handleSubmitToStateApprover = async () => {
     // Enforce file required for section3_1 if available is 'yes'
-    if (formData.section3_1.available === 'yes' && !formData.section3_1.file) {
+    if (formData.section3_1.available === "yes" && !formData.section3_1.file) {
       toast({
         title: "File Required",
-        description: "Please upload a file for 3.1 - Availability of PPP Act/Policy before submitting.",
+        description:
+          "Please upload a file for 3.1 - Availability of PPP Act/Policy before submitting.",
         variant: "destructive",
       });
       return;
@@ -587,11 +740,21 @@ export const PPPDevelopmentStep = () => {
     try {
       setIsSubmitting(true);
       // Get the indicators for this section
-      const sectionIndicators = allowedIndicators || ["3.1", "3.2", "3.3", "3.4"];
+      const sectionIndicators = allowedIndicators || [
+        "3.1",
+        "3.2",
+        "3.3",
+        "3.4",
+      ];
       // Sanitize files and remove unwanted keys
-      let sanitizedFormData = deepRemoveUnwantedKeys(sanitizeFilesInFormData(formData));
+      let sanitizedFormData = deepRemoveUnwantedKeys(
+        sanitizeFilesInFormData(formData)
+      );
       // Debug: Log sanitized payload before submit
-      console.log("[DEBUG] Payload to submit PPPDevelopmentStep:", sanitizedFormData);
+      console.log(
+        "[DEBUG] Payload to submit PPPDevelopmentStep:",
+        sanitizedFormData
+      );
       await apiService.submitSectionToStateApprover(
         sanitizedFormData,
         "pppDevelopment",
@@ -599,7 +762,8 @@ export const PPPDevelopmentStep = () => {
       );
       toast({
         title: "Success",
-        description: "PPP Development section submitted to State Approver successfully.",
+        description:
+          "PPP Development section submitted to State Approver successfully.",
         variant: "default",
       });
       updateFormData("pppDevelopment", sanitizedFormData);
@@ -607,7 +771,10 @@ export const PPPDevelopmentStep = () => {
       console.error("Submit error:", error);
       toast({
         title: "Submission Failed",
-        description: error?.response?.data?.message || error?.message || "Failed to submit section. Please try again.",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to submit section. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -615,7 +782,10 @@ export const PPPDevelopmentStep = () => {
     }
   };
 
-  const handleSubmitIndicator = async (indicatorCode: string, indicatorTitle: string) => {
+  const handleSubmitIndicator = async (
+    indicatorCode: string,
+    indicatorTitle: string
+  ) => {
     setShowValidationErrors(true);
     // Validate only this specific indicator
     const indicatorValidation = validatePPPDevelopment(formData, {
@@ -629,12 +799,48 @@ export const PPPDevelopmentStep = () => {
       });
       return;
     }
+
+    // Check if already submitted
+    if (isIndicatorSubmitted(indicatorCode)) {
+      toast({
+        title: "Already Submitted",
+        description: `Indicator ${indicatorCode} has already been submitted.`,
+        variant: "default",
+      });
+      return;
+    }
+
+    // Show confirmation dialog
+    setPendingIndicator({ code: indicatorCode, title: indicatorTitle });
+    setShowSubmitDialog(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!pendingIndicator) return;
+
+    const { code: indicatorCode, title: indicatorTitle } = pendingIndicator;
+
     try {
       setIsSubmitting(true);
+      setShowSubmitDialog(false);
+
       // Sanitize files and remove unwanted keys
-      let sanitizedFormData = deepRemoveUnwantedKeys(sanitizeFilesInFormData(formData));
+      const sanitizedFormData = deepRemoveUnwantedKeys(
+        sanitizeFilesInFormData(formData)
+      );
+
+      // Create sanitized data with status for the submitted indicator
+      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+      const sanitizedFormDataWithStatus = {
+        ...sanitizedFormData,
+        [sectionKey]: {
+          ...sanitizedFormData[sectionKey],
+          status: "SUBMITTED_TO_STATE",
+        },
+      };
+
       await apiService.submitSectionToStateApprover(
-        sanitizedFormData,
+        sanitizedFormDataWithStatus,
         "pppDevelopment",
         [indicatorCode]
       );
@@ -645,18 +851,94 @@ export const PPPDevelopmentStep = () => {
         variant: "default",
       });
 
-      // Update form data
-      updateFormData("pppDevelopment", formData);
+      // Optimistically update formData to set status to SUBMITTED_TO_STATE
+      const finalSectionKey = sectionKey;
+      setFormData((prev: any) => {
+        if (prev[finalSectionKey]) {
+          return {
+            ...prev,
+            [finalSectionKey]: {
+              ...prev[finalSectionKey],
+              status: "SUBMITTED_TO_STATE",
+            },
+          };
+        }
+        return prev;
+      });
+
+      // Update form data with sanitized data that includes status
+      updateFormData("pppDevelopment", sanitizedFormDataWithStatus);
+
+      // Optimistically update sectionStatus to immediately disable the button
+      setSectionStatus((prev: any) => {
+        const currentCompleted = prev?.completedIndicators || [];
+        if (!currentCompleted.includes(indicatorCode)) {
+          const updatedStatus = {
+            ...(prev || {}),
+            completedIndicators: [...currentCompleted, indicatorCode],
+            completedCount: (prev?.completedCount || 0) + 1,
+            totalAssigned: prev?.totalAssigned || 0,
+          };
+          console.log(
+            `✅ Optimistically updated sectionStatus for ${indicatorCode}:`,
+            updatedStatus
+          );
+          return updatedStatus;
+        }
+        return prev || {};
+      });
+
+      // Refresh sectionStatus to update completedIndicators from server
+      try {
+        const submissionsResp = await apiService.getSubmissions(1, 100);
+        const userSubmission = submissionsResp.submissions.find(
+          (sub: any) =>
+            sub.status === "DRAFT" ||
+            sub.status === "IN_PROGRESS" ||
+            sub.status === "RETURNED_FROM_STATE" ||
+            sub.status === "PENDING_STATE_APPROVAL"
+        );
+        if (userSubmission && userSubmission.id) {
+          const fullSubmission = await apiService.getSubmission(
+            userSubmission.id
+          );
+          // Merge server response with current state to ensure we don't lose the optimistic update
+          setSectionStatus((current: any) => {
+            const serverCompleted =
+              fullSubmission.section_status?.completedIndicators || [];
+            const currentCompleted = current?.completedIndicators || [];
+            const mergedCompleted = Array.from(
+              new Set([...currentCompleted, ...serverCompleted])
+            );
+            return {
+              ...fullSubmission.section_status,
+              completedIndicators: mergedCompleted,
+              completedCount: mergedCompleted.length,
+            };
+          });
+        }
+      } catch (err) {
+        console.error("Failed to refresh section status:", err);
+      }
     } catch (error: any) {
       console.error("Submit error:", error);
       toast({
         title: "Submission Failed",
-        description: error?.response?.data?.message || error?.message || "Failed to submit indicator. Please try again.",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to submit indicator. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
+      setPendingIndicator(null);
     }
+  };
+
+  const handleCancelSubmit = () => {
+    setShowSubmitDialog(false);
+    setPendingIndicator(null);
   };
 
   const handleSaveDraft = async () => {
@@ -676,7 +958,8 @@ export const PPPDevelopmentStep = () => {
       console.error("Save draft error:", error);
       toast({
         title: "Save Failed",
-        description: error?.message || "Failed to save draft. Please try again.",
+        description:
+          error?.message || "Failed to save draft. Please try again.",
         variant: "destructive",
       });
     }
@@ -726,6 +1009,13 @@ export const PPPDevelopmentStep = () => {
       </div>
     );
   }
+
+  // Helper function to check if an indicator is submitted
+  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    const sectionData = formData[sectionKey];
+    return sectionData?.status === "SUBMITTED_TO_STATE";
+  };
 
   return (
     <div className="w-full -mx-6 lg:-mx-8">
@@ -809,6 +1099,7 @@ export const PPPDevelopmentStep = () => {
                         value="yes"
                         checked={formData.section3_1.available === "yes"}
                         onChange={() => {
+                          if (isIndicatorSubmitted("3.1")) return;
                           showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
@@ -819,6 +1110,7 @@ export const PPPDevelopmentStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("3.1")}
                       />
                       Yes
                     </label>
@@ -829,6 +1121,7 @@ export const PPPDevelopmentStep = () => {
                         value="no"
                         checked={formData.section3_1.available === "no"}
                         onChange={() => {
+                          if (isIndicatorSubmitted("3.1")) return;
                           showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
@@ -839,6 +1132,7 @@ export const PPPDevelopmentStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("3.1")}
                       />
                       No
                     </label>
@@ -862,6 +1156,7 @@ export const PPPDevelopmentStep = () => {
                           },
                         }));
                       }}
+                      disabled={isIndicatorSubmitted("3.1")}
                     />
                     <p className="text-xs text-muted-foreground">
                       Upload copy of Act/Policy
@@ -891,8 +1186,11 @@ export const PPPDevelopmentStep = () => {
                           },
                         }));
                       }}
+                      disabled={isIndicatorSubmitted("3.1")}
                       className={cn(
-                        getInputValidationClass("section3_1.comment")
+                        getInputValidationClass("section3_1.comment"),
+                        isIndicatorSubmitted("3.1") &&
+                          "bg-gray-50 cursor-not-allowed"
                       )}
                     />
                     {renderFieldError("section3_1.comment")}
@@ -900,12 +1198,21 @@ export const PPPDevelopmentStep = () => {
                 )}
                 <div className="mt-4">
                   <Button
-                    onClick={() => handleSubmitIndicator("3.1", "Availability of PPP Act/Policy")}
-                    disabled={isSubmitting}
+                    onClick={() =>
+                      handleSubmitIndicator(
+                        "3.1",
+                        "Availability of PPP Act/Policy"
+                      )
+                    }
+                    disabled={isSubmitting || isIndicatorSubmitted("3.1")}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                     size="sm"
                   >
-                    {isSubmitting ? "Saving..." : "Save"}
+                    {isSubmitting
+                      ? "Submitting..."
+                      : isIndicatorSubmitted("3.1")
+                      ? "Submitted"
+                      : "Submit"}
                   </Button>
                 </div>
               </div>
@@ -954,6 +1261,7 @@ export const PPPDevelopmentStep = () => {
                         value="yes"
                         checked={formData.section3_2.available === "yes"}
                         onChange={() => {
+                          if (isIndicatorSubmitted("3.2")) return;
                           showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
@@ -964,6 +1272,7 @@ export const PPPDevelopmentStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("3.2")}
                       />
                       Yes
                     </label>
@@ -974,6 +1283,7 @@ export const PPPDevelopmentStep = () => {
                         value="no"
                         checked={formData.section3_2.available === "no"}
                         onChange={() => {
+                          if (isIndicatorSubmitted("3.2")) return;
                           showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
@@ -984,6 +1294,7 @@ export const PPPDevelopmentStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("3.2")}
                       />
                       No
                     </label>
@@ -1007,6 +1318,7 @@ export const PPPDevelopmentStep = () => {
                           },
                         }));
                       }}
+                      disabled={isIndicatorSubmitted("3.2")}
                     />
                     <p className="text-xs text-muted-foreground">
                       Upload notification or mandate
@@ -1036,8 +1348,11 @@ export const PPPDevelopmentStep = () => {
                           },
                         }));
                       }}
+                      disabled={isIndicatorSubmitted("3.2")}
                       className={cn(
-                        getInputValidationClass("section3_2.comment")
+                        getInputValidationClass("section3_2.comment"),
+                        isIndicatorSubmitted("3.2") &&
+                          "bg-gray-50 cursor-not-allowed"
                       )}
                     />
                     {renderFieldError("section3_2.comment")}
@@ -1045,12 +1360,21 @@ export const PPPDevelopmentStep = () => {
                 )}
                 <div className="mt-4">
                   <Button
-                    onClick={() => handleSubmitIndicator("3.2", "Availability of PPP Cell/Unit")}
-                    disabled={isSubmitting}
+                    onClick={() =>
+                      handleSubmitIndicator(
+                        "3.2",
+                        "Availability of PPP Cell/Unit"
+                      )
+                    }
+                    disabled={isSubmitting || isIndicatorSubmitted("3.2")}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                     size="sm"
                   >
-                    {isSubmitting ? "Saving..." : "Save"}
+                    {isSubmitting
+                      ? "Submitting..."
+                      : isIndicatorSubmitted("3.2")
+                      ? "Submitted"
+                      : "Submit"}
                   </Button>
                 </div>
               </div>
@@ -1077,7 +1401,10 @@ export const PPPDevelopmentStep = () => {
               className="mb-6"
             >
               <div className="flex flex-col gap-4">
-                {(Array.isArray(formData.section3_3?.VGFArray) ? formData.section3_3.VGFArray : []).map((entry, idx) => (
+                {(Array.isArray(formData.section3_3?.VGFArray)
+                  ? formData.section3_3.VGFArray
+                  : []
+                ).map((entry, idx) => (
                   <div key={entry.id} className="mb-2">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                       <div>
@@ -1097,10 +1424,13 @@ export const PPPDevelopmentStep = () => {
                               e.target.value
                             );
                           }}
+                          disabled={isIndicatorSubmitted("3.3")}
                           className={cn(
                             getInputValidationClass(
                               `section3_3.VGFArray.${idx}.projectName`
-                            )
+                            ),
+                            isIndicatorSubmitted("3.3") &&
+                              "bg-gray-50 cursor-not-allowed"
                           )}
                         />
                         {renderFieldError(
@@ -1118,6 +1448,7 @@ export const PPPDevelopmentStep = () => {
                             showErrorsIfNeeded();
                             updateProject(entry.id, "sector", value);
                           }}
+                          disabled={isIndicatorSubmitted("3.3")}
                         >
                           <SelectTrigger
                             className={cn(
@@ -1149,6 +1480,7 @@ export const PPPDevelopmentStep = () => {
                             showErrorsIfNeeded();
                             updateProject(entry.id, "type", value);
                           }}
+                          disabled={isIndicatorSubmitted("3.3")}
                         >
                           <SelectTrigger
                             className={cn(
@@ -1179,13 +1511,16 @@ export const PPPDevelopmentStep = () => {
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
+                                disabled={isIndicatorSubmitted("3.3")}
                                 className={cn(
                                   "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
                                   !entry.submissionDate &&
                                     "text-muted-foreground",
                                   getInputValidationClass(
                                     `section3_3.VGFArray.${idx}.submissionDate`
-                                  )
+                                  ),
+                                  isIndicatorSubmitted("3.3") &&
+                                    "bg-gray-50 cursor-not-allowed"
                                 )}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1206,6 +1541,7 @@ export const PPPDevelopmentStep = () => {
                                     : undefined
                                 }
                                 onSelect={(date) => {
+                                  if (isIndicatorSubmitted("3.3")) return;
                                   showErrorsIfNeeded();
                                   updateProject(
                                     entry.id,
@@ -1213,6 +1549,7 @@ export const PPPDevelopmentStep = () => {
                                     date ? date.toISOString() : ""
                                   );
                                 }}
+                                disabled={isIndicatorSubmitted("3.3")}
                                 initialFocus
                               />
                             </PopoverContent>
@@ -1223,8 +1560,9 @@ export const PPPDevelopmentStep = () => {
                           variant="ghost"
                           size="icon"
                           onClick={() => removeProject(entry.id)}
+                          disabled={isIndicatorSubmitted("3.3")}
                           aria-label="Remove"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-5 h-5" />
                         </Button>
@@ -1238,6 +1576,7 @@ export const PPPDevelopmentStep = () => {
                           showErrorsIfNeeded();
                           updateProject(entry.id, "file", fileUpload);
                         }}
+                        disabled={isIndicatorSubmitted("3.3")}
                       />
                     </div>
                     {renderFieldError(
@@ -1251,7 +1590,8 @@ export const PPPDevelopmentStep = () => {
                     variant="outline"
                     size="sm"
                     onClick={addProject}
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                    disabled={isIndicatorSubmitted("3.3")}
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-4 h-4" />
                     Add More Project
@@ -1289,7 +1629,10 @@ export const PPPDevelopmentStep = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {(Array.isArray(formData.section3_3?.VGFArray) ? formData.section3_3.VGFArray : []).map((entry) => (
+                        {(Array.isArray(formData.section3_3?.VGFArray)
+                          ? formData.section3_3.VGFArray
+                          : []
+                        ).map((entry) => (
                           <tr key={entry.id} className="bg-white">
                             <td className="py-3 px-4 text-sm">
                               {entry.projectName}
@@ -1322,7 +1665,8 @@ export const PPPDevelopmentStep = () => {
                               <button
                                 type="button"
                                 onClick={() => removeProject(entry.id)}
-                                className="text-red-600 hover:text-red-800"
+                                disabled={isIndicatorSubmitted("3.3")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                 aria-label="Delete"
                               >
                                 <Trash2 className="w-5 h-5" />
@@ -1336,12 +1680,18 @@ export const PPPDevelopmentStep = () => {
                 )}
                 <div className="mt-4">
                   <Button
-                    onClick={() => handleSubmitIndicator("3.3", "VGF Proposals Submitted")}
-                    disabled={isSubmitting}
+                    onClick={() =>
+                      handleSubmitIndicator("3.3", "VGF Proposals Submitted")
+                    }
+                    disabled={isSubmitting || isIndicatorSubmitted("3.3")}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                     size="sm"
                   >
-                    {isSubmitting ? "Saving..." : "Save"}
+                    {isSubmitting
+                      ? "Submitting..."
+                      : isIndicatorSubmitted("3.3")
+                      ? "Submitted"
+                      : "Submit"}
                   </Button>
                 </div>
               </div>
@@ -1390,10 +1740,13 @@ export const PPPDevelopmentStep = () => {
                           },
                         }));
                       }}
+                      disabled={isIndicatorSubmitted("3.4")}
                       className={cn(
                         getInputValidationClass(
                           "section3_4.totalProjectsAwarded"
-                        )
+                        ),
+                        isIndicatorSubmitted("3.4") &&
+                          "bg-gray-50 cursor-not-allowed"
                       )}
                     />
                     {renderFieldError("section3_4.totalProjectsAwarded")}
@@ -1420,10 +1773,13 @@ export const PPPDevelopmentStep = () => {
                           },
                         }));
                       }}
+                      disabled={isIndicatorSubmitted("3.4")}
                       className={cn(
                         getInputValidationClass(
                           "section3_4.totalProjectCostAwarded"
-                        )
+                        ),
+                        isIndicatorSubmitted("3.4") &&
+                          "bg-gray-50 cursor-not-allowed"
                       )}
                     />
                     {renderFieldError("section3_4.totalProjectCostAwarded")}
@@ -1450,6 +1806,11 @@ export const PPPDevelopmentStep = () => {
                                 e.target.value
                               )
                             }
+                            disabled={isIndicatorSubmitted("3.4")}
+                            className={cn(
+                              isIndicatorSubmitted("3.4") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
                           />
                         </div>
                         <div>
@@ -1465,6 +1826,11 @@ export const PPPDevelopmentStep = () => {
                                 e.target.value
                               )
                             }
+                            disabled={isIndicatorSubmitted("3.4")}
+                            className={cn(
+                              isIndicatorSubmitted("3.4") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
                           />
                         </div>
                         <div>
@@ -1482,6 +1848,11 @@ export const PPPDevelopmentStep = () => {
                                 e.target.value
                               )
                             }
+                            disabled={isIndicatorSubmitted("3.4")}
+                            className={cn(
+                              isIndicatorSubmitted("3.4") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
                           />
                         </div>
                         <div>
@@ -1498,12 +1869,15 @@ export const PPPDevelopmentStep = () => {
                                 e.target.value
                               );
                             }}
+                            disabled={isIndicatorSubmitted("3.4")}
                             className={cn(
                               getInputValidationClass(
                                 `section3_4.projects.${formData.section3_4.projects.findIndex(
                                   (p) => p.id === project.id
                                 )}.capexPercentage`
-                              )
+                              ),
+                              isIndicatorSubmitted("3.4") &&
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -1521,6 +1895,7 @@ export const PPPDevelopmentStep = () => {
                               showErrorsIfNeeded();
                               updatePPPProject(project.id, "file", fileUpload);
                             }}
+                            disabled={isIndicatorSubmitted("3.4")}
                           />
                           <p className="text-xs text-muted-foreground">
                             Upload supporting document (if any)
@@ -1535,10 +1910,13 @@ export const PPPDevelopmentStep = () => {
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
+                                disabled={isIndicatorSubmitted("3.4")}
                                 className={cn(
                                   "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
                                   !project.dateOfAward &&
-                                    "text-muted-foreground"
+                                    "text-muted-foreground",
+                                  isIndicatorSubmitted("3.4") &&
+                                    "bg-gray-50 cursor-not-allowed"
                                 )}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1558,13 +1936,15 @@ export const PPPDevelopmentStep = () => {
                                     ? new Date(project.dateOfAward)
                                     : undefined
                                 }
-                                onSelect={(date) =>
+                                onSelect={(date) => {
+                                  if (isIndicatorSubmitted("3.4")) return;
                                   updatePPPProject(
                                     project.id,
                                     "dateOfAward",
                                     date ? date.toISOString() : ""
-                                  )
-                                }
+                                  );
+                                }}
+                                disabled={isIndicatorSubmitted("3.4")}
                                 initialFocus
                               />
                             </PopoverContent>
@@ -1587,12 +1967,15 @@ export const PPPDevelopmentStep = () => {
                                 e.target.value
                               );
                             }}
+                            disabled={isIndicatorSubmitted("3.4")}
                             className={cn(
                               getInputValidationClass(
                                 `section3_4.projects.${formData.section3_4.projects.findIndex(
                                   (p) => p.id === project.id
                                 )}.totalProjectCost`
-                              )
+                              ),
+                              isIndicatorSubmitted("3.4") &&
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -1613,6 +1996,7 @@ export const PPPDevelopmentStep = () => {
                                 value
                               )
                             }
+                            disabled={isIndicatorSubmitted("3.4")}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select sector" />
@@ -1633,7 +2017,9 @@ export const PPPDevelopmentStep = () => {
                             variant="ghost"
                             size="icon"
                             onClick={() => removePPPProject(project.id)}
+                            disabled={isIndicatorSubmitted("3.4")}
                             aria-label="Remove"
+                            className="disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Trash2 className="w-5 h-5 text-destructive" />
                           </Button>
@@ -1649,7 +2035,8 @@ export const PPPDevelopmentStep = () => {
                     variant="outline"
                     size="sm"
                     onClick={addPPPProject}
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                    disabled={isIndicatorSubmitted("3.4")}
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-4 h-4" />
                     Add More Project
@@ -1687,7 +2074,10 @@ export const PPPDevelopmentStep = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {(Array.isArray(formData.section3_4?.projects) ? formData.section3_4.projects : []).map((project) => (
+                          {(Array.isArray(formData.section3_4?.projects)
+                            ? formData.section3_4.projects
+                            : []
+                          ).map((project) => (
                             <tr key={project.id} className="bg-white">
                               <td className="py-3 px-4 text-sm">
                                 {project.nameOfProject}
@@ -1719,7 +2109,8 @@ export const PPPDevelopmentStep = () => {
                                 <button
                                   type="button"
                                   onClick={() => removePPPProject(project.id)}
-                                  className="text-red-600 hover:text-red-800"
+                                  disabled={isIndicatorSubmitted("3.4")}
+                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                   aria-label="Delete"
                                 >
                                   <Trash2 className="w-5 h-5" />
@@ -1733,12 +2124,21 @@ export const PPPDevelopmentStep = () => {
                   )}
                   <div className="mt-4">
                     <Button
-                      onClick={() => handleSubmitIndicator("3.4", "Proportion of TPC of PPP Projects")}
-                      disabled={isSubmitting}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() =>
+                        handleSubmitIndicator(
+                          "3.4",
+                          "Proportion of TPC of PPP Projects"
+                        )
+                      }
+                      disabled={isSubmitting || isIndicatorSubmitted("3.4")}
+                      className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                       size="sm"
                     >
-                      {isSubmitting ? "Saving..." : "Save"}
+                      {isSubmitting
+                        ? "Submitting..."
+                        : isIndicatorSubmitted("3.4")
+                        ? "Submitted"
+                        : "Submit"}
                     </Button>
                   </div>
                 </div>
@@ -1752,18 +2152,46 @@ export const PPPDevelopmentStep = () => {
             Complete all required fields before continuing.
           </p>
         )}
-        
+
         <FormActions
-            onPrevious={goToPrevious}
-            onNext={handleNext}
-            onSaveDraft={handleSaveDraft}
-            isFirstStep={isFirstStep}
-            isLastStep={isLastStep}
-            nextLabel={isLastStep ? "Review & Submit" : "Next"}
-            showSaveDraft={true}
-            isNextDisabled={isNextDisabled}
-          />
+          onPrevious={goToPrevious}
+          onNext={handleNext}
+          onSaveDraft={handleSaveDraft}
+          isFirstStep={isFirstStep}
+          isLastStep={isLastStep}
+          nextLabel={isLastStep ? "Review & Submit" : "Next"}
+          showSaveDraft={true}
+          isNextDisabled={isNextDisabled}
+        />
       </div>
+
+      {/* Confirmation Dialog for Submit */}
+      <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Submit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to submit indicator{" "}
+              <strong>
+                {pendingIndicator?.code} - {pendingIndicator?.title}
+              </strong>
+              ? This will send the data to the State Approver for review. Once
+              submitted, you cannot modify this indicator.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSubmit}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -161,10 +161,16 @@ export const hasInfraFinancingData = (formData: any): boolean => {
 
       case "section1_3":
         // Check for ulbList array or totalULBs field
-        return hasArrayData(section?.ulbList) || hasMeaningfulValue(section?.totalULBs);
+        return (
+          hasArrayData(section?.ulbList) ||
+          hasMeaningfulValue(section?.totalULBs)
+        );
       case "section1_4":
         // Check for bondList array or totalULBs field
-        return hasArrayData(section?.bondList) || hasMeaningfulValue(section?.totalULBs);
+        return (
+          hasArrayData(section?.bondList) ||
+          hasMeaningfulValue(section?.totalULBs)
+        );
       case "section1_5":
         return hasArrayData(section?.ffiArray) || hasArrayData(section);
 
@@ -197,14 +203,11 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
 
     switch (sectionId) {
       case "section2_1":
-      case "section2_2":
-      case "section2_3": {
+      case "section2_2": {
         const arrayKey =
           sectionId === "section2_1"
             ? "infraActArray"
-            : sectionId === "section2_2"
-            ? "specializedEntityArray"
-            : "infraDevelopmentArray";
+            : "specializedEntityArray";
         const items = Array.isArray(section?.[arrayKey])
           ? section[arrayKey]
           : Array.isArray(section)
@@ -220,7 +223,78 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
         );
       }
 
+      case "section2_3": {
+        // Section 2.3 has boolean field (hasInfraDevelopmentPlan) and comment field
+        const hasBoolean =
+          section?.hasInfraDevelopmentPlan !== null &&
+          section?.hasInfraDevelopmentPlan !== undefined &&
+          section?.hasInfraDevelopmentPlan !== "";
+        const hasComment =
+          section?.comment !== null &&
+          section?.comment !== undefined &&
+          section?.comment !== "";
+
+        console.log("🔍 [hasInfraDevelopmentData section2_3]:", {
+          hasBoolean,
+          hasComment,
+          section,
+        });
+
+        // If boolean or comment is set, return true
+        if (hasBoolean || hasComment) {
+          console.log(
+            "✅ [hasInfraDevelopmentData section2_3] Returning true - has boolean or comment"
+          );
+          return true;
+        }
+
+        // Otherwise check array data
+        const items = Array.isArray(section?.infraDevelopmentArray)
+          ? section.infraDevelopmentArray
+          : Array.isArray(section)
+          ? section
+          : [];
+        return (
+          hasArrayData(items) &&
+          items.some(
+            (item: any) =>
+              hasMeaningfulValue(item.sector) ||
+              (item.files && hasArrayData(item.files))
+          )
+        );
+      }
+
       case "section2_4": {
+        // Section 2.4 has boolean field (hasInvestmentReady), comment, and websiteLink
+        const hasBoolean =
+          section?.hasInvestmentReady !== null &&
+          section?.hasInvestmentReady !== undefined &&
+          section?.hasInvestmentReady !== "";
+        const hasComment =
+          section?.comment !== null &&
+          section?.comment !== undefined &&
+          section?.comment !== "";
+        const hasWebsiteLink =
+          section?.websiteLink !== null &&
+          section?.websiteLink !== undefined &&
+          section?.websiteLink !== "";
+
+        console.log("🔍 [hasInfraDevelopmentData section2_4]:", {
+          hasBoolean,
+          hasComment,
+          hasWebsiteLink,
+          section,
+        });
+
+        // If boolean, comment, or websiteLink is set, return true
+        if (hasBoolean || hasComment || hasWebsiteLink) {
+          console.log(
+            "✅ [hasInfraDevelopmentData section2_4] Returning true - has boolean, comment, or websiteLink"
+          );
+          return true;
+        }
+
+        // Otherwise check array data
         const array = Array.isArray(section?.investmentReadyArray)
           ? section.investmentReadyArray
           : Array.isArray(section)
@@ -278,7 +352,9 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
     switch (sectionId) {
       case "section3_1":
         return (
-          hasArrayData(section.files) || hasFileData(section.file) || hasMeaningfulValue(section.available)
+          hasArrayData(section.files) ||
+          hasFileData(section.file) ||
+          hasMeaningfulValue(section.available)
         );
 
       case "section3_2":
@@ -355,6 +431,12 @@ export const getSectionsWithData = (
       break;
 
     case "infraDevelopment":
+      console.log("🔍 [getSectionsWithData] Checking infraDevelopment:", {
+        hasInfraDevelopmentData: hasInfraDevelopmentData(formData),
+        categoryData,
+        formData,
+      });
+
       if (hasInfraDevelopmentData(formData)) {
         const infraDevelopmentSections = [
           "section2_1",
@@ -365,14 +447,33 @@ export const getSectionsWithData = (
         ];
         infraDevelopmentSections.forEach((sectionId) => {
           const section = categoryData[sectionId];
+          console.log(`🔍 [getSectionsWithData] Checking ${sectionId}:`, {
+            sectionExists: !!section,
+            section,
+            hasSectionData: section
+              ? hasSectionData(section, sectionId, "infraDevelopment")
+              : false,
+          });
           if (
             section &&
             hasSectionData(section, sectionId, "infraDevelopment")
           ) {
+            console.log(
+              `✅ [getSectionsWithData] Adding ${sectionId} to sectionsWithData`
+            );
             sectionsWithData.push(sectionId);
           }
         });
+      } else {
+        console.log(
+          "❌ [getSectionsWithData] hasInfraDevelopmentData returned false, skipping section checks"
+        );
       }
+
+      console.log(
+        "🔍 [getSectionsWithData] Final sectionsWithData:",
+        sectionsWithData
+      );
       break;
 
     case "pppDevelopment":
@@ -467,10 +568,16 @@ const hasSectionData = (
           );
         case "section1_3":
           // Check for ulbList array or totalULBs field
-          return hasArrayData(section?.ulbList) || hasMeaningfulValue(section?.totalULBs);
+          return (
+            hasArrayData(section?.ulbList) ||
+            hasMeaningfulValue(section?.totalULBs)
+          );
         case "section1_4":
           // Check for bondList array or totalULBs field
-          return hasArrayData(section?.bondList) || hasMeaningfulValue(section?.totalULBs);
+          return (
+            hasArrayData(section?.bondList) ||
+            hasMeaningfulValue(section?.totalULBs)
+          );
         case "section1_5":
           return hasArrayData(section?.ffiArray) || hasArrayData(section);
         default:
@@ -480,14 +587,11 @@ const hasSectionData = (
     case "infraDevelopment":
       switch (sectionId) {
         case "section2_1":
-        case "section2_2":
-        case "section2_3": {
+        case "section2_2": {
           const arrayKey =
             sectionId === "section2_1"
               ? "infraActArray"
-              : sectionId === "section2_2"
-              ? "specializedEntityArray"
-              : "infraDevelopmentArray";
+              : "specializedEntityArray";
           const items = Array.isArray(section?.[arrayKey])
             ? section[arrayKey]
             : Array.isArray(section)
@@ -502,7 +606,79 @@ const hasSectionData = (
             )
           );
         }
+
+        case "section2_3": {
+          // Section 2.3 has boolean field (hasInfraDevelopmentPlan) and comment field
+          const hasBoolean =
+            section?.hasInfraDevelopmentPlan !== null &&
+            section?.hasInfraDevelopmentPlan !== undefined &&
+            section?.hasInfraDevelopmentPlan !== "";
+          const hasComment =
+            section?.comment !== null &&
+            section?.comment !== undefined &&
+            section?.comment !== "";
+
+          console.log("🔍 [hasSectionData section2_3]:", {
+            hasBoolean,
+            hasComment,
+            section,
+          });
+
+          // If boolean or comment is set, return true
+          if (hasBoolean || hasComment) {
+            console.log(
+              "✅ [hasSectionData section2_3] Returning true - has boolean or comment"
+            );
+            return true;
+          }
+
+          // Otherwise check array data
+          const items = Array.isArray(section?.["infraDevelopmentArray"])
+            ? section["infraDevelopmentArray"]
+            : Array.isArray(section)
+            ? section
+            : [];
+          return (
+            hasArrayData(items) &&
+            items.some(
+              (item: any) =>
+                hasMeaningfulValue(item.sector) ||
+                (item.files && hasArrayData(item.files))
+            )
+          );
+        }
+
         case "section2_4": {
+          // Section 2.4 has boolean field (hasInvestmentReady), comment, and websiteLink
+          const hasBoolean =
+            section?.hasInvestmentReady !== null &&
+            section?.hasInvestmentReady !== undefined &&
+            section?.hasInvestmentReady !== "";
+          const hasComment =
+            section?.comment !== null &&
+            section?.comment !== undefined &&
+            section?.comment !== "";
+          const hasWebsiteLink =
+            section?.websiteLink !== null &&
+            section?.websiteLink !== undefined &&
+            section?.websiteLink !== "";
+
+          console.log("🔍 [hasSectionData section2_4]:", {
+            hasBoolean,
+            hasComment,
+            hasWebsiteLink,
+            section,
+          });
+
+          // If boolean, comment, or websiteLink is set, return true
+          if (hasBoolean || hasComment || hasWebsiteLink) {
+            console.log(
+              "✅ [hasSectionData section2_4] Returning true - has boolean, comment, or websiteLink"
+            );
+            return true;
+          }
+
+          // Otherwise check array data
           const items = Array.isArray(section?.investmentReadyArray)
             ? section.investmentReadyArray
             : Array.isArray(section)
@@ -543,7 +719,9 @@ const hasSectionData = (
       switch (sectionId) {
         case "section3_1":
           return (
-            hasArrayData(section.files) || hasFileData(section.file) || hasMeaningfulValue(section.available)
+            hasArrayData(section.files) ||
+            hasFileData(section.file) ||
+            hasMeaningfulValue(section.available)
           );
         case "section3_2":
           return (

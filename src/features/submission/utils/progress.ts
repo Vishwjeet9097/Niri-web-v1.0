@@ -75,17 +75,18 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     );
   },
   section1_3: (data: any) =>
-  Array.isArray(data?.ulbList) &&
-  anyValid(
-    data.ulbList,
-    (r) =>
-      hasMeaningfulValue(r.cityName) &&
-      hasMeaningfulValue(r.ulb) &&
-      hasMeaningfulValue(r.ratingDate) &&
-      hasMeaningfulValue(r.rating)
-  ),
+    Array.isArray(data?.ulbList) &&
+    anyValid(
+      data.ulbList,
+      (r) =>
+        hasMeaningfulValue(r.cityName) &&
+        hasMeaningfulValue(r.ulb) &&
+        hasMeaningfulValue(r.ratingDate) &&
+        hasMeaningfulValue(r.rating)
+    ),
   section1_4: (data: any) =>
-    Array.isArray(data?.bondList) && anyValid(
+    Array.isArray(data?.bondList) &&
+    anyValid(
       data.bondList,
       (r) =>
         hasMeaningfulValue(r.bondType) &&
@@ -94,17 +95,16 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.value)
     ),
   section1_5: (data: any) =>
-  anyValid(
-    data?.ffiArray,
-    (r) =>
-      hasMeaningfulValue(r.organisationName) &&
-      hasMeaningfulValue(r.organisationType) &&
-      hasMeaningfulValue(r.yearEstablished) &&
-      hasMeaningfulValue(r.totalFunding)
-  ),
+    anyValid(
+      data?.ffiArray,
+      (r) =>
+        hasMeaningfulValue(r.organisationName) &&
+        hasMeaningfulValue(r.organisationType) &&
+        hasMeaningfulValue(r.yearEstablished) &&
+        hasMeaningfulValue(r.totalFunding)
+    ),
 
-
-   // 2.x Infra Development (updated to handle new nested array structure)
+  // 2.x Infra Development (updated to handle new nested array structure)
   section2_1: (data: any) =>
     anyValid(
       data?.infraActArray,
@@ -123,12 +123,31 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
       (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
     ),
 
-  section2_4: (data: any) =>
-    anyValid(
-      data?.investmentReadyArray,
-      (r) =>
-        hasMeaningfulValue(r.projectName) && hasMeaningfulValue(r.dprFile)
-    ),
+  section2_4: (data: any) => {
+    // Check if hasInvestmentReady is set (yes or no)
+    const hasInvestmentReady = data?.hasInvestmentReady;
+    if (!hasMeaningfulValue(hasInvestmentReady)) return false;
+
+    // If "yes", check for websiteLink and investmentReadyArray with valid entries
+    if (hasInvestmentReady === "yes") {
+      if (!hasMeaningfulValue(data?.websiteLink)) return false;
+      return anyValid(
+        data?.investmentReadyArray,
+        (r) =>
+          hasMeaningfulValue(r.projectName) &&
+          hasMeaningfulValue(r.sector) &&
+          hasMeaningfulValue(r.status) &&
+          hasMeaningfulValue(r.investmentType)
+      );
+    }
+
+    // If "no", check for comment
+    if (hasInvestmentReady === "no") {
+      return hasMeaningfulValue(data?.comment);
+    }
+
+    return false;
+  },
 
   section2_5: (data: any) =>
     anyValid(
@@ -140,7 +159,6 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.ownership) &&
         hasMeaningfulValue(r.estimatedMonetization)
     ),
-
 
   // 3.x PPP
   section3_1: (data) => {
@@ -212,18 +230,18 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
       );
     return true;
   },
-  section4_6: (data) =>{
-  const d = data as Record<string, any>;
-  return anyValid(
-    d?.capacityArray,
-    (r) =>
-      hasMeaningfulValue(r.officerName) &&
-      hasMeaningfulValue(r.designation) &&
-      hasMeaningfulValue(r.programName) &&
-      hasMeaningfulValue(r.organiser) &&
-      hasMeaningfulValue(r.trainingType)
-  );
-},
+  section4_6: (data) => {
+    const d = data as Record<string, any>;
+    return anyValid(
+      d?.capacityArray,
+      (r) =>
+        hasMeaningfulValue(r.officerName) &&
+        hasMeaningfulValue(r.designation) &&
+        hasMeaningfulValue(r.programName) &&
+        hasMeaningfulValue(r.organiser) &&
+        hasMeaningfulValue(r.trainingType)
+    );
+  },
 };
 
 function hasMeaningfulValue(value: unknown): boolean {
@@ -245,7 +263,29 @@ export function isSectionFilled(
   const data = (stepData as Record<string, unknown>)[sectionKey];
   if (!data) return false;
   const checker = REQUIRED_SECTION_CHECKS[sectionKey];
-  if (checker) return checker(data);
+  if (checker) {
+    const result = checker(data);
+    // 🔍 DEBUG: Log for section2_4
+    if (sectionKey === "section2_4") {
+      console.log("🔍 [PROGRESS CHECK 2.4] isSectionFilled:", {
+        sectionKey,
+        data,
+        result,
+        hasInvestmentReady: (data as any)?.hasInvestmentReady,
+        websiteLink: (data as any)?.websiteLink,
+        comment: (data as any)?.comment,
+        arrayLength: Array.isArray((data as any)?.investmentReadyArray)
+          ? (data as any).investmentReadyArray.length
+          : 0,
+        firstEntry:
+          Array.isArray((data as any)?.investmentReadyArray) &&
+          (data as any).investmentReadyArray.length > 0
+            ? (data as any).investmentReadyArray[0]
+            : null,
+      });
+    }
+    return result;
+  }
   return hasMeaningfulValue(data);
 }
 
@@ -309,6 +349,5 @@ export function computeAllStepsSummary(
     infraEnablers: computeStepProgress(allFormData, "infraEnablers", options),
   };
 }
-
 
 export { STEP_SECTIONS };

@@ -17,6 +17,7 @@ interface FileUploadSectionProps {
   required?: boolean;
   submissionId?: string; // For backend integration
   onUploadComplete?: (uploadedFile: FileUpload) => void;
+  disabled?: boolean;
 }
 
 export const FileUploadSection = ({
@@ -29,12 +30,14 @@ export const FileUploadSection = ({
   required = false,
   submissionId,
   onUploadComplete,
+  disabled = false,
 }: FileUploadSectionProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFile = async (file: File) => {
+    if (disabled) return;
     if (file.size > maxSize * 1024 * 1024) {
       notificationService.warning(
         `File size must be less than ${maxSize}MB`,
@@ -57,7 +60,10 @@ export const FileUploadSection = ({
       // Local file handling (keep actual File instance)
       const fileUpload: FileUpload = {
         id: crypto.randomUUID(),
-        file: (file && file.constructor && file.constructor.name === "File") ? file : null,
+        file:
+          file && file.constructor && file.constructor.name === "File"
+            ? file
+            : null,
         fileName: file.name,
         fileSize: file.size,
         uploadedAt: Date.now(),
@@ -94,7 +100,10 @@ export const FileUploadSection = ({
       onChange(fileUpload);
       onUploadComplete?.(fileUpload);
 
-      notificationService.success("File uploaded successfully", "Upload Complete");
+      notificationService.success(
+        "File uploaded successfully",
+        "Upload Complete"
+      );
     } catch (error: any) {
       notificationService.error(
         error.message || "Failed to upload file. Please try again.",
@@ -107,10 +116,14 @@ export const FileUploadSection = ({
   };
 
   const handleRemoveFile = async () => {
+    if (disabled) return;
     if (value?.filePath && submissionId) {
       try {
         await apiService.deleteFile(value.filePath);
-        notificationService.success("File deleted successfully", "File Removed");
+        notificationService.success(
+          "File deleted successfully",
+          "File Removed"
+        );
       } catch (error: any) {
         notificationService.error(
           error.message || "Failed to delete file.",
@@ -146,25 +159,36 @@ export const FileUploadSection = ({
       <Label>
         {label} {required && <span className="text-destructive">*</span>}
       </Label>
-      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      {description && (
+        <p className="text-sm text-muted-foreground">{description}</p>
+      )}
 
       {uploading ? (
         <div className="border-2 border-dashed rounded-lg p-8 text-center">
           <Loader2 className="w-8 h-8 mx-auto mb-3 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground mb-3">Uploading file...</p>
+          <p className="text-sm text-muted-foreground mb-3">
+            Uploading file...
+          </p>
           <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
             <div
               className="bg-primary h-2 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-xs text-muted-foreground">{uploadProgress}% complete</p>
+          <p className="text-xs text-muted-foreground">
+            {uploadProgress}% complete
+          </p>
         </div>
       ) : !value ? (
         <div className="flex items-center gap-3">
           <label
             htmlFor={`file-${label}`}
-            className="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-md cursor-pointer font-medium text-sm hover:bg-indigo-200 transition"
+            className={cn(
+              "px-4 py-2 rounded-md font-medium text-sm transition",
+              disabled
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-indigo-100 text-indigo-800 cursor-pointer hover:bg-indigo-200"
+            )}
           >
             Upload File
           </label>
@@ -174,6 +198,7 @@ export const FileUploadSection = ({
             type="file"
             accept={accept}
             onChange={handleChange}
+            disabled={disabled}
             className="hidden"
           />
 
@@ -205,7 +230,7 @@ export const FileUploadSection = ({
             variant="ghost"
             size="sm"
             onClick={handleRemoveFile}
-            disabled={uploading}
+            disabled={uploading || disabled}
           >
             <X className="w-4 h-4" />
           </Button>

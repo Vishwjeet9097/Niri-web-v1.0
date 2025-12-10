@@ -3,7 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Upload, Plus, Clock, Edit3, Check, X, RotateCcw, CheckCircle } from "lucide-react";
+import {
+  MessageSquare,
+  Upload,
+  Plus,
+  Clock,
+  Edit3,
+  Check,
+  X,
+  RotateCcw,
+  CheckCircle,
+} from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -28,16 +38,24 @@ import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
-import { hasPPPDevelopmentData, getSectionsWithData } from "@/utils/sectionDataValidator";
+import {
+  hasPPPDevelopmentData,
+  getSectionsWithData,
+} from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
-import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
-import { useEditableSectionStore } from '@/utils/EditableSection';
+import {
+  computeStepProgress,
+  STEP_SECTIONS,
+} from "@/features/submission/utils/progress";
+import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
-import { SECTOR_OPTIONS, PROJECT_TYPE_OPTIONS } from "@/features/submission/constants/steps";
-
+import {
+  SECTOR_OPTIONS,
+  PROJECT_TYPE_OPTIONS,
+} from "@/features/submission/constants/steps";
 
 interface PPPDevelopmentReviewProps {
   submissionId: string;
@@ -48,10 +66,17 @@ interface PPPDevelopmentReviewProps {
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
 }
 
-export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false }: PPPDevelopmentReviewProps) => {
+export const PPPDevelopmentReview = ({
+  submissionId,
+  formData,
+  submission,
+  isPreview = false,
+  assignedIndicators = [],
+  isNodalOfficer = false,
+}: PPPDevelopmentReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
-  
+
   // Normalization function for PPP Development data
   const normalizePPPDevelopment = (data: any) => {
     if (!data) return data;
@@ -60,8 +85,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     // Ensure section3_3 has VGFArray structure
     if (normalized.section3_3) {
       const section = normalized.section3_3;
-      const status = (section && section.status) || (Array.isArray(section) ? (section as any).status : undefined);
-      
+      const status =
+        (section && section.status) ||
+        (Array.isArray(section) ? (section as any).status : undefined);
+
       let items: any[] = [];
       if (Array.isArray(section?.VGFArray)) {
         items = section.VGFArray;
@@ -80,35 +107,39 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   };
 
   const initialFormData = normalizePPPDevelopment(
-    formData && typeof formData === "object" && (formData as any)?.section3_1 !== undefined
+    formData &&
+      typeof formData === "object" &&
+      (formData as any)?.section3_1 !== undefined
       ? formData
       : (formData as any)?.pppDevelopment ?? formData
   );
 
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
-  
+
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
   const currentSubmission = submissionState || submission;
-  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, currentSubmission);
-  
+  const { saveMessage, getMessage, getComments, getAllComments } =
+    useSectionMessages(submissionId, currentSubmission);
+
   // Sync submissionState when submission prop changes from parent
   useEffect(() => {
     if (submission) {
       setSubmissionState(submission);
     }
   }, [submission]);
-  
+
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
-  const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
+  const [originalFormDataSnapshot, setOriginalFormDataSnapshot] =
+    useState<any>(null);
   // Flag to prevent useEffect from overriding cancel restore
   const isRestoringRef = useRef(false);
   // Counter to force remount of Select components on cancel
   const [selectResetKey, setSelectResetKey] = useState(0);
   // Refresh key to force component re-render on cancel
   const [refreshKey, setRefreshKey] = useState(0);
-  
+
   // State for adding new project in section 3.4
   const [showAddProjectForm, setShowAddProjectForm] = useState(false);
   const [newProject, setNewProject] = useState({
@@ -133,57 +164,66 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
+    string | null
+  >(null);
 
   // State for Send Back and Accept confirmation dialogs
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
-  const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
-  
+  const [pendingActionSectionId, setPendingActionSectionId] = useState<
+    string | null
+  >(null);
+
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
-  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<string | null>(null);
+  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<
+    string | null
+  >(null);
 
   // Helper function to check user role
   const getUserRole = () => {
     try {
-      const authUser = localStorage.getItem('niri_app:auth_user');
+      const authUser = localStorage.getItem("niri_app:auth_user");
       if (authUser) {
         const user = JSON.parse(authUser);
         return user.value?.role;
       }
     } catch (error) {
-      console.error('Error reading user role:', error);
+      console.error("Error reading user role:", error);
     }
     return null;
   };
 
-  const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
-  
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
+
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
   };
-  
+
   // Handle cancel - restore original state
   const handleCancel = (sectionId: string) => {
     if (originalFormDataSnapshot) {
       isRestoringRef.current = true;
       // Create a fresh deep copy to ensure React detects the change
-      const restoredState = JSON.parse(JSON.stringify(originalFormDataSnapshot));
+      const restoredState = JSON.parse(
+        JSON.stringify(originalFormDataSnapshot)
+      );
       setFormDataState(restoredState);
       setOriginalFormDataSnapshot(null);
       setEditable(sectionId, false);
       // Increment reset key to force Select components to remount
-      setSelectResetKey(prev => prev + 1);
+      setSelectResetKey((prev) => prev + 1);
       // Increment refresh key to force component re-render
-      setRefreshKey(prev => prev + 1);
-      
+      setRefreshKey((prev) => prev + 1);
+
       // Close and reset "Add More Project" forms for section 3.3
-      if (sectionId === '3.3') {
+      if (sectionId === "3.3") {
         setShowAddVGFForm(false);
         setNewVGFItem({
           projectName: "",
@@ -193,9 +233,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           file: null,
         });
       }
-      
+
       // Close and reset "Add More Project" forms for section 3.4
-      if (sectionId === '3.4') {
+      if (sectionId === "3.4") {
         setShowAddProjectForm(false);
         setNewProject({
           nameOfProject: "",
@@ -207,7 +247,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           totalProjectCost: "",
         });
       }
-      
+
       // Reset the flag after React has processed the state update
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -217,9 +257,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     } else {
       setEditable(sectionId, false);
       // Increment refresh key even if no snapshot exists
-      setRefreshKey(prev => prev + 1);
+      setRefreshKey((prev) => prev + 1);
       // Still close forms even if no snapshot exists
-      if (sectionId === '3.3') {
+      if (sectionId === "3.3") {
         setShowAddVGFForm(false);
         setNewVGFItem({
           projectName: "",
@@ -229,7 +269,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           file: null,
         });
       }
-      if (sectionId === '3.4') {
+      if (sectionId === "3.4") {
         setShowAddProjectForm(false);
         setNewProject({
           nameOfProject: "",
@@ -243,10 +283,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       }
     }
   };
-  
+
   // Alias for formDataState to match pattern used in other review components
   const state = formDataState as any;
-  
+
   // Real-time update listener
   useEffect(() => {
     const handleCommentUpdate = async (event: CustomEvent) => {
@@ -254,31 +294,31 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       if (eventSubmissionId === submissionId) {
         // Force re-render by updating a dummy state
         // 1. Update submission with fresh comments data
-        setSubmissionState(prev => ({
+        setSubmissionState((prev) => ({
           ...prev,
           indicatorComment: comments,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         }));
-        
+
         // 2. Refresh complete submission data (same as first load)
         try {
           console.log("🔄 Refreshing complete submission data...");
           const freshSubmission = await apiService.getSubmission(submissionId);
-          
+
           if (freshSubmission) {
             // Update submission state with fresh data
             setSubmissionState(freshSubmission);
-            
+
             // Update form data with fresh data
             if (freshSubmission.formData) {
               setFormDataState(
                 normalizePPPDevelopment(
                   freshSubmission.formData.pppDevelopment ??
-                  freshSubmission.formData
+                    freshSubmission.formData
                 )
               );
             }
-            
+
             console.log("✅ Fresh submission data loaded:", freshSubmission);
           }
         } catch (error) {
@@ -287,20 +327,34 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       }
     };
 
-    window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
-    
+    window.addEventListener(
+      "niri-comment-updated",
+      handleCommentUpdate as EventListener
+    );
+
     return () => {
-      window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+      window.removeEventListener(
+        "niri-comment-updated",
+        handleCommentUpdate as EventListener
+      );
     };
   }, [submissionId]);
-  
+
   // Check if this section has any data
   const hasData = hasPPPDevelopmentData({ pppDevelopment: formDataState });
-  let sectionsWithData = getSectionsWithData({ pppDevelopment: formDataState }, 'pppDevelopment');
-  
+  let sectionsWithData = getSectionsWithData(
+    { pppDevelopment: formDataState },
+    "pppDevelopment"
+  );
+
   // For preview mode with assigned indicators, always include assigned sections even if they have no data
   // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+  if (
+    isPreview &&
+    isNodalOfficer &&
+    assignedIndicators &&
+    assignedIndicators.length > 0
+  ) {
     const assignedSectionKeys: string[] = [];
     const indicatorToSectionMap: Record<string, string> = {
       "3.1": "section3_1",
@@ -308,30 +362,100 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       "3.3": "section3_3",
       "3.4": "section3_4",
     };
-    
+
     assignedIndicators.forEach((indicator) => {
       const sectionKey = indicatorToSectionMap[indicator];
       if (sectionKey && !sectionsWithData.includes(sectionKey)) {
         assignedSectionKeys.push(sectionKey);
       }
     });
-    
+
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
-  
+
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Include all sections that exist in formData
-  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
-  // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && formDataState && typeof formDataState === 'object') {
-    const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
-    const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in formDataState (even if value is null, empty object, or empty array)
-      return sectionKey in formDataState;
+  // Only include sections that have meaningful data - don't show empty/unsubmitted indicators
+  // This ensures state approvers only see indicators that were actually saved/submitted by nodal officers
+  if (
+    (!isPreview || (isPreview && !isNodalOfficer)) &&
+    formDataState &&
+    typeof formDataState === "object"
+  ) {
+    const allPossibleSections = [
+      "section3_1",
+      "section3_2",
+      "section3_3",
+      "section3_4",
+    ];
+    const existingSections = allPossibleSections.filter((sectionKey) => {
+      // Check if section key exists in formDataState
+      if (!(sectionKey in formDataState)) {
+        return false;
+      }
+
+      const section = formDataState[sectionKey];
+
+      // Check if section has meaningful data (not just empty object, null, or empty array)
+      if (!section || typeof section !== "object") return false;
+
+      // For section 3.1 and 3.2, check if they have files, available field, or comment
+      if (sectionKey === "section3_1" || sectionKey === "section3_2") {
+        const hasAvailable = section.available && section.available !== "";
+        const hasFiles =
+          (Array.isArray(section.files) && section.files.length > 0) ||
+          (section.file && section.file !== null);
+        const hasComment = section.comment && section.comment !== "";
+        return hasAvailable || hasFiles || hasComment;
+      }
+
+      // For section 3.3, check if VGFArray has data
+      if (sectionKey === "section3_3") {
+        return (
+          Array.isArray(section.VGFArray) &&
+          section.VGFArray.length > 0 &&
+          section.VGFArray.some((item) => {
+            if (!item || typeof item !== "object") return false;
+            return (
+              Object.keys(item).length > 0 &&
+              Object.values(item).some(
+                (val) => val !== null && val !== undefined && val !== ""
+              )
+            );
+          })
+        );
+      }
+
+      // For section 3.4, check if projects array has data
+      if (sectionKey === "section3_4") {
+        return (
+          Array.isArray(section.projects) &&
+          section.projects.length > 0 &&
+          section.projects.some((item) => {
+            if (!item || typeof item !== "object") return false;
+            return (
+              Object.keys(item).length > 0 &&
+              Object.values(item).some(
+                (val) => val !== null && val !== undefined && val !== ""
+              )
+            );
+          })
+        );
+      }
+
+      // For other sections, check if they have any meaningful values
+      return Object.values(section).some((val) => {
+        if (val === null || val === undefined || val === "") return false;
+        if (Array.isArray(val) && val.length === 0) return false;
+        if (typeof val === "object" && Object.keys(val).length === 0)
+          return false;
+        return true;
+      });
     });
-    
+
     // Merge existing sections with sectionsWithData, avoiding duplicates
-    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+    sectionsWithData = Array.from(
+      new Set([...sectionsWithData, ...existingSections])
+    );
   }
 
   const handleOpenModal = (sectionId: string) => {
@@ -367,7 +491,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       }
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
-      const shouldShowSentBackConfirmation = isMospiApproverSentBack && mospiSentBackSectionId;
+      const shouldShowSentBackConfirmation =
+        isMospiApproverSentBack && mospiSentBackSectionId;
 
       // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
       if (shouldShowSentBackConfirmation) {
@@ -416,21 +541,27 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     return value ?? null;
   };
 
-  const toFileArray = (value: FileUpload | FileUpload[] | null | undefined): FileUpload[] => {
+  const toFileArray = (
+    value: FileUpload | FileUpload[] | null | undefined
+  ): FileUpload[] => {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
   };
 
   // Helper function to handle field updates
-  const handleFieldUpdate = (sectionId: string, fieldName: string, value: any) => {
+  const handleFieldUpdate = (
+    sectionId: string,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
       return {
         ...prev,
         [sectionKey]: {
           ...prev?.[sectionKey],
-          [fieldName]: value
-        }
+          [fieldName]: value,
+        },
       };
     });
   };
@@ -440,14 +571,14 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     sectionId: string,
     updatedValue: FileUpload | FileUpload[] | null
   ) => {
-    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
     const previousSection = state?.[sectionKey] || {};
-    const targetKey = sectionId === '3.1' ? 'files' : 'file';
+    const targetKey = sectionId === "3.1" ? "files" : "file";
     const filesArray = toFileArray(updatedValue);
-    const normalizedValue = targetKey === 'files' ? filesArray : updatedValue;
+    const normalizedValue = targetKey === "files" ? filesArray : updatedValue;
 
     const updatedSection =
-      targetKey === 'files'
+      targetKey === "files"
         ? {
             ...previousSection,
             files: filesArray,
@@ -463,47 +594,63 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     }));
 
     // Auto-save for file changes
-    if (sectionId === '3.1') {
+    if (sectionId === "3.1") {
       try {
-        const fields = [{
-          available: updatedSection?.available ?? null,
-          files: filesArray,
-        }];
+        const fields = [
+          {
+            available: updatedSection?.available ?? null,
+            files: filesArray,
+          },
+        ];
 
         await handleSaveSection({
           submissionId,
-          category: 'pppDevelopment',
+          category: "pppDevelopment",
           section: sectionKey,
           fields,
         });
-        
+
         if (filesArray.length === 0) {
           await onIndicatorStatus(sectionId, false);
         }
       } catch (error) {
-        console.error('Failed to auto-save files for section', sectionId, error);
+        console.error(
+          "Failed to auto-save files for section",
+          sectionId,
+          error
+        );
       }
-    } else if (sectionId === '3.2') {
+    } else if (sectionId === "3.2") {
       try {
-        const fields = [{
-          available: updatedSection?.available ?? null,
-          file: normalizedValue,
-        }];
+        const fields = [
+          {
+            available: updatedSection?.available ?? null,
+            file: normalizedValue,
+          },
+        ];
 
         await handleSaveSection({
           submissionId,
-          category: 'pppDevelopment',
+          category: "pppDevelopment",
           section: sectionKey,
           fields,
         });
       } catch (error) {
-        console.error('Failed to auto-save files for section', sectionId, error);
+        console.error(
+          "Failed to auto-save files for section",
+          sectionId,
+          error
+        );
       }
     }
   };
 
   // Helper to update table row items for section 3.3
-  const handleTableFieldUpdate = (rowIndex: number, fieldName: string, value: any) => {
+  const handleTableFieldUpdate = (
+    rowIndex: number,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
       const current = prev?.section3_3?.VGFArray;
       const rows = Array.isArray(current) ? [...current] : [];
@@ -521,7 +668,11 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   };
 
   // Helper to update section 3.4 project fields
-  const handleProjectFieldUpdate = (projectIndex: number, fieldName: string, value: any) => {
+  const handleProjectFieldUpdate = (
+    projectIndex: number,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
       const current = prev?.section3_4?.projects;
       const projects = Array.isArray(current) ? [...current] : [];
@@ -545,7 +696,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       const newProjectWithId = {
         ...newProject,
         id: `project-${Date.now()}`,
-        dateOfAward: newProject.dateOfAward ? new Date(newProject.dateOfAward).toISOString() : null,
+        dateOfAward: newProject.dateOfAward
+          ? new Date(newProject.dateOfAward).toISOString()
+          : null,
       };
       return {
         ...prev,
@@ -602,7 +755,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       const newVGFItemWithId = {
         ...newVGFItem,
         id: `vgf-${Date.now()}`,
-        submissionDate: newVGFItem.submissionDate ? new Date(newVGFItem.submissionDate).toISOString() : null,
+        submissionDate: newVGFItem.submissionDate
+          ? new Date(newVGFItem.submissionDate).toISOString()
+          : null,
         file: newVGFItem.file,
       };
       return {
@@ -639,7 +794,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   const onSaveSection = async (sectionId: string) => {
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
-    const isNodalOfficer = userRole === 'NODAL_OFFICER';
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
 
     // If NODAL_OFFICER, show confirmation dialog first
     if (isNodalOfficer) {
@@ -648,7 +803,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       return;
     }
 
-    // For non-NODAL_OFFICER users, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with submit directly
     await performSave(sectionId);
   };
 
@@ -656,63 +811,77 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   const performSave = async (sectionId: string) => {
     try {
       // Map visual section id to payload section key (e.g. "3.1" -> "section3_1")
-      const payloadSection = `section${sectionId.replace('.', '_')}`;
+      const payloadSection = `section${sectionId.replace(".", "_")}`;
 
       // Use the local formData state to build fields for this section
       let fields: Record<string, any>[] = [];
 
       // Check if user is NODAL_OFFICER to add status to payload
       const userRole = getUserRole();
-      const isNodalOfficer = userRole === 'NODAL_OFFICER';
+      const isNodalOfficer = userRole === "NODAL_OFFICER";
 
       switch (sectionId) {
-        case '3.1':
-          fields = [{
-            available: state?.section3_1?.available ?? null,
-            files: Array.isArray(state?.section3_1?.files)
-              ? state.section3_1.files
-              : state?.section3_1?.files
-              ? [state.section3_1.files]
-              : [],
-            comment: state?.section3_1?.comment ?? null,
-          }];
+        case "3.1":
+          fields = [
+            {
+              available: state?.section3_1?.available ?? null,
+              files: Array.isArray(state?.section3_1?.files)
+                ? state.section3_1.files
+                : state?.section3_1?.files
+                ? [state.section3_1.files]
+                : [],
+              comment: state?.section3_1?.comment ?? null,
+            },
+          ];
           break;
 
-        case '3.2':
-          fields = [{
-            available: state?.section3_2?.available ?? null,
-            file: state?.section3_2?.file ?? null,
-            comment: state?.section3_2?.comment ?? null,
-          }];
+        case "3.2":
+          fields = [
+            {
+              available: state?.section3_2?.available ?? null,
+              file: state?.section3_2?.file ?? null,
+              comment: state?.section3_2?.comment ?? null,
+            },
+          ];
           break;
 
-        case '3.3':
-          fields = [{
-            VGFArray: (state?.section3_3?.VGFArray || []).map((item: any) => ({
-              projectName: item?.projectName ?? null,
-              sector: item?.sector ?? null,
-              type: item?.type ?? null,
-              submissionDate: item?.submissionDate ?? null,
-              file: item?.file ?? null,
-              marksObtained: item?.marksObtained ?? null,
-            })),
-          }];
+        case "3.3":
+          fields = [
+            {
+              VGFArray: (state?.section3_3?.VGFArray || []).map(
+                (item: any) => ({
+                  projectName: item?.projectName ?? null,
+                  sector: item?.sector ?? null,
+                  type: item?.type ?? null,
+                  submissionDate: item?.submissionDate ?? null,
+                  file: item?.file ?? null,
+                  marksObtained: item?.marksObtained ?? null,
+                })
+              ),
+            },
+          ];
           break;
 
-        case '3.4':
-          fields = [{
-            totalProjectsAwarded: state?.section3_4?.totalProjectsAwarded ?? null,
-            totalProjectCostAwarded: state?.section3_4?.totalProjectCostAwarded ?? null,
-            projects: (state?.section3_4?.projects || []).map((project: any) => ({
-              nameOfProject: project?.nameOfProject ?? null,
-              nipId: project?.nipId ?? null,
-              fundingSource: project?.fundingSource ?? null,
-              infrastructureSector: project?.infrastructureSector ?? null,
-              dateOfAward: project?.dateOfAward ?? null,
-              capexPercentage: project?.capexPercentage ?? null,
-              totalProjectCost: project?.totalProjectCost ?? null,
-            })),
-          }];
+        case "3.4":
+          fields = [
+            {
+              totalProjectsAwarded:
+                state?.section3_4?.totalProjectsAwarded ?? null,
+              totalProjectCostAwarded:
+                state?.section3_4?.totalProjectCostAwarded ?? null,
+              projects: (state?.section3_4?.projects || []).map(
+                (project: any) => ({
+                  nameOfProject: project?.nameOfProject ?? null,
+                  nipId: project?.nipId ?? null,
+                  fundingSource: project?.fundingSource ?? null,
+                  infrastructureSector: project?.infrastructureSector ?? null,
+                  dateOfAward: project?.dateOfAward ?? null,
+                  capexPercentage: project?.capexPercentage ?? null,
+                  totalProjectCost: project?.totalProjectCost ?? null,
+                })
+              ),
+            },
+          ];
           break;
 
         default:
@@ -725,28 +894,28 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         // Add status to the first field object
         fields[0] = {
           ...fields[0],
-          status: 'RESUBMITTED',
+          status: "RESUBMITTED",
         };
       }
 
       await handleSaveSection({
         submissionId,
-        category: 'pppDevelopment',
+        category: "pppDevelopment",
         section: payloadSection,
-        fields
+        fields,
       });
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
       if (isNodalOfficer) {
         // Update formDataState to set status to RESUBMITTED
-        const sectionKey = `section${sectionId.replace('.', '_')}`;
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
         setFormDataState((prev: any) => {
           if (!prev) return prev;
           const updated = { ...prev };
           if (updated[sectionKey]) {
             updated[sectionKey] = {
               ...updated[sectionKey],
-              status: 'RESUBMITTED',
+              status: "RESUBMITTED",
             };
           }
           return updated;
@@ -758,7 +927,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       // Clear the snapshot since save was successful
       setOriginalFormDataSnapshot(null);
     } catch (error) {
-      console.error('Error saving section:', error);
+      console.error("Error saving section:", error);
     }
   };
 
@@ -779,27 +948,27 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   // Actual function that performs the status update
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
-    const isMospiApprover = userRole === 'MOSPI_APPROVER';
-    
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
+
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
       submissionId,
-      category: 'pppDevelopment',
-      section: `section${sectionId.replace('.', '_')}`,
+      category: "pppDevelopment",
+      section: `section${sectionId.replace(".", "_")}`,
       status,
     };
-    
+
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
-      payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
+      payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
     }
-    
+
     try {
       await apiService.indicatorStatus(payload);
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
-      const statusField = isMospiApprover ? 'mospi_status' : 'status';
-      const statusValue = status ? 'ACCEPTED' : 'REVERTED';
-      
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const statusField = isMospiApprover ? "mospi_status" : "status";
+      const statusValue = status ? "ACCEPTED" : "REVERTED";
+
       setFormDataState((prev: any) => {
         if (!prev) return prev;
         const next = { ...prev };
@@ -811,23 +980,34 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         }
         return next;
       });
-      console.log(`✅ Indicator ${isMospiApprover ? 'mospi_' : ''}status updated successfully`);
-      
+      console.log(
+        `✅ Indicator ${
+          isMospiApprover ? "mospi_" : ""
+        }status updated successfully`
+      );
+
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
-        window.dispatchEvent(new CustomEvent('niri-indicator-status-updated', {
-          detail: { sectionId, status: statusValue }
-        }));
+        window.dispatchEvent(
+          new CustomEvent("niri-indicator-status-updated", {
+            detail: { sectionId, status: statusValue },
+          })
+        );
       }
     } catch (error) {
-      console.error(`❌ Failed to update indicator ${isMospiApprover ? 'mospi_' : ''}status:`, error);
+      console.error(
+        `❌ Failed to update indicator ${
+          isMospiApprover ? "mospi_" : ""
+        }status:`,
+        error
+      );
     }
   };
 
   // Wrapper function that checks for STATE_APPROVER and shows dialog if needed
   const onIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
-    const isStateApprover = userRole === 'STATE_APPROVER';
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     if (isStateApprover) {
       // Show appropriate dialog based on action
@@ -852,24 +1032,24 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       // Check if user is MOSPI_APPROVER
       const getUserRole = () => {
         try {
-          const authUser = localStorage.getItem('niri_app:auth_user');
+          const authUser = localStorage.getItem("niri_app:auth_user");
           if (authUser) {
             const user = JSON.parse(authUser);
             return user.value?.role;
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error("Error reading user role:", error);
         }
         return null;
       };
       const userRole = getUserRole();
-      const isMospiApprover = userRole === 'MOSPI_APPROVER';
-      
+      const isMospiApprover = userRole === "MOSPI_APPROVER";
+
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
-      
+
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -887,24 +1067,24 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       // Check if user is MOSPI_APPROVER
       const getUserRole = () => {
         try {
-          const authUser = localStorage.getItem('niri_app:auth_user');
+          const authUser = localStorage.getItem("niri_app:auth_user");
           if (authUser) {
             const user = JSON.parse(authUser);
             return user.value?.role;
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error("Error reading user role:", error);
         }
         return null;
       };
       const userRole = getUserRole();
-      const isMospiApprover = userRole === 'MOSPI_APPROVER';
-      
+      const isMospiApprover = userRole === "MOSPI_APPROVER";
+
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, true);
-      
+
       setShowAcceptDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -916,7 +1096,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     setPendingActionSectionId(null);
   };
 
- const renderActionButtons = (sectionId: string) => {
+  const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
       return null;
@@ -924,35 +1104,35 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
-    
+
     // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
     const getUserRole = () => {
       try {
-        const authUser = localStorage.getItem('niri_app:auth_user');
+        const authUser = localStorage.getItem("niri_app:auth_user");
         if (authUser) {
           const user = JSON.parse(authUser);
           return user.value?.role;
         }
       } catch (error) {
-        console.error('Error reading user role:', error);
+        console.error("Error reading user role:", error);
       }
       return null;
     };
     const userRole = getUserRole();
-    const isNodalOfficer = userRole === 'NODAL_OFFICER';
-    const isStateApprover = userRole === 'STATE_APPROVER';
-    const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
-    const isMospiApprover = userRole === 'MOSPI_APPROVER';
-    
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const isStateApprover = userRole === "STATE_APPROVER";
+    const isMospiReviewer = userRole === "MOSPI_REVIEWER";
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
+
     // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
     const submissionStatus = submission?.status;
-    if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+    if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
       return null;
     }
-    
+
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
     // Only show Timeline button for viewing comments
-    if (submissionStatus === 'APPROVED') {
+    if (submissionStatus === "APPROVED") {
       return (
         <div className="flex gap-2">
           {commentCount > 0 && (
@@ -969,7 +1149,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         </div>
       );
     }
-    
+
     // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
     if (isMospiReviewer) {
       return (
@@ -997,19 +1177,19 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         </div>
       );
     }
-    
+
     // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
     if (isMospiApprover) {
       // Check mospi_status instead of status for MOSPI_APPROVER
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
       const sectionData = state ? state[sectionKey] : undefined;
       const mospiStatus = sectionData
         ? Array.isArray(sectionData)
           ? (sectionData as any)?.mospi_status
           : sectionData?.mospi_status
         : undefined;
-      
-      if (mospiStatus === 'ACCEPTED') {
+
+      if (mospiStatus === "ACCEPTED") {
         return (
           <div className="flex gap-2">
             <Button
@@ -1033,8 +1213,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
-      if (mospiStatus === 'REVERTED') {
+
+      if (mospiStatus === "REVERTED") {
         return (
           <div className="flex gap-2">
             <Button
@@ -1058,7 +1238,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
       return (
         <div className="flex gap-2">
@@ -1067,7 +1247,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             size="sm"
             className="flex items-center gap-1"
             onClick={() => {
-              // For MOSPI_APPROVER, send back action: 
+              // For MOSPI_APPROVER, send back action:
               // 1. Set flag to track this is a "Sent Back" action
               // 2. Open comment modal first
               setIsMospiApproverSentBack(true);
@@ -1083,7 +1263,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => {
-              // For MOSPI_APPROVER, accept action: 
+              // For MOSPI_APPROVER, accept action:
               // Show confirmation dialog directly (no comment required)
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
@@ -1106,7 +1286,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     }
 
     // For all other roles, check status field as before
-    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
     const sectionData = state ? state[sectionKey] : undefined;
     const sectionStatus = sectionData
       ? Array.isArray(sectionData)
@@ -1114,7 +1294,14 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         : sectionData.status
       : undefined;
 
-    if (sectionStatus === 'ACCEPTED') {
+    // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
+    // REVERTED is excluded because user can resubmit after being sent back
+    const isSubmitted =
+      sectionStatus === "SUBMITTED" ||
+      sectionStatus === "RESUBMITTED" ||
+      sectionStatus === "ACCEPTED";
+
+    if (sectionStatus === "ACCEPTED") {
       return (
         <div className="flex gap-2">
           <Button
@@ -1138,9 +1325,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         </div>
       );
     }
-    
+
     // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
-    if (isStateApprover && sectionStatus === 'RESUBMITTED') {
+    if (isStateApprover && sectionStatus === "RESUBMITTED") {
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -1160,6 +1347,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => onSaveSection(sectionId)}
+                disabled={true} // Already submitted (RESUBMITTED), disable button
               >
                 <Check className="w-4 h-4" />
                 Save
@@ -1207,8 +1395,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         </div>
       );
     }
-    
-    if (sectionStatus === 'REVERTED') {
+
+    if (sectionStatus === "REVERTED") {
       // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
       if (isNodalOfficer) {
         return (
@@ -1230,6 +1418,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                   size="sm"
                   className="flex items-center gap-1"
                   onClick={() => onSaveSection(sectionId)}
+                  disabled={false} // Can resubmit after being sent back
                 >
                   <Check className="w-4 h-4" />
                   Save
@@ -1266,7 +1455,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // For reviewers/approvers, show only the disabled Sent Back button
       return (
         <div className="flex gap-2">
@@ -1293,7 +1482,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     }
 
     // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
-    if (isNodalOfficer && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
+    if (isNodalOfficer && (sectionStatus === "RESUBMITTED" || !sectionStatus)) {
       return (
         <div className="flex gap-2">
           <Button
@@ -1319,7 +1508,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     }
 
     // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
-    if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
+    if (
+      isNodalOfficer &&
+      sectionStatus !== "REVERTED" &&
+      sectionStatus !== "ACCEPTED" &&
+      sectionStatus !== "RESUBMITTED"
+    ) {
       return null;
     }
 
@@ -1342,6 +1536,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               size="sm"
               className="flex items-center gap-1"
               onClick={() => onSaveSection(sectionId)}
+              disabled={isSubmitted}
             >
               <Check className="w-4 h-4" />
               Save
@@ -1359,7 +1554,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         )}
 
         {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
-        {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
+        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
           <Button
             variant="outline"
             size="sm"
@@ -1399,7 +1594,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   if (!hasData) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">No PPP Development data available for review</p>
+        <p className="text-muted-foreground">
+          No PPP Development data available for review
+        </p>
       </div>
     );
   }
@@ -1408,7 +1605,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     <>
       <div className="space-y-6">
         {(() => {
-          const sections = getSectionsWithData({ pppDevelopment: formData }, 'pppDevelopment');
+          const sections = getSectionsWithData(
+            { pppDevelopment: formData },
+            "pppDevelopment"
+          );
           const assignedIndicators = STEP_SECTIONS.pppDevelopment
             .filter((s) => sections.includes(s.sectionKey))
             .map((s) => s.indicator);
@@ -1429,20 +1629,23 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           );
         })()}
         {/* Section 3.1 */}
-        {sectionsWithData.includes('section3_1') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">3.1 -</span> Availability of Infrastructure Act/Policy{" "}
-              </span>
-              {renderActionButtons("3.1")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* <CardHeader className="bg-muted/30">
+        {sectionsWithData.includes("section3_1") && (
+          <SectionCard
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">3.1 -</span> Availability of
+                    Infrastructure Act/Policy{" "}
+                  </span>
+                  {renderActionButtons("3.1")}
+                </div>
+              </div>
+            }
+            subtitle=""
+            className="mb-6"
+          >
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                  
@@ -1460,90 +1663,101 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               )}
             </div>
           </CardHeader> */}
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
-              {isEditable('3.1') ? (
-                <RadioGroup
-                  value={state?.section3_1?.available || ""}
-                  onValueChange={(value) => handleFieldUpdate('3.1', 'available', value)}
-                  className="flex flex-row gap-6"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="3.1-yes" />
-                    <Label htmlFor="3.1-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="3.1-no" />
-                    <Label htmlFor="3.1-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section3_1?.available === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {state?.section3_1?.available === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {(state?.section3_1?.available === "yes") && (
+            <div className="space-y-4">
               <div>
-                <EditableFileDisplay
-                  files={state?.section3_1?.files ?? null}
-                  isEditable={isEditable('3.1')}
-                  submissionId={submissionId}
-                  onFilesChange={(updatedFiles) => handleFileUpdate('3.1', updatedFiles)}
-                  label="Uploaded Files"
-                  multiple={true}
-                />
-              </div>
-            )}
-
-            {(state?.section3_1?.available === "no") && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
-                {isEditable('3.1') ? (
-                  <Textarea
-                    value={state?.section3_1?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('3.1', 'comment', e.target.value)}
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
+                <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
+                {isEditable("3.1") ? (
+                  <RadioGroup
+                    value={state?.section3_1?.available || ""}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("3.1", "available", value)
+                    }
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="3.1-yes" />
+                      <Label htmlFor="3.1-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="3.1-no" />
+                      <Label htmlFor="3.1-no">No</Label>
+                    </div>
+                  </RadioGroup>
                 ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section3_1?.comment || "No comment provided"}
+                  <div className="flex items-center space-x-2">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section3_1?.available === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {state?.section3_1?.available === "yes" ? "Yes" : "No"}
+                    </span>
                   </div>
                 )}
               </div>
-            )}
 
-            <p className="text-xs text-muted-foreground">
-              Upload copy of Act/Policy
-            </p>
+              {state?.section3_1?.available === "yes" && (
+                <div>
+                  <EditableFileDisplay
+                    files={state?.section3_1?.files ?? null}
+                    isEditable={isEditable("3.1")}
+                    submissionId={submissionId}
+                    onFilesChange={(updatedFiles) =>
+                      handleFileUpdate("3.1", updatedFiles)
+                    }
+                    label="Uploaded Files"
+                    multiple={true}
+                  />
+                </div>
+              )}
+
+              {state?.section3_1?.available === "no" && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {isEditable("3.1") ? (
+                    <Textarea
+                      value={state?.section3_1?.comment || ""}
+                      onChange={(e) =>
+                        handleFieldUpdate("3.1", "comment", e.target.value)
+                      }
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section3_1?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Upload copy of Act/Policy
+              </p>
             </div>
-
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 3.2 */}
-        {sectionsWithData.includes('section3_2') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">3.2 -</span> Availability of Functional PPP Cell/Unit{" "}
-              </span>
-              {renderActionButtons("3.2")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* <CardHeader className="bg-muted/30">
+        {sectionsWithData.includes("section3_2") && (
+          <SectionCard
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">3.2 -</span> Availability of
+                    Functional PPP Cell/Unit{" "}
+                  </span>
+                  {renderActionButtons("3.2")}
+                </div>
+              </div>
+            }
+            subtitle=""
+            className="mb-6"
+          >
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 3.2 - Functional PPP Cell/Unit
@@ -1563,11 +1777,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </CardHeader> */}
             <div className="space-y-4">
               <div>
-                <Label className="mb-3 block">Functional State/UT PPP Cell/Unit*</Label>
-                {isEditable('3.2') ? (
+                <Label className="mb-3 block">
+                  Functional State/UT PPP Cell/Unit*
+                </Label>
+                {isEditable("3.2") ? (
                   <RadioGroup
                     value={state?.section3_2?.available || ""}
-                    onValueChange={(value) => handleFieldUpdate('3.2', 'available', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("3.2", "available", value)
+                    }
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -1581,36 +1799,43 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                   </RadioGroup>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section3_2?.available === "yes"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                      }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section3_2?.available === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       {state?.section3_2?.available === "yes" ? "Yes" : "No"}
                     </span>
                   </div>
                 )}
               </div>
 
-              {(state?.section3_2?.available === "yes") && (
+              {state?.section3_2?.available === "yes" && (
                 <div>
                   <EditableFileDisplay
                     files={state?.section3_2?.file ?? null}
-                    isEditable={isEditable('3.2')}
+                    isEditable={isEditable("3.2")}
                     submissionId={submissionId}
-                    onFilesChange={(updatedFile) => handleFileUpdate('3.2', updatedFile)}
+                    onFilesChange={(updatedFile) =>
+                      handleFileUpdate("3.2", updatedFile)
+                    }
                     label="Uploaded File"
                     multiple={false}
                   />
                 </div>
               )}
 
-              {(state?.section3_2?.available === "no") && (
+              {state?.section3_2?.available === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable('3.2') ? (
+                  {isEditable("3.2") ? (
                     <Textarea
                       value={state?.section3_2?.comment || ""}
-                      onChange={(e) => handleFieldUpdate('3.2', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("3.2", "comment", e.target.value)
+                      }
                       placeholder="Please provide a comment..."
                       className="min-h-[100px]"
                     />
@@ -1626,26 +1851,28 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 Upload notification or mandate
               </p>
             </div>
-
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 3.3 */}
-        {sectionsWithData.includes('section3_3') && (
-        <SectionCard
-          key={`section-3.3-${refreshKey}`}
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">3.3 -</span> Proposals Submitted under VGF/IIPDF{" "}
-              </span>
-              {renderActionButtons("3.3")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* <CardHeader className="bg-muted/30">
+        {sectionsWithData.includes("section3_3") && (
+          <SectionCard
+            key={`section-3.3-${refreshKey}`}
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">3.3 -</span> Proposals
+                    Submitted under VGF/IIPDF{" "}
+                  </span>
+                  {renderActionButtons("3.3")}
+                </div>
+              </div>
+            }
+            subtitle=""
+            className="mb-6"
+          >
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 3.3 - Proposals Submitted under VGF/IIPDF
@@ -1668,23 +1895,42 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 <table className="min-w-full border-separate border-spacing-0 ">
                   <thead>
                     <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project Name</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Type</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Submission Date</th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
+                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                        Project Name
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Sector
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Type
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Submission Date
+                      </th>
+                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                        Uploaded File
+                      </th>
                     </tr>
                   </thead>
-                  <tbody key={`vgf-table-body-${selectResetKey}-${refreshKey}-${state?.section3_3?.VGFArray?.length || 0}`}>
+                  <tbody
+                    key={`vgf-table-body-${selectResetKey}-${refreshKey}-${
+                      state?.section3_3?.VGFArray?.length || 0
+                    }`}
+                  >
                     {(() => {
-                      const VGFArray = Array.isArray(state?.section3_3?.VGFArray)
+                      const VGFArray = Array.isArray(
+                        state?.section3_3?.VGFArray
+                      )
                         ? state.section3_3.VGFArray
                         : [];
 
                       if (!VGFArray.length) {
                         return (
                           <tr>
-                            <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                            <td
+                              colSpan={5}
+                              className="py-8 text-center text-muted-foreground"
+                            >
                               No VGF/IIPDF proposals data available
                             </td>
                           </tr>
@@ -1694,10 +1940,16 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       return VGFArray.map((item: any, index: number) => (
                         <tr key={item.id || index} className="border-b">
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.3') ? (
+                            {isEditable("3.3") ? (
                               <Input
                                 value={item.projectName || ""}
-                                onChange={(e) => handleTableFieldUpdate(index, 'projectName', e.target.value)}
+                                onChange={(e) =>
+                                  handleTableFieldUpdate(
+                                    index,
+                                    "projectName",
+                                    e.target.value
+                                  )
+                                }
                                 className="w-full"
                               />
                             ) : (
@@ -1705,11 +1957,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.3') ? (
+                            {isEditable("3.3") ? (
                               <Select
                                 key={`sector-${index}-${selectResetKey}`}
                                 value={item.sector || ""}
-                                onValueChange={(value) => handleTableFieldUpdate(index, 'sector', value)}
+                                onValueChange={(value) =>
+                                  handleTableFieldUpdate(index, "sector", value)
+                                }
                               >
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select sector" />
@@ -1727,11 +1981,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.3') ? (
+                            {isEditable("3.3") ? (
                               <Select
                                 key={`type-${index}-${selectResetKey}`}
                                 value={item.type || ""}
-                                onValueChange={(value) => handleTableFieldUpdate(index, 'type', value)}
+                                onValueChange={(value) =>
+                                  handleTableFieldUpdate(index, "type", value)
+                                }
                               >
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select type" />
@@ -1749,36 +2005,54 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.3') ? (
+                            {isEditable("3.3") ? (
                               <Input
                                 type="date"
-                                value={item.submissionDate 
-                                  ? new Date(item.submissionDate).toISOString().split('T')[0]
-                                  : ""}
-                                onChange={(e) => handleTableFieldUpdate(index, 'submissionDate', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                                value={
+                                  item.submissionDate
+                                    ? new Date(item.submissionDate)
+                                        .toISOString()
+                                        .split("T")[0]
+                                    : ""
+                                }
+                                onChange={(e) =>
+                                  handleTableFieldUpdate(
+                                    index,
+                                    "submissionDate",
+                                    e.target.value
+                                      ? new Date(e.target.value).toISOString()
+                                      : null
+                                  )
+                                }
                                 className="w-full"
                               />
+                            ) : item.submissionDate ? (
+                              new Date(item.submissionDate).toLocaleDateString()
                             ) : (
-                              item.submissionDate 
-                                ? new Date(item.submissionDate).toLocaleDateString() 
-                                : ""
+                              ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.3') ? (
+                            {isEditable("3.3") ? (
                               <div className="space-y-1.5">
                                 {item.file ? (
-                                  <Badge 
-                                    variant="secondary" 
+                                  <Badge
+                                    variant="secondary"
                                     className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                    title={item.file.fileName || 'Unknown file'}
+                                    title={item.file.fileName || "Unknown file"}
                                   >
                                     <Upload className="w-3 h-3 flex-shrink-0" />
-                                    <span className="truncate">{item.file.fileName || 'Unknown file'}</span>
+                                    <span className="truncate">
+                                      {item.file.fileName || "Unknown file"}
+                                    </span>
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        handleTableFieldUpdate(index, 'file', null);
+                                        handleTableFieldUpdate(
+                                          index,
+                                          "file",
+                                          null
+                                        );
                                       }}
                                       className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
@@ -1786,7 +2060,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                     </button>
                                   </Badge>
                                 ) : (
-                                  <span className="text-muted-foreground text-xs">No file</span>
+                                  <span className="text-muted-foreground text-xs">
+                                    No file
+                                  </span>
                                 )}
                                 <div className="flex items-center">
                                   <input
@@ -1797,24 +2073,53 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                       if (selectedFile) {
                                         // Upload file immediately (same as create submission)
                                         try {
-                                          const response = await apiService.uploadFile(submissionId, selectedFile);
-                                          const fileData = response?.data || response;
-                                          
+                                          const response =
+                                            await apiService.uploadFile(
+                                              submissionId,
+                                              selectedFile
+                                            );
+                                          const fileData =
+                                            response?.data || response;
+
                                           const newFile: FileUpload = {
-                                            id: fileData.id ?? crypto.randomUUID(),
+                                            id:
+                                              fileData.id ??
+                                              crypto.randomUUID(),
                                             file: null, // File not stored locally when backend handles upload
-                                            fileName: fileData.fileName || fileData.filename || selectedFile.name,
-                                            fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
-                                            uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
-                                            filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
-                                            fileUrl: fileData.fileUrl || fileData.url,
+                                            fileName:
+                                              fileData.fileName ||
+                                              fileData.filename ||
+                                              selectedFile.name,
+                                            fileSize: Number(
+                                              fileData.fileSize ??
+                                                fileData.size ??
+                                                selectedFile.size ??
+                                                0
+                                            ),
+                                            uploadedAt: Number(
+                                              fileData.uploadedAt ?? Date.now()
+                                            ),
+                                            filePath:
+                                              fileData.filePath ??
+                                              fileData.file ??
+                                              fileData.url ??
+                                              fileData.path,
+                                            fileUrl:
+                                              fileData.fileUrl || fileData.url,
                                             mimeType: fileData.mimeType,
                                           };
-                                          
-                                          await handleTableFieldUpdate(index, 'file', newFile);
-                                          e.target.value = ''; // Reset input
+
+                                          await handleTableFieldUpdate(
+                                            index,
+                                            "file",
+                                            newFile
+                                          );
+                                          e.target.value = ""; // Reset input
                                         } catch (error: any) {
-                                          console.error('Failed to upload file:', error);
+                                          console.error(
+                                            "Failed to upload file:",
+                                            error
+                                          );
                                         }
                                       }
                                     }}
@@ -1825,7 +2130,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => document.getElementById(`file-input-3.3-${index}`)?.click()}
+                                    onClick={() =>
+                                      document
+                                        .getElementById(
+                                          `file-input-3.3-${index}`
+                                        )
+                                        ?.click()
+                                    }
                                     className="h-6 px-2 text-xs"
                                   >
                                     <Plus className="w-3 h-3 mr-1" />
@@ -1833,19 +2144,21 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                   </Button>
                                 </div>
                               </div>
+                            ) : item.file ? (
+                              <Badge
+                                variant="secondary"
+                                className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                title={item.file.fileName || "Unknown file"}
+                              >
+                                <Upload className="w-3 h-3" />
+                                <span className="truncate">
+                                  {item.file.fileName || "Unknown file"}
+                                </span>
+                              </Badge>
                             ) : (
-                              item.file ? (
-                                <Badge 
-                                  variant="secondary" 
-                                  className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                  title={item.file.fileName || 'Unknown file'}
-                                >
-                                  <Upload className="w-3 h-3" />
-                                  <span className="truncate">{item.file.fileName || 'Unknown file'}</span>
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">No file</span>
-                              )
+                              <span className="text-muted-foreground text-xs">
+                                No file
+                              </span>
                             )}
                           </td>
                         </tr>
@@ -1856,10 +2169,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               </div>
 
               {/* Add More Project Button - Only visible when in edit mode */}
-              {isEditable('3.3') && !showAddVGFForm && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+              {isEditable("3.3") && !showAddVGFForm && (
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                   onClick={() => setShowAddVGFForm(true)}
                 >
@@ -1869,15 +2182,22 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               )}
 
               {/* Add VGF Form - Only visible when showAddVGFForm is true */}
-              {showAddVGFForm && isEditable('3.3') && (
+              {showAddVGFForm && isEditable("3.3") && (
                 <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">Add New VGF/IIPDF Proposal</h4>
+                  <h4 className="font-medium mb-3">
+                    Add New VGF/IIPDF Proposal
+                  </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Project Name</Label>
-                      <Input 
-                        value={newVGFItem.projectName} 
-                        onChange={(e) => setNewVGFItem({...newVGFItem, projectName: e.target.value})}
+                      <Input
+                        value={newVGFItem.projectName}
+                        onChange={(e) =>
+                          setNewVGFItem({
+                            ...newVGFItem,
+                            projectName: e.target.value,
+                          })
+                        }
                         className="bg-white"
                         placeholder="Enter project name"
                       />
@@ -1886,7 +2206,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Label>Sector</Label>
                       <Select
                         value={newVGFItem.sector}
-                        onValueChange={(value) => setNewVGFItem({...newVGFItem, sector: value})}
+                        onValueChange={(value) =>
+                          setNewVGFItem({ ...newVGFItem, sector: value })
+                        }
                       >
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Select sector" />
@@ -1904,7 +2226,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Label>Type</Label>
                       <Select
                         value={newVGFItem.type}
-                        onValueChange={(value) => setNewVGFItem({...newVGFItem, type: value})}
+                        onValueChange={(value) =>
+                          setNewVGFItem({ ...newVGFItem, type: value })
+                        }
                       >
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Select type" />
@@ -1923,7 +2247,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Input
                         type="date"
                         value={newVGFItem.submissionDate}
-                        onChange={(e) => setNewVGFItem({...newVGFItem, submissionDate: e.target.value})}
+                        onChange={(e) =>
+                          setNewVGFItem({
+                            ...newVGFItem,
+                            submissionDate: e.target.value,
+                          })
+                        }
                         className="bg-white"
                       />
                     </div>
@@ -1934,7 +2263,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                         isEditable={true}
                         submissionId={submissionId}
                         onFilesChange={(updatedFile) => {
-                          setNewVGFItem({...newVGFItem, file: updatedFile as FileUpload | null});
+                          setNewVGFItem({
+                            ...newVGFItem,
+                            file: updatedFile as FileUpload | null,
+                          });
                         }}
                         label=""
                         multiple={false}
@@ -1968,26 +2300,28 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 Annex 7: Provide VGF/IIPDF details
               </p> */}
             </div>
-
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 3.4 */}
-        {sectionsWithData.includes('section3_4') && (
-        <SectionCard
-          key={`section-3.4-${refreshKey}`}
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">3.4 -</span> Proportion of TPC of PPP Projects{" "}
-              </span>
-              {renderActionButtons("3.4")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* <CardHeader className="bg-muted/30">
+        {sectionsWithData.includes("section3_4") && (
+          <SectionCard
+            key={`section-3.4-${refreshKey}`}
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">3.4 -</span> Proportion of
+                    TPC of PPP Projects{" "}
+                  </span>
+                  {renderActionButtons("3.4")}
+                </div>
+              </div>
+            }
+            subtitle=""
+            className="mb-6"
+          >
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 3.4 - Proportion of TPC of PPP Projects
@@ -2010,10 +2344,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <Label>Total Projects Awarded</Label>
-                  {isEditable('3.4') ? (
+                  {isEditable("3.4") ? (
                     <Input
                       value={state?.section3_4?.totalProjectsAwarded || ""}
-                      onChange={(e) => handleSection3_4FieldUpdate('totalProjectsAwarded', e.target.value)}
+                      onChange={(e) =>
+                        handleSection3_4FieldUpdate(
+                          "totalProjectsAwarded",
+                          e.target.value
+                        )
+                      }
                       className="bg-white"
                       placeholder="Enter total projects awarded"
                     />
@@ -2027,10 +2366,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 </div>
                 <div>
                   <Label>Total Project Cost Awarded</Label>
-                  {isEditable('3.4') ? (
+                  {isEditable("3.4") ? (
                     <Input
                       value={state?.section3_4?.totalProjectCostAwarded || ""}
-                      onChange={(e) => handleSection3_4FieldUpdate('totalProjectCostAwarded', e.target.value)}
+                      onChange={(e) =>
+                        handleSection3_4FieldUpdate(
+                          "totalProjectCostAwarded",
+                          e.target.value
+                        )
+                      }
                       className="bg-white"
                       placeholder="Enter total project cost awarded"
                     />
@@ -2049,25 +2393,48 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 <table className="min-w-full border-separate border-spacing-0">
                   <thead>
                     <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Name of Project</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">NIP ID</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Funding Source</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Infrastructure Sector</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Date of Award</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">% Capex</th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Total Project Cost</th>
+                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                        Name of Project
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        NIP ID
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Funding Source
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Infrastructure Sector
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Date of Award
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        % Capex
+                      </th>
+                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                        Total Project Cost
+                      </th>
                     </tr>
                   </thead>
-                  <tbody key={`projects-table-body-${selectResetKey}-${refreshKey}-${state?.section3_4?.projects?.length || 0}`}>
+                  <tbody
+                    key={`projects-table-body-${selectResetKey}-${refreshKey}-${
+                      state?.section3_4?.projects?.length || 0
+                    }`}
+                  >
                     {(() => {
-                      const projects = Array.isArray(state?.section3_4?.projects)
+                      const projects = Array.isArray(
+                        state?.section3_4?.projects
+                      )
                         ? state.section3_4.projects
                         : [];
 
                       if (!projects.length) {
                         return (
                           <tr>
-                            <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                            <td
+                              colSpan={7}
+                              className="py-8 text-center text-muted-foreground"
+                            >
                               No projects available
                             </td>
                           </tr>
@@ -2077,44 +2444,68 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       return projects.map((project: any, idx: number) => (
                         <tr key={project.id || idx} className="border-b">
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.4') ? (
+                            {isEditable("3.4") ? (
                               <Input
                                 value={project.nameOfProject || ""}
-                                onChange={(e) => handleProjectFieldUpdate(idx, 'nameOfProject', e.target.value)}
+                                onChange={(e) =>
+                                  handleProjectFieldUpdate(
+                                    idx,
+                                    "nameOfProject",
+                                    e.target.value
+                                  )
+                                }
                                 className="w-full"
                               />
                             ) : (
-                              project.nameOfProject || 'N/A'
+                              project.nameOfProject || "N/A"
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.4') ? (
+                            {isEditable("3.4") ? (
                               <Input
                                 value={project.nipId || ""}
-                                onChange={(e) => handleProjectFieldUpdate(idx, 'nipId', e.target.value)}
+                                onChange={(e) =>
+                                  handleProjectFieldUpdate(
+                                    idx,
+                                    "nipId",
+                                    e.target.value
+                                  )
+                                }
                                 className="w-full"
                               />
                             ) : (
-                              project.nipId || 'N/A'
+                              project.nipId || "N/A"
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.4') ? (
+                            {isEditable("3.4") ? (
                               <Input
                                 value={project.fundingSource || ""}
-                                onChange={(e) => handleProjectFieldUpdate(idx, 'fundingSource', e.target.value)}
+                                onChange={(e) =>
+                                  handleProjectFieldUpdate(
+                                    idx,
+                                    "fundingSource",
+                                    e.target.value
+                                  )
+                                }
                                 className="w-full"
                               />
                             ) : (
-                              project.fundingSource || 'N/A'
+                              project.fundingSource || "N/A"
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.4') ? (
+                            {isEditable("3.4") ? (
                               <Select
                                 key={`infrastructureSector-${idx}-${selectResetKey}`}
                                 value={project.infrastructureSector || ""}
-                                onValueChange={(value) => handleProjectFieldUpdate(idx, 'infrastructureSector', value)}
+                                onValueChange={(value) =>
+                                  handleProjectFieldUpdate(
+                                    idx,
+                                    "infrastructureSector",
+                                    value
+                                  )
+                                }
                               >
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="Select sector" />
@@ -2128,44 +2519,70 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                 </SelectContent>
                               </Select>
                             ) : (
-                              project.infrastructureSector || 'N/A'
+                              project.infrastructureSector || "N/A"
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.4') ? (
+                            {isEditable("3.4") ? (
                               <Input
                                 type="date"
-                                value={project.dateOfAward 
-                                  ? new Date(project.dateOfAward).toISOString().split('T')[0]
-                                  : ""}
-                                onChange={(e) => handleProjectFieldUpdate(idx, 'dateOfAward', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                                value={
+                                  project.dateOfAward
+                                    ? new Date(project.dateOfAward)
+                                        .toISOString()
+                                        .split("T")[0]
+                                    : ""
+                                }
+                                onChange={(e) =>
+                                  handleProjectFieldUpdate(
+                                    idx,
+                                    "dateOfAward",
+                                    e.target.value
+                                      ? new Date(e.target.value).toISOString()
+                                      : null
+                                  )
+                                }
                                 className="w-full"
                               />
+                            ) : project.dateOfAward ? (
+                              new Date(project.dateOfAward).toLocaleDateString()
                             ) : (
-                              project.dateOfAward ? new Date(project.dateOfAward).toLocaleDateString() : 'N/A'
+                              "N/A"
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.4') ? (
+                            {isEditable("3.4") ? (
                               <Input
                                 value={project.capexPercentage || ""}
-                                onChange={(e) => handleProjectFieldUpdate(idx, 'capexPercentage', e.target.value)}
+                                onChange={(e) =>
+                                  handleProjectFieldUpdate(
+                                    idx,
+                                    "capexPercentage",
+                                    e.target.value
+                                  )
+                                }
                                 className="w-full"
                               />
                             ) : (
-                              project.capexPercentage || 'N/A'
+                              project.capexPercentage || "N/A"
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable('3.4') ? (
+                            {isEditable("3.4") ? (
                               <Input
                                 value={project.totalProjectCost || ""}
-                                onChange={(e) => handleProjectFieldUpdate(idx, 'totalProjectCost', e.target.value)}
+                                onChange={(e) =>
+                                  handleProjectFieldUpdate(
+                                    idx,
+                                    "totalProjectCost",
+                                    e.target.value
+                                  )
+                                }
                                 className="w-full"
                                 placeholder="Enter cost"
                               />
                             ) : (
-                              project.totalProjectCost || 'N/A'
+                              project.totalProjectCost || "N/A"
                             )}
                           </td>
                         </tr>
@@ -2176,10 +2593,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               </div>
 
               {/* Add More Project Button - Only visible when in edit mode */}
-              {isEditable('3.4') && !showAddProjectForm && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+              {isEditable("3.4") && !showAddProjectForm && (
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                   onClick={() => setShowAddProjectForm(true)}
                 >
@@ -2189,33 +2606,48 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               )}
 
               {/* Add Project Form - Only visible when showAddProjectForm is true */}
-              {showAddProjectForm && isEditable('3.4') && (
+              {showAddProjectForm && isEditable("3.4") && (
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <h4 className="font-medium mb-3">Add New Project</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Name of PPP/Bankable Projects</Label>
-                      <Input 
-                        value={newProject.nameOfProject} 
-                        onChange={(e) => setNewProject({...newProject, nameOfProject: e.target.value})}
+                      <Input
+                        value={newProject.nameOfProject}
+                        onChange={(e) =>
+                          setNewProject({
+                            ...newProject,
+                            nameOfProject: e.target.value,
+                          })
+                        }
                         className="bg-white"
                         placeholder="Enter project name"
                       />
                     </div>
                     <div>
                       <Label>NIP ID</Label>
-                      <Input 
-                        value={newProject.nipId} 
-                        onChange={(e) => setNewProject({...newProject, nipId: e.target.value})}
+                      <Input
+                        value={newProject.nipId}
+                        onChange={(e) =>
+                          setNewProject({
+                            ...newProject,
+                            nipId: e.target.value,
+                          })
+                        }
                         className="bg-white"
                         placeholder="Enter NIP ID"
                       />
                     </div>
                     <div>
                       <Label>Funding Source</Label>
-                      <Input 
-                        value={newProject.fundingSource} 
-                        onChange={(e) => setNewProject({...newProject, fundingSource: e.target.value})}
+                      <Input
+                        value={newProject.fundingSource}
+                        onChange={(e) =>
+                          setNewProject({
+                            ...newProject,
+                            fundingSource: e.target.value,
+                          })
+                        }
                         className="bg-white"
                         placeholder="Enter funding source"
                       />
@@ -2224,7 +2656,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Label>Infrastructure Sector</Label>
                       <Select
                         value={newProject.infrastructureSector}
-                        onValueChange={(value) => setNewProject({...newProject, infrastructureSector: value})}
+                        onValueChange={(value) =>
+                          setNewProject({
+                            ...newProject,
+                            infrastructureSector: value,
+                          })
+                        }
                       >
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Select sector" />
@@ -2243,24 +2680,39 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Input
                         type="date"
                         value={newProject.dateOfAward}
-                        onChange={(e) => setNewProject({...newProject, dateOfAward: e.target.value})}
+                        onChange={(e) =>
+                          setNewProject({
+                            ...newProject,
+                            dateOfAward: e.target.value,
+                          })
+                        }
                         className="bg-white"
                       />
                     </div>
                     <div>
                       <Label>% of Capex funded by non-Govt sources</Label>
-                      <Input 
-                        value={newProject.capexPercentage} 
-                        onChange={(e) => setNewProject({...newProject, capexPercentage: e.target.value})}
+                      <Input
+                        value={newProject.capexPercentage}
+                        onChange={(e) =>
+                          setNewProject({
+                            ...newProject,
+                            capexPercentage: e.target.value,
+                          })
+                        }
                         className="bg-white"
                         placeholder="Enter percentage"
                       />
                     </div>
                     <div>
                       <Label>Total Project Cost</Label>
-                      <Input 
-                        value={newProject.totalProjectCost} 
-                        onChange={(e) => setNewProject({...newProject, totalProjectCost: e.target.value})}
+                      <Input
+                        value={newProject.totalProjectCost}
+                        onChange={(e) =>
+                          setNewProject({
+                            ...newProject,
+                            totalProjectCost: e.target.value,
+                          })
+                        }
                         className="bg-white"
                         placeholder="Enter total project cost"
                       />
@@ -2289,7 +2741,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 </div>
               )}
             </div>
-        </SectionCard>
+          </SectionCard>
         )}
       </div>
 
@@ -2304,47 +2756,51 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         commentType={(() => {
           const getUserRole = () => {
             try {
-              const authUser = localStorage.getItem('niri_app:auth_user');
+              const authUser = localStorage.getItem("niri_app:auth_user");
               if (authUser) {
                 const user = JSON.parse(authUser);
                 return user.value?.role;
               }
             } catch (error) {
-              console.error('Error reading user role:', error);
+              console.error("Error reading user role:", error);
             }
             return null;
           };
           const userRole = getUserRole();
-          return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
+          return userRole === "MOSPI_REVIEWER"
+            ? "comment"
+            : "indicator_comment";
         })()}
         onSendBack={
           // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
           (() => {
             const getUserRole = () => {
               try {
-                const authUser = localStorage.getItem('niri_app:auth_user');
+                const authUser = localStorage.getItem("niri_app:auth_user");
                 if (authUser) {
                   const user = JSON.parse(authUser);
                   return user.value?.role;
                 }
               } catch (error) {
-                console.error('Error reading user role:', error);
+                console.error("Error reading user role:", error);
               }
               return null;
             };
-            return getUserRole() === 'MOSPI_REVIEWER';
+            return getUserRole() === "MOSPI_REVIEWER";
           })()
             ? undefined
             : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-              // Accept no longer requires comment, so it's not included here
-              // For other cases, use the normal flow
-              isMospiApproverSentBack
-              ? async () => {
-                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
-                }
-              : (sectionId) => onIndicatorStatus(sectionId, false)
+            // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+            // Accept no longer requires comment, so it's not included here
+            // For other cases, use the normal flow
+            isMospiApproverSentBack
+            ? async () => {
+                // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+                console.log(
+                  "MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage"
+                );
+              }
+            : (sectionId) => onIndicatorStatus(sectionId, false)
         }
       />
 
@@ -2354,7 +2810,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         sectionId={timelineSection || ""}
         sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
         comments={getAllComments()}
-        key={`timeline-${timelineSection}-${getAllComments().length}-${Date.now()}`} // Force re-render when comments change
+        key={`timeline-${timelineSection}-${
+          getAllComments().length
+        }-${Date.now()}`} // Force re-render when comments change
       />
 
       {/* Confirmation Dialog for NODAL_OFFICER Save */}
@@ -2363,18 +2821,25 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Save</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to save this section? This will send the data to the State Approver for review.
+              Are you sure you want to save this indicator?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSave}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>Confirm & Save</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              Confirm & Save
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Confirmation Dialog for STATE_APPROVER and MOSPI_APPROVER Send Back */}
-      <AlertDialog open={showSendBackDialog} onOpenChange={setShowSendBackDialog}>
+      <AlertDialog
+        open={showSendBackDialog}
+        onOpenChange={setShowSendBackDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Send Back</AlertDialogTitle>
@@ -2382,19 +2847,19 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               {(() => {
                 const getUserRole = () => {
                   try {
-                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    const authUser = localStorage.getItem("niri_app:auth_user");
                     if (authUser) {
                       const user = JSON.parse(authUser);
                       return user.value?.role;
                     }
                   } catch (error) {
-                    console.error('Error reading user role:', error);
+                    console.error("Error reading user role:", error);
                   }
                   return null;
                 };
                 const userRole = getUserRole();
-                const isMospiApprover = userRole === 'MOSPI_APPROVER';
-                
+                const isMospiApprover = userRole === "MOSPI_APPROVER";
+
                 return isMospiApprover
                   ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
                   : "Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.";
@@ -2402,8 +2867,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSendBack}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSendBack}>Confirm & Send Back</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelSendBack}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSendBack}>
+              Confirm & Send Back
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2417,19 +2886,19 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               {(() => {
                 const getUserRole = () => {
                   try {
-                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    const authUser = localStorage.getItem("niri_app:auth_user");
                     if (authUser) {
                       const user = JSON.parse(authUser);
                       return user.value?.role;
                     }
                   } catch (error) {
-                    console.error('Error reading user role:', error);
+                    console.error("Error reading user role:", error);
                   }
                   return null;
                 };
                 const userRole = getUserRole();
-                const isMospiApprover = userRole === 'MOSPI_APPROVER';
-                
+                const isMospiApprover = userRole === "MOSPI_APPROVER";
+
                 return isMospiApprover
                   ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
                   : "Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.";
@@ -2437,8 +2906,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelAccept}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>
+              Confirm & Accept
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

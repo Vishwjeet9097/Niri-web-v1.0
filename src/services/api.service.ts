@@ -15,8 +15,7 @@ import type {
   DashboardSummary,
 } from "@/types";
 
-
-// 🧑‍💻Review Section API Interfaces 
+// 🧑‍💻Review Section API Interfaces
 export interface UpdateIndicatorField {
   [key: string]: any;
 }
@@ -35,10 +34,10 @@ export interface NiriUser {
   lastName: string;
   contactNumber?: string;
   role:
-  | "NODAL_OFFICER"
-  | "STATE_APPROVER"
-  | "MOSPI_REVIEWER"
-  | "MOSPI_APPROVER";
+    | "NODAL_OFFICER"
+    | "STATE_APPROVER"
+    | "MOSPI_REVIEWER"
+    | "MOSPI_APPROVER";
   stateUt: string;
   createdAt: string;
   updatedAt: string;
@@ -71,29 +70,31 @@ export interface HttpClient {
   delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
 }
 
-
 export type CumulativePreviewResponse = {
   status: boolean;
   message: string;
   data: {
     stateUt: string;
-    users: number;              // always 0 in lean mode
-    totalIndicators: number;    // should be 20
-    categories: string[];       // 4 categories
-    indicators: Record<string, Array<{
-      id: string;
-      code: string;
-      name: string;
-      category?: string;
-      sectionId?: string;
-      maxScore?: number | string;
-      data: any;
-      status: string;           // NOT_STARTED | SUBMITTED_TO_STATE | ACCEPTED | etc.
-      score: number | null;
-      remarks: string | null;
-      updatedAt: string | null;
-      year: string | null;
-    }>>;
+    users: number; // always 0 in lean mode
+    totalIndicators: number; // should be 20
+    categories: string[]; // 4 categories
+    indicators: Record<
+      string,
+      Array<{
+        id: string;
+        code: string;
+        name: string;
+        category?: string;
+        sectionId?: string;
+        maxScore?: number | string;
+        data: any;
+        status: string; // NOT_STARTED | SUBMITTED_TO_STATE | ACCEPTED | etc.
+        score: number | null;
+        remarks: string | null;
+        updatedAt: string | null;
+        year: string | null;
+      }>
+    >;
   };
 };
 
@@ -120,7 +121,7 @@ class ApiService implements HttpClient {
         return config;
       },
       (error) => Promise.reject(error)
-    )
+    );
 
     // Response interceptor - handle errors and token refresh
     this.axios.interceptors.response.use(
@@ -536,7 +537,6 @@ class ApiService implements HttpClient {
     return axios.post(url, data, { headers, ...config });
   }
 
-
   async createSubmission(submissionData: any): Promise<any> {
     try {
       console.log("🧩 Building multipart FormData payload...");
@@ -556,7 +556,12 @@ class ApiService implements HttpClient {
           }
 
           // Case 2: FileUpload object
-          else if (value && typeof value === "object" && "file" in value && value.file instanceof File) {
+          else if (
+            value &&
+            typeof value === "object" &&
+            "file" in value &&
+            value.file instanceof File
+          ) {
             formData.append(fullKey, value.file);
           }
 
@@ -565,7 +570,12 @@ class ApiService implements HttpClient {
             value.forEach((item, index) => {
               if (item instanceof File) {
                 formData.append(`${fullKey}[${index}]`, item);
-              } else if (item && typeof item === "object" && "file" in item && item.file instanceof File) {
+              } else if (
+                item &&
+                typeof item === "object" &&
+                "file" in item &&
+                item.file instanceof File
+              ) {
                 formData.append(`${fullKey}[${index}]`, item.file);
               } else {
                 appendFiles(item, `${fullKey}[${index}]`);
@@ -584,9 +594,13 @@ class ApiService implements HttpClient {
 
       const token = authService.getAuthHeaders()?.Authorization;
 
-      const response = await axios.post(`${config.apiBaseUrl}/submission`, formData, {
-        headers: { Authorization: token },
-      });
+      const response = await axios.post(
+        `${config.apiBaseUrl}/submission`,
+        formData,
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       console.log("✅ Submission successful:", response.data);
       return response.data;
@@ -744,37 +758,44 @@ class ApiService implements HttpClient {
         id,
         formData,
       });
-      
+
       console.log("📊 section_status in payload:", formData.section_status);
-      
+
       // Check if formData contains files
       const hasFiles = this.hasFileObjects(formData);
-      
+
       let response;
-      
+
       if (hasFiles) {
         // Use FormData for multipart upload
         const multipartFormData = new FormData();
-        
+
         console.log("📤 Using multipart/form-data for file upload");
-        console.log("📦 Full payload before stringify:", JSON.stringify(formData, null, 2));
-        
+        console.log(
+          "📦 Full payload before stringify:",
+          JSON.stringify(formData, null, 2)
+        );
+
         multipartFormData.append("submission", JSON.stringify(formData));
-        
+
         // Append files
         this.appendFilesToFormData(multipartFormData, formData, "formData");
-        
-        response = await this.axios.patch(`/submission/${id}`, multipartFormData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+
+        response = await this.axios.patch(
+          `/submission/${id}`,
+          multipartFormData,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          }
+        );
       } else {
         // Use regular JSON payload - include all fields from formData
         console.log("📤 Using regular JSON payload");
         console.log("📦 Full payload:", JSON.stringify(formData, null, 2));
-        
+
         response = await this.axios.patch(`/submission/${id}`, formData);
       }
-      
+
       console.log(
         "🔍 API Service - Update Submission Response Status:",
         response.status
@@ -1063,64 +1084,147 @@ class ApiService implements HttpClient {
    * @param sectionData - The section data object
    * @returns true if section has meaningful data, false otherwise
    */
-  private hasMeaningfulSectionData(sectionKey: string, sectionData: any): boolean {
-    if (!sectionData || typeof sectionData !== 'object') {
+  private hasMeaningfulSectionData(
+    sectionKey: string,
+    sectionData: any
+  ): boolean {
+    if (!sectionData || typeof sectionData !== "object") {
       console.log(`❌ ${sectionKey}: No data or not an object`);
       return false;
     }
 
+    // Check for section2_4 (Investment Ready Project Pipeline) - special handling
+    if (sectionKey.includes("section2_4")) {
+      const hasInvestmentReady = sectionData.hasInvestmentReady;
+      const investmentReadyArray = sectionData.investmentReadyArray || [];
+      const websiteLink = sectionData.websiteLink || "";
+      const comment = sectionData.comment || "";
+
+      // If hasInvestmentReady is "yes", check for websiteLink and array
+      if (hasInvestmentReady === "yes") {
+        const hasData =
+          websiteLink.trim() !== "" &&
+          Array.isArray(investmentReadyArray) &&
+          investmentReadyArray.length > 0;
+        console.log(
+          `📋 ${sectionKey}: Investment Ready (yes), hasData: ${hasData}`,
+          {
+            websiteLink: websiteLink.trim() !== "",
+            arrayLength: investmentReadyArray.length,
+          }
+        );
+        return hasData;
+      }
+
+      // If hasInvestmentReady is "no", check for comment
+      if (hasInvestmentReady === "no") {
+        const hasData = comment.trim() !== "";
+        console.log(
+          `📋 ${sectionKey}: Investment Ready (no), hasData: ${hasData}`,
+          {
+            comment: comment.trim() !== "",
+          }
+        );
+        return hasData;
+      }
+
+      // If hasInvestmentReady is not set, no data
+      console.log(`📋 ${sectionKey}: Investment Ready not set, no data`);
+      return false;
+    }
+
     // Check for array-based sections (like section1_3, section1_4)
-    if (sectionKey.includes('section1_3') || sectionKey.includes('section1_4') || 
-        sectionKey.includes('section2_4') || sectionKey.includes('section3_2')) {
-      const list = sectionData.ulbList || sectionData.bondList || sectionData.tenderList || sectionData.projectList || [];
+    if (
+      sectionKey.includes("section1_3") ||
+      sectionKey.includes("section1_4")
+    ) {
+      const list =
+        sectionData.ulbList ||
+        sectionData.bondList ||
+        sectionData.tenderList ||
+        sectionData.projectList ||
+        [];
       const hasData = Array.isArray(list) && list.length > 0;
       console.log(`📋 ${sectionKey}: Array section, has items: ${hasData}`);
       return hasData;
     }
 
+    // Check for section3_2 (PPP Cell/Unit Availability) - has available field, file, and comment
+    if (sectionKey.includes("section3_2")) {
+      const available = sectionData.available || "";
+      const file = sectionData.file;
+      const comment = sectionData.comment || "";
+      const files = sectionData.files;
+
+      const hasAvailable = available !== "";
+      const hasFile = file !== null && file !== undefined;
+      const hasFiles = Array.isArray(files) && files.length > 0;
+      const hasComment = comment.trim() !== "";
+
+      const hasData = hasAvailable || hasFile || hasFiles || hasComment;
+      console.log(`📋 ${sectionKey}: PPP Cell/Unit, hasData: ${hasData}`, {
+        available,
+        hasFile,
+        hasFiles,
+        hasComment,
+      });
+      return hasData;
+    }
+
     // Check for section1_5 (FFI with intermediary)
-    if (sectionKey.includes('section1_5')) {
+    if (sectionKey.includes("section1_5")) {
       const hasIntermediary = sectionData.hasIntermediary;
       const ffiArray = sectionData.ffiArray || [];
-      const hasData = (hasIntermediary === 'yes' || hasIntermediary === 'no') || ffiArray.length > 0;
+      const hasData =
+        hasIntermediary === "yes" ||
+        hasIntermediary === "no" ||
+        ffiArray.length > 0;
       console.log(`📋 ${sectionKey}: FFI section, has data: ${hasData}`);
       return hasData;
     }
 
     // For regular sections, check if any field has meaningful value
-    const meaningfulFields = Object.entries(sectionData).filter(([field, value]) => {
-      // Fields to ignore (auto-populated or calculated)
-      if (field === 'year') return false;
-      if (field === 'percentage') return false; // Calculated field
-      if (field === 'marksObtained') return false; // Calculated field
-      
-      // Check for meaningful values
-      if (typeof value === 'string' && value.trim() !== '') {
-        console.log(`  ✓ ${field}: "${value}" (string)`);
-        return true;
+    const meaningfulFields = Object.entries(sectionData).filter(
+      ([field, value]) => {
+        // Fields to ignore (auto-populated or calculated)
+        if (field === "year") return false;
+        if (field === "percentage") return false; // Calculated field
+        if (field === "marksObtained") return false; // Calculated field
+
+        // Check for meaningful values
+        if (typeof value === "string" && value.trim() !== "") {
+          console.log(`  ✓ ${field}: "${value}" (string)`);
+          return true;
+        }
+        if (typeof value === "number" && value !== 0) {
+          console.log(`  ✓ ${field}: ${value} (number)`);
+          return true;
+        }
+        if (typeof value === "boolean") {
+          console.log(`  ✓ ${field}: ${value} (boolean)`);
+          return true;
+        }
+        if (Array.isArray(value) && value.length > 0) {
+          console.log(`  ✓ ${field}: array with ${value.length} items`);
+          return true;
+        }
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          Object.keys(value).length > 0
+        ) {
+          console.log(`  ✓ ${field}: object with keys`);
+          return true;
+        }
+
+        return false;
       }
-      if (typeof value === 'number' && value !== 0) {
-        console.log(`  ✓ ${field}: ${value} (number)`);
-        return true;
-      }
-      if (typeof value === 'boolean') {
-        console.log(`  ✓ ${field}: ${value} (boolean)`);
-        return true;
-      }
-      if (Array.isArray(value) && value.length > 0) {
-        console.log(`  ✓ ${field}: array with ${value.length} items`);
-        return true;
-      }
-      if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
-        console.log(`  ✓ ${field}: object with keys`);
-        return true;
-      }
-      
-      return false;
-    });
+    );
 
     const hasData = meaningfulFields.length > 0;
-    console.log(`📊 ${sectionKey}: ${meaningfulFields.length} meaningful fields, hasData: ${hasData}`);
+    console.log(
+      `📊 ${sectionKey}: ${meaningfulFields.length} meaningful fields, hasData: ${hasData}`
+    );
     return hasData;
   }
 
@@ -1130,31 +1234,55 @@ class ApiService implements HttpClient {
    * @param indicators - Array of all indicator codes in this category
    * @returns Array of indicator codes that have meaningful data
    */
-  private extractCompletedIndicators(sectionData: Record<string, any>, indicators: string[]): string[] {
+  private extractCompletedIndicators(
+    sectionData: Record<string, any>,
+    indicators: string[]
+  ): string[] {
     const completedIndicators: string[] = [];
 
-    console.log("🔍 extractCompletedIndicators - sectionData keys:", Object.keys(sectionData));
-    console.log("🔍 extractCompletedIndicators - indicators to check:", indicators);
+    console.log(
+      "🔍 extractCompletedIndicators - sectionData keys:",
+      Object.keys(sectionData)
+    );
+    console.log(
+      "🔍 extractCompletedIndicators - indicators to check:",
+      indicators
+    );
 
     // Map indicator codes to section keys (e.g., '1.1' -> 'section1_1')
-    indicators.forEach(indicatorCode => {
-      const sectionKey = `section${indicatorCode.replace('.', '_')}`;
-      
+    indicators.forEach((indicatorCode) => {
+      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
       console.log(`🔎 Checking indicator ${indicatorCode} → ${sectionKey}`);
-      console.log(`🔎 sectionData[${sectionKey}] exists:`, !!sectionData[sectionKey]);
-      
+      console.log(
+        `🔎 sectionData[${sectionKey}] exists:`,
+        !!sectionData[sectionKey]
+      );
+
       if (sectionData[sectionKey]) {
-        console.log(`🔎 sectionData[${sectionKey}] content:`, JSON.stringify(sectionData[sectionKey], null, 2));
-        const hasMeaningfulData = this.hasMeaningfulSectionData(sectionKey, sectionData[sectionKey]);
-        
+        console.log(
+          `🔎 sectionData[${sectionKey}] content:`,
+          JSON.stringify(sectionData[sectionKey], null, 2)
+        );
+        const hasMeaningfulData = this.hasMeaningfulSectionData(
+          sectionKey,
+          sectionData[sectionKey]
+        );
+
         if (hasMeaningfulData) {
           completedIndicators.push(indicatorCode);
-          console.log(`✅ Indicator ${indicatorCode} (${sectionKey}) has meaningful data`);
+          console.log(
+            `✅ Indicator ${indicatorCode} (${sectionKey}) has meaningful data`
+          );
         } else {
-          console.log(`⚠️ Indicator ${indicatorCode} (${sectionKey}) has no meaningful data`);
+          console.log(
+            `⚠️ Indicator ${indicatorCode} (${sectionKey}) has no meaningful data`
+          );
         }
       } else {
-        console.log(`❌ Indicator ${indicatorCode} (${sectionKey}) not found in sectionData`);
+        console.log(
+          `❌ Indicator ${indicatorCode} (${sectionKey}) not found in sectionData`
+        );
       }
     });
 
@@ -1181,23 +1309,29 @@ class ApiService implements HttpClient {
       });
 
       // Extract only indicators that have meaningful data
-      const completedIndicators = this.extractCompletedIndicators(sectionData, indicators);
-      console.log("📊 Indicators with meaningful data in this submission:", completedIndicators);
+      const completedIndicators = this.extractCompletedIndicators(
+        sectionData,
+        indicators
+      );
+      console.log(
+        "📊 Indicators with meaningful data in this submission:",
+        completedIndicators
+      );
 
       // Check if there's an existing submission for this user
       let existingSubmissionId: string | null = null;
       let existingSubmission: any = null;
-      
+
       try {
         // Try to get user's existing draft/in-progress submissions
         const submissions = await this.getSubmissions(1, 100);
         const userSubmission = submissions.submissions.find(
-          (sub: any) => 
-            sub.status === 'DRAFT' || 
-            sub.status === 'IN_PROGRESS' ||
-            sub.status === 'RETURNED_FROM_STATE'
+          (sub: any) =>
+            sub.status === "DRAFT" ||
+            sub.status === "IN_PROGRESS" ||
+            sub.status === "RETURNED_FROM_STATE"
         );
-        
+
         if (userSubmission) {
           existingSubmissionId = userSubmission.id;
           // Fetch full submission details to get complete formData and completedIndicators
@@ -1213,102 +1347,213 @@ class ApiService implements HttpClient {
       const userId = user?.id || user?._id;
       let totalIndicatorCount = 0;
       let userAssignedIndicators: string[] = [];
-      
+
       if (userId) {
         // Fetch user's assigned indicators dynamically from backend (user_indicator_scope table)
         userAssignedIndicators = await this.getUserAssignedIndicators(userId);
         totalIndicatorCount = userAssignedIndicators.length;
-        
+
         console.log("📊 User ID:", userId);
-        console.log("📊 Dynamically fetched from user_indicator_scope:", userAssignedIndicators);
-        console.log("📊 Total assigned indicators (dynamic):", totalIndicatorCount);
+        console.log(
+          "📊 Dynamically fetched from user_indicator_scope:",
+          userAssignedIndicators
+        );
+        console.log(
+          "📊 Total assigned indicators (dynamic):",
+          totalIndicatorCount
+        );
       } else {
-        console.warn("⚠️ No user ID found, cannot fetch assigned indicators from user_indicator_scope");
+        console.warn(
+          "⚠️ No user ID found, cannot fetch assigned indicators from user_indicator_scope"
+        );
       }
 
       let result;
-      
+
       if (existingSubmissionId) {
         // Update existing submission
         console.log("🔄 Updating existing submission:", existingSubmissionId);
-        
+
         // Get existing section_status from DB
         const existingSectionStatus = existingSubmission?.section_status || {
           completedCount: 0,
           totalAssigned: totalIndicatorCount,
-          completedIndicators: []
+          completedIndicators: [],
         };
-        
-        console.log("📋 Existing section_status from DB:", existingSectionStatus);
-        
+
+        console.log(
+          "📋 Existing section_status from DB:",
+          existingSectionStatus
+        );
+
         // Get existing completed indicators array
-        const existingCompletedIndicators = existingSectionStatus.completedIndicators || [];
-        
+        const existingCompletedIndicators =
+          existingSectionStatus.completedIndicators || [];
+
         // Check ALL categories in formData to find indicators with data
         const existingFormData = existingSubmission?.formData || {};
-        const allCategories = ['infraFinancing', 'infraDevelopment', 'infraPPP', 'infraEnablers'];
+        const allCategories = [
+          "infraFinancing",
+          "infraDevelopment",
+          "infraPPP",
+          "infraEnablers",
+        ];
         const categoryToIndicatorMap: Record<string, string[]> = {
-          'infraFinancing': ['1.1', '1.2', '1.3', '1.4', '1.5'],
-          'infraDevelopment': ['2.1', '2.2', '2.3', '2.4', '2.5'],
-          'infraPPP': ['3.1', '3.2', '3.3', '3.4'],
-          'infraEnablers': ['4.1', '4.2', '4.3', '4.4', '4.5', '4.6']
+          infraFinancing: ["1.1", "1.2", "1.3", "1.4", "1.5"],
+          infraDevelopment: ["2.1", "2.2", "2.3", "2.4", "2.5"],
+          infraPPP: ["3.1", "3.2", "3.3", "3.4"],
+          infraEnablers: ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"],
         };
-        
+
         // Find all indicators that have data in DB (across all categories)
         const indicatorsWithDataInDB: string[] = [];
-        allCategories.forEach(cat => {
+        allCategories.forEach((cat) => {
           const catData = existingFormData[cat] || {};
           const catIndicators = categoryToIndicatorMap[cat] || [];
-          
-          catIndicators.forEach(indicatorCode => {
+
+          catIndicators.forEach((indicatorCode) => {
             if (userAssignedIndicators.includes(indicatorCode)) {
-              const sectionKey = `section${indicatorCode.replace('.', '_')}`;
-              const hasDataInDB = catData[sectionKey] && 
-                                  this.hasMeaningfulSectionData(sectionKey, catData[sectionKey]);
-              
+              const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+              const hasDataInDB =
+                catData[sectionKey] &&
+                this.hasMeaningfulSectionData(sectionKey, catData[sectionKey]);
+
               if (hasDataInDB) {
                 indicatorsWithDataInDB.push(indicatorCode);
-                console.log(`✅ Found data in DB for indicator ${indicatorCode} (${cat})`);
+                console.log(
+                  `✅ Found data in DB for indicator ${indicatorCode} (${cat})`
+                );
               }
             }
           });
         });
-        
+
         // Merge: existing completed + newly completed + found in DB (remove duplicates)
-        const allCompletedIndicators = Array.from(new Set([
-          ...existingCompletedIndicators,
-          ...completedIndicators,
-          ...indicatorsWithDataInDB
-        ]));
-        
+        const allCompletedIndicators = Array.from(
+          new Set([
+            ...existingCompletedIndicators,
+            ...completedIndicators,
+            ...indicatorsWithDataInDB,
+          ])
+        );
+
         // Build updated section_status
         const updatedSectionStatus = {
           completedCount: allCompletedIndicators.length,
           totalAssigned: totalIndicatorCount,
-          completedIndicators: allCompletedIndicators
+          completedIndicators: allCompletedIndicators,
         };
-        
+
         console.log("📊 Updated section_status:", updatedSectionStatus);
-        console.log("📊 Progress:", updatedSectionStatus.completedCount, "of", updatedSectionStatus.totalAssigned);
-        
+        console.log(
+          "📊 Progress:",
+          updatedSectionStatus.completedCount,
+          "of",
+          updatedSectionStatus.totalAssigned
+        );
+
+        // Filter sectionData to only include sections for ALL completed indicators (existing + newly saved)
+        // Merge with existing data from DB to preserve previously saved sections
+        const filteredSectionData: Record<string, any> = {};
+
+        // 🔍 DEBUG: Log incoming sectionData for indicators 2.3 and 2.4
+        console.log("🔍 [API UPDATE] Incoming sectionData:", {
+          section2_3: sectionData.section2_3,
+          section2_4: sectionData.section2_4,
+          allSectionKeys: Object.keys(sectionData),
+        });
+        console.log(
+          "🔍 [API UPDATE] Completed indicators:",
+          completedIndicators
+        );
+        console.log(
+          "🔍 [API UPDATE] All completed indicators:",
+          allCompletedIndicators
+        );
+
+        // First, include existing sections from DB (to preserve previously saved data)
+        const existingCategoryData = existingFormData[category] || {};
+        console.log("🔍 [API UPDATE] Existing category data:", {
+          section2_3: existingCategoryData.section2_3,
+          section2_4: existingCategoryData.section2_4,
+          allSectionKeys: Object.keys(existingCategoryData),
+        });
+
+        Object.keys(existingCategoryData).forEach((sectionKey) => {
+          if (sectionKey.startsWith("section")) {
+            filteredSectionData[sectionKey] = existingCategoryData[sectionKey];
+          }
+        });
+
+        // Then, update/add only the sections for indicators being saved now (from completedIndicators)
+        // Use allCompletedIndicators to ensure we include all saved indicators
+        allCompletedIndicators.forEach((indicatorCode) => {
+          const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+          // If this indicator is being saved now, use new data with SUBMITTED_TO_STATE status; otherwise keep existing
+          if (
+            completedIndicators.includes(indicatorCode) &&
+            sectionData[sectionKey]
+          ) {
+            // Set status to SUBMITTED_TO_STATE for newly submitted indicators
+            filteredSectionData[sectionKey] = {
+              ...sectionData[sectionKey],
+              status: "SUBMITTED_TO_STATE",
+            };
+            console.log(
+              `✅ Updating section ${sectionKey} for indicator ${indicatorCode} with status SUBMITTED_TO_STATE`
+            );
+            console.log(
+              `🔍 [API UPDATE] Section ${sectionKey} data:`,
+              filteredSectionData[sectionKey]
+            );
+          } else if (existingCategoryData[sectionKey]) {
+            // Keep existing data for previously saved indicators (preserve their status)
+            filteredSectionData[sectionKey] = existingCategoryData[sectionKey];
+            console.log(
+              `📋 Keeping existing section ${sectionKey} for indicator ${indicatorCode}`
+            );
+          } else {
+            console.log(
+              `⚠️ Section ${sectionKey} not found in sectionData or existingCategoryData for indicator ${indicatorCode}`
+            );
+          }
+        });
+
+        console.log("🔍 Original sectionData keys:", Object.keys(sectionData));
+        console.log(
+          "🔍 Filtered sectionData keys (merged with existing):",
+          Object.keys(filteredSectionData)
+        );
+        console.log("🔍 All completed indicators:", allCompletedIndicators);
+        console.log("🔍 Newly completed indicators:", completedIndicators);
+
         const updatePayload = {
-          [category]: sectionData,
-          indicators,
-          section_status: updatedSectionStatus
+          [category]: filteredSectionData,
+          indicators: allCompletedIndicators, // Use allCompletedIndicators to include all saved indicators
+          section_status: updatedSectionStatus,
         };
-        
+
         console.log("📦 Update Payload:", {
           category,
-          section_status: updatedSectionStatus
+          section_status: updatedSectionStatus,
+          filteredSections: Object.keys(filteredSectionData),
         });
-        
-        result = await this.updateSubmission(existingSubmissionId, updatePayload);
-        
+
+        result = await this.updateSubmission(
+          existingSubmissionId,
+          updatePayload
+        );
+
         // Check if all assigned indicators are completed
-        if (updatedSectionStatus.completedCount >= updatedSectionStatus.totalAssigned) {
-          console.log("🎉 All indicators completed! Redirecting to review page...");
-          
-          if (typeof window !== 'undefined') {
+        if (
+          updatedSectionStatus.completedCount >=
+          updatedSectionStatus.totalAssigned
+        ) {
+          console.log(
+            "🎉 All indicators completed! Redirecting to review page..."
+          );
+
+          if (typeof window !== "undefined") {
             setTimeout(() => {
               window.location.href = `/data-submission/review/${existingSubmissionId}`;
             }, 1000);
@@ -1317,46 +1562,105 @@ class ApiService implements HttpClient {
       } else {
         // Create new submission
         console.log("➕ Creating new submission");
-        
+
         // Build initial section_status
         const initialSectionStatus = {
           completedCount: completedIndicators.length,
           totalAssigned: totalIndicatorCount,
-          completedIndicators: completedIndicators
+          completedIndicators: completedIndicators,
         };
-        
+
         console.log("📊 Initial section_status:", initialSectionStatus);
-        console.log("📊 Progress:", initialSectionStatus.completedCount, "of", initialSectionStatus.totalAssigned);
-        
+        console.log(
+          "📊 Progress:",
+          initialSectionStatus.completedCount,
+          "of",
+          initialSectionStatus.totalAssigned
+        );
+
+        // Filter sectionData to only include sections for completed indicators
+        // This ensures we don't save unsaved sections (e.g., if user filled 1.2 but only saved 1.1)
+        const filteredSectionData: Record<string, any> = {};
+
+        // 🔍 DEBUG: Log incoming sectionData for indicators 2.3 and 2.4
+        console.log("🔍 [API CREATE] Incoming sectionData:", {
+          section2_3: sectionData.section2_3,
+          section2_4: sectionData.section2_4,
+          allSectionKeys: Object.keys(sectionData),
+        });
+        console.log(
+          "🔍 [API CREATE] Completed indicators:",
+          completedIndicators
+        );
+
+        completedIndicators.forEach((indicatorCode) => {
+          const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+          if (sectionData[sectionKey]) {
+            // Set status to SUBMITTED_TO_STATE for submitted indicators
+            filteredSectionData[sectionKey] = {
+              ...sectionData[sectionKey],
+              status: "SUBMITTED_TO_STATE",
+            };
+            console.log(
+              `✅ Including section ${sectionKey} for indicator ${indicatorCode} with status SUBMITTED_TO_STATE`
+            );
+            console.log(
+              `🔍 [API CREATE] Section ${sectionKey} data:`,
+              filteredSectionData[sectionKey]
+            );
+          } else {
+            console.log(
+              `⚠️ Section ${sectionKey} not found in sectionData for indicator ${indicatorCode}`
+            );
+            console.log(
+              `🔍 [API CREATE] Available sectionData keys:`,
+              Object.keys(sectionData)
+            );
+          }
+        });
+
+        console.log("🔍 Original sectionData keys:", Object.keys(sectionData));
+        console.log(
+          "🔍 Filtered sectionData keys (only saved indicators):",
+          Object.keys(filteredSectionData)
+        );
+        console.log("🔍 Completed indicators:", completedIndicators);
+
         const createPayload = {
           formData: {
-            [category]: sectionData
+            [category]: filteredSectionData,
           },
-          indicators,
+          indicators: completedIndicators, // Use completedIndicators instead of all indicators
           status: "DRAFT",
-          section_status: initialSectionStatus
+          section_status: initialSectionStatus,
         };
-        
+
         console.log("📦 Create Payload:", {
           category,
-          section_status: initialSectionStatus
+          section_status: initialSectionStatus,
+          filteredSections: Object.keys(filteredSectionData),
         });
-        
+
         result = await this.createSubmission(createPayload);
-        
+
         // Check if all indicators completed on first submission
-        if (initialSectionStatus.completedCount >= initialSectionStatus.totalAssigned) {
-          console.log("🎉 All indicators completed! Redirecting to review page...");
-          
+        if (
+          initialSectionStatus.completedCount >=
+          initialSectionStatus.totalAssigned
+        ) {
+          console.log(
+            "🎉 All indicators completed! Redirecting to review page..."
+          );
+
           const newSubmissionId = result?.id || result?.submissionId;
-          if (typeof window !== 'undefined' && newSubmissionId) {
+          if (typeof window !== "undefined" && newSubmissionId) {
             setTimeout(() => {
               window.location.href = `/data-submission/review/${newSubmissionId}`;
             }, 1000);
           }
         }
       }
-      
+
       console.log("🔍 API Service - Processed Submit Section Data:", result);
 
       return result;
@@ -1416,10 +1720,12 @@ class ApiService implements HttpClient {
     submissionId: string,
     file: File
   ): Promise<{
-    data: any; url: string; filename: string; size: number 
-}> {
-
-   console.log("🔍 API Service - Upload File:", submissionId, file);
+    data: any;
+    url: string;
+    filename: string;
+    size: number;
+  }> {
+    console.log("🔍 API Service - Upload File:", submissionId, file);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -1598,15 +1904,15 @@ class ApiService implements HttpClient {
   }
 
   // ✅ Fetch dashboard data for State Approver
-async getStateApproverDashboard(): Promise<any> {
-  try {
-    const response = await this.get("/dashboard/state-approver");
-    return response?.data || response;
-  } catch (error: any) {
-    console.error("Failed to fetch State Approver Dashboard:", error);
-    throw error.response?.data || error;
+  async getStateApproverDashboard(): Promise<any> {
+    try {
+      const response = await this.get("/dashboard/state-approver");
+      return response?.data || response;
+    } catch (error: any) {
+      console.error("Failed to fetch State Approver Dashboard:", error);
+      throw error.response?.data || error;
+    }
   }
-}
 
   // User management methods
   async getAllUsers(): Promise<NiriUser[]> {
@@ -1824,8 +2130,8 @@ async getStateApproverDashboard(): Promise<any> {
         console.error("❌ API Service - Error Response:", error.response.data);
         throw new Error(
           error.response.data?.message ||
-          error.response.data?.error ||
-          "Failed to deactivate users"
+            error.response.data?.error ||
+            "Failed to deactivate users"
         );
       }
       throw error;
@@ -2636,10 +2942,7 @@ async getStateApproverDashboard(): Promise<any> {
         userId
       );
       const indicators = await this.getUserAssignedIndicators(userId);
-      console.log(
-        "🔍 API Service - User indicator count:",
-        indicators.length
-      );
+      console.log("🔍 API Service - User indicator count:", indicators.length);
       return indicators.length;
     } catch (error: any) {
       console.error("❌ Failed to get user indicator count:", error);
@@ -2651,7 +2954,9 @@ async getStateApproverDashboard(): Promise<any> {
    * Get user assigned indicators with full details (UUID + code)
    * Returns array of objects: [{ id: uuid, code: "1.1" }, ...]
    */
-  async getUserAssignedIndicatorsWithDetails(userId: string): Promise<Array<{ id: string; code: string }>> {
+  async getUserAssignedIndicatorsWithDetails(
+    userId: string
+  ): Promise<Array<{ id: string; code: string }>> {
     try {
       console.log(
         "🔍 API Service - getUserAssignedIndicatorsWithDetails called with userId:",
@@ -2659,40 +2964,45 @@ async getStateApproverDashboard(): Promise<any> {
       );
       const response = await this.axios.get(`/users/${userId}/indicators`);
       const indicatorsData = response.data?.data || response.data;
-      
+
       console.log("🔍 API Service - Indicators with details:", indicatorsData);
-      
+
       if (Array.isArray(indicatorsData)) {
         // Map to include both id and code
-        const indicators = indicatorsData.map((item: any) => ({
-          id: item.id || item.indicatorId || item.indicator?.id,
-          code: item.indicator?.code || item.code || item.indicatorCode
-        })).filter((item: any) => item.id && item.code);
-        
+        const indicators = indicatorsData
+          .map((item: any) => ({
+            id: item.id || item.indicatorId || item.indicator?.id,
+            code: item.indicator?.code || item.code || item.indicatorCode,
+          }))
+          .filter((item: any) => item.id && item.code);
+
         console.log("🔍 API Service - Mapped indicators:", indicators);
         return indicators;
       }
-      
+
       return [];
     } catch (error: any) {
-      console.error("❌ Failed to get user assigned indicators with details:", error);
+      console.error(
+        "❌ Failed to get user assigned indicators with details:",
+        error
+      );
       return [];
     }
   }
 
   // ✅ Fetch indicators available for a STATE_APPROVER
-async getAvailableIndicatorsForApprover(stateUt: string) {
-  try {
-    const response = await this.axios.get(
-      `/indicators/available-for-approver`,
-      { params: { stateUt} }
-    );
-    return response.data; // array of {id, code, name, category}
-  } catch (error) {
-    console.error("Failed to get available indicators for approver", error);
-    throw error;
+  async getAvailableIndicatorsForApprover(stateUt: string) {
+    try {
+      const response = await this.axios.get(
+        `/indicators/available-for-approver`,
+        { params: { stateUt } }
+      );
+      return response.data; // array of {id, code, name, category}
+    } catch (error) {
+      console.error("Failed to get available indicators for approver", error);
+      throw error;
+    }
   }
-}
 
   async getAllIndicators(): Promise<any[]> {
     try {
@@ -2801,7 +3111,6 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     }
   }
 
-
   /**
    * Update indicator (generic handler used by components)
    * payload: { submissionId, category, section, fields }
@@ -2812,50 +3121,64 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     try {
       // Check if payload contains File objects
       const hasFiles = this.hasFileObjects(payload);
-      
+
       let response;
-      
+
       if (hasFiles) {
         // Convert to FormData if files are present
         const formData = new FormData();
-        
+
         // Create a sanitized payload without File objects for JSON serialization
         const sanitizedPayload = this.sanitizePayloadForJSON(payload);
         formData.append("payload", JSON.stringify(sanitizedPayload));
-        
+
         // Append files recursively with proper paths
         this.appendFilesToFormData(formData, payload, "");
-        
+
         // Get auth token
         const authHeaders = authService.getAuthHeaders();
         const authToken = token || authHeaders?.Authorization || "";
-        
+
         const config: AxiosRequestConfig = {
           headers: {
             "Content-Type": "multipart/form-data",
             Authorization: authToken,
           },
         };
-        
-        console.log("📤 Sending updateIndicator with FormData (files detected)");
-        response = await this.axios.post("/submission/update-indicator", formData, config);
+
+        console.log(
+          "📤 Sending updateIndicator with FormData (files detected)"
+        );
+        response = await this.axios.post(
+          "/submission/update-indicator",
+          formData,
+          config
+        );
       } else {
         // Send as JSON if no files
         const config: AxiosRequestConfig | undefined = token
           ? {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
-            },
-          }
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: token.startsWith("Bearer")
+                  ? token
+                  : `Bearer ${token}`,
+              },
+            }
           : undefined;
 
         console.log("📤 Sending updateIndicator as JSON (no files)");
-        response = await this.axios.post("/submission/update-indicator", payload, config);
+        response = await this.axios.post(
+          "/submission/update-indicator",
+          payload,
+          config
+        );
       }
 
       // Follow existing pattern used across the service: prefer response.data.data when present.
-      return response.data?.data !== undefined ? response.data.data : response.data;
+      return response.data?.data !== undefined
+        ? response.data.data
+        : response.data;
     } catch (error: any) {
       // Handle 304 as success (consistent with other methods)
       if (error.response?.status === 304) {
@@ -2870,13 +3193,13 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
   // Helper to check if payload contains File objects
   private hasFileObjects(obj: any): boolean {
     if (!obj || typeof obj !== "object") return false;
-    
+
     if (obj instanceof File) return true;
-    
+
     if (Array.isArray(obj)) {
-      return obj.some(item => this.hasFileObjects(item));
+      return obj.some((item) => this.hasFileObjects(item));
     }
-    
+
     for (const value of Object.values(obj)) {
       if (value instanceof File) return true;
       if (value && typeof value === "object") {
@@ -2886,60 +3209,79 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
         if (this.hasFileObjects(value)) return true;
       }
     }
-    
+
     return false;
   }
 
   // Helper to create a JSON-safe copy of payload (replaces File objects with placeholders)
   private sanitizePayloadForJSON(obj: any): any {
     if (!obj || typeof obj !== "object") return obj;
-    
+
     if (obj instanceof File) {
       return { _filePlaceholder: true, name: obj.name, size: obj.size };
     }
-    
+
     if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizePayloadForJSON(item));
+      return obj.map((item) => this.sanitizePayloadForJSON(item));
     }
-    
+
     const sanitized: any = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value instanceof File) {
-        sanitized[key] = { _filePlaceholder: true, name: value.name, size: value.size };
-      } else if (value && typeof value === "object" && (value as any).file instanceof File) {
+        sanitized[key] = {
+          _filePlaceholder: true,
+          name: value.name,
+          size: value.size,
+        };
+      } else if (
+        value &&
+        typeof value === "object" &&
+        (value as any).file instanceof File
+      ) {
         // For FileUpload objects, keep metadata but mark file as placeholder
         const fileUpload = value as any;
         sanitized[key] = {
           ...value,
-          file: { _filePlaceholder: true, name: fileUpload.file.name, size: fileUpload.file.size },
+          file: {
+            _filePlaceholder: true,
+            name: fileUpload.file.name,
+            size: fileUpload.file.size,
+          },
         };
       } else {
         sanitized[key] = this.sanitizePayloadForJSON(value);
       }
     }
-    
+
     return sanitized;
   }
 
   // Helper to append files to FormData recursively
-  private appendFilesToFormData(formData: FormData, obj: any, parentKey: string = "") {
+  private appendFilesToFormData(
+    formData: FormData,
+    obj: any,
+    parentKey: string = ""
+  ) {
     if (!obj || typeof obj !== "object") return;
-    
+
     Object.entries(obj).forEach(([key, value]) => {
       const fullKey = parentKey ? `${parentKey}.${key}` : key;
-      
+
       if (value instanceof File) {
         console.log(`📎 Appending file: ${fullKey}`, value.name);
         formData.append(fullKey, value, value.name);
         return;
       }
-      
+
       if (value && typeof value === "object") {
         // Handle FileUpload objects
         const fileUpload = value as any;
         if (fileUpload.file instanceof File) {
           const fileKey = `${fullKey}.file`;
-          console.log(`📎 Appending FileUpload file: ${fileKey}`, fileUpload.file.name);
+          console.log(
+            `📎 Appending FileUpload file: ${fileKey}`,
+            fileUpload.file.name
+          );
           formData.append(fileKey, fileUpload.file, fileUpload.file.name);
         } else if (Array.isArray(value)) {
           // Handle arrays (like VGFArray, projects array, etc.)
@@ -2954,27 +3296,43 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     });
   }
 
-
   /**
    * Update indicator status (generic handler used by components)
    * payload: { submissionId, category, section, accepted }
    * token: optional auth token (falls back to localStorage if not provided)
    */
-  async indicatorStatus(payload: { submissionId: string; category: string; section: string; status: boolean; mospi_status?: string }, token?: string) {
+  async indicatorStatus(
+    payload: {
+      submissionId: string;
+      category: string;
+      section: string;
+      status: boolean;
+      mospi_status?: string;
+    },
+    token?: string
+  ) {
     try {
       const config: AxiosRequestConfig | undefined = token
         ? {
             headers: {
               "Content-Type": "application/json",
-              Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
+              Authorization: token.startsWith("Bearer")
+                ? token
+                : `Bearer ${token}`,
             },
           }
         : undefined;
 
-      const response = await this.axios.post("/submission/indicator-submission-status", payload, config);
+      const response = await this.axios.post(
+        "/submission/indicator-submission-status",
+        payload,
+        config
+      );
 
       // Follow existing pattern used across the service: prefer response.data.data when present.
-      return response.data?.data !== undefined ? response.data.data : response.data;
+      return response.data?.data !== undefined
+        ? response.data.data
+        : response.data;
     } catch (error: any) {
       // Handle 304 as success (consistent with other methods)
       if (error.response?.status === 304) {
@@ -2986,67 +3344,67 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     }
   }
 
-//   async getStateIndicatorStatuses(): Promise<any> {
-//   try {
-//     const response = await this.axios.get("/indicators/state-statuses", {
-//       headers: { Accept: "application/json" },
-//     });
+  //   async getStateIndicatorStatuses(): Promise<any> {
+  //   try {
+  //     const response = await this.axios.get("/indicators/state-statuses", {
+  //       headers: { Accept: "application/json" },
+  //     });
 
-//     console.log(response.status);
-//     // normalize like you do elsewhere
-//     return response.data?.data !== undefined ? response.data.data : response.data;
-//     // If your backend shape is { status: true, data: {...} }, return response.data is fine,
-//     // since your calculator reads payload?.data?.submissions.
-//   } catch (error: any) {
-//     if (error.response?.status === 304) {
-//       const cached = error.response?.data || {};
-//       return cached?.data !== undefined ? cached.data : cached;
-//     }
-//     throw error;
-//   }
-// }
+  //     console.log(response.status);
+  //     // normalize like you do elsewhere
+  //     return response.data?.data !== undefined ? response.data.data : response.data;
+  //     // If your backend shape is { status: true, data: {...} }, return response.data is fine,
+  //     // since your calculator reads payload?.data?.submissions.
+  //   } catch (error: any) {
+  //     if (error.response?.status === 304) {
+  //       const cached = error.response?.data || {};
+  //       return cached?.data !== undefined ? cached.data : cached;
+  //     }
+  //     throw error;
+  //   }
+  // }
 
-// services/api.service.ts
+  // services/api.service.ts
 
-async getStateIndicatorStatuses(year?: string): Promise<{
-  status: boolean;
-  message?: string;
-  data: any;
-}> {
-  try {
-    const qs = year ? `?year=${encodeURIComponent(year)}` : "";
-    const resp = await this.axios.get(`/indicators/state-statuses${qs}`, {
-      headers: { Accept: "application/json" },
-    });
+  async getStateIndicatorStatuses(year?: string): Promise<{
+    status: boolean;
+    message?: string;
+    data: any;
+  }> {
+    try {
+      const qs = year ? `?year=${encodeURIComponent(year)}` : "";
+      const resp = await this.axios.get(`/indicators/state-statuses${qs}`, {
+        headers: { Accept: "application/json" },
+      });
 
-    // Always return the backend envelope so downstream can read .data.summary
-    // resp.data is expected to be { status, message, data }
-    return resp.data;
-  } catch (error: any) {
-    // If your server sometimes replies 304 with a payload, normalize it
-    if (error?.response?.status === 304) {
-      const fallback = error.response.data ?? {};
-      return typeof fallback.status === "boolean"
-        ? fallback
-        : { status: true, data: fallback };
+      // Always return the backend envelope so downstream can read .data.summary
+      // resp.data is expected to be { status, message, data }
+      return resp.data;
+    } catch (error: any) {
+      // If your server sometimes replies 304 with a payload, normalize it
+      if (error?.response?.status === 304) {
+        const fallback = error.response.data ?? {};
+        return typeof fallback.status === "boolean"
+          ? fallback
+          : { status: true, data: fallback };
+      }
+      throw error;
     }
-    throw error;
+  }
+
+  async getNodalMetrics() {
+    // Adjust depending on how your API client is set up (axios/fetch wrapper)
+    const res = await this.axios.get("/dashboard/nodal-metrics");
+    return res.data;
+  }
+
+  async getAssignedStateOnly(roleName: string) {
+    const res = await this.axios.get(
+      `/users/states/assigned-state-by-state-approver/${roleName}`
+    );
+    return res.data;
   }
 }
-
- async  getNodalMetrics() {
-  // Adjust depending on how your API client is set up (axios/fetch wrapper)
-  const res = await this.axios.get('/dashboard/nodal-metrics');
-  return res.data;
-}
-
- async  getAssignedStateOnly(roleName: string) { 
-  const res = await this.axios.get(`/users/states/assigned-state-by-state-approver/${roleName}`);
-  return res.data;
-}
- 
-}
-
 
 export async function getCumulativePreview(
   stateUt: string,

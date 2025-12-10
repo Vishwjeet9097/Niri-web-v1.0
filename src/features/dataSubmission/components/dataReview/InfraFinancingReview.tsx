@@ -3,7 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Plus, Trash2, Clock, Edit3, Check, X, CheckCircle, RotateCcw } from "lucide-react";
+import {
+  MessageSquare,
+  Plus,
+  Trash2,
+  Clock,
+  Edit3,
+  Check,
+  X,
+  CheckCircle,
+  RotateCcw,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,13 +42,12 @@ import {
   computeStepProgress,
   STEP_SECTIONS,
 } from "@/features/submission/utils/progress";
-import { useEditableSectionStore } from '@/utils/EditableSection';
+import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
-import { Dropdown, dropdownValues } from '@/utils/getDropDowns';
-import { useFormDataStore } from '@/utils/FormDataStore';
+import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
+import { useFormDataStore } from "@/utils/FormDataStore";
 import { Section_1_3 } from "./Sections/Section_1_3";
 import { Section_1_4 } from "./Sections/Section_1_4";
-
 
 interface InfraFinancingReviewProps {
   submissionId: string;
@@ -75,7 +84,8 @@ export const InfraFinancingReview = ({
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
-  const { setFormDataForSection, updateSectionField, getSectionData } = useFormDataStore();
+  const { setFormDataForSection, updateSectionField, getSectionData } =
+    useFormDataStore();
 
   // Section 1.3 state management
   const [section13State, setSection13State] = useState({
@@ -138,22 +148,34 @@ export const InfraFinancingReview = ({
   const filteredDetectedSections = detectedSections.filter((sec) => {
     if (sec === "section1_1") {
       const section = infraPayload?.section1_1;
-      if (!section || typeof section !== 'object') return false;
-      const fieldsToCheck = ['gsdpForFY', 'allocationToGSDP', 'capitalAllocation', 
-                              'capexToCapexActuals', 'stateCapexUtilisation', 'stateCapex'];
-      return fieldsToCheck.some(field => {
+        if (!section || typeof section !== "object") return false;
+        const fieldsToCheck = [
+          "gsdpForFY",
+          "allocationToGSDP",
+          "capitalAllocation",
+          "capexToCapexActuals",
+          "stateCapexUtilisation",
+          "stateCapex",
+        ];
+        return fieldsToCheck.some((field) => {
         const val = section[field];
-        return val !== null && val !== undefined && val !== '' && val !== 0;
+          return val !== null && val !== undefined && val !== "" && val !== 0;
       });
     }
     if (sec === "section1_2") {
       const section = infraPayload?.section1_2;
-      if (!section || typeof section !== 'object') return false;
-      const fieldsToCheck = ['gsdpForFY', 'actualCapex', 'budgetaryCapex', 
-                              'capexActualsToGSDP', 'stateCapexUtilisation', 'stateCapex'];
-      return fieldsToCheck.some(field => {
+        if (!section || typeof section !== "object") return false;
+        const fieldsToCheck = [
+          "gsdpForFY",
+          "actualCapex",
+          "budgetaryCapex",
+          "capexActualsToGSDP",
+          "stateCapexUtilisation",
+          "stateCapex",
+        ];
+        return fieldsToCheck.some((field) => {
         const val = section[field];
-        return val !== null && val !== undefined && val !== '' && val !== 0;
+          return val !== null && val !== undefined && val !== "" && val !== 0;
       });
     }
     return true; // Keep all other sections
@@ -181,7 +203,12 @@ export const InfraFinancingReview = ({
 
   // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
   // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+    if (
+      isPreview &&
+      isNodalOfficer &&
+      assignedIndicators &&
+      assignedIndicators.length > 0
+    ) {
     const assignedSectionKeys: string[] = [];
     const indicatorToSectionMap: Record<string, string> = {
       "1.1": "section1_1",
@@ -195,7 +222,12 @@ export const InfraFinancingReview = ({
       const sectionKey = indicatorToSectionMap[indicator];
       // Exclude sections 1.1 and 1.2 from being added via assigned indicators
       // They should only be shown if they have meaningful data (filtered later)
-      if (sectionKey && sectionKey !== "section1_1" && sectionKey !== "section1_2" && !merged.includes(sectionKey)) {
+        if (
+          sectionKey &&
+          sectionKey !== "section1_1" &&
+          sectionKey !== "section1_2" &&
+          !merged.includes(sectionKey)
+        ) {
         assignedSectionKeys.push(sectionKey);
       }
     });
@@ -204,24 +236,31 @@ export const InfraFinancingReview = ({
   }
   
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Include all sections that exist in formData
-  // This ensures state approvers and other reviewers see all sections submitted by nodal officers
-  // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  // EXCEPT: sections 1.1 and 1.2 should not be automatically included (they will be filtered later)
-  if ((!isPreview || (isPreview && !isNodalOfficer)) && infraPayload && typeof infraPayload === 'object') {
-    const allPossibleSections = ["section1_3", "section1_4", "section1_5"]; // Exclude 1.1 and 1.2
+    // Only include sections that have meaningful data - don't show empty/unsubmitted indicators
+    // This ensures state approvers only see indicators that were actually saved/submitted by nodal officers
+    if (
+      (!isPreview || (isPreview && !isNodalOfficer)) &&
+      infraPayload &&
+      typeof infraPayload === "object"
+    ) {
     // Check sections 1.1 and 1.2 separately to see if they should be added (only if they have meaningful data)
     const section1_1 = infraPayload.section1_1;
     const section1_2 = infraPayload.section1_2;
     
     // Only add section 1.1 if it has meaningful data (excluding percentage, marksObtained, and year)
     // year is often a default value and alone should not determine visibility
-    if (section1_1 && typeof section1_1 === 'object') {
-      const fieldsToCheck1_1 = ['gsdpForFY', 'allocationToGSDP', 'capitalAllocation', 
-                                  'capexToCapexActuals', 'stateCapexUtilisation', 'stateCapex'];
-      const hasMeaningfulData1_1 = fieldsToCheck1_1.some(field => {
+      if (section1_1 && typeof section1_1 === "object") {
+        const fieldsToCheck1_1 = [
+          "gsdpForFY",
+          "allocationToGSDP",
+          "capitalAllocation",
+          "capexToCapexActuals",
+          "stateCapexUtilisation",
+          "stateCapex",
+        ];
+        const hasMeaningfulData1_1 = fieldsToCheck1_1.some((field) => {
         const val = section1_1[field];
-        return val !== null && val !== undefined && val !== '' && val !== 0;
+          return val !== null && val !== undefined && val !== "" && val !== 0;
       });
       if (hasMeaningfulData1_1 && !merged.includes("section1_1")) {
         merged.push("section1_1");
@@ -230,45 +269,74 @@ export const InfraFinancingReview = ({
     
     // Only add section 1.2 if it has meaningful data (excluding percentage, marksObtained, and year)
     // year is often a default value and alone should not determine visibility
-    if (section1_2 && typeof section1_2 === 'object') {
-      const fieldsToCheck1_2 = ['gsdpForFY', 'actualCapex', 'budgetaryCapex', 
-                                  'capexActualsToGSDP', 'stateCapexUtilisation', 'stateCapex'];
-      const hasMeaningfulData1_2 = fieldsToCheck1_2.some(field => {
+      if (section1_2 && typeof section1_2 === "object") {
+        const fieldsToCheck1_2 = [
+          "gsdpForFY",
+          "actualCapex",
+          "budgetaryCapex",
+          "capexActualsToGSDP",
+          "stateCapexUtilisation",
+          "stateCapex",
+        ];
+        const hasMeaningfulData1_2 = fieldsToCheck1_2.some((field) => {
         const val = section1_2[field];
-        return val !== null && val !== undefined && val !== '' && val !== 0;
+          return val !== null && val !== undefined && val !== "" && val !== 0;
       });
       if (hasMeaningfulData1_2 && !merged.includes("section1_2")) {
         merged.push("section1_2");
       }
     }
     
-    const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in infraPayload (even if value is null, empty object, or empty array)
-      return sectionKey in infraPayload;
-    });
-    
-    // Merge existing sections with merged array, avoiding duplicates
-    existingSections.forEach(sec => {
-      if (!merged.includes(sec)) {
-        merged.push(sec);
+      // For sections 1.3, 1.4, and 1.5, only include if they have meaningful data
+      // Don't include them just because they exist in formData
+      const section1_3 = infraPayload.section1_3;
+      if (section1_3 && typeof section1_3 === "object") {
+        const hasSection1_3Data =
+          Array.isArray(section1_3.ulbList) && section1_3.ulbList.length > 0;
+        if (hasSection1_3Data && !merged.includes("section1_3")) {
+          merged.push("section1_3");
       }
-    });
-  }
+      }
 
-  // Final safety filter: verify each section has actual data
-  // BUT: For preview mode (non-nodal) or review mode, include all existing sections even if empty
-  // EXCEPT: sections 1.1 and 1.2 should always be filtered (never include just because they exist)
-  const shouldIncludeEmptySections = (!isPreview || (isPreview && !isNodalOfficer));
-  
-  const final = merged.filter((sec) => {
-    // Sections 1.1 and 1.2 should always go through the strict filter (never bypass)
-    if (sec === "section1_1" || sec === "section1_2") {
-      // Continue to filter check below
-    } else if (shouldIncludeEmptySections && infraPayload && (sec in infraPayload)) {
-      // For other sections, if we should include empty sections and the section exists, include it
-      return true;
+      const section1_4 = infraPayload.section1_4;
+      if (section1_4 && typeof section1_4 === "object") {
+        const hasSection1_4Data =
+          Array.isArray(section1_4.bondList) && section1_4.bondList.length > 0;
+        if (hasSection1_4Data && !merged.includes("section1_4")) {
+          merged.push("section1_4");
+        }
+      }
+
+      const section1_5 = infraPayload.section1_5;
+      if (section1_5) {
+        let hasSection1_5Data = false;
+        if (typeof section1_5 === "object") {
+          // Check if it has the new format with hasIntermediary
+          if (section1_5.hasIntermediary) {
+            hasSection1_5Data = true;
+          }
+          // Check if it has ffiArray with data
+          else if (
+            Array.isArray(section1_5.ffiArray) &&
+            section1_5.ffiArray.length > 0
+          ) {
+            hasSection1_5Data = true;
+          }
+        }
+        // Check if it's the old array format
+        else if (Array.isArray(section1_5) && section1_5.length > 0) {
+          hasSection1_5Data = true;
+        }
+        if (hasSection1_5Data && !merged.includes("section1_5")) {
+          merged.push("section1_5");
+        }
+      }
     }
-    
+
+    // Final safety filter: verify each section has actual data
+    // All sections (including 1.3, 1.4, 1.5) should be filtered based on meaningful data
+    // This ensures only saved/submitted indicators are shown to STATE_APPROVER
+    const final = merged.filter((sec) => {
     if (sec === "section1_1") {
       const section = infraPayload?.section1_1;
       if (!section) {
@@ -278,14 +346,26 @@ export const InfraFinancingReview = ({
       // Exclude percentage, marksObtained, and year from meaningful data check
       // percentage and marksObtained are calculated/backend fields and should not determine visibility
       // year is often a default value and alone should not determine visibility
-      const fieldsToCheck = ['gsdpForFY', 'allocationToGSDP', 'capitalAllocation', 
-                              'capexToCapexActuals', 'stateCapexUtilisation', 'stateCapex'];
-      const hasData = fieldsToCheck.some(field => {
+        const fieldsToCheck = [
+          "gsdpForFY",
+          "allocationToGSDP",
+          "capitalAllocation",
+          "capexToCapexActuals",
+          "stateCapexUtilisation",
+          "stateCapex",
+        ];
+        const hasData = fieldsToCheck.some((field) => {
         const val = section[field];
-        if (val === null || val === undefined || val === '' || val === 0) return false;
+          if (val === null || val === undefined || val === "" || val === 0)
+            return false;
         return true;
       });
-      console.log(`${hasData ? '✅' : '🚫'} Section 1.1 ${hasData ? 'included' : 'excluded'}:`, section);
+        console.log(
+          `${hasData ? "✅" : "🚫"} Section 1.1 ${
+            hasData ? "included" : "excluded"
+          }:`,
+          section
+        );
       return hasData;
     }
     if (sec === "section1_2") {
@@ -297,14 +377,26 @@ export const InfraFinancingReview = ({
       // Exclude percentage, marksObtained, and year from meaningful data check
       // percentage and marksObtained are calculated/backend fields and should not determine visibility
       // year is often a default value and alone should not determine visibility
-      const fieldsToCheck = ['gsdpForFY', 'actualCapex', 'budgetaryCapex', 
-                              'capexActualsToGSDP', 'stateCapexUtilisation', 'stateCapex'];
-      const hasData = fieldsToCheck.some(field => {
+        const fieldsToCheck = [
+          "gsdpForFY",
+          "actualCapex",
+          "budgetaryCapex",
+          "capexActualsToGSDP",
+          "stateCapexUtilisation",
+          "stateCapex",
+        ];
+        const hasData = fieldsToCheck.some((field) => {
         const val = section[field];
-        if (val === null || val === undefined || val === '' || val === 0) return false;
+          if (val === null || val === undefined || val === "" || val === 0)
+            return false;
         return true;
       });
-      console.log(`${hasData ? '✅' : '🚫'} Section 1.2 ${hasData ? 'included' : 'excluded'}:`, section);
+        console.log(
+          `${hasData ? "✅" : "🚫"} Section 1.2 ${
+            hasData ? "included" : "excluded"
+          }:`,
+          section
+        );
       return hasData;
     }
     if (sec === "section1_3") {
@@ -325,7 +417,8 @@ export const InfraFinancingReview = ({
       // Check if it has the new format with hasIntermediary
       if (section.hasIntermediary) return true;
       // Check if it has ffiArray with data
-      if (Array.isArray(section.ffiArray) && section.ffiArray.length > 0) return true;
+        if (Array.isArray(section.ffiArray) && section.ffiArray.length > 0)
+          return true;
       // Check if it's the old array format
       if (Array.isArray(section) && section.length > 0) return true;
       return false;
@@ -336,28 +429,33 @@ export const InfraFinancingReview = ({
   return final;
 }, [formData, isPreview, isNodalOfficer, assignedIndicators]);
 
-
   // State for real-time calculation
-  const [capitalAllocation, setCapitalAllocation] = useState('');
-  const [gsdpForFY, setGsdpForFY] = useState('');
+  const [capitalAllocation, setCapitalAllocation] = useState("");
+  const [gsdpForFY, setGsdpForFY] = useState("");
 
   // State for section 1.2
-  const [actualCapex, setActualCapex] = useState('');
-  const [stateCapexUtilisation, setStateCapexUtilisation] = useState('');
+  const [actualCapex, setActualCapex] = useState("");
+  const [stateCapexUtilisation, setStateCapexUtilisation] = useState("");
 
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
+    string | null
+  >(null);
 
   // State for Send Back and Accept confirmation dialogs
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
-  const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
+  const [pendingActionSectionId, setPendingActionSectionId] = useState<
+    string | null
+  >(null);
   
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
-  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<string | null>(null);
+  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<
+    string | null
+  >(null);
 
   // State for Add More form in section 1.5
   const [showAddForm1_5, setShowAddForm1_5] = useState(false);
@@ -372,13 +470,13 @@ export const InfraFinancingReview = ({
   // Helper function to check user role
   const getUserRole = () => {
     try {
-      const authUser = localStorage.getItem('niri_app:auth_user');
+      const authUser = localStorage.getItem("niri_app:auth_user");
       if (authUser) {
         const user = JSON.parse(authUser);
         return user.value?.role;
       }
     } catch (error) {
-      console.error('Error reading user role:', error);
+      console.error("Error reading user role:", error);
     }
     return null;
   };
@@ -388,28 +486,35 @@ export const InfraFinancingReview = ({
     if (!isRestoringRef.current) {
       if (formData?.section1_2?.actualCapex) {
         // Extract numeric value if it's formatted
-        const value = typeof formData.section1_2.actualCapex === 'string' 
-          ? formData.section1_2.actualCapex.replace(/[₹,Crores\s]/g, '').trim()
+        const value =
+          typeof formData.section1_2.actualCapex === "string"
+            ? formData.section1_2.actualCapex
+                .replace(/[₹,Crores\s]/g, "")
+                .trim()
           : String(formData.section1_2.actualCapex);
         setActualCapex(value);
       } else {
-        setActualCapex('');
+        setActualCapex("");
       }
 
       if (formData?.section1_2?.stateCapexUtilisation) {
         // Extract numeric value if it's formatted
-        const value = typeof formData.section1_2.stateCapexUtilisation === 'string'
-          ? formData.section1_2.stateCapexUtilisation.replace(/[₹,Crores\s]/g, '').trim()
+        const value =
+          typeof formData.section1_2.stateCapexUtilisation === "string"
+            ? formData.section1_2.stateCapexUtilisation
+                .replace(/[₹,Crores\s]/g, "")
+                .trim()
           : String(formData.section1_2.stateCapexUtilisation);
         setStateCapexUtilisation(value);
       } else {
-        setStateCapexUtilisation('');
+        setStateCapexUtilisation("");
       }
     }
   }, [formData?.section1_2]);
 
   // State for edit fucntionality indicator wise
-  const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
   
   // Store original state snapshots when edit mode starts (for cancel functionality)
   const [originalStateSnapshot, setOriginalStateSnapshot] = useState<any>(null);
@@ -443,7 +548,7 @@ export const InfraFinancingReview = ({
     const updatedArray = [...(section15State?.ffiArray || []), newEntryWithId];
     setSection15State({
       ...section15State,
-      ffiArray: updatedArray
+      ffiArray: updatedArray,
     });
     // Reset form
     setNewEntry1_5({
@@ -471,12 +576,18 @@ export const InfraFinancingReview = ({
       setOriginalStateSnapshot(null);
       setEditable(sectionId, false);
       // Reset Add More form for section 1.5
-      if (sectionId === '1.5') {
+      if (sectionId === "1.5") {
         setShowAddForm1_5(false);
-        setNewEntry1_5({ organisationName: "", organisationType: "", yearEstablished: "", totalFunding: "", website: "" });
+        setNewEntry1_5({
+          organisationName: "",
+          organisationType: "",
+          yearEstablished: "",
+          totalFunding: "",
+          website: "",
+        });
       }
       // Increment reset key to force Select components to remount
-      setSelectResetKey(prev => prev + 1);
+      setSelectResetKey((prev) => prev + 1);
       // Reset the flag after React has processed the state update
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -495,9 +606,18 @@ export const InfraFinancingReview = ({
       console.log("🔍 InfraFinancingReview - Event detail:", event.detail);
 
       const { submissionId: eventSubmissionId, comments } = event.detail;
-      console.log("🔍 InfraFinancingReview - Event submissionId:", eventSubmissionId);
-      console.log("🔍 InfraFinancingReview - Current submissionId:", submissionId);
-      console.log("🔍 InfraFinancingReview - IDs match:", eventSubmissionId === submissionId);
+      console.log(
+        "🔍 InfraFinancingReview - Event submissionId:",
+        eventSubmissionId
+      );
+      console.log(
+        "🔍 InfraFinancingReview - Current submissionId:",
+        submissionId
+      );
+      console.log(
+        "🔍 InfraFinancingReview - IDs match:",
+        eventSubmissionId === submissionId
+      );
 
       console.log(
         "🔍 InfraFinancingReview - Event submissionId:",
@@ -599,8 +719,8 @@ export const InfraFinancingReview = ({
   //🧑‍💻Initialize Section
   useEffect(() => {
     if (formData) {
-      Object.keys(formData).forEach(sectionKey => {
-        if (sectionKey.startsWith('section')) {
+      Object.keys(formData).forEach((sectionKey) => {
+        if (sectionKey.startsWith("section")) {
           setFormDataForSection(formData[sectionKey], sectionKey);
         }
       });
@@ -642,7 +762,8 @@ export const InfraFinancingReview = ({
       console.log("✅ InfraFinancingReview - Form data updated");
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
-      const shouldShowSentBackConfirmation = isMospiApproverSentBack && mospiSentBackSectionId;
+      const shouldShowSentBackConfirmation =
+        isMospiApproverSentBack && mospiSentBackSectionId;
 
       // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
       if (shouldShowSentBackConfirmation) {
@@ -696,7 +817,7 @@ export const InfraFinancingReview = ({
   const onSaveSection = async (sectionId: string) => {
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
-    const isNodalOfficer = userRole === 'NODAL_OFFICER';
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
 
     // If NODAL_OFFICER, show confirmation dialog first
     if (isNodalOfficer) {
@@ -705,7 +826,7 @@ export const InfraFinancingReview = ({
       return;
     }
 
-    // For non-NODAL_OFFICER users, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with submit directly
     await performSave(sectionId);
   };
 
@@ -713,46 +834,60 @@ export const InfraFinancingReview = ({
   const performSave = async (sectionId: string) => {
     try {
       // Map visual section id to payload section key
-      const payloadSection = `section${sectionId.replace('.', '_')}`;
+      const payloadSection = `section${sectionId.replace(".", "_")}`;
 
       // Prepare fields based on section
       let fields: Record<string, any>[] = [];
 
       switch (sectionId) {
-        case '1.1':
+        case "1.1":
           fields = [
             // {year: "2024-25"},
             { capitalAllocation: Number(capitalAllocation) || null },
             { gsdpForFY: Number(gsdpForFY) || null },
             // {allocationPercentage: calculateAllocationPercentage().replace('%', '') || null}
-
           ];
           break;
 
-        case '1.2':
+        case "1.2":
+          // Only save data from local state if user is explicitly saving this section
+          // Don't read from formData for unsaved values - only use local state values
           fields = [
             {
               year: formData?.section1_2?.year || "2024-25",
               actualCapex: actualCapex ? Number(actualCapex) : null,
-              stateCapexUtilisation: stateCapexUtilisation ? Number(stateCapexUtilisation) : null
-            }
+              stateCapexUtilisation: stateCapexUtilisation
+                ? Number(stateCapexUtilisation)
+                : null,
+            },
           ];
+          // Only include fields that have actual values (not null/undefined/empty)
+          fields[0] = Object.fromEntries(
+            Object.entries(fields[0]).filter(
+              ([_, value]) =>
+                value !== null && value !== undefined && value !== ""
+            )
+          ) as any;
           break;
 
-        case '1.3':
+        case "1.3":
           // Use local state for ULB ratings data
-          console.log("Section_1_3 state", section13State)
-          fields = [{ulbList: (section13State.ulbList || []).map((item: any) => ({
+          console.log("Section_1_3 state", section13State);
+          fields = [
+            {
+              ulbList: (section13State.ulbList || []).map((item: any) => ({
             cityName: item.cityName,
             ulb: item.ulb,
             ratingDate: item.ratingDate,
-            rating: item.rating
-          }))}];
+                rating: item.rating,
+              })),
+            },
+          ];
           break;
 
-        case '1.4':
+        case "1.4":
           // Use local state for bond data
-          console.log("Section_1_4 state", section14State)
+          console.log("Section_1_4 state", section14State);
           // fields = [{
           //   bondList: (section14State.bondList || []).map((item: any) => ({
           //     bondType: item.bondType,
@@ -760,20 +895,23 @@ export const InfraFinancingReview = ({
           //     issuingAuthority: item.issuingAuthority,
           //     value: item.value,
           fields = [
-           { bondList: (section14State.bondList || []).map((item: any) => ({
+            {
+              bondList: (section14State.bondList || []).map((item: any) => ({
               bondType: item.bondType,
               cityName: item.cityName,
               issuingAuthority: item.issuingAuthority,
               value: item.value,
             })),
-            totalULBs: section14State.totalULBs
-          }]
+              totalULBs: section14State.totalULBs,
+            },
+          ];
           break;
 
-        case '1.5':
+        case "1.5":
           // Use local state for financial intermediary data
-          console.log("Section_1_5 state", section15State)
-          fields = [{
+          console.log("Section_1_5 state", section15State);
+          fields = [
+            {
             hasIntermediary: section15State?.hasIntermediary || null,
             comment: section15State?.comment || null,
             ffiArray: (section15State?.ffiArray || []).map((item: any) => ({
@@ -781,9 +919,10 @@ export const InfraFinancingReview = ({
               organisationType: item.organisationType,
               yearEstablished: item.yearEstablished,
               totalFunding: item.totalFunding,
-              website: item.website
-            }))
-          }];
+                website: item.website,
+              })),
+            },
+          ];
           break;
 
         default:
@@ -791,37 +930,54 @@ export const InfraFinancingReview = ({
           return;
       }
 
-      console.log('🔄 payload section:',  payloadSection)
+      console.log("🔄 Saving section:", sectionId);
+      console.log("🔄 payload section:", payloadSection);
+      console.log("🔄 fields being saved:", JSON.stringify(fields, null, 2));
+      console.log(
+        "🔄 Only saving section:",
+        payloadSection,
+        "- not including other sections"
+      );
 
       // Check if user is NODAL_OFFICER to add status to payload
       const userRole = getUserRole();
-      const isNodalOfficer = userRole === 'NODAL_OFFICER';
+      const isNodalOfficer = userRole === "NODAL_OFFICER";
       
       // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
       if (isNodalOfficer && fields.length > 0) {
         // Add status to the first field object (or create a new one if needed)
         fields[0] = {
           ...fields[0],
-          status: 'RESUBMITTED',
+          status: "RESUBMITTED",
         };
       }
 
-      await handleSaveSection({
+      // Ensure we're only sending data for the specific section being saved
+      // Create a clean payload with only the section we're saving
+      const savePayload = {
         submissionId,
-        category: 'infraFinancing',
+        category: "infraFinancing",
         section: payloadSection,
-        fields
-      });
+        fields, // Only fields for this specific section
+      };
+
+      console.log(
+        "🔄 Final save payload:",
+        JSON.stringify(savePayload, null, 2)
+      );
+      console.log("🔄 Ensuring only section", payloadSection, "is being saved");
+
+      await handleSaveSection(savePayload);
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
       if (isNodalOfficer) {
         // Update local formData state to set status to RESUBMITTED
-        const sectionKey = `section${sectionId.replace('.', '_')}`;
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
         // Update formData prop if it exists
         if (formData && (formData as any)[sectionKey]) {
           (formData as any)[sectionKey] = {
             ...(formData as any)[sectionKey],
-            status: 'RESUBMITTED',
+            status: "RESUBMITTED",
           };
           setSubmissionData({ ...formData });
         }
@@ -832,7 +988,7 @@ export const InfraFinancingReview = ({
           if (updated[sectionKey]) {
             updated[sectionKey] = {
               ...updated[sectionKey],
-              status: 'RESUBMITTED',
+              status: "RESUBMITTED",
             };
           }
           return updated;
@@ -846,9 +1002,8 @@ export const InfraFinancingReview = ({
 
       // Optional: Show success message
       // toast.success(`Section ${sectionId} saved successfully`);
-
     } catch (error) {
-      console.error('Error saving section:', error);
+      console.error("Error saving section:", error);
       // Keep section editable if save fails
       // Optional: Show error message
       // toast.error(`Failed to save section ${sectionId}`);
@@ -872,27 +1027,27 @@ export const InfraFinancingReview = ({
   // Actual function that performs the status update
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
-    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
     
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
       submissionId,
-      category: 'infraFinancing',
-      section: `section${sectionId.replace('.', '_')}`,
+      category: "infraFinancing",
+      section: `section${sectionId.replace(".", "_")}`,
       status: status,
     };
     
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
-      payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
+      payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
     }
     
     try {
       await apiService.indicatorStatus(payload);
       // Update local formData to trigger re-render of action buttons
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
-      const statusField = isMospiApprover ? 'mospi_status' : 'status';
-      const statusValue = status ? 'ACCEPTED' : 'REVERTED';
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const statusField = isMospiApprover ? "mospi_status" : "status";
+      const statusValue = status ? "ACCEPTED" : "REVERTED";
       
       // Defensive: clone formData if possible
       if (formData && formData[sectionKey]) {
@@ -902,23 +1057,34 @@ export const InfraFinancingReview = ({
         };
         setSubmissionData({ ...formData });
       }
-      console.log(`✅ Indicator ${isMospiApprover ? 'mospi_' : ''}status updated successfully`);
+      console.log(
+        `✅ Indicator ${
+          isMospiApprover ? "mospi_" : ""
+        }status updated successfully`
+      );
       
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
-        window.dispatchEvent(new CustomEvent('niri-indicator-status-updated', {
-          detail: { sectionId, status: statusValue }
-        }));
+        window.dispatchEvent(
+          new CustomEvent("niri-indicator-status-updated", {
+            detail: { sectionId, status: statusValue },
+          })
+        );
       }
     } catch (error) {
-      console.error(`❌ Failed to update indicator ${isMospiApprover ? 'mospi_' : ''}status:`, error);
+      console.error(
+        `❌ Failed to update indicator ${
+          isMospiApprover ? "mospi_" : ""
+        }status:`,
+        error
+      );
     }
-  }
+  };
 
   // Wrapper function that checks for STATE_APPROVER and shows dialog if needed
   const onIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
-    const isStateApprover = userRole === 'STATE_APPROVER';
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     if (isStateApprover) {
       // Show appropriate dialog based on action
@@ -943,18 +1109,18 @@ export const InfraFinancingReview = ({
       // Check if user is MOSPI_APPROVER
       const getUserRole = () => {
         try {
-          const authUser = localStorage.getItem('niri_app:auth_user');
+          const authUser = localStorage.getItem("niri_app:auth_user");
           if (authUser) {
             const user = JSON.parse(authUser);
             return user.value?.role;
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error("Error reading user role:", error);
         }
         return null;
       };
       const userRole = getUserRole();
-      const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      const isMospiApprover = userRole === "MOSPI_APPROVER";
       
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
@@ -978,18 +1144,18 @@ export const InfraFinancingReview = ({
       // Check if user is MOSPI_APPROVER
       const getUserRole = () => {
         try {
-          const authUser = localStorage.getItem('niri_app:auth_user');
+          const authUser = localStorage.getItem("niri_app:auth_user");
           if (authUser) {
             const user = JSON.parse(authUser);
             return user.value?.role;
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error("Error reading user role:", error);
         }
         return null;
       };
       const userRole = getUserRole();
-      const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      const isMospiApprover = userRole === "MOSPI_APPROVER";
       
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
@@ -1007,7 +1173,6 @@ export const InfraFinancingReview = ({
     setPendingActionSectionId(null);
   };
 
-
 // 🧑‍💻🧑‍💻Edited by Harsh
 const renderActionButtons = (sectionId: string) => {
   // Don't show action buttons in preview mode
@@ -1021,31 +1186,31 @@ const renderActionButtons = (sectionId: string) => {
   // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
   const getUserRole = () => {
     try {
-      const authUser = localStorage.getItem('niri_app:auth_user');
+        const authUser = localStorage.getItem("niri_app:auth_user");
       if (authUser) {
         const user = JSON.parse(authUser);
         return user.value?.role;
       }
     } catch (error) {
-      console.error('Error reading user role:', error);
+        console.error("Error reading user role:", error);
     }
     return null;
   };
   const userRole = getUserRole();
-  const isNodalOfficer = userRole === 'NODAL_OFFICER';
-  const isStateApprover = userRole === 'STATE_APPROVER';
-  const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
-  const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const isStateApprover = userRole === "STATE_APPROVER";
+    const isMospiReviewer = userRole === "MOSPI_REVIEWER";
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
   
   // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
   const submissionStatus = submission?.status;
-  if (isStateApprover && submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
+    if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
     return null;
   }
   
   // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
   // Only show Timeline button for viewing comments
-  if (submissionStatus === 'APPROVED') {
+    if (submissionStatus === "APPROVED") {
     return (
       <div className="flex gap-2">
         {commentCount > 0 && (
@@ -1094,7 +1259,7 @@ const renderActionButtons = (sectionId: string) => {
   // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
   if (isMospiApprover) {
     // Check mospi_status instead of status for MOSPI_APPROVER
-    const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
     const sectionData = formData && formData[sectionKey];
     const mospiStatus = sectionData
       ? Array.isArray(sectionData)
@@ -1102,7 +1267,7 @@ const renderActionButtons = (sectionId: string) => {
         : sectionData?.mospi_status
       : undefined;
     
-    if (mospiStatus === 'ACCEPTED') {
+      if (mospiStatus === "ACCEPTED") {
       return (
         <div className="flex gap-2">
           <Button
@@ -1127,7 +1292,7 @@ const renderActionButtons = (sectionId: string) => {
       );
     }
     
-    if (mospiStatus === 'REVERTED') {
+      if (mospiStatus === "REVERTED") {
       return (
         <div className="flex gap-2">
           <Button
@@ -1199,7 +1364,7 @@ const renderActionButtons = (sectionId: string) => {
   }
 
   // For all other roles, check status field as before
-  const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
   const sectionData = formData && formData[sectionKey];
   const sectionStatus = sectionData
     ? Array.isArray(sectionData)
@@ -1207,7 +1372,14 @@ const renderActionButtons = (sectionId: string) => {
       : sectionData.status
     : undefined;
 
-  if (sectionStatus === 'ACCEPTED') {
+    // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
+    // REVERTED is excluded because user can resubmit after being sent back
+    const isSubmitted =
+      sectionStatus === "SUBMITTED" ||
+      sectionStatus === "RESUBMITTED" ||
+      sectionStatus === "ACCEPTED";
+
+    if (sectionStatus === "ACCEPTED") {
     return (
       <div className="flex gap-2">
         <Button
@@ -1233,7 +1405,8 @@ const renderActionButtons = (sectionId: string) => {
   }
   
   // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
-  if (isStateApprover && sectionStatus === 'RESUBMITTED') {
+    if (isStateApprover && sectionStatus === "RESUBMITTED") {
+      // RESUBMITTED means already submitted, so disable submit button
     return (
       <div className="flex gap-2">
         {!isEditable(sectionId) ? (
@@ -1253,6 +1426,7 @@ const renderActionButtons = (sectionId: string) => {
               size="sm"
               className="flex items-center gap-1"
               onClick={() => onSaveSection(sectionId)}
+                disabled={true} // Already submitted, disable button
             >
               <Check className="w-4 h-4" />
               Save
@@ -1301,8 +1475,9 @@ const renderActionButtons = (sectionId: string) => {
     );
   }
   
-  if (sectionStatus === 'REVERTED') {
+    if (sectionStatus === "REVERTED") {
     // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
+      // REVERTED means it was sent back, so user can resubmit (not disabled)
     if (isNodalOfficer) {
       return (
         <div className="flex gap-2">
@@ -1323,6 +1498,7 @@ const renderActionButtons = (sectionId: string) => {
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => onSaveSection(sectionId)}
+                  disabled={false} // Can resubmit after being sent back
               >
                 <Check className="w-4 h-4" />
                 Save
@@ -1386,7 +1562,7 @@ const renderActionButtons = (sectionId: string) => {
   }
 
   // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
-  if (isNodalOfficer && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
+    if (isNodalOfficer && (sectionStatus === "RESUBMITTED" || !sectionStatus)) {
     return (
       <div className="flex gap-2">
         <Button
@@ -1412,7 +1588,12 @@ const renderActionButtons = (sectionId: string) => {
   }
 
   // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
-  if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
+    if (
+      isNodalOfficer &&
+      sectionStatus !== "REVERTED" &&
+      sectionStatus !== "ACCEPTED" &&
+      sectionStatus !== "RESUBMITTED"
+    ) {
     return null;
   }
 
@@ -1435,6 +1616,7 @@ const renderActionButtons = (sectionId: string) => {
             size="sm"
             className="flex items-center gap-1"
             onClick={() => onSaveSection(sectionId)}
+              disabled={isSubmitted}
           >
             <Check className="w-4 h-4" />
             Save
@@ -1452,7 +1634,7 @@ const renderActionButtons = (sectionId: string) => {
       )}
 
       {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
-      {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
+        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
         <Button
           variant="outline"
           size="sm"
@@ -1547,7 +1729,7 @@ const calculateAllocationPercentage = () => {
           const { completed, total, progress } = computeStepProgress(
             { infraFinancing: formData } as any,
             "infraFinancing",
-            { assignedIndicators, }
+            { assignedIndicators }
           );
           return (
             <ProgressHeader
@@ -1601,9 +1783,14 @@ const calculateAllocationPercentage = () => {
           <div className="grid grid-cols-2 gap-4 max-w-[70%]">
             <div>
               <Label>Year</Label>
-              <Input value={
-                (getFormDataValue('section1_1') as { year?: string })?.year || "2024-25"
-              } readOnly className='bg-gray-50' />
+                <Input
+                  value={
+                    (getFormDataValue("section1_1") as { year?: string })
+                      ?.year || "2024-25"
+                  }
+                  readOnly
+                  className="bg-gray-50"
+                />
             </div>
             <div>
               <Label>Capital Allocation for FY (INR)</Label>
@@ -1615,8 +1802,8 @@ const calculateAllocationPercentage = () => {
                   setCapitalAllocation(e.target.value);
                 }}
                 placeholder="Enter Capital Allocation value"
-                readOnly={!isEditable('1.1')}
-                className={isEditable('1.1') ? 'bg-white' : 'bg-gray-50'}
+                  readOnly={!isEditable("1.1")}
+                  className={isEditable("1.1") ? "bg-white" : "bg-gray-50"}
               />
               <div className="text-xs text-gray-500 mt-1">
                 Current value: "{capitalAllocation}"
@@ -1632,8 +1819,8 @@ const calculateAllocationPercentage = () => {
                   setGsdpForFY(e.target.value);
                 }}
                 placeholder="Enter GSDP value"
-                readOnly={!isEditable('1.1')}
-                className={isEditable('1.1') ? 'bg-white' : 'bg-gray-50'}
+                  readOnly={!isEditable("1.1")}
+                  className={isEditable("1.1") ? "bg-white" : "bg-gray-50"}
               />
               <div className="text-xs text-gray-500 mt-1">
                 Current value: "{gsdpForFY}"
@@ -1646,7 +1833,11 @@ const calculateAllocationPercentage = () => {
                   value={calculateAllocationPercentage()}
                   readOnly
                   className="bg-gray-50 cursor-not-allowed pr-8"
-                  placeholder={capitalAllocation && gsdpForFY ? "Calculating..." : "Auto-calculated"}
+                    placeholder={
+                      capitalAllocation && gsdpForFY
+                        ? "Calculating..."
+                        : "Auto-calculated"
+                    }
                 />
                 {calculateAllocationPercentage() && (
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
@@ -1659,8 +1850,6 @@ const calculateAllocationPercentage = () => {
               </div>
             </div>
           </div>
-
-
         </SectionCard>
       )}
 
@@ -1694,7 +1883,7 @@ const calculateAllocationPercentage = () => {
                 <Label>A₁ - Actual Capex (INR)</Label>
                 <Input
                   value={
-                    isEditable('1.2')
+                    isEditable("1.2")
                       ? actualCapex
                       : actualCapex
                       ? `₹${actualCapex} Crores`
@@ -1702,14 +1891,14 @@ const calculateAllocationPercentage = () => {
                   }
                   onChange={(e) => {
                     // Only allow numbers and decimal point
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const value = e.target.value.replace(/[^0-9.]/g, "");
                     setActualCapex(value);
                   }}
                   placeholder="Enter Actual Capex value"
-                  readOnly={!isEditable('1.2')}
-                  className={isEditable('1.2') ? 'bg-white' : 'bg-gray-50'}
+                  readOnly={!isEditable("1.2")}
+                  className={isEditable("1.2") ? "bg-white" : "bg-gray-50"}
                 />
-                {isEditable('1.2') && (
+                {isEditable("1.2") && (
                   <div className="text-xs text-gray-500 mt-1">
                     Current value: "{actualCapex}"
                   </div>
@@ -1719,7 +1908,7 @@ const calculateAllocationPercentage = () => {
                 <Label>State Capex Utilisation (INR)</Label>
                 <Input
                   value={
-                    isEditable('1.2')
+                    isEditable("1.2")
                       ? stateCapexUtilisation
                       : stateCapexUtilisation
                       ? `₹${stateCapexUtilisation} Crores`
@@ -1727,14 +1916,14 @@ const calculateAllocationPercentage = () => {
                   }
                   onChange={(e) => {
                     // Only allow numbers and decimal point
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const value = e.target.value.replace(/[^0-9.]/g, "");
                     setStateCapexUtilisation(value);
                   }}
                   placeholder="Enter State Capex Utilisation value"
-                  readOnly={!isEditable('1.2')}
-                  className={isEditable('1.2') ? 'bg-white' : 'bg-gray-50'}
+                  readOnly={!isEditable("1.2")}
+                  className={isEditable("1.2") ? "bg-white" : "bg-gray-50"}
                 />
-                {isEditable('1.2') && (
+                {isEditable("1.2") && (
                   <div className="text-xs text-gray-500 mt-1">
                     Current value: "{stateCapexUtilisation}"
                   </div>
@@ -1745,7 +1934,8 @@ const calculateAllocationPercentage = () => {
                 <Input
                   value={(() => {
                     const actualCapexNum = parseFloat(actualCapex) || 0;
-                    const stateCapexUtilisationNum = parseFloat(stateCapexUtilisation) || 0;
+                    const stateCapexUtilisationNum =
+                      parseFloat(stateCapexUtilisation) || 0;
 
                     if (
                       isNaN(actualCapexNum) ||
@@ -1974,8 +2164,6 @@ const calculateAllocationPercentage = () => {
                   No bond data available
                 </div>
               )} */}
-
-
             </div>
 
             <Section_1_4
@@ -2007,8 +2195,10 @@ const calculateAllocationPercentage = () => {
             <div className="space-y-4">
               {/* RadioGroup for hasIntermediary */}
               <div>
-                <Label className="mb-3 block">Has Functional Financial Intermediary?*</Label>
-                {isEditable('1.5') ? (
+                <Label className="mb-3 block">
+                  Has Functional Financial Intermediary?*
+                </Label>
+                {isEditable("1.5") ? (
                   <RadioGroup
                     value={section15State?.hasIntermediary || ""}
                     onValueChange={(value) => {
@@ -2016,7 +2206,7 @@ const calculateAllocationPercentage = () => {
                         ...section15State,
                         hasIntermediary: value,
                         // Clear comment if switching to "yes"
-                        ...(value === "yes" ? { comment: undefined } : {})
+                        ...(value === "yes" ? { comment: undefined } : {}),
                       });
                     }}
                     className="flex flex-row gap-6"
@@ -2032,44 +2222,65 @@ const calculateAllocationPercentage = () => {
                   </RadioGroup>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm ${
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
                       section15State?.hasIntermediary === "yes"
                         ? "bg-green-100 text-green-800"
                         : section15State?.hasIntermediary === "no"
                         ? "bg-red-100 text-red-800"
                         : "bg-gray-100 text-gray-800"
-                    }`}>
-                      {section15State?.hasIntermediary === "yes" ? "Yes" : section15State?.hasIntermediary === "no" ? "No" : "Not specified"}
+                      }`}
+                    >
+                      {section15State?.hasIntermediary === "yes"
+                        ? "Yes"
+                        : section15State?.hasIntermediary === "no"
+                        ? "No"
+                        : "Not specified"}
                     </span>
                   </div>
                 )}
               </div>
 
               {/* Show table and Add More button if hasIntermediary is "yes" */}
-              {(section15State?.hasIntermediary === "yes") && (
+              {section15State?.hasIntermediary === "yes" && (
                 <>
                   {/* Table Display */}
                   <div className="overflow-x-auto rounded-xl">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Organisation Name</th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">Organisation Type</th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">Year of Establishment</th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">Total Funding (₹ Crores)</th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Website</th>
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Organisation Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Organisation Type
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Year of Establishment
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Total Funding (₹ Crores)
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Website
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {(() => {
-                          const ffiArray = Array.isArray(section15State?.ffiArray)
+                          const ffiArray = Array.isArray(
+                            section15State?.ffiArray
+                          )
                             ? section15State.ffiArray
                             : [];
 
                           if (!ffiArray.length) {
                             return (
                               <tr>
-                                <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                                <td
+                                  colSpan={5}
+                                  className="py-8 text-center text-muted-foreground"
+                                >
                                   No financial intermediary data available
                                 </td>
                               </tr>
@@ -2079,88 +2290,120 @@ const calculateAllocationPercentage = () => {
                           return ffiArray.map((item: any, index: number) => (
                             <tr key={item.id || index} className="border-b">
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('1.5') ? (
+                                {isEditable("1.5") ? (
                                   <Input
                                     value={item.organisationName || ""}
                                     onChange={(e) => {
                                       const updatedArray = [...ffiArray];
-                                      updatedArray[index] = { ...updatedArray[index], organisationName: e.target.value };
-                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                      updatedArray[index] = {
+                                        ...updatedArray[index],
+                                        organisationName: e.target.value,
+                                      };
+                                      setSection15State({
+                                        ...section15State,
+                                        ffiArray: updatedArray,
+                                      });
                                     }}
                                     className="w-full"
                                     placeholder="Enter organisation name"
                                   />
                                 ) : (
-                                  item.organisationName || 'N/A'
+                                  item.organisationName || "N/A"
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('1.5') ? (
+                                {isEditable("1.5") ? (
                                   <Dropdown
-                                    options={dropdownValues.issuingAuthorityList}
+                                    options={
+                                      dropdownValues.issuingAuthorityList
+                                    }
                                     value={item.organisationType || ""}
                                     onChange={(value) => {
                                       const updatedArray = [...ffiArray];
-                                      updatedArray[index] = { ...updatedArray[index], organisationType: value };
-                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                      updatedArray[index] = {
+                                        ...updatedArray[index],
+                                        organisationType: value,
+                                      };
+                                      setSection15State({
+                                        ...section15State,
+                                        ffiArray: updatedArray,
+                                      });
                                     }}
                                     placeholder="Select Type"
                                     isEditable={true}
                                     resetKey={selectResetKey}
                                   />
                                 ) : (
-                                  item.organisationType || 'N/A'
+                                  item.organisationType || "N/A"
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('1.5') ? (
+                                {isEditable("1.5") ? (
                                   <Input
                                     type="number"
                                     value={item.yearEstablished || ""}
                                     onChange={(e) => {
                                       const updatedArray = [...ffiArray];
-                                      updatedArray[index] = { ...updatedArray[index], yearEstablished: e.target.value };
-                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                      updatedArray[index] = {
+                                        ...updatedArray[index],
+                                        yearEstablished: e.target.value,
+                                      };
+                                      setSection15State({
+                                        ...section15State,
+                                        ffiArray: updatedArray,
+                                      });
                                     }}
                                     className="w-full"
                                     placeholder="Enter year"
                                   />
                                 ) : (
-                                  item.yearEstablished || 'N/A'
+                                  item.yearEstablished || "N/A"
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('1.5') ? (
+                                {isEditable("1.5") ? (
                                   <Input
                                     type="number"
                                     value={item.totalFunding || ""}
                                     onChange={(e) => {
                                       const updatedArray = [...ffiArray];
-                                      updatedArray[index] = { ...updatedArray[index], totalFunding: e.target.value };
-                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                      updatedArray[index] = {
+                                        ...updatedArray[index],
+                                        totalFunding: e.target.value,
+                                      };
+                                      setSection15State({
+                                        ...section15State,
+                                        ffiArray: updatedArray,
+                                      });
                                     }}
                                     className="w-full"
                                     placeholder="Enter funding"
                                   />
                                 ) : (
-                                  item.totalFunding || 'N/A'
+                                  item.totalFunding || "N/A"
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('1.5') ? (
+                                {isEditable("1.5") ? (
                                   <Input
                                     type="url"
                                     value={item.website || ""}
                                     onChange={(e) => {
                                       const updatedArray = [...ffiArray];
-                                      updatedArray[index] = { ...updatedArray[index], website: e.target.value };
-                                      setSection15State({ ...section15State, ffiArray: updatedArray });
+                                      updatedArray[index] = {
+                                        ...updatedArray[index],
+                                        website: e.target.value,
+                                      };
+                                      setSection15State({
+                                        ...section15State,
+                                        ffiArray: updatedArray,
+                                      });
                                     }}
                                     className="w-full"
                                     placeholder="Enter website"
                                   />
                                 ) : (
-                                  item.website || 'N/A'
+                                  item.website || "N/A"
                                 )}
                               </td>
                             </tr>
@@ -2171,7 +2414,7 @@ const calculateAllocationPercentage = () => {
                   </div>
 
                   {/* Add More Button - Only visible when in edit mode */}
-                  {isEditable('1.5') && !showAddForm1_5 && (
+                  {isEditable("1.5") && !showAddForm1_5 && (
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -2184,7 +2427,7 @@ const calculateAllocationPercentage = () => {
                   )}
 
                   {/* Add Entry Form - Only visible when showAddForm1_5 is true */}
-                  {showAddForm1_5 && isEditable('1.5') && (
+                  {showAddForm1_5 && isEditable("1.5") && (
                     <div className="border rounded-lg p-4 bg-gray-50">
                       <h4 className="font-medium mb-3">Add New Organization</h4>
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -2192,7 +2435,12 @@ const calculateAllocationPercentage = () => {
                           <Label>Organisation Name</Label>
                           <Input
                             value={newEntry1_5.organisationName}
-                            onChange={(e) => setNewEntry1_5({...newEntry1_5, organisationName: e.target.value})}
+                            onChange={(e) =>
+                              setNewEntry1_5({
+                                ...newEntry1_5,
+                                organisationName: e.target.value,
+                              })
+                            }
                             className="bg-white"
                             placeholder="Enter organisation name"
                           />
@@ -2202,7 +2450,12 @@ const calculateAllocationPercentage = () => {
                           <Dropdown
                             options={dropdownValues.issuingAuthorityList}
                             value={newEntry1_5.organisationType}
-                            onChange={(value) => setNewEntry1_5({...newEntry1_5, organisationType: value})}
+                            onChange={(value) =>
+                              setNewEntry1_5({
+                                ...newEntry1_5,
+                                organisationType: value,
+                              })
+                            }
                             placeholder="Select Type"
                             isEditable={true}
                           />
@@ -2212,7 +2465,12 @@ const calculateAllocationPercentage = () => {
                           <Input
                             type="number"
                             value={newEntry1_5.yearEstablished}
-                            onChange={(e) => setNewEntry1_5({...newEntry1_5, yearEstablished: e.target.value})}
+                            onChange={(e) =>
+                              setNewEntry1_5({
+                                ...newEntry1_5,
+                                yearEstablished: e.target.value,
+                              })
+                            }
                             className="bg-white"
                             placeholder="Enter year"
                           />
@@ -2222,7 +2480,12 @@ const calculateAllocationPercentage = () => {
                           <Input
                             type="number"
                             value={newEntry1_5.totalFunding}
-                            onChange={(e) => setNewEntry1_5({...newEntry1_5, totalFunding: e.target.value})}
+                            onChange={(e) =>
+                              setNewEntry1_5({
+                                ...newEntry1_5,
+                                totalFunding: e.target.value,
+                              })
+                            }
                             className="bg-white"
                             placeholder="Enter funding"
                           />
@@ -2232,7 +2495,12 @@ const calculateAllocationPercentage = () => {
                           <Input
                             type="url"
                             value={newEntry1_5.website}
-                            onChange={(e) => setNewEntry1_5({...newEntry1_5, website: e.target.value})}
+                            onChange={(e) =>
+                              setNewEntry1_5({
+                                ...newEntry1_5,
+                                website: e.target.value,
+                              })
+                            }
                             className="bg-white"
                             placeholder="Enter website"
                           />
@@ -2253,7 +2521,13 @@ const calculateAllocationPercentage = () => {
                           size="sm"
                           onClick={() => {
                             setShowAddForm1_5(false);
-                            setNewEntry1_5({ organisationName: "", organisationType: "", yearEstablished: "", totalFunding: "", website: "" });
+                            setNewEntry1_5({
+                              organisationName: "",
+                              organisationType: "",
+                              yearEstablished: "",
+                              totalFunding: "",
+                              website: "",
+                            });
                           }}
                           className="flex items-center gap-2"
                         >
@@ -2267,16 +2541,16 @@ const calculateAllocationPercentage = () => {
               )}
 
               {/* Show comment field if hasIntermediary is "no" */}
-              {(section15State?.hasIntermediary === "no") && (
+              {section15State?.hasIntermediary === "no" && (
                 <div>
                   <Label>Comment</Label>
-                  {isEditable('1.5') ? (
+                  {isEditable("1.5") ? (
                     <Textarea
                       value={section15State?.comment || ""}
                       onChange={(e) => {
                         setSection15State({
                           ...section15State,
-                          comment: e.target.value
+                          comment: e.target.value,
                         });
                       }}
                       className="bg-white mt-2"
@@ -2306,35 +2580,37 @@ const calculateAllocationPercentage = () => {
         commentType={(() => {
           const getUserRole = () => {
             try {
-              const authUser = localStorage.getItem('niri_app:auth_user');
+              const authUser = localStorage.getItem("niri_app:auth_user");
               if (authUser) {
                 const user = JSON.parse(authUser);
                 return user.value?.role;
               }
             } catch (error) {
-              console.error('Error reading user role:', error);
+              console.error("Error reading user role:", error);
             }
             return null;
           };
           const userRole = getUserRole();
-          return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
+          return userRole === "MOSPI_REVIEWER"
+            ? "comment"
+            : "indicator_comment";
         })()}
         onSendBack={
           // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
           (() => {
             const getUserRole = () => {
               try {
-                const authUser = localStorage.getItem('niri_app:auth_user');
+                const authUser = localStorage.getItem("niri_app:auth_user");
                 if (authUser) {
                   const user = JSON.parse(authUser);
                   return user.value?.role;
                 }
               } catch (error) {
-                console.error('Error reading user role:', error);
+                console.error("Error reading user role:", error);
               }
               return null;
             };
-            return getUserRole() === 'MOSPI_REVIEWER';
+            return getUserRole() === "MOSPI_REVIEWER";
           })()
             ? undefined
             : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
@@ -2344,7 +2620,9 @@ const calculateAllocationPercentage = () => {
               isMospiApproverSentBack
               ? async () => {
                   // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
-                  console.log("MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage");
+                console.log(
+                  "MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage"
+                );
                 }
               : (sectionId) => onIndicatorStatus(sectionId, false)
         }
@@ -2367,18 +2645,25 @@ const calculateAllocationPercentage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Save</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to save this section? This will send the data to the State Approver for review.
+              Are you sure you want to save this indicator?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSave}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>Confirm & Save</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              Confirm & Save
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Confirmation Dialog for STATE_APPROVER and MOSPI_APPROVER Send Back */}
-      <AlertDialog open={showSendBackDialog} onOpenChange={setShowSendBackDialog}>
+      <AlertDialog
+        open={showSendBackDialog}
+        onOpenChange={setShowSendBackDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Send Back</AlertDialogTitle>
@@ -2386,18 +2671,18 @@ const calculateAllocationPercentage = () => {
               {(() => {
                 const getUserRole = () => {
                   try {
-                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    const authUser = localStorage.getItem("niri_app:auth_user");
                     if (authUser) {
                       const user = JSON.parse(authUser);
                       return user.value?.role;
                     }
                   } catch (error) {
-                    console.error('Error reading user role:', error);
+                    console.error("Error reading user role:", error);
                   }
                   return null;
                 };
                 const userRole = getUserRole();
-                const isMospiApprover = userRole === 'MOSPI_APPROVER';
+                const isMospiApprover = userRole === "MOSPI_APPROVER";
                 
                 return isMospiApprover
                   ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
@@ -2406,8 +2691,12 @@ const calculateAllocationPercentage = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSendBack}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSendBack}>Confirm & Send Back</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelSendBack}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSendBack}>
+              Confirm & Send Back
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2421,18 +2710,18 @@ const calculateAllocationPercentage = () => {
               {(() => {
                 const getUserRole = () => {
                   try {
-                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    const authUser = localStorage.getItem("niri_app:auth_user");
                     if (authUser) {
                       const user = JSON.parse(authUser);
                       return user.value?.role;
                     }
                   } catch (error) {
-                    console.error('Error reading user role:', error);
+                    console.error("Error reading user role:", error);
                   }
                   return null;
                 };
                 const userRole = getUserRole();
-                const isMospiApprover = userRole === 'MOSPI_APPROVER';
+                const isMospiApprover = userRole === "MOSPI_APPROVER";
                 
                 return isMospiApprover
                   ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
@@ -2441,8 +2730,12 @@ const calculateAllocationPercentage = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelAccept}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>
+              Confirm & Accept
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
