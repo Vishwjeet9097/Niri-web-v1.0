@@ -142,9 +142,9 @@ export function StateApproverDashboardPage() {
         // const mospiSubmittedFromSubmissions = submissionsArray.filter(s => mapBackendStatusToFrontend(s.status) === "SUBMITTED_TO_MOSPI").length;
 
         // Build a lightweight KPIs model for display components
-        const assembledKpis = [
+        const assembledKpis = [           
           {
-            title: "Total Assigned",
+            title: "Total Assigned Nodal Officers",
             value: String(totalAssigned),
             subtitle: "Critical Attention Needed",
             icon: User,
@@ -160,7 +160,7 @@ export function StateApproverDashboardPage() {
 
           // Indicators received group
           {
-            title: "Accepted From Nodal Officer",
+            title: "Accepted By State Approver",
             value:
               totalAssigned && totalAssigned > 0
                 ? `${acceptedFromNodal}/${totalAssigned}`
@@ -383,10 +383,16 @@ export function StateApproverDashboardPage() {
         <div className="grid gap-6 md:grid-cols-2">
           {/* --- Total Indicators Section --- */}
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-[#111827]">
-              Total Indicators:&nbsp;
-              <span className="text-black">{totalIndicators}</span>
-            </h2>
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Total Indicators:&nbsp;
+                <span className="text-black">{totalIndicators}</span>
+              </h2>
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Total Assigned State Approver:&nbsp;
+                <span className="text-black">{totalIndicators - totalAssignedState}</span>
+              </h2>
+            </div>
             <div className="grid gap-4 grid-cols-1">
               {overviewCards.map((c: any, i: number) => (
                 <StateApproverKPICard
