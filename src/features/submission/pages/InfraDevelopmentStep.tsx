@@ -2538,7 +2538,7 @@ export const InfraDevelopmentStep = () => {
 
                           <div>
                             <Label>
-                              Project Size (INR Cr){" "}
+                              Project Size (INR - values is in CRORES){" "}
                               <span className="text-destructive">*</span>
                             </Label>
                             <Input

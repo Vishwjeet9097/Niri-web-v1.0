@@ -64,6 +64,7 @@ export function StateApproverDashboardPage() {
   const [kpis, setKpis] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalIndicators, setTotalIndicators] = useState<number>(0);
   const [totalAssignedState, setTotalAssignedState] = useState<number>(0);
   const [totalIndicatorsReceivedState, setTotalIndicatorsReceivedState] =
     useState<number>(0);
@@ -80,8 +81,11 @@ export function StateApproverDashboardPage() {
         ]);
 
         // Dashboard structure: prefer top-level keys, else fallback to .data
+        const totalIndicatorsValue = dashboardData?.totalIndicators || 0;
         const nodal = dashboardData?.nodal || dashboardData?.data?.nodal || {};
         const mospi = dashboardData?.mospi || dashboardData?.data?.mospi || {};
+
+        setTotalIndicators(totalIndicatorsValue);
 
         // Normalize submissions response
         let submissionsArray: any[] = [];
@@ -121,9 +125,9 @@ export function StateApproverDashboardPage() {
         // const mospiSubmittedFromSubmissions = submissionsArray.filter(s => mapBackendStatusToFrontend(s.status) === "SUBMITTED_TO_MOSPI").length;
 
         // Build a lightweight KPIs model for display components
-        const assembledKpis = [
+        const assembledKpis = [           
           {
-            title: "Total Assigned",
+            title: "Total Assigned Nodal Officers",
             value: String(totalAssigned),
             subtitle: "Critical Attention Needed",
             icon: User,
@@ -139,7 +143,7 @@ export function StateApproverDashboardPage() {
 
           // Indicators received group
           {
-            title: "Accepted From Nodal Officer",
+            title: "Accepted By State Approver",
             value:
               totalAssigned && totalAssigned > 0
                 ? `${acceptedFromNodal}/${totalAssigned}`
@@ -305,12 +309,28 @@ export function StateApproverDashboardPage() {
       </div>
 
       {/* Page Background */}
-      <div className="space-y-6 bg-[#F9FAFB] p-6 rounded-lg">
-        {/* --- Overview + Total Indicators Received Section (Side-by-Side) --- */}
+      <div className="space-y-6 bg-[#F9FAFB] p-0 rounded-lg">
+        {/* --- Overview Section --- */}
+        <div className="bg-white rounded-lg shadow-sm">
+          <h2 className="text-lg font-semibold text-[#111827]">
+            Overview
+          </h2>
+        </div>
+
+        {/* --- Total Indicators + Total Indicators Received Section (Side-by-Side) --- */}
         <div className="grid gap-6 md:grid-cols-2">
-          {/* --- Overview Section --- */}
+          {/* --- Total Indicators Section --- */}
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-[#111827]">Overview</h2>
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Total Indicators:&nbsp;
+                <span className="text-black">{totalIndicators}</span>
+              </h2>
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Total Assigned State Approver:&nbsp;
+                <span className="text-black">{totalIndicators - totalAssignedState}</span>
+              </h2>
+            </div>
             <div className="grid gap-4 grid-cols-1">
               {overviewCards.map((c: any, i: number) => (
                 <StateApproverKPICard
@@ -327,14 +347,12 @@ export function StateApproverDashboardPage() {
 
           {/* --- Total Indicators Received Section --- */}
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[#111827]">
-                Total Indicators Received:&nbsp;
-                <span className="text-black">
-                  {totalIndicatorsReceivedState}/{totalAssignedState || 0}
-                </span>
-              </h2>
-            </div>
+            <h2 className="text-lg font-semibold text-[#111827]">
+              Total Indicators Received:&nbsp;
+              <span className="text-black">
+                {totalIndicatorsReceivedState}/{totalAssignedState || 0}
+              </span>
+            </h2>
 
             <div className="grid gap-4 grid-cols-1">
               {indicatorsReceivedCards.map((c: any, i: number) => (

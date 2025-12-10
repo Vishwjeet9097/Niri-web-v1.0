@@ -3597,34 +3597,22 @@ export const InfraDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-            <div className="overflow-x-auto rounded-xl">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#DDE3F9]">
-                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                      Project/Asset Name
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Select Sector
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Select Type
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">
-                      Asset Ownership
-                    </th>
-                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                      Estimated Monetization
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const assetMonetizationArray = Array.isArray(
-                      state?.section2_5?.assetMonetizationArray
-                    )
-                      ? state.section2_5.assetMonetizationArray
-                      : [];
+              <div className="overflow-x-auto rounded-xl">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#DDE3F9]">
+                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project/Asset Name</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Select Sector</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Select Type</th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">Asset Ownership</th>
+                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Estimated Monetization (INR - values is in CRORES)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const assetMonetizationArray = Array.isArray(state?.section2_5?.assetMonetizationArray)
+                        ? state.section2_5.assetMonetizationArray
+                        : [];
 
                     if (!assetMonetizationArray.length) {
                       return (

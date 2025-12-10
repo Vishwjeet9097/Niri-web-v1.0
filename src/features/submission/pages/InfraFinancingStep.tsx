@@ -2170,7 +2170,7 @@ export const InfraFinancingStep = () => {
 
                       <div>
                         <Label>
-                          Value (INR crore)
+                          Value (INR - values is in CRORES)
                           <span className="text-red-500">*</span>
                         </Label>
                         <Input

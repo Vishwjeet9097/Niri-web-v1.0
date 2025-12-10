@@ -350,16 +350,19 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                     <Input
                       placeholder="Mumbai"
                       value={ulb.cityName}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        let value = e.target.value;
+                        // Only allow letters and spaces
+                        value = value.replace(/[^a-zA-Z\s]/g, "");
                         setFormData({
                           ...formData,
                           section1_3: formData.section1_3.map((item) =>
                             item.id === ulb.id
-                              ? { ...item, cityName: e.target.value }
+                              ? { ...item, cityName: value }
                               : item
                           ),
-                        })
-                      }
+                        });
+                      }}
                     />
                   </div>
                   <div>
