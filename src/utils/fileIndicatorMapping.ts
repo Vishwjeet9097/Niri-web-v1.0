@@ -177,7 +177,8 @@ export function findIndicatorForFile(
 export function findEntryContextForFile(
   filePath: string | undefined,
   fileId: string | undefined,
-  formData: any
+  formData: any,
+  fileObject?: File // Optional File object for preview mode matching
 ): { indicator: string | null; entryId: string | null; entryIndex: number | null } {
   if (!formData || typeof formData !== "object") {
     return { indicator: null, entryId: null, entryIndex: null };
@@ -191,6 +192,15 @@ export function findEntryContextForFile(
 
   let entryId: string | null = null;
   let entryIndex: number | null = null;
+
+  // Helper to check if a File object matches
+  const fileMatches = (objFile: File | undefined, targetFile: File | undefined): boolean => {
+    if (!targetFile || !objFile) return false;
+    return objFile === targetFile || 
+           (objFile.name === targetFile.name && 
+            objFile.size === targetFile.size && 
+            objFile.lastModified === targetFile.lastModified);
+  };
 
   // Search formData to find entry context
   const searchInObject = (
@@ -213,6 +223,26 @@ export function findEntryContextForFile(
       return true;
     }
 
+    // In preview mode: check if this object has a File that matches fileObject
+    if (fileObject) {
+      if (obj instanceof File && fileMatches(obj, fileObject)) {
+        if (!indicator) {
+          indicator = extractIndicatorFromFormDataPath(currentPath, formData);
+        }
+        if (currentEntryId) entryId = currentEntryId;
+        if (currentEntryIndex !== null) entryIndex = currentEntryIndex;
+        return true;
+      }
+      if (obj.file instanceof File && fileMatches(obj.file, fileObject)) {
+        if (!indicator) {
+          indicator = extractIndicatorFromFormDataPath(currentPath, formData);
+        }
+        if (currentEntryId) entryId = currentEntryId;
+        if (currentEntryIndex !== null) entryIndex = currentEntryIndex;
+        return true;
+      }
+    }
+
     // Check nested file structures
     if (obj.file) {
       if (obj.file.filePath === filePath || obj.file.id === fileId) {
@@ -224,6 +254,15 @@ export function findEntryContextForFile(
         return true;
       }
       if (obj.file.file?.filePath === filePath || obj.file.file?.id === fileId) {
+        if (!indicator) {
+          indicator = extractIndicatorFromFormDataPath(currentPath, formData);
+        }
+        if (currentEntryId) entryId = currentEntryId;
+        if (currentEntryIndex !== null) entryIndex = currentEntryIndex;
+        return true;
+      }
+      // In preview mode: check nested File objects
+      if (fileObject && obj.file.file instanceof File && fileMatches(obj.file.file, fileObject)) {
         if (!indicator) {
           indicator = extractIndicatorFromFormDataPath(currentPath, formData);
         }
@@ -299,8 +338,32 @@ export function filterFilesByIndicatorAccess(
   }
 
   // Filter files based on indicator access
+  const fileIndicators = files.map(f => {
+    const indicator = (f as any)._indicator || findIndicatorForFile(f.filePath, f.id, formData);
+    const hasAccess = indicator ? assignedIndicators.includes(indicator) : false;
+    return {
+      fileName: f.fileName || f.originalName,
+      filePath: f.filePath,
+      indicator,
+      hasIndicator: !!(f as any)._indicator,
+      hasAccess,
+    };
+  });
+  
+  console.log("📄 filterFilesByIndicatorAccess:", {
+    totalFiles: files.length,
+    assignedIndicators,
+    userRole,
+    fileIndicators: fileIndicators.slice(0, 10), // Show first 10
+    filesWithoutIndicators: fileIndicators.filter(f => !f.indicator).length,
+    filesWithMatchingIndicators: fileIndicators.filter(f => f.hasAccess).length,
+    filesWithNonMatchingIndicators: fileIndicators.filter(f => f.indicator && !f.hasAccess).map(f => ({ indicator: f.indicator, fileName: f.fileName })),
+  });
+  
   return files.filter((file) => {
-    const indicator = findIndicatorForFile(file.filePath, file.id, formData);
+    // In preview mode, files extracted from formData have _indicator set
+    // Check this first before falling back to findIndicatorForFile
+    const indicator = (file as any)._indicator || findIndicatorForFile(file.filePath, file.id, formData);
     
     if (!indicator) {
       // If we can't determine the indicator, be conservative and hide it
@@ -349,7 +412,8 @@ export function mapFilesToIndicators(
   const map: Record<string, Array<{ id?: string; filePath?: string; [key: string]: any }>> = {};
 
   files.forEach((file) => {
-    const indicator = findIndicatorForFile(file.filePath, file.id, formData);
+    // In preview mode, files have _indicator set during extraction - use it first
+    const indicator = (file as any)._indicator || findIndicatorForFile(file.filePath, file.id, formData);
     if (indicator) {
       if (!map[indicator]) {
         map[indicator] = [];
@@ -357,6 +421,7 @@ export function mapFilesToIndicators(
       map[indicator].push(file);
     } else {
       // Files without clear indicator mapping go to "unknown"
+      // But only if not in preview mode (preview mode files should all have _indicator)
       if (!map["unknown"]) {
         map["unknown"] = [];
       }

@@ -32,6 +32,8 @@ interface Document {
   uploadedBy?: string;
   uploadedAt?: string | Date;
   _fileObject?: File; // Internal reference for local File objects (preview mode only)
+  _indicator?: string; // Indicator code determined from formData path (preview mode)
+  _formDataPath?: string; // Path in formData where file was found (preview mode, for debugging)
 }
 
 interface DocumentsTabProps {
@@ -103,6 +105,113 @@ function downloadByLink(signedUrl: string, filename?: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+/**
+ * Extract indicator code from formData path
+ * e.g., "pppDevelopment.section3_1.file" -> "3.1"
+ */
+function extractIndicatorFromFormDataPath(path: string): string | null {
+  if (!path) return null;
+  
+  const SECTION_TO_INDICATOR_MAP: Record<string, string> = {
+    section1_1: "1.1", section1_2: "1.2", section1_3: "1.3", section1_4: "1.4", section1_5: "1.5",
+    section2_1: "2.1", section2_2: "2.2", section2_3: "2.3", section2_4: "2.4", section2_5: "2.5",
+    section3_1: "3.1", section3_2: "3.2", section3_3: "3.3", section3_4: "3.4",
+    section4_1: "4.1", section4_2: "4.2", section4_3: "4.3", section4_4: "4.4", section4_5: "4.5", section4_6: "4.6",
+  };
+  
+  const parts = path.split(".");
+  for (const part of parts) {
+    if (SECTION_TO_INDICATOR_MAP[part]) {
+      return SECTION_TO_INDICATOR_MAP[part];
+    }
+  }
+  // Handle array indices: section4_5[0] -> section4_5
+  for (const part of parts) {
+    const match = part.match(/^(\w+)\[\d+\]$/);
+    if (match && SECTION_TO_INDICATOR_MAP[match[1]]) {
+      return SECTION_TO_INDICATOR_MAP[match[1]];
+    }
+  }
+  return null;
+}
+
+/**
+ * Recursively extract file metadata from nested formData structure FOR PREVIEW MODE
+ * Tracks the path in formData to determine which indicator the file belongs to
+ */
+function extractFilesFromFormDataPreview(
+  obj: any,
+  collectedFiles: Document[] = [],
+  seenIds: Set<string> = new Set(),
+  currentPath: string = ""
+): Document[] {
+  if (!obj || typeof obj !== "object") return collectedFiles;
+
+  // Helper function to recursively find File in nested structure
+  const findFileInNested = (obj: any, maxDepth = 5, currentDepth = 0): File | null => {
+    if (currentDepth >= maxDepth) return null;
+    if (obj instanceof File) return obj;
+    if (!obj || typeof obj !== 'object') return null;
+    
+    if (obj.file instanceof File) return obj.file;
+    if (obj.file?.file instanceof File) return obj.file.file;
+    if (obj.file?.file?.file instanceof File) return obj.file.file.file;
+    
+    // Recursively search in nested objects
+    for (const key of ['file', 'data', 'blob', 'content']) {
+      if (obj[key] instanceof File) return obj[key];
+      if (obj[key] && typeof obj[key] === 'object') {
+        const found = findFileInNested(obj[key], maxDepth, currentDepth + 1);
+        if (found) return found;
+      }
+    }
+    
+    return null;
+  };
+  
+  // Try to find File in nested structure
+  const file = findFileInNested(obj);
+  if (file) {
+    const fileId = obj.id ?? `${file.name}-${file.size}-${file.lastModified}`;
+    
+    if (!seenIds.has(fileId)) {
+      seenIds.add(fileId);
+      const indicator = extractIndicatorFromFormDataPath(currentPath);
+      collectedFiles.push({
+        id: fileId,
+        fileName: obj.fileName || file.name,
+        originalName: obj.originalName || file.name,
+        filePath: undefined, // No filePath for local files
+        fileSize: obj.fileSize ?? file.size,
+        mimeType: obj.mimeType || file.type,
+        uploadedBy: obj.uploadedBy ?? "Unknown",
+        uploadedAt: obj.uploadedAt ? (typeof obj.uploadedAt === 'number' ? new Date(obj.uploadedAt) : new Date(obj.uploadedAt)) : new Date(file.lastModified),
+        _fileObject: file, // Store File object for preview
+        _indicator: indicator || undefined, // Set indicator from path
+        _formDataPath: currentPath, // Store path for debugging
+      });
+    }
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    obj.forEach((item, index) => {
+      const newPath = currentPath ? `${currentPath}[${index}]` : `[${index}]`;
+      extractFilesFromFormDataPreview(item, collectedFiles, seenIds, newPath);
+    });
+    return collectedFiles;
+  }
+
+  // Handle objects - recurse into all properties
+  Object.entries(obj).forEach(([key, value]) => {
+    if (key.startsWith("_")) return; // Skip internal properties
+    const newPath = currentPath ? `${currentPath}.${key}` : key;
+    extractFilesFromFormDataPreview(value, collectedFiles, seenIds, newPath);
+  });
+
+  return collectedFiles;
 }
 
 /**
@@ -357,60 +466,26 @@ export const DocumentsTab = ({
       return false;
     };
 
-    // First, check for attachedFiles array (if present)
-    if (Array.isArray(formData.attachedFiles) && formData.attachedFiles.length) {
+    // In preview mode: Skip attachedFiles - files should be extracted from nested structure with indicators
+    // In review mode: Include attachedFiles (they have filePath with indicator info)
+    if (!isPreview && Array.isArray(formData.attachedFiles) && formData.attachedFiles.length) {
       formData.attachedFiles.forEach((f: any, idx: number) => {
-        if (isPreview) {
-          // In preview mode, check for File objects
-          if (f.file instanceof File) {
-            const fileId = f.id ?? `${f.file.name}-${f.file.size}-${f.file.lastModified}`;
-            if (!seenIds.has(fileId)) {
-              seenIds.add(fileId);
-              collectedFiles.push({
-                id: fileId,
-                fileName: f.fileName || f.file.name,
-                originalName: f.file.name,
-                filePath: undefined,
-                fileSize: f.fileSize ?? f.file.size,
-                mimeType: f.mimeType || f.file.type,
-                uploadedBy: f.uploadedBy ?? "Unknown",
-                uploadedAt: f.uploadedAt ? new Date(f.uploadedAt) : new Date(f.file.lastModified),
-                _fileObject: f.file,
-              });
-            }
-          } else if (f.filePath) {
-            // Fallback: if no File object but has filePath, include it (might be from previous upload)
-            if (!isDuplicate(f)) {
-              collectedFiles.push({
-                id: f.id ?? `attached-${idx}`,
-                fileName: f.fileName,
-                originalName: f.originalName,
-                filePath: f.filePath,
-                fileSize: typeof f.fileSize === "number" ? f.fileSize : Number(f.fileSize) || undefined,
-                mimeType: f.mimeType,
-                uploadedBy: f.uploadedBy ?? "Unknown",
-                uploadedAt: f.uploadedAt ?? f.uploadedAtString ?? undefined,
-              });
-            }
-          }
-        } else {
-          // In review mode, check for filePath
-          if (f.filePath && typeof f.filePath === "string" && f.filePath.trim() !== "") {
-            if (!isDuplicate(f)) {
-              collectedFiles.push({
-                id: f.id ?? `attached-${idx}`,
-                fileName: f.fileName,
-                originalName: f.originalName,
-                filePath: f.filePath,
-                fileSize:
-                  typeof f.fileSize === "number"
-                    ? f.fileSize
-                    : Number(f.fileSize) || undefined,
-                mimeType: f.mimeType,
-                uploadedBy: f.uploadedBy ?? "Unknown",
-                uploadedAt: f.uploadedAt ?? f.uploadedAtString ?? undefined,
-              });
-            }
+        // In review mode, check for filePath
+        if (f.filePath && typeof f.filePath === "string" && f.filePath.trim() !== "") {
+          if (!isDuplicate(f)) {
+            collectedFiles.push({
+              id: f.id ?? `attached-${idx}`,
+              fileName: f.fileName,
+              originalName: f.originalName,
+              filePath: f.filePath,
+              fileSize:
+                typeof f.fileSize === "number"
+                  ? f.fileSize
+                  : Number(f.fileSize) || undefined,
+              mimeType: f.mimeType,
+              uploadedBy: f.uploadedBy ?? "Unknown",
+              uploadedAt: f.uploadedAt ?? f.uploadedAtString ?? undefined,
+            });
           }
         }
       });
@@ -446,8 +521,13 @@ export const DocumentsTab = ({
       section4_2FileId: restOfFormData.infraEnablers?.section4_2?.file?.id,
     });
     
-    // Pass the seen sets to the extraction function to maintain deduplication
-    extractFilesFromFormData(restOfFormData, collectedFiles, seenPaths, seenIds, isPreview);
+    // In preview mode, use the preview-specific extraction function that tracks paths and sets _indicator
+    // In review mode, use the standard extraction function
+    if (isPreview) {
+      extractFilesFromFormDataPreview(restOfFormData, collectedFiles, seenIds);
+    } else {
+      extractFilesFromFormData(restOfFormData, collectedFiles, seenPaths, seenIds, isPreview);
+    }
 
     // Try to find indicators for extracted files
     const filesWithIndicators = collectedFiles.map(f => {
@@ -548,10 +628,11 @@ export const DocumentsTab = ({
     return map;
   }, [formData, isPreview]);
 
-  // Process documents prop to ensure File objects are preserved in preview mode
-  // Also try to find File objects from formData if they're not in the document
-  const processedDocuments = React.useMemo(() => {
-    if (!isPreview || !documents.length) return documents;
+  // Process documents prop for PREVIEW MODE ONLY
+  // Finds File objects from formData for local file handling
+  const processedPreviewDocuments = React.useMemo(() => {
+    // Only process in preview mode
+    if (!isPreview || !documents.length) return [];
     
     console.log("📄 Processing documents prop:", {
       documentsCount: documents.length,
@@ -729,14 +810,89 @@ export const DocumentsTab = ({
         }
       }
       
-      if (doc.id) {
+      // If file doesn't have _indicator set, try to find it in formData
+      if (!doc._indicator && formData) {
+        // Helper function to find indicator for a file by searching formData
+        const findIndicatorForFileInFormData = (docObj: any, formDataObj: any, currentPath: string = ""): string | null => {
+          if (!formDataObj || typeof formDataObj !== 'object') return null;
+          
+          // Check if this object matches the document
+          const matchesDoc = (obj: any): boolean => {
+            if (docObj.id && obj.id === docObj.id) return true;
+            if (docObj.originalName && docObj.fileSize && obj.originalName === docObj.originalName && obj.fileSize === docObj.fileSize) return true;
+            if (obj.file && matchesDoc(obj.file)) return true;
+            return false;
+          };
+          
+          if (matchesDoc(formDataObj)) {
+            // Extract indicator from current path
+            return extractIndicatorFromFormDataPath(currentPath);
+          }
+          
+          // Recurse into nested objects and arrays
+          if (Array.isArray(formDataObj)) {
+            for (let i = 0; i < formDataObj.length; i++) {
+              const newPath = currentPath ? `${currentPath}[${i}]` : `[${i}]`;
+              const found = findIndicatorForFileInFormData(docObj, formDataObj[i], newPath);
+              if (found) return found;
+            }
+          } else {
+            for (const [key, value] of Object.entries(formDataObj)) {
+              if (key.startsWith("_")) continue;
+              const newPath = currentPath ? `${currentPath}.${key}` : key;
+              const found = findIndicatorForFileInFormData(docObj, value, newPath);
+              if (found) return found;
+            }
+          }
+          
+          return null;
+        };
+        
+        const indicator = findIndicatorForFileInFormData(doc, formData);
+        if (indicator) {
+          doc = {
+            ...doc,
+            _indicator: indicator,
+          };
+        }
+      }
+      
+      if (doc.id && !doc._fileObject) {
         console.log("📄 No File object found for doc ID:", doc.id, "in lookup map or formData");
       }
       
-      console.log("📄 No File object found in doc:", doc);
+      if (!doc._fileObject) {
+        console.log("📄 No File object found in doc:", doc);
+      }
+      
       return doc;
     });
   }, [documents, isPreview, formData, fileLookupMap]);
+
+  // Process documents prop for REVIEW MODE ONLY
+  // In review mode, documents already have filePath (S3 paths) - no need to find File objects
+  const processedReviewDocuments = React.useMemo(() => {
+    // Only process in review mode
+    if (isPreview || !documents.length) return [];
+    
+    console.log("📄 Processing review documents prop:", {
+      documentsCount: documents.length,
+      sampleDoc: documents[0],
+      sampleDocFilePath: documents[0]?.filePath,
+    });
+    
+    // In review mode, documents already have filePath (S3 paths)
+    // Just return them as-is - no need to find File objects
+    return documents.map((doc: any) => {
+      // Ensure document has required properties
+      return {
+        ...doc,
+        id: doc.id || doc.filePath || `${doc.originalName || doc.fileName || 'file'}_${doc.fileSize || '0'}`,
+        // Keep filePath for review mode
+        filePath: doc.filePath,
+      };
+    });
+  }, [documents, isPreview]);
 
   // Combine documents from all sources
   // IMPORTANT: DO NOT deduplicate globally by filename
@@ -755,27 +911,102 @@ export const DocumentsTab = ({
       });
     }
     
-    // Add processed documents (from documents prop, likely from attachedFiles array)
-    if (Array.isArray(processedDocuments) && processedDocuments.length > 0) {
-      processedDocuments.forEach((doc) => {
-        const docWithId: Document = {
-          ...doc,
-          id: doc.id || doc.filePath || `${doc.originalName || doc.fileName || 'file'}_${doc.fileSize || '0'}`,
-        };
-        combined.push(docWithId);
-      });
+    // Add processed documents based on mode
+    if (isPreview) {
+      // In preview mode, use processedPreviewDocuments (finds File objects)
+      if (Array.isArray(processedPreviewDocuments) && processedPreviewDocuments.length > 0) {
+        processedPreviewDocuments.forEach((doc) => {
+          const docWithId: Document = {
+            ...doc,
+            id: doc.id || doc.filePath || `${doc.originalName || doc.fileName || 'file'}_${doc.fileSize || '0'}`,
+          };
+          combined.push(docWithId);
+        });
+      }
+    } else {
+      // In review mode, use processedReviewDocuments (keeps filePath)
+      if (Array.isArray(processedReviewDocuments) && processedReviewDocuments.length > 0) {
+        processedReviewDocuments.forEach((doc) => {
+          const docWithId: Document = {
+            ...doc,
+            id: doc.id || doc.filePath || `${doc.originalName || doc.fileName || 'file'}_${doc.fileSize || '0'}`,
+          };
+          combined.push(docWithId);
+        });
+      }
     }
     
     console.log("📄 DocumentsTab - Combined Documents (No Global Deduplication):", {
+      isPreview,
       nestedFiles: Array.isArray(docsFromForm) ? docsFromForm.length : 0,
-      attachedFiles: Array.isArray(processedDocuments) ? processedDocuments.length : 0,
+      attachedFiles: isPreview 
+        ? (Array.isArray(processedPreviewDocuments) ? processedPreviewDocuments.length : 0)
+        : (Array.isArray(processedReviewDocuments) ? processedReviewDocuments.length : 0),
       totalCombined: combined.length,
     });
     
     return combined;
+  }, [processedPreviewDocuments, processedReviewDocuments, docsFromForm, isPreview]);
+
+  // Separate filtering function for PREVIEW MODE
+  // Uses _indicator property set during extraction, filters out files without indicators
+  const filterFilesForPreview = React.useCallback((
+    files: Document[],
+    assignedIndicators: string[],
+    userRole: string
+  ): Document[] => {
+    // MOSPI roles see all files
+    if (userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER") {
+      return files;
+    }
+
+    // For STATE_APPROVER in preview mode: filter by assigned indicators
+    // For NODAL_OFFICER: filter by assigned indicators
+    if (!assignedIndicators || assignedIndicators.length === 0) {
+      // If no assigned indicators, return empty (user has no access)
+      if (userRole === "STATE_APPROVER") {
+        // STATE_APPROVER might have access to all indicators in their state
+        return files;
+      }
+      return [];
+    }
+
+    // Filter files based on _indicator property (set during preview extraction)
+    const fileIndicators = files.map(f => {
+      const indicator = (f as any)._indicator;
+      const hasAccess = indicator ? assignedIndicators.includes(indicator) : false;
+      return {
+        fileName: f.fileName || f.originalName,
+        indicator,
+        hasIndicator: !!indicator,
+        hasAccess,
+      };
+    });
     
-    return combined;
-  }, [processedDocuments, docsFromForm]);
+    console.log("📄 filterFilesForPreview:", {
+      totalFiles: files.length,
+      assignedIndicators,
+      userRole,
+      fileIndicators: fileIndicators.slice(0, 10),
+      filesWithoutIndicators: fileIndicators.filter(f => !f.indicator).length,
+      filesWithMatchingIndicators: fileIndicators.filter(f => f.hasAccess).length,
+      filesWithNonMatchingIndicators: fileIndicators.filter(f => f.indicator && !f.hasAccess).map(f => ({ indicator: f.indicator, fileName: f.fileName })),
+    });
+    
+    // Filter: only show files that have _indicator set AND match assigned indicators
+    // IMPORTANT: Filter out files without indicators (don't show "unknown" files in preview)
+    return files.filter((file) => {
+      const indicator = (file as any)._indicator;
+      
+      // If no indicator, filter it out (don't show "unknown" files in preview)
+      if (!indicator) {
+        return false;
+      }
+
+      // Check if user has access to this indicator
+      return assignedIndicators.includes(indicator);
+    });
+  }, []);
 
   // Filter documents by indicator access
   const filteredDocuments = React.useMemo(() => {
@@ -785,7 +1016,33 @@ export const DocumentsTab = ({
       return allDocuments;
     }
 
-    // Filter files based on indicator access
+    // For STATE_APPROVER in review mode: show all files (don't filter by assigned indicators)
+    // Assigned indicators are only for preview mode (when creating their own submission)
+    // In review mode, STATE_APPROVERs should see all files from any submission they're reviewing
+    // (whether it's from NODAL_OFFICER or another STATE_APPROVER)
+    if (isStateApprover && !isPreview) {
+      console.log("📄 DocumentsTab - STATE_APPROVER in review mode: showing all files (no filtering)");
+      return allDocuments;
+    }
+
+    // Use separate filtering function for preview mode
+    if (isPreview) {
+      const filtered = filterFilesForPreview(allDocuments, assignedIndicators, userRole);
+      console.log("📄 DocumentsTab - File Filtering (Preview):", {
+        userRole,
+        isNodalOfficer,
+        isStateApprover,
+        isMospiRole,
+        isPreview,
+        assignedIndicatorsCount: assignedIndicators.length,
+        assignedIndicators,
+        totalFilesBeforeFilter: allDocuments.length,
+        totalFilesAfterFilter: filtered.length,
+      });
+      return filtered;
+    }
+
+    // For review mode, use the standard filtering function
     const filtered = filterFilesByIndicatorAccess(
       allDocuments,
       formData,
@@ -793,11 +1050,12 @@ export const DocumentsTab = ({
       userRole
     );
 
-    console.log("📄 DocumentsTab - File Filtering:", {
+    console.log("📄 DocumentsTab - File Filtering (Review):", {
       userRole,
       isNodalOfficer,
       isStateApprover,
       isMospiRole,
+      isPreview,
       assignedIndicatorsCount: assignedIndicators.length,
       assignedIndicators,
       totalFilesBeforeFilter: allDocuments.length,
@@ -806,7 +1064,7 @@ export const DocumentsTab = ({
     });
 
     return filtered;
-  }, [allDocuments, formData, assignedIndicators, userRole, isNodalOfficer, isStateApprover, isMospiRole]);
+  }, [allDocuments, formData, assignedIndicators, userRole, isNodalOfficer, isStateApprover, isMospiRole, isPreview, filterFilesForPreview]);
 
   // Group filtered documents by category and indicator, then flatten for table
   // IMPORTANT: Don't deduplicate globally - allow same file to appear in different indicators
@@ -832,7 +1090,17 @@ export const DocumentsTab = ({
     ]);
     
     // First, group files by indicator (this will show which files belong to which indicators)
-    const groupedFiles = groupFilesByCategoryAndIndicator(filteredDocuments, formData);
+    // In preview mode, ensure all files have _indicator set (filter out any without it)
+    const filesToGroup = isPreview 
+      ? filteredDocuments.filter(f => (f as any)._indicator) // Only files with _indicator in preview
+      : filteredDocuments;
+    
+    const groupedFiles = groupFilesByCategoryAndIndicator(filesToGroup, formData);
+    
+    // In preview mode, remove "unknown" category if it exists
+    if (isPreview && groupedFiles["unknown"]) {
+      delete groupedFiles["unknown"];
+    }
     
     // Log what we have before deduplication
     console.log("📄 DocumentsTab - Before Per-Indicator Deduplication:", {
@@ -863,11 +1131,58 @@ export const DocumentsTab = ({
           };
           
           // Find entry context for this file (entryId/entryIndex if in array)
-          const entryContext = findEntryContextForFile(
-            fileWithId.filePath,
-            fileWithId.id,
-            formData
-          );
+          // In preview mode, use _formDataPath if available (more reliable)
+          let entryContext: { indicator: string | null; entryId: string | null; entryIndex: number | null };
+          
+          if (isPreview && (fileWithId as any)._formDataPath) {
+            // Extract entry context from _formDataPath in preview mode
+            const formDataPath = (fileWithId as any)._formDataPath;
+            const indicator = (fileWithId as any)._indicator || null;
+            
+            // Extract entry index from path like "pppDevelopment.section4_5[0].file"
+            let entryId: string | null = null;
+            let entryIndex: number | null = null;
+            
+            // Match array indices in path: section4_5[0] -> index 0
+            const arrayMatch = formDataPath.match(/\[(\d+)\]/);
+            if (arrayMatch) {
+              entryIndex = parseInt(arrayMatch[1], 10);
+              // Try to find entry ID by searching formData at this path
+              const pathParts = formDataPath.split(/[\[\]\.]/).filter(p => p);
+              let currentObj = formData;
+              for (let i = 0; i < pathParts.length - 1; i++) {
+                const part = pathParts[i];
+                if (currentObj && typeof currentObj === 'object') {
+                  if (Array.isArray(currentObj)) {
+                    const idx = parseInt(part, 10);
+                    if (!isNaN(idx) && currentObj[idx]) {
+                      currentObj = currentObj[idx];
+                      if (currentObj?.id) {
+                        entryId = currentObj.id;
+                      }
+                    }
+                  } else if (currentObj[part]) {
+                    currentObj = currentObj[part];
+                  }
+                }
+              }
+              // If we're at an array index, try to get the entry's ID
+              if (entryIndex !== null && Array.isArray(currentObj) && currentObj[entryIndex]?.id) {
+                entryId = currentObj[entryIndex].id;
+              }
+            }
+            
+            entryContext = { indicator, entryId, entryIndex };
+          } else {
+            // In review mode or if _formDataPath not available, use standard method
+            // Pass _fileObject for preview mode matching
+            entryContext = findEntryContextForFile(
+              fileWithId.filePath,
+              fileWithId.id,
+              formData,
+              (fileWithId as any)._fileObject // Pass File object for preview mode
+            );
+          }
           
           // Create unique key: indicator + entryId/entryIndex + file identifier
           // IMPORTANT: Only use entry context for array-based indicators
@@ -993,11 +1308,58 @@ export const DocumentsTab = ({
           };
           
           // Find entry context for this file (entryId/entryIndex if in array)
-          const entryContext = findEntryContextForFile(
-            fileWithId.filePath,
-            fileWithId.id,
-            formData
-          );
+          // In preview mode, use _formDataPath if available (more reliable)
+          let entryContext: { indicator: string | null; entryId: string | null; entryIndex: number | null };
+          
+          if (isPreview && (fileWithId as any)._formDataPath) {
+            // Extract entry context from _formDataPath in preview mode
+            const formDataPath = (fileWithId as any)._formDataPath;
+            const indicator = (fileWithId as any)._indicator || null;
+            
+            // Extract entry index from path like "pppDevelopment.section4_5[0].file"
+            let entryId: string | null = null;
+            let entryIndex: number | null = null;
+            
+            // Match array indices in path: section4_5[0] -> index 0
+            const arrayMatch = formDataPath.match(/\[(\d+)\]/);
+            if (arrayMatch) {
+              entryIndex = parseInt(arrayMatch[1], 10);
+              // Try to find entry ID by searching formData at this path
+              const pathParts = formDataPath.split(/[\[\]\.]/).filter(p => p);
+              let currentObj = formData;
+              for (let i = 0; i < pathParts.length - 1; i++) {
+                const part = pathParts[i];
+                if (currentObj && typeof currentObj === 'object') {
+                  if (Array.isArray(currentObj)) {
+                    const idx = parseInt(part, 10);
+                    if (!isNaN(idx) && currentObj[idx]) {
+                      currentObj = currentObj[idx];
+                      if (currentObj?.id) {
+                        entryId = currentObj.id;
+                      }
+                    }
+                  } else if (currentObj[part]) {
+                    currentObj = currentObj[part];
+                  }
+                }
+              }
+              // If we're at an array index, try to get the entry's ID
+              if (entryIndex !== null && Array.isArray(currentObj) && currentObj[entryIndex]?.id) {
+                entryId = currentObj[entryIndex].id;
+              }
+            }
+            
+            entryContext = { indicator, entryId, entryIndex };
+          } else {
+            // In review mode or if _formDataPath not available, use standard method
+            // Pass _fileObject for preview mode matching
+            entryContext = findEntryContextForFile(
+              fileWithId.filePath,
+              fileWithId.id,
+              formData,
+              (fileWithId as any)._fileObject // Pass File object for preview mode
+            );
+          }
           
           // Create unique key with entry context
           // IMPORTANT: Only use entry context for array-based indicators
@@ -1102,7 +1464,9 @@ export const DocumentsTab = ({
       userRole,
       assignedIndicatorsCount: assignedIndicators.length,
       documentsCount: documents.length,
-      processedDocumentsCount: Array.isArray(processedDocuments) ? processedDocuments.length : 0,
+      processedDocumentsCount: isPreview 
+        ? (Array.isArray(processedPreviewDocuments) ? processedPreviewDocuments.length : 0)
+        : (Array.isArray(processedReviewDocuments) ? processedReviewDocuments.length : 0),
       docsFromFormCount: Array.isArray(docsFromForm) ? docsFromForm.length : 0,
       allDocumentsCount: Array.isArray(allDocuments) ? allDocuments.length : 0,
       filteredDocumentsCount: Array.isArray(filteredDocuments) ? filteredDocuments.length : 0,
@@ -1112,7 +1476,7 @@ export const DocumentsTab = ({
       formDataKeys: formData ? Object.keys(formData) : [],
       formDataPppDev: formData?.pppDevelopment ? Object.keys(formData.pppDevelopment) : [],
     });
-  }, [isPreview, documents, processedDocuments, docsFromForm, allDocuments, filteredDocuments, formData, userRole, assignedIndicators]);
+  }, [isPreview, documents, processedPreviewDocuments, processedReviewDocuments, docsFromForm, allDocuments, filteredDocuments, formData, userRole, assignedIndicators]);
 
   const [loading, setLoading] = React.useState<Record<string, boolean>>({});
   const token =
