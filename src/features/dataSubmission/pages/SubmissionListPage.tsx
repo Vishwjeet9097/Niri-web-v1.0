@@ -555,6 +555,8 @@ export const SubmissionListPage = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const isFetchingProgress = useRef(false);
+  // Use ref to access latest submissions without triggering useEffect re-runs
+  const submissionsRef = useRef<any[]>([]);
 
   useEffect(() => {
     const loadSubmissions = async () => {
@@ -585,6 +587,8 @@ export const SubmissionListPage = () => {
           submissionsArray.length
         );
         setSubmissions(submissionsArray);
+        // Update ref with latest submissions for progress calculation
+        submissionsRef.current = submissionsArray;
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
         notificationService.error(
@@ -645,10 +649,14 @@ export const SubmissionListPage = () => {
         // Get user state for fallback calculation
         const userStateUt = user?.stateUt || user?.stateName || user?.state;
 
+        // Use ref to get latest submissions without triggering re-renders
+        // This prevents progress from resetting when navigating back from review page
+        const currentSubmissions = submissionsRef.current;
+
         // Pass submissions array as fallback in case API returns empty data
         const stats = calculateStateProgressFromApi(
           normalized,
-          submissions,
+          currentSubmissions,
           userStateUt
         );
         console.log("✅ calculateStateProgressFromApi(stats):", stats);
@@ -656,7 +664,8 @@ export const SubmissionListPage = () => {
         setStateProgress(stats);
       } catch (e) {
         console.error("Failed to load state indicator statuses", e);
-        setStateProgress(null);
+        // Don't reset progress to null on error - keep existing progress
+        // setStateProgress(null);
       } finally {
         setProgressLoading(false);
         isFetchingProgress.current = false;
@@ -673,7 +682,11 @@ export const SubmissionListPage = () => {
     return () => {
       clearInterval(intervalId);
     };
-  }, [user?.role, submissions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally omitting 'submissions' from dependencies to prevent progress reset
+    // when navigating back from review page. We use submissionsRef.current to access
+    // the latest submissions without triggering re-renders.
+  }, [user?.role, user?.stateUt, user?.stateName, user?.state]);
 
   const handleFinalSubmit = async () => {
     console.group(
@@ -976,11 +989,7 @@ export const SubmissionListPage = () => {
 
         // Refresh progress and submissions list
         try {
-          const resp = await apiService.getStateIndicatorStatuses();
-          const normalized = resp?.data ? resp : { data: resp };
-          const stats = calculateStateProgressFromApi(normalized);
-          setStateProgress(stats);
-
+          // First fetch updated submissions
           const updated = await apiService.getSubmissions(1, 100);
           let submissionsArray: any[] = [];
           if (Array.isArray(updated)) submissionsArray = updated;
@@ -992,6 +1001,20 @@ export const SubmissionListPage = () => {
             submissionsArray = (updated as any).data;
           }
           setSubmissions(submissionsArray);
+          // Update ref with latest submissions
+          submissionsRef.current = submissionsArray;
+
+          // Then fetch and calculate progress with updated submissions
+          const resp = await apiService.getStateIndicatorStatuses();
+          const normalized = resp?.data ? resp : { data: resp };
+          const userStateUt = user?.stateUt || user?.stateName || user?.state;
+          // Use updated submissions for fallback calculation
+          const stats = calculateStateProgressFromApi(
+            normalized,
+            submissionsArray,
+            userStateUt
+          );
+          setStateProgress(stats);
           // The hasSubmittedToMospiReviewer will be recalculated automatically via useMemo when submissions change
         } catch (e) {
           console.error("⚠️ Failed to refresh data", e);
