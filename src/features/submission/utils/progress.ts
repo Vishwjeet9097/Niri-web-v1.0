@@ -94,15 +94,25 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.issuingAuthority) &&
         hasMeaningfulValue(r.value)
     ),
-  section1_5: (data: any) =>
-    anyValid(
-      data?.ffiArray,
-      (r) =>
-        hasMeaningfulValue(r.organisationName) &&
-        hasMeaningfulValue(r.organisationType) &&
-        hasMeaningfulValue(r.yearEstablished) &&
-        hasMeaningfulValue(r.totalFunding)
-    ),
+  section1_5: (data: any) => {
+    const d = data as Record<string, unknown>;
+    if (!hasMeaningfulValue(d?.hasIntermediary)) return false;
+    if (d?.hasIntermediary === "yes") {
+      return anyValid(
+        data?.ffiArray,
+        (r) =>
+          hasMeaningfulValue(r.organisationName) &&
+          hasMeaningfulValue(r.organisationType) &&
+          hasMeaningfulValue(r.yearEstablished) &&
+          hasMeaningfulValue(r.totalFunding)
+      );
+    }
+    // If "no", comment is required
+    if (d?.hasIntermediary === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return true;
+  },
 
   // 2.x Infra Development (updated to handle new nested array structure)
   section2_1: (data: any) =>
@@ -117,11 +127,21 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
       (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
     ),
 
-  section2_3: (data: any) =>
-    anyValid(
-      data?.infraDevelopmentArray,
-      (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
-    ),
+  section2_3: (data: any) => {
+    const d = data as Record<string, unknown>;
+    if (!hasMeaningfulValue(d?.hasInfraDevelopmentPlan)) return false;
+    if (d?.hasInfraDevelopmentPlan === "yes") {
+      return anyValid(
+        data?.infraDevelopmentArray,
+        (r) => hasMeaningfulValue(r.sector) && hasMeaningfulValue(r.files)
+      );
+    }
+    // If "no", comment is required
+    if (d?.hasInfraDevelopmentPlan === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return true;
+  },
 
   section2_4: (data: any) => {
     // Check if hasInvestmentReady is set (yes or no)
@@ -165,13 +185,21 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.available)) return false;
     if (d?.available === "yes") return hasMeaningfulValue(d?.file);
-    return true;
+    // If "no", comment is required
+    if (d?.available === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return false;
   },
   section3_2: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.available)) return false;
     if (d?.available === "yes") return hasMeaningfulValue(d?.file);
-    return true;
+    // If "no", comment is required
+    if (d?.available === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return false;
   },
   section3_3: (data) =>
     anyValid(
@@ -203,44 +231,93 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     if (!hasMeaningfulValue(d?.allEligible)) return false;
     // अगर 'yes' है तो वेबसाइट लिंक भी चाहिए
     if (d?.allEligible === "yes") return hasMeaningfulValue(d?.websiteLink);
-    return true;
+    // If "no", comment is required
+    if (d?.allEligible === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return false;
   },
   section4_2: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.available)) return false;
     if (d?.available === "yes") return hasMeaningfulValue(d?.file);
-    return true;
+    // If "no", comment is required
+    if (d?.available === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return false;
   },
-  section4_3: (data) => {
+  section4_3: (data: any) => {
     const d = data as Record<string, unknown>;
-    return hasMeaningfulValue(d?.numberOfProjects);
+    if (!hasMeaningfulValue(d?.adopted)) return false;
+    if (d?.adopted === "yes") {
+      return (
+        Array.isArray(d?.projects) &&
+        anyValid(
+          d.projects,
+          (r) =>
+            hasMeaningfulValue(r.projectName) &&
+            hasMeaningfulValue(r.sector) &&
+            hasMeaningfulValue(r.file)
+        )
+      );
+    }
+    // If "no", comment is required
+    if (d?.adopted === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return true;
   },
   section4_4: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.adopted)) return false;
     if (d?.adopted === "yes") return hasMeaningfulValue(d?.file);
-    return true;
+    // If "no", comment is required
+    if (d?.adopted === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return false;
   },
-  section4_5: (data) => {
+  section4_5: (data: any) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.implemented)) return false;
-    if (d?.implemented === "yes")
+    if (d?.implemented === "yes") {
       return (
-        hasMeaningfulValue(d?.practiceName) && hasMeaningfulValue(d?.impact)
+        Array.isArray(d?.practices) &&
+        anyValid(
+          d.practices,
+          (r) =>
+            hasMeaningfulValue(r.practiceName) &&
+            hasMeaningfulValue(r.impact) &&
+            hasMeaningfulValue(r.file)
+        )
       );
+    }
+    // If "no", comment is required
+    if (d?.implemented === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
     return true;
   },
-  section4_6: (data) => {
-    const d = data as Record<string, any>;
-    return anyValid(
-      d?.capacityArray,
-      (r) =>
-        hasMeaningfulValue(r.officerName) &&
-        hasMeaningfulValue(r.designation) &&
-        hasMeaningfulValue(r.programName) &&
-        hasMeaningfulValue(r.organiser) &&
-        hasMeaningfulValue(r.trainingType)
-    );
+  section4_6: (data: any) => {
+    const d = data as Record<string, unknown>;
+    if (!hasMeaningfulValue(d?.participated)) return false;
+    if (d?.participated === "yes") {
+      return anyValid(
+        data?.capacityArray,
+        (r) =>
+          hasMeaningfulValue(r.officerName) &&
+          hasMeaningfulValue(r.designation) &&
+          hasMeaningfulValue(r.programName) &&
+          hasMeaningfulValue(r.organiser) &&
+          hasMeaningfulValue(r.trainingType)
+      );
+    }
+    // If "no", comment is required
+    if (d?.participated === "no") {
+      return hasMeaningfulValue(d?.comment);
+    }
+    return true;
   },
 };
 

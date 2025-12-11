@@ -1698,7 +1698,7 @@ export const InfraDevelopmentStep = () => {
         return (
           <ProgressHeader
             title="Infrastructure Development"
-            description="Physical infrastructure development and completion metrics. (10 marks per sector, min. 3 sectors)"
+            description="Physical infrastructure development and completion metrics. (10 marks per sector, min. 1 sector)"
             points={250}
             completed={completed}
             total={total}
