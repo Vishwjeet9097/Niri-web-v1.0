@@ -170,6 +170,100 @@ export function findIndicatorForFile(
 }
 
 /**
+ * Find indicator and entry context (entryId/entryIndex) for a file
+ * Returns: { indicator: string | null, entryId: string | null, entryIndex: number | null }
+ * This helps identify which array entry a file belongs to, allowing same file in different entries to be shown separately
+ */
+export function findEntryContextForFile(
+  filePath: string | undefined,
+  fileId: string | undefined,
+  formData: any
+): { indicator: string | null; entryId: string | null; entryIndex: number | null } {
+  if (!formData || typeof formData !== "object") {
+    return { indicator: null, entryId: null, entryIndex: null };
+  }
+
+  // First, try to extract indicator from filePath
+  let indicator: string | null = null;
+  if (filePath) {
+    indicator = extractIndicatorFromFilePath(filePath);
+  }
+
+  let entryId: string | null = null;
+  let entryIndex: number | null = null;
+
+  // Search formData to find entry context
+  const searchInObject = (
+    obj: any,
+    currentPath: string = "",
+    currentEntryId: string | null = null,
+    currentEntryIndex: number | null = null
+  ): boolean => {
+    if (!obj || typeof obj !== "object") return false;
+
+    // Check if this object has filePath or id matching our file
+    if (obj.filePath === filePath || obj.id === fileId) {
+      // Extract indicator from current path if not already found
+      if (!indicator) {
+        indicator = extractIndicatorFromFormDataPath(currentPath, formData);
+      }
+      // If we're inside an array entry, capture the entry context
+      if (currentEntryId) entryId = currentEntryId;
+      if (currentEntryIndex !== null) entryIndex = currentEntryIndex;
+      return true;
+    }
+
+    // Check nested file structures
+    if (obj.file) {
+      if (obj.file.filePath === filePath || obj.file.id === fileId) {
+        if (!indicator) {
+          indicator = extractIndicatorFromFormDataPath(currentPath, formData);
+        }
+        if (currentEntryId) entryId = currentEntryId;
+        if (currentEntryIndex !== null) entryIndex = currentEntryIndex;
+        return true;
+      }
+      if (obj.file.file?.filePath === filePath || obj.file.file?.id === fileId) {
+        if (!indicator) {
+          indicator = extractIndicatorFromFormDataPath(currentPath, formData);
+        }
+        if (currentEntryId) entryId = currentEntryId;
+        if (currentEntryIndex !== null) entryIndex = currentEntryIndex;
+        return true;
+      }
+    }
+
+    // Recurse into arrays - capture entry context here
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        const item = obj[i];
+        const itemEntryId = item?.id || `entry_${i}`;
+        if (searchInObject(item, `${currentPath}[${i}]`, itemEntryId, i)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Recurse into objects
+    for (const [key, value] of Object.entries(obj)) {
+      if (key.startsWith("_")) continue;
+      
+      const newPath = currentPath ? `${currentPath}.${key}` : key;
+      if (searchInObject(value, newPath, currentEntryId, currentEntryIndex)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  searchInObject(formData);
+  
+  return { indicator, entryId, entryIndex };
+}
+
+/**
  * Filter files by indicator access
  * Only returns files that belong to indicators the user has access to
  */
@@ -271,5 +365,74 @@ export function mapFilesToIndicators(
   });
 
   return map;
+}
+
+/**
+ * Map category names to display names
+ */
+const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  infraFinancing: "Infrastructure Financing",
+  infraDevelopment: "Infrastructure Development",
+  pppDevelopment: "PPP Development",
+  infraEnablers: "Infrastructure Enablers",
+};
+
+/**
+ * Group files by category and indicator
+ * Returns a map of category -> indicator -> files array
+ */
+export function groupFilesByCategoryAndIndicator(
+  files: Array<{
+    id?: string;
+    filePath?: string;
+    [key: string]: any;
+  }>,
+  formData: any
+): Record<string, Record<string, Array<{ id?: string; filePath?: string; [key: string]: any }>>> {
+  const filesByIndicator = mapFilesToIndicators(files, formData);
+  const grouped: Record<string, Record<string, Array<{ id?: string; filePath?: string; [key: string]: any }>>> = {};
+
+  Object.entries(filesByIndicator).forEach(([indicator, indicatorFiles]) => {
+    if (indicator === "unknown") {
+      // Files without clear indicator mapping
+      if (!grouped["unknown"]) {
+        grouped["unknown"] = {};
+      }
+      if (!grouped["unknown"]["unknown"]) {
+        grouped["unknown"]["unknown"] = [];
+      }
+      grouped["unknown"]["unknown"].push(...indicatorFiles);
+    } else {
+      const categoryInfo = INDICATOR_TO_SECTION_MAP[indicator];
+      if (categoryInfo) {
+        const category = categoryInfo.category;
+        if (!grouped[category]) {
+          grouped[category] = {};
+        }
+        if (!grouped[category][indicator]) {
+          grouped[category][indicator] = [];
+        }
+        grouped[category][indicator].push(...indicatorFiles);
+      } else {
+        // Indicator not found in map, add to unknown
+        if (!grouped["unknown"]) {
+          grouped["unknown"] = {};
+        }
+        if (!grouped["unknown"][indicator]) {
+          grouped["unknown"][indicator] = [];
+        }
+        grouped["unknown"][indicator].push(...indicatorFiles);
+      }
+    }
+  });
+
+  return grouped;
+}
+
+/**
+ * Get display name for a category
+ */
+export function getCategoryDisplayName(category: string): string {
+  return CATEGORY_DISPLAY_NAMES[category] || category;
 }
 

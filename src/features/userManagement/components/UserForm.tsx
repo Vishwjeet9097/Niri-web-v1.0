@@ -121,7 +121,7 @@ export function UserForm({
 
   // Compute available indicators for selected state (frontend filtering)
   useEffect(() => {
-    const computeAvailableIndicators = () => {
+    const computeAvailableIndicators = async () => {
       // Only compute indicators if creating a NODAL_OFFICER
       if (formData.role !== "NODAL_OFFICER") {
         setAvailableIndicatorsForState([]);
@@ -167,9 +167,58 @@ export function UserForm({
         }
       });
 
-      // Return indicators whose code is NOT in assignedSet
+      // NEW: If state approver has submitted, exclude indicators from their submission
+      const submittedIndicatorsSet = new Set<string>();
+      if (stateApproverHasSubmission && user?.role === "STATE_APPROVER" && user?.id) {
+        try {
+          // Get the state approver's submission
+          const submissionResponse = await apiService.get(`/submission/user/${user.id}`);
+          const submission = submissionResponse?.data?.data || submissionResponse?.data;
+          
+          if (submission?.id && submission?.formData) {
+            const submissionFormData = submission.formData;
+            
+            // Extract indicators from formData
+            // Check each category (infraFinancing, infraDevelopment, pppDevelopment, infraEnablers)
+            const categoryKeys = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
+            
+            categoryKeys.forEach((categoryKey) => {
+              if (submissionFormData[categoryKey] && typeof submissionFormData[categoryKey] === "object") {
+                const categoryData = submissionFormData[categoryKey];
+                
+                // Check each section within the category
+                Object.keys(categoryData).forEach((sectionKey) => {
+                  // Convert section key to indicator code (e.g., "section1_1" -> "1.1")
+                  if (sectionKey.startsWith("section")) {
+                    const indicatorCode = sectionKey
+                      .replace(/^section/, "")
+                      .replace(/_/g, ".");
+                    
+                    // Validate the code format (should be like "1.1", "4.2", etc.)
+                    if (/^\d+\.\d+$/.test(indicatorCode)) {
+                      const sectionData = categoryData[sectionKey];
+                      // Only include if section has meaningful data
+                      if (sectionData && typeof sectionData === "object" && Object.keys(sectionData).length > 0) {
+                        submittedIndicatorsSet.add(indicatorCode);
+                      }
+                    }
+                  }
+                });
+              }
+            });
+          }
+        } catch (error) {
+          console.warn("⚠️ Error fetching state approver submission to filter indicators:", error);
+          // Continue with available indicators even if we can't fetch submission
+        }
+      }
+
+      // Combine assigned and submitted indicators
+      const excludedSet = new Set([...assignedSet, ...submittedIndicatorsSet]);
+
+      // Return indicators whose code is NOT in excludedSet
       // Convert to the same format as API response (array of objects with code, name, category)
-      const available = allIndicators.filter((ind: any) => !assignedSet.has(ind.code));
+      const available = allIndicators.filter((ind: any) => !excludedSet.has(ind.code));
       
       // Transform to match API response format
       const formattedAvailable = available.map((ind: any) => ({
@@ -183,7 +232,7 @@ export function UserForm({
     };
     
     computeAvailableIndicators();
-  }, [formData.stateId, formData.role, user?.role, states, allIndicators, officers, officer?.id]);
+  }, [formData.stateId, formData.role, user?.role, user?.id, states, allIndicators, officers, officer?.id, stateApproverHasSubmission]);
 
   // Build the options list from INDICATOR_SECTIONS but only include:
   //  - indicators present in availableIndicatorCodes OR

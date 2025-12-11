@@ -8,8 +8,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { SectionCard } from "@/features/submission/components/SectionCard";
-import { filterFilesByIndicatorAccess } from "@/utils/fileIndicatorMapping";
+import { filterFilesByIndicatorAccess, groupFilesByCategoryAndIndicator, getCategoryDisplayName, findIndicatorForFile, findEntryContextForFile } from "@/utils/fileIndicatorMapping";
+import { getIndicatorDisplayName } from "@/utils/indicatorUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
@@ -110,56 +119,83 @@ function extractFilesFromFormData(
 ): Document[] {
   if (!obj || typeof obj !== "object") return collectedFiles;
 
+  // Helper to normalize filePath for comparison
+  const normalizePath = (path: string): string => {
+    return path.trim().toLowerCase().replace(/[\/\\]+/g, '/');
+  };
+
+  // Helper to check if filePath is duplicate
+  const isPathDuplicate = (filePath: string): boolean => {
+    const normalized = normalizePath(filePath);
+    // Check both original and normalized
+    if (seenPaths.has(filePath) || seenPaths.has(normalized)) {
+      return true;
+    }
+    seenPaths.add(filePath);
+    seenPaths.add(normalized);
+    return false;
+  };
+
   // In review mode: Check for filePath in various nested structures
   if (!isPreview) {
     // Check if this object itself has a filePath
     if (obj.filePath && typeof obj.filePath === "string" && obj.filePath.trim() !== "") {
-      if (!seenPaths.has(obj.filePath)) {
-        seenPaths.add(obj.filePath);
-        collectedFiles.push({
-          id: obj.id ?? obj.filePath,
-          fileName: obj.fileName,
-          originalName: obj.originalName,
-          filePath: obj.filePath,
-          fileSize: typeof obj.fileSize === "number" ? obj.fileSize : Number(obj.fileSize) || undefined,
-          mimeType: obj.mimeType,
-          uploadedBy: obj.uploadedBy ?? "Unknown",
-          uploadedAt: obj.uploadedAt ?? obj.uploadedAtString ?? undefined,
-        });
+      if (!isPathDuplicate(obj.filePath)) {
+        // Also check ID to avoid duplicates
+        const fileId = obj.id ?? obj.filePath;
+        if (!seenIds.has(fileId)) {
+          seenIds.add(fileId);
+          collectedFiles.push({
+            id: fileId,
+            fileName: obj.fileName,
+            originalName: obj.originalName,
+            filePath: obj.filePath,
+            fileSize: typeof obj.fileSize === "number" ? obj.fileSize : Number(obj.fileSize) || undefined,
+            mimeType: obj.mimeType,
+            uploadedBy: obj.uploadedBy ?? "Unknown",
+            uploadedAt: obj.uploadedAt ?? obj.uploadedAtString ?? undefined,
+          });
+        }
       }
     }
     
     // Check nested structures: obj.file.filePath (common structure like section3_1.file.filePath)
     if (obj.file?.filePath && typeof obj.file.filePath === "string" && obj.file.filePath.trim() !== "") {
-      if (!seenPaths.has(obj.file.filePath)) {
-        seenPaths.add(obj.file.filePath);
-        collectedFiles.push({
-          id: obj.file.id ?? obj.id ?? obj.file.filePath,
-          fileName: obj.file.fileName,
-          originalName: obj.file.originalName,
-          filePath: obj.file.filePath,
-          fileSize: typeof obj.file.fileSize === "number" ? obj.file.fileSize : Number(obj.file.fileSize) || undefined,
-          mimeType: obj.file.mimeType,
-          uploadedBy: obj.file.uploadedBy ?? "Unknown",
-          uploadedAt: obj.file.uploadedAt ?? obj.file.uploadedAtString ?? undefined,
-        });
+      if (!isPathDuplicate(obj.file.filePath)) {
+        const fileId = obj.file.id ?? obj.id ?? obj.file.filePath;
+        if (!seenIds.has(fileId)) {
+          seenIds.add(fileId);
+          collectedFiles.push({
+            id: fileId,
+            fileName: obj.file.fileName,
+            originalName: obj.file.originalName,
+            filePath: obj.file.filePath,
+            fileSize: typeof obj.file.fileSize === "number" ? obj.file.fileSize : Number(obj.file.fileSize) || undefined,
+            mimeType: obj.file.mimeType,
+            uploadedBy: obj.file.uploadedBy ?? "Unknown",
+            uploadedAt: obj.file.uploadedAt ?? obj.file.uploadedAtString ?? undefined,
+          });
+        }
       }
     }
     
     // Check deeper nested structures: obj.file.file.filePath
     if (obj.file?.file?.filePath && typeof obj.file.file.filePath === "string" && obj.file.file.filePath.trim() !== "") {
-      if (!seenPaths.has(obj.file.file.filePath)) {
-        seenPaths.add(obj.file.file.filePath);
-        collectedFiles.push({
-          id: obj.file.file.id ?? obj.file.id ?? obj.id ?? obj.file.file.filePath,
-          fileName: obj.file.file.fileName,
-          originalName: obj.file.file.originalName,
-          filePath: obj.file.file.filePath,
-          fileSize: typeof obj.file.file.fileSize === "number" ? obj.file.file.fileSize : Number(obj.file.file.fileSize) || undefined,
-          mimeType: obj.file.file.mimeType,
-          uploadedBy: obj.file.file.uploadedBy ?? "Unknown",
-          uploadedAt: obj.file.file.uploadedAt ?? obj.file.file.uploadedAtString ?? undefined,
-        });
+      if (!isPathDuplicate(obj.file.file.filePath)) {
+        const fileId = obj.file.file.id ?? obj.file.id ?? obj.id ?? obj.file.file.filePath;
+        if (!seenIds.has(fileId)) {
+          seenIds.add(fileId);
+          collectedFiles.push({
+            id: fileId,
+            fileName: obj.file.file.fileName,
+            originalName: obj.file.file.originalName,
+            filePath: obj.file.file.filePath,
+            fileSize: typeof obj.file.file.fileSize === "number" ? obj.file.file.fileSize : Number(obj.file.file.fileSize) || undefined,
+            mimeType: obj.file.file.mimeType,
+            uploadedBy: obj.file.file.uploadedBy ?? "Unknown",
+            uploadedAt: obj.file.file.uploadedAt ?? obj.file.file.uploadedAtString ?? undefined,
+          });
+        }
       }
     }
     
@@ -294,6 +330,32 @@ export const DocumentsTab = ({
     const collectedFiles: Document[] = [];
     const seenPaths = new Set<string>();
     const seenIds = new Set<string>();
+    // Also track by normalized filePath for better deduplication
+    const seenNormalizedPaths = new Set<string>();
+
+    // Helper to normalize filePath for comparison
+    const normalizePath = (path: string): string => {
+      return path.trim().toLowerCase().replace(/[\/\\]+/g, '/');
+    };
+
+    // Helper to check if file is duplicate
+    const isDuplicate = (file: any): boolean => {
+      if (file.filePath) {
+        const normalized = normalizePath(file.filePath);
+        if (seenNormalizedPaths.has(normalized)) {
+          return true;
+        }
+        seenNormalizedPaths.add(normalized);
+        seenPaths.add(file.filePath);
+      }
+      if (file.id) {
+        if (seenIds.has(file.id)) {
+          return true;
+        }
+        seenIds.add(file.id);
+      }
+      return false;
+    };
 
     // First, check for attachedFiles array (if present)
     if (Array.isArray(formData.attachedFiles) && formData.attachedFiles.length) {
@@ -318,8 +380,7 @@ export const DocumentsTab = ({
             }
           } else if (f.filePath) {
             // Fallback: if no File object but has filePath, include it (might be from previous upload)
-            if (!seenPaths.has(f.filePath)) {
-              seenPaths.add(f.filePath);
+            if (!isDuplicate(f)) {
               collectedFiles.push({
                 id: f.id ?? `attached-${idx}`,
                 fileName: f.fileName,
@@ -335,8 +396,7 @@ export const DocumentsTab = ({
         } else {
           // In review mode, check for filePath
           if (f.filePath && typeof f.filePath === "string" && f.filePath.trim() !== "") {
-            if (!seenPaths.has(f.filePath)) {
-              seenPaths.add(f.filePath);
+            if (!isDuplicate(f)) {
               collectedFiles.push({
                 id: f.id ?? `attached-${idx}`,
                 fileName: f.fileName,
@@ -357,35 +417,60 @@ export const DocumentsTab = ({
     }
 
     // Then, recursively extract files from nested formData fields
+    // But skip attachedFiles to avoid duplicates
     const { attachedFiles, ...restOfFormData } = formData;
     
+    // Debug: Check specifically for section3_1 and section4_2
     console.log("📄 DocumentsTab - Before extraction:", {
       isPreview,
       formDataKeys: Object.keys(restOfFormData),
       pppDevKeys: restOfFormData.pppDevelopment ? Object.keys(restOfFormData.pppDevelopment) : [],
+      infraEnablersKeys: restOfFormData.infraEnablers ? Object.keys(restOfFormData.infraEnablers) : [],
+      section3_1: restOfFormData.pppDevelopment?.section3_1,
       section3_1File: restOfFormData.pppDevelopment?.section3_1?.file,
       section3_1FileType: typeof restOfFormData.pppDevelopment?.section3_1?.file,
       section3_1FileKeys: restOfFormData.pppDevelopment?.section3_1?.file ? Object.keys(restOfFormData.pppDevelopment.section3_1.file) : [],
+      section3_1FilePath: restOfFormData.pppDevelopment?.section3_1?.file?.filePath,
       section3_1FileFile: restOfFormData.pppDevelopment?.section3_1?.file?.file,
       section3_1FileFileType: typeof restOfFormData.pppDevelopment?.section3_1?.file?.file,
       section3_1FileFileIsFile: restOfFormData.pppDevelopment?.section3_1?.file?.file instanceof File,
       section3_1FileId: restOfFormData.pppDevelopment?.section3_1?.file?.id,
-      section3_2File: restOfFormData.pppDevelopment?.section3_2?.file,
-      section3_2FileId: restOfFormData.pppDevelopment?.section3_2?.file?.id,
-      section3_2FileFileIsFile: restOfFormData.pppDevelopment?.section3_2?.file?.file instanceof File,
+      section4_2: restOfFormData.infraEnablers?.section4_2,
+      section4_2File: restOfFormData.infraEnablers?.section4_2?.file,
+      section4_2FileType: typeof restOfFormData.infraEnablers?.section4_2?.file,
+      section4_2FileKeys: restOfFormData.infraEnablers?.section4_2?.file ? Object.keys(restOfFormData.infraEnablers.section4_2.file) : [],
+      section4_2FilePath: restOfFormData.infraEnablers?.section4_2?.file?.filePath,
+      section4_2FileFile: restOfFormData.infraEnablers?.section4_2?.file?.file,
+      section4_2FileFileType: typeof restOfFormData.infraEnablers?.section4_2?.file?.file,
+      section4_2FileFileIsFile: restOfFormData.infraEnablers?.section4_2?.file?.file instanceof File,
+      section4_2FileId: restOfFormData.infraEnablers?.section4_2?.file?.id,
     });
     
+    // Pass the seen sets to the extraction function to maintain deduplication
     extractFilesFromFormData(restOfFormData, collectedFiles, seenPaths, seenIds, isPreview);
 
+    // Try to find indicators for extracted files
+    const filesWithIndicators = collectedFiles.map(f => {
+      const indicator = findIndicatorForFile(f.filePath, f.id, formData);
+      return {
+        id: f.id,
+        fileName: f.fileName,
+        originalName: f.originalName,
+        filePath: f.filePath,
+        indicator: indicator || 'unknown',
+        hasFileObject: !!f._fileObject,
+        hasFilePath: !!f.filePath,
+      };
+    });
+    
     console.log("📄 DocumentsTab - Extracted files:", {
       isPreview,
       totalFiles: collectedFiles.length,
-      files: collectedFiles.map(f => ({
-        id: f.id,
-        fileName: f.fileName,
-        hasFileObject: !!f._fileObject,
-        hasFilePath: !!f.filePath,
-      })),
+      files: filesWithIndicators,
+      // Check if files from 3.1 and 4.2 are present
+      filesFrom3_1: filesWithIndicators.filter(f => f.indicator === '3.1' || f.filePath?.includes('section3_1') || f.id?.includes('section3_1')),
+      filesFrom4_2: filesWithIndicators.filter(f => f.indicator === '4.2' || f.filePath?.includes('section4_2') || f.id?.includes('section4_2')),
+      allIndicators: [...new Set(filesWithIndicators.map(f => f.indicator))],
     });
 
     return collectedFiles;
@@ -653,9 +738,44 @@ export const DocumentsTab = ({
     });
   }, [documents, isPreview, formData, fileLookupMap]);
 
-  const allDocuments: Document[] = (Array.isArray(processedDocuments) && (processedDocuments as Document[]).length > 0) 
-    ? (processedDocuments as Document[])
-    : (Array.isArray(docsFromForm) ? (docsFromForm as Document[]) : []);
+  // Combine documents from all sources
+  // IMPORTANT: DO NOT deduplicate globally by filename
+  // We will deduplicate PER INDICATOR later (same file can appear in different indicators)
+  const allDocuments: Document[] = React.useMemo(() => {
+    const combined: Document[] = [];
+    
+    // Add documents extracted from nested formData (these have indicator context)
+    if (Array.isArray(docsFromForm) && docsFromForm.length > 0) {
+      docsFromForm.forEach((doc) => {
+        const docWithId: Document = {
+          ...doc,
+          id: doc.id || doc.filePath || `${doc.originalName || doc.fileName || 'file'}_${doc.fileSize || '0'}`,
+        };
+        combined.push(docWithId);
+      });
+    }
+    
+    // Add processed documents (from documents prop, likely from attachedFiles array)
+    if (Array.isArray(processedDocuments) && processedDocuments.length > 0) {
+      processedDocuments.forEach((doc) => {
+        const docWithId: Document = {
+          ...doc,
+          id: doc.id || doc.filePath || `${doc.originalName || doc.fileName || 'file'}_${doc.fileSize || '0'}`,
+        };
+        combined.push(docWithId);
+      });
+    }
+    
+    console.log("📄 DocumentsTab - Combined Documents (No Global Deduplication):", {
+      nestedFiles: Array.isArray(docsFromForm) ? docsFromForm.length : 0,
+      attachedFiles: Array.isArray(processedDocuments) ? processedDocuments.length : 0,
+      totalCombined: combined.length,
+    });
+    
+    return combined;
+    
+    return combined;
+  }, [processedDocuments, docsFromForm]);
 
   // Filter documents by indicator access
   const filteredDocuments = React.useMemo(() => {
@@ -687,6 +807,293 @@ export const DocumentsTab = ({
 
     return filtered;
   }, [allDocuments, formData, assignedIndicators, userRole, isNodalOfficer, isStateApprover, isMospiRole]);
+
+  // Group filtered documents by category and indicator, then flatten for table
+  // IMPORTANT: Don't deduplicate globally - allow same file to appear in different indicators
+  // Only deduplicate WITHIN each indicator to prevent same file appearing multiple times in same indicator
+  const tableRows = React.useMemo(() => {
+    if (!formData || filteredDocuments.length === 0) {
+      return [];
+    }
+    
+    // Define which indicators are array-based (have multiple entries)
+    // This ensures we only use entry context for indicators that actually support arrays
+    const ARRAY_BASED_INDICATORS = new Set([
+      "2.1", // infraActArray
+      "2.2", // specializedEntityArray
+      "2.3", // infraDevelopmentArray
+      "2.4", // investmentReadyArray
+      "2.5", // assetMonetizationArray
+      "3.3", // VGFArray
+      "3.4", // projects array
+      "4.3", // projects array
+      "4.5", // practices array
+      "4.6", // capacityArray
+    ]);
+    
+    // First, group files by indicator (this will show which files belong to which indicators)
+    const groupedFiles = groupFilesByCategoryAndIndicator(filteredDocuments, formData);
+    
+    // Log what we have before deduplication
+    console.log("📄 DocumentsTab - Before Per-Indicator Deduplication:", {
+      totalFiles: filteredDocuments.length,
+      groupedFiles: Object.keys(groupedFiles).map(cat => ({
+        category: cat,
+        indicators: Object.keys(groupedFiles[cat] || {}).map(ind => ({
+          indicator: ind,
+          fileCount: groupedFiles[cat][ind].length,
+        })),
+      })),
+    });
+    
+    // Now deduplicate WITHIN each indicator (same file shouldn't appear twice in same indicator)
+    // But allow same file to appear in different entries or different indicators
+    // Use entry context (entryId/entryIndex) to distinguish files in different array entries
+    Object.keys(groupedFiles).forEach((category) => {
+      Object.keys(groupedFiles[category]).forEach((indicator) => {
+        const files = groupedFiles[category][indicator];
+        const seenInIndicator = new Set<string>();
+        const deduplicated: Document[] = [];
+        
+        files.forEach((file) => {
+          // Ensure file has an id
+          const fileWithId: Document = {
+            ...file,
+            id: file.id ?? file.filePath ?? `${file.originalName || file.fileName || 'file'}_${file.fileSize || '0'}`,
+          };
+          
+          // Find entry context for this file (entryId/entryIndex if in array)
+          const entryContext = findEntryContextForFile(
+            fileWithId.filePath,
+            fileWithId.id,
+            formData
+          );
+          
+          // Create unique key: indicator + entryId/entryIndex + file identifier
+          // IMPORTANT: Only use entry context for array-based indicators
+          // For non-array indicators (3.1, 3.2, 4.2, 4.4), always use just indicator + filePath
+          let fileKey: string;
+          
+          if ((entryContext.entryId || entryContext.entryIndex !== null) && ARRAY_BASED_INDICATORS.has(indicator)) {
+            // File is in an array entry AND this indicator supports arrays - use entry context
+            const entryIdentifier = entryContext.entryId || `entry_${entryContext.entryIndex}`;
+            
+            if (fileWithId.filePath) {
+              // PRIMARY: indicator + entryId + filePath (most unique)
+              fileKey = `${indicator}_${entryIdentifier}_${fileWithId.filePath.trim().toLowerCase().replace(/[\/\\]+/g, '/')}`;
+            } else if (fileWithId.originalName && fileWithId.fileSize) {
+              // SECONDARY: indicator + entryId + filename + size
+              fileKey = `${indicator}_${entryIdentifier}_${fileWithId.originalName.trim().toLowerCase()}_${fileWithId.fileSize}`;
+            } else {
+              // TERTIARY: indicator + entryId + id
+              fileKey = `${indicator}_${entryIdentifier}_${fileWithId.id.trim().toLowerCase()}`;
+            }
+          } else {
+            // File is NOT in an array entry OR this indicator doesn't support arrays
+            // Use indicator + file identifier (no entry context needed)
+            // IMPORTANT: For non-array indicators, use originalName + fileSize as PRIMARY key
+            // This is more reliable than filePath because same file might have different filePaths
+            // (e.g., different UUIDs or nested structures like file.filePath vs file.file.filePath)
+            if (fileWithId.originalName && fileWithId.fileSize) {
+              // PRIMARY: Use originalName + fileSize (most reliable for identifying same logical file)
+              fileKey = `${indicator}_${fileWithId.originalName.trim().toLowerCase()}_${fileWithId.fileSize}`;
+            } else if (fileWithId.filePath) {
+              // SECONDARY: Use normalized filePath if originalName/fileSize not available
+              const normalizedPath = fileWithId.filePath.trim().toLowerCase().replace(/[\/\\]+/g, '/');
+              fileKey = `${indicator}_${normalizedPath}`;
+            } else {
+              // TERTIARY: Use id as fallback
+              fileKey = `${indicator}_${fileWithId.id.trim().toLowerCase()}`;
+            }
+          }
+          
+          if (!seenInIndicator.has(fileKey)) {
+            seenInIndicator.add(fileKey);
+            deduplicated.push(fileWithId);
+          } else {
+            console.log("📄 Skipping duplicate file (same indicator + same entry):", {
+              filePath: fileWithId.filePath,
+              originalName: fileWithId.originalName,
+              indicator,
+              entryId: entryContext.entryId,
+              entryIndex: entryContext.entryIndex,
+              fileKey,
+            });
+          }
+        });
+        
+        // Replace with deduplicated array
+        groupedFiles[category][indicator] = deduplicated;
+      });
+    });
+    
+    console.log("📄 DocumentsTab - Grouped Files (After Per-Indicator Deduplication):", {
+      categories: Object.keys(groupedFiles),
+      infraDevelopment: groupedFiles.infraDevelopment ? Object.keys(groupedFiles.infraDevelopment) : [],
+      pppDevelopment: groupedFiles.pppDevelopment ? Object.keys(groupedFiles.pppDevelopment) : [],
+      infraEnablers: groupedFiles.infraEnablers ? Object.keys(groupedFiles.infraEnablers) : [],
+      indicator2_1: groupedFiles.infraDevelopment?.["2.1"]?.length || 0,
+      indicator3_1: groupedFiles.pppDevelopment?.["3.1"]?.length || 0,
+      indicator4_2: groupedFiles.infraEnablers?.["4.2"]?.length || 0,
+      indicator2_1Files: groupedFiles.infraDevelopment?.["2.1"]?.map(f => ({ fileName: f.fileName, filePath: f.filePath, originalName: f.originalName })) || [],
+      indicator3_1Files: groupedFiles.pppDevelopment?.["3.1"]?.map(f => ({ fileName: f.fileName, filePath: f.filePath, originalName: f.originalName })) || [],
+      indicator4_2Files: groupedFiles.infraEnablers?.["4.2"]?.map(f => ({ fileName: f.fileName, filePath: f.filePath, originalName: f.originalName })) || [],
+    });
+    const rows: Array<{
+      category: string;
+      categoryDisplayName: string;
+      indicator: string;
+      document: Document;
+    }> = [];
+    
+    // Track files per indicator to prevent duplicates WITHIN the same indicator
+    // But allow the same file to appear in different indicators
+    const seenPerIndicator = new Map<string, Set<string>>();
+
+    // Define category order for consistent display
+    const categoryOrder = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers", "unknown"];
+
+    categoryOrder.forEach((category) => {
+      const indicators = groupedFiles[category];
+      if (!indicators || Object.keys(indicators).length === 0) {
+        return;
+      }
+
+      const categoryDisplayName = getCategoryDisplayName(category);
+
+      // Sort indicators numerically
+      const sortedIndicators = Object.keys(indicators).sort((a, b) => {
+        if (a === "unknown" && b === "unknown") return 0;
+        if (a === "unknown") return 1;
+        if (b === "unknown") return -1;
+        const aParts = a.split(".").map(Number);
+        const bParts = b.split(".").map(Number);
+        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+          const aVal = aParts[i] || 0;
+          const bVal = bParts[i] || 0;
+          if (aVal !== bVal) return aVal - bVal;
+        }
+        return 0;
+      });
+
+      sortedIndicators.forEach((indicator) => {
+        const files = indicators[indicator];
+        
+        // Initialize seen set for this indicator if not exists
+        if (!seenPerIndicator.has(indicator)) {
+          seenPerIndicator.set(indicator, new Set<string>());
+        }
+        const seenInThisIndicator = seenPerIndicator.get(indicator)!;
+        
+        files.forEach((file) => {
+          // Ensure file has an id first
+          const fileWithId: Document = {
+            ...file,
+            id: file.id ?? file.filePath ?? `${category}-${indicator}-${rows.length}`,
+          };
+          
+          // Find entry context for this file (entryId/entryIndex if in array)
+          const entryContext = findEntryContextForFile(
+            fileWithId.filePath,
+            fileWithId.id,
+            formData
+          );
+          
+          // Create unique key with entry context
+          // IMPORTANT: Only use entry context for array-based indicators
+          // For non-array indicators (3.1, 3.2, 4.2, 4.4), always use just indicator + filePath
+          let fileKey: string;
+          
+          if ((entryContext.entryId || entryContext.entryIndex !== null) && ARRAY_BASED_INDICATORS.has(indicator)) {
+            // File is in an array entry AND this indicator supports arrays - use entry context
+            const entryIdentifier = entryContext.entryId || `entry_${entryContext.entryIndex}`;
+            
+            if (fileWithId.filePath) {
+              // PRIMARY: indicator + entryId + filePath (most unique)
+              fileKey = `${indicator}_${entryIdentifier}_${fileWithId.filePath.trim().toLowerCase().replace(/[\/\\]+/g, '/')}`;
+            } else if (fileWithId.originalName && fileWithId.fileSize) {
+              // SECONDARY: indicator + entryId + filename + size
+              fileKey = `${indicator}_${entryIdentifier}_${fileWithId.originalName.trim().toLowerCase()}_${fileWithId.fileSize}`;
+            } else {
+              // TERTIARY: indicator + entryId + id
+              fileKey = `${indicator}_${entryIdentifier}_${fileWithId.id.trim().toLowerCase()}`;
+            }
+          } else {
+            // File is NOT in an array entry OR this indicator doesn't support arrays
+            // Use indicator + file identifier (no entry context needed)
+            // IMPORTANT: For non-array indicators, use originalName + fileSize as PRIMARY key
+            // This is more reliable than filePath because same file might have different filePaths
+            // (e.g., different UUIDs or nested structures like file.filePath vs file.file.filePath)
+            if (fileWithId.originalName && fileWithId.fileSize) {
+              // PRIMARY: Use originalName + fileSize (most reliable for identifying same logical file)
+              fileKey = `${indicator}_${fileWithId.originalName.trim().toLowerCase()}_${fileWithId.fileSize}`;
+            } else if (fileWithId.filePath) {
+              // SECONDARY: Use normalized filePath if originalName/fileSize not available
+              const normalizedPath = fileWithId.filePath.trim().toLowerCase().replace(/[\/\\]+/g, '/');
+              fileKey = `${indicator}_${normalizedPath}`;
+            } else {
+              // TERTIARY: Use id as fallback
+              fileKey = `${indicator}_${fileWithId.id.trim().toLowerCase()}`;
+            }
+          }
+          
+          // Only add if we haven't seen this file in THIS indicator with THIS entry context yet
+          // This allows:
+          // - Same file in different indicators → both shown
+          // - Same file in different entries of same indicator → both shown
+          // - Same file in same entry → deduplicated
+          if (!seenInThisIndicator.has(fileKey)) {
+            seenInThisIndicator.add(fileKey);
+            
+            rows.push({
+              category,
+              categoryDisplayName,
+              indicator,
+              document: fileWithId,
+            });
+          } else {
+            console.log("📄 Skipping duplicate file (same indicator + same entry):", {
+              filePath: fileWithId.filePath,
+              originalName: fileWithId.originalName,
+              fileSize: fileWithId.fileSize,
+              id: fileWithId.id,
+              indicator,
+              category,
+              entryId: entryContext.entryId,
+              entryIndex: entryContext.entryIndex,
+              fileKey,
+            });
+          }
+        });
+      });
+    });
+
+    console.log("📄 DocumentsTab - Table Rows Created:", {
+      totalRows: rows.length,
+      rowsByCategory: rows.reduce((acc, row) => {
+        if (!acc[row.category]) acc[row.category] = {};
+        if (!acc[row.category][row.indicator]) acc[row.category][row.indicator] = 0;
+        acc[row.category][row.indicator]++;
+        return acc;
+      }, {} as Record<string, Record<string, number>>),
+      rowsFor2_1: rows.filter(r => r.indicator === '2.1').length,
+      rowsFor3_1: rows.filter(r => r.indicator === '3.1').length,
+      rowsFor4_2: rows.filter(r => r.indicator === '4.2').length,
+      rowsFor2_1Details: rows.filter(r => r.indicator === '2.1').map(r => ({
+        fileName: r.document.fileName || r.document.originalName,
+        originalName: r.document.originalName,
+        filePath: r.document.filePath,
+      })),
+      sampleRows: rows.slice(0, 10).map(r => ({
+        category: r.category,
+        indicator: r.indicator,
+        fileName: r.document.fileName || r.document.originalName,
+        originalName: r.document.originalName,
+      })),
+    });
+
+    return rows;
+  }, [filteredDocuments, formData]);
 
   // Debug logging
   React.useEffect(() => {
@@ -841,14 +1248,27 @@ export const DocumentsTab = ({
     }
   };
 
+  // Debug: Log table rows before rendering
+  React.useEffect(() => {
+    console.log("📄 DocumentsTab - Rendering Table:", {
+      tableRowsCount: tableRows.length,
+      tableRows: tableRows.map(r => ({
+        category: r.category,
+        indicator: r.indicator,
+        fileName: r.document.fileName || r.document.originalName,
+        filePath: r.document.filePath,
+      })),
+    });
+  }, [tableRows]);
+
   return (
     <SectionCard
       title="Document Review"
       subtitle="Data related to infrastructure financing and budget allocation"
       className="mb-6"
     >
-      <CardContent className="space-y-4">
-        {(!Array.isArray(filteredDocuments) || filteredDocuments.length === 0) ? (
+      <CardContent>
+        {tableRows.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p>No documents found in this submission</p>
@@ -859,68 +1279,95 @@ export const DocumentsTab = ({
             )}
           </div>
         ) : (
-          filteredDocuments.map((doc, idx) => {
-            const docKey = doc.id ?? doc.filePath ?? `doc-${idx}`;
-            const label = pickLabel(doc);
-            const isLoading = !!loading[docKey];
+          <div className="rounded-md border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[180px]">Category</TableHead>
+                  <TableHead className="min-w-[300px]">Indicator</TableHead>
+                  <TableHead className="min-w-[250px]">File Name</TableHead>
+                  <TableHead className="min-w-[100px]">File Size</TableHead>
+                  <TableHead className="min-w-[180px]">Uploaded At</TableHead>
+                  <TableHead className="min-w-[200px] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tableRows.map((row, idx) => {
+                  const doc = row.document;
+                  const docKey = doc.id;
+                  const label = pickLabel(doc);
+                  const isLoading = !!loading[docKey];
 
-            return (
-              <div
-                key={docKey}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  {getFileIcon(
-                    (doc.fileName || doc.originalName || "").split(".").pop() ||
-                      ""
-                  )}
-                  <div>
-                    <h4 className="font-semibold text-foreground">{label}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {formatSize(doc.fileSize)} | Uploaded by{" "}
-                      {doc.uploadedBy ?? "User"} on{" "}
-                      {formatDate(doc.uploadedAt)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => onView(doc, docKey)}
-                    disabled={isLoading || (!doc.filePath && !doc._fileObject)}
-                    title={(!doc.filePath && !doc._fileObject) ? "File not available" : "View file"}
-                  >
-                    <Eye className="w-4 h-4" />
-                    {isLoading ? "Opening..." : "View"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => onDownload(doc, docKey)}
-                    disabled={isLoading || (!doc.filePath && !doc._fileObject)}
-                    title={(!doc.filePath && !doc._fileObject) ? "File not available" : "Download file"}
-                  >
-                    <Download className="w-4 h-4" />
-                    {isLoading ? "Downloading..." : "Download"}
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Delete</DropdownMenuItem>
-                      <DropdownMenuItem>Share</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            );
-          })
+                  return (
+                    <TableRow key={docKey}>
+                      <TableCell className="font-medium">
+                        {row.categoryDisplayName}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary w-fit">
+                            {row.indicator}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {getIndicatorDisplayName(row.indicator)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span className="font-medium truncate max-w-md">{label}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatSize(doc.fileSize)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(doc.uploadedAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => onView(doc, docKey)}
+                            disabled={isLoading || (!doc.filePath && !doc._fileObject)}
+                            title={(!doc.filePath && !doc._fileObject) ? "File not available" : "View file"}
+                          >
+                            <Eye className="w-4 h-4" />
+                            {isLoading ? "Opening..." : "View"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => onDownload(doc, docKey)}
+                            disabled={isLoading || (!doc.filePath && !doc._fileObject)}
+                            title={(!doc.filePath && !doc._fileObject) ? "File not available" : "Download file"}
+                          >
+                            <Download className="w-4 h-4" />
+                            {isLoading ? "Downloading..." : "Download"}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>Delete</DropdownMenuItem>
+                              <DropdownMenuItem>Share</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </SectionCard>
