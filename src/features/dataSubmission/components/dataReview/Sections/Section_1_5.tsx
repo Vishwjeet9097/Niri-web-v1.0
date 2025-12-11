@@ -120,6 +120,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                         placeholder="Select Type"
                         isEditable={true}
                         resetKey={resetKey || 0}
+                        uniqueId={`1.5-organisationType-${index}`}
                       />
                     ) : (
                       item.organisationType || 'N/A'
@@ -213,6 +214,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                 placeholder="Select Type"
                 isEditable={true}
                 resetKey={resetKey || 0}
+                uniqueId="1.5-new-organisationType"
               />
             </div>
             <div>

@@ -65,7 +65,8 @@ export const Dropdown = ({
   onChange,
   placeholder = "Select option",
   isEditable = true,
-  resetKey = 0
+  resetKey = 0,
+  uniqueId = ""
 }: {
   options: string[];
   value: string;
@@ -73,10 +74,14 @@ export const Dropdown = ({
   placeholder?: string;
   isEditable?: boolean;
   resetKey?: number;
+  uniqueId?: string;
 }) => {
+  // Create a unique key that includes resetKey and uniqueId to force re-render
+  const selectKey = uniqueId ? `dropdown-${uniqueId}-${resetKey}` : `dropdown-${resetKey}`;
+  
   return (
     <Select
-      key={`dropdown-${resetKey}`}
+      key={selectKey}
       value={value}
       onValueChange={onChange}
       disabled={!isEditable}

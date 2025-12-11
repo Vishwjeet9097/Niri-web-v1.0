@@ -1094,6 +1094,10 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
             investmentReadyArray: investmentReadyArray.map((item: any) => ({
               id: item?.id ?? null,
               projectName: item?.projectName ?? null,
+              sector: item?.sector ?? null,
+              status: item?.status ?? null,
+              projectSize: item?.projectSize ?? null,
+              investmentType: item?.investmentType ?? null,
               dprFile: toSingleFile(item?.dprFile),
             })),
           },
@@ -1397,8 +1401,9 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
       const isStateApprover = userRole === 'STATE_APPROVER';
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
 
-      // If STATE_APPROVER and section is editable, save the data first
-      if (isStateApprover && isEditable(pendingActionSectionId)) {
+      // If STATE_APPROVER, always save the data before accepting (even if not in edit mode)
+      // This ensures dropdown changes and other modifications are saved
+      if (isStateApprover) {
         try {
           console.log(`💾 [STATE_APPROVER Accept] Saving section ${pendingActionSectionId} before accepting...`);
           await performSave(pendingActionSectionId);
@@ -4597,6 +4602,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <td className="py-3 px-4 text-sm">
                                 {isEditable('2.4') ? (
                                   <Select
+                                    key={`sector-${index}-${selectResetKey}`}
                                     value={item.sector || ""}
                                     onValueChange={(value) => handleArrayFieldUpdate('2.4', index, 'sector', value)}
                                   >
@@ -4618,6 +4624,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <td className="py-3 px-4 text-sm">
                                 {isEditable('2.4') ? (
                                   <Select
+                                    key={`status-${index}-${selectResetKey}`}
                                     value={item.status || ""}
                                     onValueChange={(value) => handleArrayFieldUpdate('2.4', index, 'status', value)}
                                   >
@@ -4654,6 +4661,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                               <td className="py-3 px-4 text-sm">
                                 {isEditable('2.4') ? (
                                   <Select
+                                    key={`investmentType-${index}-${selectResetKey}`}
                                     value={item.investmentType || ""}
                                     onValueChange={(value) => handleArrayFieldUpdate('2.4', index, 'investmentType', value)}
                                   >

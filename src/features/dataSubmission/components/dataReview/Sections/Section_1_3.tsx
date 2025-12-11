@@ -164,6 +164,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                         placeholder="Select ULB"
                         isEditable={true}
                         resetKey={resetKey || 0}
+                        uniqueId={`1.3-ulb-${index}`}
                       />
                     ) : (
                       item.ulb || 'N/A'
@@ -191,6 +192,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                         placeholder="Select Rating"
                         isEditable={true}
                         resetKey={resetKey || 0}
+                        uniqueId={`1.3-rating-${index}`}
                       />
                     ) : (
                       item.rating || 'N/A'
@@ -249,6 +251,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                 placeholder="Select ULB"
                 isEditable={true}
                 resetKey={resetKey || 0}
+                uniqueId="1.3-new-ulb"
               />
             </div>
             <div>
@@ -269,6 +272,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                 placeholder="Select Rating"
                 isEditable={true}
                 resetKey={resetKey || 0}
+                uniqueId="1.3-new-rating"
               />
             </div>
           </div>

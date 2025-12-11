@@ -60,6 +60,13 @@ export const InfraFinancingReview = ({
   isStateApprover = false,
   isNodalOfficer = false,
 }: InfraFinancingReviewProps) => {
+  const { saveMessage, getMessage, getComments, getAllComments } =
+    useSectionMessages(submissionId, submission);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+  const [submissionData, setSubmissionData] = useState(formData);
+  const { setFormDataForSection, updateSectionField, getSectionData } = useFormDataStore();
+
   // State to store nodal officer's assigned indicators when reviewing their submission
   const [nodalOfficerAssignedIndicators, setNodalOfficerAssignedIndicators] = useState<string[]>([]);
   // Section 1.4 state management
@@ -70,18 +77,14 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Use submissionData if available (after refresh), otherwise use formData prop
+      const dataSource = submissionData || formData;
       setSection14State({
-        totalULBs: formData?.section1_4?.totalULBs || 0,
-        bondList: formData?.section1_4?.bondList || [],
+        totalULBs: dataSource?.section1_4?.totalULBs || 0,
+        bondList: dataSource?.section1_4?.bondList || [],
       });
     }
-  }, [formData?.section1_4]);
-  const { saveMessage, getMessage, getComments, getAllComments } =
-    useSectionMessages(submissionId, submission);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [timelineSection, setTimelineSection] = useState<string | null>(null);
-  const [submissionData, setSubmissionData] = useState(formData);
-  const { setFormDataForSection, updateSectionField, getSectionData } = useFormDataStore();
+  }, [formData?.section1_4, submissionData?.section1_4]);
 
   // Section 1.3 state management
   const [section13State, setSection13State] = useState({
@@ -91,12 +94,14 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Use submissionData if available (after refresh), otherwise use formData prop
+      const dataSource = submissionData || formData;
       setSection13State({
-        totalULBs: formData?.section1_3?.totalULBs || 0,
-        ulbList: formData?.section1_3?.ulbList || [],
+        totalULBs: dataSource?.section1_3?.totalULBs || 0,
+        ulbList: dataSource?.section1_3?.ulbList || [],
       });
     }
-  }, [formData?.section1_3]);
+  }, [formData?.section1_3, submissionData?.section1_3]);
 
   // Section 1.5 state management
   const [section15State, setSection15State] = useState<{
@@ -107,11 +112,13 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Use submissionData if available (after refresh), otherwise use formData prop
+      const dataSource = submissionData || formData;
       // Handle both old format (array) and new format (object)
-      if (Array.isArray(formData?.section1_5)) {
-        setSection15State({ ffiArray: formData.section1_5 });
+      if (Array.isArray(dataSource?.section1_5)) {
+        setSection15State({ ffiArray: dataSource.section1_5 });
       } else {
-        const section1_5 = formData?.section1_5 || { ffiArray: [] };
+        const section1_5 = dataSource?.section1_5 || { ffiArray: [] };
         // Log comment to verify it's present
         if (section1_5.comment) {
           console.log(`[InfraFinancingReview] ✅ Comment found in section1_5:`, section1_5.comment);
@@ -634,6 +641,8 @@ export const InfraFinancingReview = ({
       section14State: JSON.parse(JSON.stringify(section14State)),
       section15State: JSON.parse(JSON.stringify(section15State)),
     });
+    // Increment reset key to force Select/Dropdown components to remount with current values
+    setSelectResetKey(prev => prev + 1);
     setEditable(sectionId, true);
   };
   
@@ -1100,36 +1109,90 @@ export const InfraFinancingReview = ({
         fields
       });
 
-      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
-      if (isNodalOfficer) {
-        // Update local formData state to set status to RESUBMITTED
-        const sectionKey = `section${sectionId.replace('.', '_')}`;
-        // Update formData prop if it exists
-        if (formData && (formData as any)[sectionKey]) {
-          (formData as any)[sectionKey] = {
-            ...(formData as any)[sectionKey],
-            status: 'RESUBMITTED',
-          };
-          setSubmissionData({ ...formData });
-        }
-        // Also update submissionData to trigger re-render
-        setSubmissionData((prev: any) => {
-          if (!prev) return prev;
-          const updated = { ...prev };
-          if (updated[sectionKey]) {
-            updated[sectionKey] = {
-              ...updated[sectionKey],
-              status: 'RESUBMITTED',
-            };
-          }
-          return updated;
-        });
-      }
-
       // Disable editing after successful save
       setEditable(sectionId, false);
       // Clear the snapshot since save was successful
       setOriginalStateSnapshot(null);
+
+      // Refresh submission data from backend to get latest state
+      // This ensures frontend shows updated data after save
+      if (submissionId) {
+        try {
+          // Wait a bit for backend to process the update
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const refreshedSubmission = await apiService.getSubmission(submissionId);
+          if (refreshedSubmission && refreshedSubmission.formData?.infraFinancing) {
+            const refreshedFormData = refreshedSubmission.formData.infraFinancing;
+            
+            // Temporarily set isRestoringRef to prevent useEffect hooks from interfering
+            isRestoringRef.current = true;
+            
+            // Update submissionData first
+            setSubmissionData(refreshedFormData);
+            
+            // Update section-specific states to reflect backend changes
+            if (refreshedFormData.section1_1) {
+              if (refreshedFormData.section1_1.capitalAllocation !== undefined) {
+                setCapitalAllocation(String(refreshedFormData.section1_1.capitalAllocation || ''));
+              }
+              if (refreshedFormData.section1_1.gsdpForFY !== undefined) {
+                setGsdpForFY(String(refreshedFormData.section1_1.gsdpForFY || ''));
+              }
+            }
+            
+            if (refreshedFormData.section1_2) {
+              if (refreshedFormData.section1_2.actualCapex !== undefined) {
+                const value = typeof refreshedFormData.section1_2.actualCapex === 'string' 
+                  ? refreshedFormData.section1_2.actualCapex.replace(/[₹,Crores\s]/g, '').trim()
+                  : String(refreshedFormData.section1_2.actualCapex || '');
+                setActualCapex(value);
+              }
+              if (refreshedFormData.section1_2.stateCapexUtilisation !== undefined) {
+                setStateCapexUtilisation(String(refreshedFormData.section1_2.stateCapexUtilisation || ''));
+              }
+            }
+            
+            // Update section 1.3 state
+            if (refreshedFormData.section1_3) {
+              setSection13State({
+                totalULBs: refreshedFormData.section1_3.totalULBs || 0,
+                ulbList: refreshedFormData.section1_3.ulbList || [],
+              });
+            }
+            
+            // Update section 1.4 state
+            if (refreshedFormData.section1_4) {
+              setSection14State({
+                totalULBs: refreshedFormData.section1_4.totalULBs || 0,
+                bondList: refreshedFormData.section1_4.bondList || [],
+              });
+            }
+            
+            // Update section 1.5 state
+            if (refreshedFormData.section1_5) {
+              if (Array.isArray(refreshedFormData.section1_5)) {
+                setSection15State({ ffiArray: refreshedFormData.section1_5 });
+              } else {
+                setSection15State(refreshedFormData.section1_5);
+              }
+            }
+            
+            // Reset the flag after React has processed the state updates
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                isRestoringRef.current = false;
+              });
+            });
+            
+            console.log('✅ InfraFinancingReview - All states updated after save');
+          }
+        } catch (refreshError) {
+          console.error('Failed to refresh submission after save:', refreshError);
+          // Reset flag even on error
+          isRestoringRef.current = false;
+          // Continue even if refresh fails - save was successful
+        }
+      }
 
       // Optional: Show success message
       // toast.success(`Section ${sectionId} saved successfully`);
@@ -1323,8 +1386,9 @@ export const InfraFinancingReview = ({
       const isStateApprover = userRole === 'STATE_APPROVER';
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
 
-      // If STATE_APPROVER and section is editable, save the data first
-      if (isStateApprover && isEditable(pendingActionSectionId)) {
+      // If STATE_APPROVER, always save the data before accepting (even if not in edit mode)
+      // This ensures dropdown changes and other modifications are saved
+      if (isStateApprover) {
         try {
           console.log(`💾 [STATE_APPROVER Accept] Saving section ${pendingActionSectionId} before accepting...`);
           await performSave(pendingActionSectionId);
@@ -1348,11 +1412,75 @@ export const InfraFinancingReview = ({
           // Wait a bit for backend to process the update
           await new Promise(resolve => setTimeout(resolve, 500));
           const refreshedSubmission = await apiService.getSubmission(submissionId);
-          if (refreshedSubmission) {
-            setSubmissionData(refreshedSubmission.formData?.infraFinancing || formData);
+          if (refreshedSubmission && refreshedSubmission.formData?.infraFinancing) {
+            const refreshedFormData = refreshedSubmission.formData.infraFinancing;
+            
+            // Temporarily set isRestoringRef to prevent useEffect hooks from interfering
+            isRestoringRef.current = true;
+            
+            // Update submissionData first
+            setSubmissionData(refreshedFormData);
+            
+            // Update section-specific states to reflect backend changes
+            if (refreshedFormData.section1_1) {
+              if (refreshedFormData.section1_1.capitalAllocation !== undefined) {
+                setCapitalAllocation(String(refreshedFormData.section1_1.capitalAllocation || ''));
+              }
+              if (refreshedFormData.section1_1.gsdpForFY !== undefined) {
+                setGsdpForFY(String(refreshedFormData.section1_1.gsdpForFY || ''));
+              }
+            }
+            
+            if (refreshedFormData.section1_2) {
+              if (refreshedFormData.section1_2.actualCapex !== undefined) {
+                const value = typeof refreshedFormData.section1_2.actualCapex === 'string' 
+                  ? refreshedFormData.section1_2.actualCapex.replace(/[₹,Crores\s]/g, '').trim()
+                  : String(refreshedFormData.section1_2.actualCapex || '');
+                setActualCapex(value);
+              }
+              if (refreshedFormData.section1_2.stateCapexUtilisation !== undefined) {
+                setStateCapexUtilisation(String(refreshedFormData.section1_2.stateCapexUtilisation || ''));
+              }
+            }
+            
+            // Update section 1.3 state
+            if (refreshedFormData.section1_3) {
+              setSection13State({
+                totalULBs: refreshedFormData.section1_3.totalULBs || 0,
+                ulbList: refreshedFormData.section1_3.ulbList || [],
+              });
+            }
+            
+            // Update section 1.4 state
+            if (refreshedFormData.section1_4) {
+              setSection14State({
+                totalULBs: refreshedFormData.section1_4.totalULBs || 0,
+                bondList: refreshedFormData.section1_4.bondList || [],
+              });
+            }
+            
+            // Update section 1.5 state
+            if (refreshedFormData.section1_5) {
+              if (Array.isArray(refreshedFormData.section1_5)) {
+                setSection15State({ ffiArray: refreshedFormData.section1_5 });
+              } else {
+                setSection15State(refreshedFormData.section1_5);
+              }
+            }
+            
+            // Reset the flag after React has processed the state updates
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                isRestoringRef.current = false;
+              });
+            });
+            
+            console.log('✅ InfraFinancingReview - All states updated after accept');
           }
         } catch (refreshError) {
           console.error('Failed to refresh submission:', refreshError);
+          // Reset flag even on error
+          isRestoringRef.current = false;
           // Continue even if refresh fails - local state is already updated
         }
       }
@@ -3398,6 +3526,7 @@ const calculateAllocationPercentage = () => {
                                     placeholder="Select Type"
                                     isEditable={true}
                                     resetKey={selectResetKey}
+                                    uniqueId={`1.5-organisationType-${index}`}
                                   />
                                 ) : (
                                   item.organisationType || 'N/A'
@@ -3496,6 +3625,8 @@ const calculateAllocationPercentage = () => {
                             onChange={(value) => setNewEntry1_5({...newEntry1_5, organisationType: value})}
                             placeholder="Select Type"
                             isEditable={true}
+                            resetKey={selectResetKey}
+                            uniqueId="1.5-new-organisationType"
                           />
                         </div>
                         <div>

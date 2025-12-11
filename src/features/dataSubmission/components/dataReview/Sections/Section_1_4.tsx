@@ -122,6 +122,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         placeholder="Select Bond Type"
                         isEditable={true}
                         resetKey={resetKey || 0}
+                        uniqueId={`1.4-bondType-${index}`}
                       />
                     ) : (
                       item.bondType || 'N/A'
@@ -136,6 +137,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         placeholder="Select City"
                         isEditable={true}
                         resetKey={resetKey || 0}
+                        uniqueId={`1.4-cityName-${index}`}
                       />
                     ) : (
                       item.cityName || 'N/A'
@@ -150,6 +152,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         placeholder="Select Authority"
                         isEditable={true}
                         resetKey={resetKey || 0}
+                        uniqueId={`1.4-issuingAuthority-${index}`}
                       />
                     ) : (
                       item.issuingAuthority || 'N/A'
@@ -208,6 +211,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 placeholder="Select Bond Type"
                 isEditable={true}
                 resetKey={resetKey || 0}
+                uniqueId="1.4-new-bondType"
               />
             </div>
             <div>
@@ -219,6 +223,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 placeholder="Select City"
                 isEditable={true}
                 resetKey={resetKey || 0}
+                uniqueId="1.4-new-cityName"
               />
             </div>
             <div>
@@ -230,6 +235,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 placeholder="Select Authority"
                 isEditable={true}
                 resetKey={resetKey || 0}
+                uniqueId="1.4-new-issuingAuthority"
               />
             </div>
             <div>
