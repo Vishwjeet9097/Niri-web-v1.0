@@ -41,15 +41,7 @@ export const FormActions = ({
           </Button>
         )} */}
         {onNext && (
-          <Button
-            onClick={onNext}
-            disabled={isNextDisabled}
-            title={
-              isNextDisabled
-                ? "Complete required fields to continue"
-                : undefined
-            }
-          >
+          <Button onClick={onNext} disabled={isNextDisabled}>
             {nextLabel}
             {!isLastStep && <ArrowRight className="w-4 h-4 ml-2" />}
           </Button>

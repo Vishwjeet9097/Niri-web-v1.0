@@ -447,7 +447,7 @@ export const InfraDevelopmentStep = () => {
       allowedIndicators: indicatorsToValidate,
     });
   }, [formData, isNodalOfficer, user?.role, allowedIndicators]);
-  const isNextDisabled = !validation.isValid;
+  const isNextDisabled = false; // Validation disabled - Next button always enabled
 
   // Debug logging
   useEffect(() => {
@@ -940,15 +940,7 @@ export const InfraDevelopmentStep = () => {
 
   // --- Navigation ---
   const handleNext = () => {
-    if (!validation.isValid) {
-      setShowValidationErrors(true);
-      toast({
-        title: "Validation Error",
-        description: "Please complete all required fields before continuing.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Validation disabled - allow navigation without checking required fields
     updateFormData("infraDevelopment", formData);
     goToNext();
   };
@@ -1631,7 +1623,11 @@ export const InfraDevelopmentStep = () => {
   // --- UI ---
   return (
     <div className="">
-      <Stepper steps={SUBMISSION_STEPS} currentStep={currentStep} />
+      <Stepper
+        steps={SUBMISSION_STEPS}
+        currentStep={currentStep}
+        onStepClick={goToStep}
+      />
       {(() => {
         const { completed, total, progress } = computeStepProgress(
           { infraDevelopment: formData } as Record<string, unknown>,
@@ -1715,1292 +1711,1383 @@ export const InfraDevelopmentStep = () => {
         {/* Section 2.1 */}
         {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
           availableIndicators.includes("2.1") ||
-          assignedIndicators.includes("2.1")) &&
-          (!isEditMode ||
-            (Array.isArray(formData.section2_1.infraActArray) &&
-              Array.isArray(formData.section2_1?.infraActArray) &&
-              formData.section2_1.infraActArray.length > 0)) && (
-            <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">2.1 -</span> Availability of
-                    Infrastructure Act/Policy{" "}
-                  </span>
-                </div>
-              }
-              subtitle=""
-              className="mb-6"
-              indicatorStatus={getIndicatorStatus("2.1")}
-              indicatorCode="2.1"
-              isEditable={editingIndicators.has("2.1")}
-              onEdit={() => handleEditIndicator("2.1")}
-              onSave={() => handleSaveIndicator("2.1")}
-              onCancel={() => handleCancelEdit("2.1")}
-              isSaving={savingIndicators.has("2.1")}
-            >
-              <div className="flex flex-col gap-4 ">
-                {(Array.isArray(formData.section2_1?.infraActArray)
-                  ? formData.section2_1.infraActArray
-                  : []
-                ).map((entry) => (
-                  <div key={entry.id} className=" mb-2 relative">
-                    <div className="flex flex-col gap-4 max-w-[70%]">
-                      <div className="flex-1 w-full">
-                        <Label>
-                          Select Sector{" "}
-                          <span className="text-destructive">*</span>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="inline w-3 h-3 ml-1" />
-                            </TooltipTrigger>
-                            <TooltipContent>Select the sector</TooltipContent>
-                          </Tooltip>
-                        </Label>
-                        <Select
-                          value={entry.sector}
-                          onValueChange={(value) => {
-                            showErrorsIfNeeded();
-                            updateEntry(
-                              "section2_1",
-                              entry.id,
-                              "sector",
-                              value
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("2.1")}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              getInputValidationClass(
-                                `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
-                                  (e) => e.id === entry.id
-                                )}.sector`
-                              )
-                            )}
-                          >
-                            <SelectValue placeholder="Select an option" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SECTOR_OPTIONS.map((sector) => (
-                              <SelectItem key={sector} value={sector}>
-                                {sector}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex-1 w-full">
-                        <FileUploadSection
-                          label="Upload File"
-                          value={entry.files?.[0] || null}
-                          onChange={(file) => {
-                            showErrorsIfNeeded();
-                            // Always set file to null if not a real FileUpload
-                            const safeFile =
-                              file &&
-                              typeof file === "object" &&
-                              (file.file instanceof File || file.file === null)
-                                ? file
-                                : null;
-                            updateEntry(
-                              "section2_1",
-                              entry.id,
-                              "files",
-                              safeFile ? [safeFile] : []
-                            );
-                          }}
-                          required
-                          disabled={isIndicatorSubmitted("2.1")}
-                        />
-                        {renderFieldError(
-                          `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
-                            (e) => e.id === entry.id
-                          )}.files`
-                        )}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="self-start absolute top-2 right-2"
-                        onClick={() => removeEntry("section2_1", entry.id)}
-                        disabled={isIndicatorSubmitted("2.1")}
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="w-5 h-5 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addEntry("section2_1")}
-                    disabled={isIndicatorSubmitted("2.1")}
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add More Entry
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Upload copy of Act/Policy
-                  </p>
-                  {renderFieldError("section2_1.infraActArray")}
-                </div>
-
-                {Array.isArray(formData.section2_1?.infraActArray) &&
-                  formData.section2_1.infraActArray.length > 0 && (
-                    <div className="overflow-x-auto rounded-xl">
-                      <table className="min-w-full border-separate border-spacing-0 ">
-                        <thead>
-                          <tr className="bg-[#DDE3F9]">
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                              Sector
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              Uploaded File
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              File Size
-                            </th>
-                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(Array.isArray(formData.section2_1?.infraActArray)
-                            ? formData.section2_1.infraActArray
-                            : []
-                          ).map((entry) => (
-                            <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.sector}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.files?.[0]?.fileName ||
-                                  "No file uploaded"}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.files?.[0]?.fileSize
-                                  ? `${(
-                                      entry.files[0].fileSize /
-                                      1024 /
-                                      1024
-                                    ).toFixed(1)} MB`
-                                  : "N/A"}
-                              </td>
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    removeEntry("section2_1", entry.id)
-                                  }
-                                  disabled={isIndicatorSubmitted("2.1")}
-                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  aria-label="Delete"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                <div className="mt-4">
-                  <Button
-                    onClick={() =>
-                      handleSubmitIndicator(
-                        "2.1",
-                        "Infrastructure Sector-Specific Acts"
-                      )
-                    }
-                    disabled={isSubmitting || isIndicatorSubmitted("2.1")}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    size="sm"
-                  >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("2.1")
-                      ? "Submitted"
-                      : "Submit"}
-                  </Button>
-                </div>
+          assignedIndicators.includes("2.1")) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.1 -</span> Availability of
+                  Infrastructure Act/Policy{" "}
+                </span>
               </div>
-            </SectionCard>
-          )}
+            }
+            subtitle=""
+            className="mb-6"
+            indicatorStatus={getIndicatorStatus("2.1")}
+            indicatorCode="2.1"
+            isEditable={editingIndicators.has("2.1")}
+            onEdit={() => handleEditIndicator("2.1")}
+            onSave={() => handleSaveIndicator("2.1")}
+            onCancel={() => handleCancelEdit("2.1")}
+            isSaving={savingIndicators.has("2.1")}
+          >
+            <div className="flex flex-col gap-4 ">
+              {(Array.isArray(formData.section2_1?.infraActArray)
+                ? formData.section2_1.infraActArray
+                : []
+              ).map((entry) => (
+                <div key={entry.id} className=" mb-2 relative">
+                  <div className="flex flex-col gap-4 max-w-[70%]">
+                    <div className="flex-1 w-full">
+                      <Label>
+                        Select Sector{" "}
+                        <span className="text-destructive">*</span>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="inline w-3 h-3 ml-1" />
+                          </TooltipTrigger>
+                          <TooltipContent>Select the sector</TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <Select
+                        value={entry.sector}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateEntry("section2_1", entry.id, "sector", value);
+                        }}
+                        disabled={isIndicatorSubmitted("2.1")}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
+                          <SelectValue placeholder="Select an option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1 w-full">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={entry.files?.[0] || null}
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
+                          // Always set file to null if not a real FileUpload
+                          const safeFile =
+                            file &&
+                            typeof file === "object" &&
+                            (file.file instanceof File || file.file === null)
+                              ? file
+                              : null;
+                          updateEntry(
+                            "section2_1",
+                            entry.id,
+                            "files",
+                            safeFile ? [safeFile] : []
+                          );
+                        }}
+                        required
+                        disabled={isIndicatorSubmitted("2.1")}
+                      />
+                      {renderFieldError(
+                        `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.files`
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="self-start absolute top-2 right-2"
+                      onClick={() => removeEntry("section2_1", entry.id)}
+                      disabled={isIndicatorSubmitted("2.1")}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-5 h-5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addEntry("section2_1")}
+                  disabled={isIndicatorSubmitted("2.1")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add More Entry
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload copy of Act/Policy
+                </p>
+                {renderFieldError("section2_1.infraActArray")}
+              </div>
+
+              {Array.isArray(formData.section2_1?.infraActArray) &&
+                formData.section2_1.infraActArray.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0 ">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Uploaded File
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Size
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(Array.isArray(formData.section2_1?.infraActArray)
+                          ? formData.section2_1.infraActArray
+                          : []
+                        ).map((entry) => (
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileName || "No file uploaded"}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileSize
+                                ? `${(
+                                    entry.files[0].fileSize /
+                                    1024 /
+                                    1024
+                                  ).toFixed(1)} MB`
+                                : "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeEntry("section2_1", entry.id)
+                                }
+                                disabled={isIndicatorSubmitted("2.1")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              <div className="mt-4">
+                <Button
+                  onClick={() =>
+                    handleSubmitIndicator(
+                      "2.1",
+                      "Infrastructure Sector-Specific Acts"
+                    )
+                  }
+                  disabled={isSubmitting || isIndicatorSubmitted("2.1")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isIndicatorSubmitted("2.1")
+                    ? "Submitted"
+                    : "Submit"}
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+        )}
 
         {/* Section 2.2 */}
         {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
           availableIndicators.includes("2.2") ||
-          assignedIndicators.includes("2.2")) &&
-          (!isEditMode ||
-            (Array.isArray(formData.section2_2.specializedEntityArray) &&
-              Array.isArray(formData.section2_2?.specializedEntityArray) &&
-              formData.section2_2.specializedEntityArray.length > 0)) && (
-            <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">2.2 -</span> Availability of
-                    Specialized Entity{" "}
-                  </span>
-                </div>
-              }
-              subtitle=""
-              className="mb-6"
-              indicatorStatus={getIndicatorStatus("2.2")}
-              indicatorCode="2.2"
-              isEditable={editingIndicators.has("2.2")}
-              onEdit={() => handleEditIndicator("2.2")}
-              onSave={() => handleSaveIndicator("2.2")}
-              onCancel={() => handleCancelEdit("2.2")}
-              isSaving={savingIndicators.has("2.2")}
-            >
-              <div className="flex flex-col gap-4">
-                {(Array.isArray(formData.section2_2?.specializedEntityArray)
-                  ? formData.section2_2.specializedEntityArray
-                  : []
-                ).map((entry) => (
-                  <div key={entry.id} className="mb-2 relative">
-                    <div className="flex flex-col gap-4 max-w-[70%]">
-                      <div className="flex-1 w-full">
-                        <Label>
-                          Select Sector{" "}
-                          <span className="text-destructive">*</span>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="inline w-3 h-3 ml-1" />
-                            </TooltipTrigger>
-                            <TooltipContent>Select the sector</TooltipContent>
-                          </Tooltip>
-                        </Label>
-                        <Select
-                          value={entry.sector}
-                          onValueChange={(value) => {
-                            showErrorsIfNeeded();
-                            updateEntry(
-                              "section2_2",
-                              entry.id,
-                              "sector",
-                              value
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("2.2")}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              getInputValidationClass(
-                                `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
-                                  (e) => e.id === entry.id
-                                )}.sector`
-                              )
-                            )}
-                          >
-                            <SelectValue placeholder="Select an option" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SECTOR_OPTIONS.map((sector) => (
-                              <SelectItem key={sector} value={sector}>
-                                {sector}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex-1 w-full">
-                        <FileUploadSection
-                          label="Upload File"
-                          value={entry.files?.[0] || null}
-                          onChange={(file) => {
-                            showErrorsIfNeeded();
-                            // Always set file to null if not a real FileUpload
-                            const safeFile =
-                              file &&
-                              typeof file === "object" &&
-                              (file.file instanceof File || file.file === null)
-                                ? file
-                                : null;
-                            updateEntry(
-                              "section2_2",
-                              entry.id,
-                              "files",
-                              safeFile ? [safeFile] : []
-                            );
-                          }}
-                          required
-                          disabled={isIndicatorSubmitted("2.2")}
-                        />
-                        {renderFieldError(
-                          `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
-                            (e) => e.id === entry.id
-                          )}.files`
-                        )}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2"
-                        onClick={() => removeEntry("section2_2", entry.id)}
-                        disabled={isIndicatorSubmitted("2.2")}
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="w-5 h-5 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addEntry("section2_2")}
-                    disabled={isIndicatorSubmitted("2.2")}
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add More Entry
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Upload evidence
-                  </p>
-                  {renderFieldError("section2_2.specializedEntityArray")}
-                </div>
-
-                {Array.isArray(formData.section2_2?.specializedEntityArray) &&
-                  formData.section2_2.specializedEntityArray.length > 0 && (
-                    <div className="overflow-x-auto rounded-xl">
-                      <table className="min-w-full border-separate border-spacing-0 ">
-                        <thead>
-                          <tr className="bg-[#DDE3F9]">
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                              Sector
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              Uploaded File
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              File Size
-                            </th>
-                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(Array.isArray(
-                            formData.section2_2?.specializedEntityArray
-                          )
-                            ? formData.section2_2.specializedEntityArray
-                            : []
-                          ).map((entry) => (
-                            <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.sector}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.files?.[0]?.fileName ||
-                                  "No file uploaded"}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.files?.[0]?.fileSize
-                                  ? `${(
-                                      entry.files[0].fileSize /
-                                      1024 /
-                                      1024
-                                    ).toFixed(1)} MB`
-                                  : "N/A"}
-                              </td>
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    removeEntry("section2_2", entry.id)
-                                  }
-                                  disabled={isIndicatorSubmitted("2.2")}
-                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  aria-label="Delete"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                <div className="mt-4">
-                  <Button
-                    onClick={() =>
-                      handleSubmitIndicator("2.2", "Specialized Entity")
-                    }
-                    disabled={isSubmitting || isIndicatorSubmitted("2.2")}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    size="sm"
-                  >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("2.2")
-                      ? "Submitted"
-                      : "Submit"}
-                  </Button>
-                </div>
+          assignedIndicators.includes("2.2")) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.2 -</span> Availability of
+                  Specialized Entity{" "}
+                </span>
               </div>
-            </SectionCard>
-          )}
+            }
+            subtitle=""
+            className="mb-6"
+            indicatorStatus={getIndicatorStatus("2.2")}
+            indicatorCode="2.2"
+            isEditable={editingIndicators.has("2.2")}
+            onEdit={() => handleEditIndicator("2.2")}
+            onSave={() => handleSaveIndicator("2.2")}
+            onCancel={() => handleCancelEdit("2.2")}
+            isSaving={savingIndicators.has("2.2")}
+          >
+            <div className="flex flex-col gap-4">
+              {(Array.isArray(formData.section2_2?.specializedEntityArray)
+                ? formData.section2_2.specializedEntityArray
+                : []
+              ).map((entry) => (
+                <div key={entry.id} className="mb-2 relative">
+                  <div className="flex flex-col gap-4 max-w-[70%]">
+                    <div className="flex-1 w-full">
+                      <Label>
+                        Select Sector{" "}
+                        <span className="text-destructive">*</span>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="inline w-3 h-3 ml-1" />
+                          </TooltipTrigger>
+                          <TooltipContent>Select the sector</TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <Select
+                        value={entry.sector}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateEntry("section2_2", entry.id, "sector", value);
+                        }}
+                        disabled={isIndicatorSubmitted("2.2")}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
+                          <SelectValue placeholder="Select an option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1 w-full">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={entry.files?.[0] || null}
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
+                          // Always set file to null if not a real FileUpload
+                          const safeFile =
+                            file &&
+                            typeof file === "object" &&
+                            (file.file instanceof File || file.file === null)
+                              ? file
+                              : null;
+                          updateEntry(
+                            "section2_2",
+                            entry.id,
+                            "files",
+                            safeFile ? [safeFile] : []
+                          );
+                        }}
+                        required
+                        disabled={isIndicatorSubmitted("2.2")}
+                      />
+                      {renderFieldError(
+                        `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.files`
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() => removeEntry("section2_2", entry.id)}
+                      disabled={isIndicatorSubmitted("2.2")}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-5 h-5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addEntry("section2_2")}
+                  disabled={isIndicatorSubmitted("2.2")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add More Entry
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload evidence
+                </p>
+                {renderFieldError("section2_2.specializedEntityArray")}
+              </div>
+
+              {Array.isArray(formData.section2_2?.specializedEntityArray) &&
+                formData.section2_2.specializedEntityArray.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0 ">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Uploaded File
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Size
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(Array.isArray(
+                          formData.section2_2?.specializedEntityArray
+                        )
+                          ? formData.section2_2.specializedEntityArray
+                          : []
+                        ).map((entry) => (
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileName || "No file uploaded"}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileSize
+                                ? `${(
+                                    entry.files[0].fileSize /
+                                    1024 /
+                                    1024
+                                  ).toFixed(1)} MB`
+                                : "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeEntry("section2_2", entry.id)
+                                }
+                                disabled={isIndicatorSubmitted("2.2")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              <div className="mt-4">
+                <Button
+                  onClick={() =>
+                    handleSubmitIndicator("2.2", "Specialized Entity")
+                  }
+                  disabled={isSubmitting || isIndicatorSubmitted("2.2")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isIndicatorSubmitted("2.2")
+                    ? "Submitted"
+                    : "Submit"}
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+        )}
 
         {/* Section 2.3 */}
         {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
           availableIndicators.includes("2.3") ||
-          assignedIndicators.includes("2.3")) &&
-          (!isEditMode ||
-            (Array.isArray(formData.section2_3.infraDevelopmentArray) &&
-              Array.isArray(formData.section2_3?.infraDevelopmentArray) &&
-              formData.section2_3.infraDevelopmentArray.length > 0)) && (
-            <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold">
-                    <span className="text-primary">2.3 -</span> Availability of
-                    Sector Infra Development Plan{" "}
-                  </span>
-                </div>
-              }
-              className="mb-6"
-              indicatorStatus={getIndicatorStatus("2.3")}
-              indicatorCode="2.3"
-              isEditable={editingIndicators.has("2.3")}
-              onEdit={() => handleEditIndicator("2.3")}
-              onSave={() => handleSaveIndicator("2.3")}
-              onCancel={() => handleCancelEdit("2.3")}
-              isSaving={savingIndicators.has("2.3")}
-            >
-              <div className="space-y-6">
-                <div>
-                  <Label>
-                    Sector Infra Development Plan Available?{" "}
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="inline w-3 h-3 ml-1" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Select “Yes” if there is a Sector Infra Development Plan
-                        available
-                      </TooltipContent>
-                    </Tooltip>
-                  </Label>
-                  <div className="flex gap-6 mt-2">
-                    <label className="flex items-center gap-2">
-                      <Input
-                        type="radio"
-                        name="infra-development-plan"
-                        value="yes"
-                        checked={
-                          formData.section2_3.hasInfraDevelopmentPlan === "yes"
-                        }
-                        onChange={() => {
-                          if (isIndicatorSubmitted("2.3")) return;
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section2_3: {
-                              ...prev.section2_3,
-                              hasInfraDevelopmentPlan: "yes",
-                              comment: "",
-                            },
-                          }));
-                        }}
-                        disabled={isIndicatorSubmitted("2.3")}
-                      />
-                      Yes
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <Input
-                        type="radio"
-                        name="infra-development-plan"
-                        value="no"
-                        checked={
-                          formData.section2_3.hasInfraDevelopmentPlan === "no"
-                        }
-                        onChange={() => {
-                          if (isIndicatorSubmitted("2.3")) return;
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section2_3: {
-                              ...prev.section2_3,
-                              hasInfraDevelopmentPlan: "no",
-                              infraDevelopmentArray: [],
-                            },
-                          }));
-                        }}
-                        disabled={isIndicatorSubmitted("2.3")}
-                      />
-                      No
-                    </label>
-                  </div>
-                  {renderFieldError("section2_3.hasInfraDevelopmentPlan")}
-                </div>
-
-                {/* If Yes → show infra plan fields */}
-                {formData.section2_3.hasInfraDevelopmentPlan === "yes" && (
-                  <div className="space-y-4">
-                    {(Array.isArray(formData.section2_3?.infraDevelopmentArray)
-                      ? formData.section2_3.infraDevelopmentArray
-                      : []
-                    ).map((entry: any) => (
-                      <div key={entry.id} className="mb-2 relative">
-                        <div className="flex flex-col gap-4 max-w-[70%]">
-                          <div className="flex-1 w-full">
-                            <Label>
-                              Select Sector{" "}
-                              <span className="text-destructive">*</span>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Info className="inline w-3 h-3 ml-1" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Select the sector
-                                </TooltipContent>
-                              </Tooltip>
-                            </Label>
-                            <Select
-                              value={entry.sector}
-                              onValueChange={(value) => {
-                                showErrorsIfNeeded();
-                                updateEntry(
-                                  "section2_3",
-                                  entry.id,
-                                  "sector",
-                                  value
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("2.3")}
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  getInputValidationClass(
-                                    `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
-                                      (e) => e.id === entry.id
-                                    )}.sector`
-                                  )
-                                )}
-                              >
-                                <SelectValue placeholder="Select an option" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SECTOR_OPTIONS.map((sector) => (
-                                  <SelectItem key={sector} value={sector}>
-                                    {sector}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="flex-1 w-full">
-                            <FileUploadSection
-                              label="Upload File"
-                              value={entry.files?.[0] || null}
-                              onChange={(file) => {
-                                showErrorsIfNeeded();
-                                updateEntry(
-                                  "section2_3",
-                                  entry.id,
-                                  "files",
-                                  file ? [file] : []
-                                );
-                              }}
-                              required
-                              disabled={isIndicatorSubmitted("2.3")}
-                            />
-                            {renderFieldError(
-                              `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.files`
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 👇 Delete button now visible, positioned exactly like 2.1 & 2.2 */}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2"
-                          onClick={() => removeEntry("section2_3", entry.id)}
-                          disabled={isIndicatorSubmitted("2.3")}
-                          aria-label="Remove"
-                        >
-                          <Trash2 className="w-5 h-5 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addEntry("section2_3")}
-                      disabled={isIndicatorSubmitted("2.3")}
-                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add More Entry
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Upload plan
-                    </p>
-                  </div>
-                )}
-
-                {/* If No → show comment box */}
-                {formData.section2_3.hasInfraDevelopmentPlan === "no" && (
-                  <div>
-                    <Label>Comments (Reason)</Label>
+          assignedIndicators.includes("2.3")) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold">
+                  <span className="text-primary">2.3 -</span> Availability of
+                  Sector Infra Development Plan{" "}
+                </span>
+              </div>
+            }
+            className="mb-6"
+            indicatorStatus={getIndicatorStatus("2.3")}
+            indicatorCode="2.3"
+            isEditable={editingIndicators.has("2.3")}
+            onEdit={() => handleEditIndicator("2.3")}
+            onSave={() => handleSaveIndicator("2.3")}
+            onCancel={() => handleCancelEdit("2.3")}
+            isSaving={savingIndicators.has("2.3")}
+          >
+            <div className="space-y-6">
+              <div>
+                <Label>
+                  Sector Infra Development Plan Available?{" "}
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="inline w-3 h-3 ml-1" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Select “Yes” if there is a Sector Infra Development Plan
+                      available
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <div className="flex gap-6 mt-2">
+                  <label className="flex items-center gap-2">
                     <Input
-                      placeholder="Enter reason or comment"
-                      value={formData.section2_3.comment || ""}
-                      onChange={(e) => {
+                      type="radio"
+                      name="infra-development-plan"
+                      value="yes"
+                      checked={
+                        formData.section2_3.hasInfraDevelopmentPlan === "yes"
+                      }
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.3")) return;
                         showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section2_3: {
                             ...prev.section2_3,
-                            comment: e.target.value,
+                            hasInfraDevelopmentPlan: "yes",
+                            comment: "",
                           },
                         }));
                       }}
                       disabled={isIndicatorSubmitted("2.3")}
-                      className={cn(
-                        getInputValidationClass("section2_3.comment"),
-                        isIndicatorSubmitted("2.3") &&
-                          "bg-gray-50 cursor-not-allowed"
-                      )}
                     />
-                    {renderFieldError("section2_3.comment")}
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="infra-development-plan"
+                      value="no"
+                      checked={
+                        formData.section2_3.hasInfraDevelopmentPlan === "no"
+                      }
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.3")) return;
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_3: {
+                            ...prev.section2_3,
+                            hasInfraDevelopmentPlan: "no",
+                            infraDevelopmentArray: [],
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("2.3")}
+                    />
+                    No
+                  </label>
+                </div>
+                {renderFieldError("section2_3.hasInfraDevelopmentPlan")}
+              </div>
+
+              {/* If Yes → show infra plan fields */}
+              {formData.section2_3.hasInfraDevelopmentPlan === "yes" && (
+                <div className="space-y-4">
+                  {(Array.isArray(formData.section2_3?.infraDevelopmentArray)
+                    ? formData.section2_3.infraDevelopmentArray
+                    : []
+                  ).map((entry: any) => (
+                    <div key={entry.id} className="mb-2 relative">
+                      <div className="flex flex-col gap-4 max-w-[70%]">
+                        <div className="flex-1 w-full">
+                          <Label>
+                            Select Sector{" "}
+                            <span className="text-destructive">*</span>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="inline w-3 h-3 ml-1" />
+                              </TooltipTrigger>
+                              <TooltipContent>Select the sector</TooltipContent>
+                            </Tooltip>
+                          </Label>
+                          <Select
+                            value={entry.sector}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateEntry(
+                                "section2_3",
+                                entry.id,
+                                "sector",
+                                value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("2.3")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.sector`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select an option" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex-1 w-full">
+                          <FileUploadSection
+                            label="Upload File"
+                            value={entry.files?.[0] || null}
+                            onChange={(file) => {
+                              showErrorsIfNeeded();
+                              updateEntry(
+                                "section2_3",
+                                entry.id,
+                                "files",
+                                file ? [file] : []
+                              );
+                            }}
+                            required
+                            disabled={isIndicatorSubmitted("2.3")}
+                          />
+                          {renderFieldError(
+                            `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.files`
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 👇 Delete button now visible, positioned exactly like 2.1 & 2.2 */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={() => removeEntry("section2_3", entry.id)}
+                        disabled={isIndicatorSubmitted("2.3")}
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="w-5 h-5 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addEntry("section2_3")}
+                    disabled={isIndicatorSubmitted("2.3")}
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add More Entry
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload plan
+                  </p>
+                </div>
+              )}
+
+              {/* If No → show comment box */}
+              {formData.section2_3.hasInfraDevelopmentPlan === "no" && (
+                <div>
+                  <Label>Comments (Reason)</Label>
+                  <Input
+                    placeholder="Enter reason or comment"
+                    value={formData.section2_3.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_3: {
+                          ...prev.section2_3,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    disabled={isIndicatorSubmitted("2.3")}
+                    className={cn(
+                      getInputValidationClass("section2_3.comment"),
+                      isIndicatorSubmitted("2.3") &&
+                        "bg-gray-50 cursor-not-allowed"
+                    )}
+                  />
+                  {renderFieldError("section2_3.comment")}
+                </div>
+              )}
+
+              {renderFieldError("section2_3.infraDevelopmentArray")}
+
+              {/* Table view */}
+              {formData.section2_3.hasInfraDevelopmentPlan === "yes" &&
+                Array.isArray(formData.section2_3?.infraDevelopmentArray) &&
+                formData.section2_3.infraDevelopmentArray.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Uploaded File
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            File Size
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(Array.isArray(
+                          formData.section2_3?.infraDevelopmentArray
+                        )
+                          ? formData.section2_3.infraDevelopmentArray
+                          : []
+                        ).map((entry) => (
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileName || "No file uploaded"}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.files?.[0]?.fileSize
+                                ? `${(
+                                    entry.files[0].fileSize /
+                                    1024 /
+                                    1024
+                                  ).toFixed(1)} MB`
+                                : "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeEntry("section2_3", entry.id)
+                                }
+                                disabled={isIndicatorSubmitted("2.3")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
-
-                {renderFieldError("section2_3.infraDevelopmentArray")}
-
-                {/* Table view */}
-                {formData.section2_3.hasInfraDevelopmentPlan === "yes" &&
-                  Array.isArray(formData.section2_3?.infraDevelopmentArray) &&
-                  formData.section2_3.infraDevelopmentArray.length > 0 && (
-                    <div className="overflow-x-auto rounded-xl">
-                      <table className="min-w-full border-separate border-spacing-0">
-                        <thead>
-                          <tr className="bg-[#DDE3F9]">
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                              Sector
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              Uploaded File
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              File Size
-                            </th>
-                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(Array.isArray(
-                            formData.section2_3?.infraDevelopmentArray
-                          )
-                            ? formData.section2_3.infraDevelopmentArray
-                            : []
-                          ).map((entry) => (
-                            <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.sector}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.files?.[0]?.fileName ||
-                                  "No file uploaded"}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.files?.[0]?.fileSize
-                                  ? `${(
-                                      entry.files[0].fileSize /
-                                      1024 /
-                                      1024
-                                    ).toFixed(1)} MB`
-                                  : "N/A"}
-                              </td>
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    removeEntry("section2_3", entry.id)
-                                  }
-                                  disabled={isIndicatorSubmitted("2.3")}
-                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  aria-label="Delete"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                <div className="mt-4">
-                  <Button
-                    onClick={() =>
-                      handleSubmitIndicator(
-                        "2.3",
-                        "Infrastructure Development Plan"
-                      )
-                    }
-                    disabled={isSubmitting || isIndicatorSubmitted("2.3")}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    size="sm"
-                  >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("2.3")
-                      ? "Submitted"
-                      : "Submit"}
-                  </Button>
-                </div>
+              <div className="mt-4">
+                <Button
+                  onClick={() =>
+                    handleSubmitIndicator(
+                      "2.3",
+                      "Infrastructure Development Plan"
+                    )
+                  }
+                  disabled={isSubmitting || isIndicatorSubmitted("2.3")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isIndicatorSubmitted("2.3")
+                    ? "Submitted"
+                    : "Submit"}
+                </Button>
               </div>
-            </SectionCard>
-          )}
+            </div>
+          </SectionCard>
+        )}
 
         {/* Section 2.4 */}
         {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
           availableIndicators.includes("2.4") ||
-          assignedIndicators.includes("2.4")) &&
-          (!isEditMode ||
-            (Array.isArray(formData.section2_4.investmentReadyArray) &&
-              Array.isArray(formData.section2_4?.investmentReadyArray) &&
-              formData.section2_4.investmentReadyArray.length > 0)) && (
-            <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">2.4 -</span> Investment Ready
-                    Project Pipeline
-                  </span>
-                </div>
-              }
-              className="mb-6"
-              indicatorStatus={getIndicatorStatus("2.4")}
-              indicatorCode="2.4"
-              isEditable={editingIndicators.has("2.4")}
-              onEdit={() => handleEditIndicator("2.4")}
-              onSave={() => handleSaveIndicator("2.4")}
-              onCancel={() => handleCancelEdit("2.4")}
-              isSaving={savingIndicators.has("2.4")}
-            >
-              <div className="flex flex-col gap-4">
-                {/* Yes/No selection */}
-                <div>
-                  <Label>
-                    Investment Ready Project Pipeline Available?{" "}
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="flex gap-6 mt-2">
-                    <label className="flex items-center gap-2">
-                      <Input
-                        type="radio"
-                        name="investment-ready"
-                        value="yes"
-                        checked={
-                          formData.section2_4.hasInvestmentReady === "yes"
-                        }
-                        onChange={() => {
-                          if (isIndicatorSubmitted("2.4")) return;
-                          showErrorsIfNeeded();
-                          console.log(
-                            "🔍 [2.4] Setting hasInvestmentReady to 'yes'"
-                          );
-                          setFormData((prev) => {
-                            const newData = {
-                              ...prev,
-                              section2_4: {
-                                ...prev.section2_4,
-                                hasInvestmentReady: "yes",
-                                comment: "",
-                              },
-                            };
-                            console.log(
-                              "🔍 [2.4] New formData after yes:",
-                              newData.section2_4
-                            );
-                            return newData;
-                          });
-                        }}
-                        disabled={isIndicatorSubmitted("2.4")}
-                      />
-                      Yes
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <Input
-                        type="radio"
-                        name="investment-ready"
-                        value="no"
-                        checked={
-                          formData.section2_4.hasInvestmentReady === "no"
-                        }
-                        onChange={() => {
-                          if (isIndicatorSubmitted("2.4")) return;
-                          showErrorsIfNeeded();
-                          console.log(
-                            "🔍 [2.4] Setting hasInvestmentReady to 'no'"
-                          );
-                          setFormData((prev) => {
-                            const newData = {
-                              ...prev,
-                              section2_4: {
-                                ...prev.section2_4,
-                                hasInvestmentReady: "no",
-                                investmentReadyArray: [],
-                                websiteLink: "",
-                              },
-                            };
-                            console.log(
-                              "🔍 [2.4] New formData after no:",
-                              newData.section2_4
-                            );
-                            return newData;
-                          });
-                        }}
-                        disabled={isIndicatorSubmitted("2.4")}
-                      />
-                      No
-                    </label>
-                  </div>
-                  {renderFieldError("section2_4.hasInvestmentReady")}
-                </div>
-
-                {/* If Yes → show fields */}
-                {formData.section2_4.hasInvestmentReady === "yes" && (
-                  <>
-                    {/* Website link (one time) */}
-                    <div className="max-w-[60%]">
-                      <Label>
-                        Website Link <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        type="url"
-                        placeholder="Enter website URL"
-                        value={formData.section2_4.websiteLink || ""}
-                        onChange={(e) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
+          assignedIndicators.includes("2.4")) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.4 -</span> Investment Ready
+                  Project Pipeline
+                </span>
+              </div>
+            }
+            className="mb-6"
+            indicatorStatus={getIndicatorStatus("2.4")}
+            indicatorCode="2.4"
+            isEditable={editingIndicators.has("2.4")}
+            onEdit={() => handleEditIndicator("2.4")}
+            onSave={() => handleSaveIndicator("2.4")}
+            onCancel={() => handleCancelEdit("2.4")}
+            isSaving={savingIndicators.has("2.4")}
+          >
+            <div className="flex flex-col gap-4">
+              {/* Yes/No selection */}
+              <div>
+                <Label>
+                  Investment Ready Project Pipeline Available?{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
+                <div className="flex gap-6 mt-2">
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="investment-ready"
+                      value="yes"
+                      checked={formData.section2_4.hasInvestmentReady === "yes"}
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.4")) return;
+                        showErrorsIfNeeded();
+                        console.log(
+                          "🔍 [2.4] Setting hasInvestmentReady to 'yes'"
+                        );
+                        setFormData((prev) => {
+                          const newData = {
                             ...prev,
                             section2_4: {
                               ...prev.section2_4,
-                              websiteLink: e.target.value,
+                              hasInvestmentReady: "yes",
+                              comment: "",
                             },
-                          }));
-                        }}
-                        disabled={isIndicatorSubmitted("2.4")}
-                        className={cn(
-                          getInputValidationClass("section2_4.websiteLink"),
-                          isIndicatorSubmitted("2.4") &&
-                            "bg-gray-50 cursor-not-allowed"
-                        )}
-                      />
-                      {renderFieldError("section2_4.websiteLink")}
-                    </div>
-
-                    {/* Add Projects Section */}
-                    {(Array.isArray(formData.section2_4?.investmentReadyArray)
-                      ? formData.section2_4.investmentReadyArray
-                      : []
-                    ).map((entry: any) => (
-                      <div key={entry.id} className="mb-2">
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-                          <div>
-                            <Label>
-                              Project Name{" "}
-                              <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                              type="text"
-                              placeholder="Enter project name"
-                              value={entry.projectName}
-                              onChange={(e) => {
-                                showErrorsIfNeeded();
-                                updateProject(
-                                  entry.id,
-                                  "projectName",
-                                  e.target.value
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("2.4")}
-                              className={cn(
-                                getInputValidationClass(
-                                  `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                    (e) => e.id === entry.id
-                                  )}.projectName`
-                                ),
-                                isIndicatorSubmitted("2.4") &&
-                                  "bg-gray-50 cursor-not-allowed"
-                              )}
-                            />
-                            {renderFieldError(
-                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.projectName`
-                            )}
-                          </div>
-
-                          <div>
-                            <Label>
-                              Sector <span className="text-destructive">*</span>
-                            </Label>
-                            <Select
-                              value={entry.sector}
-                              onValueChange={(value) => {
-                                showErrorsIfNeeded();
-                                updateProject(entry.id, "sector", value);
-                              }}
-                              disabled={isIndicatorSubmitted("2.4")}
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  getInputValidationClass(
-                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                      (e) => e.id === entry.id
-                                    )}.sector`
-                                  )
-                                )}
-                              >
-                                <SelectValue placeholder="Select Sector" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SECTOR_OPTIONS.map((sector) => (
-                                  <SelectItem key={sector} value={sector}>
-                                    {sector}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label>
-                              Status <span className="text-destructive">*</span>
-                            </Label>
-                            <Select
-                              value={entry.status}
-                              onValueChange={(value) => {
-                                showErrorsIfNeeded();
-                                updateProject(entry.id, "status", value);
-                              }}
-                              disabled={isIndicatorSubmitted("2.4")}
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  getInputValidationClass(
-                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                      (e) => e.id === entry.id
-                                    )}.status`
-                                  )
-                                )}
-                              >
-                                <SelectValue placeholder="Select Status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {["Tender Done", "Bidding", "Other"].map(
-                                  (s) => (
-                                    <SelectItem key={s} value={s}>
-                                      {s}
-                                    </SelectItem>
-                                  )
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label>
-                              Project Size (INR - values is in CRORES){" "}
-                              <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="Enter size"
-                              value={entry.projectSize || ""}
-                              onChange={(e) => {
-                                showErrorsIfNeeded();
-                                updateProject(
-                                  entry.id,
-                                  "projectSize",
-                                  e.target.value
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("2.4")}
-                              className={cn(
-                                getInputValidationClass(
-                                  `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                    (e) => e.id === entry.id
-                                  )}.projectSize`
-                                ),
-                                isIndicatorSubmitted("2.4") &&
-                                  "bg-gray-50 cursor-not-allowed"
-                              )}
-                            />
-                            {renderFieldError(
-                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.projectSize`
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1">
-                              <Label>
-                                Type of Investment{" "}
-                                <span className="text-destructive">*</span>
-                              </Label>
-                              <Select
-                                value={entry.investmentType}
-                                onValueChange={(value) => {
-                                  showErrorsIfNeeded();
-                                  updateProject(
-                                    entry.id,
-                                    "investmentType",
-                                    value
-                                  );
-                                }}
-                                disabled={isIndicatorSubmitted("2.4")}
-                              >
-                                <SelectTrigger
-                                  className={cn(
-                                    getInputValidationClass(
-                                      `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
-                                        (e) => e.id === entry.id
-                                      )}.investmentType`
-                                    )
-                                  )}
-                                >
-                                  <SelectValue placeholder="Select Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {["Partner", "Investor", "Other"].map((t) => (
-                                    <SelectItem key={t} value={t}>
-                                      {t}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="self-start mt-6"
-                              onClick={() => removeProject(entry.id)}
-                              disabled={isIndicatorSubmitted("2.4")}
-                              aria-label="Remove"
-                            >
-                              <Trash2 className="w-5 h-5 text-destructive" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Add button */}
-                    <div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addProject}
-                        disabled={isIndicatorSubmitted("2.4")}
-                        className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Project
-                      </Button>
-                      {renderFieldError("section2_4.investmentReadyArray")}
-                    </div>
-
-                    {/* Table view */}
-                    {Array.isArray(formData.section2_4?.investmentReadyArray) &&
-                      formData.section2_4.investmentReadyArray.length > 0 && (
-                        <div className="overflow-x-auto rounded-xl">
-                          <table className="min-w-full border-separate border-spacing-0">
-                            <thead>
-                              <tr className="bg-[#DDE3F9]">
-                                <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                                  Project Name
-                                </th>
-                                <th className="py-3 px-4 text-left text-sm font-normal">
-                                  Sector
-                                </th>
-                                <th className="py-3 px-4 text-left text-sm font-normal">
-                                  Status
-                                </th>
-                                <th className="py-3 px-4 text-left text-sm font-normal">
-                                  Project Size (Cr)
-                                </th>
-                                <th className="py-3 px-4 text-left text-sm font-normal">
-                                  Type of Investment
-                                </th>
-                                <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                                  Action
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {(Array.isArray(
-                                formData.section2_4?.investmentReadyArray
-                              )
-                                ? formData.section2_4.investmentReadyArray
-                                : []
-                              ).map((entry: any) => (
-                                <tr key={entry.id} className="bg-white">
-                                  <td className="py-3 px-4 text-sm">
-                                    {entry.projectName}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm">
-                                    {entry.sector}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm">
-                                    {entry.status}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm">
-                                    {entry.projectSize}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm">
-                                    {entry.investmentType}
-                                  </td>
-                                  <td className="py-3 px-4">
-                                    <button
-                                      type="button"
-                                      onClick={() => removeProject(entry.id)}
-                                      disabled={isIndicatorSubmitted("2.4")}
-                                      className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      <Trash2 className="w-5 h-5" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                  </>
-                )}
-
-                {/* If No → Comment */}
-                {formData.section2_4.hasInvestmentReady === "no" && (
-                  <div>
-                    <Label>Comments (Reason)</Label>
+                          };
+                          console.log(
+                            "🔍 [2.4] New formData after yes:",
+                            newData.section2_4
+                          );
+                          return newData;
+                        });
+                      }}
+                      disabled={isIndicatorSubmitted("2.4")}
+                    />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
                     <Input
-                      type="text"
-                      placeholder="Enter reason or comment"
-                      value={formData.section2_4.comment || ""}
+                      type="radio"
+                      name="investment-ready"
+                      value="no"
+                      checked={formData.section2_4.hasInvestmentReady === "no"}
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.4")) return;
+                        showErrorsIfNeeded();
+                        console.log(
+                          "🔍 [2.4] Setting hasInvestmentReady to 'no'"
+                        );
+                        setFormData((prev) => {
+                          const newData = {
+                            ...prev,
+                            section2_4: {
+                              ...prev.section2_4,
+                              hasInvestmentReady: "no",
+                              investmentReadyArray: [],
+                              websiteLink: "",
+                            },
+                          };
+                          console.log(
+                            "🔍 [2.4] New formData after no:",
+                            newData.section2_4
+                          );
+                          return newData;
+                        });
+                      }}
+                      disabled={isIndicatorSubmitted("2.4")}
+                    />
+                    No
+                  </label>
+                </div>
+                {renderFieldError("section2_4.hasInvestmentReady")}
+              </div>
+
+              {/* If Yes → show fields */}
+              {formData.section2_4.hasInvestmentReady === "yes" && (
+                <>
+                  {/* Website link (one time) */}
+                  <div className="max-w-[60%]">
+                    <Label>
+                      Website Link <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="url"
+                      placeholder="Enter website URL"
+                      value={formData.section2_4.websiteLink || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
                         setFormData((prev) => ({
                           ...prev,
                           section2_4: {
                             ...prev.section2_4,
-                            comment: e.target.value,
+                            websiteLink: e.target.value,
                           },
                         }));
                       }}
                       disabled={isIndicatorSubmitted("2.4")}
                       className={cn(
-                        getInputValidationClass("section2_4.comment"),
+                        getInputValidationClass("section2_4.websiteLink"),
                         isIndicatorSubmitted("2.4") &&
                           "bg-gray-50 cursor-not-allowed"
                       )}
                     />
-                    {renderFieldError("section2_4.comment")}
+                    {renderFieldError("section2_4.websiteLink")}
                   </div>
-                )}
-                <div className="mt-4">
-                  <Button
-                    onClick={() =>
-                      handleSubmitIndicator("2.4", "Investment Ready Projects")
-                    }
-                    disabled={isSubmitting || isIndicatorSubmitted("2.4")}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    size="sm"
-                  >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("2.4")
-                      ? "Submitted"
-                      : "Submit"}
-                  </Button>
+
+                  {/* Add Projects Section */}
+                  {(Array.isArray(formData.section2_4?.investmentReadyArray)
+                    ? formData.section2_4.investmentReadyArray
+                    : []
+                  ).map((entry: any) => (
+                    <div key={entry.id} className="mb-2">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                        <div>
+                          <Label>
+                            Project Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="Enter project name"
+                            value={entry.projectName}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateProject(
+                                entry.id,
+                                "projectName",
+                                e.target.value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("2.4")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.projectName`
+                              ),
+                              isIndicatorSubmitted("2.4") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
+                            `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.projectName`
+                          )}
+                        </div>
+
+                        <div>
+                          <Label>
+                            Sector <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={entry.sector}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateProject(entry.id, "sector", value);
+                            }}
+                            disabled={isIndicatorSubmitted("2.4")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.sector`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select Sector" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SECTOR_OPTIONS.map((sector) => (
+                                <SelectItem key={sector} value={sector}>
+                                  {sector}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>
+                            Status <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={entry.status}
+                            onValueChange={(value) => {
+                              showErrorsIfNeeded();
+                              updateProject(entry.id, "status", value);
+                            }}
+                            disabled={isIndicatorSubmitted("2.4")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                    (e) => e.id === entry.id
+                                  )}.status`
+                                )
+                              )}
+                            >
+                              <SelectValue placeholder="Select Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {["Tender Done", "Bidding", "Other"].map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {s}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>
+                            Project Size (INR - values is in CRORES){" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Enter size"
+                            value={entry.projectSize || ""}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              updateProject(
+                                entry.id,
+                                "projectSize",
+                                e.target.value
+                              );
+                            }}
+                            disabled={isIndicatorSubmitted("2.4")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                  (e) => e.id === entry.id
+                                )}.projectSize`
+                              ),
+                              isIndicatorSubmitted("2.4") &&
+                                "bg-gray-50 cursor-not-allowed"
+                            )}
+                          />
+                          {renderFieldError(
+                            `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.projectSize`
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <Label>
+                              Type of Investment{" "}
+                              <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                              value={entry.investmentType}
+                              onValueChange={(value) => {
+                                showErrorsIfNeeded();
+                                updateProject(
+                                  entry.id,
+                                  "investmentType",
+                                  value
+                                );
+                              }}
+                              disabled={isIndicatorSubmitted("2.4")}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  getInputValidationClass(
+                                    `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                      (e) => e.id === entry.id
+                                    )}.investmentType`
+                                  )
+                                )}
+                              >
+                                <SelectValue placeholder="Select Type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {["Partner", "Investor", "Other"].map((t) => (
+                                  <SelectItem key={t} value={t}>
+                                    {t}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="self-start mt-6"
+                            onClick={() => removeProject(entry.id)}
+                            disabled={isIndicatorSubmitted("2.4")}
+                            aria-label="Remove"
+                          >
+                            <Trash2 className="w-5 h-5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add button */}
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addProject}
+                      disabled={isIndicatorSubmitted("2.4")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Project
+                    </Button>
+                    {renderFieldError("section2_4.investmentReadyArray")}
+                  </div>
+
+                  {/* Table view */}
+                  {Array.isArray(formData.section2_4?.investmentReadyArray) &&
+                    formData.section2_4.investmentReadyArray.length > 0 && (
+                      <div className="overflow-x-auto rounded-xl">
+                        <table className="min-w-full border-separate border-spacing-0">
+                          <thead>
+                            <tr className="bg-[#DDE3F9]">
+                              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                                Project Name
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Sector
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Status
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Project Size (Cr)
+                              </th>
+                              <th className="py-3 px-4 text-left text-sm font-normal">
+                                Type of Investment
+                              </th>
+                              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                                Action
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(Array.isArray(
+                              formData.section2_4?.investmentReadyArray
+                            )
+                              ? formData.section2_4.investmentReadyArray
+                              : []
+                            ).map((entry: any) => (
+                              <tr key={entry.id} className="bg-white">
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.projectName}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.status}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.projectSize}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.investmentType}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeProject(entry.id)}
+                                    disabled={isIndicatorSubmitted("2.4")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                </>
+              )}
+
+              {/* If No → Comment */}
+              {formData.section2_4.hasInvestmentReady === "no" && (
+                <div>
+                  <Label>Comments (Reason)</Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter reason or comment"
+                    value={formData.section2_4.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_4: {
+                          ...prev.section2_4,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    disabled={isIndicatorSubmitted("2.4")}
+                    className={cn(
+                      getInputValidationClass("section2_4.comment"),
+                      isIndicatorSubmitted("2.4") &&
+                        "bg-gray-50 cursor-not-allowed"
+                    )}
+                  />
+                  {renderFieldError("section2_4.comment")}
                 </div>
+              )}
+              <div className="mt-4">
+                <Button
+                  onClick={() =>
+                    handleSubmitIndicator("2.4", "Investment Ready Projects")
+                  }
+                  disabled={isSubmitting || isIndicatorSubmitted("2.4")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isIndicatorSubmitted("2.4")
+                    ? "Submitted"
+                    : "Submit"}
+                </Button>
               </div>
-            </SectionCard>
-          )}
+            </div>
+          </SectionCard>
+        )}
 
         {/* Section 2.5 */}
         {((!isNodalOfficer && !user?.role?.includes("STATE_APPROVER")) ||
           availableIndicators.includes("2.5") ||
-          assignedIndicators.includes("2.5")) &&
-          (!isEditMode ||
-            (Array.isArray(formData.section2_5.assetMonetizationArray) &&
-              Array.isArray(formData.section2_5?.assetMonetizationArray) &&
-              formData.section2_5.assetMonetizationArray.length > 0)) && (
-            <SectionCard
-              title={
-                <div className="flex flex-col">
-                  <span className="text-base font-semibold ">
-                    <span className="text-primary">2.5 -</span> Availability of
-                    Asset Monetization Pipeline{" "}
-                  </span>
-                </div>
-              }
-              className="mb-6"
-              indicatorStatus={getIndicatorStatus("2.5")}
-              indicatorCode="2.5"
-              isEditable={editingIndicators.has("2.5")}
-              onEdit={() => handleEditIndicator("2.5")}
-              onSave={() => handleSaveIndicator("2.5")}
-              onCancel={() => handleCancelEdit("2.5")}
-              isSaving={savingIndicators.has("2.5")}
-            >
-              <div className="flex flex-col gap-4">
-                {(Array.isArray(formData.section2_5?.assetMonetizationArray)
-                  ? formData.section2_5.assetMonetizationArray
-                  : []
-                ).map((entry) => (
-                  <div key={entry.id} className="mb-2">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+          assignedIndicators.includes("2.5")) && (
+          <SectionCard
+            title={
+              <div className="flex flex-col">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">2.5 -</span> Availability of
+                  Asset Monetization Pipeline{" "}
+                </span>
+              </div>
+            }
+            className="mb-6"
+            indicatorStatus={getIndicatorStatus("2.5")}
+            indicatorCode="2.5"
+            isEditable={editingIndicators.has("2.5")}
+            onEdit={() => handleEditIndicator("2.5")}
+            onSave={() => handleSaveIndicator("2.5")}
+            onCancel={() => handleCancelEdit("2.5")}
+            isSaving={savingIndicators.has("2.5")}
+          >
+            <div className="flex flex-col gap-4">
+              {(Array.isArray(formData.section2_5?.assetMonetizationArray)
+                ? formData.section2_5.assetMonetizationArray
+                : []
+              ).map((entry) => (
+                <div key={entry.id} className="mb-2">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                    <div>
+                      <Label>
+                        Project/Asset Name{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter project/asset name"
+                        value={entry.projectName}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "projectName", e.target.value);
+                        }}
+                        disabled={isIndicatorSubmitted("2.5")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.projectName`
+                          ),
+                          isIndicatorSubmitted("2.5") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {renderFieldError(
+                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.projectName`
+                      )}
+                    </div>
+                    <div>
+                      <Label>
+                        Select Sector{" "}
+                        <span className="text-destructive">*</span>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="inline w-3 h-3 ml-1" />
+                          </TooltipTrigger>
+                          <TooltipContent>Select the sector</TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <Select
+                        value={entry.sector}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "sector", value);
+                        }}
+                        disabled={isIndicatorSubmitted("2.5")}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.sector`
+                            )
+                          )}
+                        >
+                          <SelectValue placeholder="Select an Option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>
+                        Select Type <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={entry.type}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "type", value);
+                        }}
+                        disabled={isIndicatorSubmitted("2.5")}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.type`
+                            )
+                          )}
+                        >
+                          <SelectValue placeholder="Select an Option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROJECT_TYPE_OPTIONS.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>
+                        Asset Ownership{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={entry.ownership}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "ownership", value);
+                        }}
+                        disabled={isIndicatorSubmitted("2.5")}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.ownership`
+                            )
+                          )}
+                        >
+                          <SelectValue placeholder="Asset ownership" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OWNERSHIP_OPTIONS.map((own) => (
+                            <SelectItem key={own} value={own}>
+                              {own}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <div>
-                        <Label>
-                          Project/Asset Name{" "}
-                          <span className="text-destructive">*</span>
-                        </Label>
+                        <Label>Estimated Monetization</Label>
                         <Input
-                          type="text"
-                          placeholder="Enter project/asset name"
-                          value={entry.projectName}
+                          type="number"
+                          placeholder="Estimated Monetization"
+                          value={entry.estimatedMonetization}
                           onChange={(e) => {
                             showErrorsIfNeeded();
                             updateAsset(
                               entry.id,
-                              "projectName",
+                              "estimatedMonetization",
                               e.target.value
                             );
                           }}
@@ -3009,7 +3096,7 @@ export const InfraDevelopmentStep = () => {
                             getInputValidationClass(
                               `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
                                 (e) => e.id === entry.id
-                              )}.projectName`
+                              )}.estimatedMonetization`
                             ),
                             isIndicatorSubmitted("2.5") &&
                               "bg-gray-50 cursor-not-allowed"
@@ -3018,271 +3105,126 @@ export const InfraDevelopmentStep = () => {
                         {renderFieldError(
                           `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
                             (e) => e.id === entry.id
-                          )}.projectName`
+                          )}.estimatedMonetization`
                         )}
                       </div>
-                      <div>
-                        <Label>
-                          Select Sector{" "}
-                          <span className="text-destructive">*</span>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="inline w-3 h-3 ml-1" />
-                            </TooltipTrigger>
-                            <TooltipContent>Select the sector</TooltipContent>
-                          </Tooltip>
-                        </Label>
-                        <Select
-                          value={entry.sector}
-                          onValueChange={(value) => {
-                            showErrorsIfNeeded();
-                            updateAsset(entry.id, "sector", value);
-                          }}
-                          disabled={isIndicatorSubmitted("2.5")}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              getInputValidationClass(
-                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                  (e) => e.id === entry.id
-                                )}.sector`
-                              )
-                            )}
-                          >
-                            <SelectValue placeholder="Select an Option" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SECTOR_OPTIONS.map((sector) => (
-                              <SelectItem key={sector} value={sector}>
-                                {sector}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>
-                          Select Type{" "}
-                          <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={entry.type}
-                          onValueChange={(value) => {
-                            showErrorsIfNeeded();
-                            updateAsset(entry.id, "type", value);
-                          }}
-                          disabled={isIndicatorSubmitted("2.5")}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              getInputValidationClass(
-                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                  (e) => e.id === entry.id
-                                )}.type`
-                              )
-                            )}
-                          >
-                            <SelectValue placeholder="Select an Option" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PROJECT_TYPE_OPTIONS.map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>
-                          Asset Ownership{" "}
-                          <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={entry.ownership}
-                          onValueChange={(value) => {
-                            showErrorsIfNeeded();
-                            updateAsset(entry.id, "ownership", value);
-                          }}
-                          disabled={isIndicatorSubmitted("2.5")}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              getInputValidationClass(
-                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                  (e) => e.id === entry.id
-                                )}.ownership`
-                              )
-                            )}
-                          >
-                            <SelectValue placeholder="Asset ownership" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {OWNERSHIP_OPTIONS.map((own) => (
-                              <SelectItem key={own} value={own}>
-                                {own}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <Label>Estimated Monetization</Label>
-                          <Input
-                            type="number"
-                            placeholder="Estimated Monetization"
-                            value={entry.estimatedMonetization}
-                            onChange={(e) => {
-                              showErrorsIfNeeded();
-                              updateAsset(
-                                entry.id,
-                                "estimatedMonetization",
-                                e.target.value
-                              );
-                            }}
-                            disabled={isIndicatorSubmitted("2.5")}
-                            className={cn(
-                              getInputValidationClass(
-                                `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                  (e) => e.id === entry.id
-                                )}.estimatedMonetization`
-                              ),
-                              isIndicatorSubmitted("2.5") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          />
-                          {renderFieldError(
-                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                              (e) => e.id === entry.id
-                            )}.estimatedMonetization`
-                          )}
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="self-start mt-6"
-                          onClick={() => removeAsset(entry.id)}
-                          disabled={isIndicatorSubmitted("2.5")}
-                          aria-label="Remove"
-                        >
-                          <Trash2 className="w-5 h-5 text-destructive" />
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="self-start mt-6"
+                        onClick={() => removeAsset(entry.id)}
+                        disabled={isIndicatorSubmitted("2.5")}
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="w-5 h-5 text-destructive" />
+                      </Button>
                     </div>
                   </div>
-                ))}
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addAsset}
-                    disabled={isIndicatorSubmitted("2.5")}
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Plus className="w-4 h-4 " />
-                    Add More Asset
-                  </Button>
-                  {renderFieldError("section2_5.assetMonetizationArray")}
                 </div>
-                {/* Table view for Asset Monetization entries */}
-                {Array.isArray(formData.section2_5?.assetMonetizationArray) &&
-                  formData.section2_5.assetMonetizationArray.length > 0 && (
-                    <div className="overflow-x-auto rounded-xl mt-4">
-                      <table className="min-w-full border-separate border-spacing-0">
-                        <thead>
-                          <tr className="bg-[#DDE3F9]">
-                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                              Project / Asset Name
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              Sector
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              Type
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              Ownership
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-normal">
-                              Estimated Monetization (INR Cr)
-                            </th>
-                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(Array.isArray(
-                            formData.section2_5?.assetMonetizationArray
-                          )
-                            ? formData.section2_5.assetMonetizationArray
-                            : []
-                          ).map((entry) => (
-                            <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.projectName}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.sector}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.type}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.ownership}
-                              </td>
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.estimatedMonetization}
-                              </td>
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  onClick={() => removeAsset(entry.id)}
-                                  disabled={isIndicatorSubmitted("2.5")}
-                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  aria-label="Delete"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                <div className="mt-4">
-                  <Button
-                    onClick={() =>
-                      handleSubmitIndicator(
-                        "2.5",
-                        "Asset Monetization Pipeline"
-                      )
-                    }
-                    disabled={isSubmitting || isIndicatorSubmitted("2.5")}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    size="sm"
-                  >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("2.5")
-                      ? "Submitted"
-                      : "Submit"}
-                  </Button>
-                </div>
+              ))}
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addAsset}
+                  disabled={isIndicatorSubmitted("2.5")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4 " />
+                  Add More Asset
+                </Button>
+                {renderFieldError("section2_5.assetMonetizationArray")}
               </div>
-            </SectionCard>
-          )}
+              {/* Table view for Asset Monetization entries */}
+              {Array.isArray(formData.section2_5?.assetMonetizationArray) &&
+                formData.section2_5.assetMonetizationArray.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl mt-4">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Project / Asset Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Type
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Ownership
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Estimated Monetization (INR Cr)
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(Array.isArray(
+                          formData.section2_5?.assetMonetizationArray
+                        )
+                          ? formData.section2_5.assetMonetizationArray
+                          : []
+                        ).map((entry) => (
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.projectName}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.type}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.ownership}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.estimatedMonetization}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeAsset(entry.id)}
+                                disabled={isIndicatorSubmitted("2.5")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              <div className="mt-4">
+                <Button
+                  onClick={() =>
+                    handleSubmitIndicator("2.5", "Asset Monetization Pipeline")
+                  }
+                  disabled={isSubmitting || isIndicatorSubmitted("2.5")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isIndicatorSubmitted("2.5")
+                    ? "Submitted"
+                    : "Submit"}
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+        )}
 
         {/* Navigation Buttons */}
-        {isNextDisabled && showValidationErrors && (
-          <p className="text-sm text-destructive mb-4">
-            Complete all required fields before continuing.
-          </p>
-        )}
 
         <FormActions
           onPrevious={goToPrevious}
