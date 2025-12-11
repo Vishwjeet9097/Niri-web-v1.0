@@ -35,11 +35,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { exportTableToCSV } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
-import { hasMospiApproverComment, getMospiApproverComment, canReviewSubmission } from "@/utils/auditUtils";
+import {
+  hasMospiApproverComment,
+  getMospiApproverComment,
+  canReviewSubmission,
+} from "@/utils/auditUtils";
 import { apiService, getCumulativePreview } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { calculateStateProgressFromApi, ProgressStats } from "@/utils/progressUtils";
+import {
+  calculateStateProgressFromApi,
+  ProgressStats,
+} from "@/utils/progressUtils";
 import { authService } from "@/services/auth.service";
 import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
@@ -74,7 +81,7 @@ const transformIndicatorsToFormData = (
 ): any => {
   console.log("[Transform] Raw indicators input:", indicators);
   console.log("[Transform] Indicator keys:", Object.keys(indicators));
-  
+
   const formData: any = {
     infraFinancing: {},
     infraDevelopment: {},
@@ -98,8 +105,12 @@ const transformIndicatorsToFormData = (
   };
 
   Object.entries(indicators).forEach(([categoryKey, indicatorList]) => {
-    console.log(`[Transform] Processing category: ${categoryKey} with ${indicatorList?.length || 0} indicators`);
-    
+    console.log(
+      `[Transform] Processing category: ${categoryKey} with ${
+        indicatorList?.length || 0
+      } indicators`
+    );
+
     const formDataKey = categoryMap[categoryKey];
     if (!formDataKey || !formData[formDataKey]) {
       console.warn(`[Transform] Unknown category: ${categoryKey}, skipping`);
@@ -113,35 +124,52 @@ const transformIndicatorsToFormData = (
         return;
       }
 
-      console.log(`[Transform] Processing indicator ${code} in category ${categoryKey}`);
+      console.log(
+        `[Transform] Processing indicator ${code} in category ${categoryKey}`
+      );
       console.log(`[Transform] Indicator status:`, indicator?.status);
       const sectionKey = `section${code.replace(".", "_")}`;
       let indicatorData = indicator.data;
 
       // Check indicator status - if it's ACCEPTED or has a status, we should include it even if data is empty
       const indicatorStatus = indicator?.status;
-      const isAccepted = indicatorStatus === 'ACCEPTED';
-      const hasStatus = indicatorStatus && indicatorStatus !== 'NOT_STARTED' && indicatorStatus !== null && indicatorStatus !== undefined;
-      
+      const isAccepted = indicatorStatus === "ACCEPTED";
+      const hasStatus =
+        indicatorStatus &&
+        indicatorStatus !== "NOT_STARTED" &&
+        indicatorStatus !== null &&
+        indicatorStatus !== undefined;
+
       // If no data, check if we should still include based on status or submissions
       if (!indicatorData) {
         // Check if this indicator exists in any submission (even if status is NOT_STARTED)
-        const existsInSubmissions = submissions && Array.isArray(submissions) && submissions.some(submission => {
-          const subFormData = submission.formData || submission.form_data || {};
-          const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
-          return sectionKey in categoryData;
-        });
-        
+        const existsInSubmissions =
+          submissions &&
+          Array.isArray(submissions) &&
+          submissions.some((submission) => {
+            const subFormData =
+              submission.formData || submission.form_data || {};
+            const categoryData =
+              subFormData[formDataKey] || subFormData[categoryKey] || {};
+            return sectionKey in categoryData;
+          });
+
         // If indicator is ACCEPTED or has a meaningful status, create empty object to process
         if (isAccepted || hasStatus) {
-          console.log(`[Transform] Indicator ${code} has status ${indicatorStatus} but no data - will process based on status`);
+          console.log(
+            `[Transform] Indicator ${code} has status ${indicatorStatus} but no data - will process based on status`
+          );
           indicatorData = {};
         } else if (existsInSubmissions) {
           // Even if status is NOT_STARTED, if it exists in submissions, we should include it
-          console.log(`[Transform] Indicator ${code} has NOT_STARTED status but exists in submissions - will extract from submissions`);
+          console.log(
+            `[Transform] Indicator ${code} has NOT_STARTED status but exists in submissions - will extract from submissions`
+          );
           indicatorData = {};
         } else if (!submissions || submissions.length === 0) {
-          console.log(`[Transform] Skipping indicator ${code} - no data, no status, and no submissions to extract from`);
+          console.log(
+            `[Transform] Skipping indicator ${code} - no data, no status, and no submissions to extract from`
+          );
           return;
         } else {
           indicatorData = {};
@@ -150,88 +178,129 @@ const transformIndicatorsToFormData = (
 
       // Handle array-based indicators
       if (Array.isArray(indicatorData)) {
-        const hasValidData = indicatorData.length > 0 && indicatorData.some(item => {
-          if (item === null || item === undefined) return false;
-          if (typeof item === 'object' && Object.keys(item).length === 0) return false;
-          return true;
-        });
-        
+        const hasValidData =
+          indicatorData.length > 0 &&
+          indicatorData.some((item) => {
+            if (item === null || item === undefined) return false;
+            if (typeof item === "object" && Object.keys(item).length === 0)
+              return false;
+            return true;
+          });
+
         // If array is empty but exists in submissions, extract from submissions
         if (!hasValidData && submissions && Array.isArray(submissions)) {
           for (const submission of submissions) {
-            const subFormData = submission.formData || submission.form_data || {};
-            const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
+            const subFormData =
+              submission.formData || submission.form_data || {};
+            const categoryData =
+              subFormData[formDataKey] || subFormData[categoryKey] || {};
             const sectionData = categoryData[sectionKey];
-            
+
             if (Array.isArray(sectionData) && sectionData.length > 0) {
               // Found array data in submission, use it
               indicatorData = [...sectionData];
-              console.log(`[Transform] Extracted array data for ${sectionKey} from submission ${submission.submissionId || submission.id}`);
+              console.log(
+                `[Transform] Extracted array data for ${sectionKey} from submission ${
+                  submission.submissionId || submission.id
+                }`
+              );
               break;
-            } else if (sectionData && typeof sectionData === 'object') {
+            } else if (sectionData && typeof sectionData === "object") {
               // Check if sectionData has an array property (e.g., infraActArray, VGFArray, etc.)
-              const arrayKeys = Object.keys(sectionData).filter(key => Array.isArray(sectionData[key]));
+              const arrayKeys = Object.keys(sectionData).filter((key) =>
+                Array.isArray(sectionData[key])
+              );
               if (arrayKeys.length > 0) {
                 indicatorData = sectionData[arrayKeys[0]];
-                console.log(`[Transform] Extracted array data for ${sectionKey} from submission property ${arrayKeys[0]}`);
+                console.log(
+                  `[Transform] Extracted array data for ${sectionKey} from submission property ${arrayKeys[0]}`
+                );
                 break;
               }
             }
           }
         }
-        
-        const hasValidDataAfterExtraction = indicatorData.length > 0 && indicatorData.some(item => {
-          if (item === null || item === undefined) return false;
-          if (typeof item === 'object' && Object.keys(item).length === 0) return false;
-          return true;
-        });
-        
+
+        const hasValidDataAfterExtraction =
+          indicatorData.length > 0 &&
+          indicatorData.some((item) => {
+            if (item === null || item === undefined) return false;
+            if (typeof item === "object" && Object.keys(item).length === 0)
+              return false;
+            return true;
+          });
+
         if (!hasValidDataAfterExtraction) {
-          console.log(`[Transform] Skipping array ${sectionKey} in ${formDataKey} - empty array or array with no valid data`);
+          console.log(
+            `[Transform] Skipping array ${sectionKey} in ${formDataKey} - empty array or array with no valid data`
+          );
           return;
         }
-        
+
         switch (code) {
-          case '2.1':
-            formData[formDataKey][sectionKey] = { infraActArray: indicatorData };
+          case "2.1":
+            formData[formDataKey][sectionKey] = {
+              infraActArray: indicatorData,
+            };
             break;
-          case '2.2':
-            formData[formDataKey][sectionKey] = { specializedEntityArray: indicatorData };
+          case "2.2":
+            formData[formDataKey][sectionKey] = {
+              specializedEntityArray: indicatorData,
+            };
             break;
-          case '2.3':
-            formData[formDataKey][sectionKey] = { infraDevelopmentArray: indicatorData };
+          case "2.3":
+            formData[formDataKey][sectionKey] = {
+              infraDevelopmentArray: indicatorData,
+            };
             break;
-          case '2.4':
-            formData[formDataKey][sectionKey] = { investmentReadyArray: indicatorData };
+          case "2.4":
+            formData[formDataKey][sectionKey] = {
+              investmentReadyArray: indicatorData,
+            };
             break;
-          case '2.5':
-            formData[formDataKey][sectionKey] = { assetMonetizationArray: indicatorData };
+          case "2.5":
+            formData[formDataKey][sectionKey] = {
+              assetMonetizationArray: indicatorData,
+            };
             break;
           default:
             formData[formDataKey][sectionKey] = indicatorData;
         }
-        console.log(`[Transform] Stored array ${sectionKey} in ${formDataKey}:`, formData[formDataKey][sectionKey]);
+        console.log(
+          `[Transform] Stored array ${sectionKey} in ${formDataKey}:`,
+          formData[formDataKey][sectionKey]
+        );
         return;
       }
 
       // Handle object-based indicators
-      if (typeof indicatorData === 'object') {
+      if (typeof indicatorData === "object") {
         // If indicatorData is empty but exists in submissions, extract from submissions
-        if (Object.keys(indicatorData).length === 0 && submissions && Array.isArray(submissions)) {
+        if (
+          Object.keys(indicatorData).length === 0 &&
+          submissions &&
+          Array.isArray(submissions)
+        ) {
           for (const submission of submissions) {
-            const subFormData = submission.formData || submission.form_data || {};
-            const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
+            const subFormData =
+              submission.formData || submission.form_data || {};
+            const categoryData =
+              subFormData[formDataKey] || subFormData[categoryKey] || {};
             const sectionData = categoryData[sectionKey];
-            
-            if (sectionData && typeof sectionData === 'object') {
+
+            if (sectionData && typeof sectionData === "object") {
               // Found data in submission, use it
               indicatorData = { ...sectionData };
-              console.log(`[Transform] Extracted data for ${sectionKey} from submission ${submission.submissionId || submission.id}`);
+              console.log(
+                `[Transform] Extracted data for ${sectionKey} from submission ${
+                  submission.submissionId || submission.id
+                }`
+              );
               break;
             }
           }
         }
-        
+
         const formFields: any = { ...indicatorData };
         delete formFields.status;
         delete formFields.percentage;
@@ -244,37 +313,53 @@ const transformIndicatorsToFormData = (
         }
 
         // Handle status field - infer form fields from status for some indicators
-        const currentStatus = indicatorStatus || indicatorData?.status || indicator?.status;
-        if (currentStatus === 'ACCEPTED' || indicator.status === 'ACCEPTED') {
+        const currentStatus =
+          indicatorStatus || indicatorData?.status || indicator?.status;
+        if (currentStatus === "ACCEPTED" || indicator.status === "ACCEPTED") {
           switch (code) {
-            case '3.1':
+            case "3.1":
               if (!formFields.available) {
-                formFields.available = 'yes';
+                formFields.available = "yes";
               }
               break;
-            case '3.3':
+            case "3.3":
               if (!formFields.VGFArray) {
                 formFields.VGFArray = [];
               }
               break;
-            case '3.4':
+            case "3.4":
               if (!formFields.projects) {
                 formFields.projects = [];
               }
               break;
-            case '4.1':
+            case "4.1":
               if (!formFields.allEligible) {
-                formFields.allEligible = 'yes';
+                formFields.allEligible = "yes";
               }
               break;
           }
         }
 
         // Special handling for section 1.1
-        if (code === '1.1') {
-          const possibleCapAllocKeys = ['capitalAllocation', 'capital_allocation', 'capitalAllocationFY', 'capital_allocation_fy', 'a1', 'A1'];
-          const possibleGsdpKeys = ['gsdpForFY', 'gsdp_for_fy', 'gsdpForFYValue', 'gsdp_for_fy_value', 'a2', 'A2', 'gsdp'];
-          
+        if (code === "1.1") {
+          const possibleCapAllocKeys = [
+            "capitalAllocation",
+            "capital_allocation",
+            "capitalAllocationFY",
+            "capital_allocation_fy",
+            "a1",
+            "A1",
+          ];
+          const possibleGsdpKeys = [
+            "gsdpForFY",
+            "gsdp_for_fy",
+            "gsdpForFYValue",
+            "gsdp_for_fy_value",
+            "a2",
+            "A2",
+            "gsdp",
+          ];
+
           if (!formFields.capitalAllocation) {
             for (const key of possibleCapAllocKeys) {
               if (indicatorData[key] !== undefined) {
@@ -283,7 +368,7 @@ const transformIndicatorsToFormData = (
               }
             }
           }
-          
+
           if (!formFields.gsdpForFY) {
             for (const key of possibleGsdpKeys) {
               if (indicatorData[key] !== undefined) {
@@ -292,101 +377,143 @@ const transformIndicatorsToFormData = (
               }
             }
           }
-          
-          if (!formFields.capitalAllocation && indicatorData.user_fill_value_a1 !== undefined) {
-            formFields.capitalAllocation = String(indicatorData.user_fill_value_a1);
+
+          if (
+            !formFields.capitalAllocation &&
+            indicatorData.user_fill_value_a1 !== undefined
+          ) {
+            formFields.capitalAllocation = String(
+              indicatorData.user_fill_value_a1
+            );
           }
-          
-          if (!formFields.gsdpForFY && indicatorData.user_fill_value_a2 !== undefined) {
+
+          if (
+            !formFields.gsdpForFY &&
+            indicatorData.user_fill_value_a2 !== undefined
+          ) {
             formFields.gsdpForFY = String(indicatorData.user_fill_value_a2);
           }
-          
-          if ((!formFields.capitalAllocation || !formFields.gsdpForFY) && submissions && Array.isArray(submissions)) {
+
+          if (
+            (!formFields.capitalAllocation || !formFields.gsdpForFY) &&
+            submissions &&
+            Array.isArray(submissions)
+          ) {
             for (const submission of submissions) {
-              const subFormData = submission.formData || submission.form_data || {};
-              const infraFinancing = subFormData.infraFinancing || subFormData.Infrastructure_Financing || {};
+              const subFormData =
+                submission.formData || submission.form_data || {};
+              const infraFinancing =
+                subFormData.infraFinancing ||
+                subFormData.Infrastructure_Financing ||
+                {};
               const section1_1 = infraFinancing.section1_1 || {};
-              
-              if (section1_1.capitalAllocation && !formFields.capitalAllocation) {
-                formFields.capitalAllocation = String(section1_1.capitalAllocation);
+
+              if (
+                section1_1.capitalAllocation &&
+                !formFields.capitalAllocation
+              ) {
+                formFields.capitalAllocation = String(
+                  section1_1.capitalAllocation
+                );
               }
-              
+
               if (section1_1.gsdpForFY && !formFields.gsdpForFY) {
                 formFields.gsdpForFY = String(section1_1.gsdpForFY);
               }
-              
+
               if (formFields.capitalAllocation && formFields.gsdpForFY) {
                 break;
               }
             }
           }
-          
+
           if (!formFields.capitalAllocation) {
-            formFields.capitalAllocation = '';
+            formFields.capitalAllocation = "";
           }
           if (!formFields.gsdpForFY) {
-            formFields.gsdpForFY = '';
+            formFields.gsdpForFY = "";
           }
         }
 
         // Special handling for other indicators
         switch (code) {
-          case '1.3':
+          case "1.3":
             if (!formFields.ulbList) {
               formFields.ulbList = [];
             }
             break;
-          case '1.4':
+          case "1.4":
             if (!formFields.bondList) {
               formFields.bondList = [];
             }
             break;
-          case '1.5':
+          case "1.5":
             if (!formFields.ffiArray) {
               formFields.ffiArray = [];
             }
             break;
-          case '3.3':
+          case "3.3":
             if (!formFields.VGFArray) {
               formFields.VGFArray = [];
             }
             break;
-          case '3.4':
+          case "3.4":
             if (!formFields.projects) {
               formFields.projects = [];
             }
             break;
-          case '4.6':
+          case "4.6":
             if (!formFields.capacityArray) {
               formFields.capacityArray = [];
             }
             break;
         }
 
-        const hasMeaningfulData = Object.keys(formFields).length > 0 && 
-          Object.values(formFields).some(val => {
-            if (val === null || val === undefined || val === '') return false;
+        const hasMeaningfulData =
+          Object.keys(formFields).length > 0 &&
+          Object.values(formFields).some((val) => {
+            if (val === null || val === undefined || val === "") return false;
             if (Array.isArray(val) && val.length === 0) return false;
-            if (typeof val === 'object' && Object.keys(val).length === 0) return false;
+            if (typeof val === "object" && Object.keys(val).length === 0)
+              return false;
             return true;
           });
-        
-        const finalIndicatorStatus = indicatorStatus || indicator?.status || indicatorData?.status || formFields.status;
-        const finalIsNotStarted = finalIndicatorStatus === 'NOT_STARTED' || finalIndicatorStatus === null || finalIndicatorStatus === undefined;
-        
-        const existsInSubmissions = submissions && Array.isArray(submissions) && submissions.some(submission => {
-          const subFormData = submission.formData || submission.form_data || {};
-          const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
-          return sectionKey in categoryData;
-        });
-        
-        const shouldInclude = hasMeaningfulData || !finalIsNotStarted || existsInSubmissions;
-        
+
+        const finalIndicatorStatus =
+          indicatorStatus ||
+          indicator?.status ||
+          indicatorData?.status ||
+          formFields.status;
+        const finalIsNotStarted =
+          finalIndicatorStatus === "NOT_STARTED" ||
+          finalIndicatorStatus === null ||
+          finalIndicatorStatus === undefined;
+
+        const existsInSubmissions =
+          submissions &&
+          Array.isArray(submissions) &&
+          submissions.some((submission) => {
+            const subFormData =
+              submission.formData || submission.form_data || {};
+            const categoryData =
+              subFormData[formDataKey] || subFormData[categoryKey] || {};
+            return sectionKey in categoryData;
+          });
+
+        const shouldInclude =
+          hasMeaningfulData || !finalIsNotStarted || existsInSubmissions;
+
         if (shouldInclude) {
           formData[formDataKey][sectionKey] = formFields;
-          console.log(`[Transform] Stored ${sectionKey} in ${formDataKey}:`, formFields, `(hasData: ${hasMeaningfulData}, status: ${finalIndicatorStatus}, existsInSubmissions: ${existsInSubmissions})`);
+          console.log(
+            `[Transform] Stored ${sectionKey} in ${formDataKey}:`,
+            formFields,
+            `(hasData: ${hasMeaningfulData}, status: ${finalIndicatorStatus}, existsInSubmissions: ${existsInSubmissions})`
+          );
         } else {
-          console.log(`[Transform] Skipping ${sectionKey} in ${formDataKey} - no meaningful data, NOT_STARTED status, and not in submissions`);
+          console.log(
+            `[Transform] Skipping ${sectionKey} in ${formDataKey} - no meaningful data, NOT_STARTED status, and not in submissions`
+          );
         }
       }
     });
@@ -420,15 +547,14 @@ export const SubmissionListPage = () => {
 
   // const selectedYear = uiState.year; // Removed because uiState is undefined
 
- 
+  const [stateProgress, setStateProgress] = useState<ProgressStats | null>(
+    null
+  );
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [submittingFinal, setSubmittingFinal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  const [stateProgress, setStateProgress] = useState<ProgressStats | null>(null);
-const [progressLoading, setProgressLoading] = useState(false);
-const [submittingFinal, setSubmittingFinal] = useState(false);
-const [showConfirmModal, setShowConfirmModal] = useState(false);
-
-
- const isFetchingProgress = useRef(false);
+  const isFetchingProgress = useRef(false);
 
   useEffect(() => {
     const loadSubmissions = async () => {
@@ -442,13 +568,22 @@ const [showConfirmModal, setShowConfirmModal] = useState(false);
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
           submissionsArray = submissionsData;
-        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+        } else if (
+          submissionsData?.submissions &&
+          Array.isArray(submissionsData.submissions)
+        ) {
           submissionsArray = submissionsData.submissions;
-        } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+        } else if (
+          (submissionsData as any)?.data &&
+          Array.isArray((submissionsData as any).data)
+        ) {
           submissionsArray = (submissionsData as any).data;
         }
-        
-         console.log("📄 [loadSubmissions] Final list length:", submissionsArray.length);
+
+        console.log(
+          "📄 [loadSubmissions] Final list length:",
+          submissionsArray.length
+        );
         setSubmissions(submissionsArray);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
@@ -465,362 +600,465 @@ const [showConfirmModal, setShowConfirmModal] = useState(false);
     loadSubmissions();
   }, []);
 
-//   useEffect(() => {
-//   if (user?.role !== "STATE_APPROVER") return;
+  //   useEffect(() => {
+  //   if (user?.role !== "STATE_APPROVER") return;
 
-//   (async () => {
-//     try {
-//       setProgressLoading(true);
-//       const resp = await apiService.getStateIndicatorStatuses();
-//       const stats = calculateStateProgressFromApi(resp);
-//       setStateProgress(stats);
-//     } catch (e) {
-//       console.error("Failed to load state indicator statuses", e);
-//       setStateProgress(null);
-//     } finally {
-//       setProgressLoading(false);
-//     }
-//   })();
-// }, [user?.role]);
+  //   (async () => {
+  //     try {
+  //       setProgressLoading(true);
+  //       const resp = await apiService.getStateIndicatorStatuses();
+  //       const stats = calculateStateProgressFromApi(resp);
+  //       setStateProgress(stats);
+  //     } catch (e) {
+  //       console.error("Failed to load state indicator statuses", e);
+  //       setStateProgress(null);
+  //     } finally {
+  //       setProgressLoading(false);
+  //     }
+  //   })();
+  // }, [user?.role]);
 
-useEffect(() => {
-  if (user?.role !== "STATE_APPROVER") return;
+  useEffect(() => {
+    if (user?.role !== "STATE_APPROVER") return;
 
-  let intervalId: number | undefined;
+    const loadProgressOnce = async () => {
+      // avoid duplicate calls or running in background tab
+      if (document?.hidden || isFetchingProgress.current) return;
 
-  const loadProgressOnce = async () => {
-    // avoid duplicate calls or running in background tab
-    if (document?.hidden || isFetchingProgress.current) return;
+      try {
+        isFetchingProgress.current = true;
+        setProgressLoading(true);
+        console.log("📊 [Progress] Fetching /indicators/state-statuses...");
 
-    try {
-      isFetchingProgress.current = true;
-      setProgressLoading(true);
-      console.log("📊 [Progress] Fetching /indicators/state-statuses...");
+        const resp = await apiService.getStateIndicatorStatuses();
+        console.log("✅ [Progress] Raw API response:", resp);
 
-      const resp = await apiService.getStateIndicatorStatuses();
-      // const payload = (resp && resp.data !== undefined) ? resp.data : resp;
-      console.log("✅ [Progress] Raw API response:", resp);
-      //  console.log("📦 [Progress] normalized payload:", payload);
-      // console.log("🧾 [Progress] payload.summary:", payload?.summary);
-      // console.log("🧾 [Progress] payload.submissions.length:", Array.isArray(payload?.submissions) ? payload.submissions.length : payload?.submissions);
-
-
-      // console.log("🔍 [Progress] resp.data:", resp?.data);
-      //   console.log("🔍 [Progress] resp?.data?.summary:", resp?.data?.summary);
-
-      // const stats = calculateStateProgressFromApi(payload);
-      //   console.log("🧮 [Progress] calculateStateProgressFromApi ->", stats);
-
-          // Normalize so utils can read resp.data.summary even if backend returns summary at root
+        // Normalize so utils can read resp.data.summary even if backend returns summary at root
         const normalized = resp?.data ? resp : { data: resp };
         console.log("🧩 normalized payload shape:", {
           hasData: !!normalized?.data,
           hasSummary: !!normalized?.data?.summary,
-          keys: normalized?.data ? Object.keys(normalized.data) : []
+          keys: normalized?.data ? Object.keys(normalized.data) : [],
         });
         console.log("📦 normalized.data.summary:", normalized?.data?.summary);
 
-        const stats = calculateStateProgressFromApi(normalized);
+        // Get user state for fallback calculation
+        const userStateUt = user?.stateUt || user?.stateName || user?.state;
+
+        // Pass submissions array as fallback in case API returns empty data
+        const stats = calculateStateProgressFromApi(
+          normalized,
+          submissions,
+          userStateUt
+        );
         console.log("✅ calculateStateProgressFromApi(stats):", stats);
 
-
-      setStateProgress(stats);
-    } catch (e) {
-      console.error("Failed to load state indicator statuses", e);
-      setStateProgress(null);
-    } finally {
-      setProgressLoading(false);
-      isFetchingProgress.current = false;
-    }
-  };
-
-  // run immediately on mount
-  loadProgressOnce();
-
-  // auto-refresh every 60 seconds
-  intervalId = window.setInterval(loadProgressOnce, 60_000);
-
-  // clean up on unmount
-  return () => {
-    if (intervalId) clearInterval(intervalId);
-  };
-}, [user?.role]);
-
-const handleFinalSubmit = async () => {
-  console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("🚀 [FinalSubmit] FUNCTION CALLED - STARTING CONSOLIDATED SUBMISSION");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  
-  try {
-    // Gate: must have progress and must be 100% approved
-    if (!stateProgress || stateProgress.percentage !== 100 || stateProgress.approved !== stateProgress.total) {
-      console.warn("⚠️ [Submit] Submission blocked - Not all indicators approved");
-      notificationService.warning("All indicators must be approved before final submission.");
-      return;
-    }
-
-    setSubmittingFinal(true);
-
-    // Get effective state - use same logic as StateAggregateReviewPage
-    let effectiveState = "";
-    if (user?.stateUt) {
-      effectiveState = user.stateUt.toUpperCase();
-    } else if (user?.stateName) {
-      effectiveState = user.stateName.toUpperCase();
-    } else if (user?.state) {
-      effectiveState = user.state.toUpperCase();
-    }
-    
-    if (!effectiveState) {
-      console.error("❌ [FinalSubmit] No state found for user");
-      console.error("❌ [FinalSubmit] User object:", user);
-      notificationService.error("Unable to determine state. Please contact support.");
-      setSubmittingFinal(false);
-      return;
-    }
-
-    // Step 1: Get cumulative preview data (aggregated indicators)
-    // Always create a NEW consolidated submission from aggregated data
-    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📦 STEP 1: Fetching cumulative preview data");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📍 State/UT:", effectiveState);
-    console.log("📍 User stateUt from JWT:", user?.stateUt);
-    console.log("📍 User stateName:", user?.stateName);
-    console.log("📍 User state:", user?.state);
-    
-    try {
-      // First, get submissions from state indicator statuses API (this has the actual approved data)
-      console.log("📦 [FinalSubmit] Fetching state indicator statuses to get approved submissions...");
-      const statusResp = await apiService.getStateIndicatorStatuses();
-      const normalizedStatus = statusResp?.data ? statusResp : { data: statusResp };
-      const statusData = normalizedStatus.data || {};
-      const approvedSubmissions = statusData.submissions || [];
-      
-      console.log("📦 [FinalSubmit] Approved submissions count:", approvedSubmissions.length);
-      console.log("📦 [FinalSubmit] Status summary:", statusData.summary);
-      
-      // Now get cumulative preview for indicator structure
-      const payload = await getCumulativePreview(effectiveState, {});
-      console.log("📦 [FinalSubmit] Raw payload from getCumulativePreview:", payload);
-    
-      const data = (payload as any)?.data || payload;
-      const indicators = data?.indicators || {};
-      // Use submissions from status API instead of cumulative preview (which may not have them)
-      const apiSubmissions = approvedSubmissions.length > 0 ? approvedSubmissions : (data?.submissions || (payload as any)?.submissions || []);
-      
-      console.log("📦 [FinalSubmit] Extracted data:", { 
-        hasData: !!data, 
-        hasIndicators: !!indicators, 
-        indicatorKeys: Object.keys(indicators),
-        submissionsCount: apiSubmissions.length,
-        payloadKeys: payload ? Object.keys(payload) : []
-      });
-      
-      if (!data || !indicators || Object.keys(indicators).length === 0) {
-        console.error("❌ [FinalSubmit] No aggregated data available");
-        notificationService.error("No aggregated data available to submit. Please ensure all indicators are approved.");
-        setSubmittingFinal(false);
-        return;
-      }
-      
-      // If we have approved submissions but cumulative preview shows NOT_STARTED, 
-      // we need to merge the data from submissions into indicators
-      if (apiSubmissions.length > 0) {
-        console.log("📦 [FinalSubmit] Merging data from approved submissions into indicators...");
-        // The transformIndicatorsToFormData function will extract data from submissions
-        // if indicators don't have data, so we just need to pass the submissions
-      }
-
-      // Step 2: Transform indicators to formData
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔄 STEP 2: Transforming indicators to formData");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📊 Raw indicators:", indicators);
-      console.log("📊 Indicator categories:", Object.keys(indicators));
-      console.log("📊 Submissions count:", apiSubmissions.length);
-      
-      const formData = transformIndicatorsToFormData(indicators, apiSubmissions);
-    
-      console.log("✅ [FinalSubmit] Transformed formData:", formData);
-      console.log("✅ [FinalSubmit] FormData categories:", Object.keys(formData));
-      console.log("✅ [FinalSubmit] FormData structure:", JSON.stringify(formData, null, 2));
-
-      // Check if formData is empty
-      const hasData = Object.keys(formData).length > 0 && 
-        Object.values(formData).some(category => Object.keys(category).length > 0);
-      
-      if (!hasData) {
-        console.error("❌ [FinalSubmit] FormData is empty after transformation!");
-        console.error("❌ [FinalSubmit] Indicators received:", indicators);
-        console.error("❌ [FinalSubmit] Submissions received:", apiSubmissions);
-        console.error("❌ [FinalSubmit] FormData after transformation:", formData);
-        notificationService.error("No form data available to submit. Please ensure indicators are approved and have data.");
-        setSubmittingFinal(false);
-        return;
-      }
-      
-      console.log("✅ [FinalSubmit] FormData validation passed - has data:", hasData);
-
-      // Step 3: Transform formData for submission
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔄 STEP 3: Transforming formData for submission");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
-      const submissionStatus = "SUBMITTED_TO_MOSPI_REVIEWER";
-      const transformedData = transformFormDataForSubmission(formData, submissionStatus);
-
-      // Step 4: Create multipart FormData with file attachments
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📎 STEP 4: Preparing multipart FormData with file attachments");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
-      const multipartData = new FormData();
-      multipartData.append("submission", JSON.stringify(transformedData));
-      appendFilesRecursively(multipartData, formData);
-
-      // Step 5: Get authentication token and submit
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📤 STEP 5: Submitting consolidated submission");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
-      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
-      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
-      const tokenFromNewKey = tokenData?.value?.accessToken;
-      const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
-      const token = tokenFromNewKey || tokenFromLegacyKey || "";
-
-      if (!token) {
-        console.error("❌ [FinalSubmit] No authentication token found");
-        notificationService.error("Authentication error. Please log in again.");
-        setSubmittingFinal(false);
-        return;
-      }
-
-      const response = await axios.post(
-        `${config.apiBaseUrl}/submission`,
-        multipartData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        }
-      );
-
-      console.log("✅ Submission successful!");
-      console.log("📦 Response:", response.data);
-      
-      // Extract submission from response
-      const createdSubmission = response.data?.data || response.data;
-      const submissionId = createdSubmission?.id || createdSubmission?.submissionId;
-      const returnedStatus = createdSubmission?.status;
-      
-      console.log("📝 [FinalSubmit] Created submission ID:", submissionId);
-      console.log("📊 [FinalSubmit] Returned status from API:", returnedStatus);
-      console.log("📊 [FinalSubmit] Expected status: SUBMITTED_TO_MOSPI_REVIEWER");
-      
-      // If the status is not SUBMITTED_TO_MOSPI_REVIEWER, we need to forward it
-      if (returnedStatus !== "SUBMITTED_TO_MOSPI_REVIEWER" && submissionId) {
-        console.log("⚠️ [FinalSubmit] Status mismatch! Forwarding submission to MoSPI Reviewer...");
-        try {
-          const forwardedSubmission = await apiService.forwardToMospi(
-            submissionId,
-            "Consolidated state submission",
-            returnedStatus
-          );
-          console.log("✅ [FinalSubmit] Submission forwarded successfully!");
-          console.log("📊 [FinalSubmit] Final status:", forwardedSubmission?.status);
-        } catch (forwardError: any) {
-          console.error("❌ [FinalSubmit] Failed to forward submission:", forwardError);
-          notificationService.warning("Submission created but may not appear on reviewer dashboard. Please contact support.");
-        }
-      } else if (returnedStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
-        console.log("✅ [FinalSubmit] Status is correct - no forwarding needed");
-      }
-      
-      notificationService.success("Consolidated submission sent to MoSPI Reviewer successfully.");
-
-      // Refresh progress and submissions list
-      try {
-        const resp = await apiService.getStateIndicatorStatuses();
-        const normalized = resp?.data ? resp : { data: resp };
-        const stats = calculateStateProgressFromApi(normalized);
         setStateProgress(stats);
-
-        const updated = await apiService.getSubmissions(1, 100);
-        let submissionsArray: any[] = [];
-        if (Array.isArray(updated)) submissionsArray = updated;
-        else if (updated?.submissions) submissionsArray = updated.submissions;
-        else if ((updated as any)?.data && Array.isArray((updated as any).data)) {
-          submissionsArray = (updated as any).data;
-        }
-        setSubmissions(submissionsArray);
-        // The hasSubmittedToMospiReviewer will be recalculated automatically via useMemo when submissions change
       } catch (e) {
-        console.error("⚠️ Failed to refresh data", e);
+        console.error("Failed to load state indicator statuses", e);
+        setStateProgress(null);
+      } finally {
+        setProgressLoading(false);
+        isFetchingProgress.current = false;
       }
-    } catch (previewError: any) {
-      console.error("❌ [FinalSubmit] Error fetching cumulative preview:", previewError);
-      console.error("❌ [FinalSubmit] Error details:", {
-        message: previewError?.message,
-        response: previewError?.response?.data,
-        status: previewError?.response?.status,
-        stateUsed: effectiveState,
-        userStateUt: user?.stateUt,
-      });
-      
-      // Provide more specific error messages
-      if (previewError?.response?.status === 403) {
-        notificationService.error(
-          `Access denied. The state "${effectiveState}" does not match your account state. Please contact support.`
+    };
+
+    // run immediately on mount
+    loadProgressOnce();
+
+    // auto-refresh every 60 seconds
+    const intervalId = window.setInterval(loadProgressOnce, 60_000);
+
+    // clean up on unmount
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user?.role, submissions]);
+
+  const handleFinalSubmit = async () => {
+    console.group(
+      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    );
+    console.log(
+      "🚀 [FinalSubmit] FUNCTION CALLED - STARTING CONSOLIDATED SUBMISSION"
+    );
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    try {
+      // Gate: must have progress and must be 100% approved
+      if (
+        !stateProgress ||
+        stateProgress.percentage !== 100 ||
+        stateProgress.approved !== stateProgress.total
+      ) {
+        console.warn(
+          "⚠️ [Submit] Submission blocked - Not all indicators approved"
         );
-      } else if (previewError?.response?.status === 404) {
-        notificationService.error(
-          `No data found for state "${effectiveState}". Please ensure all indicators are approved.`
+        notificationService.warning(
+          "All indicators must be approved before final submission."
         );
-      } else {
-        notificationService.error(
-          previewError?.response?.data?.message || 
-          previewError?.message || 
-          "Failed to fetch cumulative preview data. Please try again."
-        );
+        return;
       }
+
+      setSubmittingFinal(true);
+
+      // Get effective state - use same logic as StateAggregateReviewPage
+      let effectiveState = "";
+      if (user?.stateUt) {
+        effectiveState = user.stateUt.toUpperCase();
+      } else if (user?.stateName) {
+        effectiveState = user.stateName.toUpperCase();
+      } else if (user?.state) {
+        effectiveState = user.state.toUpperCase();
+      }
+
+      if (!effectiveState) {
+        console.error("❌ [FinalSubmit] No state found for user");
+        console.error("❌ [FinalSubmit] User object:", user);
+        notificationService.error(
+          "Unable to determine state. Please contact support."
+        );
+        setSubmittingFinal(false);
+        return;
+      }
+
+      // Step 1: Get cumulative preview data (aggregated indicators)
+      // Always create a NEW consolidated submission from aggregated data
+      console.log(
+        "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📦 STEP 1: Fetching cumulative preview data");
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📍 State/UT:", effectiveState);
+      console.log("📍 User stateUt from JWT:", user?.stateUt);
+      console.log("📍 User stateName:", user?.stateName);
+      console.log("📍 User state:", user?.state);
+
+      try {
+        // First, get submissions from state indicator statuses API (this has the actual approved data)
+        console.log(
+          "📦 [FinalSubmit] Fetching state indicator statuses to get approved submissions..."
+        );
+        const statusResp = await apiService.getStateIndicatorStatuses();
+        const normalizedStatus = statusResp?.data
+          ? statusResp
+          : { data: statusResp };
+        const statusData = normalizedStatus.data || {};
+        const approvedSubmissions = statusData.submissions || [];
+
+        console.log(
+          "📦 [FinalSubmit] Approved submissions count:",
+          approvedSubmissions.length
+        );
+        console.log("📦 [FinalSubmit] Status summary:", statusData.summary);
+
+        // Now get cumulative preview for indicator structure
+        const payload = await getCumulativePreview(effectiveState, {});
+        console.log(
+          "📦 [FinalSubmit] Raw payload from getCumulativePreview:",
+          payload
+        );
+
+        const data = (payload as any)?.data || payload;
+        const indicators = data?.indicators || {};
+        // Use submissions from status API instead of cumulative preview (which may not have them)
+        const apiSubmissions =
+          approvedSubmissions.length > 0
+            ? approvedSubmissions
+            : data?.submissions || (payload as any)?.submissions || [];
+
+        console.log("📦 [FinalSubmit] Extracted data:", {
+          hasData: !!data,
+          hasIndicators: !!indicators,
+          indicatorKeys: Object.keys(indicators),
+          submissionsCount: apiSubmissions.length,
+          payloadKeys: payload ? Object.keys(payload) : [],
+        });
+
+        if (!data || !indicators || Object.keys(indicators).length === 0) {
+          console.error("❌ [FinalSubmit] No aggregated data available");
+          notificationService.error(
+            "No aggregated data available to submit. Please ensure all indicators are approved."
+          );
+          setSubmittingFinal(false);
+          return;
+        }
+
+        // If we have approved submissions but cumulative preview shows NOT_STARTED,
+        // we need to merge the data from submissions into indicators
+        if (apiSubmissions.length > 0) {
+          console.log(
+            "📦 [FinalSubmit] Merging data from approved submissions into indicators..."
+          );
+          // The transformIndicatorsToFormData function will extract data from submissions
+          // if indicators don't have data, so we just need to pass the submissions
+        }
+
+        // Step 2: Transform indicators to formData
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("🔄 STEP 2: Transforming indicators to formData");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📊 Raw indicators:", indicators);
+        console.log("📊 Indicator categories:", Object.keys(indicators));
+        console.log("📊 Submissions count:", apiSubmissions.length);
+
+        const formData = transformIndicatorsToFormData(
+          indicators,
+          apiSubmissions
+        );
+
+        console.log("✅ [FinalSubmit] Transformed formData:", formData);
+        console.log(
+          "✅ [FinalSubmit] FormData categories:",
+          Object.keys(formData)
+        );
+        console.log(
+          "✅ [FinalSubmit] FormData structure:",
+          JSON.stringify(formData, null, 2)
+        );
+
+        // Check if formData is empty
+        const hasData =
+          Object.keys(formData).length > 0 &&
+          Object.values(formData).some(
+            (category) => Object.keys(category).length > 0
+          );
+
+        if (!hasData) {
+          console.error(
+            "❌ [FinalSubmit] FormData is empty after transformation!"
+          );
+          console.error("❌ [FinalSubmit] Indicators received:", indicators);
+          console.error(
+            "❌ [FinalSubmit] Submissions received:",
+            apiSubmissions
+          );
+          console.error(
+            "❌ [FinalSubmit] FormData after transformation:",
+            formData
+          );
+          notificationService.error(
+            "No form data available to submit. Please ensure indicators are approved and have data."
+          );
+          setSubmittingFinal(false);
+          return;
+        }
+
+        console.log(
+          "✅ [FinalSubmit] FormData validation passed - has data:",
+          hasData
+        );
+
+        // Step 3: Transform formData for submission
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("🔄 STEP 3: Transforming formData for submission");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+
+        const submissionStatus = "SUBMITTED_TO_MOSPI_REVIEWER";
+        const transformedData = transformFormDataForSubmission(
+          formData,
+          submissionStatus
+        );
+
+        // Step 4: Create multipart FormData with file attachments
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "📎 STEP 4: Preparing multipart FormData with file attachments"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+
+        const multipartData = new FormData();
+        multipartData.append("submission", JSON.stringify(transformedData));
+        appendFilesRecursively(multipartData, formData);
+
+        // Step 5: Get authentication token and submit
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📤 STEP 5: Submitting consolidated submission");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+
+        const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+        const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
+        const tokenFromNewKey = tokenData?.value?.accessToken;
+        const tokenFromLegacyKey =
+          localStorage.getItem("access_token") || undefined;
+        const token = tokenFromNewKey || tokenFromLegacyKey || "";
+
+        if (!token) {
+          console.error("❌ [FinalSubmit] No authentication token found");
+          notificationService.error(
+            "Authentication error. Please log in again."
+          );
+          setSubmittingFinal(false);
+          return;
+        }
+
+        const response = await axios.post(
+          `${config.apiBaseUrl}/submission`,
+          multipartData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          }
+        );
+
+        console.log("✅ Submission successful!");
+        console.log("📦 Response:", response.data);
+
+        // Extract submission from response
+        const createdSubmission = response.data?.data || response.data;
+        const submissionId =
+          createdSubmission?.id || createdSubmission?.submissionId;
+        const returnedStatus = createdSubmission?.status;
+
+        console.log("📝 [FinalSubmit] Created submission ID:", submissionId);
+        console.log(
+          "📊 [FinalSubmit] Returned status from API:",
+          returnedStatus
+        );
+        console.log(
+          "📊 [FinalSubmit] Expected status: SUBMITTED_TO_MOSPI_REVIEWER"
+        );
+
+        // If the status is not SUBMITTED_TO_MOSPI_REVIEWER, we need to forward it
+        if (returnedStatus !== "SUBMITTED_TO_MOSPI_REVIEWER" && submissionId) {
+          console.log(
+            "⚠️ [FinalSubmit] Status mismatch! Forwarding submission to MoSPI Reviewer..."
+          );
+          try {
+            const forwardedSubmission = await apiService.forwardToMospi(
+              submissionId,
+              "Consolidated state submission",
+              returnedStatus
+            );
+            console.log("✅ [FinalSubmit] Submission forwarded successfully!");
+            console.log(
+              "📊 [FinalSubmit] Final status:",
+              forwardedSubmission?.status
+            );
+          } catch (forwardError: any) {
+            console.error(
+              "❌ [FinalSubmit] Failed to forward submission:",
+              forwardError
+            );
+            notificationService.warning(
+              "Submission created but may not appear on reviewer dashboard. Please contact support."
+            );
+          }
+        } else if (returnedStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
+          console.log(
+            "✅ [FinalSubmit] Status is correct - no forwarding needed"
+          );
+        }
+
+        notificationService.success(
+          "Consolidated submission sent to MoSPI Reviewer successfully."
+        );
+
+        // Refresh progress and submissions list
+        try {
+          const resp = await apiService.getStateIndicatorStatuses();
+          const normalized = resp?.data ? resp : { data: resp };
+          const stats = calculateStateProgressFromApi(normalized);
+          setStateProgress(stats);
+
+          const updated = await apiService.getSubmissions(1, 100);
+          let submissionsArray: any[] = [];
+          if (Array.isArray(updated)) submissionsArray = updated;
+          else if (updated?.submissions) submissionsArray = updated.submissions;
+          else if (
+            (updated as any)?.data &&
+            Array.isArray((updated as any).data)
+          ) {
+            submissionsArray = (updated as any).data;
+          }
+          setSubmissions(submissionsArray);
+          // The hasSubmittedToMospiReviewer will be recalculated automatically via useMemo when submissions change
+        } catch (e) {
+          console.error("⚠️ Failed to refresh data", e);
+        }
+      } catch (previewError: any) {
+        console.error(
+          "❌ [FinalSubmit] Error fetching cumulative preview:",
+          previewError
+        );
+        console.error("❌ [FinalSubmit] Error details:", {
+          message: previewError?.message,
+          response: previewError?.response?.data,
+          status: previewError?.response?.status,
+          stateUsed: effectiveState,
+          userStateUt: user?.stateUt,
+        });
+
+        // Provide more specific error messages
+        if (previewError?.response?.status === 403) {
+          notificationService.error(
+            `Access denied. The state "${effectiveState}" does not match your account state. Please contact support.`
+          );
+        } else if (previewError?.response?.status === 404) {
+          notificationService.error(
+            `No data found for state "${effectiveState}". Please ensure all indicators are approved.`
+          );
+        } else {
+          notificationService.error(
+            previewError?.response?.data?.message ||
+              previewError?.message ||
+              "Failed to fetch cumulative preview data. Please try again."
+          );
+        }
+        setSubmittingFinal(false);
+        return;
+      }
+    } catch (e: any) {
+      console.error("❌ Error in consolidated submission:", e);
+      notificationService.error(
+        e?.message || "Error creating consolidated submission."
+      );
+    } finally {
       setSubmittingFinal(false);
-      return;
+      console.groupEnd();
+    }
+  };
+
+  const handlePreviewClick = (rowStateUt?: string, year?: string) => {
+    // Use same logic as StateAggregateReviewPage for consistency
+    let resolvedState = rowStateUt || "";
+    if (!resolvedState) {
+      if (user?.stateUt) {
+        resolvedState = user.stateUt.toUpperCase();
+      } else if (user?.stateName) {
+        resolvedState = user.stateName.toUpperCase();
+      } else if (user?.state) {
+        resolvedState = user.state.toUpperCase();
+      }
     }
 
-  } catch (e: any) {
-    console.error("❌ Error in consolidated submission:", e);
-    notificationService.error(e?.message || "Error creating consolidated submission.");
-  } finally {
-    setSubmittingFinal(false);
-    console.groupEnd();
-  }
-};
+    const params = new URLSearchParams();
+    if (resolvedState) params.set("state", resolvedState);
+    if (year) params.set("year", year);
 
-const handlePreviewClick = (rowStateUt?: string, year?: string) => {
-  // Use same logic as StateAggregateReviewPage for consistency
-  let resolvedState = rowStateUt || "";
-  if (!resolvedState) {
-    if (user?.stateUt) {
-      resolvedState = user.stateUt.toUpperCase();
-    } else if (user?.stateName) {
-      resolvedState = user.stateName.toUpperCase();
-    } else if (user?.state) {
-      resolvedState = user.state.toUpperCase();
-    }
-  }
-
-  const params = new URLSearchParams();
-  if (resolvedState) params.set("state", resolvedState);
-  if (year) params.set("year", year);
-
-  const qs = params.toString();
-  navigate(`/data-submission/state-aggregate${qs ? `?${qs}` : ""}`);
-};
-
-
+    const qs = params.toString();
+    navigate(`/data-submission/state-aggregate${qs ? `?${qs}` : ""}`);
+  };
 
   // Filter submissions based on search and filters
   // const filteredSubmissions = useMemo(() => {
@@ -848,7 +1086,6 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
   //   });
   // }, [searchQuery, submissions]); // stateFilter, statusFilter removed from dependencies
 
-
   const filteredSubmissions = useMemo(() => {
     // First, deduplicate submissions by ID to ensure each submission appears only once
     // If duplicates exist, keep the one with the most recent updatedAt timestamp
@@ -859,15 +1096,19 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
         submissionMap.set(submission.id, submission);
       } else {
         // If duplicate exists, keep the one with more recent updatedAt
-        const existingDate = new Date(existing.updatedAt || existing.createdAt || 0);
-        const currentDate = new Date(submission.updatedAt || submission.createdAt || 0);
+        const existingDate = new Date(
+          existing.updatedAt || existing.createdAt || 0
+        );
+        const currentDate = new Date(
+          submission.updatedAt || submission.createdAt || 0
+        );
         if (currentDate > existingDate) {
           submissionMap.set(submission.id, submission);
         }
       }
     });
     const deduplicatedSubmissions = Array.from(submissionMap.values());
-    
+
     // Sort by updatedAt (most recent first) to ensure latest status is shown
     deduplicatedSubmissions.sort((a, b) => {
       const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime();
@@ -878,7 +1119,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
     return deduplicatedSubmissions.filter((submission) => {
       // Role-based status filter
       let statusMatch = true; // Default: show all for roles without specific filtering
-      
+
       if (user?.role === "MOSPI_REVIEWER") {
         // MoSPI Reviewer should see:
         // 1. Submissions submitted to them (SUBMITTED_TO_MOSPI_REVIEWER, SUBMITTED_TO_MOSPI, RETURNED_FROM_MOSPI)
@@ -891,7 +1132,8 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
           "SUBMITTED_TO_MOSPI_APPROVER", // Show submissions forwarded to approver
           "APPROVED", // Show approved submissions
         ];
-        statusMatch = submission.status && allowedStatuses.includes(submission.status);
+        statusMatch =
+          submission.status && allowedStatuses.includes(submission.status);
       } else if (user?.role === "MOSPI_APPROVER") {
         // MoSPI Approver should see:
         // 1. Submissions submitted to them (SUBMITTED_TO_MOSPI_APPROVER)
@@ -900,7 +1142,8 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
           "SUBMITTED_TO_MOSPI_APPROVER",
           "APPROVED", // Show approved submissions
         ];
-        statusMatch = submission.status && allowedStatuses.includes(submission.status);
+        statusMatch =
+          submission.status && allowedStatuses.includes(submission.status);
       } else if (user?.role === "STATE_APPROVER") {
         // State Approver should see:
         // 1. Submissions submitted to them (SUBMITTED_TO_STATE, RETURNED_FROM_STATE, RETURNED_FROM_MOSPI)
@@ -908,44 +1151,63 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
         // 3. Their own submissions forwarded to MoSPI Approver (SUBMITTED_TO_MOSPI_APPROVER)
         // 4. Their own approved submissions (APPROVED)
         const allowedStatuses = [
+          "DRAFT", // Show draft submissions
           "SUBMITTED_TO_STATE",
           "RETURNED_FROM_STATE", // Include returned submissions
           "RETURNED_FROM_MOSPI", // Include resubmissions from MoSPI
           "SUBMITTED_TO_MOSPI_APPROVER", // Show submissions forwarded to approver
           "APPROVED", // Show approved submissions
         ];
-        const isOwnSubmission = submission.user?.id === user?.id || 
+        const isOwnSubmission =
+          submission.user?.id === user?.id ||
           submission.submittedBy?.id === user?.id ||
           (submission.user?.email && submission.user.email === user?.email);
-        const isConsolidatedSubmission = 
-          (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" && isOwnSubmission) ||
-          (submission.status === "SUBMITTED_TO_MOSPI_APPROVER" && isOwnSubmission) ||
+        const isConsolidatedSubmission =
+          (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" &&
+            isOwnSubmission) ||
+          (submission.status === "SUBMITTED_TO_MOSPI_APPROVER" &&
+            isOwnSubmission) ||
           (submission.status === "APPROVED" && isOwnSubmission);
-        statusMatch = (submission.status && allowedStatuses.includes(submission.status)) || isConsolidatedSubmission;
+        statusMatch =
+          (submission.status && allowedStatuses.includes(submission.status)) ||
+          isConsolidatedSubmission;
       } else if (user?.role === "NODAL_OFFICER") {
         // Nodal Officer should see their own submissions
         // No status filter needed - they see all their submissions
         statusMatch = true;
       }
-      
+
       // Search filter
-      const title = (submission.title || submission.submissionId || `Submission ${submission.id}` || "").toLowerCase();
-      const submitter =
-        (submission.submittedBy?.name ||
-          (submission.user ? `${submission.user.firstName || ""} ${submission.user.lastName || ""}`.trim() : "") ||
-          "Unknown").toLowerCase();
+      const title = (
+        submission.title ||
+        submission.submissionId ||
+        `Submission ${submission.id}` ||
+        ""
+      ).toLowerCase();
+      const submitter = (
+        submission.submittedBy?.name ||
+        (submission.user
+          ? `${submission.user.firstName || ""} ${
+              submission.user.lastName || ""
+            }`.trim()
+          : "") ||
+        "Unknown"
+      ).toLowerCase();
       const category = (submission.category || "Infrastructure").toLowerCase();
-      const idStr = (submission.id || submission.submissionId || "").toLowerCase();
+      const idStr = (
+        submission.id ||
+        submission.submissionId ||
+        ""
+      ).toLowerCase();
 
       const q = searchQuery.toLowerCase();
-      const searchMatch = (
+      const searchMatch =
         searchQuery === "" ||
         title.includes(q) ||
         submitter.includes(q) ||
         category.includes(q) ||
-        idStr.includes(q)
-      );
-      
+        idStr.includes(q);
+
       return statusMatch && searchMatch;
     });
   }, [searchQuery, submissions, user?.role]);
@@ -953,26 +1215,38 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
   // Check if there's already a consolidated submission with status SUBMITTED_TO_MOSPI_REVIEWER, SUBMITTED_TO_MOSPI_APPROVER, or APPROVED
   const hasSubmittedToMospiReviewer = useMemo(() => {
     if (user?.role !== "STATE_APPROVER") return false;
-    
+
     // Get the current state (for multi-state scenarios)
     const currentState = user?.stateUt || user?.stateName || user?.state;
-    
+
     return submissions.some((submission) => {
-      const isOwnSubmission = submission.user?.id === user?.id || 
+      const isOwnSubmission =
+        submission.user?.id === user?.id ||
         submission.submittedBy?.id === user?.id ||
         (submission.user?.email && submission.user.email === user?.email);
       // Check if submission is for the current state and has been submitted to MOSPI reviewer, approver, or approved
-      const isForCurrentState = !currentState || 
-        submission.stateUt === currentState || 
-        (submission.user?.stateUt === currentState);
+      const isForCurrentState =
+        !currentState ||
+        submission.stateUt === currentState ||
+        submission.user?.stateUt === currentState;
       // Disable submit button if submission is with MOSPI reviewer, approver, or has been approved
-      return (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" || 
-              submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
-              submission.status === "APPROVED") 
-        && isOwnSubmission && isForCurrentState;
+      return (
+        (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER" ||
+          submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
+          submission.status === "APPROVED") &&
+        isOwnSubmission &&
+        isForCurrentState
+      );
     });
-  }, [submissions, user?.role, user?.id, user?.email, user?.stateUt, user?.stateName, user?.state]);
-
+  }, [
+    submissions,
+    user?.role,
+    user?.id,
+    user?.email,
+    user?.stateUt,
+    user?.stateName,
+    user?.state,
+  ]);
 
   // Handle export
   const handleExport = () => {
@@ -992,22 +1266,40 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
 
     const exportData = filteredSubmissions.map((submission) => ({
       id: submission.id || submission.submissionId,
-      title: submission.title || submission.submissionId || `Submission ${submission.id}`,
+      title:
+        submission.title ||
+        submission.submissionId ||
+        `Submission ${submission.id}`,
       status: submission.status || "Unknown",
-      submittedByName: submission.submittedBy?.name || submission.user?.firstName + " " + submission.user?.lastName || "Unknown",
-      location: submission.submittedBy?.location || submission.stateUt || "Unknown",
+      submittedByName:
+        submission.submittedBy?.name ||
+        submission.user?.firstName + " " + submission.user?.lastName ||
+        "Unknown",
+      location:
+        submission.submittedBy?.location || submission.stateUt || "Unknown",
       submissionDate: submission.submissionDate || submission.createdAt,
       deadline: submission.deadline || "N/A",
       category: submission.category || "Infrastructure",
       progress: `${submission.progress || 0}%`,
       documentsCount: submission.documentsCount || 0,
-      daysPending: submission.daysPending || (submission.createdAt ? Math.max(0, Math.floor((new Date().getTime() - new Date(submission.createdAt).getTime()) / (1000 * 60 * 60 * 24))) : 0),
+      daysPending:
+        submission.daysPending ||
+        (submission.createdAt
+          ? Math.max(
+              0,
+              Math.floor(
+                (new Date().getTime() -
+                  new Date(submission.createdAt).getTime()) /
+                  (1000 * 60 * 60 * 24)
+              )
+            )
+          : 0),
     }));
 
     exportTableToCSV(
       exportData,
       columns,
-      `submissions_${new Date().toISOString().split("T")[0]}.csv`,
+      `submissions_${new Date().toISOString().split("T")[0]}.csv`
     );
 
     toast({
@@ -1063,90 +1355,112 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
         </div>
 
         {/* Progress Overview Section - Only for STATE_APPROVER */}
-   
 
         {user?.role === "STATE_APPROVER" && (
-  <div className="max-w-7xl mx-auto mb-6">
-    <div className="mb-4 flex items-start justify-between gap-4">
-    </div>
+          <div className="max-w-7xl mx-auto mb-6">
+            <div className="mb-4 flex items-start justify-between gap-4"></div>
 
-    {progressLoading ? (
-      <div className="text-sm text-muted-foreground">Loading progress…</div>
-    ) : stateProgress ? (
-      <div className="space-y-6">
-        <div className={`border rounded-lg p-4 ${
-            stateProgress.percentage === 100 
-            ? "border-green-200 bg-green-50/50" 
-            : "border-amber-200 bg-amber-50/50"
-          }`}>
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold">Approved Indicator for FY 2025 - 2026</h2>
-            <div className="flex items-center gap-2 text-sm mt-1">
-              <span className={`font-medium ${stateProgress.percentage === 100 ? "text-green-600" : "text-amber-800"}`}>
-                {stateProgress.approved}/{stateProgress.total}
-              </span>
-              <span className={stateProgress.percentage === 100 ? "text-green-600" : "text-amber-800"}>
-                {Math.round(stateProgress.percentage)}% Submitted
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <Progress 
-                value={stateProgress.percentage} 
-                className={`h-3 ${
-                  stateProgress.percentage === 100 
-                  ? "[&>div]:bg-green-600" 
-                  : "[&>div]:bg-amber-700"
-                }`}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="shrink-0 px-6 text-[#1e3a8a] hover:bg-gray-50 border-[#1e3a8a]"
-                onClick={() => handlePreviewClick(undefined, selectedYear)}
-                //   {
-                //   // Get all indicators with status matching what we want
-                //   const stateIndicators = filteredSubmissions.filter(s => 
-                //     (s.status === "SUBMITTED_TO_STATE" || s.status === "RETURNED_FROM_MOSPI") &&
-                //     s.stateUt === user?.state
-                //   );
+            {progressLoading ? (
+              <div className="text-sm text-muted-foreground">
+                Loading progress…
+              </div>
+            ) : stateProgress ? (
+              <div className="space-y-6">
+                <div
+                  className={`border rounded-lg p-4 ${
+                    stateProgress.percentage === 100
+                      ? "border-green-200 bg-green-50/50"
+                      : "border-amber-200 bg-amber-50/50"
+                  }`}
+                >
+                  <div className="mb-6">
+                    <h2 className="text-xl font-semibold">
+                      Approved Indicator for FY 2025 - 2026
+                    </h2>
+                    <div className="flex items-center gap-2 text-sm mt-1">
+                      <span
+                        className={`font-medium ${
+                          stateProgress.percentage === 100
+                            ? "text-green-600"
+                            : "text-amber-800"
+                        }`}
+                      >
+                        {stateProgress.approved}/{stateProgress.total}
+                      </span>
+                      <span
+                        className={
+                          stateProgress.percentage === 100
+                            ? "text-green-600"
+                            : "text-amber-800"
+                        }
+                      >
+                        {Math.round(stateProgress.percentage)}% Submitted
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <Progress
+                        value={stateProgress.percentage}
+                        className={`h-3 ${
+                          stateProgress.percentage === 100
+                            ? "[&>div]:bg-green-600"
+                            : "[&>div]:bg-amber-700"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="shrink-0 px-6 text-[#1e3a8a] hover:bg-gray-50 border-[#1e3a8a]"
+                        onClick={() =>
+                          handlePreviewClick(undefined, selectedYear)
+                        }
+                        //   {
+                        //   // Get all indicators with status matching what we want
+                        //   const stateIndicators = filteredSubmissions.filter(s =>
+                        //     (s.status === "SUBMITTED_TO_STATE" || s.status === "RETURNED_FROM_MOSPI") &&
+                        //     s.stateUt === user?.state
+                        //   );
 
-                //   // If we have at least one submission, navigate to it
-                //   if (stateIndicators.length > 0) {
-                //     // Take the first submission and show in preview mode
-                //     const previewSubmission = stateIndicators[0];
-                //     navigate(`/data-submission/review/${previewSubmission.id}?preview=true`);
-                //   } else {
-                //     notificationService.warning("No indicators available for preview");
-                //   }
-                // }
-              // }
-              >
-                Preview
-              </Button>
-              <Button
-                className={`shrink-0 text-white px-6 ${
-                  stateProgress.percentage === 100 && !submittingFinal && !progressLoading && stateProgress.approved === stateProgress.total && !hasSubmittedToMospiReviewer
-                  ? "bg-[#1e3a8a] hover:bg-[#1e3299]" // Darker blue when enabled at 100%
-                  : "bg-[#7888E3] hover:bg-[#6574CC]"  // Default lighter blue
-                }`}
-                onClick={() => setShowConfirmModal(true)}
-                disabled={
-                  submittingFinal ||
-                  progressLoading ||
-                  !stateProgress ||
-                  stateProgress.approved !== stateProgress.total ||
-                  hasSubmittedToMospiReviewer
-                }
-              >
-                {submittingFinal ? "Submitting…" : "Submit Now"}
-              </Button>
-            </div>
-          </div>
-        </div>
-        {/* <div className="grid grid-cols-3 gap-4 mt-4">
+                        //   // If we have at least one submission, navigate to it
+                        //   if (stateIndicators.length > 0) {
+                        //     // Take the first submission and show in preview mode
+                        //     const previewSubmission = stateIndicators[0];
+                        //     navigate(`/data-submission/review/${previewSubmission.id}?preview=true`);
+                        //   } else {
+                        //     notificationService.warning("No indicators available for preview");
+                        //   }
+                        // }
+                        // }
+                      >
+                        Preview
+                      </Button>
+                      <Button
+                        className={`shrink-0 text-white px-6 ${
+                          stateProgress.percentage === 100 &&
+                          !submittingFinal &&
+                          !progressLoading &&
+                          stateProgress.approved === stateProgress.total &&
+                          !hasSubmittedToMospiReviewer
+                            ? "bg-[#1e3a8a] hover:bg-[#1e3299]" // Darker blue when enabled at 100%
+                            : "bg-[#7888E3] hover:bg-[#6574CC]" // Default lighter blue
+                        }`}
+                        onClick={() => setShowConfirmModal(true)}
+                        disabled={
+                          submittingFinal ||
+                          progressLoading ||
+                          !stateProgress ||
+                          stateProgress.approved !== stateProgress.total ||
+                          hasSubmittedToMospiReviewer
+                        }
+                      >
+                        {submittingFinal ? "Submitting…" : "Submit Now"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                {/* <div className="grid grid-cols-3 gap-4 mt-4">
           <div className="bg-gray-50 rounded-lg p-4">
             <p className="text-2xl font-bold text-primary">{stateProgress.total}</p>
             <p className="text-sm text-muted-foreground">Total Indicators</p>
@@ -1162,14 +1476,14 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
             <p className="text-sm text-muted-foreground">Pending Review</p>
           </div>
         </div> */}
-      </div>
-    ) : (
-      <div className="text-sm text-muted-foreground">
-        No indicator statuses found yet.
-      </div>
-    )}
-  </div>
-)}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No indicator statuses found yet.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-6 bg-white rounded-lg shadow-sm border p-6">
@@ -1197,7 +1511,7 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
               <SelectItem value="aurangabad">Aurangabad</SelectItem>
             </SelectContent>
           </Select> */}
-          
+
           {/* Status Filter - COMMENTED OUT */}
           {/* <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
@@ -1246,21 +1560,32 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
             ) : (
               filteredSubmissions.map((submission) => {
                 // Calculate progress
-                const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
-                
+                const progress =
+                  submission.progress ||
+                  (submission.formData
+                    ? Math.min(
+                        100,
+                        Object.keys(submission.formData).length * 20
+                      )
+                    : 0);
+
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
                 if (submission.status === "DRAFT") {
                   nextStep = "Complete all required sections";
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
                   nextStep = "Waiting for state approval";
-                } else if (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER") {
+                } else if (
+                  submission.status === "SUBMITTED_TO_MOSPI_REVIEWER"
+                ) {
                   if (user?.role === "STATE_APPROVER") {
                     nextStep = "With MOSPI Reviewer for review";
                   } else {
                     nextStep = "Submitted to MoSPI Reviewer";
                   }
-                } else if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                } else if (
+                  submission.status === "SUBMITTED_TO_MOSPI_APPROVER"
+                ) {
                   if (user?.role === "STATE_APPROVER") {
                     nextStep = "Forwarded to MOSPI Approver by MOSPI Reviewer";
                   } else if (user?.role === "MOSPI_REVIEWER") {
@@ -1274,36 +1599,54 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   } else {
                     nextStep = "Submission approved";
                   }
-                } else if (submission.status === "REJECTED" || submission.status === "REJECTED_FINAL") {
+                } else if (
+                  submission.status === "REJECTED" ||
+                  submission.status === "REJECTED_FINAL"
+                ) {
                   nextStep = "Address reviewer feedback";
                 }
 
                 // Get reviewer note
-                const reviewerNote = submission.reviewComments && submission.reviewComments.length > 0 
-                  ? submission.reviewComments[submission.reviewComments.length - 1]?.text 
-                  : undefined;
+                const reviewerNote =
+                  submission.reviewComments &&
+                  submission.reviewComments.length > 0
+                    ? submission.reviewComments[
+                        submission.reviewComments.length - 1
+                      ]?.text
+                    : undefined;
 
                 // For submissions forwarded to MoSPI Approver or approved, find who forwarded it
-                let submittedByText = submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
-                
+                let submittedByText = submission.user
+                  ? `${submission.user.firstName || ""} ${
+                      submission.user.lastName || ""
+                    }`.trim() || "Unknown"
+                  : "Unknown";
+
                 // For SUBMITTED_TO_MOSPI_APPROVER or APPROVED status, show MOSPI Reviewer as submitted by
                 // (since MOSPI Reviewer forwarded it to MOSPI Approver)
-                if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER" || submission.status === "APPROVED") {
+                if (
+                  submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
+                  submission.status === "APPROVED"
+                ) {
                   // Look for the most recent comment from MOSPI_REVIEWER who forwarded it
-                  if (submission.reviewComments && Array.isArray(submission.reviewComments)) {
+                  if (
+                    submission.reviewComments &&
+                    Array.isArray(submission.reviewComments)
+                  ) {
                     const reviewerComments = submission.reviewComments
-                      .filter((comment: any) => 
-                        comment.role === "MOSPI_REVIEWER"
+                      .filter(
+                        (comment: any) => comment.role === "MOSPI_REVIEWER"
                       )
                       .sort((a: any, b: any) => {
                         const timeA = new Date(a.timestamp || 0).getTime();
                         const timeB = new Date(b.timestamp || 0).getTime();
                         return timeB - timeA; // Most recent first
                       });
-                    
+
                     if (reviewerComments.length > 0) {
                       const lastReviewer = reviewerComments[0];
-                      submittedByText = lastReviewer.userName || "MoSPI Reviewer";
+                      submittedByText =
+                        lastReviewer.userName || "MoSPI Reviewer";
                     } else {
                       submittedByText = "MoSPI Reviewer";
                     }
@@ -1316,19 +1659,39 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   <UnifiedSubmissionCard
                     key={submission.id}
                     id={submission.id}
-                    title={submission.submissionId || submission.title || `Submission ${submission.id}`}
+                    title={
+                      submission.submissionId ||
+                      submission.title ||
+                      `Submission ${submission.id}`
+                    }
                     status={submission.status}
                     referenceId={submission.submissionId || submission.id}
-                    updatedDate={submission.createdAt ? new Date(submission.createdAt).toLocaleDateString() : submission.submissionDate || "N/A"}
-                    dueDate={submission.deadline || (submission.createdAt ? new Date(new Date(submission.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString() : "N/A")}
+                    updatedDate={
+                      submission.createdAt
+                        ? new Date(submission.createdAt).toLocaleDateString()
+                        : submission.submissionDate || "N/A"
+                    }
+                    dueDate={
+                      submission.deadline ||
+                      (submission.createdAt
+                        ? new Date(
+                            new Date(submission.createdAt).getTime() +
+                              7 * 24 * 60 * 60 * 1000
+                          ).toLocaleDateString()
+                        : "N/A")
+                    }
                     progress={Math.round(progress)}
                     nextStep={nextStep}
                     reviewerNote={reviewerNote}
                     submission={submission}
                     currentUserRole={user?.role}
                     submittedBy={submittedByText}
-                    onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
-                    onReview={() => navigate(`/data-submission/review/${submission.id}`)}
+                    onViewDetails={() =>
+                      navigate(`/data-submission/review/${submission.id}`)
+                    }
+                    onReview={() =>
+                      navigate(`/data-submission/review/${submission.id}`)
+                    }
                   />
                 );
               })
@@ -1351,21 +1714,32 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
             ) : (
               filteredSubmissions.map((submission) => {
                 // Calculate progress
-                const progress = submission.progress || (submission.formData ? Math.min(100, Object.keys(submission.formData).length * 20) : 0);
-                
+                const progress =
+                  submission.progress ||
+                  (submission.formData
+                    ? Math.min(
+                        100,
+                        Object.keys(submission.formData).length * 20
+                      )
+                    : 0);
+
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
                 if (submission.status === "DRAFT") {
                   nextStep = "Complete all required sections";
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
                   nextStep = "Waiting for state approval";
-                } else if (submission.status === "SUBMITTED_TO_MOSPI_REVIEWER") {
+                } else if (
+                  submission.status === "SUBMITTED_TO_MOSPI_REVIEWER"
+                ) {
                   if (user?.role === "STATE_APPROVER") {
                     nextStep = "With MOSPI Reviewer for review";
                   } else {
                     nextStep = "Submitted to MoSPI Reviewer";
                   }
-                } else if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER") {
+                } else if (
+                  submission.status === "SUBMITTED_TO_MOSPI_APPROVER"
+                ) {
                   if (user?.role === "STATE_APPROVER") {
                     nextStep = "Forwarded to MOSPI Approver by MOSPI Reviewer";
                   } else if (user?.role === "MOSPI_REVIEWER") {
@@ -1379,36 +1753,54 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   } else {
                     nextStep = "Submission approved";
                   }
-                } else if (submission.status === "REJECTED" || submission.status === "REJECTED_FINAL") {
+                } else if (
+                  submission.status === "REJECTED" ||
+                  submission.status === "REJECTED_FINAL"
+                ) {
                   nextStep = "Address reviewer feedback";
                 }
 
                 // Get reviewer note
-                const reviewerNote = submission.reviewComments && submission.reviewComments.length > 0 
-                  ? submission.reviewComments[submission.reviewComments.length - 1]?.text 
-                  : undefined;
+                const reviewerNote =
+                  submission.reviewComments &&
+                  submission.reviewComments.length > 0
+                    ? submission.reviewComments[
+                        submission.reviewComments.length - 1
+                      ]?.text
+                    : undefined;
 
                 // For submissions forwarded to MoSPI Approver or approved, find who forwarded it
-                let submittedByText = submission.user ? `${submission.user.firstName || ''} ${submission.user.lastName || ''}`.trim() || "Unknown" : "Unknown";
-                
+                let submittedByText = submission.user
+                  ? `${submission.user.firstName || ""} ${
+                      submission.user.lastName || ""
+                    }`.trim() || "Unknown"
+                  : "Unknown";
+
                 // For SUBMITTED_TO_MOSPI_APPROVER or APPROVED status, show MOSPI Reviewer as submitted by
                 // (since MOSPI Reviewer forwarded it to MOSPI Approver)
-                if (submission.status === "SUBMITTED_TO_MOSPI_APPROVER" || submission.status === "APPROVED") {
+                if (
+                  submission.status === "SUBMITTED_TO_MOSPI_APPROVER" ||
+                  submission.status === "APPROVED"
+                ) {
                   // Look for the most recent comment from MOSPI_REVIEWER who forwarded it
-                  if (submission.reviewComments && Array.isArray(submission.reviewComments)) {
+                  if (
+                    submission.reviewComments &&
+                    Array.isArray(submission.reviewComments)
+                  ) {
                     const reviewerComments = submission.reviewComments
-                      .filter((comment: any) => 
-                        comment.role === "MOSPI_REVIEWER"
+                      .filter(
+                        (comment: any) => comment.role === "MOSPI_REVIEWER"
                       )
                       .sort((a: any, b: any) => {
                         const timeA = new Date(a.timestamp || 0).getTime();
                         const timeB = new Date(b.timestamp || 0).getTime();
                         return timeB - timeA; // Most recent first
                       });
-                    
+
                     if (reviewerComments.length > 0) {
                       const lastReviewer = reviewerComments[0];
-                      submittedByText = lastReviewer.userName || "MoSPI Reviewer";
+                      submittedByText =
+                        lastReviewer.userName || "MoSPI Reviewer";
                     } else {
                       submittedByText = "MoSPI Reviewer";
                     }
@@ -1421,19 +1813,39 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
                   <UnifiedSubmissionCard
                     key={submission.id}
                     id={submission.id}
-                    title={submission.submissionId || submission.title || `Submission ${submission.id}`}
+                    title={
+                      submission.submissionId ||
+                      submission.title ||
+                      `Submission ${submission.id}`
+                    }
                     status={submission.status}
                     referenceId={submission.submissionId || submission.id}
-                    updatedDate={submission.createdAt ? new Date(submission.createdAt).toLocaleDateString() : submission.submissionDate || "N/A"}
-                    dueDate={submission.deadline || (submission.createdAt ? new Date(new Date(submission.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString() : "N/A")}
+                    updatedDate={
+                      submission.createdAt
+                        ? new Date(submission.createdAt).toLocaleDateString()
+                        : submission.submissionDate || "N/A"
+                    }
+                    dueDate={
+                      submission.deadline ||
+                      (submission.createdAt
+                        ? new Date(
+                            new Date(submission.createdAt).getTime() +
+                              7 * 24 * 60 * 60 * 1000
+                          ).toLocaleDateString()
+                        : "N/A")
+                    }
                     progress={Math.round(progress)}
                     nextStep={nextStep}
                     reviewerNote={reviewerNote}
                     submission={submission}
                     currentUserRole={user?.role}
                     submittedBy={submittedByText}
-                    onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
-                    onReview={() => navigate(`/data-submission/review/${submission.id}`)}
+                    onViewDetails={() =>
+                      navigate(`/data-submission/review/${submission.id}`)
+                    }
+                    onReview={() =>
+                      navigate(`/data-submission/review/${submission.id}`)
+                    }
                   />
                 );
               })
@@ -1454,7 +1866,9 @@ const handlePreviewClick = (rowStateUt?: string, year?: string) => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={submittingFinal}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={submittingFinal}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setShowConfirmModal(false);

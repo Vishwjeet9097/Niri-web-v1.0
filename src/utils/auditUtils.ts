@@ -558,6 +558,7 @@ export const canReviewSubmission = (
     case "STATE_APPROVER":
       return (
         submissionStatus === "SUBMITTED_TO_STATE" ||
+        submissionStatus === "DRAFT" ||
         submissionStatus === "RETURNED_FROM_MOSPI"
       );
     case "MOSPI_APPROVER":

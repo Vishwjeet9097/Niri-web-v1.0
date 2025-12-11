@@ -319,7 +319,8 @@ export function areAllIndicatorsMospiAccepted(
     }
 
     const normalizedStatus = String(mospiStatus).trim().toUpperCase();
-    const isAccepted = normalizedStatus === "ACCEPTED" || normalizedStatus === "APPROVED";
+    const isAccepted =
+      normalizedStatus === "ACCEPTED" || normalizedStatus === "APPROVED";
     acceptanceStatus[indicatorCode] = isAccepted;
 
     console.log(
@@ -337,7 +338,119 @@ export function areAllIndicatorsMospiAccepted(
     }
   }
 
-  console.log("✅ All indicators have mospi_status ACCEPTED or APPROVED:", acceptanceStatus);
+  console.log(
+    "✅ All indicators have mospi_status ACCEPTED or APPROVED:",
+    acceptanceStatus
+  );
   console.groupEnd();
   return true;
+}
+
+/**
+ * Get indicator status from submission formData
+ * @param submission - The submission object with formData
+ * @param indicatorCode - The indicator code (e.g., "1.1", "2.3")
+ * @returns The status string ("ACCEPTED", "SUBMITTED_TO_STATE", etc.) or undefined
+ */
+export function getIndicatorStatus(
+  submission: Record<string, any> | undefined,
+  indicatorCode: string
+): string | undefined {
+  if (!submission) {
+    return undefined;
+  }
+
+  const formData = submission.formData;
+  if (!formData || typeof formData !== "object") {
+    return undefined;
+  }
+
+  // Map indicator code to category and section
+  const [sectionNum, indicatorNum] = indicatorCode.split(".");
+  const categoryMap: Record<string, string> = {
+    "1": "infraFinancing",
+    "2": "infraDevelopment",
+    "3": "pppDevelopment",
+    "4": "infraEnablers",
+  };
+
+  const category = categoryMap[sectionNum];
+  const section = `section${sectionNum}_${indicatorNum}`;
+
+  if (!category || !section) {
+    return undefined;
+  }
+
+  // Get category and section data
+  const categoryData = formData[category];
+  if (!categoryData || typeof categoryData !== "object") {
+    return undefined;
+  }
+
+  const sectionData = categoryData[section];
+  if (!sectionData || typeof sectionData !== "object") {
+    return undefined;
+  }
+
+  // Return status if it exists
+  return sectionData.status;
+}
+
+/**
+ * Get all indicator statuses from submissions for a Nodal Officer
+ * @param submissions - Array of submission objects
+ * @param assignedIndicators - Array of assigned indicator codes
+ * @returns Map of indicator code to status
+ */
+export function getIndicatorStatusesFromSubmissions(
+  submissions: Record<string, any>[],
+  assignedIndicators: string[]
+): Record<string, string> {
+  const statusMap: Record<string, string> = {};
+
+  // Initialize all assigned indicators with undefined status
+  assignedIndicators.forEach((code) => {
+    statusMap[code] = undefined as any;
+  });
+
+  // Check each submission for indicator statuses
+  for (const submission of submissions) {
+    // Only check DRAFT or SUBMITTED_TO_STATE submissions
+    if (
+      submission.status !== "DRAFT" &&
+      submission.status !== "SUBMITTED_TO_STATE"
+    ) {
+      continue;
+    }
+
+    for (const indicatorCode of assignedIndicators) {
+      const status = getIndicatorStatus(submission, indicatorCode);
+      if (status) {
+        // If we already have a status, prefer ACCEPTED over SUBMITTED_TO_STATE
+        if (!statusMap[indicatorCode] || status === "ACCEPTED") {
+          statusMap[indicatorCode] = status;
+        }
+      }
+    }
+  }
+
+  return statusMap;
+}
+
+/**
+ * Check if an indicator is editable (not accepted or submitted)
+ * @param status - The indicator status
+ * @returns true if indicator can be edited
+ */
+export function isIndicatorEditable(status?: string): boolean {
+  if (!status) {
+    return true; // No status means it's editable
+  }
+
+  const upperStatus = status.toUpperCase();
+  return (
+    upperStatus !== "ACCEPTED" &&
+    upperStatus !== "SUBMITTED_TO_STATE" &&
+    upperStatus !== "APPROVED"
+  );
 }

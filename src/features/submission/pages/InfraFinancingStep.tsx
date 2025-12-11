@@ -1267,10 +1267,23 @@ export const InfraFinancingStep = () => {
   };
 
   // Helper function to check if an indicator is submitted
-  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+  // Helper function to get indicator status
+  const getIndicatorStatus = (indicatorCode: string): string | undefined => {
     const sectionKey = `section${indicatorCode.replace(".", "_")}`;
     const sectionData = formData[sectionKey];
-    return (sectionData as any)?.status === "SUBMITTED_TO_STATE";
+    return (sectionData as any)?.status;
+  };
+
+  // Check if indicator is submitted or accepted (non-editable)
+  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    return (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED"
+    );
   };
 
   return (
@@ -1329,6 +1342,7 @@ export const InfraFinancingStep = () => {
                   </div>
                 }
                 className="mb-6"
+                indicatorStatus={getIndicatorStatus("1.1")}
               >
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1490,6 +1504,7 @@ export const InfraFinancingStep = () => {
                     </span>
                   </div>
                 }
+                indicatorStatus={getIndicatorStatus("1.2")}
               >
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1647,6 +1662,7 @@ export const InfraFinancingStep = () => {
                   </div>
                 }
                 className="mb-6"
+                indicatorStatus={getIndicatorStatus("1.3")}
               >
                 <div className="space-y-4">
                   <div className="w-1/3">
@@ -2006,6 +2022,7 @@ export const InfraFinancingStep = () => {
                   </div>
                 }
                 className="mb-6"
+                indicatorStatus={getIndicatorStatus("1.4")}
               >
                 <div className="space-y-4">
                   <div className="w-1/3">
@@ -2320,6 +2337,7 @@ export const InfraFinancingStep = () => {
                   </div>
                 }
                 className="mb-6"
+                indicatorStatus={getIndicatorStatus("1.5")}
               >
                 <div className="space-y-6">
                   <div>

@@ -1011,10 +1011,23 @@ export const PPPDevelopmentStep = () => {
   }
 
   // Helper function to check if an indicator is submitted
-  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+  // Helper function to get indicator status
+  const getIndicatorStatus = (indicatorCode: string): string | undefined => {
     const sectionKey = `section${indicatorCode.replace(".", "_")}`;
     const sectionData = formData[sectionKey];
-    return sectionData?.status === "SUBMITTED_TO_STATE";
+    return (sectionData as any)?.status;
+  };
+
+  // Check if indicator is submitted or accepted (non-editable)
+  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    return (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED"
+    );
   };
 
   return (
@@ -1076,6 +1089,7 @@ export const PPPDevelopmentStep = () => {
               }
               subtitle=""
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("3.1")}
             >
               <div className="flex flex-col gap-4">
                 <div>
@@ -1238,6 +1252,7 @@ export const PPPDevelopmentStep = () => {
               }
               subtitle=""
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("3.2")}
             >
               <div className="flex flex-col gap-4">
                 <div>
@@ -1399,6 +1414,7 @@ export const PPPDevelopmentStep = () => {
               }
               subtitle=""
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("3.3")}
             >
               <div className="flex flex-col gap-4">
                 {(Array.isArray(formData.section3_3?.VGFArray)
@@ -1715,6 +1731,7 @@ export const PPPDevelopmentStep = () => {
                 </div>
               }
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("3.4")}
             >
               <div className="flex flex-col gap-6">
                 {/* ✅ Single-instance summary fields */}
@@ -1754,7 +1771,8 @@ export const PPPDevelopmentStep = () => {
                   <div>
                     <Label className="block min-h-[40px] leading-snug">
                       Total Project Cost of Infrastructure Projects awarded in
-                      the financial year of assessment (INR - values is in CRORES)
+                      the financial year of assessment (INR - values is in
+                      CRORES)
                       <span className="text-destructive">*</span>
                     </Label>
                     <Input
@@ -1952,7 +1970,9 @@ export const PPPDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>Total Project Cost (INR - values is in CRORES)</Label>
+                          <Label>
+                            Total Project Cost (INR - values is in CRORES)
+                          </Label>
                           <Input
                             type="number"
                             min="0"

@@ -292,21 +292,25 @@ export const InfraDevelopmentStep = () => {
           );
           const normalized = parsedFormData?.normalizedFormData;
           const legacy = parsedFormData?.infraDevelopment || {};
-          
+
           // Helper function to get status: check section data first, then check completedIndicators
-          const getStatusForIndicator = (indicatorCode: string, sectionData: any): string | undefined => {
+          const getStatusForIndicator = (
+            indicatorCode: string,
+            sectionData: any
+          ): string | undefined => {
             // First check if status exists in section data
             if (sectionData?.status) {
               return sectionData.status;
             }
             // If not in section data, check if indicator is in completedIndicators
-            const completedIndicators = sectionStatusFromDB?.completedIndicators || [];
+            const completedIndicators =
+              sectionStatusFromDB?.completedIndicators || [];
             if (completedIndicators.includes(indicatorCode)) {
               return "SUBMITTED_TO_STATE";
             }
             return undefined;
           };
-          
+
           const newFormData: InfraDevelopmentData =
             safeInfraDevelopmentFormData({
               section2_1: {
@@ -519,7 +523,7 @@ export const InfraDevelopmentStep = () => {
   useEffect(() => {
     // Only sync from localStorage if data hasn't been loaded from backend yet
     if (isDataLoaded) return;
-    
+
     const currentStepData = getStepData(
       "infraDevelopment"
     ) as Partial<InfraDevelopmentData>;
@@ -1260,7 +1264,6 @@ export const InfraDevelopmentStep = () => {
         }
         return prev;
       });
-      
 
       // 🔍 DEBUG: Log before updating form data
       console.log(`🔍 [SUBMIT ${indicatorCode}] Before updateFormData:`, {
@@ -1268,8 +1271,6 @@ export const InfraDevelopmentStep = () => {
         sanitizedSection: sanitizedFormData[finalSectionKey],
         fullSanitizedData: sanitizedFormData,
       });
-
-
 
       console.log(`🔍 [SUBMIT ${indicatorCode}] Updating with status:`, {
         section: sanitizedFormDataWithStatus[finalSectionKey],
@@ -1457,10 +1458,23 @@ export const InfraDevelopmentStep = () => {
   }
 
   // Helper function to check if an indicator is submitted
-  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+  // Helper function to get indicator status
+  const getIndicatorStatus = (indicatorCode: string): string | undefined => {
     const sectionKey = `section${indicatorCode.replace(".", "_")}`;
     const sectionData = formData[sectionKey];
-    return (sectionData as any)?.status === "SUBMITTED_TO_STATE";
+    return (sectionData as any)?.status;
+  };
+
+  // Check if indicator is submitted or accepted (non-editable)
+  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    return (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED"
+    );
   };
 
   // --- UI ---
@@ -1566,6 +1580,7 @@ export const InfraDevelopmentStep = () => {
               }
               subtitle=""
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("2.1")}
             >
               <div className="flex flex-col gap-4 ">
                 {(Array.isArray(formData.section2_1?.infraActArray)
@@ -1782,6 +1797,7 @@ export const InfraDevelopmentStep = () => {
               }
               subtitle=""
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("2.2")}
             >
               <div className="flex flex-col gap-4">
                 {(Array.isArray(formData.section2_2?.specializedEntityArray)
@@ -1996,6 +2012,7 @@ export const InfraDevelopmentStep = () => {
                 </div>
               }
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("2.3")}
             >
               <div className="space-y-6">
                 <div>
@@ -2312,6 +2329,7 @@ export const InfraDevelopmentStep = () => {
                 </div>
               }
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("2.4")}
             >
               <div className="flex flex-col gap-4">
                 {/* Yes/No selection */}
@@ -2779,6 +2797,7 @@ export const InfraDevelopmentStep = () => {
                 </div>
               }
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("2.5")}
             >
               <div className="flex flex-col gap-4">
                 {(Array.isArray(formData.section2_5?.assetMonetizationArray)

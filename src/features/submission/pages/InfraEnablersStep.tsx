@@ -1059,10 +1059,23 @@ export const InfraEnablersStep = () => {
   }
 
   // Helper function to check if an indicator is submitted
-  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+  // Helper function to get indicator status
+  const getIndicatorStatus = (indicatorCode: string): string | undefined => {
     const sectionKey = `section${indicatorCode.replace(".", "_")}`;
     const sectionData = formData[sectionKey];
-    return sectionData?.status === "SUBMITTED_TO_STATE";
+    return (sectionData as any)?.status;
+  };
+
+  // Check if indicator is submitted or accepted (non-editable)
+  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    return (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED"
+    );
   };
 
   return (
@@ -1119,6 +1132,7 @@ export const InfraEnablersStep = () => {
             }
             subtitle=""
             className="mb-6"
+            indicatorStatus={getIndicatorStatus("4.1")}
           >
             <div className="flex flex-col gap-4 w-[40%]">
               <div>
@@ -1282,6 +1296,7 @@ export const InfraEnablersStep = () => {
             }
             subtitle=""
             className="mb-6"
+            indicatorStatus={getIndicatorStatus("4.2")}
           >
             <div className="flex flex-col gap-4 w-[70%]">
               <div>
@@ -1424,6 +1439,7 @@ export const InfraEnablersStep = () => {
               </div>
             }
             className="mb-6"
+            indicatorStatus={getIndicatorStatus("4.3")}
           >
             <div className="flex flex-col gap-4">
               {/* --- Toggle --- */}
@@ -1758,6 +1774,7 @@ export const InfraEnablersStep = () => {
               </div>
             }
             className="mb-6"
+            indicatorStatus={getIndicatorStatus("4.4")}
           >
             <div className="flex flex-col gap-4 w-[70%]">
               <div>
@@ -1913,6 +1930,7 @@ export const InfraEnablersStep = () => {
               </div>
             }
             className="mb-6"
+            indicatorStatus={getIndicatorStatus("4.5")}
           >
             <div className="flex flex-col gap-4 w-[70%]">
               {/* Toggle */}
@@ -2185,6 +2203,7 @@ export const InfraEnablersStep = () => {
               </div>
             }
             className="mb-6"
+            indicatorStatus={getIndicatorStatus("4.6")}
           >
             <div className="flex flex-col gap-4">
               {/* --- Toggle --- */}
