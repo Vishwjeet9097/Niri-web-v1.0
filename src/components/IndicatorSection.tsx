@@ -2,7 +2,13 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Lock, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import {
+  Lock,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  RotateCcw,
+} from "lucide-react";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 interface IndicatorSectionProps {
@@ -47,6 +53,15 @@ export function IndicatorSection({
         <Badge className="bg-blue-100 text-blue-800 border-blue-300 flex items-center gap-1">
           <Clock className="w-3 h-3" />
           Submitted
+        </Badge>
+      );
+    }
+
+    if (upperStatus === "REVERTED" || upperStatus === "RESUBMITTED") {
+      return (
+        <Badge className="bg-orange-100 text-orange-800 border-orange-300 flex items-center gap-1">
+          <RotateCcw className="w-3 h-3" />
+          Sent Back
         </Badge>
       );
     }
@@ -149,7 +164,8 @@ export function withIndicatorAccess<T extends object>(
 
     // If no access and fallback provided, show fallback
     if (fallback) {
-      return <fallback {...props} />;
+      const FallbackComponent = fallback;
+      return <FallbackComponent {...props} />;
     }
 
     // Otherwise, don't render anything

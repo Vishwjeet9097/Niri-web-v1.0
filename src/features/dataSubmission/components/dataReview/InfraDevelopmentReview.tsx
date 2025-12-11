@@ -2042,8 +2042,13 @@ export const InfraDevelopmentReview = ({
       );
     }
 
-    // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
-    if (isNodalOfficer && (sectionStatus === "RESUBMITTED" || !sectionStatus)) {
+    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE, RESUBMITTED, or null/undefined
+    if (
+      isNodalOfficer &&
+      (sectionStatus === "SUBMITTED_TO_STATE" ||
+        sectionStatus === "RESUBMITTED" ||
+        !sectionStatus)
+    ) {
       return (
         <div className="flex gap-2">
           <Button
@@ -2068,12 +2073,13 @@ export const InfraDevelopmentReview = ({
       );
     }
 
-    // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
+    // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, RESUBMITTED, or SUBMITTED_TO_STATE, don't show any buttons
     if (
       isNodalOfficer &&
       sectionStatus !== "REVERTED" &&
       sectionStatus !== "ACCEPTED" &&
-      sectionStatus !== "RESUBMITTED"
+      sectionStatus !== "RESUBMITTED" &&
+      sectionStatus !== "SUBMITTED_TO_STATE"
     ) {
       return null;
     }
@@ -3597,22 +3603,34 @@ export const InfraDevelopmentReview = ({
               )}
             </div>
           </CardHeader> */}
-              <div className="overflow-x-auto rounded-xl">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project/Asset Name</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Select Sector</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Select Type</th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">Asset Ownership</th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Estimated Monetization (INR - values is in CRORES)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const assetMonetizationArray = Array.isArray(state?.section2_5?.assetMonetizationArray)
-                        ? state.section2_5.assetMonetizationArray
-                        : [];
+            <div className="overflow-x-auto rounded-xl">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#DDE3F9]">
+                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                      Project/Asset Name
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">
+                      Select Sector
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">
+                      Select Type
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">
+                      Asset Ownership
+                    </th>
+                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                      Estimated Monetization (INR - values is in CRORES)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const assetMonetizationArray = Array.isArray(
+                      state?.section2_5?.assetMonetizationArray
+                    )
+                      ? state.section2_5.assetMonetizationArray
+                      : [];
 
                     if (!assetMonetizationArray.length) {
                       return (

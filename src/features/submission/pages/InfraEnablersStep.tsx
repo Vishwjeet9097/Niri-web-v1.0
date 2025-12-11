@@ -196,6 +196,13 @@ export const InfraEnablersStep = () => {
     code: string;
     title: string;
   } | null>(null);
+  // Track which indicators are in edit mode (for sent back indicators)
+  const [editingIndicators, setEditingIndicators] = useState<Set<string>>(
+    new Set()
+  );
+  const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
+    new Set()
+  );
   const { toast } = useToast();
 
   // On mount, fetch submission from DB and populate form
@@ -1067,15 +1074,159 @@ export const InfraEnablersStep = () => {
   };
 
   // Check if indicator is submitted or accepted (non-editable)
+  // Note: REVERTED/RESUBMITTED indicators are non-editable by default, but can be edited via Edit button
   const isIndicatorSubmitted = (indicatorCode: string): boolean => {
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return false;
     const upperStatus = status.toUpperCase();
+    // If indicator is in edit mode, it's editable
+    if (editingIndicators.has(indicatorCode)) {
+      return false;
+    }
+    // REVERTED and RESUBMITTED are non-editable by default (need Edit button)
+    // Other statuses are non-editable
     return (
       upperStatus === "SUBMITTED_TO_STATE" ||
       upperStatus === "ACCEPTED" ||
-      upperStatus === "APPROVED"
+      upperStatus === "APPROVED" ||
+      upperStatus === "REVERTED" ||
+      upperStatus === "RESUBMITTED"
     );
+  };
+
+  // Handle Edit button click for sent back indicators
+  const handleEditIndicator = (indicatorCode: string) => {
+    setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
+  };
+
+  // Handle Save button click for sent back indicators
+  const handleSaveIndicator = async (indicatorCode: string) => {
+    setSavingIndicators((prev) => new Set(prev).add(indicatorCode));
+    try {
+      // Validate the indicator before saving
+      const indicatorValidation = validateInfraEnablers(formData, {
+        allowedIndicators: [indicatorCode],
+      });
+
+      if (!indicatorValidation.isValid) {
+        toast({
+          title: "Validation Error",
+          description: `Please complete all required fields for indicator ${indicatorCode} before saving.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get current submission to preserve status
+      const submissionsResp = await apiService.getSubmissions(1, 100);
+      const userSubmission = submissionsResp.submissions.find(
+        (sub: any) =>
+          sub.status === "DRAFT" ||
+          sub.status === "IN_PROGRESS" ||
+          sub.status === "RETURNED_FROM_STATE" ||
+          sub.status === "PENDING_STATE_APPROVAL"
+      );
+
+      if (!userSubmission?.id) {
+        toast({
+          title: "Error",
+          description: "No submission found. Please create a submission first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get current indicator status
+      const currentStatus = getIndicatorStatus(indicatorCode);
+      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Sanitize files and remove unwanted keys before saving
+      const sanitizedFormData = deepRemoveUnwantedKeys(
+        sanitizeFilesInFormData(formData)
+      );
+
+      // If indicator was sent back (REVERTED/RESUBMITTED), change status to RESUBMITTED after saving
+      // This makes it non-editable again until sent back again
+      const upperStatus = currentStatus?.toUpperCase() || "";
+      const newStatus =
+        upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
+          ? "RESUBMITTED"
+          : currentStatus || "DRAFT"; // Preserve status if not sent back
+
+      // Prepare data with updated status
+      const sectionDataWithStatus = {
+        ...sanitizedFormData[sectionKey],
+        status: newStatus,
+      };
+
+      // Update submission using updateSubmission directly to preserve status
+      const existingSubmission = await apiService.getSubmission(
+        userSubmission.id
+      );
+      const existingFormData = existingSubmission?.formData || {};
+
+      // Preserve all existing category data and update only this indicator
+      const updatedFormData = {
+        ...existingFormData,
+        infraEnablers: {
+          ...(existingFormData.infraEnablers || {}),
+          [sectionKey]: sectionDataWithStatus,
+        },
+      };
+
+      // Update submission with preserved status
+      await apiService.updateSubmission(userSubmission.id, {
+        formData: updatedFormData,
+      });
+
+      // Update local formData state
+      setFormData((prev: any) => ({
+        ...prev,
+        [sectionKey]: sectionDataWithStatus,
+      }));
+
+      // Save form data to localStorage (via updateFormData)
+      updateFormData("infraEnablers", {
+        ...formData,
+        [sectionKey]: sectionDataWithStatus,
+      });
+
+      // Exit edit mode
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+
+      toast({
+        title: "Saved",
+        description: `Indicator ${indicatorCode} has been saved successfully.`,
+      });
+    } catch (error) {
+      console.error(`Failed to save indicator ${indicatorCode}:`, error);
+      toast({
+        title: "Save Failed",
+        description: `Failed to save indicator ${indicatorCode}. Please try again.`,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+    }
+  };
+
+  // Handle Cancel button click for sent back indicators
+  const handleCancelEdit = (indicatorCode: string) => {
+    setEditingIndicators((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(indicatorCode);
+      return newSet;
+    });
+    // Optionally reload the original data for this indicator
+    // For now, just exit edit mode
   };
 
   return (
@@ -1133,6 +1284,12 @@ export const InfraEnablersStep = () => {
             subtitle=""
             className="mb-6"
             indicatorStatus={getIndicatorStatus("4.1")}
+            indicatorCode="4.1"
+            isEditable={editingIndicators.has("4.1")}
+            onEdit={() => handleEditIndicator("4.1")}
+            onSave={() => handleSaveIndicator("4.1")}
+            onCancel={() => handleCancelEdit("4.1")}
+            isSaving={savingIndicators.has("4.1")}
           >
             <div className="flex flex-col gap-4 w-[40%]">
               <div>
@@ -1297,6 +1454,12 @@ export const InfraEnablersStep = () => {
             subtitle=""
             className="mb-6"
             indicatorStatus={getIndicatorStatus("4.2")}
+            indicatorCode="4.2"
+            isEditable={editingIndicators.has("4.2")}
+            onEdit={() => handleEditIndicator("4.2")}
+            onSave={() => handleSaveIndicator("4.2")}
+            onCancel={() => handleCancelEdit("4.2")}
+            isSaving={savingIndicators.has("4.2")}
           >
             <div className="flex flex-col gap-4 w-[70%]">
               <div>
@@ -1440,6 +1603,12 @@ export const InfraEnablersStep = () => {
             }
             className="mb-6"
             indicatorStatus={getIndicatorStatus("4.3")}
+            indicatorCode="4.3"
+            isEditable={editingIndicators.has("4.3")}
+            onEdit={() => handleEditIndicator("4.3")}
+            onSave={() => handleSaveIndicator("4.3")}
+            onCancel={() => handleCancelEdit("4.3")}
+            isSaving={savingIndicators.has("4.3")}
           >
             <div className="flex flex-col gap-4">
               {/* --- Toggle --- */}
@@ -1775,6 +1944,12 @@ export const InfraEnablersStep = () => {
             }
             className="mb-6"
             indicatorStatus={getIndicatorStatus("4.4")}
+            indicatorCode="4.4"
+            isEditable={editingIndicators.has("4.4")}
+            onEdit={() => handleEditIndicator("4.4")}
+            onSave={() => handleSaveIndicator("4.4")}
+            onCancel={() => handleCancelEdit("4.4")}
+            isSaving={savingIndicators.has("4.4")}
           >
             <div className="flex flex-col gap-4 w-[70%]">
               <div>
@@ -1931,6 +2106,12 @@ export const InfraEnablersStep = () => {
             }
             className="mb-6"
             indicatorStatus={getIndicatorStatus("4.5")}
+            indicatorCode="4.5"
+            isEditable={editingIndicators.has("4.5")}
+            onEdit={() => handleEditIndicator("4.5")}
+            onSave={() => handleSaveIndicator("4.5")}
+            onCancel={() => handleCancelEdit("4.5")}
+            isSaving={savingIndicators.has("4.5")}
           >
             <div className="flex flex-col gap-4 w-[70%]">
               {/* Toggle */}
@@ -2204,6 +2385,12 @@ export const InfraEnablersStep = () => {
             }
             className="mb-6"
             indicatorStatus={getIndicatorStatus("4.6")}
+            indicatorCode="4.6"
+            isEditable={editingIndicators.has("4.6")}
+            onEdit={() => handleEditIndicator("4.6")}
+            onSave={() => handleSaveIndicator("4.6")}
+            onCancel={() => handleCancelEdit("4.6")}
+            isSaving={savingIndicators.has("4.6")}
           >
             <div className="flex flex-col gap-4">
               {/* --- Toggle --- */}

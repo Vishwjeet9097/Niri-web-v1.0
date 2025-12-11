@@ -1629,8 +1629,8 @@ export const InfraEnablersReview = ({
       );
     }
 
-    // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
-    if (isNodalOfficer && (sectionStatus === "RESUBMITTED" || !sectionStatus)) {
+    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE, RESUBMITTED, or null/undefined
+    if (isNodalOfficer && (sectionStatus === "SUBMITTED_TO_STATE" || sectionStatus === "RESUBMITTED" || !sectionStatus)) {
       return (
         <div className="flex gap-2">
           <Button
@@ -1655,15 +1655,16 @@ export const InfraEnablersReview = ({
       );
     }
 
-    // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
+    // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, RESUBMITTED, or SUBMITTED_TO_STATE, don't show any buttons
     if (
       isNodalOfficer &&
       sectionStatus !== "REVERTED" &&
       sectionStatus !== "ACCEPTED" &&
-      sectionStatus !== "RESUBMITTED"
+      sectionStatus !== "RESUBMITTED" &&
+      sectionStatus !== "SUBMITTED_TO_STATE"
     ) {
-      return null;
-    }
+    return null;
+  }
 
     return (
       <div className="flex gap-2">
