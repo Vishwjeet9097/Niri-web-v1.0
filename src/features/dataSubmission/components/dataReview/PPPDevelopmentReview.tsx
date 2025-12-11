@@ -59,7 +59,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   // Helper function to normalize file objects (handles nested file.file structures)
   const normalizeFileObject = (fileObj: any): any => {
     if (!fileObj) return fileObj;
-    
+
     // If file has a nested file.file structure and the outer doesn't have filePath, use the nested one
     if (fileObj.file && typeof fileObj.file === 'object' && !fileObj.filePath && fileObj.file.filePath) {
       return {
@@ -68,7 +68,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         id: fileObj.file.id ?? fileObj.id,
       };
     }
-    
+
     return fileObj;
   };
 
@@ -103,7 +103,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     if (normalized.section3_3) {
       const section = normalized.section3_3;
       const status = (section && section.status) || (Array.isArray(section) ? (section as any).status : undefined);
-      
+
       let items: any[] = [];
       if (Array.isArray(section?.VGFArray)) {
         items = section.VGFArray;
@@ -129,19 +129,19 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
-  
+
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
   const currentSubmission = submissionState || submission;
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, currentSubmission);
-  
+
   // Sync submissionState when submission prop changes from parent
   useEffect(() => {
     if (submission) {
       setSubmissionState(submission);
     }
   }, [submission]);
-  
+
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
   // Flag to prevent useEffect from overriding cancel restore
@@ -164,11 +164,11 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         const tokenFromNewKey = tokenData?.value?.accessToken;
         if (tokenFromNewKey) return tokenFromNewKey;
       }
-      
+
       // Try legacy key: access_token
       const tokenFromLegacyKey = localStorage.getItem("access_token");
       if (tokenFromLegacyKey) return tokenFromLegacyKey;
-      
+
       // Try old auth_user key as fallback
       const authUser = localStorage.getItem('niri_app:auth_user');
       if (authUser) {
@@ -230,11 +230,11 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     }
 
     // Handle S3 files (review mode) - check multiple possible properties
-    const filePath = actualFile.filePath || 
-                     actualFile.fileUrl || 
-                     actualFile.url ||
-                     actualFile.path ||
-                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
+    const filePath = actualFile.filePath ||
+      actualFile.fileUrl ||
+      actualFile.url ||
+      actualFile.path ||
+      (typeof actualFile.file === "string" ? actualFile.file : undefined);
     if (!filePath) {
       console.error("File path missing. File object:", actualFile);
       notificationService.warning("File path missing.", "Cannot View File");
@@ -280,11 +280,11 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     }
 
     // Handle S3 files (review mode) - check multiple possible properties
-    const filePath = actualFile.filePath || 
-                     actualFile.fileUrl || 
-                     actualFile.url ||
-                     actualFile.path ||
-                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
+    const filePath = actualFile.filePath ||
+      actualFile.fileUrl ||
+      actualFile.url ||
+      actualFile.path ||
+      (typeof actualFile.file === "string" ? actualFile.file : undefined);
     if (!filePath) {
       console.error("File path missing. File object:", actualFile);
       notificationService.warning("File path missing.", "Cannot Download File");
@@ -336,7 +336,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       setFileLoading(prev => ({ ...prev, [fileKey]: false }));
     }
   };
-  
+
   // State for adding new project in section 3.4
   const [showAddProjectForm, setShowAddProjectForm] = useState(false);
   const [newProject, setNewProject] = useState({
@@ -359,6 +359,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     file: null as FileUpload | null,
   });
 
+  // State for file delete confirmation dialog in section 3.3
+  const [showVGFFileDeleteDialog, setShowVGFFileDeleteDialog] = useState(false);
+  const [pendingVGFFileDelete, setPendingVGFFileDelete] = useState<{
+    rowIndex: number;
+  } | null>(null);
+
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
@@ -367,7 +373,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
-  
+
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
@@ -390,14 +396,14 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   };
 
   const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
-  
+
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
   };
-  
+
   // Handle cancel - restore original state
   const handleCancel = (sectionId: string) => {
     if (originalFormDataSnapshot) {
@@ -411,7 +417,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       setSelectResetKey(prev => prev + 1);
       // Increment refresh key to force component re-render
       setRefreshKey(prev => prev + 1);
-      
+
       // Close and reset "Add More Project" forms for section 3.3
       if (sectionId === '3.3') {
         setShowAddVGFForm(false);
@@ -423,7 +429,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           file: null,
         });
       }
-      
+
       // Close and reset "Add More Project" forms for section 3.4
       if (sectionId === '3.4') {
         setShowAddProjectForm(false);
@@ -437,7 +443,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           totalProjectCost: "",
         });
       }
-      
+
       // Reset the flag after React has processed the state update
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -473,10 +479,10 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       }
     }
   };
-  
+
   // Alias for formDataState to match pattern used in other review components
   const state = formDataState as any;
-  
+
   // Real-time update listener
   useEffect(() => {
     const handleCommentUpdate = async (event: CustomEvent) => {
@@ -489,16 +495,16 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           indicatorComment: comments,
           updatedAt: new Date().toISOString()
         }));
-        
+
         // 2. Refresh complete submission data (same as first load)
         try {
           console.log("🔄 Refreshing complete submission data...");
           const freshSubmission = await apiService.getSubmission(submissionId);
-          
+
           if (freshSubmission) {
             // Update submission state with fresh data
             setSubmissionState(freshSubmission);
-            
+
             // Update form data with fresh data
             if (freshSubmission.formData) {
               setFormDataState(
@@ -508,7 +514,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 )
               );
             }
-            
+
             console.log("✅ Fresh submission data loaded:", freshSubmission);
           }
         } catch (error) {
@@ -518,7 +524,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     };
 
     window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
-    
+
     return () => {
       window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
     };
@@ -550,7 +556,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
   // Check if this section has any data
   const hasData = hasPPPDevelopmentData({ pppDevelopment: formDataState });
   let sectionsWithData = getSectionsWithData({ pppDevelopment: formDataState }, 'pppDevelopment');
-  
+
   // For Nodal Officers (both preview and review mode): filter sections based on assigned indicators
   // Nodal Officers should only see sections for indicators assigned to them
   if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
@@ -560,12 +566,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       "3.3": "section3_3",
       "3.4": "section3_4",
     };
-    
+
     // Get all assigned section keys
     const assignedSectionKeys = assignedIndicators
       .map((indicator) => indicatorToSectionMap[indicator])
       .filter((sectionKey) => sectionKey !== undefined);
-    
+
     // For preview mode: add assigned sections even if they don't have data
     if (isPreview) {
       const missingAssignedSections = assignedSectionKeys.filter(
@@ -574,22 +580,22 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       sectionsWithData = [...sectionsWithData, ...missingAssignedSections];
     } else {
       // For review mode: filter sectionsWithData to only include assigned sections
-      const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
+      const filteredSectionsWithData = sectionsWithData.filter((sectionKey) =>
         assignedSectionKeys.includes(sectionKey)
       );
-      
+
       // Add assigned sections that don't have data yet (to ensure they're visible)
       const missingAssignedSections = assignedSectionKeys.filter(
         (sectionKey) => !sectionsWithData.includes(sectionKey)
       );
-      
+
       // Combine filtered sections with missing assigned sections
       sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
-      
+
       console.log("🔍 [PPPDevelopmentReview] Nodal Officer (review mode) - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators);
     }
   }
-  
+
   // For State Approvers: filter sections based on their assigned indicators
   // IMPORTANT: Only filter when STATE_APPROVER is creating their own submission (preview mode)
   // When reviewing NODAL_OFFICER submissions, STATE_APPROVERs should see ALL indicators
@@ -712,7 +718,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
     console.log("🔍 [PPPDevelopmentReview] State Approver viewing aggregate submission - showing only sections with meaningful data:", sectionsWithData);
   }
-  
+
   // For review mode (not preview) OR preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers):
   // Include all sections that exist in formData
   // This ensures MoSPI reviewers see all sections submitted
@@ -721,12 +727,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
     const submissionFormData = (submission as any)?.formData?.pppDevelopment || {};
     const stateToCheck = formDataState || submissionFormData;
-    
+
     const existingSections = allPossibleSections.filter(sectionKey => {
       // Check if section key exists in formDataState or submission formData (even if value is null, empty object, or empty array)
       return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
-    
+
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
     console.log("🔍 [PPPDevelopmentReview] Review/preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
@@ -758,7 +764,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const normalizedRole = userRole?.toUpperCase();
     const isMospiReviewer = normalizedRole === 'MOSPI_REVIEWER';
     const isMospiApprover = normalizedRole === 'MOSPI_APPROVER';
-    
+
     console.log('🔍 useMemo onSendBack - Debug Info:', {
       userRole,
       normalizedRole,
@@ -768,7 +774,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       activeSection,
       willReturnUndefined: isMospiReviewer || (isMospiApprover && isMospiApproverSentBack)
     });
-    
+
     // Don't pass onSendBack for MOSPI_REVIEWER or MOSPI_APPROVER (when isMospiApproverSentBack is true)
     // For MOSPI_APPROVER, handleSaveMessage will handle everything directly without confirmation dialog
     if (isMospiReviewer) {
@@ -804,7 +810,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       const userRole = getUserRole();
       // Normalize role comparison (case-insensitive, trimmed)
       const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
-      
+
       // Debug logging
       console.log('🔍 handleSaveMessage - Debug Info:', {
         shouldShowSentBackConfirmation,
@@ -935,13 +941,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const updatedSection =
       targetKey === 'files'
         ? {
-            ...previousSection,
-            files: filesArray,
-          }
+          ...previousSection,
+          files: filesArray,
+        }
         : {
-            ...previousSection,
-            [targetKey]: normalizedValue,
-          };
+          ...previousSection,
+          [targetKey]: normalizedValue,
+        };
 
     setFormDataState((prev: any) => ({
       ...prev,
@@ -961,11 +967,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           category: 'pppDevelopment',
           section: sectionKey,
           fields,
+          successMessage: 'File updated successfully',
+          errorMessage: 'Failed to update file',
         });
-        
-        if (filesArray.length === 0) {
-          await onIndicatorStatus(sectionId, false);
-        }
+
+        // Removed automatic indicator status API call when files are deleted
+        // The indicator-submission-status API should not be called automatically on file deletion
       } catch (error) {
         console.error('Failed to auto-save files for section', sectionId, error);
       }
@@ -981,6 +988,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           category: 'pppDevelopment',
           section: sectionKey,
           fields,
+          successMessage: 'File updated successfully',
+          errorMessage: 'Failed to update file',
         });
       } catch (error) {
         console.error('Failed to auto-save files for section', sectionId, error);
@@ -1004,6 +1013,23 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         },
       };
     });
+  };
+
+  // Handler to show delete confirmation dialog for section 3.3 VGF file
+  const handleVGFFileDeleteClick = (rowIndex: number) => {
+    setPendingVGFFileDelete({
+      rowIndex,
+    });
+    setShowVGFFileDeleteDialog(true);
+  };
+
+  // Handler to confirm VGF file deletion
+  const handleConfirmVGFFileDelete = () => {
+    if (pendingVGFFileDelete) {
+      handleTableFieldUpdate(pendingVGFFileDelete.rowIndex, 'file', null);
+      setShowVGFFileDeleteDialog(false);
+      setPendingVGFFileDelete(null);
+    }
   };
 
   // Helper to update section 3.4 project fields
@@ -1158,8 +1184,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             files: Array.isArray(state?.section3_1?.files)
               ? state.section3_1.files
               : state?.section3_1?.files
-              ? [state.section3_1.files]
-              : [],
+                ? [state.section3_1.files]
+                : [],
             comment: state?.section3_1?.comment ?? null,
           }];
           break;
@@ -1267,7 +1293,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const userRole = getUserRole();
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     const isStateApprover = userRole === 'STATE_APPROVER';
-    
+
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
       submissionId,
@@ -1275,12 +1301,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       section: `section${sectionId.replace('.', '_')}`,
       status,
     };
-    
+
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
     }
-    
+
     // If STATE_APPROVER is accepting or sending back, get sourceSubmissionId from indicatorMapping
     if (isStateApprover) {
       const fullFormData = (submission as any)?.formData || {};
@@ -1288,7 +1314,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       const sectionKey = `section${sectionId.replace('.', '_')}`;
       const mappingKey = `pppDevelopment.${sectionKey}`;
       const indicatorInfo = indicatorMapping[mappingKey];
-      
+
       if (indicatorInfo?.sourceSubmissionId) {
         payload.sourceSubmissionId = indicatorInfo.sourceSubmissionId;
         const action = status ? 'Accept' : 'Send Back';
@@ -1298,13 +1324,13 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         console.warn(`⚠️ [STATE_APPROVER ${action}] No sourceSubmissionId found in indicatorMapping for ${mappingKey}`);
       }
     }
-    
+
     try {
       await apiService.indicatorStatus(payload);
       const sectionKey = `section${sectionId.replace('.', '_')}`;
       const statusField = isMospiApprover ? 'mospi_status' : 'status';
       const statusValue = status ? 'ACCEPTED' : 'REVERTED';
-      
+
       setFormDataState((prev: any) => {
         if (!prev) return prev;
         const next = { ...prev };
@@ -1317,7 +1343,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         return next;
       });
       console.log(`✅ Indicator ${isMospiApprover ? 'mospi_' : ''}status updated successfully`);
-      
+
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
         window.dispatchEvent(new CustomEvent('niri-indicator-status-updated', {
@@ -1375,12 +1401,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       const userId = userInfo.id;
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
       const isStateApprover = userRole === 'STATE_APPROVER';
-      
+
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
-      
+
       // Send notification if STATE_APPROVER
       const submissionIdForNotification = (submissionState as any)?.submissionId || (submission as any)?.submissionId;
       if (isStateApprover && userId && submissionIdForNotification && pendingActionSectionId) {
@@ -1399,7 +1425,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           // Don't block the flow if notification fails
         }
       }
-      
+
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -1429,12 +1455,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       };
       const userRole = getUserRole();
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
-      
+
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, true);
-      
+
       // Refresh submission data to get latest state from backend
       // Add a small delay to ensure backend has processed the update
       if (submissionId) {
@@ -1454,7 +1480,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           // Continue even if refresh fails - local state is already updated
         }
       }
-      
+
       setShowAcceptDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -1506,17 +1532,17 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const userRole = getUserRole();
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     if (!isMospiApprover) return null;
-    
+
     const comments = getComments(sectionId);
     if (!comments || comments.length === 0) return null;
-    
+
     const mospiReviewerComments = comments.filter((comment: any) => {
       const commentRole = comment.role || comment.userRole || '';
       return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
     });
-    
+
     if (mospiReviewerComments.length === 0) return null;
-    
+
     // Sort by timestamp (newest first) and get the last (most recent) comment
     const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
       const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
@@ -1524,7 +1550,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       return timeB - timeA; // Descending order (newest first)
     });
     const lastComment = sortedComments[0]; // Get the most recent comment
-    
+
     return (
       <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
         <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comment:</p>
@@ -1540,7 +1566,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     );
   };
 
- const renderActionButtons = (sectionId: string) => {
+  const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
       return null;
@@ -1548,7 +1574,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
-    
+
     // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
     const getUserRole = () => {
       try {
@@ -1567,34 +1593,34 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     const isStateApprover = userRole === 'STATE_APPROVER';
     const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
-    
-  // Get submission status
-  const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
-  
-  // Check if submission is with MoSPI (APPROVER or REVIEWER)
-  const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
-  
-  // Check if submission is returned from MoSPI and mospi_status is REVERTED
-  const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
-  
-  // Helper function to get status text for MOSPI_APPROVER
-  const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
-    const userRole = getUserRole();
-    const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
-    const currentSubmissionStatus = submissionStatus || (submission as any)?.status || (submissionState as any)?.status;
-    const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
-    
-    if (isMospiApprover && isReturned) {
-      if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
-        return 'RETURNED TO STATE';
+
+    // Get submission status
+    const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
+
+    // Check if submission is with MoSPI (APPROVER or REVIEWER)
+    const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
+
+    // Check if submission is returned from MoSPI and mospi_status is REVERTED
+    const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
+
+    // Helper function to get status text for MOSPI_APPROVER
+    const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
+      const userRole = getUserRole();
+      const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+      const currentSubmissionStatus = submissionStatus || (submission as any)?.status || (submissionState as any)?.status;
+      const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
+
+      if (isMospiApprover && isReturned) {
+        if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
+          return 'RETURNED TO STATE';
+        }
+        if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
+          return 'Accepted';
+        }
       }
-      if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
-        return 'Accepted';
-      }
-    }
-    return 'Returned from MoSPI';
-  };
-    
+      return 'Returned from MoSPI';
+    };
+
     // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
     if (isStateApprover && isWithMospi) {
       return (
@@ -1611,7 +1637,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         </div>
       );
     }
-    
+
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
     // Only show Timeline button for viewing comments
     if (submissionStatus === 'APPROVED') {
@@ -1631,7 +1657,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         </div>
       );
     }
-    
+
     // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
     if (isMospiReviewer) {
       return (
@@ -1659,7 +1685,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         </div>
       );
     }
-    
+
     // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
     if (isMospiApprover) {
       // Check mospi_status instead of status for MOSPI_APPROVER
@@ -1670,7 +1696,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           ? (sectionData as any)?.mospi_status
           : sectionData?.mospi_status
         : undefined;
-      
+
       if (mospiStatus === 'ACCEPTED') {
         return (
           <div className="flex gap-2">
@@ -1695,7 +1721,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       if (mospiStatus === 'REVERTED') {
         // Get sectionStatus for MOSPI_APPROVER to check if status is also REVERTED
         const sectionKeyForStatus = `section${sectionId.replace('.', '_')}`;
@@ -1706,7 +1732,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
             : sectionDataForStatus.status
           : undefined;
         const isStatusAlsoReverted = sectionStatusForMospi === 'REVERTED';
-        
+
         return (
           <div className="flex gap-2">
             {/* Show "Sent Back" badge if status is also REVERTED */}
@@ -1745,7 +1771,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
       return (
         <div className="flex gap-2">
@@ -1800,18 +1826,18 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         ? (sectionData as any).status
         : sectionData.status
       : undefined;
-    
+
     // Get mospi_status for all roles (needed to show both badges)
     const mospiStatus = sectionData
       ? Array.isArray(sectionData)
         ? (sectionData as any)?.mospi_status
         : sectionData.mospi_status
       : undefined;
-    
+
     // Check if status is REVERTED or mospi_status is REVERTED
     const isStatusReverted = sectionStatus === 'REVERTED';
     const isMospiStatusReverted = mospiStatus === 'REVERTED';
-    
+
     // isWithMospi is already declared above using submissionStatus
 
     // For STATE_APPROVER, handle all edge cases based on status and mospi_status combinations
@@ -1822,7 +1848,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
       const isMospiStatusNA = !mospiStatus || mospiStatus === 'NA' || mospiStatus === '';
       const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
       const isMospiStatusResubmitted = mospiStatus === 'RESUBMITTED';
-      
+
       // Row 1: status=ACCEPTED, mospi_status=NA → "ACCEPTED"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusNA) {
         return (
@@ -1848,7 +1874,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 2: status=REVERTED, mospi_status=NA → "Sent Back"
       if (isStatusReverted && isMospiStatusNA) {
         return (
@@ -1874,7 +1900,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 3: status=RESUBMITTED, mospi_status=NA → "Edit, Resubmitted (Disable), Accept"
       if (sectionStatus === 'RESUBMITTED' && isMospiStatusNA) {
         return (
@@ -1941,7 +1967,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 4: status=ACCEPTED, mospi_status=ACCEPTED → "Accepted(Disable)"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusAccepted) {
         return (
@@ -1967,7 +1993,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 5: status=ACCEPTED, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusReverted) {
         return (
@@ -2043,7 +2069,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 6: status=ACCEPTED, mospi_status=RESUBMITTED → "Under Review"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusResubmitted) {
         return (
@@ -2069,7 +2095,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 7: status=REVERTED, mospi_status=ACCEPTED → "Accepted(Disable)"
       if (isStatusReverted && isMospiStatusAccepted) {
         return (
@@ -2095,7 +2121,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 8: status=REVERTED, mospi_status=REVERTED → "Sent Back(Disable), Returned From Mospi"
       if (isStatusReverted && isMospiStatusReverted) {
         return (
@@ -2130,7 +2156,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 9: status=REVERTED, mospi_status=RESUBMITTED → "Edit, Send Back, Returned From Mospi, Accept"
       if (isStatusReverted && isMospiStatusResubmitted) {
         return (
@@ -2206,7 +2232,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 10: status=RESUBMITTED, mospi_status=ACCEPTED → "Accepted(Disable)"
       if (sectionStatus === 'RESUBMITTED' && isMospiStatusAccepted) {
         return (
@@ -2232,7 +2258,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 11: status=RESUBMITTED, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
       if (sectionStatus === 'RESUBMITTED' && isMospiStatusReverted) {
         return (
@@ -2317,7 +2343,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 12: status=RESUBMITTED, mospi_status=RESUBMITTED → "Edit, Sent Back, Returned From Mospi, Accept"
       if (sectionStatus === 'RESUBMITTED' && isMospiStatusResubmitted) {
         return (
@@ -2393,7 +2419,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept, Timeline"
       if (isStatusNA && isMospiStatusNA) {
         return (
@@ -2460,7 +2486,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 14: status=NA, mospi_status=ACCEPTED → "Accepted(Disable)"
       if (!sectionStatus && isMospiStatusAccepted) {
         return (
@@ -2486,7 +2512,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // Row 15: status=NA, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
       if (!sectionStatus && isMospiStatusReverted) {
         return (
@@ -2563,7 +2589,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         );
       }
     }
-    
+
     // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
     if (sectionStatus === 'ACCEPTED') {
       // If mospi_status is RESUBMITTED, show "Under Review"
@@ -2640,8 +2666,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         </div>
       );
     }
-    
-    
+
+
     // Rule 2: If status = "REVERTED", show disabled "Sent Back" badge
     // For NODAL_OFFICER, also show Edit button
     if (isStatusReverted) {
@@ -2714,7 +2740,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           </div>
         );
       }
-      
+
       // For other roles, show only disabled "Sent Back" badge (no Edit, no Send Back button)
       return (
         <div className="flex gap-2">
@@ -2890,21 +2916,21 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         })()}
         {/* Section 3.1 */}
         {sectionsWithData.includes('section3_1') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">3.1 -</span> Availability of Infrastructure Act/Policy{" "}
-              </span>
-              {renderActionButtons("3.1")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("3.1")}
-          {/* <CardHeader className="bg-muted/30">
+          <SectionCard
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">3.1 -</span> Availability of Infrastructure Act/Policy{" "}
+                </span>
+                {renderActionButtons("3.1")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("3.1")}
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                  
@@ -2922,103 +2948,103 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               )}
             </div>
           </CardHeader> */}
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
-              {isEditable('3.1') ? (
-                <RadioGroup
-                  value={state?.section3_1?.available || ""}
-                  onValueChange={(value) => handleFieldUpdate('3.1', 'available', value)}
-                  className="flex flex-row gap-6"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="3.1-yes" />
-                    <Label htmlFor="3.1-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="3.1-no" />
-                    <Label htmlFor="3.1-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section3_1?.available === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {state?.section3_1?.available === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {(state?.section3_1?.available === "yes") && (() => {
-              // Debug logging
-              console.log("🔍 [PPPDevelopmentReview] Section 3.1 files data:", {
-                section3_1: state?.section3_1,
-                files: state?.section3_1?.files,
-                filesType: typeof state?.section3_1?.files,
-                isArray: Array.isArray(state?.section3_1?.files),
-                file: state?.section3_1?.file,
-              });
-              
-              return (
-                <div>
-                  <EditableFileDisplay
-                    files={state?.section3_1?.files ?? state?.section3_1?.file ?? null}
-                    isEditable={isEditable('3.1')}
-                    submissionId={submissionId}
-                    onFilesChange={(updatedFiles) => handleFileUpdate('3.1', updatedFiles)}
-                    label="Uploaded Files"
-                    multiple={true}
-                  />
-                </div>
-              );
-            })()}
-
-            {(state?.section3_1?.available === "no") && (
+            <div className="space-y-4">
               <div>
-                <Label className="mb-2 block">Comment</Label>
+                <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
                 {isEditable('3.1') ? (
-                  <Textarea
-                    value={state?.section3_1?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('3.1', 'comment', e.target.value)}
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
+                  <RadioGroup
+                    value={state?.section3_1?.available || ""}
+                    onValueChange={(value) => handleFieldUpdate('3.1', 'available', value)}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="3.1-yes" />
+                      <Label htmlFor="3.1-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="3.1-no" />
+                      <Label htmlFor="3.1-no">No</Label>
+                    </div>
+                  </RadioGroup>
                 ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section3_1?.comment || "No comment provided"}
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section3_1?.available === "yes"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}>
+                      {state?.section3_1?.available === "yes" ? "Yes" : "No"}
+                    </span>
                   </div>
                 )}
               </div>
-            )}
 
-            <p className="text-xs text-muted-foreground">
-              Upload copy of Act/Policy
-            </p>
+              {(state?.section3_1?.available === "yes") && (() => {
+                // Debug logging
+                console.log("🔍 [PPPDevelopmentReview] Section 3.1 files data:", {
+                  section3_1: state?.section3_1,
+                  files: state?.section3_1?.files,
+                  filesType: typeof state?.section3_1?.files,
+                  isArray: Array.isArray(state?.section3_1?.files),
+                  file: state?.section3_1?.file,
+                });
+
+                return (
+                  <div>
+                    <EditableFileDisplay
+                      files={state?.section3_1?.files ?? state?.section3_1?.file ?? null}
+                      isEditable={isEditable('3.1')}
+                      submissionId={submissionId}
+                      onFilesChange={(updatedFiles) => handleFileUpdate('3.1', updatedFiles)}
+                      label="Uploaded Files"
+                      multiple={true}
+                    />
+                  </div>
+                );
+              })()}
+
+              {(state?.section3_1?.available === "no") && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {isEditable('3.1') ? (
+                    <Textarea
+                      value={state?.section3_1?.comment || ""}
+                      onChange={(e) => handleFieldUpdate('3.1', 'comment', e.target.value)}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section3_1?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Upload copy of Act/Policy
+              </p>
             </div>
 
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 3.2 */}
         {sectionsWithData.includes('section3_2') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">3.2 -</span> Availability of Functional PPP Cell/Unit{" "}
-              </span>
-              {renderActionButtons("3.2")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("3.2")}
-          {/* <CardHeader className="bg-muted/30">
+          <SectionCard
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">3.2 -</span> Availability of Functional PPP Cell/Unit{" "}
+                </span>
+                {renderActionButtons("3.2")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("3.2")}
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 3.2 - Functional PPP Cell/Unit
@@ -3102,27 +3128,27 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               </p>
             </div>
 
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 3.3 */}
         {sectionsWithData.includes('section3_3') && (
-        <SectionCard
-          key={`section-3.3-${refreshKey}`}
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">3.3 -</span> Proposals Submitted under VGF/IIPDF{" "}
-              </span>
-              {renderActionButtons("3.3")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("3.3")}
-          {/* <CardHeader className="bg-muted/30">
+          <SectionCard
+            key={`section-3.3-${refreshKey}`}
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">3.3 -</span> Proposals Submitted under VGF/IIPDF{" "}
+                </span>
+                {renderActionButtons("3.3")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("3.3")}
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 3.3 - Proposals Submitted under VGF/IIPDF
@@ -3229,15 +3255,15 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                             {isEditable('3.3') ? (
                               <Input
                                 type="date"
-                                value={item.submissionDate 
+                                value={item.submissionDate
                                   ? new Date(item.submissionDate).toISOString().split('T')[0]
                                   : ""}
                                 onChange={(e) => handleTableFieldUpdate(index, 'submissionDate', e.target.value ? new Date(e.target.value).toISOString() : null)}
                                 className="w-full"
                               />
                             ) : (
-                              item.submissionDate 
-                                ? new Date(item.submissionDate).toLocaleDateString() 
+                              item.submissionDate
+                                ? new Date(item.submissionDate).toLocaleDateString()
                                 : ""
                             )}
                           </td>
@@ -3245,8 +3271,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                             {isEditable('3.3') ? (
                               <div className="space-y-1.5">
                                 {item.file ? (
-                                  <Badge 
-                                    variant="secondary" 
+                                  <Badge
+                                    variant="secondary"
                                     className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
                                     title={item.file.fileName || 'Unknown file'}
                                   >
@@ -3254,9 +3280,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                     <span className="truncate">{item.file.fileName || 'Unknown file'}</span>
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        handleTableFieldUpdate(index, 'file', null);
-                                      }}
+                                      onClick={() => handleVGFFileDeleteClick(index)}
                                       className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                       <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
@@ -3276,7 +3300,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                         try {
                                           const response = await apiService.uploadFile(submissionId, selectedFile);
                                           const fileData = response?.data || response;
-                                          
+
                                           const newFile: FileUpload = {
                                             id: fileData.id ?? crypto.randomUUID(),
                                             file: null, // File not stored locally when backend handles upload
@@ -3287,7 +3311,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                             fileUrl: fileData.fileUrl || fileData.url,
                                             mimeType: fileData.mimeType,
                                           };
-                                          
+
                                           await handleTableFieldUpdate(index, 'file', newFile);
                                           e.target.value = ''; // Reset input
                                         } catch (error: any) {
@@ -3317,8 +3341,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                 const hasFile = item.file && item.file.fileName;
                                 return (
                                   <div className="flex items-center gap-1">
-                                    <Badge 
-                                      variant="secondary" 
+                                    <Badge
+                                      variant="secondary"
                                       className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
                                       title={item.file.fileName || 'Unknown file'}
                                     >
@@ -3375,9 +3399,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
               {/* Add More Project Button - Only visible when in edit mode */}
               {isEditable('3.3') && !showAddVGFForm && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                   onClick={() => setShowAddVGFForm(true)}
                 >
@@ -3393,9 +3417,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Project Name</Label>
-                      <Input 
-                        value={newVGFItem.projectName} 
-                        onChange={(e) => setNewVGFItem({...newVGFItem, projectName: e.target.value})}
+                      <Input
+                        value={newVGFItem.projectName}
+                        onChange={(e) => setNewVGFItem({ ...newVGFItem, projectName: e.target.value })}
                         className="bg-white"
                         placeholder="Enter project name"
                       />
@@ -3404,7 +3428,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Label>Sector</Label>
                       <Select
                         value={newVGFItem.sector}
-                        onValueChange={(value) => setNewVGFItem({...newVGFItem, sector: value})}
+                        onValueChange={(value) => setNewVGFItem({ ...newVGFItem, sector: value })}
                       >
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Select sector" />
@@ -3422,7 +3446,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Label>Type</Label>
                       <Select
                         value={newVGFItem.type}
-                        onValueChange={(value) => setNewVGFItem({...newVGFItem, type: value})}
+                        onValueChange={(value) => setNewVGFItem({ ...newVGFItem, type: value })}
                       >
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Select type" />
@@ -3441,7 +3465,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Input
                         type="date"
                         value={newVGFItem.submissionDate}
-                        onChange={(e) => setNewVGFItem({...newVGFItem, submissionDate: e.target.value})}
+                        onChange={(e) => setNewVGFItem({ ...newVGFItem, submissionDate: e.target.value })}
                         className="bg-white"
                       />
                     </div>
@@ -3452,7 +3476,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                         isEditable={true}
                         submissionId={submissionId}
                         onFilesChange={(updatedFile) => {
-                          setNewVGFItem({...newVGFItem, file: updatedFile as FileUpload | null});
+                          setNewVGFItem({ ...newVGFItem, file: updatedFile as FileUpload | null });
                         }}
                         label=""
                         multiple={false}
@@ -3487,27 +3511,27 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
               </p> */}
             </div>
 
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 3.4 */}
         {sectionsWithData.includes('section3_4') && (
-        <SectionCard
-          key={`section-3.4-${refreshKey}`}
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">3.4 -</span> Proportion of TPC of PPP Projects{" "}
-              </span>
-              {renderActionButtons("3.4")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("3.4")}
-          {/* <CardHeader className="bg-muted/30">
+          <SectionCard
+            key={`section-3.4-${refreshKey}`}
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">3.4 -</span> Proportion of TPC of PPP Projects{" "}
+                </span>
+                {renderActionButtons("3.4")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("3.4")}
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 3.4 - Proportion of TPC of PPP Projects
@@ -3655,7 +3679,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                             {isEditable('3.4') ? (
                               <Input
                                 type="date"
-                                value={project.dateOfAward 
+                                value={project.dateOfAward
                                   ? new Date(project.dateOfAward).toISOString().split('T')[0]
                                   : ""}
                                 onChange={(e) => handleProjectFieldUpdate(idx, 'dateOfAward', e.target.value ? new Date(e.target.value).toISOString() : null)}
@@ -3697,9 +3721,9 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
 
               {/* Add More Project Button - Only visible when in edit mode */}
               {isEditable('3.4') && !showAddProjectForm && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                   onClick={() => setShowAddProjectForm(true)}
                 >
@@ -3715,27 +3739,27 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Name of PPP/Bankable Projects</Label>
-                      <Input 
-                        value={newProject.nameOfProject} 
-                        onChange={(e) => setNewProject({...newProject, nameOfProject: e.target.value})}
+                      <Input
+                        value={newProject.nameOfProject}
+                        onChange={(e) => setNewProject({ ...newProject, nameOfProject: e.target.value })}
                         className="bg-white"
                         placeholder="Enter project name"
                       />
                     </div>
                     <div>
                       <Label>NIP ID</Label>
-                      <Input 
-                        value={newProject.nipId} 
-                        onChange={(e) => setNewProject({...newProject, nipId: e.target.value})}
+                      <Input
+                        value={newProject.nipId}
+                        onChange={(e) => setNewProject({ ...newProject, nipId: e.target.value })}
                         className="bg-white"
                         placeholder="Enter NIP ID"
                       />
                     </div>
                     <div>
                       <Label>Funding Source</Label>
-                      <Input 
-                        value={newProject.fundingSource} 
-                        onChange={(e) => setNewProject({...newProject, fundingSource: e.target.value})}
+                      <Input
+                        value={newProject.fundingSource}
+                        onChange={(e) => setNewProject({ ...newProject, fundingSource: e.target.value })}
                         className="bg-white"
                         placeholder="Enter funding source"
                       />
@@ -3744,7 +3768,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Label>Infrastructure Sector</Label>
                       <Select
                         value={newProject.infrastructureSector}
-                        onValueChange={(value) => setNewProject({...newProject, infrastructureSector: value})}
+                        onValueChange={(value) => setNewProject({ ...newProject, infrastructureSector: value })}
                       >
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Select sector" />
@@ -3763,24 +3787,24 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                       <Input
                         type="date"
                         value={newProject.dateOfAward}
-                        onChange={(e) => setNewProject({...newProject, dateOfAward: e.target.value})}
+                        onChange={(e) => setNewProject({ ...newProject, dateOfAward: e.target.value })}
                         className="bg-white"
                       />
                     </div>
                     <div>
                       <Label>% of Capex funded by non-Govt sources</Label>
-                      <Input 
-                        value={newProject.capexPercentage} 
-                        onChange={(e) => setNewProject({...newProject, capexPercentage: e.target.value})}
+                      <Input
+                        value={newProject.capexPercentage}
+                        onChange={(e) => setNewProject({ ...newProject, capexPercentage: e.target.value })}
                         className="bg-white"
                         placeholder="Enter percentage"
                       />
                     </div>
                     <div>
                       <Label>Total Project Cost</Label>
-                      <Input 
-                        value={newProject.totalProjectCost} 
-                        onChange={(e) => setNewProject({...newProject, totalProjectCost: e.target.value})}
+                      <Input
+                        value={newProject.totalProjectCost}
+                        onChange={(e) => setNewProject({ ...newProject, totalProjectCost: e.target.value })}
                         className="bg-white"
                         placeholder="Enter total project cost"
                       />
@@ -3809,7 +3833,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 </div>
               )}
             </div>
-        </SectionCard>
+          </SectionCard>
         )}
       </div>
 
@@ -3886,7 +3910,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 };
                 const userRole = getUserRole();
                 const isMospiApprover = userRole === 'MOSPI_APPROVER';
-                
+
                 return isMospiApprover
                   ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
                   : "Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.";
@@ -3921,7 +3945,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                 };
                 const userRole = getUserRole();
                 const isMospiApprover = userRole === 'MOSPI_APPROVER';
-                
+
                 return isMospiApprover
                   ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
                   : "Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.";
@@ -3931,6 +3955,30 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for Section 3.3 VGF File Deletion */}
+      <AlertDialog open={showVGFFileDeleteDialog} onOpenChange={setShowVGFFileDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete file permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This file will be deleted permanently. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowVGFFileDeleteDialog(false);
+              setPendingVGFFileDelete(null);
+            }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmVGFFileDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

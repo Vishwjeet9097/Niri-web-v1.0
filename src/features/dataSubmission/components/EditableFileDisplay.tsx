@@ -640,9 +640,9 @@ export const EditableFileDisplay = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete file?</AlertDialogTitle>
+            <AlertDialogTitle>Delete file permanently?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will remove the uploaded file from this record. You can re-upload it if needed.
+              This file will be deleted permanently. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
