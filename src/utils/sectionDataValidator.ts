@@ -75,12 +75,15 @@ export const hasInfraEnablersData = (formData: any): boolean => {
         return (
           hasMeaningfulValue(section.allEligible) ||
           hasMeaningfulValue(section.websiteLink) ||
+          hasMeaningfulValue(section.comment) ||
           hasFileData(section.file)
         );
 
       case "section4_2":
         return (
-          hasMeaningfulValue(section.available) || hasFileData(section.files)
+          hasMeaningfulValue(section.available) ||
+          hasMeaningfulValue(section.comment) ||
+          hasFileData(section.files)
         );
 
       case "section4_3":
@@ -93,6 +96,7 @@ export const hasInfraEnablersData = (formData: any): boolean => {
         return (
           hasFileData(section.files) ||
           hasMeaningfulValue(section.adopted) ||
+          hasMeaningfulValue(section.comment) ||
           hasMeaningfulValue(section.marksObtained)
         );
 
@@ -354,12 +358,15 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
         return (
           hasArrayData(section.files) ||
           hasFileData(section.file) ||
-          hasMeaningfulValue(section.available)
+          hasMeaningfulValue(section.available) ||
+          hasMeaningfulValue(section.comment)
         );
 
       case "section3_2":
         return (
-          hasFileData(section.file) || hasMeaningfulValue(section.available)
+          hasFileData(section.file) ||
+          hasMeaningfulValue(section.available) ||
+          hasMeaningfulValue(section.comment)
         );
 
       case "section3_3":
@@ -514,11 +521,14 @@ const hasSectionData = (
           return (
             hasMeaningfulValue(section.allEligible) ||
             hasMeaningfulValue(section.websiteLink) ||
+            hasMeaningfulValue(section.comment) ||
             hasFileData(section.file)
           );
         case "section4_2":
           return (
-            hasMeaningfulValue(section.available) || hasFileData(section.files)
+            hasMeaningfulValue(section.available) ||
+            hasMeaningfulValue(section.comment) ||
+            hasFileData(section.files)
           );
         case "section4_3":
           return (
@@ -529,6 +539,7 @@ const hasSectionData = (
           return (
             hasFileData(section.files) ||
             hasMeaningfulValue(section.adopted) ||
+            hasMeaningfulValue(section.comment) ||
             hasMeaningfulValue(section.marksObtained)
           );
         case "section4_5":
@@ -721,11 +732,14 @@ const hasSectionData = (
           return (
             hasArrayData(section.files) ||
             hasFileData(section.file) ||
-            hasMeaningfulValue(section.available)
+            hasMeaningfulValue(section.available) ||
+            hasMeaningfulValue(section.comment)
           );
         case "section3_2":
           return (
-            hasFileData(section.file) || hasMeaningfulValue(section.available)
+            hasFileData(section.file) ||
+            hasMeaningfulValue(section.available) ||
+            hasMeaningfulValue(section.comment)
           );
         case "section3_3":
           return hasArrayData(section?.VGFArray) || hasArrayData(section);
