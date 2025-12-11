@@ -845,11 +845,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           category: 'pppDevelopment',
           section: sectionKey,
           fields,
+          successMessage: 'File updated successfully',
+          errorMessage: 'Failed to update file',
         });
 
-        if (filesArray.length === 0) {
-          await onIndicatorStatus(sectionId, false);
-        }
+        // Removed automatic indicator status API call when files are deleted
+        // The indicator-submission-status API should not be called automatically on file deletion
       } catch (error) {
         console.error('Failed to auto-save files for section', sectionId, error);
       }
@@ -865,6 +866,8 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           category: 'pppDevelopment',
           section: sectionKey,
           fields,
+          successMessage: 'File updated successfully',
+          errorMessage: 'Failed to update file',
         });
       } catch (error) {
         console.error('Failed to auto-save files for section', sectionId, error);

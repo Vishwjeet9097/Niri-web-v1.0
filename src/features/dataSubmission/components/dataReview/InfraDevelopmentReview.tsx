@@ -137,6 +137,15 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   });
   const [newEntry2_5, setNewEntry2_5] = useState({ projectName: "", sector: "", type: "", ownership: "", estimatedMonetization: "" });
 
+  // State for file delete confirmation dialog
+  const [showFileDeleteDialog, setShowFileDeleteDialog] = useState(false);
+  const [pendingFileDelete, setPendingFileDelete] = useState<{
+    sectionId: string;
+    itemIndex: number;
+    fileIndex: number;
+    files: FileUpload[];
+  } | null>(null);
+
   // Helper function to check user role
   const getUserRole = () => {
     try {
@@ -860,7 +869,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           sector: item?.sector ?? null,
           files: toFileArray(item?.files).map((file: FileUpload) => {
             const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
-            const storedFileName = filePath ? filePath.split('/').pop() : file?.fileName;
+            const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
 
             return {
               id: file?.id,
@@ -893,7 +902,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           sector: item?.sector ?? null,
           files: toFileArray(item?.files).map((file: FileUpload) => {
             const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
-            const storedFileName = filePath ? filePath.split('/').pop() : file?.fileName;
+            const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
 
             return {
               id: file?.id,
@@ -926,7 +935,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           sector: item?.sector ?? null,
           files: toFileArray(item?.files).map((file: FileUpload) => {
             const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
-            const storedFileName = filePath ? filePath.split('/').pop() : file?.fileName;
+            const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
 
             return {
               id: file?.id,
@@ -1810,40 +1819,36 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         category: 'infraDevelopment',
         section: sectionKey,
         fields,
+        successMessage: 'File updated successfully',
+        errorMessage: 'Failed to update file',
       });
 
-      let shouldRevert = false;
-
-      switch (sectionId) {
-        case '2.1':
-          shouldRevert = nextSection.infraActArray.every(
-            (item: any) => !Array.isArray(item?.files) || item.files.length === 0
-          );
-          break;
-        case '2.2':
-          shouldRevert = nextSection.specializedEntityArray.every(
-            (item: any) => !Array.isArray(item?.files) || item.files.length === 0
-          );
-          break;
-        case '2.3':
-          shouldRevert = nextSection.infraDevelopmentArray.every(
-            (item: any) => !Array.isArray(item?.files) || item.files.length === 0
-          );
-          break;
-        case '2.4':
-          shouldRevert = nextSection.investmentReadyArray.every(
-            (item: any) => !item?.dprFile
-          );
-          break;
-        default:
-          break;
-      }
-
-      if (shouldRevert) {
-        await onIndicatorStatus(sectionId, false);
-      }
+      // Removed automatic indicator status API call when files are deleted
+      // The indicator-submission-status API should not be called automatically on file deletion
     } catch (error) {
       console.error('Failed to auto-save files for section', sectionId, error);
+    }
+  };
+
+  // Handler to show delete confirmation dialog for inline cross buttons
+  const handleFileDeleteClick = (sectionId: string, itemIndex: number, fileIndex: number, files: FileUpload[]) => {
+    setPendingFileDelete({
+      sectionId,
+      itemIndex,
+      fileIndex,
+      files,
+    });
+    setShowFileDeleteDialog(true);
+  };
+
+  // Handler to confirm file deletion
+  const handleConfirmFileDelete = async () => {
+    if (pendingFileDelete) {
+      const { sectionId, itemIndex, fileIndex, files } = pendingFileDelete;
+      const updatedFiles = files.filter((_: any, idx: number) => idx !== fileIndex);
+      await handleFilesUpdate(sectionId, itemIndex, updatedFiles.length > 0 ? updatedFiles : []);
+      setShowFileDeleteDialog(false);
+      setPendingFileDelete(null);
     }
   };
 
@@ -3359,10 +3364,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                             <span className="truncate">{file.fileName || 'Unknown file'}</span>
                                             <button
                                               type="button"
-                                              onClick={() => {
-                                                const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                                handleFilesUpdate('2.1', index, updatedFiles.length > 0 ? updatedFiles : []);
-                                              }}
+                                              onClick={() => handleFileDeleteClick('2.1', index, fileIndex, item.files)}
                                               className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                               <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
@@ -3696,10 +3698,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                             <span className="truncate">{file.fileName || 'Unknown file'}</span>
                                             <button
                                               type="button"
-                                              onClick={() => {
-                                                const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                                handleFilesUpdate('2.2', index, updatedFiles.length > 0 ? updatedFiles : []);
-                                              }}
+                                              onClick={() => handleFileDeleteClick('2.2', index, fileIndex, item.files)}
                                               className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                               <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
@@ -4066,10 +4065,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
                                                 <span className="truncate">{file.fileName || 'Unknown file'}</span>
                                                 <button
                                                   type="button"
-                                                  onClick={() => {
-                                                    const updatedFiles = item.files.filter((_: any, idx: number) => idx !== fileIndex);
-                                                    handleFilesUpdate('2.3', index, updatedFiles.length > 0 ? updatedFiles : []);
-                                                  }}
+                                                  onClick={() => handleFileDeleteClick('2.3', index, fileIndex, item.files)}
                                                   className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 >
                                                   <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
@@ -5069,6 +5065,30 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for File Deletion */}
+      <AlertDialog open={showFileDeleteDialog} onOpenChange={setShowFileDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete file permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This file will be deleted permanently. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowFileDeleteDialog(false);
+              setPendingFileDelete(null);
+            }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmFileDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
