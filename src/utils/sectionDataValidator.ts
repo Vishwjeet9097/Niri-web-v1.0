@@ -176,7 +176,11 @@ export const hasInfraFinancingData = (formData: any): boolean => {
           hasMeaningfulValue(section?.totalULBs)
         );
       case "section1_5":
-        return hasArrayData(section?.ffiArray) || hasArrayData(section);
+        return (
+          hasArrayData(section?.ffiArray) ||
+          hasMeaningfulValue(section?.hasIntermediary) ||
+          hasMeaningfulValue(section?.comment)
+        );
 
       default:
         return false;
@@ -377,7 +381,9 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
           hasArrayData(section.projects) ||
           hasMeaningfulValue(section.proportion) ||
           hasMeaningfulValue(section.marksObtained) ||
-          hasMeaningfulValue(section.tpcOfPPPProjects)
+          hasMeaningfulValue(section.tpcOfPPPProjects) ||
+          hasMeaningfulValue(section.totalProjectsAwarded) ||
+          hasMeaningfulValue(section.totalProjectCostAwarded)
         );
 
       default:
@@ -590,7 +596,11 @@ const hasSectionData = (
             hasMeaningfulValue(section?.totalULBs)
           );
         case "section1_5":
-          return hasArrayData(section?.ffiArray) || hasArrayData(section);
+          return (
+            hasArrayData(section?.ffiArray) ||
+            hasMeaningfulValue(section?.hasIntermediary) ||
+            hasMeaningfulValue(section?.comment)
+          );
         default:
           return false;
       }
@@ -748,7 +758,9 @@ const hasSectionData = (
             hasArrayData(section.projects) ||
             hasMeaningfulValue(section.proportion) ||
             hasMeaningfulValue(section.marksObtained) ||
-            hasMeaningfulValue(section.tpcOfPPPProjects)
+            hasMeaningfulValue(section.tpcOfPPPProjects) ||
+            hasMeaningfulValue(section.totalProjectsAwarded) ||
+            hasMeaningfulValue(section.totalProjectCostAwarded)
           );
         default:
           return false;

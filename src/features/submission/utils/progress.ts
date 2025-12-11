@@ -201,27 +201,22 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     return false;
   },
-  section3_3: (data) =>
+  section3_3: (data: any) =>
     anyValid(
-      data,
+      data?.VGFArray,
       (r) =>
         hasMeaningfulValue(r.projectName) &&
         hasMeaningfulValue(r.sector) &&
         hasMeaningfulValue(r.type) &&
-        hasMeaningfulValue(r.submissionDate) &&
-        hasMeaningfulValue(r.file)
+        hasMeaningfulValue(r.submissionDate)
     ),
   section3_4: (data) => {
-    const d = data as { projects?: unknown[] } | undefined;
-    return anyValid(
-      d?.projects,
-      (r) =>
-        hasMeaningfulValue(r.nameOfProject) &&
-        hasMeaningfulValue(r.nipId) &&
-        hasMeaningfulValue(r.fundingSource) &&
-        hasMeaningfulValue(r.infrastructureSector) &&
-        hasMeaningfulValue(r.dateOfAward) &&
-        hasMeaningfulValue(r.capexPercentage)
+    const d = data as
+      | { totalProjectsAwarded?: unknown; totalProjectCostAwarded?: unknown }
+      | undefined;
+    return (
+      hasMeaningfulValue(d?.totalProjectsAwarded) &&
+      hasMeaningfulValue(d?.totalProjectCostAwarded)
     );
   },
 

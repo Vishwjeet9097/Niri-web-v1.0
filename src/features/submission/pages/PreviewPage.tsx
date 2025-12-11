@@ -132,6 +132,7 @@ export const PreviewPage = () => {
         submission={mockSubmission}
         isResubmit={isEditMode ? true : isResubmit}
         isEditMode={isEditMode}
+        onFinalSubmit={() => { /* empty */ }}
       />
     </>
   );

@@ -158,12 +158,12 @@ export const PPPDevelopmentStep = () => {
         ...defaultData.section3_1,
         ...(data.section3_1 || {}),
         status: (data.section3_1 as any)?.status,
-      },
+      } as any,
       section3_2: {
         ...defaultData.section3_2,
         ...(data.section3_2 || {}),
         status: (data.section3_2 as any)?.status,
-      },
+      } as any,
       section3_3: {
         ...(data.section3_3 || {}),
         VGFArray: Array.isArray((data.section3_3 as any)?.VGFArray)
@@ -173,7 +173,7 @@ export const PPPDevelopmentStep = () => {
             }))
           : [],
         status: (data.section3_3 as any)?.status,
-      },
+      } as any,
       section3_4: {
         ...(data.section3_4 || {}),
         projects: Array.isArray(data.section3_4?.projects)
@@ -186,8 +186,8 @@ export const PPPDevelopmentStep = () => {
         totalProjectsAwarded: data.section3_4?.totalProjectsAwarded || "",
         totalProjectCostAwarded: data.section3_4?.totalProjectCostAwarded || "",
         status: (data.section3_4 as any)?.status,
-      },
-    };
+      } as any,
+    } as any as PPPDevelopmentData;
   }
 
   // --- Data Initialization and Edit Mode Handling ---
@@ -244,7 +244,9 @@ export const PPPDevelopmentStep = () => {
           if (typeof fullSubmission.formData === "string") {
             try {
               parsedFormData = JSON.parse(fullSubmission.formData);
-            } catch (e) {}
+            } catch (e) {
+              /* empty */
+            }
           }
           // Restore section_status from DB if present
           sectionStatusFromDB = fullSubmission.section_status;
@@ -746,7 +748,7 @@ export const PPPDevelopmentStep = () => {
         "3.4",
       ];
       // Sanitize files and remove unwanted keys
-      let sanitizedFormData = deepRemoveUnwantedKeys(
+      const sanitizedFormData = deepRemoveUnwantedKeys(
         sanitizeFilesInFormData(formData)
       );
       // Debug: Log sanitized payload before submit
@@ -1179,7 +1181,6 @@ export const PPPDevelopmentStep = () => {
         <Stepper
           steps={SUBMISSION_STEPS}
           currentStep={currentStep}
-          onStepClick={goToStep}
           onStepClick={goToStep}
         />
         {(() => {
@@ -1952,7 +1953,7 @@ export const PPPDevelopmentStep = () => {
               </div>
 
               {/* Existing per-project list */}
-              {(formData.section3_4.projects || []).map((project) => (
+              {(formData.section3_4.projects || []).map((project: any) => (
                 <div key={project.id} className="mb-4 p-4 border rounded-lg">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     <div className="space-y-4">
@@ -2055,7 +2056,7 @@ export const PPPDevelopmentStep = () => {
                       <div>
                         <FileUploadSection
                           label="Upload File"
-                          value={project.file ?? null}
+                          value={(project as any).file ?? null}
                           onChange={(fileUpload) => {
                             showErrorsIfNeeded();
                             updatePPPProject(project.id, "file", fileUpload);

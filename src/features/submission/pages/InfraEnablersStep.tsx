@@ -144,12 +144,12 @@ export const InfraEnablersStep = () => {
         ...defaultData.section4_1,
         ...(data.section4_1 || {}),
         status: (data.section4_1 as any)?.status,
-      },
+      } as any,
       section4_2: {
         ...defaultData.section4_2,
         ...(data.section4_2 || {}),
         status: (data.section4_2 as any)?.status,
-      },
+      } as any,
       section4_3: {
         ...defaultData.section4_3,
         ...(data.section4_3 || {}),
@@ -157,12 +157,12 @@ export const InfraEnablersStep = () => {
           ? data.section4_3.projects
           : [],
         status: (data.section4_3 as any)?.status,
-      },
+      } as any,
       section4_4: {
         ...defaultData.section4_4,
         ...(data.section4_4 || {}),
         status: (data.section4_4 as any)?.status,
-      },
+      } as any,
       section4_5: {
         ...defaultData.section4_5,
         ...(data.section4_5 || {}),
@@ -170,7 +170,7 @@ export const InfraEnablersStep = () => {
           ? data.section4_5.practices
           : [],
         status: (data.section4_5 as any)?.status,
-      },
+      } as any,
       section4_6: {
         ...defaultData.section4_6,
         ...(data.section4_6 || {}),
@@ -178,8 +178,8 @@ export const InfraEnablersStep = () => {
           ? data.section4_6.capacityArray
           : [],
         status: (data.section4_6 as any)?.status,
-      },
-    };
+      } as any,
+    } as InfraEnablersData;
   }
 
   const loadedData =
@@ -245,7 +245,7 @@ export const InfraEnablersStep = () => {
           if (typeof fullSubmission.formData === "string") {
             try {
               parsedFormData = JSON.parse(fullSubmission.formData);
-            } catch (e) {}
+            } catch (e) { /* empty */ }
           }
           // Restore section_status from DB if present
           sectionStatusFromDB = fullSubmission.section_status;
@@ -804,7 +804,7 @@ export const InfraEnablersStep = () => {
         "4.6",
       ];
       // Sanitize files and remove unwanted keys
-      let sanitizedFormData = deepRemoveUnwantedKeys(
+      const sanitizedFormData = deepRemoveUnwantedKeys(
         sanitizeFilesInFormData(formData)
       );
       // Debug: Log sanitized payload before submit

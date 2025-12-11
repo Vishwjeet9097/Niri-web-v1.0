@@ -1203,7 +1203,8 @@ const renderActionButtons = (sectionId: string) => {
     const isMospiApprover = userRole === "MOSPI_APPROVER";
   
   // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
-  const submissionStatus = submission?.status;
+  const submissionTyped = submission as { status?: string } | undefined;
+  const submissionStatus = submissionTyped?.status;
     if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
     return null;
   }

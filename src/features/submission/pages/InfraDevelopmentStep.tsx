@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Utility to deeply sanitize all file: {} to file: null in formData
 function sanitizeFilesInFormData(obj: any): any {
   if (Array.isArray(obj)) {
@@ -285,7 +286,9 @@ export const InfraDevelopmentStep = () => {
           if (typeof fullSubmission.formData === "string") {
             try {
               parsedFormData = JSON.parse(fullSubmission.formData);
-            } catch (e) {}
+            } catch (e) {
+              /* empty */
+            }
           }
           // Restore section_status from DB if present
           sectionStatusFromDB = fullSubmission.section_status;
@@ -543,13 +546,13 @@ export const InfraDevelopmentStep = () => {
             (currentStepData.section2_1 as any)?.infraActArray || [],
           // Preserve status field
           status: (currentStepData.section2_1 as any)?.status,
-        },
+        } as any,
         section2_2: {
           specializedEntityArray:
             (currentStepData.section2_2 as any)?.specializedEntityArray || [],
           // Preserve status field
           status: (currentStepData.section2_2 as any)?.status,
-        },
+        } as any,
         section2_3: {
           infraDevelopmentArray:
             (currentStepData.section2_3 as any)?.infraDevelopmentArray || [],
@@ -558,7 +561,7 @@ export const InfraDevelopmentStep = () => {
           comment: (currentStepData.section2_3 as any)?.comment || "",
           // Preserve status field
           status: (currentStepData.section2_3 as any)?.status,
-        },
+        } as any,
         section2_4: {
           investmentReadyArray:
             (currentStepData.section2_4 as any)?.investmentReadyArray || [],
@@ -568,13 +571,13 @@ export const InfraDevelopmentStep = () => {
           websiteLink: (currentStepData.section2_4 as any)?.websiteLink || "",
           // Preserve status field
           status: (currentStepData.section2_4 as any)?.status,
-        },
+        } as any,
         section2_5: {
           assetMonetizationArray:
             (currentStepData.section2_5 as any)?.assetMonetizationArray || [],
           // Preserve status field
           status: (currentStepData.section2_5 as any)?.status,
-        },
+        } as any,
       };
 
       // 🔍 DEBUG: Log synced data before setting
@@ -586,7 +589,7 @@ export const InfraDevelopmentStep = () => {
         arrayLength: Array.isArray(syncedData.section2_4.investmentReadyArray)
           ? syncedData.section2_4.investmentReadyArray.length
           : 0,
-        status: syncedData.section2_4.status,
+        status: (syncedData.section2_4 as any)?.status,
       });
 
       setFormData((prev) => ({ ...prev, ...syncedData }));
@@ -1030,7 +1033,7 @@ export const InfraDevelopmentStep = () => {
         "2.5",
       ];
       // Remove sectionStatus and section_status from payload and deeply sanitize files
-      let sanitizedFormData = deepRemoveUnwantedKeys(
+      const sanitizedFormData = deepRemoveUnwantedKeys(
         sanitizeFilesInFormData(formData)
       );
       // If user has selected files, ensure arrays are present and not empty objects
@@ -1365,7 +1368,7 @@ export const InfraDevelopmentStep = () => {
   const handleSaveDraft = async () => {
     try {
       // Remove sectionStatus and section_status from payload and deeply sanitize files
-      let sanitizedFormData = deepRemoveUnwantedKeys(
+      const sanitizedFormData = deepRemoveUnwantedKeys(
         sanitizeFilesInFormData(formData)
       );
       if (

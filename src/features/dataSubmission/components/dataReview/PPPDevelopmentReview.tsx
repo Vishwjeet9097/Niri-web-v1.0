@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1125,7 +1126,8 @@ export const PPPDevelopmentReview = ({
     const isMospiApprover = userRole === "MOSPI_APPROVER";
 
     // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
-    const submissionStatus = submission?.status;
+    const submissionTyped = submission as { status?: string } | undefined;
+    const submissionStatus = submissionTyped?.status;
     if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
       return null;
     }

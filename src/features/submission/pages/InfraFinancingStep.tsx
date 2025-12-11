@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -1435,7 +1436,6 @@ export const InfraFinancingStep = () => {
         <Stepper
           steps={SUBMISSION_STEPS}
           currentStep={currentStep}
-          onStepClick={goToStep}
           onStepClick={goToStep}
         />
       </div>
