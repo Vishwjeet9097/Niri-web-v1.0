@@ -121,6 +121,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleBondChange(index, "bondType", value)}
                         placeholder="Select Bond Type"
                         isEditable={true}
+                        resetKey={resetKey || 0}
                       />
                     ) : (
                       item.bondType || 'N/A'
@@ -134,6 +135,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleBondChange(index, "cityName", value)}
                         placeholder="Select City"
                         isEditable={true}
+                        resetKey={resetKey || 0}
                       />
                     ) : (
                       item.cityName || 'N/A'
@@ -147,6 +149,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleBondChange(index, "issuingAuthority", value)}
                         placeholder="Select Authority"
                         isEditable={true}
+                        resetKey={resetKey || 0}
                       />
                     ) : (
                       item.issuingAuthority || 'N/A'
@@ -204,6 +207,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewBondEntry({...newBondEntry, bondType: value})}
                 placeholder="Select Bond Type"
                 isEditable={true}
+                resetKey={resetKey || 0}
               />
             </div>
             <div>
@@ -214,6 +218,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewBondEntry({...newBondEntry, cityName: value})}
                 placeholder="Select City"
                 isEditable={true}
+                resetKey={resetKey || 0}
               />
             </div>
             <div>
@@ -224,6 +229,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewBondEntry({...newBondEntry, issuingAuthority: value})}
                 placeholder="Select Authority"
                 isEditable={true}
+                resetKey={resetKey || 0}
               />
             </div>
             <div>

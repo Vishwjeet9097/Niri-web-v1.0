@@ -16,6 +16,32 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
   const ulbList = formData?.section1_3?.ulbList || [];
   const totalULBs = formData?.section1_3?.totalULBs || 0;
 
+  // Helper function to format date for HTML date input (YYYY-MM-DD)
+  const formatDateForInput = (dateValue: any): string => {
+    if (!dateValue) return "";
+    
+    // If it's already in YYYY-MM-DD format, return as is
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return dateValue;
+    }
+    
+    // Try to parse as Date
+    try {
+      const date = new Date(dateValue);
+      if (!isNaN(date.getTime())) {
+        // Format as YYYY-MM-DD
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    } catch (error) {
+      console.error('Error formatting date:', error);
+    }
+    
+    return "";
+  };
+
   // State for adding new ULB entry
   const [showAddULBForm, setShowAddULBForm] = useState(false);
   const [newULBEntry, setNewULBEntry] = useState({
@@ -137,6 +163,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleUlbChange(index, "ulb", value)}
                         placeholder="Select ULB"
                         isEditable={true}
+                        resetKey={resetKey || 0}
                       />
                     ) : (
                       item.ulb || 'N/A'
@@ -146,9 +173,10 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                     {isEditable("1.3") ? (
                       <Input
                         type="date"
-                        value={item.ratingDate || ""}
+                        value={formatDateForInput(item.ratingDate)}
                         onChange={(e) => handleUlbChange(index, "ratingDate", e.target.value)}
                         className="w-full"
+                        key={`date-${index}-${resetKey || 0}`}
                       />
                     ) : (
                       item.ratingDate ? new Date(item.ratingDate).toLocaleDateString() : 'N/A'
@@ -162,6 +190,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleUlbChange(index, "rating", value)}
                         placeholder="Select Rating"
                         isEditable={true}
+                        resetKey={resetKey || 0}
                       />
                     ) : (
                       item.rating || 'N/A'
@@ -219,6 +248,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewULBEntry({...newULBEntry, ulb: value})}
                 placeholder="Select ULB"
                 isEditable={true}
+                resetKey={resetKey || 0}
               />
             </div>
             <div>
@@ -238,6 +268,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewULBEntry({...newULBEntry, rating: value})}
                 placeholder="Select Rating"
                 isEditable={true}
+                resetKey={resetKey || 0}
               />
             </div>
           </div>

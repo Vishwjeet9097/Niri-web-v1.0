@@ -1380,7 +1380,7 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
   // Handle Accept confirmation
   const handleConfirmAccept = async () => {
     if (pendingActionSectionId) {
-      // Check if user is MOSPI_APPROVER
+      // Check if user is STATE_APPROVER and section is in edit mode - save data first
       const getUserRole = () => {
         try {
           const authUser = localStorage.getItem('niri_app:auth_user');
@@ -1394,7 +1394,21 @@ export const InfraDevelopmentReview = ({ submissionId, formData, submission, isP
         return null;
       };
       const userRole = getUserRole();
+      const isStateApprover = userRole === 'STATE_APPROVER';
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
+
+      // If STATE_APPROVER and section is editable, save the data first
+      if (isStateApprover && isEditable(pendingActionSectionId)) {
+        try {
+          console.log(`💾 [STATE_APPROVER Accept] Saving section ${pendingActionSectionId} before accepting...`);
+          await performSave(pendingActionSectionId);
+          console.log(`✅ [STATE_APPROVER Accept] Section ${pendingActionSectionId} saved successfully`);
+        } catch (saveError) {
+          console.error(`❌ [STATE_APPROVER Accept] Failed to save section ${pendingActionSectionId}:`, saveError);
+          notificationService.error('Failed to save section before accepting. Please try again.');
+          return; // Don't proceed with accept if save failed
+        }
+      }
 
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update

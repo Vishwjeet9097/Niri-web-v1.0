@@ -119,6 +119,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleOrgChange(index, "organisationType", value)}
                         placeholder="Select Type"
                         isEditable={true}
+                        resetKey={resetKey || 0}
                       />
                     ) : (
                       item.organisationType || 'N/A'
@@ -211,6 +212,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewOrgEntry({...newOrgEntry, organisationType: value})}
                 placeholder="Select Type"
                 isEditable={true}
+                resetKey={resetKey || 0}
               />
             </div>
             <div>
