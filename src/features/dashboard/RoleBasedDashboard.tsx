@@ -8,12 +8,11 @@ import { NodalDashboardPage } from "./NodalDashboardPage";
 import { StateApproverDashboardPage } from "./StateApproverDashboardPage";
 import { MospiApproverDashboardPage } from "./MospiApproverDashboardPage";
 import { DashboardPage } from "./DashboardPage"; // Fallback dashboard
-import AdminDashboardPage from "./AdminDashboardPage";
 
 export default function RoleBasedDashboard() {
   const { user } = useAuth();
 
- // if (!user) return null;
+  if (!user) return null;
   
   // Use backend role format
   const role = user.role;
@@ -32,14 +31,9 @@ export default function RoleBasedDashboard() {
     case "STATE_APPROVER":
       return <StateApproverDashboardPage />;
     
-    case "ADMIN": {
-      // Always redirect Admin to /dashboard for consistent sidebar/menu
-      const location = window.location.pathname;
-      if (location !== "/dashboard") {
-        return <Navigate to="/dashboard" replace />;
-      }
-      return <AdminDashboardPage />;
-    }
+    case "ADMIN":
+      // Admin doesn't have dashboard access, redirect to user management
+      return <Navigate to="/user-management" replace />;
     
     default:
       // Fallback for unknown roles

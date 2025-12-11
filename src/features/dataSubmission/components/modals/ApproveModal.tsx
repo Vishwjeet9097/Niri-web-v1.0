@@ -92,24 +92,14 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
       } else {
         // MoSPI roles can approve
         await apiService.approveSubmission(submissionId, comments);
-        
-        // If MOSPI Approver approves, trigger score calculation and refresh ranking page
-        if (isMospiApprover) {
-          // Dispatch event to refresh ranking page
-          window.dispatchEvent(new CustomEvent('niri-score-updated', {
-            detail: { submissionId, timestamp: new Date().toISOString() }
-          }));
-          
-          toast({
-            title: "Submission Approved & Score Calculated",
-            description: "Submission has been finally approved. The score has been calculated and will appear in the Ranking & Scoring tab.",
-          });
-        } else {
-          toast({
-            title: "Approved & Sent to MoSPI Successfully",
-            description: "Submission has been approved and forwarded to MoSPI Approver for final review.",
-          });
-        }
+        toast({
+          title: "Approved & Sent to MoSPI Successfully",
+          description: isMospiReviewer 
+            ? "Submission has been approved and forwarded to MoSPI Approver for final review."
+            : isMospiApprover 
+            ? "Submission has been finally approved by MoSPI."
+            : "The submission has been successfully approved.",
+        });
       }
 
       onClose();

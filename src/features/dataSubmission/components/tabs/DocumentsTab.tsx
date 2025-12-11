@@ -25,7 +25,7 @@ import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 interface Document {
   id: string;
   fileName?: string;
-  filePath?: string; // S3 key (for review mode)
+  filePath?: string; // S3 key
   originalName?: string;
   fileSize?: number | string;
   mimeType?: string;
@@ -41,9 +41,6 @@ interface DocumentsTabProps {
   formData?: any; // fallback to extracting files from formData
   authToken?: string; // optional token override
   submissionId?: string; // optional submission ID
-  isPreview?: boolean; // true for preview mode (local files), false for review mode (S3 files)
-  assignedIndicators?: string[]; // Optional: explicitly pass assigned indicators (for preview mode)
-  userRole?: string; // Optional: explicitly pass user role
 }
 
 const getFileIcon = (fileType: string) => (
@@ -62,12 +59,15 @@ function readAccessTokenFromLocalStorage(): string | undefined {
   }
 }
 
-async function fetchSignedUrl(filePath: string, token?: string): Promise<string> {
+async function fetchSignedUrl(
+  filePath: string,
+  token?: string
+): Promise<string> {
   if (!filePath) throw new Error("Missing filePath");
 
   const encoded = encodeURIComponent(filePath);
-const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"; // set in .env if backend not same origin
-const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
+  const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"; // set in .env if backend not same origin
+  const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
 
   const accessToken = token ?? readAccessTokenFromLocalStorage();
   if (!accessToken) throw new Error("No auth token available. Please login.");
@@ -81,15 +81,20 @@ const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
   // Try to parse JSON — your backend returns { status, data: { signedUrl, filePath, expiresIn } }
   try {
     const json = JSON.parse(text);
-    console.log("📄 Signed URL:", json);
-    const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
-    if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
+    const signed =
+      json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
+    if (!signed)
+      throw new Error(
+        `Signed URL not found in response: ${text.slice(0, 300)}`
+      );
     return signed;
   } catch (err) {
     // Not JSON (or parse failed) — return the raw text only if it looks like a URL
     const trimmed = text.trim();
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    throw new Error(`Unexpected response when fetching signed URL: ${text.slice(0, 300)}`);
+    throw new Error(
+      `Unexpected response when fetching signed URL: ${text.slice(0, 300)}`
+    );
   }
 }
 
@@ -382,14 +387,14 @@ function extractFilesFromFormData(
   // Handle arrays
   if (Array.isArray(obj)) {
     obj.forEach((item) => {
-      extractFilesFromFormData(item, collectedFiles, seenPaths, seenIds, isPreview);
+      extractFilesFromFormData(item, collectedFiles, seenPaths);
     });
     return collectedFiles;
   }
 
   // Handle objects - recurse into all properties
   Object.values(obj).forEach((value) => {
-    extractFilesFromFormData(value, collectedFiles, seenPaths, seenIds, isPreview);
+    extractFilesFromFormData(value, collectedFiles, seenPaths);
   });
 
   return collectedFiles;
@@ -399,40 +404,8 @@ export const DocumentsTab = ({
   documents = [],
   formData,
   authToken,
-  isPreview = false,
-  assignedIndicators: propAssignedIndicators,
-  userRole: propUserRole,
 }: DocumentsTabProps) => {
-  // Get user info and indicator access
-  const { user } = useAuth();
-  const { assignedIndicators: hookAssignedIndicators, availableIndicators } = useIndicatorAccess();
-  
-  // Determine user role
-  const userRole = propUserRole || user?.role || "";
-  const isNodalOfficer = userRole === "NODAL_OFFICER";
-  const isStateApprover = userRole === "STATE_APPROVER";
-  const isMospiRole = userRole === "MOSPI_REVIEWER" || userRole === "MOSPI_APPROVER";
-  
-  // Determine assigned indicators
-  // Priority: prop > hook > availableIndicators (for state approver)
-  const assignedIndicators = React.useMemo(() => {
-    if (propAssignedIndicators && propAssignedIndicators.length > 0) {
-      return propAssignedIndicators;
-    }
-    if (isNodalOfficer && hookAssignedIndicators && hookAssignedIndicators.length > 0) {
-      return hookAssignedIndicators;
-    }
-    if (isStateApprover && availableIndicators && availableIndicators.length > 0) {
-      return availableIndicators;
-    }
-    // For MOSPI roles, return empty array (they see all)
-    if (isMospiRole) {
-      return [];
-    }
-    return [];
-  }, [propAssignedIndicators, hookAssignedIndicators, availableIndicators, isNodalOfficer, isStateApprover, isMospiRole]);
-
-  // Extract files from formData
+  // Extract files from formData (both attachedFiles and nested fields)
   const docsFromForm = React.useMemo(() => {
     if (!formData) return [];
 
@@ -1480,8 +1453,10 @@ export const DocumentsTab = ({
 
   const [loading, setLoading] = React.useState<Record<string, boolean>>({});
   const token =
-  authToken ??
-  (typeof window !== "undefined" ? readAccessTokenFromLocalStorage() : undefined);
+    authToken ??
+    (typeof window !== "undefined"
+      ? readAccessTokenFromLocalStorage()
+      : undefined);
 
   const pickLabel = (d: Document) => {
     // prefer originalName, then fileName, then last segment of filePath
@@ -1508,17 +1483,6 @@ export const DocumentsTab = ({
   };
 
   const onView = async (doc: Document, docKey: string) => {
-    // Handle local File objects (preview mode - preferred)
-    if (isPreview && doc._fileObject) {
-      const file = doc._fileObject;
-      const blobUrl = URL.createObjectURL(file);
-      window.open(blobUrl, "_blank", "noopener,noreferrer");
-      // Clean up blob URL after a delay
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-      return;
-    }
-
-    // Handle S3 files (review mode or preview mode fallback)
     if (!doc.filePath) {
       alert("File path missing.");
       return;
@@ -1541,22 +1505,6 @@ export const DocumentsTab = ({
   };
 
   const onDownload = async (doc: Document, docKey: string) => {
-    // Handle local File objects (preview mode - preferred)
-    if (isPreview && doc._fileObject) {
-      const file = doc._fileObject;
-      const blobUrl = URL.createObjectURL(file);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = pickLabel(doc);
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-      return;
-    }
-
-    // Handle S3 files (review mode or preview mode fallback)
     if (!doc.filePath) {
       alert("File path missing.");
       return;
@@ -1636,11 +1584,6 @@ export const DocumentsTab = ({
           <div className="text-center py-8 text-muted-foreground">
             <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p>No documents found in this submission</p>
-            {isNodalOfficer && assignedIndicators.length === 0 && (
-              <p className="text-sm mt-2 text-muted-foreground">
-                No indicators assigned. Please contact administrator.
-              </p>
-            )}
           </div>
         ) : (
           <div className="rounded-md border overflow-x-auto">

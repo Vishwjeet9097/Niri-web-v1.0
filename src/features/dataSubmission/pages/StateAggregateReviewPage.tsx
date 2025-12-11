@@ -53,8 +53,6 @@ import { calculateStateProgressFromApi, ProgressStats } from "@/utils/progressUt
 import { authService } from "@/services/auth.service";
 import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
-import { mergeAttachedFiles, extractFileMetadataFromFormData } from "@/utils/extractFileMetadata";
-import { hasSectionData } from "@/utils/sectionDataValidator";
 import axios from "axios";
 import { config } from "@/config/environment";
 
@@ -109,15 +107,6 @@ const transformIndicatorsToFormData = (
 ): any => {
   console.log("[Transform] Raw indicators input:", indicators);
   console.log("[Transform] Indicator keys:", Object.keys(indicators));
-  console.log("[Transform] Submissions array provided:", submissions ? `${submissions.length} submissions` : "NO SUBMISSIONS");
-  if (submissions && Array.isArray(submissions) && submissions.length > 0) {
-    console.log("[Transform] First submission structure:", {
-      hasFormData: !!submissions[0].formData,
-      hasForm_data: !!submissions[0].form_data,
-      formDataKeys: submissions[0].formData ? Object.keys(submissions[0].formData) : [],
-      form_dataKeys: submissions[0].form_data ? Object.keys(submissions[0].form_data) : []
-    });
-  }
   
   // Start with empty categories - only create sections for indicators that actually exist in the API response
   // Don't initialize all sections upfront - this prevents unassigned/unfilled indicators from appearing
@@ -403,95 +392,38 @@ const transformIndicatorsToFormData = (
         // Only store sections if they have actual data OR if they're assigned to someone
         // Don't create empty sections for unassigned/unfilled indicators
         // Check if section has meaningful data before storing
-        // IMPORTANT: Use hasSectionData to properly handle "no" responses with comments
-        console.log(`[Transform] Checking hasSectionData for ${sectionKey} in ${formDataKey}`);
-        console.log(`[Transform] formFields structure:`, JSON.stringify(formFields, null, 2));
-        const hasMeaningfulData = hasSectionData(formFields, sectionKey, formDataKey);
-        console.log(`[Transform] hasSectionData result for ${sectionKey}:`, hasMeaningfulData);
+        const hasMeaningfulData = Object.keys(formFields).length > 0 && 
+          Object.values(formFields).some(val => {
+            if (val === null || val === undefined || val === '') return false;
+            if (Array.isArray(val) && val.length === 0) return false;
+            if (typeof val === 'object' && Object.keys(val).length === 0) return false;
+            return true;
+          });
         
         // Check if indicator is assigned/submitted (not NOT_STARTED status)
         // NOT_STARTED means the indicator hasn't been assigned or filled yet
-        // Note: status was deleted from formFields above, so get it from indicatorData or indicator
-        const indicatorStatus = indicator?.status || indicatorData?.status;
+        const indicatorStatus = indicator?.status || indicatorData?.status || formFields.status;
         const isNotStarted = indicatorStatus === 'NOT_STARTED' || indicatorStatus === null || indicatorStatus === undefined;
         
         // Check if this indicator exists in any submission (meaning it's been worked on)
-        // IMPORTANT: Always merge submission data first, then check for meaningful data
-        // This ensures comments from submissions are included even if aggregated data doesn't have them
-        let existsInSubmissions = false;
-        
-        if (submissions && Array.isArray(submissions)) {
-          console.log(`[Transform] Checking ${submissions.length} submissions for section ${sectionKey} in category ${formDataKey}`);
-          for (const submission of submissions) {
-            const subFormData = submission.formData || submission.form_data || {};
-            const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
-            
-            console.log(`[Transform] Submission ${submission.id || submission.submissionId || 'unknown'}: categoryData keys:`, Object.keys(categoryData));
-            
-            if (sectionKey in categoryData) {
-              existsInSubmissions = true;
-              const submissionSection = categoryData[sectionKey];
-              if (submissionSection && typeof submissionSection === 'object') {
-                console.log(`[Transform] ✅ Found section ${sectionKey} in submission:`, submissionSection);
-                console.log(`[Transform] Section ${sectionKey} keys:`, Object.keys(submissionSection));
-                console.log(`[Transform] Section ${sectionKey} has comment:`, !!submissionSection.comment, submissionSection.comment);
-                // Always merge submission data into formFields, prioritizing submission data
-                // This ensures comments and other fields from submissions are included
-                Object.keys(submissionSection).forEach(key => {
-                  // Always merge comment field if it exists in submission (even if formFields has it or is empty)
-                  // Comments are critical and should always come from submissions if available
-                  if (key === 'comment') {
-                    if (submissionSection[key] && (submissionSection[key] !== null && submissionSection[key] !== undefined && String(submissionSection[key]).trim() !== '')) {
-                      formFields[key] = submissionSection[key];
-                      console.log(`[Transform] ✅ Merged comment from submission for ${sectionKey}:`, submissionSection[key]);
-                    } else {
-                      console.log(`[Transform] ⚠️ Submission has empty/null comment for ${sectionKey}`);
-                    }
-                  } else if (!formFields.hasOwnProperty(key) || !formFields[key]) {
-                    // For other fields, merge if formFields doesn't have it or if it's empty
-                    formFields[key] = submissionSection[key];
-                  }
-                });
-                console.log(`[Transform] formFields after merging submission data for ${sectionKey}:`, JSON.stringify(formFields, null, 2));
-              }
-            }
-          }
-        }
-        
-        // Re-check hasMeaningfulData after merging submission data
-        // This will now properly detect "no" + comment cases
-        const finalHasMeaningfulData = hasSectionData(formFields, sectionKey, formDataKey);
-        
-        // Check if section has "no" selected (even without comment) - this is still user input
-        const hasNoSelected = (() => {
-          const noFields = ['hasIntermediary', 'hasInfraDevelopmentPlan', 'hasInvestmentReady', 
-                           'available', 'allEligible', 'adopted', 'implemented', 'participated'];
-          return noFields.some(field => formFields[field] === 'no' || formFields[field] === 'No');
-        })();
-        
-        console.log(`[Transform] Final check for ${sectionKey}: hasMeaningfulData=${finalHasMeaningfulData}, hasNoSelected=${hasNoSelected}, isNotStarted=${isNotStarted}, existsInSubmissions=${existsInSubmissions}`);
-        console.log(`[Transform] formFields for ${sectionKey}:`, formFields);
+        const existsInSubmissions = submissions && Array.isArray(submissions) && submissions.some(submission => {
+          const subFormData = submission.formData || submission.form_data || {};
+          const categoryData = subFormData[formDataKey] || subFormData[categoryKey] || {};
+          return sectionKey in categoryData;
+        });
         
         // Only create section if:
-        // 1. It has meaningful data (from indicator or submissions, including "no" + comment), OR
-        // 2. It has "no" selected (user input, even without comment), OR
-        // 3. It's not in NOT_STARTED status (has been assigned/submitted), OR
-        // 4. It exists in submissions array (has been worked on)
+        // 1. It has meaningful data, OR
+        // 2. It's not in NOT_STARTED status (has been assigned/submitted), OR
+        // 3. It exists in submissions array (has been worked on)
         // This prevents unassigned/unfilled indicators from appearing empty
-        // But includes sections where user selected "no" (with or without comment)
-        const shouldInclude = finalHasMeaningfulData || hasNoSelected || !isNotStarted || existsInSubmissions;
+        const shouldInclude = hasMeaningfulData || !isNotStarted || existsInSubmissions;
         
         if (shouldInclude) {
           formData[formDataKey][sectionKey] = formFields;
-          // Log comment field specifically for debugging
-          if (formFields.comment) {
-            console.log(`[Transform] ✅ Stored ${sectionKey} in ${formDataKey} WITH COMMENT:`, formFields.comment);
-          } else {
-            console.log(`[Transform] ⚠️ Stored ${sectionKey} in ${formDataKey} WITHOUT COMMENT`);
-          }
-          console.log(`[Transform] ✅ Stored ${sectionKey} in ${formDataKey}:`, formFields, `(hasData: ${finalHasMeaningfulData}, status: ${indicatorStatus}, existsInSubmissions: ${existsInSubmissions})`);
+          console.log(`[Transform] Stored ${sectionKey} in ${formDataKey}:`, formFields, `(hasData: ${hasMeaningfulData}, status: ${indicatorStatus}, existsInSubmissions: ${existsInSubmissions})`);
         } else {
-          console.log(`[Transform] ❌ Skipping ${sectionKey} in ${formDataKey} - no meaningful data, NOT_STARTED status, and not in submissions`);
+          console.log(`[Transform] Skipping ${sectionKey} in ${formDataKey} - no meaningful data, NOT_STARTED status, and not in submissions`);
         }
       }
     });
@@ -804,60 +736,11 @@ export const StateAggregateReviewPage = () => {
           }
         });
 
-        // Fetch submissions from getStateIndicatorStatuses API to get comments
-        // This API returns submissions with full formData including comments
-        let submissionsToUse: any[] = [];
-        try {
-          const statusResp = await apiService.getStateIndicatorStatuses(selectedYear || undefined);
-          const normalizedStatus = statusResp?.data ? statusResp : { data: statusResp };
-          const statusData = normalizedStatus.data || {};
-          const allSubmissions = statusData.submissions || [];
-          
-          // Filter to get only non-consolidated submissions (source submissions with comments)
-          submissionsToUse = allSubmissions.filter((sub: any) => {
-            const formData = sub.formData || sub.form_data || {};
-            const metadata = formData._metadata;
-            return !metadata?.isConsolidated;
-          });
-          
-          console.log("[StateAggregate] Fetched submissions from getStateIndicatorStatuses:", submissionsToUse.length);
-          if (submissionsToUse.length > 0) {
-            console.log("[StateAggregate] Sample submission structure:", {
-              id: submissionsToUse[0].id,
-              submissionId: submissionsToUse[0].submissionId,
-              hasFormData: !!submissionsToUse[0].formData,
-              hasForm_data: !!submissionsToUse[0].form_data
-            });
-            // Log a sample section to verify comments exist
-            const sampleSub = submissionsToUse[0];
-            const sampleFormData = sampleSub.formData || sampleSub.form_data || {};
-            const sampleSection = sampleFormData.infraFinancing?.section1_5 || 
-                                 sampleFormData.infraDevelopment?.section2_4 ||
-                                 sampleFormData.pppDevelopment?.section3_2 ||
-                                 sampleFormData.infraEnablers?.section4_1;
-            if (sampleSection) {
-              console.log("[StateAggregate] Sample section with comment check:", {
-                section: Object.keys(sampleFormData).find(cat => {
-                  const catData = sampleFormData[cat];
-                  return catData && typeof catData === 'object' && 
-                    Object.values(catData).some((sec: any) => sec && typeof sec === 'object' && sec.comment);
-                }),
-                hasComment: !!sampleSection.comment,
-                comment: sampleSection.comment
-              });
-            }
-          }
-        } catch (submissionError) {
-          console.warn("[StateAggregate] Failed to fetch submissions for comments:", submissionError);
-          // Continue without submissions - comments won't be merged but form will still work
-        }
-        
         // Transform indicators to formData structure
-        // Pass submissions array to extract comments from source submissions
-        console.log("[StateAggregate] Submissions to pass to transform:", submissionsToUse ? `${submissionsToUse.length} submissions` : "NO SUBMISSIONS");
+        // Also pass submissions array if available to extract form data
         let transformedFormData = transformIndicatorsToFormData(
           data.indicators || {},
-          submissionsToUse
+          data.submissions || (payload as any).submissions
         );
         console.log("[StateAggregate] Transformed formData:", transformedFormData);
         console.log("[StateAggregate] FormData keys:", Object.keys(transformedFormData));
@@ -1064,77 +947,6 @@ export const StateAggregateReviewPage = () => {
     checkSubmittedStatus();
   }, [user?.role, user?.id, user?.email, effectiveState, selectedState]);
 
-  // Handle revert from MoSPI and submit
-  const handleRevertAndSubmit = async () => {
-    try {
-
-      console.log("🔄 [StateAggregate] Handling revert and submit");
-      // Get authentication token first
-      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
-      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
-      const tokenFromNewKey = tokenData?.value?.accessToken;
-      const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
-      const token = tokenFromNewKey || tokenFromLegacyKey || "";
-
-      const userId = user?.id;
-      if (!userId) {
-        notificationService.error("User ID not found. Cannot proceed with submission.");
-        console.error("❌ User ID is missing");
-        setShowConfirmModal(false);
-        setSubmittingFinal(false);
-        return;
-      }
-
-      // Call revert API
-      console.log("📡 API Endpoint: POST /submission/revert-from-mospi/{userId}");
-      console.log("👤 User ID:", userId);
-      
-      const revertResponse = await axios.post(
-        `${config.apiBaseUrl}/submission/revert-from-mospi/${userId}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const revertData = revertResponse.data?.data || revertResponse.data;
-      const updatedCount = revertData?.updatedCount || 0;
-
-      console.log("✅ Revert API response received");
-      console.log("📊 Updated Count:", updatedCount);
-
-      // If updatedCount > 0, navigate back to review page
-      if (updatedCount > 0) {
-        console.log("ℹ️ Submissions were reverted. Navigating back to review page.");
-        
-        // Show success notification
-        notificationService.success("Your form has been submitted to MoSPI Reviewer.");
-        
-        // Close modal
-        setShowConfirmModal(false);
-        setSubmittingFinal(false);
-        
-        // Navigate to review page
-        navigate("/data-submission/review");
-        return;
-      }
-
-      // If updatedCount == 0, proceed with final submit
-      if (updatedCount == 0) {
-        console.log("FINAL SUBMIT CALLED INSTEAD OF REVERT BECAUSE FRESH FORM IS THERE:")
-        await handleFinalSubmit();
-      }
-      
-    } catch (revertError: any) {
-      console.warn("⚠️ Failed to call revert API:", revertError?.message);
-      // Continue with submission even if revert check fails
-      await handleFinalSubmit();
-    }
-  };
-
   // Handle final submit - Creates consolidated submission from aggregated formData
   const handleFinalSubmit = async () => {
     console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -1142,21 +954,11 @@ export const StateAggregateReviewPage = () => {
     console.group("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     
     try {
-      setSubmittingFinal(true);
-
-      // Get authentication token first
-      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
-      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
-      const tokenFromNewKey = tokenData?.value?.accessToken;
-      const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
-      const token = tokenFromNewKey || tokenFromLegacyKey || "";
-
       // Gate: must have progress and must be 100% approved
       if (!stateProgress || stateProgress.percentage !== 100 || stateProgress.approved !== stateProgress.total) {
         notificationService.warning("All indicators must be approved before final submission.");
         console.warn("❌ Submission blocked: Not all indicators approved", stateProgress);
         setShowConfirmModal(false);
-        setSubmittingFinal(false);
         return;
       }
 
@@ -1165,7 +967,6 @@ export const StateAggregateReviewPage = () => {
         notificationService.error("No aggregated data available to submit.");
         console.error("❌ Submission blocked: No formData available");
         setShowConfirmModal(false);
-        setSubmittingFinal(false);
         return;
       }
 
@@ -1173,6 +974,8 @@ export const StateAggregateReviewPage = () => {
       console.log("📊 State Progress:", stateProgress);
       console.log("📋 Available formData:", formData);
       console.log("📊 FormData categories:", Object.keys(formData));
+
+      setSubmittingFinal(true);
 
       // Use the aggregated formData from the page (consolidated data)
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -1213,136 +1016,9 @@ export const StateAggregateReviewPage = () => {
         }
       });
 
-      // Get source submission IDs from state progress data
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📋 STEP 2: Extracting source submission IDs");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
-      // Get source submission IDs and their full data from state indicator statuses
-      let sourceSubmissionIds: string[] = [];
-      let sourceSubmissions: any[] = [];
-      try {
-        const statusResp = await apiService.getStateIndicatorStatuses();
-        const normalizedStatus = statusResp?.data ? statusResp : { data: statusResp };
-        const statusData = normalizedStatus.data || {};
-        const approvedSubmissions = statusData.submissions || [];
-        
-        // Filter and collect source submissions (exclude consolidated)
-        const filteredSubmissions = approvedSubmissions.filter((sub: any) => {
-          const formData = sub.formData || sub.form_data || {};
-          const metadata = formData._metadata;
-          return !metadata?.isConsolidated;
-        });
-        
-        // Extract database UUIDs (id) and submissionId strings for tracking
-        // We need UUIDs to fetch full submissions with attachedFiles
-        const sourceSubmissionUuids = filteredSubmissions
-          .map((sub: any) => sub.id) // Use database UUID (id), not submissionId string
-          .filter((id: string) => id && typeof id === 'string' && id.includes('-')); // Must be UUID format
-        
-        // Also extract submissionId strings for metadata tracking
-        sourceSubmissionIds = filteredSubmissions
-          .map((sub: any) => sub.submissionId || sub.id)
-          .filter((id: string) => id);
-        
-        console.log("📋 Source submission UUIDs (for fetching):", sourceSubmissionUuids);
-        console.log("📋 Source submission IDs (for metadata):", sourceSubmissionIds);
-        console.log("📋 Source submissions count:", sourceSubmissionUuids.length);
-        
-        // Fetch full submission data to get attachedFiles using database UUIDs
-        if (sourceSubmissionUuids.length > 0) {
-          console.log("📋 Fetching full submission data using UUIDs to get attachedFiles...");
-          
-          // Fetch each submission individually using its UUID to ensure we get complete data including attachedFiles
-          const individualFetches = await Promise.allSettled(
-            sourceSubmissionUuids.map(async (uuid) => {
-              try {
-                console.log(`📋 Fetching submission with UUID: ${uuid}`);
-                const fullSub: any = await apiService.getSubmission(uuid);
-                console.log(`✅ Fetched submission ${uuid}:`, {
-                  hasAttachedFiles: !!fullSub.attachedFiles,
-                  attachedFilesCount: fullSub.attachedFiles?.length || 0,
-                  submissionId: fullSub.submissionId
-                });
-                return fullSub;
-              } catch (e) {
-                console.warn(`⚠️ Failed to fetch submission ${uuid}:`, e);
-                return null;
-              }
-            })
-          );
-          
-          // Collect successfully fetched submissions
-          individualFetches.forEach((result, index) => {
-            if (result.status === 'fulfilled' && result.value) {
-              sourceSubmissions.push(result.value);
-            } else {
-              console.warn(`⚠️ Failed to fetch submission at index ${index} (UUID: ${sourceSubmissionUuids[index]})`);
-            }
-          });
-          
-          console.log(`✅ Fetched ${sourceSubmissions.length} full source submissions`);
-          console.log("📋 Source submissions with attachedFiles:", 
-            sourceSubmissions.filter((s: any) => s.attachedFiles && Array.isArray(s.attachedFiles) && s.attachedFiles.length > 0).length
-          );
-          console.log("📋 Total attachedFiles count from sources:", 
-            sourceSubmissions.reduce((sum: number, s: any) => sum + (s.attachedFiles?.length || 0), 0)
-          );
-          
-          // Log sample attachedFiles for debugging
-          sourceSubmissions.forEach((sub, index) => {
-            if (sub.attachedFiles && Array.isArray(sub.attachedFiles) && sub.attachedFiles.length > 0) {
-              console.log(`📎 Submission ${index + 1} (${sub.submissionId}): ${sub.attachedFiles.length} files`);
-              console.log(`   Sample files:`, sub.attachedFiles.slice(0, 2).map((f: any) => ({
-                fileName: f.fileName,
-                filePath: f.filePath
-              })));
-            }
-          });
-        } else {
-          console.warn("⚠️ No source submission UUIDs found, using filtered submissions as fallback");
-          // Use filtered submissions from status API as fallback
-          sourceSubmissions = filteredSubmissions;
-        }
-      } catch (error) {
-        console.warn("⚠️ Failed to get source submission IDs:", error);
-        // Continue without source IDs - not critical for consolidation
-      }
-
-      // Set status to "ACCEPTED" for all indicators before transformation
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("✅ STEP 2.5: Setting status to ACCEPTED for all indicators");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
-      // Create a deep copy of formData to avoid mutating the original
-      const formDataWithAcceptedStatus = JSON.parse(JSON.stringify(formData));
-      
-      // All possible categories
-      const categories = ['infraFinancing', 'infraDevelopment', 'pppDevelopment', 'infraEnablers'];
-      
-      // Iterate through all categories and sections to set status to "ACCEPTED"
-      categories.forEach((category) => {
-        const categoryData = formDataWithAcceptedStatus[category];
-        if (categoryData && typeof categoryData === 'object') {
-          Object.keys(categoryData).forEach((sectionKey) => {
-            // Only process section keys (section1_1, section2_1, etc.)
-            if (sectionKey.startsWith('section')) {
-              const sectionData = categoryData[sectionKey];
-              if (sectionData && typeof sectionData === 'object' && !Array.isArray(sectionData)) {
-                // Set status to "ACCEPTED" for this indicator
-                sectionData.status = "ACCEPTED";
-                console.log(`   ✅ Set status to ACCEPTED for ${category}.${sectionKey}`);
-              }
-            }
-          });
-        }
-      });
-      
-      console.log("✅ All indicators set to ACCEPTED status");
-
       // Transform formData for submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔄 STEP 3: Transforming formData for submission");
+      console.log("🔄 STEP 2: Transforming formData for submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
       // Determine submission status based on role
@@ -1350,503 +1026,26 @@ export const StateAggregateReviewPage = () => {
         ? "SUBMITTED_TO_MOSPI_APPROVER" 
         : "SUBMITTED_TO_MOSPI_REVIEWER";
       
-      // Get effective state for consolidation ID generation
-      let effectiveState = selectedState || user?.stateUt || user?.stateName || user?.state || "";
-      if (effectiveState) {
-        effectiveState = effectiveState.toUpperCase();
-      }
-      
-      // Extract attachedFiles BEFORE transformation (formData might be modified during transformation)
-      // CRITICAL: Extract from the original formData structure before any transformations
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📎 STEP 2.6: Collecting attachedFiles from all sources");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      
-      // PRIMARY: Manual extraction from known file locations (MOST RELIABLE)
-      // Extract directly from the formData structure we know has files
-      console.log("📋 [PRIMARY] Manual extraction from known file locations...");
-      const manualExtraction: any[] = [];
-      const seenManualPaths = new Set<string>();
-      
-      // Extract from pppDevelopment.section3_3.VGFArray
-      if (formData?.pppDevelopment?.section3_3?.VGFArray) {
-        formData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
-          const filePath = item?.file?.file?.filePath;
-          if (filePath && !seenManualPaths.has(filePath)) {
-            seenManualPaths.add(filePath);
-            manualExtraction.push({
-              fileName: item.file.file.fileName || filePath.split('/').pop() || "",
-              originalName: item.file.file.originalName || item.file.file.fileName || filePath.split('/').pop() || "",
-              filePath: filePath,
-              fileUrl: item.file.file.fileUrl || "",
-              fileSize: item.file.file.fileSize || 0,
-              mimeType: item.file.file.mimeType || "application/octet-stream",
-              uploadedAt: item.file.file.uploadedAt || new Date().toISOString(),
-            });
-          }
-        });
-      }
-      
-        // Extract from infraDevelopment.section2_1.infraActArray
-        // Structure: infraActArray[].files[].file.filePath
-        if (formData?.infraDevelopment?.section2_1?.infraActArray) {
-          formData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
-            if (item?.files && Array.isArray(item.files)) {
-              item.files.forEach((fileItem: any) => {
-                // Check both file.filePath and file.file.filePath (different nesting levels)
-                const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
-                if (filePath && typeof filePath === 'string' && filePath.trim() !== "" && !seenManualPaths.has(filePath)) {
-                  seenManualPaths.add(filePath);
-                  const fileObj = fileItem?.file?.file || fileItem?.file; // Get the actual file object
-                  manualExtraction.push({
-                    fileName: fileObj?.fileName || filePath.split('/').pop() || "",
-                    originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
-                    filePath: filePath,
-                    fileUrl: fileObj?.fileUrl || "",
-                    fileSize: fileObj?.fileSize || 0,
-                    mimeType: fileObj?.mimeType || "application/octet-stream",
-                    uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
-                  });
-                }
-              });
-            }
-          });
-        }
-        
-        // Extract from infraDevelopment.section2_2.specializedEntityArray
-        // Structure: specializedEntityArray[].files[].file.filePath
-        if (formData?.infraDevelopment?.section2_2?.specializedEntityArray) {
-          formData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
-            if (item?.files && Array.isArray(item.files)) {
-              item.files.forEach((fileItem: any) => {
-                // Check both file.filePath and file.file.filePath (different nesting levels)
-                const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
-                if (filePath && typeof filePath === 'string' && filePath.trim() !== "" && !seenManualPaths.has(filePath)) {
-                  seenManualPaths.add(filePath);
-                  const fileObj = fileItem?.file?.file || fileItem?.file; // Get the actual file object
-                  manualExtraction.push({
-                    fileName: fileObj?.fileName || filePath.split('/').pop() || "",
-                    originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
-                    filePath: filePath,
-                    fileUrl: fileObj?.fileUrl || "",
-                    fileSize: fileObj?.fileSize || 0,
-                    mimeType: fileObj?.mimeType || "application/octet-stream",
-                    uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
-                  });
-                }
-              });
-            }
-          });
-        }
-      
-      console.log(`✅ Manual extraction found ${manualExtraction.length} files from known locations`);
-      
-      // SECONDARY: Try recursive extraction (backup)
-      console.log("📋 [SECONDARY] Trying recursive extraction from formData...");
-      const extractedFromFormData = extractFileMetadataFromFormData(formData);
-      console.log(`✅ Recursive extraction found ${extractedFromFormData.length} files`);
-      
-      // Also try extracting from formDataWithAcceptedStatus as backup
-      if (extractedFromFormData.length === 0) {
-        console.log("📋 [FALLBACK] Trying extraction from formDataWithAcceptedStatus...");
-        const extractedFromAccepted = extractFileMetadataFromFormData(formDataWithAcceptedStatus);
-        console.log(`✅ Extracted ${extractedFromAccepted.length} files from formDataWithAcceptedStatus`);
-        if (extractedFromAccepted.length > 0) {
-          extractedFromFormData.push(...extractedFromAccepted);
-        }
-      }
-      
-      // SECONDARY: Merge from source submissions (backup/verification)
-      let mergedAttachedFiles: any[] = [];
-      if (sourceSubmissions.length > 0) {
-        console.log(`📋 [SECONDARY] Merging attachedFiles from ${sourceSubmissions.length} source submissions...`);
-        
-        // First, try to get attachedFiles directly from source submissions
-        sourceSubmissions.forEach((sub: any, idx) => {
-          if (sub.attachedFiles && Array.isArray(sub.attachedFiles) && sub.attachedFiles.length > 0) {
-            console.log(`   📦 Source ${idx + 1} (${sub.submissionId}): ${sub.attachedFiles.length} files in attachedFiles`);
-            mergedAttachedFiles.push(...sub.attachedFiles);
-          }
-        });
-        
-        // Also try mergeAttachedFiles utility (which also extracts from formData)
-        const mergedFromUtility = mergeAttachedFiles(sourceSubmissions);
-        if (mergedFromUtility.length > mergedAttachedFiles.length) {
-          console.log(`   📦 Utility merge found ${mergedFromUtility.length} files (more than direct)`);
-          mergedAttachedFiles = mergedFromUtility;
-        }
-        
-        // Deduplicate by filePath
-        const seen = new Set<string>();
-        mergedAttachedFiles = mergedAttachedFiles.filter((f: any) => {
-          const path = f.filePath || f.filepath;
-          if (path && !seen.has(path)) {
-            seen.add(path);
-            return true;
-          }
-          return false;
-        });
-        
-        console.log(`✅ Merged ${mergedAttachedFiles.length} unique files from source submissions`);
-      }
-      
-      // Combine all sources, deduplicating by filePath
-      // Priority: manual extraction (most reliable) > recursive extraction > source submissions
-      const seenPaths = new Set<string>(seenManualPaths); // Start with manually found paths
-      const allAttachedFiles: any[] = [...manualExtraction]; // Start with manually extracted files
-      
-      // Add recursively extracted files (skip duplicates)
-      extractedFromFormData.forEach((file) => {
-        if (file.filePath && file.filePath.trim() !== "" && !seenPaths.has(file.filePath)) {
-          seenPaths.add(file.filePath);
-          allAttachedFiles.push({
-            fileName: file.fileName || file.filePath.split('/').pop() || "",
-            originalName: file.originalName || file.fileName || file.filePath.split('/').pop() || "",
-            filePath: file.filePath,
-            fileUrl: file.fileUrl || "",
-            fileSize: file.fileSize || 0,
-            mimeType: file.mimeType || "application/octet-stream",
-            uploadedAt: file.uploadedAt || new Date().toISOString(),
-          });
-        }
-      });
-      
-      // Add merged files from source submissions (skip duplicates)
-      mergedAttachedFiles.forEach((file) => {
-        if (file.filePath && file.filePath.trim() !== "" && !seenPaths.has(file.filePath)) {
-          seenPaths.add(file.filePath);
-          allAttachedFiles.push({
-            fileName: file.fileName || file.filePath.split('/').pop() || "",
-            originalName: file.originalName || file.fileName || file.filePath.split('/').pop() || "",
-            filePath: file.filePath,
-            fileUrl: file.fileUrl || "",
-            fileSize: file.fileSize || 0,
-            mimeType: file.mimeType || "application/octet-stream",
-            uploadedAt: file.uploadedAt || new Date().toISOString(),
-          });
-        }
-      });
-      
-      if (allAttachedFiles.length === 0) {
-        console.error("❌ CRITICAL ERROR: No files found after all extraction methods!");
-        console.error("   FormData keys:", Object.keys(formData || {}));
-        console.error("   Manual extraction found:", manualExtraction.length);
-        console.error("   Recursive extraction found:", extractedFromFormData.length);
-        console.error("   Source submissions found:", mergedAttachedFiles.length);
-      } else {
-        console.log(`✅ Total unique files collected: ${allAttachedFiles.length}`);
-        console.log("   📎 Files:", allAttachedFiles.map(f => ({
-          fileName: f.fileName,
-          filePath: f.filePath?.substring(0, 60) + "..."
-        })));
-      }
-
       const transformedData = transformFormDataForSubmission(
-        formDataWithAcceptedStatus, // Use formData with ACCEPTED status
-        submissionStatus,
-        {
-          isConsolidated: true,
-          sourceSubmissionIds: sourceSubmissionIds,
-          consolidatedBy: user?.id || '',
-          stateUt: effectiveState,
-        }
+        formData,
+        submissionStatus
       );
 
-      // CRITICAL: Extract files from transformed formData as well (files might be structured differently after transformation)
-      console.log("📋 [FINAL] Extracting files from transformed formData structure...");
-      const transformedFormData = transformedData.formData as any;
-      const finalExtraction: any[] = [];
-      const seenFinal = new Set<string>(seenPaths);
-      
-      // Extract from transformed formData structure
-      if (transformedFormData?.pppDevelopment?.section3_3?.VGFArray) {
-        transformedFormData.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
-          const filePath = item?.file?.file?.filePath || item?.file?.filePath;
-          if (filePath && !seenFinal.has(filePath)) {
-            seenFinal.add(filePath);
-            const fileObj = item?.file?.file || item?.file;
-            finalExtraction.push({
-              fileName: fileObj?.fileName || filePath.split('/').pop() || "",
-              originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
-              filePath: filePath,
-              fileUrl: fileObj?.fileUrl || "",
-              fileSize: fileObj?.fileSize || 0,
-              mimeType: fileObj?.mimeType || "application/octet-stream",
-              uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
-            });
-          }
-        });
-      }
-      
-      if (transformedFormData?.infraDevelopment?.section2_1?.infraActArray) {
-        transformedFormData.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
-          if (item?.files && Array.isArray(item.files)) {
-            item.files.forEach((fileItem: any) => {
-              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
-              if (filePath && !seenFinal.has(filePath)) {
-                seenFinal.add(filePath);
-                const fileObj = fileItem?.file?.file || fileItem?.file;
-                finalExtraction.push({
-                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
-                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
-                  filePath: filePath,
-                  fileUrl: fileObj?.fileUrl || "",
-                  fileSize: fileObj?.fileSize || 0,
-                  mimeType: fileObj?.mimeType || "application/octet-stream",
-                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
-                });
-              }
-            });
-          }
-        });
-      }
-      
-      if (transformedFormData?.infraDevelopment?.section2_2?.specializedEntityArray) {
-        transformedFormData.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
-          if (item?.files && Array.isArray(item.files)) {
-            item.files.forEach((fileItem: any) => {
-              const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
-              if (filePath && !seenFinal.has(filePath)) {
-                seenFinal.add(filePath);
-                const fileObj = fileItem?.file?.file || fileItem?.file;
-                finalExtraction.push({
-                  fileName: fileObj?.fileName || filePath.split('/').pop() || "",
-                  originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
-                  filePath: filePath,
-                  fileUrl: fileObj?.fileUrl || "",
-                  fileSize: fileObj?.fileSize || 0,
-                  mimeType: fileObj?.mimeType || "application/octet-stream",
-                  uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
-                });
-              }
-            });
-          }
-        });
-      }
-      
-      if (finalExtraction.length > 0) {
-        console.log(`✅ Final extraction from transformed formData found ${finalExtraction.length} additional files`);
-        allAttachedFiles.push(...finalExtraction);
-      }
-
-      // CRITICAL: Add attachedFiles to transformedData BEFORE any other operations
-      // This MUST be included in the JSON payload sent to backend
-      console.log("🔍 Setting attachedFiles on transformedData...");
-      console.log("   allAttachedFiles length:", allAttachedFiles.length);
-      console.log("   allAttachedFiles sample:", allAttachedFiles.slice(0, 2).map(f => ({ fileName: f.fileName, filePath: f.filePath?.substring(0, 50) })));
-      
-      // ALWAYS set attachedFiles, even if empty (backend expects an array)
-      transformedData.attachedFiles = allAttachedFiles.length > 0 ? allAttachedFiles : [];
-      
-      // IMMEDIATE VERIFICATION: Check that attachedFiles is set
-      console.log("🔍 After assignment:");
-      console.log("   transformedData.attachedFiles:", transformedData.attachedFiles);
-      console.log("   transformedData.attachedFiles type:", typeof transformedData.attachedFiles);
-      console.log("   transformedData.attachedFiles isArray:", Array.isArray(transformedData.attachedFiles));
-      console.log("   transformedData.attachedFiles length:", transformedData.attachedFiles?.length || 0);
-      console.log("   transformedData keys:", Object.keys(transformedData));
-      
-      if (!transformedData.attachedFiles || transformedData.attachedFiles.length === 0) {
-        console.error("❌ CRITICAL: attachedFiles is empty after assignment!");
-        console.error("   allAttachedFiles length:", allAttachedFiles.length);
-        console.error("   This means extraction failed - files exist in formData but weren't extracted!");
-      } else {
-        console.log("✅ attachedFiles assigned to transformedData:", transformedData.attachedFiles.length, "files");
-      }
-
-      // If attachedFiles is still empty, try one more time from formDataWithAcceptedStatus
-      // (the data that will actually be sent)
-      if (transformedData.attachedFiles.length === 0) {
-        console.error("❌ CRITICAL: attachedFiles is still empty! Trying extraction from formDataWithAcceptedStatus...");
-        
-        // Extract directly from the formData that will be sent
-        const finalExtraction: any[] = [];
-        const seenFinal = new Set<string>();
-        
-        // Extract from pppDevelopment.section3_3.VGFArray
-        if (formDataWithAcceptedStatus?.pppDevelopment?.section3_3?.VGFArray) {
-          formDataWithAcceptedStatus.pppDevelopment.section3_3.VGFArray.forEach((item: any) => {
-            const filePath = item?.file?.file?.filePath;
-            if (filePath && !seenFinal.has(filePath)) {
-              seenFinal.add(filePath);
-              finalExtraction.push({
-                fileName: item.file.file.fileName || filePath.split('/').pop() || "",
-                originalName: item.file.file.originalName || item.file.file.fileName || filePath.split('/').pop() || "",
-                filePath: filePath,
-                fileUrl: item.file.file.fileUrl || "",
-                fileSize: item.file.file.fileSize || 0,
-                mimeType: item.file.file.mimeType || "application/octet-stream",
-                uploadedAt: item.file.file.uploadedAt || new Date().toISOString(),
-              });
-            }
-          });
-        }
-        
-        // Extract from infraDevelopment.section2_1.infraActArray
-        // Structure: infraActArray[].files[].file.filePath
-        if (formDataWithAcceptedStatus?.infraDevelopment?.section2_1?.infraActArray) {
-          formDataWithAcceptedStatus.infraDevelopment.section2_1.infraActArray.forEach((item: any) => {
-            if (item?.files && Array.isArray(item.files)) {
-              item.files.forEach((fileItem: any) => {
-                // Check both file.filePath and file.file.filePath (different nesting levels)
-                const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
-                if (filePath && typeof filePath === 'string' && filePath.trim() !== "" && !seenFinal.has(filePath)) {
-                  seenFinal.add(filePath);
-                  const fileObj = fileItem?.file?.file || fileItem?.file; // Get the actual file object
-                  finalExtraction.push({
-                    fileName: fileObj?.fileName || filePath.split('/').pop() || "",
-                    originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
-                    filePath: filePath,
-                    fileUrl: fileObj?.fileUrl || "",
-                    fileSize: fileObj?.fileSize || 0,
-                    mimeType: fileObj?.mimeType || "application/octet-stream",
-                    uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
-                  });
-                }
-              });
-            }
-          });
-        }
-        
-        // Extract from infraDevelopment.section2_2.specializedEntityArray
-        // Structure: specializedEntityArray[].files[].file.filePath
-        if (formDataWithAcceptedStatus?.infraDevelopment?.section2_2?.specializedEntityArray) {
-          formDataWithAcceptedStatus.infraDevelopment.section2_2.specializedEntityArray.forEach((item: any) => {
-            if (item?.files && Array.isArray(item.files)) {
-              item.files.forEach((fileItem: any) => {
-                // Check both file.filePath and file.file.filePath (different nesting levels)
-                const filePath = fileItem?.file?.filePath || fileItem?.file?.file?.filePath;
-                if (filePath && typeof filePath === 'string' && filePath.trim() !== "" && !seenFinal.has(filePath)) {
-                  seenFinal.add(filePath);
-                  const fileObj = fileItem?.file?.file || fileItem?.file; // Get the actual file object
-                  finalExtraction.push({
-                    fileName: fileObj?.fileName || filePath.split('/').pop() || "",
-                    originalName: fileObj?.originalName || fileObj?.fileName || filePath.split('/').pop() || "",
-                    filePath: filePath,
-                    fileUrl: fileObj?.fileUrl || "",
-                    fileSize: fileObj?.fileSize || 0,
-                    mimeType: fileObj?.mimeType || "application/octet-stream",
-                    uploadedAt: fileObj?.uploadedAt || new Date().toISOString(),
-                  });
-                }
-              });
-            }
-          });
-        }
-        
-        if (finalExtraction.length > 0) {
-          console.log(`✅ Final extraction from formDataWithAcceptedStatus found ${finalExtraction.length} files!`);
-          transformedData.attachedFiles = finalExtraction;
-        } else {
-          console.error("❌ Final extraction also found no files!");
-          console.error("   formDataWithAcceptedStatus keys:", Object.keys(formDataWithAcceptedStatus || {}));
-          console.error("   Checking pppDevelopment.section3_3:", !!formDataWithAcceptedStatus?.pppDevelopment?.section3_3);
-          console.error("   Checking infraDevelopment.section2_1:", !!formDataWithAcceptedStatus?.infraDevelopment?.section2_1);
-        }
-      }
-
-      // Final verification
-      console.log("✅ Transformed data verification:");
+      console.log("✅ Transformed data:");
       console.log("   📝 Submission ID:", transformedData.submissionId);
       console.log("   📊 Status:", transformedData.status);
       console.log("   📋 FormData structure:", Object.keys(transformedData.formData || {}));
-      console.log("   📎 attachedFiles count:", transformedData.attachedFiles?.length || 0);
-      
-      if (transformedData.attachedFiles && transformedData.attachedFiles.length > 0) {
-        console.log("   ✅ attachedFiles is populated with", transformedData.attachedFiles.length, "files");
-        // Verify first file structure
-        const firstFile = transformedData.attachedFiles[0];
-        console.log("   📎 First file:", {
-          hasFilePath: !!firstFile.filePath,
-          hasFileName: !!firstFile.fileName,
-          hasOriginalName: !!firstFile.originalName,
-          filePath: firstFile.filePath?.substring(0, 50) + "..."
-        });
-      } else {
-        console.error("   ❌ ERROR: attachedFiles is STILL empty after all extraction attempts!");
-      }
+      console.log("   📦 Complete transformed object:", JSON.stringify(transformedData, null, 2));
 
       // Create multipart FormData for file attachments
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📎 STEP 4: Preparing multipart FormData with file attachments");
+      console.log("📎 STEP 3: Preparing multipart FormData with file attachments");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
-      // FINAL VERIFICATION: Ensure attachedFiles is in transformedData before stringifying
-      if (!transformedData.attachedFiles || transformedData.attachedFiles.length === 0) {
-        console.error("❌ CRITICAL ERROR: attachedFiles is empty before creating FormData!");
-        console.error("   This will result in empty attachedFiles in the database!");
-        console.error("   transformedData keys:", Object.keys(transformedData));
-        console.error("   transformedData.attachedFiles:", transformedData.attachedFiles);
-      } else {
-        console.log("✅ VERIFIED: attachedFiles has", transformedData.attachedFiles.length, "files before stringifying");
-      }
-      
-      // CRITICAL: Ensure attachedFiles is ALWAYS present in transformedData before stringifying
-      // Even if empty, it must be an array (not undefined/null)
-      if (!transformedData.attachedFiles) {
-        console.error("❌ CRITICAL: attachedFiles is undefined/null! Setting to empty array.");
-        transformedData.attachedFiles = [];
-      }
-      if (!Array.isArray(transformedData.attachedFiles)) {
-        console.error("❌ CRITICAL: attachedFiles is not an array! Converting to array.");
-        transformedData.attachedFiles = Array.isArray(transformedData.attachedFiles) ? transformedData.attachedFiles : [];
-      }
-      
-      // Final check: Log the exact structure before stringifying
-      console.log("🔍 FINAL CHECK before stringifying:");
-      console.log("   transformedData keys:", Object.keys(transformedData));
-      console.log("   transformedData.attachedFiles type:", typeof transformedData.attachedFiles);
-      console.log("   transformedData.attachedFiles isArray:", Array.isArray(transformedData.attachedFiles));
-      console.log("   transformedData.attachedFiles length:", transformedData.attachedFiles?.length || 0);
-      
       const multipartData = new FormData();
-      let submissionJson = JSON.stringify(transformedData);
-      
-      // Verify attachedFiles is in the JSON string
-      let jsonToUse = submissionJson;
-      try {
-        const parsed = JSON.parse(submissionJson);
-        console.log("🔍 Parsed JSON keys:", Object.keys(parsed));
-        console.log("🔍 parsed.attachedFiles:", parsed.attachedFiles);
-        console.log("🔍 parsed.attachedFiles type:", typeof parsed.attachedFiles);
-        console.log("🔍 parsed.attachedFiles isArray:", Array.isArray(parsed.attachedFiles));
-        
-        if (parsed.attachedFiles && Array.isArray(parsed.attachedFiles) && parsed.attachedFiles.length > 0) {
-          console.log("✅ VERIFIED: attachedFiles is present in JSON string with", parsed.attachedFiles.length, "files");
-        } else if (parsed.attachedFiles && Array.isArray(parsed.attachedFiles)) {
-          console.warn("⚠️ WARNING: attachedFiles is present but EMPTY in JSON string!");
-        } else {
-          console.error("❌ CRITICAL ERROR: attachedFiles is missing or not an array in JSON string!");
-          console.error("   parsed.attachedFiles:", parsed.attachedFiles);
-          console.error("   JSON string preview (first 500 chars):", submissionJson.substring(0, 500));
-          
-          // LAST RESORT: Manually add attachedFiles to the JSON
-          console.error("   🔧 Attempting to manually inject attachedFiles into JSON...");
-          try {
-            const parsedWithFiles = { ...parsed, attachedFiles: allAttachedFiles.length > 0 ? allAttachedFiles : [] };
-            jsonToUse = JSON.stringify(parsedWithFiles);
-            console.log("   ✅ Created corrected JSON with", parsedWithFiles.attachedFiles.length, "files");
-            
-            // Verify the corrected JSON
-            const verifyParsed = JSON.parse(jsonToUse);
-            if (verifyParsed.attachedFiles && Array.isArray(verifyParsed.attachedFiles)) {
-              console.log("   ✅ Verified corrected JSON has attachedFiles:", verifyParsed.attachedFiles.length, "files");
-            } else {
-              console.error("   ❌ Corrected JSON still missing attachedFiles!");
-            }
-          } catch (e) {
-            console.error("   ❌ Failed to create corrected JSON:", e);
-            // Use original JSON as fallback
-          }
-        }
-      } catch (e) {
-        console.error("❌ Failed to verify JSON:", e);
-      }
-      
-      multipartData.append("submission", jsonToUse);
+      multipartData.append("submission", JSON.stringify(transformedData));
 
-      // Append file attachments recursively (for new files being uploaded)
-      // Note: For consolidated submissions, files are already in S3, so this might be empty
+      // Append file attachments recursively
       appendFilesRecursively(multipartData, formData);
 
       console.log("✅ Multipart FormData prepared");
@@ -1854,30 +1053,32 @@ export const StateAggregateReviewPage = () => {
       for (const [key, val] of multipartData.entries()) {
         if (val instanceof File) {
           console.log(`   📎 ${key}: File - ${val.name} (${val.size} bytes)`);
-        } else if (key === "submission") {
-          // For submission JSON, show summary
-          const jsonStr = val as string;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            console.log(`   📄 ${key}: JSON with attachedFiles count: ${parsed.attachedFiles?.length || 0}`);
-          } catch {
-            console.log(`   📄 ${key}: JSON string (${jsonStr.length} chars)`);
-          }
         } else {
-          console.log(`   📄 ${key}:`, typeof val === 'string' && val.length > 200 ? val.substring(0, 200) + "..." : val);
+          // For large JSON, show summary instead of full content
+          if (typeof val === 'string' && val.length > 500) {
+            console.log(`   📄 ${key}: ${val.substring(0, 200)}... (truncated, total length: ${val.length})`);
+          } else {
+            console.log(`   📄 ${key}:`, val);
+          }
         }
       }
 
-      // Get authentication token for submission
+      // Get authentication token
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔐 STEP 5: Preparing API request");
+      console.log("🔐 STEP 4: Preparing API request");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       
-      console.log("✅ Token already retrieved");
+      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
+      const tokenData = tokenDataRaw ? JSON.parse(tokenDataRaw) : null;
+      const tokenFromNewKey = tokenData?.value?.accessToken;
+      const tokenFromLegacyKey = localStorage.getItem("access_token") || undefined;
+      const token = tokenFromNewKey || tokenFromLegacyKey || "";
+
+      console.log("✅ Token retrieved:", token ? "Yes" : "No");
 
       // Submit consolidated submission
       console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📤 STEP 6: Creating consolidated submission");
+      console.log("📤 STEP 5: Creating consolidated submission");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📡 API Endpoint: POST /submission");
       console.log("📝 Submission ID:", transformedData.submissionId);
@@ -1897,66 +1098,6 @@ export const StateAggregateReviewPage = () => {
 
       console.log("✅ Submission successful!");
       console.log("📦 Response:", response.data);
-      
-      // Extract created submission details
-      const createdSubmission = response.data?.data || response.data;
-      const consolidatedSubmissionId = createdSubmission?.id || createdSubmission?.submissionId || transformedData.submissionId;
-      
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🔗 STEP 7: Updating source submissions with consolidation metadata");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📝 Consolidated Submission ID:", consolidatedSubmissionId);
-      console.log("📋 Source Submission IDs to update:", sourceSubmissionIds);
-      
-      // Update source submissions to mark them as consolidated
-      // Use the already-fetched sourceSubmissions which have their UUIDs
-      if (sourceSubmissions.length > 0 && consolidatedSubmissionId) {
-        try {
-          console.log(`📝 Updating ${sourceSubmissions.length} source submissions with consolidation metadata...`);
-          
-          // Update each source submission using its UUID
-          const updatePromises = sourceSubmissions.map(async (sourceSubmission) => {
-            const actualSubmissionId = sourceSubmission.id; // Use the database UUID
-            const submissionIdString = sourceSubmission.submissionId; // For logging
-            
-            if (!actualSubmissionId) {
-              console.warn(`⚠️ Source submission ${submissionIdString} has no UUID, skipping update`);
-              return;
-            }
-            
-            try {
-              // Get current formData
-              const currentSubmission = await apiService.getSubmission(actualSubmissionId);
-              const currentFormData = currentSubmission?.formData || {};
-              
-              // Add consolidation metadata to formData
-              const updatedFormData = {
-                ...currentFormData,
-                _consolidation: {
-                  consolidatedInto: consolidatedSubmissionId,
-                  consolidatedAt: new Date().toISOString(),
-                  consolidatedBy: user?.id || '',
-                },
-              };
-              
-              // Update the submission with consolidation metadata
-              await apiService.updateSubmission(actualSubmissionId, updatedFormData);
-              console.log(`✅ Updated source submission ${submissionIdString} (UUID: ${actualSubmissionId})`);
-            } catch (updateError: any) {
-              console.warn(`⚠️ Failed to update source submission ${submissionIdString} (UUID: ${actualSubmissionId}):`, updateError?.message);
-              // Don't fail the whole process if one update fails
-            }
-          });
-          
-          await Promise.allSettled(updatePromises);
-          console.log("✅ Finished updating source submissions");
-        } catch (updateError: any) {
-          console.warn("⚠️ Error updating source submissions:", updateError?.message);
-          // Don't fail the consolidation if metadata update fails
-        }
-      } else {
-        console.log("ℹ️ No source submissions to update or missing consolidated submission ID");
-      }
       
       // Immediately disable submit button to prevent multiple submissions
       console.log("🔒 [Submit] Immediately disabling Submit Now button to prevent multiple submissions");
@@ -2307,7 +1448,6 @@ export const StateAggregateReviewPage = () => {
                 documents={mockSubmission.attachedFiles || []}
                 submissionId={mockSubmission.id}
                 formData={formData}
-                isPreview={false}
               />
             </TabsContent>
 
@@ -2334,7 +1474,7 @@ export const StateAggregateReviewPage = () => {
             <AlertDialogCancel disabled={submittingFinal}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                await handleRevertAndSubmit();
+                await handleFinalSubmit();
               }}
               disabled={submittingFinal}
               className="bg-[#1e3a8a] hover:bg-[#1e3299]"

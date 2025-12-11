@@ -19,7 +19,6 @@ import {
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
 import { EmptyState } from "./components/EmptyState";
-import { CleanupButtons } from "./components/CleanupButtons";
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
@@ -139,20 +138,6 @@ export function UserManagementPage() {
     // Load states to ensure cache is available
     loadStates();
   }, [loadOfficers]); // Add loadOfficers dependency back
-
-  // Refresh officers list when window regains focus (handles multi-tab scenarios)
-  useEffect(() => {
-    const handleFocus = () => {
-      // Refresh officers list when user switches back to this tab
-      // This ensures UI stays in sync if user creates/deletes users in another tab
-      loadOfficers();
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [loadOfficers]);
 
   const computeAvailableIndicatorsForState = (
     stateName: string,
@@ -456,7 +441,6 @@ export function UserManagementPage() {
           //throw new Error("State is required but not provided");
         }
 
- 
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
@@ -503,7 +487,7 @@ export function UserManagementPage() {
                 selectedStateId = officerData.stateId; // Fallback to ID if not found
                 selectedStateName = officerData.stateId; // Fallback to ID if not found
                 console.warn(
-                  "⚠️ State not found in states array1:",
+                  "⚠️ State not found in states array:",
                   officerData.stateId
                 );
               }
@@ -518,7 +502,7 @@ export function UserManagementPage() {
                 selectedStateId = officerData.stateId; // Fallback
                 selectedStateName = officerData.stateId; // Fallback
                 console.warn(
-                  "⚠️ State not found in states array2:",
+                  "⚠️ State not found in states array:",
                   officerData.stateId
                 );
               }
@@ -549,9 +533,8 @@ export function UserManagementPage() {
         }
 
         // Before calling register, compute final values to send:
-        const stateUtToSend = 
-            selectedStateName || officerData.stateUt || selectedStateId || "";
- 
+        const stateUtToSend =
+          selectedStateName || officerData.stateUt || selectedStateId || "";
 
         // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
         newUser = await apiService.register(
@@ -561,7 +544,7 @@ export function UserManagementPage() {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          officerData.stateUt, // <- pass state NAME here (was officerData.stateUt)
+          stateUtToSend, // <- pass state NAME here (was officerData.stateUt)
           selectedStateId, // <- state ID
           officerData.assignedIndicators // indicators
         );
@@ -791,14 +774,11 @@ export function UserManagementPage() {
   // Filter and sort officers
   const filteredOfficers = officers
     .filter((officer) => {
-      const lowerSearch = searchTerm.toLowerCase();
       const matchesSearch =
         searchTerm === "" ||
-        officer.firstName.toLowerCase().includes(lowerSearch) ||
-        officer.lastName.toLowerCase().includes(lowerSearch) ||
-        officer.email.toLowerCase().includes(lowerSearch) ||
-        (officer.state && officer.state.toLowerCase().includes(lowerSearch)) ||
-        (officer.stateId && officer.stateId.toLowerCase().includes(lowerSearch));
+        officer.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        officer.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        officer.email.toLowerCase().includes(searchTerm.toLowerCase());
 
       // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
       const isStateApprover = user?.role === "STATE_APPROVER";
@@ -998,7 +978,11 @@ export function UserManagementPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               User Management
-            </h1>            
+            </h1>
+            <p className="text-muted-foreground">
+              Add or remove Nodal Officers for your State/UT and assign them
+              specific indicators for data submission
+            </p>
           </div>
         </div>
         <EmptyState onAddClick={handleAddUser} />
@@ -1057,32 +1041,25 @@ export function UserManagementPage() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">
-              User Management
-            </h1> 
+              Enter officer details
+            </h1>
+            <p className="text-[#000]">
+              Add or remove Nodal Officers for your State/UT and assign them
+              specific indicators for data submission.
+            </p>
           </div>
         </div>
         <div className="flex gap-3">
-          {/* Cleanup Buttons Component - Comment/Uncomment to enable/disable */}
-          <CleanupButtons
-            userRole={user?.role}
-            onRefresh={loadOfficers}
-            isDeleting={isDeleting}
-          />
-          {/* End Cleanup Buttons Component */}
           <Button
             variant="outline"
             onClick={handleDeleteAll}
             disabled={
-              isDeleting ||
-              (selectedIds.size === 0 && officers.length === 0)
+              isDeleting || (selectedIds.size === 0 && officers.length === 0)
             }
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </Button>
-          <Button
-            onClick={handleAddUser}
-            disabled={isDeleting}
-          >
+          <Button onClick={handleAddUser} disabled={isDeleting}>
             <Plus className="w-4 h-4 mr-2" />
             Add User
           </Button>
@@ -1094,7 +1071,7 @@ export function UserManagementPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search by name, email or state name..."
+            placeholder="Search by name or email..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -1116,13 +1093,10 @@ export function UserManagementPage() {
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Select Roles</SelectItem>
-
-               {user?.role !== "ADMIN" && (
+              <SelectItem value="all">All Roles</SelectItem>
               <SelectItem value="NODAL_OFFICER">
                 {getRoleDisplayName("NODAL_OFFICER")}
               </SelectItem>
-               )}
               {user?.role !== "STATE_APPROVER" && (
                 <>
                   <SelectItem value="STATE_APPROVER">
@@ -1134,13 +1108,11 @@ export function UserManagementPage() {
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
                   </SelectItem>
-                  
-                </>
-              )}
-               {user?.role == "ADMIN" && (<SelectItem value="ADMIN">
+                  <SelectItem value="ADMIN">
                     {getRoleDisplayName("ADMIN")}
                   </SelectItem>
-                )}
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -1186,7 +1158,7 @@ export function UserManagementPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            {/* Page {currentPage} of {totalPages} */}
+            Page {currentPage} of {totalPages}
           </div>
           <div className="flex items-center space-x-2">
             <Button

@@ -106,7 +106,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Bond Type</th>
               <th className="py-3 px-4 text-left text-sm font-normal">City</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Issuing Authority</th>
-              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Value (INR - values is in CRORES)</th>
+              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Value (₹ Crores)</th>
             </tr>
           </thead>
           <tbody>
@@ -227,7 +227,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
               />
             </div>
             <div>
-              <Label>Value (INR - values is in CRORES)</Label>
+              <Label>Value (₹ Crores)</Label>
               <Input
                 type="number"
                 value={newBondEntry.value}

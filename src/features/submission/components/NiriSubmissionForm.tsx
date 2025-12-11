@@ -300,15 +300,6 @@ export function NiriSubmissionForm({
         title: "Success",
         description: "Submission created successfully",
       });
-
-      // 🔒 Dispatch custom event to notify DashboardLayout - Scenario 2: Disable Create Submission button
-      if (isStateApprover) {
-        console.log("🔒 [NiriSubmissionForm] Dispatching submission-success event");
-        window.dispatchEvent(new CustomEvent('submission-success', {
-          detail: { submissionId, isStateApprover: true }
-        }));
-      }
-
       if (onSuccess) onSuccess(response);
     } catch (error: any) {
       console.error("❌ Submission failed:", error);

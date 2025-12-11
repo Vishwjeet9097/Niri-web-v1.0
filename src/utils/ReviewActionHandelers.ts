@@ -6,8 +6,6 @@ export interface SaveSectionPayload {
   category: string;
   section: string;
   fields: Record<string, any>[];
-  successMessage?: string; // Optional custom success message
-  errorMessage?: string; // Optional custom error message
 }
 
 export const handleSaveSection = async (payload: SaveSectionPayload) => {
@@ -19,11 +17,11 @@ export const handleSaveSection = async (payload: SaveSectionPayload) => {
       fields: payload.fields
     });
 
-    notificationService.success(payload.successMessage || 'Section updated successfully');
+    notificationService.success('Section updated successfully');
     return result;
   } catch (error) {
     console.error('Failed to save section:', error);
-    notificationService.error(payload.errorMessage || 'Failed to save section');
+    notificationService.error('Failed to save section');
     throw error;
   }
 };

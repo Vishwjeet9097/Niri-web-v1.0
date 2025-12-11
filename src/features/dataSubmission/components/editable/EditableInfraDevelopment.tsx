@@ -613,7 +613,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                     <Label>Estimated Monetization (INR - values is in CRORES)
 </Label>
                     <Input
-                      placeholder="INR - values is in CRORES"
+                      placeholder="₹ Crores"
                       value={asset.estimatedMonetization}
                       onChange={(e) =>
                         updateAsset(

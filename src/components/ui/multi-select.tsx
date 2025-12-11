@@ -200,45 +200,30 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                     className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded"
                   >
                     {option.label}
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOptionToggle(option.value);
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleOptionToggle(option.value);
-                        }
-                      }}
-                      className="ml-1 hover:text-blue-600 cursor-pointer"
+                      className="ml-1 hover:text-blue-600"
                     >
                       <X className="w-3 h-3" />
-                    </span>
+                    </button>
                   </span>
                 ))}
                 {selectedOptions.length > 3 && (
-                  <span
-                    role="button"
-                    tabIndex={0}
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       // Toggle showing all selected options
                       // This will be handled by parent component
                     }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }
-                    }}
                     className="text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                   >
                     +{selectedOptions.length - 3} more
-                  </span>
+                  </button>
                 )}
               </div>
             )}

@@ -20,27 +20,25 @@ const Filters = ({
 }) => {
   return (
     <div style={{ display: "flex", gap: 16 }}>
-      {/* Region Dropdown - Only render if regionOptions is provided */}
-      {regionOptions && regionOptions.length > 0 && (
-        <select
-          value={region}
-          onChange={(e) => onRegionChange && onRegionChange(e.target.value)}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 6,
-            border: "1px solid #D1D5DB",
-            background: "#fff",
-            fontSize: 15,
-            minWidth: 120,
-          }}
-        >
-          {regionOptions.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      )}
+      {/* Region Dropdown */}
+      <select
+        value={region}
+        onChange={(e) => onRegionChange(e.target.value)}
+        style={{
+          padding: "8px 16px",
+          borderRadius: 6,
+          border: "1px solid #D1D5DB",
+          background: "#fff",
+          fontSize: 15,
+          minWidth: 120,
+        }}
+      >
+        {regionOptions.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
 
       {/* Category Dropdown */}
       <select
@@ -53,8 +51,6 @@ const Filters = ({
           background: "#fff",
           fontSize: 15,
           minWidth: 120,
-          position: "relative",
-          zIndex: 1,
         }}
       >
         {categoryOptions.map((opt) => (

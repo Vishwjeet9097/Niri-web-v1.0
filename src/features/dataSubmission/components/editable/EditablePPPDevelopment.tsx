@@ -11,9 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  TooltipProvider,
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Calendar } from "@/components/ui/calendar";
@@ -90,55 +90,40 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
   }, [formData, updateFormData]);
 
   // Section 3.3 handlers
-  const generateId = () => {
-    if (typeof crypto !== "undefined" && crypto.randomUUID) {
-      return crypto.randomUUID();
-    }
-    // Fallback for environments without crypto.randomUUID
-    return Math.random().toString(36).substr(2, 9);
-  };
-
   const addProject = () => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: {
-        VGFArray: [
-          ...(prev.section3_3?.VGFArray || []),
-          {
-            id: generateId(),
-            projectName: "",
-            sector: "",
-            type: "",
-            submissionDate: "",
-            file: null,
-            marksObtained: 0,
-          },
-        ],
-      },
+      section3_3: [
+        ...prev.section3_3,
+        {
+          id: crypto.randomUUID(),
+          projectName: "",
+          sector: "",
+          type: "",
+          submissionDate: "",
+          file: null,
+        },
+      ],
     }));
   };
 
   const removeProject = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: {
-        VGFArray: (prev.section3_3?.VGFArray || []).filter((entry) => entry.id !== id),
-      },
+      section3_3: prev.section3_3.filter((entry) => entry.id !== id),
     }));
   };
 
   const updateProject = (
     id: string,
-    field: "projectName" | "sector" | "type" | "submissionDate" | "file" | "marksObtained",
+    field: "projectName" | "sector" | "type" | "submissionDate" | "file",
     value: any
   ) => {
     setFormData((prev) => ({
       ...prev,
-      section3_3: {
-        VGFArray: (prev.section3_3?.VGFArray || []).map((entry) =>
-          entry.id === id ? { ...entry, [field]: value } : entry
-        ),
-      },
+      section3_3: prev.section3_3.map((entry) =>
+        entry.id === id ? { ...entry, [field]: value } : entry
+      ),
     }));
   };
 
@@ -151,14 +136,13 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
         projects: [
           ...(prev.section3_4.projects || []),
           {
-            id: generateId(),
+            id: crypto.randomUUID(),
             nameOfProject: "",
             nipId: "",
             fundingSource: "",
             infrastructureSector: "",
             dateOfAward: "",
             capexPercentage: "",
-            totalProjectCost: "",
           },
         ],
       },

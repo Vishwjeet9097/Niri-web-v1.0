@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,7 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
-import { computeAllStepsSummary } from "@/features/submission/utils/progress";
+import ReviewerKPICards from "./components/reviewer/ReviewerKPICards";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
@@ -19,12 +18,7 @@ export const MospiApproverDashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedState, setSelectedState] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-  const [isFilteredByCard, setIsFilteredByCard] = useState(false);
-  const [selectedCardTitle, setSelectedCardTitle] = useState<string | null>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
 
-  // Initial load - no status filter (keep existing behavior)
   useEffect(() => {
     const loadSubmissions = async () => {
       try {
@@ -45,59 +39,7 @@ export const MospiApproverDashboardPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
         
-        // Calculate progress for each submission (same as STATE_APPROVER)
-        // For MOSPI_APPROVER: Progress excludes indicators with mospi_status = REVERTED
-        const submissionsWithProgress = submissionsArray.map((sub: any) => {
-          const fd = sub.formData || sub.form_data || {};
-          
-          // Calculate proper progress using computeAllStepsSummary
-          // This will automatically exclude sections with mospi_status = REVERTED
-          // because isSectionFilled checks for mospiStatus === "REVERTED" and returns false
-          const summary = computeAllStepsSummary(fd, {});
-          
-          // Calculate overall progress from all steps
-          const totalCompleted = 
-            summary.infraFinancing.completed +
-            summary.infraDevelopment.completed +
-            summary.pppDevelopment.completed +
-            summary.infraEnablers.completed;
-          
-          const totalSections = 
-            summary.infraFinancing.total +
-            summary.infraDevelopment.total +
-            summary.pppDevelopment.total +
-            summary.infraEnablers.total;
-          
-          // Progress = (indicators with mospi_status = ACCEPTED) / (total indicators) × 100%
-          // Indicators with mospi_status = REVERTED are NOT counted in completed
-          const progress = totalSections > 0 
-            ? Math.round((totalCompleted / totalSections) * 100)
-            : 0;
-          
-          // Debug logging (can be removed in production)
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[Progress] MOSPI_APPROVER - Submission ${sub.id}:`, {
-              status: sub.status,
-              totalSections,
-              totalCompleted,
-              progress,
-              breakdown: {
-                infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
-                infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
-                pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
-                infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
-              }
-            });
-          }
-          
-          return {
-            ...sub,
-            progress: Math.round(progress),
-          };
-        });
-        
-        setSubmissions(submissionsWithProgress);
-        setIsFilteredByCard(false);
+        setSubmissions(submissionsArray);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
         notificationService.error(
@@ -110,153 +52,8 @@ export const MospiApproverDashboardPage = () => {
       }
     };
 
-    // Only load on initial mount
     loadSubmissions();
   }, []);
-
-  // Load submissions with status filter when card is clicked
-  useEffect(() => {
-    const loadSubmissionsByStatus = async () => {
-      if (!selectedStatus) {
-        // If status is cleared, reload all submissions (reset to initial state)
-        const loadAllSubmissions = async () => {
-          try {
-            setLoading(true);
-            setIsFilteredByCard(false);
-            const submissionsData = await apiService.getSubmissions(1, 100);
-            
-            let submissionsArray = [];
-            if (Array.isArray(submissionsData)) {
-              submissionsArray = submissionsData;
-            } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
-              submissionsArray = submissionsData.submissions;
-            } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
-              submissionsArray = (submissionsData as any).data.submissions;
-            } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
-              submissionsArray = (submissionsData as any).data;
-            }
-            
-            // Calculate progress for each submission
-            const submissionsWithProgress = submissionsArray.map((sub: any) => {
-              const fd = sub.formData || sub.form_data || {};
-              const summary = computeAllStepsSummary(fd, {});
-              
-              const totalCompleted = 
-                summary.infraFinancing.completed +
-                summary.infraDevelopment.completed +
-                summary.pppDevelopment.completed +
-                summary.infraEnablers.completed;
-              
-              const totalSections = 
-                summary.infraFinancing.total +
-                summary.infraDevelopment.total +
-                summary.pppDevelopment.total +
-                summary.infraEnablers.total;
-              
-              // Progress excludes indicators with mospi_status = REVERTED
-              const progress = totalSections > 0 
-                ? Math.round((totalCompleted / totalSections) * 100)
-                : 0;
-              
-              return {
-                ...sub,
-                progress: Math.round(progress),
-              };
-            });
-            
-            setSubmissions(submissionsWithProgress);
-          } catch (error) {
-            console.error("❌ Failed to reload all submissions:", error);
-            notificationService.error(
-              "Failed to reload submissions. Please try again.",
-              "Load Error"
-            );
-          } finally {
-            setLoading(false);
-          }
-        };
-        
-        // Only reload if we were previously filtered
-        if (isFilteredByCard) {
-          loadAllSubmissions();
-        }
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setIsFilteredByCard(true);
-        
-        // Call API with status query parameter
-        const submissionsData = await apiService.getSubmissions(1, 100, undefined, selectedStatus);
-        
-        // Handle different response structures
-        let submissionsArray = [];
-        if (Array.isArray(submissionsData)) {
-          submissionsArray = submissionsData;
-        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
-          submissionsArray = submissionsData.submissions;
-        } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
-          submissionsArray = (submissionsData as any).data.submissions;
-        } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
-          submissionsArray = (submissionsData as any).data;
-        }
-        
-        // Calculate progress for each submission (same as STATE_APPROVER)
-        const submissionsWithProgress = submissionsArray.map((sub: any) => {
-          const fd = sub.formData || sub.form_data || {};
-          
-          // Calculate proper progress using computeAllStepsSummary
-          const summary = computeAllStepsSummary(fd, {});
-          
-          const totalCompleted = 
-            summary.infraFinancing.completed +
-            summary.infraDevelopment.completed +
-            summary.pppDevelopment.completed +
-            summary.infraEnablers.completed;
-          
-          const totalSections = 
-            summary.infraFinancing.total +
-            summary.infraDevelopment.total +
-            summary.pppDevelopment.total +
-            summary.infraEnablers.total;
-          
-          // Progress excludes indicators with mospi_status = REVERTED
-          const progress = totalSections > 0 
-            ? Math.round((totalCompleted / totalSections) * 100)
-            : 0;
-          
-          return {
-            ...sub,
-            progress: Math.round(progress),
-          };
-        });
-        
-        setSubmissions(submissionsWithProgress);
-        
-        // Smooth scroll to table after loading filtered submissions
-        setTimeout(() => {
-          tableRef.current?.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-          });
-        }, 100);
-      } catch (error) {
-        console.error("❌ Failed to load filtered submissions:", error);
-        notificationService.error(
-          "Failed to load filtered submissions. Please try again.",
-          "Load Error"
-        );
-        setSubmissions([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Only call when status changes (card clicked or cleared)
-    loadSubmissionsByStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStatus]);
 
   // Filter submissions for the "Recent Submissions" card - show only SUBMITTED_TO_MOSPI_APPROVER
   // Note: The latest submissions table should show all statuses (handled separately)
@@ -274,9 +71,9 @@ export const MospiApproverDashboardPage = () => {
     });
   }, [submissions, user?.role]);
   
-  // All submissions for the latest submissions table
-  // When filtered by card, submissions are already filtered by API, so just apply local filters
+  // All submissions for the latest submissions table (show all statuses)
   const allSubmissionsForTable = useMemo(() => {
+    // For MoSPI Approver: Show all submissions for all statuses
     return submissions.filter((submission) => {
       // State filter
       const stateMatch = selectedState === "All" || submission.stateUt === selectedState;
@@ -327,11 +124,6 @@ export const MospiApproverDashboardPage = () => {
   };
 
   const getStatusText = (status: string) => {
-    // Special handling for MOSPI_APPROVER when status is RETURNED_FROM_MOSPI
-    if (user?.role === "MOSPI_APPROVER" && status === "RETURNED_FROM_MOSPI") {
-      return "RETURNED TO STATE";
-    }
-    
     switch (status) {
       case "SUBMITTED_TO_MOSPI_APPROVER":
         return "Waiting for Final Approval";
@@ -384,37 +176,20 @@ export const MospiApproverDashboardPage = () => {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="bg-white p-6 rounded-lg shadow-md relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Welcome!
-              </h1>
-              <p className="text-gray-600 text-base">
-                Review and provide feedback on NIRI submissions
-              </p>
-            </div>
-            {/* Laptop illustration */}
-            <div className="absolute right-6 top-0 hidden md:block">
-              <img
-                src="/images/dashboard.png"
-                alt="Dashboard"
-                className="h-32 w-auto"
-              />
-            </div>
-          </div>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h1 className="text-3xl font-bold text-foreground ">
+            MoSPI Approver Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Review and approve state submissions
+          </p>
         </div>
 
-        {/* Overview Cards */}
-        <MospiApproverOverviewCards 
-          onStatusFilterChange={setSelectedStatus}
-          onCardTitleChange={setSelectedCardTitle}
-        />
+        {/* KPI Cards */}
+        <ReviewerKPICards />
 
         {/* Recent Submissions */}
-
-        
-        {/* <Card>
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="p-6">Recent Submissions for Final Approval</CardTitle>
@@ -471,7 +246,7 @@ export const MospiApproverDashboardPage = () => {
                       referenceId={submission.submissionId || submission.id}
                       updatedDate={new Date(submission.updatedAt || submission.createdAt).toLocaleDateString()}
                       dueDate={submission.deadline || "TBD"}
-                      progress={submission.progress ?? 0}
+                      progress={submission.progress || 40}
                       nextStep={submission.status === "APPROVED" ? "Submission approved" : submission.status === "REJECTED" ? "Address reviewer feedback" : "Waiting for final approval"}
                       reviewerNote={submission.reviewerNote}
                       submission={submission}
@@ -485,18 +260,13 @@ export const MospiApproverDashboardPage = () => {
               )}
             </div>
           </CardContent>
-        </Card> */}
+        </Card>
 
         {/* Latest Submissions Table */}
-        <div ref={tableRef}>
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="p-6">
-                {selectedCardTitle
-                  ? `${selectedCardTitle} Submissions`
-                  : "Latest Submissions"}
-              </CardTitle>
+              <CardTitle className="p-6">Latest Submissions</CardTitle>
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -508,13 +278,13 @@ export const MospiApproverDashboardPage = () => {
                     className="pl-10 pr-4 py-2 border rounded-md text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
-                  <label htmlFor="state-filter" className="text-sm text-gray-600 whitespace-nowrap">
-                    State
+                <div>
+                  <label htmlFor="state-filter" className="mr-2 text-sm text-gray-600">
+                    States
                   </label>
                   <select
                     id="state-filter"
-                    className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[120px]"
+                    className="border rounded px-2 py-1 text-sm"
                     value={selectedState}
                     onChange={(e) => setSelectedState(e.target.value)}
                   >
@@ -612,7 +382,7 @@ export const MospiApproverDashboardPage = () => {
                               className="gap-2"
                             >
                               <Eye className="w-4 h-4" />
-                              {user?.role === "MOSPI_APPROVER" && submission.status === "RETURNED_FROM_MOSPI" ? "View" : "Review"}
+                              Review
                             </Button>
                           </td>
                         </tr>
@@ -633,7 +403,6 @@ export const MospiApproverDashboardPage = () => {
             </div>
           </CardContent>
         </Card>
-        </div>
 
         {/* Quick Actions */}
         <Card>

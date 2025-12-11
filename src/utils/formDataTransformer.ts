@@ -4,64 +4,30 @@
  * Backend expects: { submissionId: string, formData: object }
  */
 
-import { IndicatorMapping } from "./indicatorMappingUtils";
-
 export interface TransformedFormData {
   submissionId: string;
   formData: Record<string, unknown>;
   status?: string;
-  attachedFiles?: any[]; // File metadata array for consolidated submissions
 }
-
-/**
- * Generate consolidated submission ID
- * @param stateUt - State/UT name (not used in ID, kept for compatibility)
- * @returns Consolidated submission ID in format: SUB-{YEAR}-{LAST_6_DIGITS_OF_TIMESTAMP}
- */
-export const generateConsolidatedSubmissionId = (stateUt?: string): string => {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now();
-  // Use last 6 digits of timestamp to match regular submission pattern
-  const lastSixDigits = String(timestamp).slice(-6);
-  return `SUB-${year}-${lastSixDigits}`;
-};
 
 /**
  * Transform form data to API submission format
  * @param formData - Original form data from localStorage
  * @param status - Submission status (SUBMITTED_TO_STATE for submit, DRAFT for save draft)
- * @param options - Optional parameters for consolidation
  * @returns Transformed data for API submission
  */
 export const transformFormDataForSubmission = (
   formData: unknown,
-  status: string = "SUBMITTED_TO_STATE",
-  options?: {
-    isConsolidated?: boolean;
-    sourceSubmissionIds?: string[];
-    consolidatedBy?: string;
-    stateUt?: string;
-    existingSubmissionId?: string; // Use this ID if updating existing submission
-    indicatorMapping?: IndicatorMapping; // Indicator-level mapping for traceability
-  }
+  status: string = "SUBMITTED_TO_STATE"
 ): TransformedFormData => {
-  // Generate submission ID based on whether it's consolidated or not
-  // If existingSubmissionId is provided, use it (for updates)
-  let submissionId: string;
-  if (options?.existingSubmissionId) {
-    submissionId = options.existingSubmissionId;
-  } else if (options?.isConsolidated && options?.stateUt) {
-    submissionId = generateConsolidatedSubmissionId(options.stateUt);
-  } else {
-    submissionId = `SUB-${new Date().getFullYear()}-${String(
-      Date.now()
-    ).slice(-6)}`;
-  }
+  // Generate unique submission ID
+  const submissionId = `SUB-${new Date().getFullYear()}-${String(
+    Date.now()
+  ).slice(-6)}`;
 
   const formDataObj = formData as Record<string, any>;
 
   // Helper: deep prune empty values ("", null, undefined) and empty arrays/objects
-  // CRITICAL: Preserve file objects (objects with filePath) even if they seem "empty"
   const prune = (value: any): any => {
     if (value === null || value === undefined) return undefined;
     if (typeof value === "string") return value.trim() === "" ? undefined : value;
@@ -74,13 +40,6 @@ export const transformFormDataForSubmission = (
     }
 
     if (typeof value === "object") {
-      // CRITICAL: Check if this is a file object (has filePath) - preserve it!
-      const hasFilePath = value.filePath || value.file?.filePath || value.file?.file?.filePath;
-      if (hasFilePath) {
-        // This is a file object - preserve it completely, don't prune
-        return value;
-      }
-      
       const prunedObj: Record<string, any> = {};
       Object.keys(value).forEach((key) => {
         const prunedVal = prune(value[key]);
@@ -92,60 +51,18 @@ export const transformFormDataForSubmission = (
           prunedObj[key] = prunedVal;
         }
       });
-      
-      // REFINED: Check if object ONLY has calculation fields with zero values
-      // AND has no other meaningful data
-      const calculationFields = ['marksObtained', 'percentage'];
-      const allKeys = Object.keys(prunedObj);
-      const calculationKeys = allKeys.filter(key => calculationFields.includes(key));
-      const nonCalculationKeys = allKeys.filter(key => !calculationFields.includes(key));
-      
-      // Only remove if:
-      // 1. Has calculation fields
-      // 2. Has NO non-calculation fields (no other data)
-      // 3. All calculation values are zero
-      if (calculationKeys.length > 0 && nonCalculationKeys.length === 0) {
-        const allZero = calculationKeys.every(key => {
-          const val = prunedObj[key];
-          return val === 0 || val === "0" || val === "0.0" || val === "0.00" || val === null || val === undefined;
-        });
-        
-        if (allZero) {
-          // This object only has zero calculation fields and nothing else - safe to remove
-          return undefined;
-        }
-      }
-      
       return Object.keys(prunedObj).length > 0 ? prunedObj : undefined;
     }
 
     return value;
   };
 
-  // Only include categories that have meaningful data (not empty/undefined)
-  const cleaned: Record<string, any> = {};
-  const categories = ['infraFinancing', 'infraDevelopment', 'pppDevelopment', 'infraEnablers'];
-
-  categories.forEach(category => {
-    const prunedCategory = prune(formDataObj[category]);
-    // Only include category if it has meaningful data (not empty/undefined)
-    if (prunedCategory && typeof prunedCategory === 'object' && Object.keys(prunedCategory).length > 0) {
-      cleaned[category] = prunedCategory;
-    }
-    // If prunedCategory is undefined or empty, don't add it (prevents empty categories)
-  });
-
-  // Add consolidation metadata if this is a consolidated submission
-  if (options?.isConsolidated) {
-    cleaned._metadata = {
-      isConsolidated: true,
-      sourceSubmissionIds: options.sourceSubmissionIds || [],
-      consolidatedBy: options.consolidatedBy || '',
-      consolidatedAt: new Date().toISOString(),
-      // Add indicator-level mapping if provided
-      ...(options.indicatorMapping && { indicatorMapping: options.indicatorMapping }),
-    };
-  }
+  const cleaned = {
+    infraFinancing: prune(formDataObj.infraFinancing) || {},
+    infraDevelopment: prune(formDataObj.infraDevelopment) || {},
+    pppDevelopment: prune(formDataObj.pppDevelopment) || {},
+    infraEnablers: prune(formDataObj.infraEnablers) || {},
+  };
 
   return {
     submissionId,

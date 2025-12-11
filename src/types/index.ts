@@ -102,7 +102,6 @@ export interface FileUpload {
   id: string;
   file: File | string | null;
   fileName: string;
-  originalName?: string; // Original filename before UUID prefix (from S3)
   fileSize: number;
   uploadedAt: number;
   filePath?: string;
@@ -147,6 +146,14 @@ export interface NiriSubmission {
   rejectionCount: number;
   createdAt: string;
   updatedAt: string;
+  // Track completion status with simple counts
+  section_status?: {
+    completedCount: number;      // Number of completed indicators
+    totalAssigned: number;        // Total indicators assigned to user
+    completedIndicators: string[]; // Array of completed indicator codes like ["1.1", "1.2"]
+  };
+  // Allow normalizedFormData for backend compatibility
+  normalizedFormData?: any;
 }
 
 export interface ReviewComment {

@@ -320,16 +320,12 @@ export function filterSectionFormDataByIndicators(
     "4.6": { category: "infraEnablers", sectionKey: "section4_6" },
   };
 
-  // Track which categories have assigned indicators
-  const categoriesWithAssignedIndicators = new Set<string>();
-  
   // Only include sections for assigned indicators
   // IMPORTANT: Always include assigned sections, even if they're undefined or empty,
   // so they appear in preview/review pages regardless of data presence
   assignedIndicators.forEach((indicatorCode) => {
     const mapping = indicatorToSectionMap[indicatorCode];
     if (mapping) {
-      categoriesWithAssignedIndicators.add(mapping.category);
       if (!filtered[mapping.category]) {
         filtered[mapping.category] = {};
       }
@@ -345,10 +341,9 @@ export function filterSectionFormDataByIndicators(
     }
   });
 
-  // Remove empty categories ONLY if they don't have assigned indicators
-  // This ensures categories with assigned indicators are always preserved, even if empty
+  // Remove empty categories
   Object.keys(filtered).forEach((category) => {
-    if (Object.keys(filtered[category]).length === 0 && !categoriesWithAssignedIndicators.has(category)) {
+    if (Object.keys(filtered[category]).length === 0) {
       delete filtered[category];
     }
   });

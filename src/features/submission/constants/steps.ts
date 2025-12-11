@@ -46,8 +46,8 @@ export const SUBMISSION_STEPS: SubmissionStep[] = [
   {
     id: 5,
     key: "review-submit",
-    title: "Review & Submit",
-    description: "Review all information before final submission",
+    title: "Review & Preview",
+    description: "Review all information and preview your submission",
     points: 0,
     completed: false,
   },

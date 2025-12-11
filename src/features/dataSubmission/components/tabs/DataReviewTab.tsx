@@ -50,24 +50,6 @@ const DEFAULT_SECTIONS = [
 export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false, assignedIndicators, isNodalOfficer, sections }: DataReviewTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   
-  // Helper function to check user role
-  const getUserRole = () => {
-    try {
-      const authUser = localStorage.getItem('niri_app:auth_user');
-      if (authUser) {
-        const user = JSON.parse(authUser);
-        const role = user.value?.role;
-        return role ? String(role).trim() : null;
-      }
-    } catch (error) {
-      console.error('Error reading user role:', error);
-    }
-    return null;
-  };
-  
-  const userRole = getUserRole();
-  const isStateApprover = userRole?.toUpperCase() === 'STATE_APPROVER';
-  
   // Get category from URL params or default to 0
   const categoryParam = searchParams.get('category');
   const initialSection = categoryParam ? parseInt(categoryParam, 10) : 0;
@@ -190,48 +172,6 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
       return sectionsToShow.length > 0 ? sectionsToShow : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
     }
 
-    // For review mode (not preview): show ALL categories that exist in formData
-    // This ensures reviewers can see and review all submitted categories, even if they don't have meaningful data
-    if (!isPreview && formData && typeof formData === 'object') {
-      // Map section ID to formData category key
-      const categoryMap: Record<string, string> = {
-        "infra-financing": "infraFinancing",
-        "infra-development": "infraDevelopment",
-        "ppp-development": "pppDevelopment",
-        "infra-enablers": "infraEnablers",
-      };
-      
-      // Check which categories exist in formData (even if empty)
-      const existingCategories = DEFAULT_SECTIONS.filter((section) => {
-        const formDataCategory = categoryMap[section.id];
-        if (!formDataCategory) return false;
-        
-        // Check if category exists in formData (even if empty object)
-        const categoryExists = formDataCategory in formData && formData[formDataCategory] && typeof formData[formDataCategory] === 'object';
-        
-        // For each category, check if any sub-sections exist (e.g., section4_3 in infraEnablers)
-        if (categoryExists) {
-          const categoryData = formData[formDataCategory];
-          // Check if this category has any section keys (e.g., section4_3, section4_4, etc.)
-          const hasAnySections = Object.keys(categoryData).some(key => key.startsWith('section'));
-          return hasAnySections;
-        }
-        
-        return false;
-      });
-      
-      // Include categories that have data OR exist in formData
-      const categoriesToShow = DEFAULT_SECTIONS.map(section => {
-        const existsInFormData = existingCategories.some(s => s.id === section.id);
-        const hasData = sectionsWithData.find(s => s.id === section.id)?.hasData || false;
-        return { ...section, hasData: hasData || existsInFormData };
-      }).filter(section => section.hasData);
-      
-      if (categoriesToShow.length > 0) {
-        return categoriesToShow;
-      }
-    }
-
     // For aggregate view or non-preview: show sections with data, or all as fallback
     const anyHasData = sectionsWithData.some((s) => s.hasData);
     return anyHasData ? sectionsWithData.filter((s) => s.hasData) : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
@@ -282,13 +222,13 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
     switch (availableSections[currentSection]?.id) {
       case "infra-financing":
         console.log("🔍 [DataReviewTab] Rendering InfraFinancingReview with formData:", sectionFormData.infraFinancing);
-        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} isStateApprover={isStateApprover} />;
+        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
       case "infra-development":
-        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} isStateApprover={isStateApprover} />;
+        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
       case "ppp-development":
-        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} isStateApprover={isStateApprover} />;
+        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
       case "infra-enablers":
-        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} isStateApprover={isStateApprover} />;
+        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
       default:
         return null;
     }

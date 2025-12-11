@@ -74,7 +74,7 @@ export const UserService = {
 
         // Show success notification
         notificationService.success(
-          `Welcome, ${user.firstName}! Login successful.`,
+          `Welcome back, ${user.firstName}! Login successful.`,
           "Login Successful"
         );
 

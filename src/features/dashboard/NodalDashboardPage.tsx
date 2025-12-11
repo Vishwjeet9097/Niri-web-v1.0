@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
-import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { computeAllStepsSummary } from "@/features/submission/utils/progress";
 import {
   FileText,
   AlertCircle,
@@ -122,7 +120,6 @@ export function NodalDashboardPage() {
     pendingSubmission: 0,
   });
   const [loading, setLoading] = useState(true);
-  const { assignedIndicators, isNodalOfficer, loading: indicatorsLoading } = useIndicatorAccess();
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -142,12 +139,11 @@ export function NodalDashboardPage() {
 
         // derive KPI numbers from nodalMetrics if available, otherwise fallback to role KPIs
         const totalIndicators =
-          metrics.totalAssigned ?? 0;
+          metrics.totalAssigned ?? kpiData?.mySubmissions ?? 0;
         const pendingIndicators = metrics.pendingSubmission ?? 0;
         const underReviewIndicators = metrics.underReview ?? 0;
         const approvedIndicators = metrics.approved ?? 0;
         const sentBackIndicators = metrics.reverted ?? 0;
-        const totalSubmitted = metrics.totalSubmitted ?? 0;
 
         const kpisData = [
           {
@@ -161,7 +157,7 @@ export function NodalDashboardPage() {
           },
           {
             title: "Total Submitted",
-            value: String(totalSubmitted ?? 0),
+            value: String(metrics.totalSubmitted ?? 0),
             subtitle: "Submitted forms",
             icon: TrendingUp,
             variant: "blue" as const,
@@ -176,15 +172,6 @@ export function NodalDashboardPage() {
             variant: "blue" as const,
             description:
               "Submissions that have been sent by the Nodal Officer and are currently under review.",
-          },          
-          {
-            title: "Send Back",
-            value: `${sentBackIndicators}/${totalIndicators || 0}`,
-            subtitle:  "Send Back",
-            icon: Clock,
-            variant: "orange" as const,
-            description:
-              "Send Back submissions that require further action before approval.",
           },
           {
             title: "Approved",
@@ -194,7 +181,16 @@ export function NodalDashboardPage() {
             variant: "green" as const,
             description:
               "Submissions that have been reviewed and approved at all required levels.",
-          },          
+          },
+          {
+            title: "Pending Submissions",
+            value: `${pendingIndicators}/${totalIndicators || 0}`,
+            subtitle: `${pendingIndicators} pending`,
+            icon: Clock,
+            variant: "orange" as const,
+            description:
+              "Indicators assigned to the Nodal Officer but for which forms have not yet been submitted.",
+          },
         ];
 
         setKpis(kpisData);
@@ -217,56 +213,11 @@ export function NodalDashboardPage() {
         setSubmissions(
           submissionsArray.map((sub: any) => {
             const fd = sub.form_data || sub.formData || {};
-            
-            // Calculate proper progress using computeAllStepsSummary
-            // For NODAL_OFFICER: Progress is based on assigned indicators
-            // Total = assigned indicators that exist in formData
-            // Progress = (filled assigned indicators / total assigned indicators) × 100%
-            // Example: If 3 indicators assigned and all 3 filled = 100%
-            // If an indicator is sent back (REVERTED), it won't count as filled but is still in total
-            const summary = computeAllStepsSummary(fd, {
-              assignedIndicators: assignedIndicators || [],
-              isNodalOfficer: isNodalOfficer || false,
-            });
-            
-            // Calculate overall progress from all steps
-            const totalCompleted = 
-              summary.infraFinancing.completed +
-              summary.infraDevelopment.completed +
-              summary.pppDevelopment.completed +
-              summary.infraEnablers.completed;
-            
-            const totalSections = 
-              summary.infraFinancing.total +
-              summary.infraDevelopment.total +
-              summary.pppDevelopment.total +
-              summary.infraEnablers.total;
-            
-            // Progress based on assigned indicators only
-            // If 3 indicators assigned and 2 filled = 66.67%
-            // If 1 sent back (REVERTED), only 1 counts as filled = 33.33%
-            // If no assigned indicators, progress is 0%
-            const progress = totalSections > 0 
-              ? Math.round((totalCompleted / totalSections) * 100)
-              : 0;
-            
-            // Debug logging (can be removed in production)
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`[Progress] Submission ${sub.id}:`, {
-                assignedIndicators: assignedIndicators?.length || 0,
-                assignedIndicatorsList: assignedIndicators || [],
-                isNodalOfficer,
-                totalSections,
-                totalCompleted,
-                progress,
-                breakdown: {
-                  infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
-                  infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
-                  pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
-                  infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
-                }
-              });
-            }
+            const formDataKeys = Object.keys(fd || {});
+            const progress =
+              formDataKeys.length > 0
+                ? Math.min(100, (formDataKeys.length / 10) * 100)
+                : 0;
 
             let nextStep = "Complete submission";
             if (sub.status === "DRAFT")
@@ -325,15 +276,8 @@ export function NodalDashboardPage() {
       }
     };
 
-    // Only load dashboard data if indicators are loaded (for NODAL_OFFICER)
-    // This ensures progress calculation has access to assignedIndicators
-    if (isNodalOfficer && indicatorsLoading) {
-      // Wait for assignedIndicators to load
-      return;
-    }
-    
     loadDashboardData();
-  }, [assignedIndicators, isNodalOfficer, indicatorsLoading]);
+  }, []);
 
   if (loading) {
     return (
@@ -368,7 +312,7 @@ export function NodalDashboardPage() {
       {/* Header */}
       <div className="bg-[#fff] p-6 rounded-lg relative">
         <div>
-          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome</h1>
+          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome back</h1>
           <p className="text-[#212121]">
             Manage your NIRI data submissions and track approval status
           </p>
@@ -413,7 +357,7 @@ export function NodalDashboardPage() {
       </TooltipProvider>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-1">
+      <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <div className="space-y-4">
             <div className="bg-white shadow-xl rounded-xl p-6">
@@ -428,13 +372,13 @@ export function NodalDashboardPage() {
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="flex justify-start items-center gap-6 px-1">
-                  {/* <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
                   <TabsTrigger value="SUBMITTED_TO_STATE">
                     Under Review
                   </TabsTrigger>
                   <TabsTrigger value="APPROVED">Approved</TabsTrigger>
-                  <TabsTrigger value="DRAFT">Draft</TabsTrigger> */}
+                  <TabsTrigger value="DRAFT">Draft</TabsTrigger>
                 </TabsList>
                 <TabsContent value={activeTab} className="mt-4">
                   <div className="space-y-4">
@@ -471,9 +415,9 @@ export function NodalDashboardPage() {
                       ))
                     )}
                   </div>
-                  {/* <div className="mt-4 text-center">
+                  <div className="mt-4 text-center">
                     <Button variant="outline">View All</Button>
-                  </div> */}
+                  </div>
                 </TabsContent>
               </Tabs>
             </div>
@@ -481,10 +425,10 @@ export function NodalDashboardPage() {
         </div>
 
         <div className="space-y-6 lg:w-[300px] ">
-          {/* <UpcomingDeadlines deadlines={deadlines} /> */}
+          <UpcomingDeadlines deadlines={deadlines} />
 
           {/* Quick Actions */}
-          {/* <QuickActions
+          <QuickActions
             actions={[
               {
                 id: "1",
@@ -515,9 +459,9 @@ export function NodalDashboardPage() {
                 onClick: () => console.log("Help center"),
               },
             ]}
-          /> */}
+          />
 
-          {/* <QuickTips
+          <QuickTips
             tips={[
               {
                 id: "1",
@@ -535,7 +479,7 @@ export function NodalDashboardPage() {
                 description: "Add relevant files to strengthen your submission",
               },
             ]}
-          /> */}
+          />
         </div>
       </div>
     </div>

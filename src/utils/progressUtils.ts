@@ -27,9 +27,9 @@ export interface ProgressStats {
 //   const submissions = apiPayload?.data?.submissions ?? apiPayload?.submissions ?? [];
 
 //   const APPROVED_SET = new Set([
-//     "APPROVED",        
-//     "ACCEPTED",       
-   
+//     "APPROVED",
+//     "ACCEPTED",
+
 //   ]);
 
 //   const approvedPaths = new Set<string>();
@@ -57,7 +57,7 @@ export interface ProgressStats {
 
 // //   const approvedCount = approved.size;
 
-// const approved = approvedPaths.size; 
+// const approved = approvedPaths.size;
 //   const percentage =
 //     totalIndicators > 0
 //       ? Math.round((approved / totalIndicators) * 100)
@@ -117,7 +117,6 @@ export interface ProgressStats {
 //   return { approved, total: totalIndicators, percentage };
 // };
 
-
 // export const calculateStateProgressFromApi = (resp: any): ProgressStats => {
 //   const s = resp?.data?.summary;
 //   if (s && typeof s.acceptedCount === "number" && typeof s.totalIndicators === "number") {
@@ -162,10 +161,97 @@ export interface ProgressStats {
 
 // progressUtils.ts
 
+/**
+ * Calculate progress from raw submissions array (fallback when API doesn't return proper data)
+ */
+export const calculateStateProgressFromSubmissions = (
+  submissions: any[],
+  userStateUt?: string
+): ProgressStats => {
+  const APPROVED = new Set(["APPROVED", "ACCEPTED"]);
 
-export const calculateStateProgressFromApi = (resp: any): ProgressStats => {
+  // Filter submissions relevant to STATE_APPROVER
+  const relevantSubmissions = submissions.filter((sub) => {
+    // Include DRAFT and SUBMITTED_TO_STATE submissions from the same state
+    const statusMatch =
+      sub.status === "DRAFT" || sub.status === "SUBMITTED_TO_STATE";
+    const stateMatch =
+      !userStateUt ||
+      sub.stateUt?.toUpperCase() === userStateUt.toUpperCase() ||
+      sub.user?.stateUt?.toUpperCase() === userStateUt.toUpperCase();
+    return statusMatch && stateMatch;
+  });
+
+  console.log("🧮[calc] Calculating from submissions array:", {
+    totalSubmissions: submissions.length,
+    relevantSubmissions: relevantSubmissions.length,
+    userStateUt,
+  });
+
+  const toCodeFromSectionKey = (sectionKey?: string): string | null => {
+    if (!sectionKey) return null;
+    if (sectionKey.startsWith("section")) {
+      const num = sectionKey.replace(/^section/, "").replace("_", ".");
+      return /^\d+(\.\d+)*$/.test(num) ? num : null;
+    }
+    return /^\d+(\.\d+)*$/.test(sectionKey) ? sectionKey : null;
+  };
+
+  const acceptedCodes = new Set<string>();
+
+  // Extract accepted indicators from formData
+  for (const sub of relevantSubmissions) {
+    const formData = sub.formData || sub.form_data || {};
+
+    // Iterate through categories (infraFinancing, infraDevelopment, etc.)
+    Object.entries(formData).forEach(
+      ([parentKey, parentData]: [string, any]) => {
+        if (typeof parentData !== "object" || parentData === null) return;
+
+        // Iterate through sections (section1_1, section1_2, etc.)
+        Object.entries(parentData).forEach(
+          ([sectionKey, sectionData]: [string, any]) => {
+            if (typeof sectionData !== "object" || sectionData === null) return;
+
+            // Check if this section has ACCEPTED status
+            const status = String(sectionData?.status ?? "").toUpperCase();
+            if (!APPROVED.has(status)) return;
+
+            // Extract indicator code from sectionKey (e.g., "section1_1" -> "1.1")
+            const code = toCodeFromSectionKey(sectionKey);
+            if (code) {
+              acceptedCodes.add(code);
+              console.log(
+                `✅[calc] Found accepted indicator ${code} in ${parentKey}.${sectionKey}`
+              );
+            }
+          }
+        );
+      }
+    );
+  }
+
+  const total = 20; // Default total indicators
+  const approved = acceptedCodes.size;
+  const percentage = total ? Math.round((approved / total) * 100) : 0;
+
+  const out = { approved, total, percentage };
+  console.log(
+    "✅[calc] Calculated from submissions ->",
+    out,
+    "acceptedCodes:",
+    Array.from(acceptedCodes)
+  );
+  return out;
+};
+
+export const calculateStateProgressFromApi = (
+  resp: any,
+  fallbackSubmissions?: any[],
+  userStateUt?: string
+): ProgressStats => {
   // 🔧 Normalize shape: accept either payload or envelope
-  const payload = (resp && resp.data !== undefined) ? resp.data : resp;
+  const payload = resp && resp.data !== undefined ? resp.data : resp;
 
   console.log("🧮[calc] raw resp:", resp);
   console.log("🧮[calc] normalized payload:", payload);
@@ -174,24 +260,44 @@ export const calculateStateProgressFromApi = (resp: any): ProgressStats => {
   console.log("🧮[calc] payload.summary:", s);
 
   // ✅ Prefer backend-computed summary when available
-  const acceptedFromSummary = (typeof s?.acceptedCount === "number") ? s.acceptedCount : null;
-  const totalFromSummary    = (typeof s?.totalIndicators === "number") ? s.totalIndicators : null;
+  const acceptedFromSummary =
+    typeof s?.acceptedCount === "number" ? s.acceptedCount : null;
+  const totalFromSummary =
+    typeof s?.totalIndicators === "number" ? s.totalIndicators : null;
 
-  if (acceptedFromSummary !== null && totalFromSummary !== null) {
-    const pct = typeof s?.percentage === "number"
-      ? Math.round(s.percentage)
-      : (totalFromSummary ? Math.round((acceptedFromSummary / totalFromSummary) * 100) : 0);
+  // Check if backend returned valid data (non-zero submissions or non-zero accepted count)
+  const hasValidBackendData =
+    acceptedFromSummary !== null &&
+    totalFromSummary !== null &&
+    (payload?.submissions?.length > 0 || acceptedFromSummary > 0);
 
-    const out = { approved: acceptedFromSummary, total: totalFromSummary, percentage: pct };
+  if (hasValidBackendData) {
+    const pct =
+      typeof s?.percentage === "number"
+        ? Math.round(s.percentage)
+        : totalFromSummary
+        ? Math.round((acceptedFromSummary / totalFromSummary) * 100)
+        : 0;
+
+    const out = {
+      approved: acceptedFromSummary,
+      total: totalFromSummary,
+      percentage: pct,
+    };
     console.log("✅[calc] using backend summary ->", out);
     return out;
   }
 
-  // 🔁 Fallback: recompute from submissions[*].statuses
+  // 🔁 Fallback 1: recompute from submissions[*].statuses in API response
   const APPROVED = new Set(["APPROVED", "ACCEPTED"]);
-  const submissions: any[] = Array.isArray(payload?.submissions) ? payload.submissions : [];
+  const submissions: any[] = Array.isArray(payload?.submissions)
+    ? payload.submissions
+    : [];
 
-  console.log("🧮[calc] fallback recompute, submissions.len:", submissions.length);
+  console.log(
+    "🧮[calc] fallback recompute, submissions.len:",
+    submissions.length
+  );
 
   const toCodeFromSectionKey = (sectionKey?: string): string | null => {
     if (!sectionKey) return null;
@@ -218,7 +324,9 @@ export const calculateStateProgressFromApi = (resp: any): ProgressStats => {
 
       // try different ways to derive the canonical code
       const code =
-        (typeof row?.code === "string" && /^\d+(\.\d+)*$/.test(row.code) ? row.code : null) ||
+        (typeof row?.code === "string" && /^\d+(\.\d+)*$/.test(row.code)
+          ? row.code
+          : null) ||
         toCodeFromSectionKey(row?.sectionKey) ||
         toCodeFromPath(row?.path);
 
@@ -226,12 +334,32 @@ export const calculateStateProgressFromApi = (resp: any): ProgressStats => {
     }
   }
 
+  // 🔁 Fallback 2: If API returned empty submissions but we have fallbackSubmissions, use those
+  if (
+    submissions.length === 0 &&
+    fallbackSubmissions &&
+    fallbackSubmissions.length > 0
+  ) {
+    console.log(
+      "⚠️[calc] API returned empty submissions, using fallback submissions array"
+    );
+    return calculateStateProgressFromSubmissions(
+      fallbackSubmissions,
+      userStateUt
+    );
+  }
+
   // If backend didn't give a total, keep your previous default (20) or make configurable
-  const total = (typeof s?.totalIndicators === "number" ? s.totalIndicators : 20);
+  const total = typeof s?.totalIndicators === "number" ? s.totalIndicators : 20;
   const approved = acceptedCodes.size;
   const percentage = total ? Math.round((approved / total) * 100) : 0;
 
   const out = { approved, total, percentage };
-  console.log("✅[calc] recomputed ->", out, "acceptedCodes:", Array.from(acceptedCodes));
+  console.log(
+    "✅[calc] recomputed ->",
+    out,
+    "acceptedCodes:",
+    Array.from(acceptedCodes)
+  );
   return out;
 };

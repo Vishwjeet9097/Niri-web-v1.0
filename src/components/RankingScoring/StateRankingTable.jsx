@@ -116,42 +116,35 @@ const StateRankingTable = ({
         background: "#fff",
         borderRadius: 12,
         boxShadow: "0 2px 8px rgba(44, 62, 80, 0.06)",
-        padding: "0",
+        padding: "0 0 12px 0",
         overflowX: "auto",
-        border: "1px solid #E5E7EB",
-        borderBottom: "1px solid #E5E7EB",
-        overflowY: "visible",
-        position: "relative",
-        zIndex: 0,
       }}
     >
-      <div style={{ overflowX: "auto", overflowY: "visible" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "separate",
-            borderSpacing: 0,
-            minWidth: 900,
-          }}
-        >
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "separate",
+          borderSpacing: 0,
+          minWidth: 900,
+        }}
+      >
         <thead>
           <tr>
-            {columns.map((col, idx) => (
+            {columns.map((col) => (
               <th
                 key={col.key}
                 style={{
                   textAlign: "left",
-                  padding: idx === 0 ? "18px 24px" : (idx === columns.length - 1 ? "18px 24px" : "18px 16px"),
+                  padding: "16px 12px",
                   fontWeight: 700,
-                  fontSize: 14,
+                  fontSize: 15,
                   color: "#2B5CB8",
                   background: "#F7F9FB",
-                  borderBottom: "2px solid #E5E7EB",
+                  borderBottom: "1.5px solid #E5EAF2",
                   minWidth: col.width,
                   position: "sticky",
                   top: 0,
                   zIndex: 1,
-                  whiteSpace: "nowrap",
                 }}
               >
                 {col.label}
@@ -164,12 +157,7 @@ const StateRankingTable = ({
             <tr>
               <td
                 colSpan={columns.length}
-                style={{ 
-                  textAlign: "center", 
-                  padding: 48,
-                  color: "#666",
-                  fontSize: 15,
-                }}
+                style={{ textAlign: "center", padding: 32 }}
               >
                 No states found.
               </td>
@@ -181,25 +169,13 @@ const StateRankingTable = ({
                 style={{
                   ...getRowStyle(state.isUserState),
                   borderBottom: "1px solid #F0F0F0",
-                  transition: "background-color 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  if (!state.isUserState) {
-                    e.currentTarget.style.backgroundColor = "#F9FAFB";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!state.isUserState) {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }
                 }}
               >
                 {/* State/UT */}
                 <td
                   style={{
-                    padding: "16px 24px",
+                    padding: "14px 12px",
                     ...getCellTextColor(state.isUserState),
-                    verticalAlign: "top",
                   }}
                 >
                   <div
@@ -235,9 +211,8 @@ const StateRankingTable = ({
                 {/* Total Score */}
                 <td
                   style={{
-                    padding: "16px 16px",
+                    padding: "14px 12px",
                     ...getCellTextColor(state.isUserState),
-                    verticalAlign: "top",
                   }}
                 >
                   <span style={{ fontWeight: 700, fontSize: 20 }}>
@@ -256,9 +231,8 @@ const StateRankingTable = ({
                 {/* Financing */}
                 <td
                   style={{
-                    padding: "16px 16px",
+                    padding: "14px 12px",
                     ...getCellTextColor(state.isUserState),
-                    verticalAlign: "top",
                   }}
                 >
                   <span style={{ fontWeight: 600 }}>{state.financing}</span>
@@ -275,9 +249,8 @@ const StateRankingTable = ({
                 {/* Development */}
                 <td
                   style={{
-                    padding: "16px 16px",
+                    padding: "14px 12px",
                     ...getCellTextColor(state.isUserState),
-                    verticalAlign: "top",
                   }}
                 >
                   <span style={{ fontWeight: 600 }}>{state.development}</span>
@@ -294,9 +267,8 @@ const StateRankingTable = ({
                 {/* PPP */}
                 <td
                   style={{
-                    padding: "16px 16px",
+                    padding: "14px 12px",
                     ...getCellTextColor(state.isUserState),
-                    verticalAlign: "top",
                   }}
                 >
                   <span style={{ fontWeight: 600 }}>{state.ppp}</span>
@@ -313,9 +285,8 @@ const StateRankingTable = ({
                 {/* Enablers */}
                 <td
                   style={{
-                    padding: "16px 16px",
+                    padding: "14px 12px",
                     ...getCellTextColor(state.isUserState),
-                    verticalAlign: "top",
                   }}
                 >
                   <span style={{ fontWeight: 600 }}>{state.enablers}</span>
@@ -330,7 +301,7 @@ const StateRankingTable = ({
                   </span>
                 </td>
                 {/* Category */}
-                <td style={{ padding: "16px 24px", verticalAlign: "top" }}>
+                <td style={{ padding: "14px 12px" }}>
                   <span
                     style={{
                       ...getCategoryBadgeStyle(state.category),
@@ -356,18 +327,8 @@ const StateRankingTable = ({
           )}
         </tbody>
       </table>
-      </div>
       {/* Pagination */}
-      <div style={{ 
-        padding: "16px 24px", 
-        borderTop: "1px solid #F0F0F0",
-        borderBottom: "1px solid #E5E7EB",
-        background: "#fff",
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
-        position: "relative",
-        zIndex: 0,
-      }}>
+      <div style={{ padding: "0 24px" }}>
         <Pagination
           page={page}
           totalPages={totalPages}

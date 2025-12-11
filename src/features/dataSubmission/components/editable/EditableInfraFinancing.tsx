@@ -202,7 +202,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
             <div>
               <Label>Capital Allocation for FY (INR)*</Label>
               <Input
-                placeholder="₹1,50,000 INR - values is in CRORES"
+                placeholder="₹1,50,000 crores"
                 value={formData.section1_1.capitalAllocation}
                 onChange={(e) =>
                   setFormData({
@@ -218,7 +218,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
             <div>
               <Label>GSDP for FY (INR)*</Label>
               <Input
-                placeholder="₹25,00,000 INR - values is in CRORES"
+                placeholder="₹25,00,000 crores"
                 value={formData.section1_1.gsdpForFY}
                 onChange={(e) =>
                   setFormData({
@@ -275,7 +275,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
             <div>
               <Label>Actual Capex (INR)*</Label>
               <Input
-                placeholder="₹1,45,000 INR - values is in CRORES"
+                placeholder="₹1,45,000 crores"
                 value={formData.section1_2.actualCapex}
                 onChange={(e) =>
                   setFormData({
@@ -291,7 +291,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
             <div>
               <Label>State Capex Utilisation (INR)*</Label>
               <Input
-                placeholder="₹15,40,250 INR - values is in CRORES"
+                placeholder="₹15,40,250 crores"
                 value={formData.section1_2.stateCapexUtilisation}
                 onChange={(e) =>
                   setFormData({
@@ -513,9 +513,9 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                     />
                   </div>
                   <div>
-                    <Label>Bond Value (INR - values is in CRORES)*</Label>
+                    <Label>Bond Value (INR)*</Label>
                     <Input
-                      placeholder="₹200 INR - values is in CRORES"
+                      placeholder="₹200 crores"
                       value={bond.value}
                       onChange={(e) =>
                         setFormData({
@@ -622,7 +622,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                   <div>
                     <Label>Total Funding (INR)*</Label>
                     <Input
-                      placeholder="₹5000 INR - values is in CRORES"
+                      placeholder="₹5000 crores"
                       value={org.totalFunding}
                       onChange={(e) =>
                         setFormData({

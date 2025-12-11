@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,8 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Upload, Plus, Trash2, Clock, RotateCcw, CheckCircle, X, Check, Edit3, Eye, Download, Loader2 } from "lucide-react";
-import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  MessageSquare,
+  Upload,
+  Plus,
+  Trash2,
+  Clock,
+  RotateCcw,
+  CheckCircle,
+  X,
+  Check,
+  Edit3,
+} from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   AlertDialog,
@@ -36,18 +48,26 @@ import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
-import { hasInfraEnablersData, getSectionsWithData, hasSectionData } from "@/utils/sectionDataValidator";
+import {
+  hasInfraEnablersData,
+  getSectionsWithData,
+} from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
-import { notificationService } from "@/services/notification.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
-import { computeStepProgress, STEP_SECTIONS } from "@/features/submission/utils/progress";
-import { useEditableSectionStore } from '@/utils/EditableSection';
+import {
+  computeStepProgress,
+  STEP_SECTIONS,
+} from "@/features/submission/utils/progress";
+import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { Badge } from "@/components/ui/badge";
-import { IMPACT_OPTIONS, TRAINING_TYPE_OPTIONS } from "@/features/submission/constants/steps";
+import {
+  IMPACT_OPTIONS,
+  TRAINING_TYPE_OPTIONS,
+} from "@/features/submission/constants/steps";
 
 interface InfraEnablersReviewProps {
   submissionId: string;
@@ -56,10 +76,16 @@ interface InfraEnablersReviewProps {
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer
-  isStateApprover?: boolean; // Whether the user is a state approver
 }
 
-export const InfraEnablersReview = ({ submissionId, formData, submission, isPreview = false, assignedIndicators = [], isNodalOfficer = false, isStateApprover = false }: InfraEnablersReviewProps) => {
+export const InfraEnablersReview = ({
+  submissionId,
+  formData,
+  submission,
+  isPreview = false,
+  assignedIndicators = [],
+  isNodalOfficer = false,
+}: InfraEnablersReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
@@ -71,7 +97,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
   const currentSubmission = submissionState || submission;
-  const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, currentSubmission);
+  const { saveMessage, getMessage, getComments, getAllComments } =
+    useSectionMessages(submissionId, currentSubmission);
 
   // Sync submissionState when submission prop changes from parent
   useEffect(() => {
@@ -104,7 +131,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   }, [isStateApprover, isPreview, submission]);
   
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
-  const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
+  const [originalFormDataSnapshot, setOriginalFormDataSnapshot] =
+    useState<any>(null);
   // Flag to prevent useEffect from overriding cancel restore
   const isRestoringRef = useRef(false);
   // Counter to force remount of Select components on cancel
@@ -112,17 +140,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
+  const [pendingSaveSectionId, setPendingSaveSectionId] = useState<
+    string | null
+  >(null);
 
   // State for Send Back and Accept confirmation dialogs
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
-  const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
+  const [pendingActionSectionId, setPendingActionSectionId] = useState<
+    string | null
+  >(null);
 
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
-  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<string | null>(null);
+  const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<
+    string | null
+  >(null);
 
   // State for adding new project in section 4.3
   const [showAddProjectForm, setShowAddProjectForm] = useState(false);
@@ -131,12 +165,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     sector: "",
     file: null as FileUpload | null,
   });
-
-  // State for file delete confirmation dialog in section 4.3
-  const [showProjectFileDeleteDialog, setShowProjectFileDeleteDialog] = useState(false);
-  const [pendingProjectFileDelete, setPendingProjectFileDelete] = useState<{
-    projectIndex: number;
-  } | null>(null);
 
   // State for adding new practice in section 4.5
   const [showAddPracticeForm, setShowAddPracticeForm] = useState(false);
@@ -159,207 +187,20 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Helper function to check user role
   const getUserRole = () => {
     try {
-      const authUser = localStorage.getItem('niri_app:auth_user');
+      const authUser = localStorage.getItem("niri_app:auth_user");
       if (authUser) {
         const user = JSON.parse(authUser);
-        const role = user.value?.role;
-        // Normalize role string (trim whitespace, convert to uppercase for comparison)
-        return role ? String(role).trim() : null;
+        return user.value?.role;
       }
     } catch (error) {
-      console.error('Error reading user role:', error);
+      console.error("Error reading user role:", error);
     }
     return null;
   };
 
-  // Helper functions for file view and download
-  const [fileLoading, setFileLoading] = useState<Record<string, boolean>>({});
-
-  // Helper function to read access token from localStorage
-  const readAccessTokenFromLocalStorage = (): string | undefined => {
-    try {
-      // Try the new key first: niri_app:auth_tokens
-      const tokenDataRaw = localStorage.getItem("niri_app:auth_tokens");
-      if (tokenDataRaw) {
-        const tokenData = JSON.parse(tokenDataRaw);
-        const tokenFromNewKey = tokenData?.value?.accessToken;
-        if (tokenFromNewKey) return tokenFromNewKey;
-      }
-
-      // Try legacy key: access_token
-      const tokenFromLegacyKey = localStorage.getItem("access_token");
-      if (tokenFromLegacyKey) return tokenFromLegacyKey;
-
-      // Try old auth_user key as fallback
-      const authUser = localStorage.getItem('niri_app:auth_user');
-      if (authUser) {
-        const parsed = JSON.parse(authUser);
-        return parsed?.token || parsed?.accessToken || parsed?.value?.token;
-      }
-    } catch (error) {
-      console.error('Error reading access token:', error);
-    }
-    return undefined;
-  };
-
-  // Helper function to fetch signed URL for S3 files
-  const fetchSignedUrl = async (filePath: string, token?: string): Promise<string> => {
-    if (!filePath) throw new Error("Missing filePath");
-
-    const encoded = encodeURIComponent(filePath);
-    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-    const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
-
-    const accessToken = token ?? readAccessTokenFromLocalStorage();
-    if (!accessToken) throw new Error("No auth token available. Please login.");
-
-    const res = await fetch(url, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    const text = await res.text();
-    try {
-      const json = JSON.parse(text);
-      const signed = json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
-      if (!signed) throw new Error(`Signed URL not found in response: ${text.slice(0, 300)}`);
-      return signed;
-    } catch (err) {
-      const trimmed = text.trim();
-      if (/^https?:\/\//i.test(trimmed)) return trimmed;
-      throw new Error(`Unexpected response when fetching signed URL: ${text.slice(0, 300)}`);
-    }
-  };
-
-  const isProbablyUrl = (s: string) => {
-    return typeof s === "string" && /^https?:\/\//i.test(s);
-  };
-
-  const handleFileView = async (file: any, fileKey: string) => {
-    // Handle nested file structures
-    let actualFile = file;
-    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
-      actualFile = file.file;
-    }
-
-    // Handle local File objects (preview mode)
-    if (actualFile.file && actualFile.file instanceof globalThis.File) {
-      const blobUrl = URL.createObjectURL(actualFile.file);
-      window.open(blobUrl, "_blank", "noopener,noreferrer");
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-      return;
-    }
-
-    // Handle S3 files (review mode) - check multiple possible properties
-    const filePath = actualFile.filePath ||
-      actualFile.fileUrl ||
-      actualFile.url ||
-      actualFile.path ||
-      (typeof actualFile.file === "string" ? actualFile.file : undefined);
-    if (!filePath) {
-      console.error("File path missing. File object:", actualFile);
-      notificationService.warning("File path missing.", "Cannot View File");
-      return;
-    }
-
-    setFileLoading(prev => ({ ...prev, [fileKey]: true }));
-    try {
-      const signed = await fetchSignedUrl(filePath);
-      if (!isProbablyUrl(signed)) {
-        console.error("Signed URL is not a valid URL:", signed);
-        notificationService.error("Received invalid file URL. Check console/network tab.", "View Failed");
-        return;
-      }
-      window.open(signed, "_blank", "noopener,noreferrer");
-    } catch (err: any) {
-      console.error(err);
-      notificationService.error("Failed to open file: " + (err.message || err), "View Failed");
-    } finally {
-      setFileLoading(prev => ({ ...prev, [fileKey]: false }));
-    }
-  };
-
-  const handleFileDownload = async (file: any, fileKey: string) => {
-    // Handle nested file structures
-    let actualFile = file;
-    if (file.file && typeof file.file === 'object' && !file.filePath && file.file.filePath) {
-      actualFile = file.file;
-    }
-
-    // Handle local File objects (preview mode)
-    if (actualFile.file && actualFile.file instanceof globalThis.File) {
-      const blobUrl = URL.createObjectURL(actualFile.file);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = actualFile.originalName || actualFile.fileName || "file";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-      return;
-    }
-
-    // Handle S3 files (review mode) - check multiple possible properties
-    const filePath = actualFile.filePath ||
-      actualFile.fileUrl ||
-      actualFile.url ||
-      actualFile.path ||
-      (typeof actualFile.file === "string" ? actualFile.file : undefined);
-    if (!filePath) {
-      console.error("File path missing. File object:", actualFile);
-      notificationService.warning("File path missing.", "Cannot Download File");
-      return;
-    }
-
-    setFileLoading(prev => ({ ...prev, [fileKey]: true }));
-    let blobUrl: string | null = null;
-    try {
-      const encoded = encodeURIComponent(filePath);
-      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-      const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
-
-      const accessToken = readAccessTokenFromLocalStorage();
-      if (!accessToken) {
-        throw new Error("No auth token available. Please login.");
-      }
-
-      const response = await fetch(downloadUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
-      blobUrl = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = actualFile.originalName || actualFile.fileName || "file";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err: any) {
-      console.error(err);
-      notificationService.error("Download failed: " + (err.message || err), "Download Failed");
-    } finally {
-      if (blobUrl) {
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl!);
-        }, 100);
-      }
-      setFileLoading(prev => ({ ...prev, [fileKey]: false }));
-    }
-  };
-
-  //State for edit button 
-  const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
+  //State for edit button
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
 
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
@@ -376,10 +217,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       setOriginalFormDataSnapshot(null);
       setEditable(sectionId, false);
       // Increment reset key to force Select components to remount
-      setSelectResetKey(prev => prev + 1);
+      setSelectResetKey((prev) => prev + 1);
 
       // Close and reset "Add Project" form for section 4.3
-      if (sectionId === '4.3') {
+      if (sectionId === "4.3") {
         setShowAddProjectForm(false);
         setNewProject({
           projectName: "",
@@ -389,7 +230,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
 
       // Close and reset "Add Practice" form for section 4.5
-      if (sectionId === '4.5') {
+      if (sectionId === "4.5") {
         setShowAddPracticeForm(false);
         setNewPractice({
           practiceName: "",
@@ -399,7 +240,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
 
       // Close and reset "Add Capacity Entry" form for section 4.6
-      if (sectionId === '4.6') {
+      if (sectionId === "4.6") {
         setShowAddCapacityForm(false);
         setNewCapacityEntry({
           officerName: "",
@@ -419,7 +260,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     } else {
       setEditable(sectionId, false);
       // Still close forms even if no snapshot exists
-      if (sectionId === '4.3') {
+      if (sectionId === "4.3") {
         setShowAddProjectForm(false);
         setNewProject({
           projectName: "",
@@ -427,7 +268,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           file: null,
         });
       }
-      if (sectionId === '4.5') {
+      if (sectionId === "4.5") {
         setShowAddPracticeForm(false);
         setNewPractice({
           practiceName: "",
@@ -435,7 +276,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           file: null,
         });
       }
-      if (sectionId === '4.6') {
+      if (sectionId === "4.6") {
         setShowAddCapacityForm(false);
         setNewCapacityEntry({
           officerName: "",
@@ -465,10 +306,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       if (eventSubmissionId === submissionId) {
         // Force re-render by updating a dummy state
         // 1. Update submission with fresh comments data
-        setSubmissionState(prev => ({
+        setSubmissionState((prev) => ({
           ...prev,
           indicatorComment: comments,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         }));
 
         // 2. Refresh complete submission data (same as first load)
@@ -493,25 +334,34 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
     };
 
-    window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+    window.addEventListener(
+      "niri-comment-updated",
+      handleCommentUpdate as EventListener
+    );
 
     return () => {
-      window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
+      window.removeEventListener(
+        "niri-comment-updated",
+        handleCommentUpdate as EventListener
+      );
     };
   }, [submissionId]);
 
   // Check if this section has any data
   const hasData = hasInfraEnablersData({ infraEnablers: state });
-  let sectionsWithData = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
+  let sectionsWithData = getSectionsWithData(
+    { infraEnablers: state },
+    "infraEnablers"
+  );
 
-  console.log("🔍 [InfraEnablersReview] Initial sectionsWithData:", sectionsWithData);
-  console.log("🔍 [InfraEnablersReview] state:", state);
-  console.log("🔍 [InfraEnablersReview] isPreview:", isPreview, "isNodalOfficer:", isNodalOfficer);
-  console.log("🔍 [InfraEnablersReview] assignedIndicators:", assignedIndicators);
-
-  // For nodal officers (both preview and review mode), always include assigned sections even if they have no data
-  // This ensures assigned indicators are visible, regardless of data presence
-  if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+  // For preview mode with assigned indicators, always include assigned sections even if they have no data
+  // This ensures assigned indicators are visible in preview, regardless of data presence
+  if (
+    isPreview &&
+    isNodalOfficer &&
+    assignedIndicators &&
+    assignedIndicators.length > 0
+  ) {
     const assignedSectionKeys: string[] = [];
     const indicatorToSectionMap: Record<string, string> = {
       "4.1": "section4_1",
@@ -524,192 +374,72 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
     assignedIndicators.forEach((indicator) => {
       const sectionKey = indicatorToSectionMap[indicator];
-      // Always include assigned sections, even if they don't have data or aren't in sectionsWithData
-      if (sectionKey && !assignedSectionKeys.includes(sectionKey)) {
+      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
         assignedSectionKeys.push(sectionKey);
       }
     });
 
-    // Merge and deduplicate - assigned sections take priority
-    sectionsWithData = Array.from(new Set([...assignedSectionKeys, ...sectionsWithData]));
-    console.log("🔍 [InfraEnablersReview] After adding assigned sections:", sectionsWithData);
+    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
 
-  // For State Approvers: filter sections based on their assigned indicators
-  // IMPORTANT: Only filter when STATE_APPROVER is creating their own submission (preview mode)
-  // When reviewing NODAL_OFFICER submissions, STATE_APPROVERs should see ALL indicators
-  // that the NODAL_OFFICER has filled, regardless of assignment
-  // Also, in preview mode showing consolidated/aggregate form, STATE_APPROVERs should see ALL indicators
-  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
-  const isAggregateSubmission = (submission as any)?.submissionId?.startsWith("AGG-") || (submission as any)?.id?.startsWith("aggregate-");
-  
-  if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
-    // Only filter if:
-    // 1. It's preview mode AND it's NOT an aggregate submission (STATE_APPROVER creating their own submission)
-    // 2. OR it's not a NODAL_OFFICER submission (STATE_APPROVER reviewing another STATE_APPROVER's submission)
-    // When reviewing NODAL_OFFICER submissions or viewing aggregate/consolidated forms, show all sections with data
-    if ((isPreview && !isAggregateSubmission) || (!isPreview && !isNodalOfficerSubmission)) {
-      const indicatorToSectionMap: Record<string, string> = {
-        "4.1": "section4_1",
-        "4.2": "section4_2",
-        "4.3": "section4_3",
-        "4.4": "section4_4",
-        "4.5": "section4_5",
-        "4.6": "section4_6",
-      };
-      
-      // Get all assigned section keys
-      const assignedSectionKeys = assignedIndicators
-        .map((indicator) => indicatorToSectionMap[indicator])
-        .filter((sectionKey) => sectionKey !== undefined);
-      
-      // Filter sectionsWithData to only include assigned sections
-      const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
-        assignedSectionKeys.includes(sectionKey)
-      );
-      
-      // Add assigned sections that don't have data yet (to ensure they're visible)
-      const missingAssignedSections = assignedSectionKeys.filter(
-        (sectionKey) => !sectionsWithData.includes(sectionKey)
-      );
-      
-      // Combine filtered sections with missing assigned sections
-      sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
-      
-      console.log("🔍 [InfraEnablersReview] State Approver - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
-    } else {
-      // STATE_APPROVER reviewing NODAL_OFFICER submission - show all sections with data
-      console.log("🔍 [InfraEnablersReview] State Approver reviewing NODAL_OFFICER submission - showing all sections with data:", sectionsWithData);
-    }
-  }
-  
-  // For STATE_APPROVERs reviewing NODAL_OFFICER submissions:
-  // Show only sections that the NODAL_OFFICER was assigned AND has meaningful data
-  if (isStateApprover && !isPreview && isNodalOfficerSubmission) {
-    const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
-    const stateToCheck = state || submissionFormData;
-    
-    // Get sections that have meaningful data using proper validation
-    // This ensures "no" selections with comments are properly detected
-    const sectionsWithMeaningfulData = Object.keys(submissionFormData).filter(sectionKey => {
-      const sectionData = submissionFormData[sectionKey];
-      if (!sectionData || typeof sectionData !== 'object') return false;
-      
-      // Use hasSectionData for proper validation that handles:
-      // - "no" selections with mandatory comments
-      // - "yes" selections with required data
-      // - Array-based sections
-      // - All edge cases
-      return hasSectionData(sectionData, sectionKey, 'infraEnablers');
-    });
-    
-    // Filter by nodal officer's assigned indicators if available
-    if (nodalOfficerAssignedIndicators.length > 0) {
-      const indicatorToSectionMap: Record<string, string> = {
-        "4.1": "section4_1",
-        "4.2": "section4_2",
-        "4.3": "section4_3",
-        "4.4": "section4_4",
-        "4.5": "section4_5",
-        "4.6": "section4_6",
-      };
-      
-      const assignedSectionKeys = nodalOfficerAssignedIndicators
-        .map((indicator: string) => indicatorToSectionMap[indicator])
-        .filter((sectionKey: string) => sectionKey !== undefined);
-      
-      // Only show sections that are both assigned AND have meaningful data
-      const allowedSections = assignedSectionKeys.filter((sectionKey: string) => 
-        sectionsWithMeaningfulData.includes(sectionKey)
-      );
-      
-      // Filter sectionsWithData to only include allowed sections
-      sectionsWithData = sectionsWithData.filter((sectionKey: string) => 
-        allowedSections.includes(sectionKey)
-      );
-      
-      console.log("🔍 [InfraEnablersReview] State Approver - filtered by nodal's assigned indicators:", {
-        nodalOfficerAssignedIndicators,
-        sectionsWithMeaningfulData,
-        allowedSections,
-        finalSections: sectionsWithData
+  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+  // Only include sections that have meaningful data - don't show empty/unsubmitted indicators
+  // This ensures state approvers only see indicators that were actually saved/submitted by nodal officers
+  if (
+    (!isPreview || (isPreview && !isNodalOfficer)) &&
+    state &&
+    typeof state === "object"
+  ) {
+    const allPossibleSections = [
+      "section4_1",
+      "section4_2",
+      "section4_3",
+      "section4_4",
+      "section4_5",
+      "section4_6",
+    ];
+    const existingSections = allPossibleSections.filter((sectionKey) => {
+      // Check if section key exists in state
+      if (!(sectionKey in state)) {
+        return false;
+      }
+
+      const section = state[sectionKey];
+
+      // Check if section has meaningful data (not just empty object, null, or empty array)
+      if (!section || typeof section !== "object") return false;
+
+      // For array-based sections, check if array has data
+      if (Array.isArray(section)) {
+        return (
+          section.length > 0 &&
+          section.some((item) => {
+            if (!item || typeof item !== "object") return false;
+            return (
+              Object.keys(item).length > 0 &&
+              Object.values(item).some(
+                (val) => val !== null && val !== undefined && val !== ""
+              )
+            );
+          })
+        );
+      }
+
+      // For object sections, check if they have any meaningful values
+      return Object.values(section).some((val) => {
+        if (val === null || val === undefined || val === "") return false;
+        if (Array.isArray(val) && val.length === 0) return false;
+        if (typeof val === "object" && Object.keys(val).length === 0)
+          return false;
+        return true;
       });
-    } else {
-      // Fallback: show only sections with meaningful data
-      sectionsWithData = sectionsWithData.filter((sectionKey: string) => 
-        sectionsWithMeaningfulData.includes(sectionKey)
-      );
-      console.log("🔍 [InfraEnablersReview] State Approver - showing only sections with meaningful data (nodal indicators not available):", sectionsWithData);
-    }
-  }
-  
-  // For STATE_APPROVERs viewing aggregate/consolidated forms in preview mode:
-  // Show only sections that exist in the formData AND have meaningful data
-  if (isStateApprover && isPreview && isAggregateSubmission) {
-    const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
-    const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
-    const stateToCheck = state || submissionFormData;
-    
-    // Only include sections that have meaningful data, not just empty objects
-    const existingSections = allPossibleSections.filter(sectionKey => {
-      const sectionData = stateToCheck[sectionKey] || submissionFormData[sectionKey];
-      // Check if section exists AND has meaningful data
-      if (!sectionData || typeof sectionData !== 'object') return false;
-      return hasSectionData(sectionData, sectionKey, 'infraEnablers');
-    });
-    
-    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
-    console.log("🔍 [InfraEnablersReview] State Approver viewing aggregate submission - showing only sections with meaningful data:", sectionsWithData);
-  }
-  // For preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers viewing aggregate):
-  // Include all sections that exist in formData
-  // This ensures MoSPI reviewers see all sections submitted
-  // This includes sections even if they don't have meaningful data (e.g., empty objects)
-  if (isPreview && !isNodalOfficer && !isStateApprover) {
-    const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
-    const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
-    const stateToCheck = state || submissionFormData;
-
-    const existingSections = allPossibleSections.filter(sectionKey => {
-      // Check if section key exists in state or submission formData (even if value is null, empty object, or empty array)
-      return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
-    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
-    console.log("🔍 [InfraEnablersReview] Preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
+    sectionsWithData = Array.from(
+      new Set([...sectionsWithData, ...existingSections])
+    );
   }
-
-  // For MOSPI_APPROVER and MOSPI_REVIEWER in review mode (not preview):
-  // Show all sections that exist in formData, even if they don't have meaningful data
-  // This ensures MOSPI reviewers can see and accept/reject all indicators
-  if (!isPreview) {
-    const userRole = getUserRole();
-    const normalizedRole = userRole?.toUpperCase();
-    const isMospiReviewer = normalizedRole === 'MOSPI_REVIEWER';
-    const isMospiApprover = normalizedRole === 'MOSPI_APPROVER';
-
-    if (isMospiReviewer || isMospiApprover) {
-      const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
-
-      // Check both state and submission.formData to ensure we catch all existing sections
-      const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
-      const stateToCheck = state || submissionFormData;
-
-      const existingSections = allPossibleSections.filter(sectionKey => {
-        // Check if section key exists in state or submission formData (even if value is null, empty object, or empty array)
-        return sectionKey in stateToCheck || sectionKey in submissionFormData;
-      });
-
-      // Merge existing sections with sectionsWithData, avoiding duplicates
-      sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
-      console.log("🔍 [InfraEnablersReview] MOSPI reviewer/approver - showing all existing sections:", sectionsWithData);
-      console.log("🔍 [InfraEnablersReview] State sections:", Object.keys(stateToCheck || {}));
-      console.log("🔍 [InfraEnablersReview] Submission formData sections:", Object.keys(submissionFormData || {}));
-    }
-  }
-
-
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -731,41 +461,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     setTimelineSection(null);
   };
 
-  // Memoize onSendBack callback to ensure it updates when isMospiApproverSentBack changes
-  const onSendBackCallback = useMemo(() => {
-    const userRole = getUserRole();
-    const normalizedRole = userRole?.toUpperCase();
-    const isMospiReviewer = normalizedRole === 'MOSPI_REVIEWER';
-    const isMospiApprover = normalizedRole === 'MOSPI_APPROVER';
-
-    console.log('🔍 useMemo onSendBack - Debug Info:', {
-      userRole,
-      normalizedRole,
-      isMospiReviewer,
-      isMospiApprover,
-      isMospiApproverSentBack,
-      activeSection,
-      willReturnUndefined: isMospiReviewer || (isMospiApprover && isMospiApproverSentBack)
-    });
-
-    // Don't pass onSendBack for MOSPI_REVIEWER or MOSPI_APPROVER (when isMospiApproverSentBack is true)
-    // For MOSPI_APPROVER, handleSaveMessage will handle everything directly without confirmation dialog
-    if (isMospiReviewer) {
-      console.log('✅ useMemo: Returning undefined for MOSPI_REVIEWER');
-      return undefined;
-    }
-    if (isMospiApprover && isMospiApproverSentBack) {
-      console.log('✅ useMemo: Returning undefined for MOSPI_APPROVER (isMospiApproverSentBack=true)');
-      return undefined;
-    }
-    // For STATE_APPROVER and other roles, pass onSendBack callback to show confirmation
-    console.log('⚠️ useMemo: Returning onSendBack callback for role:', userRole);
-    return (sectionId: string) => {
-      console.log('⚠️ onSendBack callback called with sectionId:', sectionId);
-      onIndicatorStatus(sectionId, false);
-    };
-  }, [isMospiApproverSentBack, activeSection]);
-
   const handleSaveMessage = async (updatedSubmission: unknown) => {
     // MessageModal already saved the comment, so we just need to update state and check flags
     if (updatedSubmission) {
@@ -776,59 +471,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
-      const shouldShowSentBackConfirmation = isMospiApproverSentBack && mospiSentBackSectionId;
-      const userRole = getUserRole();
-      // Normalize role comparison (case-insensitive, trimmed)
-      const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+      const shouldShowSentBackConfirmation =
+        isMospiApproverSentBack && mospiSentBackSectionId;
 
-      // Debug logging
-      console.log('🔍 handleSaveMessage - Debug Info:', {
-        shouldShowSentBackConfirmation,
-        isMospiApproverSentBack,
-        mospiSentBackSectionId,
-        userRole,
-        isMospiApprover,
-        userRoleType: typeof userRole,
-        userRoleValue: userRole,
-        normalizedRole: userRole?.toUpperCase()
-      });
-
-      // If this was opened from MOSPI_APPROVER "Sent Back" button, directly update status without confirmation
-      if (shouldShowSentBackConfirmation && isMospiApprover) {
-        console.log('✅ MOSPI_APPROVER: Directly updating status to REVERTED without confirmation dialog');
-        // Store section ID before resetting flags
-        const sectionIdToUse = mospiSentBackSectionId;
-        // Reset the flags immediately
-        setIsMospiApproverSentBack(false);
-        setMospiSentBackSectionId(null);
-        // Close the comment modal immediately
-        handleCloseModal();
-        // Directly update mospi_status to REVERTED without confirmation dialog
-        try {
-          await performIndicatorStatus(sectionIdToUse, false);
-          // Refresh submission data to get latest state from backend
-          if (submissionId) {
-            try {
-              const refreshedSubmission = await apiService.getSubmission(submissionId);
-              if (refreshedSubmission) {
-                setSubmissionState(refreshedSubmission);
-                if (refreshedSubmission.formData) {
-                  setFormDataState(refreshedSubmission.formData.infraEnablers);
-                }
-              }
-            } catch (refreshError) {
-              console.error('Failed to refresh submission:', refreshError);
-              // Continue even if refresh fails - local state is already updated
-            }
-          }
-        } catch (error) {
-          console.error('Failed to update indicator status:', error);
-        }
-        return;
-      }
-
-      // For STATE_APPROVER, show confirmation dialog (existing behavior)
-      if (shouldShowSentBackConfirmation && !isMospiApprover) {
+      // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
+      if (shouldShowSentBackConfirmation) {
         // Store section ID before resetting flags
         const sectionIdToUse = mospiSentBackSectionId;
         setPendingActionSectionId(sectionIdToUse);
@@ -851,9 +498,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           setTimelineSection(activeSection);
         }, 100);
       }
-
-      // Close the comment modal after saving regular comments
-      handleCloseModal();
     }
   };
 
@@ -872,7 +516,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const onSaveSection = async (sectionId: string) => {
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
-    const isNodalOfficer = userRole === 'NODAL_OFFICER';
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
 
     // If NODAL_OFFICER, show confirmation dialog first
     if (isNodalOfficer) {
@@ -881,7 +525,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       return;
     }
 
-    // For non-NODAL_OFFICER users, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with submit directly
     await performSave(sectionId);
   };
 
@@ -889,101 +533,47 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const performSave = async (sectionId: string) => {
     try {
       // Map visual section id to payload section key (e.g. "4.1" -> "section4_1")
-      const payloadSection = `section${sectionId.replace('.', '_')}`;
+      const payloadSection = `section${sectionId.replace(".", "_")}`;
 
       // Use the local formData state (formDataState) to build fields for this section
       let fields: Record<string, any>[] = [];
 
       // Check if user is NODAL_OFFICER to add status to payload
       const userRole = getUserRole();
-      const isNodalOfficer = userRole === 'NODAL_OFFICER';
+      const isNodalOfficer = userRole === "NODAL_OFFICER";
 
       switch (sectionId) {
-        case '4.1':
+        case "4.1":
           // Use local state for section 4.1 data
-          console.log("Section_4_1 state", state?.section4_1)
-          fields = [{
-            allEligible: state?.section4_1?.allEligible ?? null,
-            websiteLink: state?.section4_1?.websiteLink ?? null,
-            file: state?.section4_1?.file ?? null,
-            comment: state?.section4_1?.comment ?? null,
-          }];
+          console.log("Section_4_1 state", state?.section4_1);
+          fields = [
+            {
+              allEligible: state?.section4_1?.allEligible ?? null,
+              websiteLink: state?.section4_1?.websiteLink ?? null,
+              file: state?.section4_1?.file ?? null,
+              comment: state?.section4_1?.comment ?? null,
+            },
+          ];
           break;
 
-        case '4.2':
+        case "4.2": {
           // Use local state for section 4.2 data
-          console.log("Section_4_2 state", state?.section4_2)
+          console.log("Section_4_2 state", state?.section4_2);
           const section4_2Files = Array.isArray(state?.section4_2?.files)
             ? state.section4_2.files
             : state?.section4_2?.files
-              ? [state.section4_2.files]
-              : state?.section4_2?.file
-                ? [state.section4_2.file]
-                : [];
-
-          // Format files for payload - match InfraDevelopmentReview pattern with nested file object
-          const files4_2 = section4_2Files.map((file: FileUpload) => {
-            const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
-            const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
-
-            return {
-              id: file?.id,
-              file: {
-                id: null,
-                fileUrl: file?.fileUrl || "",
-                fileName: storedFileName,
-                filePath: filePath,
-                fileSize: file?.fileSize,
-                mimeType: file?.mimeType,
-                uploadedAt: file?.uploadedAt ? new Date(file.uploadedAt).toISOString() : new Date().toISOString(),
-                originalName: file?.fileName
-              },
-              fileName: file?.fileName,
-              fileSize: file?.fileSize,
-              uploadedAt: file?.uploadedAt
-            };
-          });
-
-          fields = [{
-            available: state?.section4_2?.available ?? null,
-            files: files4_2,
-            file: toSingleFile(section4_2Files),
-            websiteLink: state?.section4_2?.websiteLink ?? null,
-            comment: state?.section4_2?.comment ?? null,
-          }];
-          break;
-
-        case '4.3':
-          // Use local state for section 4.3 data
-          console.log("Section_4_3 state", state?.section4_3)
-          const projects4_3 = (state?.section4_3?.projects || []).map((project: any) => ({
-            id: project.id,
-            projectName: project.projectName ?? null,
-            sector: project.sector ?? null,
-            file: project.file ?? null,
-          }));
-          fields = [{
-            adopted: state?.section4_3?.adopted ?? null,
-            projects: projects4_3,
-            comment: state?.section4_3?.comment ?? null,
-          }];
-          break;
-
-        case '4.4':
-          // Use local state for section 4.4 data
-          console.log("Section_4_4 state", state?.section4_4)
-          const section4_4Files = Array.isArray(state?.section4_4?.files)
-            ? state.section4_4.files
-            : state?.section4_4?.files
-              ? [state.section4_4.files]
-              : state?.section4_4?.file
-                ? [state.section4_4.file]
-                : [];
+            ? [state.section4_2.files]
+            : state?.section4_2?.file
+            ? [state.section4_2.file]
+            : [];
 
           // Format files for payload - ensure file property is string path
-          const files4_4 = section4_4Files.map((file: FileUpload) => ({
+          const files4_2 = section4_2Files.map((file: FileUpload) => ({
             id: file.id,
-            file: typeof file.file === 'string' ? file.file : file.filePath || file.fileUrl || null,
+            file:
+              typeof file.file === "string"
+                ? file.file
+                : file.filePath || file.fileUrl || null,
             fileName: file.fileName,
             fileSize: file.fileSize,
             uploadedAt: file.uploadedAt,
@@ -992,43 +582,112 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             mimeType: file.mimeType,
           }));
 
-          fields = [{
-            adopted: state?.section4_4?.adopted ?? null,
-            files: files4_4,
-            file: toSingleFile(section4_4Files),
-            marksObtained: state?.section4_4?.marksObtained ?? null,
-            comment: state?.section4_4?.comment ?? null,
-          }];
+          fields = [
+            {
+              available: state?.section4_2?.available ?? null,
+              files: files4_2,
+              file: toSingleFile(section4_2Files),
+              websiteLink: state?.section4_2?.websiteLink ?? null,
+              comment: state?.section4_2?.comment ?? null,
+            },
+          ];
           break;
+        }
 
-        case '4.5':
-          // Use local state for section 4.5 data
-          console.log("Section_4_5 state", state?.section4_5)
-          const practices4_5 = (state?.section4_5?.practices || []).map((practice: any) => ({
-            id: practice.id,
-            practiceName: practice.practiceName ?? null,
-            impact: practice.impact ?? null,
-            file: practice.file ?? null,
+        case "4.3": {
+          // Use local state for section 4.3 data
+          console.log("Section_4_3 state", state?.section4_3);
+          const projects4_3 = (state?.section4_3?.projects || []).map(
+            (project: any) => ({
+              id: project.id,
+              projectName: project.projectName ?? null,
+              sector: project.sector ?? null,
+              file: project.file ?? null,
+            })
+          );
+          fields = [
+            {
+              adopted: state?.section4_3?.adopted ?? null,
+              projects: projects4_3,
+              comment: state?.section4_3?.comment ?? null,
+            },
+          ];
+          break;
+        }
+
+        case "4.4": {
+          // Use local state for section 4.4 data
+          console.log("Section_4_4 state", state?.section4_4);
+          const section4_4Files = Array.isArray(state?.section4_4?.files)
+            ? state.section4_4.files
+            : state?.section4_4?.files
+            ? [state.section4_4.files]
+            : state?.section4_4?.file
+            ? [state.section4_4.file]
+            : [];
+
+          // Format files for payload - ensure file property is string path
+          const files4_4 = section4_4Files.map((file: FileUpload) => ({
+            id: file.id,
+            file:
+              typeof file.file === "string"
+                ? file.file
+                : file.filePath || file.fileUrl || null,
+            fileName: file.fileName,
+            fileSize: file.fileSize,
+            uploadedAt: file.uploadedAt,
+            filePath: file.filePath,
+            fileUrl: file.fileUrl,
+            mimeType: file.mimeType,
           }));
-          fields = [{
-            implemented: state?.section4_5?.implemented ?? null,
-            practices: practices4_5,
-            comment: state?.section4_5?.comment ?? null,
-          }];
-          break;
 
-        case '4.6':
+          fields = [
+            {
+              adopted: state?.section4_4?.adopted ?? null,
+              files: files4_4,
+              file: toSingleFile(section4_4Files),
+              marksObtained: state?.section4_4?.marksObtained ?? null,
+              comment: state?.section4_4?.comment ?? null,
+            },
+          ];
+          break;
+        }
+
+        case "4.5": {
+          // Use local state for section 4.5 data
+          console.log("Section_4_5 state", state?.section4_5);
+          const practices4_5 = (state?.section4_5?.practices || []).map(
+            (practice: any) => ({
+              id: practice.id,
+              practiceName: practice.practiceName ?? null,
+              impact: practice.impact ?? null,
+              file: practice.file ?? null,
+            })
+          );
+          fields = [
+            {
+              implemented: state?.section4_5?.implemented ?? null,
+              practices: practices4_5,
+              comment: state?.section4_5?.comment ?? null,
+            },
+          ];
+          break;
+        }
+
+        case "4.6":
           // Use local state for section 4.6 data
           console.log("Section_4_6 state", state?.section4_6);
           fields = [
             {
-              capacityArray: (state?.section4_6?.capacityArray || []).map((item: any) => ({
-                officerName: item?.officerName ?? null,
-                designation: item?.designation ?? null,
-                programName: item?.programName ?? null,
-                trainingType: item?.trainingType ?? null,
-                organiser: item?.organiser ?? null,
-              })),
+              capacityArray: (state?.section4_6?.capacityArray || []).map(
+                (item: any) => ({
+                  officerName: item?.officerName ?? null,
+                  designation: item?.designation ?? null,
+                  programName: item?.programName ?? null,
+                  trainingType: item?.trainingType ?? null,
+                  organiser: item?.organiser ?? null,
+                })
+              ),
               participated: state?.section4_6?.participated ?? null,
               comment: state?.section4_6?.comment ?? null,
             },
@@ -1045,28 +704,28 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         // Add status to the first field object
         fields[0] = {
           ...fields[0],
-          status: 'RESUBMITTED',
+          status: "RESUBMITTED",
         };
       }
 
       await handleSaveSection({
         submissionId,
-        category: 'infraEnablers',
+        category: "infraEnablers",
         section: payloadSection,
-        fields
+        fields,
       });
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
       if (isNodalOfficer) {
         // Update formDataState to set status to RESUBMITTED
-        const sectionKey = `section${sectionId.replace('.', '_')}`;
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
         setFormDataState((prev: any) => {
           if (!prev) return prev;
           const updated = { ...prev };
           if (updated[sectionKey]) {
             updated[sectionKey] = {
               ...updated[sectionKey],
-              status: 'RESUBMITTED',
+              status: "RESUBMITTED",
             };
           }
           return updated;
@@ -1078,7 +737,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       // Clear the snapshot since save was successful
       setOriginalFormDataSnapshot(null);
     } catch (error) {
-      console.error('Error saving section:', error);
+      console.error("Error saving section:", error);
     }
   };
 
@@ -1099,46 +758,27 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Actual function that performs the status update
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
-    const isMospiApprover = userRole === 'MOSPI_APPROVER';
-    const isStateApprover = userRole === 'STATE_APPROVER';
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
 
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
       submissionId,
-      category: 'infraEnablers',
-      section: `section${sectionId.replace('.', '_')}`,
+      category: "infraEnablers",
+      section: `section${sectionId.replace(".", "_")}`,
       status: status,
     };
 
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
-      payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
-    }
-
-    // If STATE_APPROVER is accepting or sending back, get sourceSubmissionId from indicatorMapping
-    if (isStateApprover) {
-      const fullFormData = (submission as any)?.formData || {};
-      const indicatorMapping = fullFormData?._metadata?.indicatorMapping || {};
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
-      const mappingKey = `infraEnablers.${sectionKey}`;
-      const indicatorInfo = indicatorMapping[mappingKey];
-
-      if (indicatorInfo?.sourceSubmissionId) {
-        payload.sourceSubmissionId = indicatorInfo.sourceSubmissionId;
-        const action = status ? 'Accept' : 'Send Back';
-        console.log(`📋 [STATE_APPROVER ${action}] Adding sourceSubmissionId: ${indicatorInfo.sourceSubmissionId} for ${mappingKey}`);
-      } else {
-        const action = status ? 'Accept' : 'Send Back';
-        console.warn(`⚠️ [STATE_APPROVER ${action}] No sourceSubmissionId found in indicatorMapping for ${mappingKey}`);
-      }
+      payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
     }
 
     try {
       await apiService.indicatorStatus(payload);
       // Update local formData to trigger re-render of action buttons
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
-      const statusField = isMospiApprover ? 'mospi_status' : 'status';
-      const statusValue = status ? 'ACCEPTED' : 'REVERTED';
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const statusField = isMospiApprover ? "mospi_status" : "status";
+      const statusValue = status ? "ACCEPTED" : "REVERTED";
 
       // Defensive: update formDataState if section exists
       if (formDataState && (formDataState as any)[sectionKey] !== undefined) {
@@ -1153,7 +793,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               ...prev,
               [sectionKey]: updatedArray,
             };
-          } else if (sectionData && typeof sectionData === 'object') {
+          } else if (sectionData && typeof sectionData === "object") {
             // For object sections, add/update status property
             return {
               ...prev,
@@ -1166,23 +806,34 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           return prev;
         });
       }
-      console.log(`✅ Indicator ${isMospiApprover ? 'mospi_' : ''}status updated successfully`);
+      console.log(
+        `✅ Indicator ${
+          isMospiApprover ? "mospi_" : ""
+        }status updated successfully`
+      );
 
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
-        window.dispatchEvent(new CustomEvent('niri-indicator-status-updated', {
-          detail: { sectionId, status: statusValue }
-        }));
+        window.dispatchEvent(
+          new CustomEvent("niri-indicator-status-updated", {
+            detail: { sectionId, status: statusValue },
+          })
+        );
       }
     } catch (error) {
-      console.error(`❌ Failed to update indicator ${isMospiApprover ? 'mospi_' : ''}status:`, error);
+      console.error(
+        `❌ Failed to update indicator ${
+          isMospiApprover ? "mospi_" : ""
+        }status:`,
+        error
+      );
     }
   };
 
   // Wrapper function that checks for STATE_APPROVER and shows dialog if needed
   const onIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
-    const isStateApprover = userRole === 'STATE_APPROVER';
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     if (isStateApprover) {
       // Show appropriate dialog based on action
@@ -1205,50 +856,25 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const handleConfirmSendBack = async () => {
     if (pendingActionSectionId) {
       // Check if user is MOSPI_APPROVER
-      const getUserInfo = () => {
+      const getUserRole = () => {
         try {
-          const authUser = localStorage.getItem('niri_app:auth_user');
+          const authUser = localStorage.getItem("niri_app:auth_user");
           if (authUser) {
             const user = JSON.parse(authUser);
-            return {
-              role: user.value?.role,
-              id: user.value?.id || user.value?._id
-            };
+            return user.value?.role;
           }
         } catch (error) {
-          console.error('Error reading user info:', error);
+          console.error("Error reading user role:", error);
         }
-        return { role: null, id: null };
+        return null;
       };
-      const userInfo = getUserInfo();
-      const userRole = userInfo.role;
-      const userId = userInfo.id;
-      const isMospiApprover = userRole === 'MOSPI_APPROVER';
-      const isStateApprover = userRole === 'STATE_APPROVER';
+      const userRole = getUserRole();
+      const isMospiApprover = userRole === "MOSPI_APPROVER";
 
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
-
-      // Send notification if STATE_APPROVER
-      const submissionIdForNotification = (submissionState as any)?.submissionId || (submission as any)?.submissionId;
-      if (isStateApprover && userId && submissionIdForNotification && pendingActionSectionId) {
-        try {
-          const category = 'infraEnablers';
-          const indicator = pendingActionSectionId;
-          await apiService.sendNotification({
-            title: "Submission Sent Back",
-            message: `The submission ${submissionIdForNotification} has been sent back by State Approver. Category: ${category}, Indicator: ${indicator}`,
-            senderId: userId,
-            submissionId: submissionIdForNotification
-          });
-          console.log('✅ Notification sent successfully');
-        } catch (notificationError) {
-          console.error('❌ Failed to send notification:', notificationError);
-          // Don't block the flow if notification fails
-        }
-      }
 
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
@@ -1267,42 +893,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       // Check if user is MOSPI_APPROVER
       const getUserRole = () => {
         try {
-          const authUser = localStorage.getItem('niri_app:auth_user');
+          const authUser = localStorage.getItem("niri_app:auth_user");
           if (authUser) {
             const user = JSON.parse(authUser);
             return user.value?.role;
           }
         } catch (error) {
-          console.error('Error reading user role:', error);
+          console.error("Error reading user role:", error);
         }
         return null;
       };
       const userRole = getUserRole();
-      const isMospiApprover = userRole === 'MOSPI_APPROVER';
+      const isMospiApprover = userRole === "MOSPI_APPROVER";
 
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, true);
-
-      // Refresh submission data to get latest state from backend
-      // Add a small delay to ensure backend has processed the update
-      if (submissionId) {
-        try {
-          // Wait a bit for backend to process the update
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const refreshedSubmission = await apiService.getSubmission(submissionId);
-          if (refreshedSubmission) {
-            setSubmissionState(refreshedSubmission);
-            if (refreshedSubmission.formData) {
-              setFormDataState(refreshedSubmission.formData.infraEnablers);
-            }
-          }
-        } catch (refreshError) {
-          console.error('Failed to refresh submission:', refreshError);
-          // Continue even if refresh fails - local state is already updated
-        }
-      }
 
       setShowAcceptDialog(false);
       setPendingActionSectionId(null);
@@ -1324,7 +931,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     return value ?? null;
   };
 
-  const toFileArray = (value: FileUpload | FileUpload[] | null | undefined): FileUpload[] => {
+  const toFileArray = (
+    value: FileUpload | FileUpload[] | null | undefined
+  ): FileUpload[] => {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
   };
@@ -1334,13 +943,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     sectionId: string,
     updatedValue: FileUpload | FileUpload[] | null
   ) => {
-    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
     const previousSection = state?.[sectionKey] || {};
-    const targetKey = ['4.2', '4.4'].includes(sectionId) ? 'files' : 'file';
+    const targetKey = ["4.2", "4.4"].includes(sectionId) ? "files" : "file";
 
     // For sections that use 'files' array, ensure we always work with arrays
     let filesArray: FileUpload[] = [];
-    if (targetKey === 'files') {
+    if (targetKey === "files") {
       // If updatedValue is null, set empty array
       if (updatedValue === null) {
         filesArray = [];
@@ -1355,20 +964,19 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       }
     }
 
-    const normalizedValue =
-      targetKey === 'files' ? filesArray : updatedValue;
+    const normalizedValue = targetKey === "files" ? filesArray : updatedValue;
 
     const updatedSection =
-      targetKey === 'files'
+      targetKey === "files"
         ? {
-          ...previousSection,
-          files: filesArray,
-          file: toSingleFile(filesArray),
-        }
+            ...previousSection,
+            files: filesArray,
+            file: toSingleFile(filesArray),
+          }
         : {
-          ...previousSection,
-          [targetKey]: normalizedValue,
-        };
+            ...previousSection,
+            [targetKey]: normalizedValue,
+          };
 
     // Update local state
     setFormDataState((prev: any) => ({
@@ -1377,76 +985,77 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }));
 
     // Auto-save for sections 4.2 and 4.4
-    if (['4.2', '4.4'].includes(sectionId)) {
+    if (["4.2", "4.4"].includes(sectionId)) {
       try {
-        // Ensure files array is properly formatted for API - match InfraDevelopmentReview pattern
-        const filesForPayload = filesArray.map((file: FileUpload) => {
-          const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
-          const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
-
-          return {
-            id: file?.id,
-            file: {
-              id: null,
-              fileUrl: file?.fileUrl || "",
-              fileName: storedFileName,
-              filePath: filePath,
-              fileSize: file?.fileSize,
-              mimeType: file?.mimeType,
-              uploadedAt: file?.uploadedAt ? new Date(file.uploadedAt).toISOString() : new Date().toISOString(),
-              originalName: file?.fileName
-            },
-            fileName: file?.fileName,
-            fileSize: file?.fileSize,
-            uploadedAt: file?.uploadedAt
-          };
-        });
+        // Ensure files array is properly formatted for API
+        const filesForPayload = filesArray.map((file) => ({
+          id: file.id,
+          file: file.file, // This should be the stored path (string)
+          fileName: file.fileName,
+          fileSize: file.fileSize,
+          uploadedAt: file.uploadedAt,
+          filePath: file.filePath,
+          fileUrl: file.fileUrl,
+          mimeType: file.mimeType,
+        }));
 
         const fields =
-          sectionId === '4.2'
+          sectionId === "4.2"
             ? [
-              {
-                available: updatedSection?.available ?? null,
-                files: filesForPayload, // Send array of file objects
-              },
-            ]
+                {
+                  available: updatedSection?.available ?? null,
+                  files: filesForPayload, // Send array of file objects
+                },
+              ]
             : [
-              {
-                adopted: updatedSection?.adopted ?? null,
-                files: filesForPayload, // Send array of file objects
-                marksObtained: updatedSection?.marksObtained ?? null,
-              },
-            ];
+                {
+                  adopted: updatedSection?.adopted ?? null,
+                  files: filesForPayload, // Send array of file objects
+                  marksObtained: updatedSection?.marksObtained ?? null,
+                },
+              ];
 
-        console.log('📤 Saving files for section', sectionId, 'with payload:', fields);
+        console.log(
+          "📤 Saving files for section",
+          sectionId,
+          "with payload:",
+          fields
+        );
 
         await handleSaveSection({
           submissionId,
-          category: 'infraEnablers',
+          category: "infraEnablers",
           section: sectionKey,
           fields,
-          successMessage: 'File updated successfully',
-          errorMessage: 'Failed to update file',
         });
 
-        // Removed automatic indicator status API call when files are deleted
-        // The indicator-submission-status API should not be called automatically on file deletion
+        if (filesArray.length === 0) {
+          await onIndicatorStatus(sectionId, false);
+        }
       } catch (error) {
-        console.error('Failed to auto-save files for section', sectionId, error);
+        console.error(
+          "Failed to auto-save files for section",
+          sectionId,
+          error
+        );
       }
     }
   };
 
   // Helper functions to handle field updates
-  const handleFieldUpdate = (sectionId: string, fieldName: string, value: any) => {
+  const handleFieldUpdate = (
+    sectionId: string,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
       return {
         ...prev,
         [sectionKey]: {
           ...prev?.[sectionKey],
-          [fieldName]: value
-        }
+          [fieldName]: value,
+        },
       };
     });
   };
@@ -1487,7 +1096,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Handle updating project fields in section 4.3
-  const handleProjectFieldUpdate = (index: number, fieldName: string, value: any) => {
+  const handleProjectFieldUpdate = (
+    index: number,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
       const projects = [...(prev?.section4_3?.projects || [])];
       projects[index] = {
@@ -1505,7 +1118,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Handle updating project file in section 4.3
-  const handleProjectFileUpdate = (index: number, updatedFile: FileUpload | null) => {
+  const handleProjectFileUpdate = (
+    index: number,
+    updatedFile: FileUpload | null
+  ) => {
     setFormDataState((prev: any) => {
       const projects = [...(prev?.section4_3?.projects || [])];
       projects[index] = {
@@ -1520,23 +1136,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         },
       };
     });
-  };
-
-  // Handler to show delete confirmation dialog for section 4.3 project files
-  const handleProjectFileDeleteClick = (projectIndex: number) => {
-    setPendingProjectFileDelete({
-      projectIndex,
-    });
-    setShowProjectFileDeleteDialog(true);
-  };
-
-  // Handler to confirm project file deletion
-  const handleConfirmProjectFileDelete = () => {
-    if (pendingProjectFileDelete) {
-      handleProjectFileUpdate(pendingProjectFileDelete.projectIndex, null);
-      setShowProjectFileDeleteDialog(false);
-      setPendingProjectFileDelete(null);
-    }
   };
 
   // Handle adding new practice to section 4.5
@@ -1575,7 +1174,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Handle updating practice fields in section 4.5
-  const handlePracticeFieldUpdate = (index: number, fieldName: string, value: any) => {
+  const handlePracticeFieldUpdate = (
+    index: number,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
       const practices = [...(prev?.section4_5?.practices || [])];
       practices[index] = {
@@ -1593,7 +1196,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Handle updating practice file in section 4.5
-  const handlePracticeFileUpdate = (index: number, updatedFile: FileUpload | null) => {
+  const handlePracticeFileUpdate = (
+    index: number,
+    updatedFile: FileUpload | null
+  ) => {
     setFormDataState((prev: any) => {
       const practices = [...(prev?.section4_5?.practices || [])];
       practices[index] = {
@@ -1611,7 +1217,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   };
 
   // Helper to update table row items for section 4.6
-  const handleTableFieldUpdate = (rowIndex: number, fieldName: string, value: any) => {
+  const handleTableFieldUpdate = (
+    rowIndex: number,
+    fieldName: string,
+    value: any
+  ) => {
     setFormDataState((prev: any) => {
       const current = prev?.section4_6?.capacityArray;
       const rows = Array.isArray(current) ? [...current] : [];
@@ -1667,80 +1277,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     setShowAddCapacityForm(false);
   };
 
-  // Helper function to render "Returned from MoSPI" badge when submission status is SUBMITTED_TO_MOSPI_APPROVER or SUBMITTED_TO_MOSPI_REVIEWER
-  const renderReturnedFromMospiBadge = () => {
-    const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
-    if (submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER') {
-      return (
-        <div className="mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default w-full justify-center"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Returned from MoSPI
-          </Button>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
-  const renderMOSPIReviewerComments = (sectionId: string) => {
-    const getUserRole = () => {
-      try {
-        const authUser = localStorage.getItem('niri_app:auth_user');
-        if (authUser) {
-          const user = JSON.parse(authUser);
-          const role = user.value?.role;
-          // Normalize role string (trim whitespace, convert to uppercase for comparison)
-          return role ? String(role).trim() : null;
-        }
-      } catch (error) {
-        console.error('Error reading user role:', error);
-      }
-      return null;
-    };
-    const userRole = getUserRole();
-    const isMospiApprover = userRole === 'MOSPI_APPROVER';
-    if (!isMospiApprover) return null;
-
-    const comments = getComments(sectionId);
-    if (!comments || comments.length === 0) return null;
-
-    const mospiReviewerComments = comments.filter((comment: any) => {
-      const commentRole = comment.role || comment.userRole || '';
-      return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
-    });
-
-    if (mospiReviewerComments.length === 0) return null;
-
-    // Sort by timestamp (newest first) and get the last (most recent) comment
-    const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
-      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-      return timeB - timeA; // Descending order (newest first)
-    });
-    const lastComment = sortedComments[0]; // Get the most recent comment
-
-    return (
-      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-        <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comment:</p>
-        <div className="mb-2 last:mb-0">
-          <p className="text-sm text-green-800">{(lastComment as any).text || (lastComment as any).message || (lastComment as any).comment}</p>
-          {lastComment.timestamp && (
-            <p className="text-xs text-green-600 mt-1">
-              {new Date(lastComment.timestamp).toLocaleString()}
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
@@ -1753,69 +1289,32 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
     const getUserRole = () => {
       try {
-        const authUser = localStorage.getItem('niri_app:auth_user');
+        const authUser = localStorage.getItem("niri_app:auth_user");
         if (authUser) {
           const user = JSON.parse(authUser);
           return user.value?.role;
         }
       } catch (error) {
-        console.error('Error reading user role:', error);
+        console.error("Error reading user role:", error);
       }
       return null;
     };
     const userRole = getUserRole();
-    const isNodalOfficer = userRole === 'NODAL_OFFICER';
-    const isStateApprover = userRole === 'STATE_APPROVER';
-    const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
-    const isMospiApprover = userRole === 'MOSPI_APPROVER';
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const isStateApprover = userRole === "STATE_APPROVER";
+    const isMospiReviewer = userRole === "MOSPI_REVIEWER";
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
 
-    // Get submission status
-    const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
-
-    // Check if submission is with MoSPI (APPROVER or REVIEWER)
-    const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
-
-    // Check if submission is returned from MoSPI and mospi_status is REVERTED
-    const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
-
-    // Helper function to get status text for MOSPI_APPROVER
-    const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
-      const userRole = getUserRole();
-      const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
-      const currentSubmissionStatus = submissionStatus || (submission as any)?.status || (submissionState as any)?.status;
-      const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
-
-      if (isMospiApprover && isReturned) {
-        if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
-          return 'RETURNED TO STATE';
-        }
-        if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
-          return 'Accepted';
-        }
-      }
-      return 'Returned from MoSPI';
-    };
-
-    // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
-    if (isStateApprover && isWithMospi) {
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-secondary text-secondary-foreground cursor-default"
-            disabled
-          >
-            <Clock className="w-4 h-4" />
-            Under Review
-          </Button>
-        </div>
-      );
+    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
+    const submissionTyped = submission as { status?: string } | undefined;
+    const submissionStatus = submissionTyped?.status;
+    if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
+      return null;
     }
 
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
     // Only show Timeline button for viewing comments
-    if (submissionStatus === 'APPROVED') {
+    if (submissionStatus === "APPROVED") {
       return (
         <div className="flex gap-2">
           {commentCount > 0 && (
@@ -1864,13 +1363,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
     if (isMospiApprover) {
       // Check mospi_status instead of status for MOSPI_APPROVER
-      const sectionKey = `section${sectionId.replace('.', '_')}`;
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
       const sectionData = state && state[sectionKey];
       const mospiStatus = Array.isArray(sectionData)
         ? (sectionData as any)?.mospi_status
         : sectionData?.mospi_status;
 
-      if (mospiStatus === 'ACCEPTED') {
+      if (mospiStatus === "ACCEPTED") {
         return (
           <div className="flex gap-2">
             <Button
@@ -1895,41 +1394,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         );
       }
 
-      if (mospiStatus === 'REVERTED') {
-        // Get sectionStatus for MOSPI_APPROVER to check if status is also REVERTED
-        const sectionKeyForStatus = `section${sectionId.replace('.', '_')}`;
-        const sectionDataForStatus = state && state[sectionKeyForStatus];
-        const sectionStatusForMospi = Array.isArray(sectionDataForStatus)
-          ? (sectionDataForStatus as any)?.status
-          : sectionDataForStatus?.status;
-        const isStatusAlsoReverted = sectionStatusForMospi === 'REVERTED';
-
+      if (mospiStatus === "REVERTED") {
         return (
           <div className="flex gap-2">
-            {/* Show "Sent Back" badge if status is also REVERTED */}
-            {isStatusAlsoReverted && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
-                disabled
-              >
-                <RotateCcw className="w-4 h-4" />
-                Sent Back
-              </Button>
-            )}
-            {/* Show "Returned from MoSPI" badge if submission.status is RETURNED_FROM_MOSPI and mospi_status is REVERTED */}
-            {isReturnedFromMospi && mospiStatus === 'REVERTED' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 font-bold cursor-default"
-                disabled
-              >
-                <RotateCcw className="w-4 h-4" />
-                {getStatusTextForMospiApprover(mospiStatus)}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1951,7 +1427,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             size="sm"
             className="flex items-center gap-1"
             onClick={() => {
-              // For MOSPI_APPROVER, send back action: 
+              // For MOSPI_APPROVER, send back action:
               // 1. Set flag to track this is a "Sent Back" action
               // 2. Open comment modal first
               setIsMospiApproverSentBack(true);
@@ -1960,14 +1436,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             }}
           >
             <RotateCcw className="w-4 h-4" />
-            Send Back
+            Sent Back
           </Button>
           <Button
             variant="outline"
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => {
-              // For MOSPI_APPROVER, accept action: 
+              // For MOSPI_APPROVER, accept action:
               // Show confirmation dialog directly (no comment required)
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
@@ -1990,835 +1466,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
 
     // For all other roles, check status field as before
-    const sectionKey = `section${sectionId.replace('.', '_')}`;
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
     const sectionData = state && state[sectionKey];
     // Handle both array and object sections
     const sectionStatus = Array.isArray(sectionData)
       ? (sectionData as any)?.status
       : sectionData?.status;
 
-    // Get mospi_status for all roles (needed to show both badges)
-    const mospiStatus = Array.isArray(sectionData)
-      ? (sectionData as any)?.mospi_status
-      : sectionData?.mospi_status;
+    // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
+    // REVERTED is excluded because user can resubmit after being sent back
+    const isSubmitted =
+      sectionStatus === "SUBMITTED" ||
+      sectionStatus === "RESUBMITTED" ||
+      sectionStatus === "ACCEPTED";
 
-    // Check if status is REVERTED or mospi_status is REVERTED
-    const isStatusReverted = sectionStatus === 'REVERTED';
-    const isMospiStatusReverted = mospiStatus === 'REVERTED';
-
-    // isWithMospi is already declared above using submissionStatus
-
-    // For STATE_APPROVER, handle all edge cases based on status and mospi_status combinations
-    if (isStateApprover) {
-      // Helper to check if status is NA/undefined
-      const isStatusNA = !sectionStatus || sectionStatus === 'NA' || sectionStatus === '';
-      // Helper to check if mospi_status is NA/undefined
-      const isMospiStatusNA = !mospiStatus || mospiStatus === 'NA' || mospiStatus === '';
-      const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
-      const isMospiStatusResubmitted = mospiStatus === 'RESUBMITTED';
-
-      // Row 1: status=ACCEPTED, mospi_status=NA → "ACCEPTED"
-      if (sectionStatus === 'ACCEPTED' && isMospiStatusNA) {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
-              disabled
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accepted
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 2: status=REVERTED, mospi_status=NA → "Sent Back"
-      if (isStatusReverted && isMospiStatusNA) {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
-              disabled
-            >
-              <RotateCcw className="w-4 h-4" />
-              Sent Back
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 3: status=RESUBMITTED, mospi_status=NA → "Edit, Resubmitted (Disable), Accept"
-      if (sectionStatus === 'RESUBMITTED' && isMospiStatusNA) {
-        return (
-          <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleEditStart(sectionId)}
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => onSaveSection(sectionId)}
-                >
-                  <Check className="w-4 h-4" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => handleCancel(sectionId)}
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
-              disabled
-            >
-              <CheckCircle className="w-4 h-4" />
-              Re Submitted
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 4: status=ACCEPTED, mospi_status=ACCEPTED → "Accepted(Disable)"
-      if (sectionStatus === 'ACCEPTED' && isMospiStatusAccepted) {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
-              disabled
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accepted
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 5: status=ACCEPTED, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
-      if (sectionStatus === 'ACCEPTED' && isMospiStatusReverted) {
-        return (
-          <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleEditStart(sectionId)}
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => onSaveSection(sectionId)}
-                >
-                  <Check className="w-4 h-4" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => handleCancel(sectionId)}
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenModal(sectionId)}
-            >
-              <RotateCcw className="w-4 h-4" />
-              Send Back
-            </Button>
-            {isReturnedFromMospi && isMospiStatusReverted && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-                disabled
-              >
-                <RotateCcw className="w-4 h-4" />
-                {getStatusTextForMospiApprover(mospiStatus)}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 6: status=ACCEPTED, mospi_status=RESUBMITTED → "Under Review"
-      if (sectionStatus === 'ACCEPTED' && isMospiStatusResubmitted) {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
-              disabled
-            >
-              <Clock className="w-4 h-4" />
-              Under Review
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 7: status=REVERTED, mospi_status=ACCEPTED → "Accepted(Disable)"
-      if (isStatusReverted && isMospiStatusAccepted) {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
-              disabled
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accepted
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 8: status=REVERTED, mospi_status=REVERTED → "Sent Back(Disable), Returned From Mospi (if submission status is RETURNED_FROM_MOSPI)"
-      if (isStatusReverted && isMospiStatusReverted) {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
-              disabled
-            >
-              <RotateCcw className="w-4 h-4" />
-              Sent Back
-            </Button>
-            {isReturnedFromMospi && isMospiStatusReverted && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-                disabled
-              >
-                <RotateCcw className="w-4 h-4" />
-                Returned from MoSPI
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 9: status=REVERTED, mospi_status=RESUBMITTED → "Edit, Send Back, Returned From Mospi, Accept"
-      if (isStatusReverted && isMospiStatusResubmitted) {
-        return (
-          <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleEditStart(sectionId)}
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => onSaveSection(sectionId)}
-                >
-                  <Check className="w-4 h-4" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => handleCancel(sectionId)}
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenModal(sectionId)}
-            >
-              <RotateCcw className="w-4 h-4" />
-              Send Back
-            </Button>
-            {isReturnedFromMospi && isMospiStatusReverted && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-                disabled
-              >
-                <RotateCcw className="w-4 h-4" />
-                {getStatusTextForMospiApprover(mospiStatus)}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 10: status=RESUBMITTED, mospi_status=ACCEPTED → "Accepted(Disable)"
-      if (sectionStatus === 'RESUBMITTED' && isMospiStatusAccepted) {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
-              disabled
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accepted
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 11: status=RESUBMITTED, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
-      if (sectionStatus === 'RESUBMITTED' && isMospiStatusReverted) {
-        return (
-          <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleEditStart(sectionId)}
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => onSaveSection(sectionId)}
-                >
-                  <Check className="w-4 h-4" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => handleCancel(sectionId)}
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenModal(sectionId)}
-            >
-              <RotateCcw className="w-4 h-4" />
-              Send Back
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
-              disabled
-            >
-              <CheckCircle className="w-4 h-4" />
-              Re Submitted
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-              disabled
-            >
-              <RotateCcw className="w-4 h-4" />
-              Returned from MoSPI
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 12: status=RESUBMITTED, mospi_status=RESUBMITTED → "Edit, Sent Back, Returned From Mospi, Accept"
-      if (sectionStatus === 'RESUBMITTED' && isMospiStatusResubmitted) {
-        return (
-          <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleEditStart(sectionId)}
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => onSaveSection(sectionId)}
-                >
-                  <Check className="w-4 h-4" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => handleCancel(sectionId)}
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
-              disabled
-            >
-              <RotateCcw className="w-4 h-4" />
-              Sent Back
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-              disabled
-            >
-              <RotateCcw className="w-4 h-4" />
-              Returned from MoSPI
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept, Timeline"
-      if (isStatusNA && isMospiStatusNA) {
-        return (
-          <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleEditStart(sectionId)}
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => onSaveSection(sectionId)}
-                >
-                  <Check className="w-4 h-4" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => handleCancel(sectionId)}
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenModal(sectionId)}
-            >
-              <RotateCcw className="w-4 h-4" />
-              Send Back
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 14: status=NA, mospi_status=ACCEPTED → "Accepted(Disable)"
-      if (!sectionStatus && isMospiStatusAccepted) {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
-              disabled
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accepted
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-
-      // Row 15: status=NA, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
-      if (!sectionStatus && isMospiStatusReverted) {
-        return (
-          <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleEditStart(sectionId)}
-              >
-                <Edit3 className="w-4 h-4" />
-                Edit
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => onSaveSection(sectionId)}
-                >
-                  <Check className="w-4 h-4" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => handleCancel(sectionId)}
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenModal(sectionId)}
-            >
-              <RotateCcw className="w-4 h-4" />
-              Send Back
-            </Button>
-            {isReturnedFromMospi && isMospiStatusReverted && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-                disabled
-              >
-                <RotateCcw className="w-4 h-4" />
-                {getStatusTextForMospiApprover(mospiStatus)}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-    }
-
-    // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
-    if (sectionStatus === 'ACCEPTED') {
-      // If mospi_status is RESUBMITTED, show "Under Review"
-      if (mospiStatus === 'RESUBMITTED') {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
-              disabled
-            >
-              <Clock className="w-4 h-4" />
-              Under Review
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-      // If mospi_status = "REVERTED", show "Returned from MoSPI" badge
-      if (mospiStatus === 'REVERTED') {
-        return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-              disabled
-            >
-              <RotateCcw className="w-4 h-4" />
-              Returned from MoSPI
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleOpenTimeline(sectionId)}
-            >
-              <Clock className="w-4 h-4" />
-              Timeline ({commentCount})
-            </Button>
-          </div>
-        );
-      }
-      // Otherwise, show only "Accepted" and "Timeline"
+    if (sectionStatus === "ACCEPTED") {
       return (
         <div className="flex gap-2">
           <Button
@@ -2843,11 +1505,78 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       );
     }
 
+    // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
+    if (isStateApprover && sectionStatus === "RESUBMITTED") {
+      return (
+        <div className="flex gap-2">
+          {!isEditable(sectionId) ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleEditStart(sectionId)}
+            >
+              <Edit3 className="w-4 h-4" />
+              Edit
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => onSaveSection(sectionId)}
+                disabled={true} // Already submitted (RESUBMITTED), disable button
+              >
+                <Check className="w-4 h-4" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleCancel(sectionId)}
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Re Submitted
+          </Button>
+          {!isNodalOfficer && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
 
-    // Rule 2: If status = "REVERTED", show disabled "Sent Back" badge
-    // For NODAL_OFFICER, also show Edit button
-    if (isStatusReverted) {
-      // If NODAL_OFFICER, show Edit button + Sent Back badge
+    if (sectionStatus === "REVERTED") {
+      // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
       if (isNodalOfficer) {
         return (
           <div className="flex gap-2">
@@ -2868,6 +1597,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   size="sm"
                   className="flex items-center gap-1"
                   onClick={() => onSaveSection(sectionId)}
+                  disabled={false} // Can resubmit after being sent back
                 >
                   <Check className="w-4 h-4" />
                   Save
@@ -2892,32 +1622,20 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <RotateCcw className="w-4 h-4" />
               Sent Back
             </Button>
-            {/* Show "Returned from MoSPI" badge if submission status is RETURNED_FROM_MOSPI */}
-            {isReturnedFromMospi && isMospiStatusReverted && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-                disabled
-              >
-                <RotateCcw className="w-4 h-4" />
-                Returned from MoSPI
-              </Button>
-            )}
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-1 h-7 px-2 text-xs"
+              className="flex items-center gap-1"
               onClick={() => handleOpenTimeline(sectionId)}
             >
-              <Clock className="w-3 h-3" />
+              <Clock className="w-4 h-4" />
               Timeline ({commentCount})
             </Button>
           </div>
         );
       }
 
-      // For other roles, show only disabled "Sent Back" badge (no Edit, no Send Back button)
+      // For reviewers/approvers, show only the disabled Sent Back button
       return (
         <div className="flex gap-2">
           <Button
@@ -2929,18 +1647,6 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <RotateCcw className="w-4 h-4" />
             Sent Back
           </Button>
-          {/* Show "Returned from MoSPI" badge if submission status is RETURNED_FROM_MOSPI */}
-          {isWithMospi && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
-              disabled
-            >
-              <RotateCcw className="w-4 h-4" />
-              Returned from MoSPI
-            </Button>
-          )}
           <Button
             variant="outline"
             size="sm"
@@ -2954,8 +1660,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       );
     }
 
-    // For NODAL_OFFICER, show "Under Review" badge if status is RESUBMITTED or null/undefined
-    if (isNodalOfficer && (sectionStatus === 'RESUBMITTED' || !sectionStatus)) {
+    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE, RESUBMITTED, or null/undefined
+    if (
+      isNodalOfficer &&
+      (sectionStatus === "SUBMITTED_TO_STATE" ||
+        sectionStatus === "RESUBMITTED" ||
+        !sectionStatus)
+    ) {
       return (
         <div className="flex gap-2">
           <Button
@@ -2980,8 +1691,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       );
     }
 
-    // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, or RESUBMITTED, don't show any buttons
-    if (isNodalOfficer && sectionStatus !== 'REVERTED' && sectionStatus !== 'ACCEPTED' && sectionStatus !== 'RESUBMITTED') {
+    // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, RESUBMITTED, or SUBMITTED_TO_STATE, don't show any buttons
+    if (
+      isNodalOfficer &&
+      sectionStatus !== "REVERTED" &&
+      sectionStatus !== "ACCEPTED" &&
+      sectionStatus !== "RESUBMITTED" &&
+      sectionStatus !== "SUBMITTED_TO_STATE"
+    ) {
       return null;
     }
 
@@ -3004,6 +1721,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               size="sm"
               className="flex items-center gap-1"
               onClick={() => onSaveSection(sectionId)}
+              disabled={isSubmitted}
             >
               <Check className="w-4 h-4" />
               Save
@@ -3020,8 +1738,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </>
         )}
 
-        {/* Rule 1: Show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
-        {!(isStateApprover && sectionStatus === 'RESUBMITTED') && (
+        {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
+        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
           <Button
             variant="outline"
             size="sm"
@@ -3058,19 +1776,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     );
   };
   // If no data, show message
-  // For nodal officers (both preview and review mode), don't return early if they have assigned indicators
-  // For state approvers viewing nodal officer submissions, don't return early if sections exist (even if no data)
-  // Even if hasData is false, we want to show assigned sections
-  // Note: isNodalOfficerSubmission is already declared earlier in the function
-  const hasAssignedIndicators = assignedIndicators && assignedIndicators.length > 0;
-  const shouldShowSections = (isNodalOfficer && hasAssignedIndicators) ||
-    (isStateApprover && !isPreview && isNodalOfficerSubmission && hasAssignedIndicators) ||
-    (isStateApprover && !isPreview && !isNodalOfficerSubmission && sectionsWithData.length > 0);
-
-  if (!hasData && !shouldShowSections && sectionsWithData.length === 0) {
+  if (!hasData) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">No Infra Enablers data available for review</p>
+        <p className="text-muted-foreground">
+          No Infra Enablers data available for review
+        </p>
       </div>
     );
   }
@@ -3079,7 +1790,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     <>
       <div className="space-y-6">
         {(() => {
-          const sections = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
+          const sections = getSectionsWithData(
+            { infraEnablers: state },
+            "infraEnablers"
+          );
           const assignedIndicators = STEP_SECTIONS.infraEnablers
             .filter((s) => sections.includes(s.sectionKey))
             .map((s) => s.indicator);
@@ -3100,21 +1814,22 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           );
         })()}
         {/* Section 4.1 */}
-        {sectionsWithData.includes('section4_1') && (
+        {sectionsWithData.includes("section4_1") && (
           <SectionCard
-            title={<div className="flex flex-col relative">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">4.1 -</span> Eligible Infrastructure Projects{" "}
-                </span>
-                {renderActionButtons("4.1")}
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.1 -</span> Eligible
+                    Infrastructure Projects{" "}
+                  </span>
+                  {renderActionButtons("4.1")}
+                </div>
               </div>
-            </div>}
+            }
             subtitle=""
             className="mb-6"
           >
-            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-            {renderMOSPIReviewerComments("4.1")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3135,11 +1850,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </CardHeader> */}
             <div className="flex flex-col gap-4 w-[40%]">
               <div>
-                <Label className="mb-3 block">All Eligible Infra Projects on NIP Portal?*</Label>
-                {isEditable('4.1') ? (
+                <Label className="mb-3 block">
+                  All Eligible Infra Projects on NIP Portal?*
+                </Label>
+                {isEditable("4.1") ? (
                   <RadioGroup
                     value={state?.section4_1?.allEligible || ""}
-                    onValueChange={(value) => handleFieldUpdate('4.1', 'allEligible', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.1", "allEligible", value)
+                    }
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -3153,35 +1872,42 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </RadioGroup>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_1?.allEligible === "yes"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                      }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_1?.allEligible === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       {state?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
                     </span>
                   </div>
                 )}
               </div>
 
-              {(state?.section4_1?.allEligible === "yes") && (
+              {state?.section4_1?.allEligible === "yes" && (
                 <div>
                   <Label>Website Link</Label>
                   <Input
                     value={state?.section4_1?.websiteLink || ""}
-                    readOnly={!isEditable('4.1')}
-                    className={isEditable('4.1') ? 'bg-white' : 'bg-gray-50'}
-                    onChange={(e) => handleFieldUpdate('4.1', 'websiteLink', e.target.value)}
+                    readOnly={!isEditable("4.1")}
+                    className={isEditable("4.1") ? "bg-white" : "bg-gray-50"}
+                    onChange={(e) =>
+                      handleFieldUpdate("4.1", "websiteLink", e.target.value)
+                    }
                   />
                 </div>
               )}
 
-              {(state?.section4_1?.allEligible === "no") && (
+              {state?.section4_1?.allEligible === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable('4.1') ? (
+                  {isEditable("4.1") ? (
                     <Textarea
                       value={state?.section4_1?.comment || ""}
-                      onChange={(e) => handleFieldUpdate('4.1', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.1", "comment", e.target.value)
+                      }
                       placeholder="Please provide a comment..."
                       className="min-h-[100px]"
                     />
@@ -3210,33 +1936,40 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               Annex 9: Self-certification required
             </p> */}
             </div>
-
           </SectionCard>
         )}
 
         {/* Section 4.2 */}
-        {sectionsWithData.includes('section4_2') && (
+        {sectionsWithData.includes("section4_2") && (
           <SectionCard
-            title={<div className="flex flex-col relative">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">4.2 -</span> Availability & Use of State/UT PMG <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
-                </span>
-                {renderActionButtons("4.2")}
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.2 -</span> Availability &
+                    Use of State/UT PMG{" "}
+                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                      (5 marks per 1%)
+                    </span>{" "}
+                  </span>
+                  {renderActionButtons("4.2")}
+                </div>
               </div>
-            </div>}
+            }
             subtitle=""
             className="mb-6"
           >
-            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-            {renderMOSPIReviewerComments("4.2")}
             <div className="space-y-4">
               <div>
-                <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
-                {isEditable('4.2') ? (
+                <Label className="mb-3 block">
+                  Availability and Use of EaseMPR?*
+                </Label>
+                {isEditable("4.2") ? (
                   <RadioGroup
                     value={state?.section4_2?.available || ""}
-                    onValueChange={(value) => handleFieldUpdate('4.2', 'available', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.2", "available", value)
+                    }
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -3250,36 +1983,46 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </RadioGroup>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_2?.available === "yes"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                      }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_2?.available === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       {state?.section4_2?.available === "yes" ? "Yes" : "No"}
                     </span>
                   </div>
                 )}
               </div>
 
-              {(state?.section4_2?.available === "yes") && (
+              {state?.section4_2?.available === "yes" && (
                 <div>
                   <EditableFileDisplay
-                    files={state?.section4_2?.files ?? (state?.section4_2?.file ? [state.section4_2.file] : null)}
-                    isEditable={isEditable('4.2')}
+                    files={
+                      state?.section4_2?.files ??
+                      (state?.section4_2?.file ? [state.section4_2.file] : null)
+                    }
+                    isEditable={isEditable("4.2")}
                     submissionId={submissionId}
-                    onFilesChange={(updatedFiles) => handleFileUpdate('4.2', updatedFiles)}
+                    onFilesChange={(updatedFiles) =>
+                      handleFileUpdate("4.2", updatedFiles)
+                    }
                     label="Uploaded File"
                     multiple={true}
                   />
                 </div>
               )}
 
-              {(state?.section4_2?.available === "no") && (
+              {state?.section4_2?.available === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable('4.2') ? (
+                  {isEditable("4.2") ? (
                     <Textarea
                       value={state?.section4_2?.comment || ""}
-                      onChange={(e) => handleFieldUpdate('4.2', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.2", "comment", e.target.value)
+                      }
                       placeholder="Please provide a comment..."
                       className="min-h-[100px]"
                     />
@@ -3291,26 +2034,29 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </div>
               )}
             </div>
-
           </SectionCard>
         )}
 
         {/* Section 4.3 */}
-        {sectionsWithData.includes('section4_3') && (
+        {sectionsWithData.includes("section4_3") && (
           <SectionCard
-            title={<div className="flex flex-col relative">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">4.3 -</span> Adoption of PM GatiShakti <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per 1%)</span>{" "}
-                </span>
-                {renderActionButtons("4.3")}
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.3 -</span> Adoption of PM
+                    GatiShakti{" "}
+                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                      (10 marks per 1%)
+                    </span>{" "}
+                  </span>
+                  {renderActionButtons("4.3")}
+                </div>
               </div>
-            </div>}
+            }
             subtitle=""
             className="mb-6"
           >
-            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-            {renderMOSPIReviewerComments("4.3")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3331,11 +2077,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </CardHeader> */}
             <div className="space-y-4">
               <div>
-                <Label className="mb-3 block">Adoption of PM GatiShakti?*</Label>
-                {isEditable('4.3') ? (
+                <Label className="mb-3 block">
+                  Adoption of PM GatiShakti?*
+                </Label>
+                {isEditable("4.3") ? (
                   <RadioGroup
                     value={state?.section4_3?.adopted || ""}
-                    onValueChange={(value) => handleFieldUpdate('4.3', 'adopted', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.3", "adopted", value)
+                    }
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -3349,38 +2099,52 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </RadioGroup>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_3?.adopted === "yes"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                      }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_3?.adopted === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       {state?.section4_3?.adopted === "yes" ? "Yes" : "No"}
                     </span>
                   </div>
                 )}
               </div>
 
-              {(state?.section4_3?.adopted === "yes") && (
+              {state?.section4_3?.adopted === "yes" && (
                 <>
                   {/* Projects Table */}
                   <div className="overflow-x-auto rounded-xl">
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project Name</th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Project Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Uploaded File
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {(() => {
-                          const projects = Array.isArray(state?.section4_3?.projects)
+                          const projects = Array.isArray(
+                            state?.section4_3?.projects
+                          )
                             ? state.section4_3.projects
                             : [];
 
                           if (!projects.length) {
                             return (
                               <tr>
-                                <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                                <td
+                                  colSpan={3}
+                                  className="py-8 text-center text-muted-foreground"
+                                >
                                   No projects available
                                 </td>
                               </tr>
@@ -3390,78 +2154,131 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                           return projects.map((project: any, idx: number) => (
                             <tr key={project.id || idx} className="border-b">
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('4.3') ? (
+                                {isEditable("4.3") ? (
                                   <Input
                                     value={project.projectName || ""}
-                                    onChange={(e) => handleProjectFieldUpdate(idx, 'projectName', e.target.value)}
+                                    onChange={(e) =>
+                                      handleProjectFieldUpdate(
+                                        idx,
+                                        "projectName",
+                                        e.target.value
+                                      )
+                                    }
                                     className="w-full"
                                     placeholder="Enter project name"
                                   />
                                 ) : (
-                                  project.projectName || 'N/A'
+                                  project.projectName || "N/A"
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('4.3') ? (
+                                {isEditable("4.3") ? (
                                   <Dropdown
                                     value={project.sector || ""}
-                                    onChange={(value) => handleProjectFieldUpdate(idx, 'sector', value)}
+                                    onChange={(value) =>
+                                      handleProjectFieldUpdate(
+                                        idx,
+                                        "sector",
+                                        value
+                                      )
+                                    }
                                     options={dropdownValues.sector}
                                     placeholder="Select sector"
                                   />
                                 ) : (
-                                  project.sector || 'N/A'
+                                  project.sector || "N/A"
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('4.3') ? (
+                                {isEditable("4.3") ? (
                                   <div className="space-y-1.5">
                                     {project.file ? (
                                       <Badge
                                         variant="secondary"
                                         className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                        title={project.file.fileName || 'Unknown file'}
+                                        title={
+                                          project.file.fileName ||
+                                          "Unknown file"
+                                        }
                                       >
                                         <Upload className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
+                                        <span className="truncate">
+                                          {project.file.fileName ||
+                                            "Unknown file"}
+                                        </span>
                                         <button
                                           type="button"
-                                          onClick={() => handleProjectFileDeleteClick(idx)}
+                                          onClick={() => {
+                                            handleProjectFileUpdate(idx, null);
+                                          }}
                                           className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
                                           <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
                                         </button>
                                       </Badge>
                                     ) : (
-                                      <span className="text-muted-foreground text-xs">No file</span>
+                                      <span className="text-muted-foreground text-xs">
+                                        No file
+                                      </span>
                                     )}
                                     <div className="flex items-center">
                                       <input
                                         type="file"
                                         accept=".pdf,.doc,.docx"
                                         onChange={async (e) => {
-                                          const selectedFile = e.target.files?.[0];
+                                          const selectedFile =
+                                            e.target.files?.[0];
                                           if (selectedFile) {
                                             // Upload file immediately (same as create submission)
                                             try {
-                                              const response = await apiService.uploadFile(submissionId, selectedFile);
-                                              const fileData = response?.data || response;
+                                              const response =
+                                                await apiService.uploadFile(
+                                                  submissionId,
+                                                  selectedFile
+                                                );
+                                              const fileData =
+                                                response?.data || response;
 
                                               const newFile: FileUpload = {
-                                                id: fileData.id ?? crypto.randomUUID(),
+                                                id:
+                                                  fileData.id ??
+                                                  crypto.randomUUID(),
                                                 file: null, // File not stored locally when backend handles upload
-                                                fileName: fileData.fileName || fileData.filename || selectedFile.name,
-                                                fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
-                                                uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
-                                                filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
-                                                fileUrl: fileData.fileUrl || fileData.url,
+                                                fileName:
+                                                  fileData.fileName ||
+                                                  fileData.filename ||
+                                                  selectedFile.name,
+                                                fileSize: Number(
+                                                  fileData.fileSize ??
+                                                    fileData.size ??
+                                                    selectedFile.size ??
+                                                    0
+                                                ),
+                                                uploadedAt: Number(
+                                                  fileData.uploadedAt ??
+                                                    Date.now()
+                                                ),
+                                                filePath:
+                                                  fileData.filePath ??
+                                                  fileData.file ??
+                                                  fileData.url ??
+                                                  fileData.path,
+                                                fileUrl:
+                                                  fileData.fileUrl ||
+                                                  fileData.url,
                                                 mimeType: fileData.mimeType,
                                               };
 
-                                              await handleProjectFileUpdate(idx, newFile);
-                                              e.target.value = ''; // Reset input
+                                              await handleProjectFileUpdate(
+                                                idx,
+                                                newFile
+                                              );
+                                              e.target.value = ""; // Reset input
                                             } catch (error: any) {
-                                              console.error('Failed to upload file:', error);
+                                              console.error(
+                                                "Failed to upload file:",
+                                                error
+                                              );
                                             }
                                           }
                                         }}
@@ -3472,7 +2289,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => document.getElementById(`file-input-4.3-${idx}`)?.click()}
+                                        onClick={() =>
+                                          document
+                                            .getElementById(
+                                              `file-input-4.3-${idx}`
+                                            )
+                                            ?.click()
+                                        }
                                         className="h-6 px-2 text-xs"
                                       >
                                         <Plus className="w-3 h-3 mr-1" />
@@ -3480,60 +2303,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                       </Button>
                                     </div>
                                   </div>
+                                ) : project.file ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                    title={
+                                      project.file.fileName || "Unknown file"
+                                    }
+                                  >
+                                    <Upload className="w-3 h-3" />
+                                    <span className="truncate">
+                                      {project.file.fileName || "Unknown file"}
+                                    </span>
+                                  </Badge>
                                 ) : (
-                                  project.file ? (() => {
-                                    const fileKey = `4.3-readonly-${idx}`;
-                                    const isLoading = fileLoading[fileKey] || false;
-                                    const hasFile = project.file && project.file.fileName;
-                                    return (
-                                      <div className="flex items-center gap-1">
-                                        <Badge
-                                          variant="secondary"
-                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
-                                          title={project.file.fileName || 'Unknown file'}
-                                        >
-                                          <Upload className="w-3 h-3 flex-shrink-0" />
-                                          <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
-                                        </Badge>
-                                        {hasFile && (
-                                          <>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => handleFileView(project.file, fileKey)}
-                                              disabled={isLoading}
-                                              className="h-6 w-6 p-0"
-                                              title="View file"
-                                            >
-                                              {isLoading ? (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                              ) : (
-                                                <Eye className="w-3 h-3" />
-                                              )}
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => handleFileDownload(project.file, fileKey)}
-                                              disabled={isLoading}
-                                              className="h-6 w-6 p-0"
-                                              title="Download file"
-                                            >
-                                              {isLoading ? (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                              ) : (
-                                                <Download className="w-3 h-3" />
-                                              )}
-                                            </Button>
-                                          </>
-                                        )}
-                                      </div>
-                                    );
-                                  })() : (
-                                    <span className="text-muted-foreground text-xs">No file</span>
-                                  )
+                                  <span className="text-muted-foreground text-xs">
+                                    No file
+                                  </span>
                                 )}
                               </td>
                             </tr>
@@ -3544,7 +2330,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </div>
 
                   {/* Add More Button - Only visible when adopted is "yes" and in edit mode */}
-                  {isEditable('4.3') && !showAddProjectForm && (
+                  {isEditable("4.3") && !showAddProjectForm && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -3557,7 +2343,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   )}
 
                   {/* Add Project Form - Only visible when showAddProjectForm is true */}
-                  {showAddProjectForm && isEditable('4.3') && (
+                  {showAddProjectForm && isEditable("4.3") && (
                     <div className="border rounded-lg p-4 bg-gray-50">
                       <h4 className="font-medium mb-3">Add New Project</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3565,7 +2351,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                           <Label>Project Name</Label>
                           <Input
                             value={newProject.projectName}
-                            onChange={(e) => setNewProject({ ...newProject, projectName: e.target.value })}
+                            onChange={(e) =>
+                              setNewProject({
+                                ...newProject,
+                                projectName: e.target.value,
+                              })
+                            }
                             className="bg-white"
                             placeholder="Enter project name"
                           />
@@ -3574,7 +2365,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                           <Label>Sector</Label>
                           <Dropdown
                             value={newProject.sector}
-                            onChange={(value) => setNewProject({ ...newProject, sector: value })}
+                            onChange={(value) =>
+                              setNewProject({ ...newProject, sector: value })
+                            }
                             options={dropdownValues.sector}
                             placeholder="Select sector"
                           />
@@ -3586,7 +2379,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                             isEditable={true}
                             submissionId={submissionId}
                             onFilesChange={(updatedFile) => {
-                              setNewProject({ ...newProject, file: updatedFile as FileUpload | null });
+                              setNewProject({
+                                ...newProject,
+                                file: updatedFile as FileUpload | null,
+                              });
                             }}
                             label=""
                             multiple={false}
@@ -3618,13 +2414,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </>
               )}
 
-              {(state?.section4_3?.adopted === "no") && (
+              {state?.section4_3?.adopted === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable('4.3') ? (
+                  {isEditable("4.3") ? (
                     <Textarea
                       value={state?.section4_3?.comment || ""}
-                      onChange={(e) => handleFieldUpdate('4.3', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.3", "comment", e.target.value)
+                      }
                       placeholder="Please provide a comment..."
                       className="min-h-[100px]"
                     />
@@ -3640,33 +2438,39 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 Upload GatiShakti evidence
               </p>
             </div>
-
           </SectionCard>
         )}
 
         {/* Section 4.4 */}
-        {sectionsWithData.includes('section4_4') && (
+        {sectionsWithData.includes("section4_4") && (
           <SectionCard
-            title={<div className="flex flex-col relative">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">4.4 -</span> Adoption of ADR <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
-                </span>
-                {renderActionButtons("4.4")}
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.4 -</span> Adoption of ADR{" "}
+                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                      (5 marks per 1%)
+                    </span>{" "}
+                  </span>
+                  {renderActionButtons("4.4")}
+                </div>
               </div>
-            </div>}
+            }
             subtitle=""
             className="mb-6"
           >
-            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-            {renderMOSPIReviewerComments("4.4")}
             <div className="space-y-4">
               <div>
-                <Label className="mb-3 block">Adoption of Alternate Dispute Resolution (ADR)?*</Label>
-                {isEditable('4.4') ? (
+                <Label className="mb-3 block">
+                  Adoption of Alternate Dispute Resolution (ADR)?*
+                </Label>
+                {isEditable("4.4") ? (
                   <RadioGroup
                     value={state?.section4_4?.adopted || ""}
-                    onValueChange={(value) => handleFieldUpdate('4.4', 'adopted', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.4", "adopted", value)
+                    }
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -3680,10 +2484,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </RadioGroup>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_4?.adopted === "yes"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                      }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_4?.adopted === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       {state?.section4_4?.adopted === "yes" ? "Yes" : "No"}
                     </span>
                   </div>
@@ -3693,23 +2500,30 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               {state?.section4_4?.adopted === "yes" && (
                 <div>
                   <EditableFileDisplay
-                    files={state?.section4_4?.files ?? (state?.section4_4?.file ? [state.section4_4.file] : null)}
-                    isEditable={isEditable('4.4')}
+                    files={
+                      state?.section4_4?.files ??
+                      (state?.section4_4?.file ? [state.section4_4.file] : null)
+                    }
+                    isEditable={isEditable("4.4")}
                     submissionId={submissionId}
-                    onFilesChange={(updatedFiles) => handleFileUpdate('4.4', updatedFiles)}
+                    onFilesChange={(updatedFiles) =>
+                      handleFileUpdate("4.4", updatedFiles)
+                    }
                     label="Uploaded File"
                     multiple={true}
                   />
                 </div>
               )}
 
-              {(state?.section4_4?.adopted === "no") && (
+              {state?.section4_4?.adopted === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable('4.4') ? (
+                  {isEditable("4.4") ? (
                     <Textarea
                       value={state?.section4_4?.comment || ""}
-                      onChange={(e) => handleFieldUpdate('4.4', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.4", "comment", e.target.value)
+                      }
                       placeholder="Please provide a comment..."
                       className="min-h-[100px]"
                     />
@@ -3725,26 +2539,29 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 Upload ADR orders/notification
               </p>
             </div>
-
           </SectionCard>
         )}
 
         {/* Section 4.5 */}
-        {sectionsWithData.includes('section4_5') && (
+        {sectionsWithData.includes("section4_5") && (
           <SectionCard
-            title={<div className="flex flex-col relative">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">4.5 -</span>Innovative Practices <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per practice)</span>{" "}
-                </span>
-                {renderActionButtons("4.5")}
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.5 -</span>Innovative
+                    Practices{" "}
+                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                      (10 marks per practice)
+                    </span>{" "}
+                  </span>
+                  {renderActionButtons("4.5")}
+                </div>
               </div>
-            </div>}
+            }
             subtitle=""
             className="mb-6"
           >
-            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-            {renderMOSPIReviewerComments("4.5")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3764,10 +2581,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">Implemented?*</Label>
-                {isEditable('4.5') ? (
+                {isEditable("4.5") ? (
                   <RadioGroup
                     value={state?.section4_5?.implemented || ""}
-                    onValueChange={(value) => handleFieldUpdate('4.5', 'implemented', value)}
+                    onValueChange={(value) =>
+                      handleFieldUpdate("4.5", "implemented", value)
+                    }
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -3781,38 +2600,52 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </RadioGroup>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_5?.implemented === "yes"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                      }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_5?.implemented === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       {state?.section4_5?.implemented === "yes" ? "Yes" : "No"}
                     </span>
                   </div>
                 )}
               </div>
 
-              {(state?.section4_5?.implemented === "yes") && (
+              {state?.section4_5?.implemented === "yes" && (
                 <>
                   {/* Practices Table */}
                   <div className="overflow-x-auto rounded-xl">
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Practice Name</th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">Impact</th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                            Practice Name
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Impact
+                          </th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Uploaded File
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {(() => {
-                          const practices = Array.isArray(state?.section4_5?.practices)
+                          const practices = Array.isArray(
+                            state?.section4_5?.practices
+                          )
                             ? state.section4_5.practices
                             : [];
 
                           if (!practices.length) {
                             return (
                               <tr>
-                                <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                                <td
+                                  colSpan={3}
+                                  className="py-8 text-center text-muted-foreground"
+                                >
                                   No practices available
                                 </td>
                               </tr>
@@ -3822,40 +2655,58 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                           return practices.map((practice: any, idx: number) => (
                             <tr key={practice.id || idx} className="border-b">
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('4.5') ? (
+                                {isEditable("4.5") ? (
                                   <Input
                                     value={practice.practiceName || ""}
-                                    onChange={(e) => handlePracticeFieldUpdate(idx, 'practiceName', e.target.value)}
+                                    onChange={(e) =>
+                                      handlePracticeFieldUpdate(
+                                        idx,
+                                        "practiceName",
+                                        e.target.value
+                                      )
+                                    }
                                     className="w-full"
                                     placeholder="Enter practice name"
                                   />
                                 ) : (
-                                  practice.practiceName || 'N/A'
+                                  practice.practiceName || "N/A"
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('4.5') ? (
+                                {isEditable("4.5") ? (
                                   <Dropdown
                                     value={practice.impact || ""}
-                                    onChange={(value) => handlePracticeFieldUpdate(idx, 'impact', value)}
+                                    onChange={(value) =>
+                                      handlePracticeFieldUpdate(
+                                        idx,
+                                        "impact",
+                                        value
+                                      )
+                                    }
                                     options={IMPACT_OPTIONS}
                                     placeholder="Select impact"
                                   />
                                 ) : (
-                                  practice.impact || 'N/A'
+                                  practice.impact || "N/A"
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable('4.5') ? (
+                                {isEditable("4.5") ? (
                                   <div className="space-y-1.5">
                                     {practice.file ? (
                                       <Badge
                                         variant="secondary"
                                         className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                        title={practice.file.fileName || 'Unknown file'}
+                                        title={
+                                          practice.file.fileName ||
+                                          "Unknown file"
+                                        }
                                       >
                                         <Upload className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
+                                        <span className="truncate">
+                                          {practice.file.fileName ||
+                                            "Unknown file"}
+                                        </span>
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -3867,35 +2718,68 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                         </button>
                                       </Badge>
                                     ) : (
-                                      <span className="text-muted-foreground text-xs">No file</span>
+                                      <span className="text-muted-foreground text-xs">
+                                        No file
+                                      </span>
                                     )}
                                     <div className="flex items-center">
                                       <input
                                         type="file"
                                         accept=".pdf,.doc,.docx"
                                         onChange={async (e) => {
-                                          const selectedFile = e.target.files?.[0];
+                                          const selectedFile =
+                                            e.target.files?.[0];
                                           if (selectedFile) {
                                             // Upload file immediately (same as create submission)
                                             try {
-                                              const response = await apiService.uploadFile(submissionId, selectedFile);
-                                              const fileData = response?.data || response;
+                                              const response =
+                                                await apiService.uploadFile(
+                                                  submissionId,
+                                                  selectedFile
+                                                );
+                                              const fileData =
+                                                response?.data || response;
 
                                               const newFile: FileUpload = {
-                                                id: fileData.id ?? crypto.randomUUID(),
+                                                id:
+                                                  fileData.id ??
+                                                  crypto.randomUUID(),
                                                 file: null, // File not stored locally when backend handles upload
-                                                fileName: fileData.fileName || fileData.filename || selectedFile.name,
-                                                fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
-                                                uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
-                                                filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
-                                                fileUrl: fileData.fileUrl || fileData.url,
+                                                fileName:
+                                                  fileData.fileName ||
+                                                  fileData.filename ||
+                                                  selectedFile.name,
+                                                fileSize: Number(
+                                                  fileData.fileSize ??
+                                                    fileData.size ??
+                                                    selectedFile.size ??
+                                                    0
+                                                ),
+                                                uploadedAt: Number(
+                                                  fileData.uploadedAt ??
+                                                    Date.now()
+                                                ),
+                                                filePath:
+                                                  fileData.filePath ??
+                                                  fileData.file ??
+                                                  fileData.url ??
+                                                  fileData.path,
+                                                fileUrl:
+                                                  fileData.fileUrl ||
+                                                  fileData.url,
                                                 mimeType: fileData.mimeType,
                                               };
 
-                                              await handlePracticeFileUpdate(idx, newFile);
-                                              e.target.value = ''; // Reset input
+                                              await handlePracticeFileUpdate(
+                                                idx,
+                                                newFile
+                                              );
+                                              e.target.value = ""; // Reset input
                                             } catch (error: any) {
-                                              console.error('Failed to upload file:', error);
+                                              console.error(
+                                                "Failed to upload file:",
+                                                error
+                                              );
                                             }
                                           }
                                         }}
@@ -3906,7 +2790,13 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => document.getElementById(`file-input-4.5-${idx}`)?.click()}
+                                        onClick={() =>
+                                          document
+                                            .getElementById(
+                                              `file-input-4.5-${idx}`
+                                            )
+                                            ?.click()
+                                        }
                                         className="h-6 px-2 text-xs"
                                       >
                                         <Plus className="w-3 h-3 mr-1" />
@@ -3914,60 +2804,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                       </Button>
                                     </div>
                                   </div>
+                                ) : practice.file ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                    title={
+                                      practice.file.fileName || "Unknown file"
+                                    }
+                                  >
+                                    <Upload className="w-3 h-3" />
+                                    <span className="truncate">
+                                      {practice.file.fileName || "Unknown file"}
+                                    </span>
+                                  </Badge>
                                 ) : (
-                                  practice.file ? (() => {
-                                    const fileKey = `4.5-readonly-${idx}`;
-                                    const isLoading = fileLoading[fileKey] || false;
-                                    const hasFile = practice.file && practice.file.fileName;
-                                    return (
-                                      <div className="flex items-center gap-1">
-                                        <Badge
-                                          variant="secondary"
-                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
-                                          title={practice.file.fileName || 'Unknown file'}
-                                        >
-                                          <Upload className="w-3 h-3 flex-shrink-0" />
-                                          <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
-                                        </Badge>
-                                        {hasFile && (
-                                          <>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => handleFileView(practice.file, fileKey)}
-                                              disabled={isLoading}
-                                              className="h-6 w-6 p-0"
-                                              title="View file"
-                                            >
-                                              {isLoading ? (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                              ) : (
-                                                <Eye className="w-3 h-3" />
-                                              )}
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => handleFileDownload(practice.file, fileKey)}
-                                              disabled={isLoading}
-                                              className="h-6 w-6 p-0"
-                                              title="Download file"
-                                            >
-                                              {isLoading ? (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                              ) : (
-                                                <Download className="w-3 h-3" />
-                                              )}
-                                            </Button>
-                                          </>
-                                        )}
-                                      </div>
-                                    );
-                                  })() : (
-                                    <span className="text-muted-foreground text-xs">No file</span>
-                                  )
+                                  <span className="text-muted-foreground text-xs">
+                                    No file
+                                  </span>
                                 )}
                               </td>
                             </tr>
@@ -3978,7 +2831,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </div>
 
                   {/* Add More Practice Button - Only visible when in edit mode */}
-                  {isEditable('4.5') && !showAddPracticeForm && (
+                  {isEditable("4.5") && !showAddPracticeForm && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -3991,7 +2844,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   )}
 
                   {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
-                  {showAddPracticeForm && isEditable('4.5') && (
+                  {showAddPracticeForm && isEditable("4.5") && (
                     <div className="border rounded-lg p-4 bg-gray-50">
                       <h4 className="font-medium mb-3">Add New Practice</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3999,7 +2852,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                           <Label>Practice Name</Label>
                           <Input
                             value={newPractice.practiceName}
-                            onChange={(e) => setNewPractice({ ...newPractice, practiceName: e.target.value })}
+                            onChange={(e) =>
+                              setNewPractice({
+                                ...newPractice,
+                                practiceName: e.target.value,
+                              })
+                            }
                             className="bg-white"
                             placeholder="Enter practice name"
                           />
@@ -4008,7 +2866,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                           <Label>Impact</Label>
                           <Dropdown
                             value={newPractice.impact}
-                            onChange={(value) => setNewPractice({ ...newPractice, impact: value })}
+                            onChange={(value) =>
+                              setNewPractice({ ...newPractice, impact: value })
+                            }
                             options={IMPACT_OPTIONS}
                             placeholder="Select impact"
                           />
@@ -4020,7 +2880,10 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                             isEditable={true}
                             submissionId={submissionId}
                             onFilesChange={(updatedFile) => {
-                              setNewPractice({ ...newPractice, file: updatedFile as FileUpload | null });
+                              setNewPractice({
+                                ...newPractice,
+                                file: updatedFile as FileUpload | null,
+                              });
                             }}
                             label=""
                             multiple={false}
@@ -4052,13 +2915,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </>
               )}
 
-              {(state?.section4_5?.implemented === "no") && (
+              {state?.section4_5?.implemented === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable('4.5') ? (
+                  {isEditable("4.5") ? (
                     <Textarea
                       value={state?.section4_5?.comment || ""}
-                      onChange={(e) => handleFieldUpdate('4.5', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.5", "comment", e.target.value)
+                      }
                       placeholder="Please provide a comment..."
                       className="min-h-[100px]"
                     />
@@ -4074,43 +2939,42 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 Upload RMB orders/Awards
               </p>
 
-              <p className="text-xs text-muted-foreground">
-                Annex 10
-              </p>
+              <p className="text-xs text-muted-foreground">Annex 10</p>
             </div>
-
           </SectionCard>
         )}
 
-
         {/* Section 4.6 */}
-        {sectionsWithData.includes('section4_6') && (
+        {sectionsWithData.includes("section4_6") && (
           <SectionCard
-            title={<div className="flex flex-col relative">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold ">
-                  <span className="text-primary">4.6 -</span> Capacity Building - Officer Participation{" "}
-                </span>
-                {renderActionButtons("4.6")}
+            title={
+              <div className="flex flex-col relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
+                    <span className="text-primary">4.6 -</span> Capacity
+                    Building - Officer Participation{" "}
+                  </span>
+                  {renderActionButtons("4.6")}
+                </div>
               </div>
-            </div>}
+            }
             subtitle=""
             className="mb-6"
           >
-            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-            {renderMOSPIReviewerComments("4.6")}
             <div className="space-y-4">
               <div>
-                <Label className="mb-3 block">Capacity Building – Officer Participation*</Label>
-                {isEditable('4.6') ? (
+                <Label className="mb-3 block">
+                  Capacity Building – Officer Participation*
+                </Label>
+                {isEditable("4.6") ? (
                   <RadioGroup
                     value={state?.section4_6?.participated || ""}
                     onValueChange={(value) => {
-                      handleFieldUpdate('4.6', 'participated', value);
+                      handleFieldUpdate("4.6", "participated", value);
                       if (value === "yes") {
-                        handleFieldUpdate('4.6', 'comment', '');
+                        handleFieldUpdate("4.6", "comment", "");
                       } else {
-                        handleFieldUpdate('4.6', 'capacityArray', []);
+                        handleFieldUpdate("4.6", "capacityArray", []);
                       }
                     }}
                     className="flex flex-row gap-6"
@@ -4126,38 +2990,56 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                   </RadioGroup>
                 ) : (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_6?.participated === "yes"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                      }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        state?.section4_6?.participated === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       {state?.section4_6?.participated === "yes" ? "Yes" : "No"}
                     </span>
                   </div>
                 )}
               </div>
 
-              {(state?.section4_6?.participated === "yes") && (
+              {state?.section4_6?.participated === "yes" && (
                 <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Officer Name</th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">Designation</th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">Program Name</th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">Training Type</th>
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Organiser</th>
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Officer Name
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Designation
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Program Name
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Training Type
+                        </th>
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Organiser
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const capacityArray = Array.isArray(state?.section4_6?.capacityArray)
+                        const capacityArray = Array.isArray(
+                          state?.section4_6?.capacityArray
+                        )
                           ? state.section4_6.capacityArray
                           : [];
 
                         if (!capacityArray.length) {
                           return (
                             <tr>
-                              <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                              <td
+                                colSpan={5}
+                                className="py-8 text-center text-muted-foreground"
+                              >
                                 No capacity building data available
                               </td>
                             </tr>
@@ -4167,63 +3049,93 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                         return capacityArray.map((item: any, idx: number) => (
                           <tr key={item.id || idx} className="border-b">
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                                 <Input
                                   value={item.officerName || ""}
-                                  onChange={(e) => handleTableFieldUpdate(idx, 'officerName', e.target.value)}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "officerName",
+                                      e.target.value
+                                    )
+                                  }
                                   className="w-full"
                                   placeholder="Enter officer name"
                                 />
                               ) : (
-                                item.officerName || 'N/A'
+                                item.officerName || "N/A"
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                                 <Input
                                   value={item.designation || ""}
-                                  onChange={(e) => handleTableFieldUpdate(idx, 'designation', e.target.value)}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "designation",
+                                      e.target.value
+                                    )
+                                  }
                                   className="w-full"
                                   placeholder="Enter designation"
                                 />
                               ) : (
-                                item.designation || 'N/A'
+                                item.designation || "N/A"
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                                 <Input
                                   value={item.programName || ""}
-                                  onChange={(e) => handleTableFieldUpdate(idx, 'programName', e.target.value)}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "programName",
+                                      e.target.value
+                                    )
+                                  }
                                   className="w-full"
                                   placeholder="Enter program name"
                                 />
                               ) : (
-                                item.programName || 'N/A'
+                                item.programName || "N/A"
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                                 <Dropdown
                                   value={item.trainingType || ""}
-                                  onChange={(value) => handleTableFieldUpdate(idx, 'trainingType', value)}
+                                  onChange={(value) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "trainingType",
+                                      value
+                                    )
+                                  }
                                   options={TRAINING_TYPE_OPTIONS}
                                   placeholder="Select training type"
                                 />
                               ) : (
-                                item.trainingType || 'N/A'
+                                item.trainingType || "N/A"
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.6') ? (
+                              {isEditable("4.6") ? (
                                 <Input
                                   value={item.organiser || ""}
-                                  onChange={(e) => handleTableFieldUpdate(idx, 'organiser', e.target.value)}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "organiser",
+                                      e.target.value
+                                    )
+                                  }
                                   className="w-full"
                                   placeholder="Enter organiser"
                                 />
                               ) : (
-                                item.organiser || 'N/A'
+                                item.organiser || "N/A"
                               )}
                             </td>
                           </tr>
@@ -4234,13 +3146,15 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 </div>
               )}
 
-              {(state?.section4_6?.participated === "no") && (
+              {state?.section4_6?.participated === "no" && (
                 <div>
                   <Label className="mb-2 block">Comments (Reason)</Label>
-                  {isEditable('4.6') ? (
+                  {isEditable("4.6") ? (
                     <Textarea
                       value={state?.section4_6?.comment || ""}
-                      onChange={(e) => handleFieldUpdate('4.6', 'comment', e.target.value)}
+                      onChange={(e) =>
+                        handleFieldUpdate("4.6", "comment", e.target.value)
+                      }
                       placeholder="Please provide a comment..."
                       className="min-h-[100px]"
                     />
@@ -4253,91 +3167,122 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               )}
 
               {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
-              {state?.section4_6?.participated === "yes" && isEditable('4.6') && !showAddCapacityForm && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                  onClick={() => setShowAddCapacityForm(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More
-                </Button>
-              )}
+              {state?.section4_6?.participated === "yes" &&
+                isEditable("4.6") &&
+                !showAddCapacityForm && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                    onClick={() => setShowAddCapacityForm(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add More
+                  </Button>
+                )}
 
               {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
-              {state?.section4_6?.participated === "yes" && showAddCapacityForm && isEditable('4.6') && (
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3">Add New Capacity Building Entry</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Officer Name</Label>
-                      <Input
-                        value={newCapacityEntry.officerName}
-                        onChange={(e) => setNewCapacityEntry({ ...newCapacityEntry, officerName: e.target.value })}
-                        className="bg-white"
-                        placeholder="Enter officer name"
-                      />
+              {state?.section4_6?.participated === "yes" &&
+                showAddCapacityForm &&
+                isEditable("4.6") && (
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <h4 className="font-medium mb-3">
+                      Add New Capacity Building Entry
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Officer Name</Label>
+                        <Input
+                          value={newCapacityEntry.officerName}
+                          onChange={(e) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              officerName: e.target.value,
+                            })
+                          }
+                          className="bg-white"
+                          placeholder="Enter officer name"
+                        />
+                      </div>
+                      <div>
+                        <Label>Designation</Label>
+                        <Input
+                          value={newCapacityEntry.designation}
+                          onChange={(e) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              designation: e.target.value,
+                            })
+                          }
+                          className="bg-white"
+                          placeholder="Enter designation"
+                        />
+                      </div>
+                      <div>
+                        <Label>Program Name</Label>
+                        <Input
+                          value={newCapacityEntry.programName}
+                          onChange={(e) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              programName: e.target.value,
+                            })
+                          }
+                          className="bg-white"
+                          placeholder="Enter program name"
+                        />
+                      </div>
+                      <div>
+                        <Label>Training Type</Label>
+                        <Dropdown
+                          value={newCapacityEntry.trainingType}
+                          onChange={(value) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              trainingType: value,
+                            })
+                          }
+                          options={TRAINING_TYPE_OPTIONS}
+                          placeholder="Select training type"
+                        />
+                      </div>
+                      <div>
+                        <Label>Organiser</Label>
+                        <Input
+                          value={newCapacityEntry.organiser}
+                          onChange={(e) =>
+                            setNewCapacityEntry({
+                              ...newCapacityEntry,
+                              organiser: e.target.value,
+                            })
+                          }
+                          className="bg-white"
+                          placeholder="Enter organiser"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label>Designation</Label>
-                      <Input
-                        value={newCapacityEntry.designation}
-                        onChange={(e) => setNewCapacityEntry({ ...newCapacityEntry, designation: e.target.value })}
-                        className="bg-white"
-                        placeholder="Enter designation"
-                      />
-                    </div>
-                    <div>
-                      <Label>Program Name</Label>
-                      <Input
-                        value={newCapacityEntry.programName}
-                        onChange={(e) => setNewCapacityEntry({ ...newCapacityEntry, programName: e.target.value })}
-                        className="bg-white"
-                        placeholder="Enter program name"
-                      />
-                    </div>
-                    <div>
-                      <Label>Training Type</Label>
-                      <Dropdown
-                        value={newCapacityEntry.trainingType}
-                        onChange={(value) => setNewCapacityEntry({ ...newCapacityEntry, trainingType: value })}
-                        options={TRAINING_TYPE_OPTIONS}
-                        placeholder="Select training type"
-                      />
-                    </div>
-                    <div>
-                      <Label>Organiser</Label>
-                      <Input
-                        value={newCapacityEntry.organiser}
-                        onChange={(e) => setNewCapacityEntry({ ...newCapacityEntry, organiser: e.target.value })}
-                        className="bg-white"
-                        placeholder="Enter organiser"
-                      />
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleAddNewCapacityEntry}
+                        className="flex items-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Save Entry
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelAddCapacityEntry}
+                        className="flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleAddNewCapacityEntry}
-                      className="flex items-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      Save Entry
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancelAddCapacityEntry}
-                      className="flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
+                )}
 
               <p className="text-xs text-muted-foreground">
                 Upload capacity building participation data
@@ -4357,9 +3302,27 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         existingMessage=""
         commentType={(() => {
           const userRole = getUserRole();
-          return userRole === 'MOSPI_REVIEWER' ? 'comment' : 'indicator_comment';
+          return userRole === "MOSPI_REVIEWER"
+            ? "comment"
+            : "indicator_comment";
         })()}
-        onSendBack={onSendBackCallback}
+        onSendBack={
+          // For MOSPI_REVIEWER, don't call onSendBack (no status updates needed)
+          getUserRole() === "MOSPI_REVIEWER"
+            ? undefined
+            : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
+            // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+            // Accept no longer requires comment, so it's not included here
+            // For other cases, use the normal flow
+            isMospiApproverSentBack
+            ? async () => {
+                // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+                console.log(
+                  "MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage"
+                );
+              }
+            : (sectionId) => onIndicatorStatus(sectionId, false)
+        }
       />
 
       <TimelineModal
@@ -4368,7 +3331,9 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         sectionId={timelineSection || ""}
         sectionTitle={timelineSection ? getSectionTitle(timelineSection) : ""}
         comments={getAllComments()}
-        key={`timeline-${timelineSection}-${getAllComments().length}-${Date.now()}`} // Force re-render when comments change
+        key={`timeline-${timelineSection}-${
+          getAllComments().length
+        }-${Date.now()}`} // Force re-render when comments change
       />
 
       {/* Confirmation Dialog for NODAL_OFFICER Save */}
@@ -4377,18 +3342,25 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Save</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to save this section? This will send the data to the State Approver for review.
+              Are you sure you want to save this indicator?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSave}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>Confirm & Save</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              Confirm & Save
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Confirmation Dialog for STATE_APPROVER and MOSPI_APPROVER Send Back */}
-      <AlertDialog open={showSendBackDialog} onOpenChange={setShowSendBackDialog}>
+      <AlertDialog
+        open={showSendBackDialog}
+        onOpenChange={setShowSendBackDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Send Back</AlertDialogTitle>
@@ -4396,18 +3368,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               {(() => {
                 const getUserRole = () => {
                   try {
-                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    const authUser = localStorage.getItem("niri_app:auth_user");
                     if (authUser) {
                       const user = JSON.parse(authUser);
                       return user.value?.role;
                     }
                   } catch (error) {
-                    console.error('Error reading user role:', error);
+                    console.error("Error reading user role:", error);
                   }
                   return null;
                 };
                 const userRole = getUserRole();
-                const isMospiApprover = userRole === 'MOSPI_APPROVER';
+                const isMospiApprover = userRole === "MOSPI_APPROVER";
 
                 return isMospiApprover
                   ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
@@ -4416,8 +3388,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelSendBack}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSendBack}>Confirm & Send Back</AlertDialogAction>
+            <AlertDialogCancel onClick={handleCancelSendBack}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSendBack}>
+              Confirm & Send Back
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -4431,18 +3407,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               {(() => {
                 const getUserRole = () => {
                   try {
-                    const authUser = localStorage.getItem('niri_app:auth_user');
+                    const authUser = localStorage.getItem("niri_app:auth_user");
                     if (authUser) {
                       const user = JSON.parse(authUser);
                       return user.value?.role;
                     }
                   } catch (error) {
-                    console.error('Error reading user role:', error);
+                    console.error("Error reading user role:", error);
                   }
                   return null;
                 };
                 const userRole = getUserRole();
-                const isMospiApprover = userRole === 'MOSPI_APPROVER';
+                const isMospiApprover = userRole === "MOSPI_APPROVER";
 
                 return isMospiApprover
                   ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
@@ -4451,31 +3427,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Confirmation Dialog for Section 4.3 Project File Deletion */}
-      <AlertDialog open={showProjectFileDeleteDialog} onOpenChange={setShowProjectFileDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete file permanently?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This file will be deleted permanently. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowProjectFileDeleteDialog(false);
-              setPendingProjectFileDelete(null);
-            }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmProjectFileDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
+            <AlertDialogCancel onClick={handleCancelAccept}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccept}>
+              Confirm & Accept
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

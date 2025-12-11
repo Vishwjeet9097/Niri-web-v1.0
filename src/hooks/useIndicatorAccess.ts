@@ -64,8 +64,7 @@ export function useIndicatorAccess() {
   const CACHE_KEY_AVAILABLE = useMemo(() => (userId && stateUt ? `niri_available_indicators_${userId}_${stateUt}` : null), [userId, stateUt]);
   const CACHE_EXPIRY_AVAILABLE = useMemo(() => (CACHE_KEY_AVAILABLE ? `${CACHE_KEY_AVAILABLE}_expiry` : null), [CACHE_KEY_AVAILABLE]);
 
-  // Move CACHE_DURATION outside component or use useMemo to prevent recreation
-  const CACHE_DURATION = useMemo(() => 5 * 60 * 1000, []); // 5 minutes - memoized to prevent recreation
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   // normalize helper (same as before)
   const normalizeToCodes = (resp: any): string[] => {
@@ -182,7 +181,7 @@ export function useIndicatorAccess() {
     CACHE_EXPIRY_ASSIGNED,
     CACHE_KEY_AVAILABLE,
     CACHE_EXPIRY_AVAILABLE,
-    // CACHE_DURATION removed - it's a constant and doesn't need to be in deps
+    CACHE_DURATION,
   ]);
 
   // initial + re-run on userId/stateUt/role changes
@@ -245,7 +244,7 @@ export function useIndicatorAccess() {
     return false;
   };
 
-  const clearCache = useCallback(() => {
+  const clearCache = () => {
     if (userId) {
       localStorage.removeItem(CACHE_KEY_ASSIGNED);
       localStorage.removeItem(CACHE_EXPIRY_ASSIGNED);
@@ -254,7 +253,7 @@ export function useIndicatorAccess() {
       localStorage.removeItem(CACHE_KEY_AVAILABLE);
       localStorage.removeItem(CACHE_EXPIRY_AVAILABLE!);
     }
-  }, [userId, CACHE_KEY_ASSIGNED, CACHE_EXPIRY_ASSIGNED, CACHE_KEY_AVAILABLE, CACHE_EXPIRY_AVAILABLE]);
+  };
 
   const getAvailableSections = (): IndicatorSection[] => {
     if (isNodalOfficer) {
@@ -290,13 +289,13 @@ export function useIndicatorAccess() {
     return available.length > 0 ? available[0].id : null;
   };
 
-  const refresh = useCallback(async (opts?: { clearCache?: boolean }) => {
+  const refresh = async (opts?: { clearCache?: boolean }) => {
     if (opts?.clearCache) {
       // Clear both caches including available for this (userId,stateUt)
       clearCache();
     }
     await loadIndicators();
-  }, [loadIndicators, clearCache]);
+  };
 
   // Listen for indicator update events and refresh cache
   useEffect(() => {

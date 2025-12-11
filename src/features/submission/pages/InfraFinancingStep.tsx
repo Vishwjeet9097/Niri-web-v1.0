@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,15 +34,33 @@ import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
 import { SUBMISSION_STEPS } from "../constants/steps";
-import { saveDraftToLocalStorage } from "@/utils/draftUtils";
 import type { InfraFinancingData } from "../types";
 import { getCurrentFinancialYear } from "@/utils/dateUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { apiService } from "@/services/api.service";
 import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const InfraFinancingStep = () => {
+  const { user } = useAuth();
+  const [sectionStatus, setSectionStatus] = useState<any>({
+    completedIndicators: [],
+    completedCount: 0,
+    totalAssigned: 0,
+  });
+  const { getStepData, updateFormData } = useFormPersistence();
+
   const {
     currentStep,
     goToStep,
@@ -49,12 +69,10 @@ export const InfraFinancingStep = () => {
     isFirstStep,
     isLastStep,
   } = useStepNavigation(1);
-  const { getStepData, updateFormData } = useFormPersistence();
   // Detect edit mode to decide hiding of empty indicators
   const isEditMode =
     typeof window !== "undefined" &&
     localStorage.getItem("is_edit_mode") === "true";
-  const { user } = useAuth();
 
   // Indicator access
   const {
@@ -98,38 +116,82 @@ export const InfraFinancingStep = () => {
   };
 
   // Merge loaded / persisted data with defaults
+  // Defensive: always ensure array fields are initialized
+  function safeInfraFinancingFormData(
+    data: Partial<InfraFinancingData>
+  ): InfraFinancingData {
+    const result = {
+      ...defaultData,
+      ...data,
+      section1_1: {
+        ...defaultData.section1_1,
+        ...(data.section1_1 || {}),
+        // Preserve status field
+        status: (data.section1_1 as any)?.status,
+      },
+      section1_2: {
+        ...defaultData.section1_2,
+        ...(data.section1_2 || {}),
+        // Preserve status field
+        status: (data.section1_2 as any)?.status,
+      },
+      section1_3: {
+        ...(data.section1_3 || {}),
+        totalULBs:
+          data.section1_3?.totalULBs ?? defaultData.section1_3.totalULBs,
+        ulbList: Array.isArray(data.section1_3?.ulbList)
+          ? data.section1_3.ulbList
+          : [],
+        // Preserve status field
+        status: (data.section1_3 as any)?.status,
+      },
+      section1_4: {
+        ...(data.section1_4 || {}),
+        totalULBs:
+          data.section1_4?.totalULBs ?? defaultData.section1_4.totalULBs,
+        bondList: Array.isArray(data.section1_4?.bondList)
+          ? data.section1_4.bondList
+          : [],
+        // Preserve status field
+        status: (data.section1_4 as any)?.status,
+      },
+      section1_5: {
+        ...(data.section1_5 || {}),
+        ffiArray: Array.isArray(data.section1_5?.ffiArray)
+          ? data.section1_5.ffiArray
+          : [],
+        hasIntermediary: data.section1_5?.hasIntermediary || "",
+        comment: data.section1_5?.comment || "",
+        // Preserve status field
+        status: (data.section1_5 as any)?.status,
+      },
+    };
+
+    return result;
+  }
+
   const loadedData =
     (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
-  const initialData: InfraFinancingData = {
-    ...defaultData,
-    ...loadedData,
-    section1_1: { ...defaultData.section1_1, ...(loadedData.section1_1 || {}) },
-    section1_2: { ...defaultData.section1_2, ...(loadedData.section1_2 || {}) },
-    section1_3: {
-      totalULBs:
-        loadedData.section1_3?.totalULBs ?? defaultData.section1_3.totalULBs,
-      ulbList: Array.isArray(loadedData.section1_3?.ulbList)
-        ? [...loadedData.section1_3.ulbList]
-        : [...defaultData.section1_3.ulbList],
-    },
-    section1_4: {
-      totalULBs:
-        loadedData.section1_4?.totalULBs ?? defaultData.section1_4.totalULBs,
-      bondList: Array.isArray(loadedData.section1_4?.bondList)
-        ? [...loadedData.section1_4.bondList]
-        : [...defaultData.section1_4.bondList],
-    },
-    section1_5: {
-      ffiArray: Array.isArray(loadedData.section1_5?.ffiArray)
-        ? [...loadedData.section1_5!.ffiArray]
-        : [...defaultData.section1_5.ffiArray],
-      hasIntermediary: loadedData.section1_5?.hasIntermediary || "",
-      comment: loadedData.section1_5?.comment || "",
-    },
-  };
+  const initialData: InfraFinancingData =
+    safeInfraFinancingFormData(loadedData);
 
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [, forceUpdate] = useState({});
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+  const [pendingIndicator, setPendingIndicator] = useState<{
+    code: string;
+    title: string;
+  } | null>(null);
+  // Track which indicators are in edit mode (for sent back indicators)
+  const [editingIndicators, setEditingIndicators] = useState<Set<string>>(
+    new Set()
+  );
+  const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
+    new Set()
+  );
 
   // Calculate allowed indicators for validation
   const sectionIndicators = useMemo(
@@ -159,20 +221,22 @@ export const InfraFinancingStep = () => {
     // For State Approver: only validate available indicators (not assigned to NODAL_OFFICERs)
     // For others: validate all (no restrictions)
     let indicatorsToValidate: string[] | undefined;
-    
+
     if (isNodalOfficer) {
       // NODAL_OFFICER: validate only assigned indicators
       // If no assigned indicators, validate nothing (empty array)
-      indicatorsToValidate = allowedIndicators && allowedIndicators.length > 0 
-        ? allowedIndicators 
-        : []; // Empty array means validate nothing
+      indicatorsToValidate =
+        allowedIndicators && allowedIndicators.length > 0
+          ? allowedIndicators
+          : []; // Empty array means validate nothing
     } else if (isStateApprover) {
       // STATE_APPROVER: validate only available indicators (indicators not assigned to any NODAL_OFFICER)
       // If availableIndicators is empty, it means all indicators are assigned to NODAL_OFFICERs,
       // so STATE_APPROVER shouldn't validate anything
-      indicatorsToValidate = allowedIndicators && allowedIndicators.length > 0 
-        ? allowedIndicators 
-        : []; // Empty array means validate nothing (all indicators are assigned to NODAL_OFFICERs)
+      indicatorsToValidate =
+        allowedIndicators && allowedIndicators.length > 0
+          ? allowedIndicators
+          : []; // Empty array means validate nothing (all indicators are assigned to NODAL_OFFICERs)
     } else {
       // Other roles: validate all (backward compatibility)
       indicatorsToValidate = undefined; // undefined means validate all
@@ -184,19 +248,328 @@ export const InfraFinancingStep = () => {
   }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
 
   useEffect(() => {
-    console.log("InfraFinancing validation state", {
-      isValid: validation.isValid,
-      errors: validation.errors,
-      hasIntermediary: formData.section1_5.hasIntermediary,
-      hasFfiEntries: formData.section1_5.ffiArray.length,
-    });
+    // Validation state tracking
   }, [
     validation,
     formData.section1_5.hasIntermediary,
     formData.section1_5.ffiArray.length,
   ]);
 
-  const isNextDisabled = !validation.isValid;
+  // On mount, fetch submission from DB and populate form (ignore localStorage)
+  // Helper to merge normalized and legacy data for each section
+  function getSectionFromNormalizedOrLegacy(
+    normalized: any,
+    legacy: any,
+    code: string
+  ) {
+    // If normalized data for this indicator exists, use it; else fallback to legacy
+    let result;
+    if (
+      normalized &&
+      normalized.byIndicatorCode &&
+      normalized.byIndicatorCode[code]
+    ) {
+      result = normalized.byIndicatorCode[code];
+    } else {
+      result = legacy || {};
+    }
+    return result;
+  }
+
+  useEffect(() => {
+    // Only run if user is logged in and data not yet loaded
+    if (!user || !user.id || isDataLoaded) return;
+
+    (async () => {
+      try {
+        // Always fetch from backend DB, not localStorage
+        const submissionsResp = await apiService.getSubmissions(1, 100);
+        // Find user's latest submission (any editable status)
+        const userSubmission = submissionsResp.submissions.find(
+          (sub: any) =>
+            sub.status === "DRAFT" ||
+            sub.status === "IN_PROGRESS" ||
+            sub.status === "RETURNED_FROM_STATE" ||
+            sub.status === "PENDING_STATE_APPROVAL"
+        );
+
+        let sectionStatusFromDB = undefined;
+        if (userSubmission && userSubmission.id) {
+          const fullSubmission = await apiService.getSubmission(
+            userSubmission.id
+          );
+          let parsedFormData = fullSubmission.formData;
+          if (typeof fullSubmission.formData === "string") {
+            try {
+              parsedFormData = JSON.parse(fullSubmission.formData);
+            } catch (e) {
+              // ignore parse error
+            }
+          }
+
+          // Restore section_status from DB if present
+          sectionStatusFromDB = fullSubmission.section_status;
+          // Ensure sectionStatus is always an object with completedIndicators array
+          setSectionStatus(
+            sectionStatusFromDB || {
+              completedIndicators: [],
+              completedCount: 0,
+              totalAssigned: 0,
+            }
+          );
+
+          // Prefer normalized indicator data for all sections, fallback to legacy
+          const normalized = parsedFormData?.normalizedFormData;
+          const legacy = parsedFormData?.infraFinancing || {};
+
+          const newFormData: InfraFinancingData = safeInfraFinancingFormData({
+            section1_1: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_1,
+                "1.1"
+              ),
+              year:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_1,
+                  "1.1"
+                )?.year || currentFY,
+              capitalAllocation:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_1,
+                  "1.1"
+                )?.capitalAllocation?.toString() || "",
+              gsdpForFY:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_1,
+                  "1.1"
+                )?.gsdpForFY?.toString() || "",
+              stateCapexUtilisation:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_1,
+                  "1.1"
+                )?.stateCapexUtilisation?.toString() || "",
+              allocationToGSDP:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_1,
+                  "1.1"
+                )?.allocationToGSDP?.toString() || "",
+              capexToCapexActuals:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_1,
+                  "1.1"
+                )?.capexToCapexActuals?.toString() || "",
+              percentage: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_1,
+                "1.1"
+              )?.percentage,
+              marksObtained: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_1,
+                "1.1"
+              )?.marksObtained,
+              // Preserve status field from database
+              status: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_1,
+                "1.1"
+              )?.status,
+            },
+            section1_2: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_2,
+                "1.2"
+              ),
+              year:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_2,
+                  "1.2"
+                )?.year || currentFY,
+              gsdpForFY:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_2,
+                  "1.2"
+                )?.gsdpForFY?.toString() || "",
+              actualCapex:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_2,
+                  "1.2"
+                )?.actualCapex?.toString() || "",
+              budgetaryCapex:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_2,
+                  "1.2"
+                )?.budgetaryCapex?.toString() || "",
+              stateCapexUtilisation:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_2,
+                  "1.2"
+                )?.stateCapexUtilisation?.toString() || "",
+              capexActualsToGSDP:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_2,
+                  "1.2"
+                )?.capexActualsToGSDP?.toString() || "",
+              percentage: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_2,
+                "1.2"
+              )?.percentage,
+              marksObtained: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_2,
+                "1.2"
+              )?.marksObtained,
+              // Preserve status field from database
+              status: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_2,
+                "1.2"
+              )?.status,
+            },
+            section1_3: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_3,
+                "1.3"
+              ),
+              totalULBs:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_3,
+                  "1.3"
+                )?.totalULBs ?? 0,
+              ulbList: Array.isArray(
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_3,
+                  "1.3"
+                )?.ulbList
+              )
+                ? getSectionFromNormalizedOrLegacy(
+                    normalized,
+                    legacy.section1_3,
+                    "1.3"
+                  ).ulbList
+                : [],
+              // Preserve status field from database
+              status: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_3,
+                "1.3"
+              )?.status,
+            },
+            section1_4: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_4,
+                "1.4"
+              ),
+              totalULBs:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_4,
+                  "1.4"
+                )?.totalULBs ?? 0,
+              bondList: Array.isArray(
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_4,
+                  "1.4"
+                )?.bondList
+              )
+                ? getSectionFromNormalizedOrLegacy(
+                    normalized,
+                    legacy.section1_4,
+                    "1.4"
+                  ).bondList
+                : [],
+              // Preserve status field from database
+              status: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_4,
+                "1.4"
+              )?.status,
+            },
+            section1_5: {
+              ...getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_5,
+                "1.5"
+              ),
+              ffiArray: Array.isArray(
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_5,
+                  "1.5"
+                )?.ffiArray
+              )
+                ? getSectionFromNormalizedOrLegacy(
+                    normalized,
+                    legacy.section1_5,
+                    "1.5"
+                  ).ffiArray
+                : [],
+              hasIntermediary:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_5,
+                  "1.5"
+                )?.hasIntermediary || "",
+              comment:
+                getSectionFromNormalizedOrLegacy(
+                  normalized,
+                  legacy.section1_5,
+                  "1.5"
+                )?.comment || "",
+              // Preserve status field from database
+              status: getSectionFromNormalizedOrLegacy(
+                normalized,
+                legacy.section1_5,
+                "1.5"
+              )?.status,
+            },
+          });
+
+          setFormData(newFormData);
+          setIsDataLoaded(true);
+          setTimeout(() => forceUpdate({}), 50);
+        } else {
+          // No submission found, but still initialize sectionStatus
+          setSectionStatus({
+            completedIndicators: [],
+            completedCount: 0,
+            totalAssigned: 0,
+          });
+          setIsDataLoaded(true);
+        }
+      } catch (e) {
+        // On error, still initialize sectionStatus to prevent undefined state
+        setSectionStatus({
+          completedIndicators: [],
+          completedCount: 0,
+          totalAssigned: 0,
+        });
+        setIsDataLoaded(true);
+      }
+    })();
+  }, [user, isDataLoaded]);
+
+  const isNextDisabled = false; // Validation disabled - Next button always enabled
 
   const getFieldError = (path: string) =>
     showValidationErrors ? validation.errors[path] : undefined;
@@ -219,8 +592,10 @@ export const InfraFinancingStep = () => {
     ) : null;
   };
 
-  // ensure year defaults to current FY
+  // ensure year defaults to current FY (but don't overwrite data loaded from DB)
   useEffect(() => {
+    if (!isDataLoaded) return; // Wait for DB data to load first
+
     setFormData((prev) => ({
       ...prev,
       section1_1: {
@@ -232,112 +607,42 @@ export const InfraFinancingStep = () => {
         year: prev.section1_2.year ? prev.section1_2.year : currentFY,
       },
     }));
-  }, [currentFY]);
+  }, [currentFY, isDataLoaded]);
 
   // Sync persisted step data into local formData if present (run on mount)
+  // DISABLED: Now fetching directly from DB instead of localStorage
   useEffect(() => {
+    // Skip localStorage sync, we fetch from DB instead
+    if (isDataLoaded) return;
+
     const currentStepData = getStepData(
       "infraFinancing"
     ) as Partial<InfraFinancingData>;
     if (currentStepData && Object.keys(currentStepData).length > 0) {
-      const syncedData: InfraFinancingData = {
-        ...defaultData,
-        ...currentStepData,
-        section1_1: {
-          ...defaultData.section1_1,
-          ...(currentStepData.section1_1 || {}),
-        },
-        section1_2: {
-          ...defaultData.section1_2,
-          ...(currentStepData.section1_2 || {}),
-        },
-        section1_3: {
-          totalULBs:
-            currentStepData.section1_3?.totalULBs ??
-            defaultData.section1_3.totalULBs,
-          ulbList: Array.isArray(currentStepData.section1_3?.ulbList)
-            ? currentStepData.section1_3.ulbList
-            : [],
-        },
-        section1_4: {
-          totalULBs:
-            currentStepData.section1_4?.totalULBs ??
-            defaultData.section1_4.totalULBs,
-          bondList: Array.isArray(currentStepData.section1_4?.bondList)
-            ? currentStepData.section1_4.bondList
-            : [],
-        },
-        section1_5: {
-          ffiArray: Array.isArray(currentStepData.section1_5?.ffiArray)
-            ? currentStepData.section1_5!.ffiArray
-            : [],
-          hasIntermediary: currentStepData.section1_5?.hasIntermediary || "",
-          comment: currentStepData.section1_5?.comment || "",
-        },
-      };
-      setFormData(syncedData);
       console.log(
-        "🔄 Synced infraFinancing data from localStorage in normal flow:",
-        syncedData
+        "[LocalStorage] Found localStorage data but ignoring in favor of DB data"
       );
+      // Don't sync from localStorage, wait for DB data
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getStepData]);
+  }, [getStepData, isDataLoaded]);
 
   // Initialize from local editing_submission (once)
+  // DISABLED: Now fetching directly from DB instead
   useEffect(() => {
+    // Skip editing_submission localStorage, we fetch from DB instead
+    if (isDataLoaded) return;
+
     const editingSubmission = localStorage.getItem("editing_submission");
     if (editingSubmission) {
-      try {
-        const submissionData = JSON.parse(editingSubmission);
-        if (submissionData.formData && submissionData.formData.infraFinancing) {
-          const stepData = submissionData.formData
-            .infraFinancing as Partial<InfraFinancingData>;
-          const updatedData: InfraFinancingData = {
-            ...defaultData,
-            ...stepData,
-            section1_1: {
-              ...defaultData.section1_1,
-              ...(stepData.section1_1 || {}),
-            },
-            section1_2: {
-              ...defaultData.section1_2,
-              ...(stepData.section1_2 || {}),
-            },
-            section1_3: {
-              totalULBs: stepData.section1_3?.totalULBs ?? 0,
-              ulbList: Array.isArray(stepData.section1_3?.ulbList)
-                ? stepData.section1_3!.ulbList
-                : [],
-            },
-            section1_4: {
-              totalULBs: stepData.section1_4?.totalULBs ?? 0,
-              bondList: Array.isArray(stepData.section1_4?.bondList)
-                ? stepData.section1_4!.bondList
-                : [],
-            },
-            section1_5: {
-              ffiArray: Array.isArray(stepData.section1_5?.ffiArray)
-                ? stepData.section1_5!.ffiArray
-                : [],
-              hasIntermediary: stepData.section1_5?.hasIntermediary || "",
-              comment: stepData.section1_5?.comment || "",
-            },
-          };
-          setFormData(updatedData);
-
-          localStorage.removeItem("editing_submission");
-        }
-      } catch (error) {
-        console.error(
-          "❌ Failed to parse editing submission in InfraFinancingStep:",
-          error
-        );
-        localStorage.removeItem("editing_submission");
-      }
+      console.log(
+        "[LocalStorage] Found editing_submission but ignoring in favor of DB data"
+      );
+      // Don't load from localStorage, wait for DB data
+      localStorage.removeItem("editing_submission");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isDataLoaded]);
 
   // ------------------------
   // Calculation helpers
@@ -580,17 +885,307 @@ export const InfraFinancingStep = () => {
   const validateFields = () => true;
 
   const handleNext = () => {
+    // Validation disabled - allow navigation without checking required fields
+    updateFormData("infraFinancing", formData);
+    goToNext();
+  };
+
+  const handleSubmitToStateApprover = async () => {
     setShowValidationErrors(true);
     if (!validation.isValid) {
       toast({
         title: "Incomplete section",
-        description: "Please complete all required fields before continuing.",
+        description: "Please complete all required fields before submitting.",
         variant: "destructive",
       });
       return;
     }
-    updateFormData("infraFinancing", formData);
-    goToNext();
+
+    try {
+      setIsSubmitting(true);
+      // Get the indicators for this section
+      const sectionIndicators = allowedIndicators || [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+      ];
+      // Submit section to state approver
+      await apiService.submitSectionToStateApprover(
+        formData,
+        "infraFinancing",
+        sectionIndicators
+      );
+      toast({
+        title: "Success",
+        description:
+          "Infrastructure Financing section submitted to State Approver successfully.",
+        variant: "default",
+      });
+      // Update form data
+      updateFormData("infraFinancing", formData);
+    } catch (error: any) {
+      console.error("Submit error:", error);
+      toast({
+        title: "Submission Failed",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to submit section. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitIndicator = async (
+    indicatorCode: string,
+    indicatorTitle: string
+  ) => {
+    setShowValidationErrors(true);
+
+    // Validate only this specific indicator
+    const indicatorValidation = validateInfraFinancing(formData, {
+      allowedIndicators: [indicatorCode],
+    });
+
+    if (!indicatorValidation.isValid) {
+      toast({
+        title: "Incomplete Indicator",
+        description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if already submitted
+    if (isIndicatorSubmitted(indicatorCode)) {
+      toast({
+        title: "Already Submitted",
+        description: `Indicator ${indicatorCode} has already been submitted.`,
+        variant: "default",
+      });
+      return;
+    }
+
+    // Show confirmation dialog
+    setPendingIndicator({ code: indicatorCode, title: indicatorTitle });
+    setShowSubmitDialog(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!pendingIndicator) return;
+
+    const { code: indicatorCode, title: indicatorTitle } = pendingIndicator;
+
+    try {
+      setIsSubmitting(true);
+      setShowSubmitDialog(false);
+
+      // Sanitize files and remove unwanted keys before submission
+      const sanitizedFormData = deepRemoveUnwantedKeys(
+        sanitizeFilesInFormData(formData)
+      );
+
+      // Create sanitized data with status for the submitted indicator
+      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+      const sanitizedFormDataWithStatus = {
+        ...sanitizedFormData,
+        [sectionKey]: {
+          ...sanitizedFormData[sectionKey],
+          status: "SUBMITTED_TO_STATE",
+        },
+      };
+
+      // Submit only this indicator
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormDataWithStatus,
+        "infraFinancing",
+        [indicatorCode]
+      );
+      toast({
+        title: "Success",
+        description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
+        variant: "default",
+      });
+
+      // Optimistically update formData to set status to SUBMITTED_TO_STATE
+      setFormData((prev: any) => {
+        if (prev[sectionKey]) {
+          return {
+            ...prev,
+            [sectionKey]: {
+              ...prev[sectionKey],
+              status: "SUBMITTED_TO_STATE",
+            },
+          };
+        }
+        return prev;
+      });
+
+      // Update form data with sanitized data that includes status
+      updateFormData("infraFinancing", sanitizedFormDataWithStatus);
+
+      // Optimistically update sectionStatus to immediately disable the button
+      // Use functional update to ensure we have the latest state
+      setSectionStatus((prev: any) => {
+        const currentCompleted = prev?.completedIndicators || [];
+        if (!currentCompleted.includes(indicatorCode)) {
+          const updatedStatus = {
+            ...(prev || {}),
+            completedIndicators: [...currentCompleted, indicatorCode],
+            completedCount: (prev?.completedCount || 0) + 1,
+            totalAssigned: prev?.totalAssigned || 0,
+          };
+          console.log(
+            `✅ Optimistically updated sectionStatus for ${indicatorCode}:`,
+            updatedStatus
+          );
+          console.log(
+            `🔍 Button should be disabled:`,
+            updatedStatus.completedIndicators?.includes(indicatorCode)
+          );
+          return updatedStatus;
+        }
+        console.log(
+          `⚠️ Indicator ${indicatorCode} already in completedIndicators`
+        );
+        return prev || {};
+      });
+
+      // Refresh sectionStatus to update completedIndicators from server
+      // Use a small delay to ensure optimistic update is applied first
+      setTimeout(async () => {
+        try {
+          const submissionsResp = await apiService.getSubmissions(1, 100);
+          const userSubmission = submissionsResp.submissions.find(
+            (sub: any) =>
+              sub.status === "DRAFT" ||
+              sub.status === "IN_PROGRESS" ||
+              sub.status === "RETURNED_FROM_STATE" ||
+              sub.status === "PENDING_STATE_APPROVAL"
+          );
+          if (userSubmission && userSubmission.id) {
+            const fullSubmission = await apiService.getSubmission(
+              userSubmission.id
+            );
+            console.log(
+              `🔄 Refreshed sectionStatus from server:`,
+              fullSubmission.section_status
+            );
+            // Merge server response with optimistic update to ensure we don't lose the indicator
+            setSectionStatus((prevStatus: any) => {
+              const serverCompleted =
+                fullSubmission.section_status?.completedIndicators || [];
+              const currentOptimisticCompleted =
+                prevStatus?.completedIndicators || [];
+              const mergedCompleted = Array.from(
+                new Set([...currentOptimisticCompleted, ...serverCompleted])
+              );
+
+              if (mergedCompleted.includes(indicatorCode)) {
+                return {
+                  ...(prevStatus || {}),
+                  ...fullSubmission.section_status, // Merge server status
+                  completedIndicators: mergedCompleted,
+                  completedCount: mergedCompleted.length,
+                };
+              } else {
+                console.log(
+                  `⚠️ Server doesn't have ${indicatorCode} yet, keeping optimistic update`
+                );
+                return prevStatus || {};
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Failed to refresh section status:", err);
+        } finally {
+          setIsSubmitting(false); // Reset isSubmitting after server refresh attempt
+        }
+      }, 100);
+    } catch (error: any) {
+      console.error("Submit error:", error);
+      toast({
+        title: "Submission Failed",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to submit indicator. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+      setPendingIndicator(null);
+    }
+  };
+
+  // Remove unwanted keys and sanitize files before submit
+  function deepRemoveUnwantedKeys(obj: any): any {
+    const keysToRemove = [
+      "sectionStatus",
+      "section_status",
+      "completedList",
+      "totalIndicators",
+      "completedIndicators",
+    ];
+    if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
+    if (obj && typeof obj === "object") {
+      const newObj: any = {};
+      for (const key in obj) {
+        if (!keysToRemove.includes(key)) {
+          if (
+            key === "normalizedFormData" &&
+            obj[key] &&
+            typeof obj[key] === "object"
+          ) {
+            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            if (newObj[key].original) {
+              newObj[key].original = deepRemoveUnwantedKeys(
+                newObj[key].original
+              );
+            }
+          } else {
+            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+          }
+        }
+      }
+      return newObj;
+    }
+    return obj;
+  }
+
+  function sanitizeFilesInFormData(obj: any): any {
+    if (Array.isArray(obj)) return obj.map(sanitizeFilesInFormData);
+    if (obj && typeof obj === "object") {
+      const newObj: any = {};
+      for (const key in obj) {
+        if (key === "file") {
+          const fileVal = obj[key];
+          // Allow FileUpload object (with fileName/fileSize) or null
+          if (
+            fileVal &&
+            typeof fileVal === "object" &&
+            ("fileName" in fileVal || "fileSize" in fileVal)
+          ) {
+            newObj[key] = fileVal;
+          } else {
+            newObj[key] = null;
+          }
+        } else {
+          newObj[key] = sanitizeFilesInFormData(obj[key]);
+        }
+      }
+      return newObj;
+    }
+    return obj;
+  }
+
+  const handleCancelSubmit = () => {
+    setShowSubmitDialog(false);
+    setPendingIndicator(null);
   };
 
   if (indicatorLoading) {
@@ -624,18 +1219,6 @@ export const InfraFinancingStep = () => {
       hasIndicatorAccess("1.3") ||
       hasIndicatorAccess("1.4") ||
       hasIndicatorAccess("1.5");
-    console.log("🔍 InfraFinancingStep: Access control check", {
-      isNodalOfficer,
-      isStateApprover,
-      assignedIndicators,
-      availableIndicators,
-      hasAccessToSection,
-      hasAccess1_1: hasIndicatorAccess("1.1"),
-      hasAccess1_2: hasIndicatorAccess("1.2"),
-      hasAccess1_3: hasIndicatorAccess("1.3"),
-      hasAccess1_4: hasIndicatorAccess("1.4"),
-      hasAccess1_5: hasIndicatorAccess("1.5"),
-    });
     if (!hasAccessToSection) {
       return (
         <div className="w-full -mx-6 lg:-mx-8">
@@ -684,6 +1267,170 @@ export const InfraFinancingStep = () => {
     return codesForVisibility.includes(indicatorCode);
   };
 
+  // Helper function to check if an indicator is submitted
+  // Helper function to get indicator status
+  const getIndicatorStatus = (indicatorCode: string): string | undefined => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    const sectionData = formData[sectionKey];
+    return (sectionData as any)?.status;
+  };
+
+  // Check if indicator is submitted or accepted (non-editable)
+  // Note: REVERTED/RESUBMITTED indicators are non-editable by default, but can be edited via Edit button
+  const isIndicatorSubmitted = (indicatorCode: string): boolean => {
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return false;
+    const upperStatus = status.toUpperCase();
+    // If indicator is in edit mode, it's editable
+    if (editingIndicators.has(indicatorCode)) {
+      return false;
+    }
+    // REVERTED and RESUBMITTED are non-editable by default (need Edit button)
+    // Other statuses are non-editable
+    return (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED" ||
+      upperStatus === "REVERTED" ||
+      upperStatus === "RESUBMITTED"
+    );
+  };
+
+  // Handle Edit button click for sent back indicators
+  const handleEditIndicator = (indicatorCode: string) => {
+    setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
+  };
+
+  // Handle Save button click for sent back indicators
+  const handleSaveIndicator = async (indicatorCode: string) => {
+    setSavingIndicators((prev) => new Set(prev).add(indicatorCode));
+    try {
+      // Validate the indicator before saving
+      const indicatorValidation = validateInfraFinancing(formData, {
+        allowedIndicators: [indicatorCode],
+      });
+
+      if (!indicatorValidation.isValid) {
+        toast({
+          title: "Validation Error",
+          description: `Please complete all required fields for indicator ${indicatorCode} before saving.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get current submission to preserve status
+      const submissionsResp = await apiService.getSubmissions(1, 100);
+      const userSubmission = submissionsResp.submissions.find(
+        (sub: any) =>
+          sub.status === "DRAFT" ||
+          sub.status === "IN_PROGRESS" ||
+          sub.status === "RETURNED_FROM_STATE" ||
+          sub.status === "PENDING_STATE_APPROVAL"
+      );
+
+      if (!userSubmission?.id) {
+        toast({
+          title: "Error",
+          description: "No submission found. Please create a submission first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get current indicator status
+      const currentStatus = getIndicatorStatus(indicatorCode);
+      const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Sanitize files and remove unwanted keys before saving
+      const sanitizedFormData = deepRemoveUnwantedKeys(
+        sanitizeFilesInFormData(formData)
+      );
+
+      // If indicator was sent back (REVERTED/RESUBMITTED), change status to RESUBMITTED after saving
+      // This makes it non-editable again until sent back again
+      const upperStatus = currentStatus?.toUpperCase() || "";
+      const newStatus =
+        upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
+          ? "RESUBMITTED"
+          : currentStatus || "DRAFT"; // Preserve status if not sent back
+
+      // Prepare data with updated status
+      const sectionDataWithStatus = {
+        ...sanitizedFormData[sectionKey],
+        status: newStatus,
+      };
+
+      // Update submission using updateSubmission directly to preserve status
+      const existingSubmission = await apiService.getSubmission(
+        userSubmission.id
+      );
+      const existingFormData = existingSubmission?.formData || {};
+
+      // Preserve all existing category data and update only this indicator
+      const updatedFormData = {
+        ...existingFormData,
+        infraFinancing: {
+          ...(existingFormData.infraFinancing || {}),
+          [sectionKey]: sectionDataWithStatus,
+        },
+      };
+
+      // Update submission with preserved status
+      await apiService.updateSubmission(userSubmission.id, {
+        formData: updatedFormData,
+      });
+
+      // Update local formData state
+      setFormData((prev: any) => ({
+        ...prev,
+        [sectionKey]: sectionDataWithStatus,
+      }));
+
+      // Save form data to localStorage (via updateFormData)
+      updateFormData("infraFinancing", {
+        ...formData,
+        [sectionKey]: sectionDataWithStatus,
+      });
+
+      // Exit edit mode
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+
+      toast({
+        title: "Saved",
+        description: `Indicator ${indicatorCode} has been saved successfully.`,
+      });
+    } catch (error) {
+      console.error(`Failed to save indicator ${indicatorCode}:`, error);
+      toast({
+        title: "Save Failed",
+        description: `Failed to save indicator ${indicatorCode}. Please try again.`,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+    }
+  };
+
+  // Handle Cancel button click for sent back indicators
+  const handleCancelEdit = (indicatorCode: string) => {
+    setEditingIndicators((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(indicatorCode);
+      return newSet;
+    });
+    // Optionally reload the original data for this indicator
+    // For now, just exit edit mode
+  };
+
   return (
     <div className="w-full -mx-6 lg:-mx-8">
       <div className="px-6 lg:px-8">
@@ -718,17 +1465,9 @@ export const InfraFinancingStep = () => {
           );
         })()}
 
-        {/* Section 1.1 */}
-        {showIndicator("1.1") &&
-          (!isEditMode ||
-            !!(
-              formData.section1_1 &&
-              (formData.section1_1.year ||
-                formData.section1_1.capitalAllocation ||
-                formData.section1_1.gsdpForFY ||
-                formData.section1_1.allocationToGSDP ||
-                formData.section1_1.capexToCapexActuals)
-            )) && (
+        <div>
+          {/* Section 1.1 */}
+          {showIndicator("1.1") && (
             <SectionCard
               title={
                 <div className="flex flex-col">
@@ -738,8 +1477,15 @@ export const InfraFinancingStep = () => {
                 </div>
               }
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("1.1")}
+              indicatorCode="1.1"
+              isEditable={editingIndicators.has("1.1")}
+              onEdit={() => handleEditIndicator("1.1")}
+              onSave={() => handleSaveIndicator("1.1")}
+              onCancel={() => handleCancelEdit("1.1")}
+              isSaving={savingIndicators.has("1.1")}
             >
-              <div className="grid grid-cols-2 gap-4 max-w-[70%]">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>
                     Year<span className="text-red-500">*</span>
@@ -754,7 +1500,7 @@ export const InfraFinancingStep = () => {
                 </div>
                 <div>
                   <Label>
-                    Capital Allocation for FY (INR - values is in CRORES)
+                    Capital Allocation for FY (INR)
                     <span className="text-red-500">*</span>
                     {/* <Info className="h-4 w-4 text-gray-500 inline-block ml-2" /> */}
                   </Label>
@@ -776,15 +1522,18 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                     }}
+                    disabled={isIndicatorSubmitted("1.1")}
                     className={cn(
-                      getInputValidationClass("section1_1.capitalAllocation")
+                      getInputValidationClass("section1_1.capitalAllocation"),
+                      isIndicatorSubmitted("1.1") &&
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_1.capitalAllocation")}
                 </div>
                 <div>
                   <Label>
-                    GSDP for FY (INR - values is in CRORES)<span className="text-red-500">*</span>
+                    GSDP for FY (INR)<span className="text-red-500">*</span>
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </Label>
                   <Input
@@ -805,15 +1554,19 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                     }}
+                    disabled={isIndicatorSubmitted("1.1")}
                     className={cn(
-                      getInputValidationClass("section1_1.gsdpForFY")
+                      getInputValidationClass("section1_1.gsdpForFY"),
+                      isIndicatorSubmitted("1.1") &&
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_1.gsdpForFY")}
                 </div>
                 <div>
                   <Label>
-                    % Allocation to GSDP<span className="text-red-500">*</span>
+                    % Allocation to GSDP
+                    <span className="text-red-500">*</span>
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </Label>
                   <Input
@@ -850,19 +1603,27 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_1.allocationToGSDP")}
                 </div>
               </div>
+              <div className="mt-4">
+                <Button
+                  onClick={() =>
+                    handleSubmitIndicator("1.1", "% Capex to GSDP")
+                  }
+                  disabled={isSubmitting || isIndicatorSubmitted("1.1")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  size="sm"
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isIndicatorSubmitted("1.1")
+                    ? "Submitted"
+                    : "Submit"}
+                </Button>
+              </div>
             </SectionCard>
           )}
 
-        {/* Section 1.2 */}
-        {showIndicator("1.2") &&
-          (!isEditMode ||
-            !!(
-              formData.section1_2 &&
-              (formData.section1_2.year ||
-                formData.section1_2.actualCapex ||
-                formData.section1_2.stateCapexUtilisation ||
-                formData.section1_2.capexActualsToGSDP)
-            )) && (
+          {/* Section 1.2 */}
+          {showIndicator("1.2") && (
             <SectionCard
               title={
                 <div className="flex flex-col">
@@ -875,8 +1636,15 @@ export const InfraFinancingStep = () => {
                   </span>
                 </div>
               }
+              indicatorStatus={getIndicatorStatus("1.2")}
+              indicatorCode="1.2"
+              isEditable={editingIndicators.has("1.2")}
+              onEdit={() => handleEditIndicator("1.2")}
+              onSave={() => handleSaveIndicator("1.2")}
+              onCancel={() => handleCancelEdit("1.2")}
+              isSaving={savingIndicators.has("1.2")}
             >
-              <div className="grid grid-cols-2 gap-4 max-w-[70%]">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>
                     Year<span className="text-red-500">*</span>
@@ -891,7 +1659,7 @@ export const InfraFinancingStep = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>
-                    A₁ - Actual Capex (INR - values is in CRORES)
+                    A₁ - Actual Capex (INR)
                     <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -912,15 +1680,18 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                     }}
+                    disabled={isIndicatorSubmitted("1.2")}
                     className={cn(
-                      getInputValidationClass("section1_2.actualCapex")
+                      getInputValidationClass("section1_2.actualCapex"),
+                      isIndicatorSubmitted("1.2") &&
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_2.actualCapex")}
                 </div>
                 <div className="space-y-2">
                   <Label>
-                    State Capex Utilisation (INR - values is in CRORES)
+                    State Capex Utilisation (INR)
                     <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -941,10 +1712,13 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                     }}
+                    disabled={isIndicatorSubmitted("1.2")}
                     className={cn(
                       getInputValidationClass(
                         "section1_2.stateCapexUtilisation"
-                      )
+                      ),
+                      isIndicatorSubmitted("1.2") &&
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_2.stateCapexUtilisation")}
@@ -989,14 +1763,30 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_2.capexActualsToGSDP")}
                 </div>
               </div>
+              <div className="mt-4">
+                <Button
+                  onClick={() =>
+                    handleSubmitIndicator("1.2", "% Capex Utilization")
+                  }
+                  disabled={isSubmitting || isIndicatorSubmitted("1.2")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  size="sm"
+                >
+                  {(() => {
+                    const isSubmitted = isIndicatorSubmitted("1.2");
+                    return isSubmitting
+                      ? "Submitting..."
+                      : isSubmitted
+                      ? "Submitted"
+                      : "Submit";
+                  })()}
+                </Button>
+              </div>
             </SectionCard>
           )}
 
-        {/* Section 1.3 */}
-        {showIndicator("1.3") &&
-          (!isEditMode ||
-            (Array.isArray(formData.section1_3.ulbList) &&
-              formData.section1_3.ulbList.length > 0)) && (
+          {/* Section 1.3 */}
+          {showIndicator("1.3") && (
             <SectionCard
               title={
                 <div className="flex flex-col">
@@ -1007,9 +1797,16 @@ export const InfraFinancingStep = () => {
                 </div>
               }
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("1.3")}
+              indicatorCode="1.3"
+              isEditable={editingIndicators.has("1.3")}
+              onEdit={() => handleEditIndicator("1.3")}
+              onSave={() => handleSaveIndicator("1.3")}
+              onCancel={() => handleCancelEdit("1.3")}
+              isSaving={savingIndicators.has("1.3")}
             >
               <div className="space-y-4">
-                <div className="w-1/4">
+                <div className="w-1/3">
                   <Label>
                     Total Number of ULBs <span className="text-red-500">*</span>
                   </Label>
@@ -1031,8 +1828,11 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                     }}
+                    disabled={isIndicatorSubmitted("1.3")}
                     className={cn(
-                      getInputValidationClass("section1_3.totalULBs")
+                      getInputValidationClass("section1_3.totalULBs"),
+                      isIndicatorSubmitted("1.3") &&
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                     required
                   />
@@ -1040,8 +1840,8 @@ export const InfraFinancingStep = () => {
                 </div>
 
                 {formData.section1_3.ulbList.map((ulb, index) => (
-                  <div key={ulb.id} className="grid grid-cols-4 gap-4">
-                    <div>
+                  <div key={ulb.id} className="grid grid-cols-12 gap-4">
+                    <div className="col-span-2">
                       <Label>
                         City name<span className="text-red-500">*</span>
                       </Label>
@@ -1050,9 +1850,7 @@ export const InfraFinancingStep = () => {
                         value={ulb.cityName}
                         onChange={(e) => {
                           showErrorsIfNeeded();
-                          let value = e.target.value;
-                          // Only allow letters and spaces
-                          value = value.replace(/[^a-zA-Z\s]/g, "");
+                          const value = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
                             section1_3: {
@@ -1065,15 +1863,18 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("1.3")}
                         className={cn(
                           getInputValidationClass(
                             `section1_3.ulbList.${index}.cityName`
-                          )
+                          ),
+                          isIndicatorSubmitted("1.3") &&
+                            "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
                     </div>
-                    <div>
+                    <div className="col-span-4">
                       <Label>
                         ULB<span className="text-red-500">*</span>
                       </Label>
@@ -1093,6 +1894,7 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("1.3")}
                       >
                         <SelectTrigger
                           className={cn(
@@ -1117,7 +1919,7 @@ export const InfraFinancingStep = () => {
                       </Select>
                       {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
                     </div>
-                    <div>
+                    <div className="col-span-3">
                       <Label>
                         Rating date<span className="text-red-500">*</span>
                       </Label>
@@ -1125,12 +1927,15 @@ export const InfraFinancingStep = () => {
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
+                            disabled={isIndicatorSubmitted("1.3")}
                             className={cn(
                               "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
                               !ulb.ratingDate && "text-muted-foreground",
                               getInputValidationClass(
                                 `section1_3.ulbList.${index}.ratingDate`
-                              )
+                              ),
+                              isIndicatorSubmitted("1.3") &&
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1148,6 +1953,7 @@ export const InfraFinancingStep = () => {
                                 : undefined
                             }
                             onSelect={(date) => {
+                              if (isIndicatorSubmitted("1.3")) return;
                               showErrorsIfNeeded();
                               setFormData((prev) => ({
                                 ...prev,
@@ -1166,6 +1972,7 @@ export const InfraFinancingStep = () => {
                                 },
                               }));
                             }}
+                            disabled={isIndicatorSubmitted("1.3")}
                             initialFocus
                           />
                         </PopoverContent>
@@ -1174,67 +1981,69 @@ export const InfraFinancingStep = () => {
                         `section1_3.ulbList.${index}.ratingDate`
                       )}
                     </div>
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label>
-                          Select Rating<span className="text-red-500">*</span>
-                        </Label>
-                        <Select
-                          value={ulb.rating}
-                          onValueChange={(value) => {
-                            showErrorsIfNeeded();
-                            setFormData((prev) => ({
-                              ...prev,
-                              section1_3: {
-                                ...prev.section1_3,
-                                ulbList: prev.section1_3.ulbList.map((item) =>
-                                  item.id === ulb.id
-                                    ? { ...item, rating: value }
-                                    : item
-                                ),
-                              },
-                            }));
-                          }}
+                    <div className="col-span-2">
+                      <Label>
+                        Select Rating<span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={ulb.rating}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              ulbList: prev.section1_3.ulbList.map((item) =>
+                                item.id === ulb.id
+                                  ? { ...item, rating: value }
+                                  : item
+                              ),
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("1.3")}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_3.ulbList.${index}.rating`
+                            )
+                          )}
                         >
-                          <SelectTrigger
-                            className={cn(
-                              getInputValidationClass(
-                                `section1_3.ulbList.${index}.rating`
-                              )
-                            )}
-                          >
-                            <SelectValue placeholder="Select rating" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="AAA">AAA</SelectItem>
-                            <SelectItem value="AA+">AA+</SelectItem>
-                            <SelectItem value="AA">AA</SelectItem>
-                            <SelectItem value="AA-">AA-</SelectItem>
-                            <SelectItem value="A+">A+</SelectItem>
-                            <SelectItem value="A">A</SelectItem>
-                            <SelectItem value="A-">A-</SelectItem>
-                            <SelectItem value="BBB+">BBB+</SelectItem>
-                            <SelectItem value="BBB">BBB</SelectItem>
-                            <SelectItem value="BBB-">BBB-</SelectItem>
-                            <SelectItem value="BB+">BB+</SelectItem>
-                            <SelectItem value="BB">BB</SelectItem>
-                            <SelectItem value="BB-">BB-</SelectItem>
-                            <SelectItem value="B+">B+</SelectItem>
-                            <SelectItem value="B">B</SelectItem>
-                            <SelectItem value="B-">B-</SelectItem>
-                            <SelectItem value="CCC">CCC</SelectItem>
-                            <SelectItem value="CC">CC</SelectItem>
-                            <SelectItem value="C">C</SelectItem>
-                            <SelectItem value="D">D</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {renderFieldError(`section1_3.ulbList.${index}.rating`)}
-                      </div>
+                          <SelectValue placeholder="Select rating" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AAA">AAA</SelectItem>
+                          <SelectItem value="AA+">AA+</SelectItem>
+                          <SelectItem value="AA">AA</SelectItem>
+                          <SelectItem value="AA-">AA-</SelectItem>
+                          <SelectItem value="A+">A+</SelectItem>
+                          <SelectItem value="A">A</SelectItem>
+                          <SelectItem value="A-">A-</SelectItem>
+                          <SelectItem value="BBB+">BBB+</SelectItem>
+                          <SelectItem value="BBB">BBB</SelectItem>
+                          <SelectItem value="BBB-">BBB-</SelectItem>
+                          <SelectItem value="BB+">BB+</SelectItem>
+                          <SelectItem value="BB">BB</SelectItem>
+                          <SelectItem value="BB-">BB-</SelectItem>
+                          <SelectItem value="B+">B+</SelectItem>
+                          <SelectItem value="B">B</SelectItem>
+                          <SelectItem value="B-">B-</SelectItem>
+                          <SelectItem value="CCC">CCC</SelectItem>
+                          <SelectItem value="CC">CC</SelectItem>
+                          <SelectItem value="C">C</SelectItem>
+                          <SelectItem value="D">D</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {renderFieldError(`section1_3.ulbList.${index}.rating`)}
+                    </div>
+                    <div className="col-span-1 flex items-end">
                       <Button
                         variant="outline"
                         size="icon"
                         onClick={() => removeULB(ulb.id)}
-                        className="text-red-500 hover:text-red-700 border-none bg-none"
+                        disabled={isIndicatorSubmitted("1.3")}
+                        className="text-red-500 hover:text-red-700 border-none bg-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="h-6 w-6" />
                       </Button>
@@ -1246,7 +2055,8 @@ export const InfraFinancingStep = () => {
                   type="button"
                   variant="outline"
                   onClick={addULB}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 "
+                  disabled={isIndicatorSubmitted("1.3")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="h-4 w-4" />
                   Add More ULB
@@ -1295,7 +2105,8 @@ export const InfraFinancingStep = () => {
                               <button
                                 type="button"
                                 onClick={() => removeULB(ulb.id)}
-                                className="text-red-600 hover:text-red-800"
+                                disabled={isIndicatorSubmitted("1.3")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                 aria-label="Delete"
                               >
                                 <Trash2 className="w-5 h-5" />
@@ -1307,15 +2118,31 @@ export const InfraFinancingStep = () => {
                     </table>
                   </div>
                 )}
+                <div className="mt-4">
+                  <Button
+                    onClick={() =>
+                      handleSubmitIndicator("1.3", "% of Credit Rated ULBs")
+                    }
+                    disabled={isSubmitting || isIndicatorSubmitted("1.3")}
+                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    size="sm"
+                  >
+                    {(() => {
+                      const isSubmitted = isIndicatorSubmitted("1.3");
+                      return isSubmitting
+                        ? "Submitting..."
+                        : isSubmitted
+                        ? "Submitted"
+                        : "Submit";
+                    })()}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
 
-        {/* Section 1.4 */}
-        {showIndicator("1.4") &&
-          (!isEditMode ||
-            (Array.isArray(formData.section1_4.bondList) &&
-              formData.section1_4.bondList.length > 0)) && (
+          {/* Section 1.4 */}
+          {showIndicator("1.4") && (
             <SectionCard
               title={
                 <div className="flex flex-col">
@@ -1326,9 +2153,16 @@ export const InfraFinancingStep = () => {
                 </div>
               }
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("1.4")}
+              indicatorCode="1.4"
+              isEditable={editingIndicators.has("1.4")}
+              onEdit={() => handleEditIndicator("1.4")}
+              onSave={() => handleSaveIndicator("1.4")}
+              onCancel={() => handleCancelEdit("1.4")}
+              isSaving={savingIndicators.has("1.4")}
             >
               <div className="space-y-4">
-                <div className="w-1/4">
+                <div className="w-1/3">
                   <Label>
                     Total Number of ULBs <span className="text-red-500">*</span>
                   </Label>
@@ -1350,8 +2184,11 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                     }}
+                    disabled={isIndicatorSubmitted("1.4")}
                     className={cn(
-                      getInputValidationClass("section1_4.totalULBs")
+                      getInputValidationClass("section1_4.totalULBs"),
+                      isIndicatorSubmitted("1.4") &&
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                     required
                   />
@@ -1359,10 +2196,11 @@ export const InfraFinancingStep = () => {
                 </div>
 
                 {formData.section1_4.bondList.map((bond, index) => (
-                  <div key={bond.id} className="grid grid-cols-4 gap-4">
+                  <div key={bond.id} className="grid grid-cols-6 gap-4">
                     <div>
                       <Label>
-                        Select Bond Type<span className="text-red-500">*</span>
+                        Select Bond Type
+                        <span className="text-red-500">*</span>
                       </Label>
                       <Select
                         value={bond.bondType}
@@ -1380,6 +2218,7 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("1.4")}
                       >
                         <SelectTrigger
                           className={cn(
@@ -1421,6 +2260,7 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("1.4")}
                       >
                         <SelectTrigger
                           className={cn(
@@ -1445,7 +2285,8 @@ export const InfraFinancingStep = () => {
 
                     <div>
                       <Label>
-                        Issuing Authority<span className="text-red-500">*</span>
+                        Issuing Authority
+                        <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         placeholder="Enter issuing authority"
@@ -1466,10 +2307,13 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("1.4")}
                         className={cn(
                           getInputValidationClass(
                             `section1_4.bondList.${index}.issuingAuthority`
-                          )
+                          ),
+                          isIndicatorSubmitted("1.4") &&
+                            "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(
@@ -1477,47 +2321,49 @@ export const InfraFinancingStep = () => {
                       )}
                     </div>
 
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label>
-                          Value (INR - values is in CRORES)
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.01"
-                          min="0"
-                          placeholder="Enter value"
-                          value={bond.value}
-                          onChange={(e) => {
-                            showErrorsIfNeeded();
-                            const value = e.target.value;
-                            setFormData((prev) => ({
-                              ...prev,
-                              section1_4: {
-                                ...prev.section1_4,
-                                bondList: prev.section1_4.bondList.map((item) =>
-                                  item.id === bond.id
-                                    ? { ...item, value }
-                                    : item
-                                ),
-                              },
-                            }));
-                          }}
-                          className={cn(
-                            getInputValidationClass(
-                              `section1_4.bondList.${index}.value`
-                            )
-                          )}
-                        />
-                        {renderFieldError(`section1_4.bondList.${index}.value`)}
-                      </div>
+                    <div>
+                      <Label>
+                        Value (INR - values is in CRORES)
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        placeholder="Enter value"
+                        value={bond.value}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          const value = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_4: {
+                              ...prev.section1_4,
+                              bondList: prev.section1_4.bondList.map((item) =>
+                                item.id === bond.id ? { ...item, value } : item
+                              ),
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("1.4")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_4.bondList.${index}.value`
+                          ),
+                          isIndicatorSubmitted("1.4") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {renderFieldError(`section1_4.bondList.${index}.value`)}
+                    </div>
+                    <div className="flex items-end">
                       <Button
                         variant="outline"
                         size="icon"
                         onClick={() => removeBond(bond.id)}
-                        className="text-red-500 hover:text-red-700 border-none bg-none"
+                        disabled={isIndicatorSubmitted("1.4")}
+                        className="text-red-500 hover:text-red-700 border-none bg-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -1529,7 +2375,8 @@ export const InfraFinancingStep = () => {
                   type="button"
                   variant="outline"
                   onClick={addBond}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  disabled={isIndicatorSubmitted("1.4")}
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="h-4 w-4" />
                   Add More Bond
@@ -1551,7 +2398,7 @@ export const InfraFinancingStep = () => {
                             Issuing Authority
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Value (INR - values is in CRORES)
+                            Value (INR Cr)
                           </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Action
@@ -1589,15 +2436,28 @@ export const InfraFinancingStep = () => {
                     </table>
                   </div>
                 )}
+                <div className="mt-4">
+                  <Button
+                    onClick={() =>
+                      handleSubmitIndicator("1.4", "% of ULBs issuing Bonds")
+                    }
+                    disabled={isSubmitting || isIndicatorSubmitted("1.4")}
+                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    size="sm"
+                  >
+                    {isSubmitting
+                      ? "Submitting..."
+                      : isIndicatorSubmitted("1.4")
+                      ? "Submitted"
+                      : "Submit"}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
 
-        {/* Section 1.5 */}
-        {showIndicator("1.5") &&
-          (!isEditMode ||
-            (Array.isArray(formData.section1_5.ffiArray) &&
-              formData.section1_5.ffiArray.length > 0)) && (
+          {/* Section 1.5 */}
+          {showIndicator("1.5") && (
             <SectionCard
               title={
                 <div className="flex flex-col">
@@ -1608,6 +2468,13 @@ export const InfraFinancingStep = () => {
                 </div>
               }
               className="mb-6"
+              indicatorStatus={getIndicatorStatus("1.5")}
+              indicatorCode="1.5"
+              isEditable={editingIndicators.has("1.5")}
+              onEdit={() => handleEditIndicator("1.5")}
+              onSave={() => handleSaveIndicator("1.5")}
+              onCancel={() => handleCancelEdit("1.5")}
+              isSaving={savingIndicators.has("1.5")}
             >
               <div className="space-y-6">
                 <div>
@@ -1631,6 +2498,7 @@ export const InfraFinancingStep = () => {
                         value="yes"
                         checked={formData.section1_5.hasIntermediary === "yes"}
                         onChange={() => {
+                          if (isIndicatorSubmitted("1.5")) return;
                           showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
@@ -1641,6 +2509,7 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("1.5")}
                       />
                       Yes
                     </label>
@@ -1651,6 +2520,7 @@ export const InfraFinancingStep = () => {
                         value="no"
                         checked={formData.section1_5.hasIntermediary === "no"}
                         onChange={() => {
+                          if (isIndicatorSubmitted("1.5")) return;
                           showErrorsIfNeeded();
                           setFormData((prev) => ({
                             ...prev,
@@ -1661,6 +2531,7 @@ export const InfraFinancingStep = () => {
                             },
                           }));
                         }}
+                        disabled={isIndicatorSubmitted("1.5")}
                       />
                       No
                     </label>
@@ -1674,7 +2545,7 @@ export const InfraFinancingStep = () => {
                     {formData.section1_5.ffiArray.map((intermediary, index) => (
                       <div
                         key={intermediary.id}
-                        className="grid grid-cols-5 gap-4"
+                        className="grid grid-cols-6 gap-4"
                       >
                         <div>
                           <Label>
@@ -1703,10 +2574,13 @@ export const InfraFinancingStep = () => {
                                 },
                               }));
                             }}
+                            disabled={isIndicatorSubmitted("1.5")}
                             className={cn(
                               getInputValidationClass(
                                 `section1_5.ffiArray.${index}.organisationName`
-                              )
+                              ),
+                              isIndicatorSubmitted("1.5") &&
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -1730,12 +2604,16 @@ export const InfraFinancingStep = () => {
                                   ffiArray: prev.section1_5.ffiArray.map(
                                     (item) =>
                                       item.id === intermediary.id
-                                        ? { ...item, organisationType: value }
+                                        ? {
+                                            ...item,
+                                            organisationType: value,
+                                          }
                                         : item
                                   ),
                                 },
                               }));
                             }}
+                            disabled={isIndicatorSubmitted("1.5")}
                           >
                             <SelectTrigger
                               className={cn(
@@ -1782,16 +2660,22 @@ export const InfraFinancingStep = () => {
                                   ffiArray: prev.section1_5.ffiArray.map(
                                     (item) =>
                                       item.id === intermediary.id
-                                        ? { ...item, yearEstablished: value }
+                                        ? {
+                                            ...item,
+                                            yearEstablished: value,
+                                          }
                                         : item
                                   ),
                                 },
                               }));
                             }}
+                            disabled={isIndicatorSubmitted("1.5")}
                             className={cn(
                               getInputValidationClass(
                                 `section1_5.ffiArray.${index}.yearEstablished`
-                              )
+                              ),
+                              isIndicatorSubmitted("1.5") &&
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -1801,11 +2685,11 @@ export const InfraFinancingStep = () => {
 
                         <div>
                           <Label>
-                            Total Funding (INR - values is in CRORES)
+                            Total Funding (INR)
                             <span className="text-red-500">*</span>
                           </Label>
                           <Input
-                            placeholder="Enter total funding"
+                            placeholder="Enter total funding in INR"
                             value={intermediary.totalFunding}
                             type="number"
                             inputMode="decimal"
@@ -1830,10 +2714,13 @@ export const InfraFinancingStep = () => {
                                 },
                               }));
                             }}
+                            disabled={isIndicatorSubmitted("1.5")}
                             className={cn(
                               getInputValidationClass(
                                 `section1_5.ffiArray.${index}.totalFunding`
-                              )
+                              ),
+                              isIndicatorSubmitted("1.5") &&
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -1841,50 +2728,54 @@ export const InfraFinancingStep = () => {
                           )}
                         </div>
 
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
-                            <Label>
-                              Website
-                              <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                              placeholder="Website link"
-                              value={intermediary.website}
-                              type="url"
-                              onChange={(e) => {
-                                showErrorsIfNeeded();
-                                const value = e.target.value;
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  section1_5: {
-                                    ...prev.section1_5,
-                                    ffiArray: prev.section1_5.ffiArray.map(
-                                      (item) =>
-                                        item.id === intermediary.id
-                                          ? {
-                                              ...item,
-                                              website: value,
-                                            }
-                                          : item
-                                    ),
-                                  },
-                                }));
-                              }}
-                              className={cn(
-                                getInputValidationClass(
-                                  `section1_5.ffiArray.${index}.website`
-                                )
-                              )}
-                            />
-                            {renderFieldError(
-                              `section1_5.ffiArray.${index}.website`
+                        <div>
+                          <Label>
+                            Website
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            placeholder="Website link"
+                            value={intermediary.website}
+                            type="url"
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              const value = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_5: {
+                                  ...prev.section1_5,
+                                  ffiArray: prev.section1_5.ffiArray.map(
+                                    (item) =>
+                                      item.id === intermediary.id
+                                        ? {
+                                            ...item,
+                                            website: value,
+                                          }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }}
+                            disabled={isIndicatorSubmitted("1.5")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_5.ffiArray.${index}.website`
+                              ),
+                              isIndicatorSubmitted("1.5") &&
+                                "bg-gray-50 cursor-not-allowed"
                             )}
-                          </div>
+                          />
+                          {renderFieldError(
+                            `section1_5.ffiArray.${index}.website`
+                          )}
+                        </div>
+                        <div className="flex items-end">
                           <Button
                             variant="outline"
                             size="icon"
                             onClick={() => removeIntermediary(intermediary.id)}
-                            className="text-red-500 hover:text-red-700 border-none bg-none"
+                            disabled={isIndicatorSubmitted("1.5")}
+                            className="text-red-500 hover:text-red-700 border-none bg-none disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Trash2 className="h-6 w-6" />
                           </Button>
@@ -1896,7 +2787,8 @@ export const InfraFinancingStep = () => {
                       type="button"
                       variant="outline"
                       onClick={addIntermediary}
-                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      disabled={isIndicatorSubmitted("1.5")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Plus className="h-4 w-4" />
                       Add More Financial Intermediary
@@ -1917,7 +2809,7 @@ export const InfraFinancingStep = () => {
                                   Year Established
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
-                                  Total Funding (INR - values is in CRORES)
+                                  Total Funding (INR)
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
                                   Website
@@ -1955,7 +2847,8 @@ export const InfraFinancingStep = () => {
                                         onClick={() =>
                                           removeIntermediary(intermediary.id)
                                         }
-                                        className="text-red-600 hover:text-red-800"
+                                        disabled={isIndicatorSubmitted("1.5")}
+                                        className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                         aria-label="Delete"
                                       >
                                         <Trash2 className="w-5 h-5" />
@@ -1975,7 +2868,7 @@ export const InfraFinancingStep = () => {
                 {formData.section1_5.hasIntermediary === "no" && (
                   <div>
                     <Label>Comments (Reason)</Label>
-                    <Input
+                    <Textarea
                       placeholder="Enter comments or reason"
                       value={formData.section1_5.comment || ""}
                       onChange={(e) => {
@@ -1988,37 +2881,103 @@ export const InfraFinancingStep = () => {
                           },
                         }));
                       }}
+                      disabled={isIndicatorSubmitted("1.5")}
                       className={cn(
-                        getInputValidationClass("section1_5.comment")
+                        getInputValidationClass("section1_5.comment"),
+                        "min-h-[100px]",
+                        isIndicatorSubmitted("1.5") &&
+                          "bg-gray-50 cursor-not-allowed"
                       )}
                     />
                     {renderFieldError("section1_5.comment")}
                   </div>
                 )}
+                <div className="mt-4">
+                  <Button
+                    onClick={() =>
+                      handleSubmitIndicator(
+                        "1.5",
+                        "Functional Financial Intermediary"
+                      )
+                    }
+                    disabled={isSubmitting || isIndicatorSubmitted("1.5")}
+                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    size="sm"
+                  >
+                    {isSubmitting
+                      ? "Submitting..."
+                      : isIndicatorSubmitted("1.5")
+                      ? "Submitted"
+                      : "Submit"}
+                  </Button>
+                </div>
               </div>
             </SectionCard>
           )}
 
-        {isNextDisabled && (
-          <p className="text-sm text-destructive mb-4">
-            Complete all required fields before continuing.
-          </p>
-        )}
-
-        <FormActions
-          onPrevious={isFirstStep ? undefined : goToPrevious}
-          onNext={handleNext}
-          onSaveDraft={async () => {
-            const success = saveDraftToLocalStorage("infraFinancing", formData);
-            if (success) updateFormData("infraFinancing", formData);
-          }}
-          isFirstStep={isFirstStep}
-          isLastStep={isLastStep}
-          nextLabel={isLastStep ? "Review & Submit" : "Next"}
-          showSaveDraft={true}
-          isNextDisabled={isNextDisabled}
-        />
+          <FormActions
+            onPrevious={isFirstStep ? undefined : goToPrevious}
+            onNext={handleNext}
+            onSaveDraft={async () => {
+              // Save to database via API instead of localStorage
+              try {
+                await apiService.submitSectionToStateApprover(
+                  formData,
+                  "infraFinancing",
+                  allowedIndicators || ["1.1", "1.2", "1.3", "1.4", "1.5"]
+                );
+                updateFormData("infraFinancing", formData);
+                toast({
+                  title: "Draft Saved",
+                  description: "Your progress has been saved to the database.",
+                  variant: "default",
+                });
+              } catch (error: any) {
+                console.error("Save draft error:", error);
+                toast({
+                  title: "Save Failed",
+                  description:
+                    error?.message || "Failed to save draft. Please try again.",
+                  variant: "destructive",
+                });
+              }
+            }}
+            isFirstStep={isFirstStep}
+            isLastStep={isLastStep}
+            nextLabel={isLastStep ? "Review & Submit" : "Next"}
+            showSaveDraft={true}
+            isNextDisabled={isNextDisabled}
+          />
+        </div>
       </div>
+
+      {/* Confirmation Dialog for Submit */}
+      <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Submit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to submit indicator{" "}
+              <strong>
+                {pendingIndicator?.code} - {pendingIndicator?.title}
+              </strong>
+              ? This will send the data to the State Approver for review. Once
+              submitted, you cannot modify this indicator.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSubmit}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

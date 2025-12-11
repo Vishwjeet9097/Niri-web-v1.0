@@ -154,12 +154,13 @@ export const getStatusPills = (status: string, currentUserRole?: string) => {
   // Don't show "waiting for" message to the user who needs to take action
   if (
     status === "SUBMITTED_TO_STATE" ||
+    status === "DRAFT" ||
     status === "SUBMITTED_TO_MOSPI_REVIEWER" ||
     status === "SUBMITTED_TO_MOSPI_APPROVER"
   ) {
     // Check if current user is the one who needs to take action
     const isWaitingForCurrentUser =
-      (status === "SUBMITTED_TO_STATE" &&
+      ((status === "SUBMITTED_TO_STATE" || status === "DRAFT") &&
         currentUserRole === "STATE_APPROVER") ||
       (status === "SUBMITTED_TO_MOSPI_REVIEWER" &&
         currentUserRole === "MOSPI_REVIEWER") ||
@@ -218,12 +219,13 @@ export const shouldShowMultipleStatusPills = (
 ): boolean => {
   if (
     status === "SUBMITTED_TO_STATE" ||
+    status === "DRAFT" ||
     status === "SUBMITTED_TO_MOSPI_REVIEWER" ||
     status === "SUBMITTED_TO_MOSPI_APPROVER"
   ) {
     // Check if current user is the one who needs to take action
     const isWaitingForCurrentUser =
-      (status === "SUBMITTED_TO_STATE" &&
+      ((status === "SUBMITTED_TO_STATE" || status === "DRAFT") &&
         currentUserRole === "STATE_APPROVER") ||
       (status === "SUBMITTED_TO_MOSPI_REVIEWER" &&
         currentUserRole === "MOSPI_REVIEWER") ||
