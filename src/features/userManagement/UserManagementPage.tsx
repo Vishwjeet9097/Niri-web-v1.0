@@ -330,6 +330,7 @@ export function UserManagementPage() {
       "id" | "state" | "createdAt" | "assignedIndicator"
     > & { password?: string; assignedIndicators?: string[] }
   ) => {
+    let newUser: any = null; // Declare outside if/else for event dispatch
     try {
       if (editingOfficer) {
         // ✅ VALIDATION: Check if this is indicator manipulation for NODAL_OFFICER
@@ -475,33 +476,6 @@ export function UserManagementPage() {
           "Officer updated successfully",
           "Update Successful"
         );
-
-        // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
-        // Check if indicators were actually updated
-        if (officerData.assignedIndicators !== undefined) {
-          console.log("📢 Dispatching indicatorsUpdated event after user update", {
-            officerRole: editingOfficer.role,
-            officerState: editingOfficer.state,
-            officerStateUt: editingOfficer.stateUt,
-            newIndicators: officerData.assignedIndicators
-          });
-          // For NODAL_OFFICER indicator changes, include role so STATE_APPROVERs refresh
-          // The NODAL_OFFICER themselves will refresh via the userId check, but STATE_APPROVERs need to refresh too
-          const eventDetail: any = { action: 'update' };
-          if (editingOfficer.role === "NODAL_OFFICER") {
-            // Include stateUt and role so STATE_APPROVERs can refresh
-            // STATE_APPROVERs will always refresh when any NODAL_OFFICER indicators change
-            eventDetail.stateUt = editingOfficer.state || editingOfficer.stateUt;
-            eventDetail.role = "NODAL_OFFICER";
-            // Also include userId for the NODAL_OFFICER themselves to refresh
-            eventDetail.userId = editingOfficer.id;
-          } else {
-            // For other roles, include userId for targeted refresh
-            eventDetail.userId = editingOfficer.id;
-          }
-          console.log("📢 Event detail:", eventDetail);
-          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
-        }
       } else {
         // Create new user via backend API
         // Debug logging removed for performance
@@ -580,7 +554,7 @@ export function UserManagementPage() {
  
 
         // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
-        const newUser = await apiService.register(
+        newUser = await apiService.register(
           officerData.email,
           officerData.password || "password123",
           officerData.firstName,
@@ -607,26 +581,52 @@ export function UserManagementPage() {
           "Officer added successfully",
           "Registration Successful"
         );
-
-        // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
-        // Check if indicators were assigned to the new user (or if assignment is empty, to notify STATE_APPROVERs)
-        if (officerData.assignedIndicators !== undefined) {
-          console.log("📢 Dispatching indicatorsUpdated event after user creation");
-          // For NODAL_OFFICER indicator assignment, include stateUt so STATE_APPROVERs refresh
-          const eventDetail: any = { 
-            action: 'create', 
-            assignedIndicators: officerData.assignedIndicators 
-          };
-          if (officerData.role === "NODAL_OFFICER") {
-            eventDetail.role = "NODAL_OFFICER";
-            eventDetail.stateUt = selectedStateName || officerData.stateUt;
-          }
-          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
-        }
       }
+      
+      // Reload officers list FIRST to ensure UI has latest data
       await loadOfficers();
       setShowForm(false);
       setEditingOfficer(null);
+
+      // Dispatch custom event AFTER officers are reloaded to notify DashboardLayout to refresh indicators
+      // Check if indicators were actually updated/assigned
+      if (officerData.assignedIndicators !== undefined) {
+        const isUpdate = !!editingOfficer;
+        // Get state info - use editingOfficer state for updates, or find from officers list for new users
+        const stateInfo = editingOfficer 
+          ? { state: editingOfficer.state, stateUt: editingOfficer.stateUt }
+          : (newUser?.user?.stateUt ? { state: newUser.user.stateUt, stateUt: newUser.user.stateUt } : { state: officerData.stateUt, stateUt: officerData.stateUt });
+        
+        console.log(`📢 Dispatching indicatorsUpdated event after user ${isUpdate ? 'update' : 'creation'}`, {
+          officerRole: editingOfficer?.role || officerData.role,
+          officerState: stateInfo.state,
+          officerStateUt: stateInfo.stateUt,
+          newIndicators: officerData.assignedIndicators
+        });
+        
+        // For NODAL_OFFICER indicator changes, include role so STATE_APPROVERs refresh
+        const eventDetail: any = { 
+          action: isUpdate ? 'update' : 'create',
+          assignedIndicators: officerData.assignedIndicators 
+        };
+        
+        const officerRole = editingOfficer?.role || officerData.role;
+        const userId = editingOfficer?.id || newUser?.user?.id || newUser?.user?._id;
+        if (officerRole === "NODAL_OFFICER") {
+          // Include stateUt and role so STATE_APPROVERs can refresh
+          // STATE_APPROVERs will always refresh when any NODAL_OFFICER indicators change
+          eventDetail.stateUt = stateInfo.stateUt || stateInfo.state || officerData.stateUt;
+          eventDetail.role = "NODAL_OFFICER";
+          // Also include userId for the NODAL_OFFICER themselves to refresh
+          eventDetail.userId = userId;
+        } else {
+          // For other roles, include userId for targeted refresh
+          eventDetail.userId = userId;
+        }
+        
+        console.log("📢 Event detail:", eventDetail);
+        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
+      }
 
       // >>> REFRESH: force indicator hook to re-fetch so approver UI sees updated availableIndicators
       try {
