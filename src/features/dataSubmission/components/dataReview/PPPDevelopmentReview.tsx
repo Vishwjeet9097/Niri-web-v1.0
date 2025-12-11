@@ -357,6 +357,12 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
     file: null as FileUpload | null,
   });
 
+  // State for file delete confirmation dialog in section 3.3
+  const [showVGFFileDeleteDialog, setShowVGFFileDeleteDialog] = useState(false);
+  const [pendingVGFFileDelete, setPendingVGFFileDelete] = useState<{
+    rowIndex: number;
+  } | null>(null);
+
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveSectionId, setPendingSaveSectionId] = useState<string | null>(null);
@@ -891,6 +897,23 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
         },
       };
     });
+  };
+
+  // Handler to show delete confirmation dialog for section 3.3 VGF file
+  const handleVGFFileDeleteClick = (rowIndex: number) => {
+    setPendingVGFFileDelete({
+      rowIndex,
+    });
+    setShowVGFFileDeleteDialog(true);
+  };
+
+  // Handler to confirm VGF file deletion
+  const handleConfirmVGFFileDelete = () => {
+    if (pendingVGFFileDelete) {
+      handleTableFieldUpdate(pendingVGFFileDelete.rowIndex, 'file', null);
+      setShowVGFFileDeleteDialog(false);
+      setPendingVGFFileDelete(null);
+    }
   };
 
   // Helper to update section 3.4 project fields
@@ -3141,9 +3164,7 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
                                     <span className="truncate">{item.file.fileName || 'Unknown file'}</span>
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        handleTableFieldUpdate(index, 'file', null);
-                                      }}
+                                      onClick={() => handleVGFFileDeleteClick(index)}
                                       className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                       <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
@@ -3818,6 +3839,30 @@ export const PPPDevelopmentReview = ({ submissionId, formData, submission, isPre
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for Section 3.3 VGF File Deletion */}
+      <AlertDialog open={showVGFFileDeleteDialog} onOpenChange={setShowVGFFileDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete file permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This file will be deleted permanently. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowVGFFileDeleteDialog(false);
+              setPendingVGFFileDelete(null);
+            }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmVGFFileDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

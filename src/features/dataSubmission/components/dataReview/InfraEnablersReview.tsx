@@ -107,6 +107,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     file: null as FileUpload | null,
   });
 
+  // State for file delete confirmation dialog in section 4.3
+  const [showProjectFileDeleteDialog, setShowProjectFileDeleteDialog] = useState(false);
+  const [pendingProjectFileDelete, setPendingProjectFileDelete] = useState<{
+    projectIndex: number;
+  } | null>(null);
+
   // State for adding new practice in section 4.5
   const [showAddPracticeForm, setShowAddPracticeForm] = useState(false);
   const [newPractice, setNewPractice] = useState({
@@ -797,17 +803,28 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 ? [state.section4_2.file]
                 : [];
 
-          // Format files for payload - ensure file property is string path
-          const files4_2 = section4_2Files.map((file: FileUpload) => ({
-            id: file.id,
-            file: typeof file.file === 'string' ? file.file : file.filePath || file.fileUrl || null,
-            fileName: file.fileName,
-            fileSize: file.fileSize,
-            uploadedAt: file.uploadedAt,
-            filePath: file.filePath,
-            fileUrl: file.fileUrl,
-            mimeType: file.mimeType,
-          }));
+          // Format files for payload - match InfraDevelopmentReview pattern with nested file object
+          const files4_2 = section4_2Files.map((file: FileUpload) => {
+            const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
+            const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
+
+            return {
+              id: file?.id,
+              file: {
+                id: null,
+                fileUrl: file?.fileUrl || "",
+                fileName: storedFileName,
+                filePath: filePath,
+                fileSize: file?.fileSize,
+                mimeType: file?.mimeType,
+                uploadedAt: file?.uploadedAt ? new Date(file.uploadedAt).toISOString() : new Date().toISOString(),
+                originalName: file?.fileName
+              },
+              fileName: file?.fileName,
+              fileSize: file?.fileSize,
+              uploadedAt: file?.uploadedAt
+            };
+          });
 
           fields = [{
             available: state?.section4_2?.available ?? null,
@@ -1244,17 +1261,28 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // Auto-save for sections 4.2 and 4.4
     if (['4.2', '4.4'].includes(sectionId)) {
       try {
-        // Ensure files array is properly formatted for API
-        const filesForPayload = filesArray.map((file) => ({
-          id: file.id,
-          file: file.file, // This should be the stored path (string)
-          fileName: file.fileName,
-          fileSize: file.fileSize,
-          uploadedAt: file.uploadedAt,
-          filePath: file.filePath,
-          fileUrl: file.fileUrl,
-          mimeType: file.mimeType,
-        }));
+        // Ensure files array is properly formatted for API - match InfraDevelopmentReview pattern
+        const filesForPayload = filesArray.map((file: FileUpload) => {
+          const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
+          const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
+
+          return {
+            id: file?.id,
+            file: {
+              id: null,
+              fileUrl: file?.fileUrl || "",
+              fileName: storedFileName,
+              filePath: filePath,
+              fileSize: file?.fileSize,
+              mimeType: file?.mimeType,
+              uploadedAt: file?.uploadedAt ? new Date(file.uploadedAt).toISOString() : new Date().toISOString(),
+              originalName: file?.fileName
+            },
+            fileName: file?.fileName,
+            fileSize: file?.fileSize,
+            uploadedAt: file?.uploadedAt
+          };
+        });
 
         const fields =
           sectionId === '4.2'
@@ -1374,6 +1402,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         },
       };
     });
+  };
+
+  // Handler to show delete confirmation dialog for section 4.3 project files
+  const handleProjectFileDeleteClick = (projectIndex: number) => {
+    setPendingProjectFileDelete({
+      projectIndex,
+    });
+    setShowProjectFileDeleteDialog(true);
+  };
+
+  // Handler to confirm project file deletion
+  const handleConfirmProjectFileDelete = () => {
+    if (pendingProjectFileDelete) {
+      handleProjectFileUpdate(pendingProjectFileDelete.projectIndex, null);
+      setShowProjectFileDeleteDialog(false);
+      setPendingProjectFileDelete(null);
+    }
   };
 
   // Handle adding new practice to section 4.5
@@ -3263,9 +3308,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                                         <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
                                         <button
                                           type="button"
-                                          onClick={() => {
-                                            handleProjectFileUpdate(idx, null);
-                                          }}
+                                          onClick={() => handleProjectFileDeleteClick(idx)}
                                           className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
                                           <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
@@ -4292,6 +4335,30 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for Section 4.3 Project File Deletion */}
+      <AlertDialog open={showProjectFileDeleteDialog} onOpenChange={setShowProjectFileDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete file permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This file will be deleted permanently. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowProjectFileDeleteDialog(false);
+              setPendingProjectFileDelete(null);
+            }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmProjectFileDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

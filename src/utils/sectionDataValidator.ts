@@ -98,9 +98,9 @@ export const hasInfraEnablersData = (formData: any): boolean => {
           if (section.available === "no") {
             return hasMeaningfulValue(section?.comment);
           }
-          // If "yes" is selected, check for files
+          // If "yes" is selected, section has data (even without files yet - user can upload later)
           if (section.available === "yes") {
-            return hasFileData(section.files);
+            return true;
           }
         }
         // Backward compatibility: check for files directly
@@ -435,9 +435,9 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
           if (section.available === "no") {
             return hasMeaningfulValue(section?.comment);
           }
-          // If "yes" is selected, check for files
+          // If "yes" is selected, section has data (even without files yet - user can upload later)
           if (section.available === "yes") {
-            return hasArrayData(section.files) || hasFileData(section.file);
+            return true;
           }
         }
         // Backward compatibility: check for files directly
@@ -451,9 +451,9 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
           if (section.available === "no") {
             return hasMeaningfulValue(section?.comment);
           }
-          // If "yes" is selected, check for file
+          // If "yes" is selected, section has data (even without files yet - user can upload later)
           if (section.available === "yes") {
-            return hasFileData(section.file);
+            return true;
           }
         }
         // Backward compatibility: check for file directly
@@ -650,9 +650,9 @@ export const hasSectionData = (
             if (section.available === "no") {
               return hasMeaningfulValue(section?.comment);
             }
-            // If "yes" is selected, check for files
+            // If "yes" is selected, section has data (even without files yet - user can upload later)
             if (section.available === "yes") {
-              return hasFileData(section.files);
+              return true;
             }
           }
           // Backward compatibility: check for files directly
@@ -916,9 +916,9 @@ export const hasSectionData = (
             if (section.available === "no") {
               return hasMeaningfulValue(section?.comment);
             }
-            // If "yes" is selected, check for files
+            // If "yes" is selected, section has data (even without files yet - user can upload later)
             if (section.available === "yes") {
-              return hasArrayData(section.files) || hasFileData(section.file);
+              return true;
             }
           }
           // Backward compatibility: check for files directly
@@ -931,9 +931,9 @@ export const hasSectionData = (
             if (section.available === "no") {
               return hasMeaningfulValue(section?.comment);
             }
-            // If "yes" is selected, check for file
+            // If "yes" is selected, section has data (even without files yet - user can upload later)
             if (section.available === "yes") {
-              return hasFileData(section.file);
+              return true;
             }
           }
           // Backward compatibility: check for file directly
