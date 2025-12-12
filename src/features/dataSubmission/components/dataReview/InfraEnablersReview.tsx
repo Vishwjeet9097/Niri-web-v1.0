@@ -1884,7 +1884,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         ? (sectionData as any)?.mospi_status
         : sectionData?.mospi_status;
 
-      if (mospiStatus === 'ACCEPTED') {
+      if (mospiStatus === 'ACCEPTED'  || mospiStatus === 'RESUBMITTED') {
         return (
           <div className="flex gap-2">
             <Button

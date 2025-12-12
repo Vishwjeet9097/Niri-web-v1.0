@@ -1702,7 +1702,7 @@ const renderActionButtons = (sectionId: string) => {
         : sectionData?.mospi_status
       : undefined;
     
-    if (mospiStatus === 'ACCEPTED') {
+    if (mospiStatus === 'ACCEPTED'  || mospiStatus === 'RESUBMITTED') {
       return (
         <div className="flex gap-2">
           <Button
