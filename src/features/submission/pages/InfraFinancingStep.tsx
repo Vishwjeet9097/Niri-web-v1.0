@@ -1313,6 +1313,30 @@ export const InfraFinancingStep = () => {
     );
   };
 
+  // Get button text based on indicator status
+  const getSubmitButtonText = (
+    indicatorCode: string,
+    isSubmitting: boolean
+  ): string => {
+    if (isSubmitting) return "Submitting...";
+
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return "Submit";
+
+    const upperStatus = status.toUpperCase();
+    if (upperStatus === "RESUBMITTED") {
+      return "Resubmitted";
+    } else if (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED"
+    ) {
+      return "Submitted";
+    }
+
+    return "Submit";
+  };
+
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
@@ -1364,57 +1388,53 @@ export const InfraFinancingStep = () => {
         sanitizeFilesInFormData(formData)
       );
 
-      // If indicator was sent back (REVERTED/RESUBMITTED), change status to RESUBMITTED after saving
-      // This makes it non-editable again until sent back again
+      // If indicator was sent back (REVERTED), change status to RESUBMITTED after saving
+      // Both Save and Submit buttons should change REVERTED to RESUBMITTED
       const upperStatus = currentStatus?.toUpperCase() || "";
       const newStatus =
         upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
           ? "RESUBMITTED"
           : currentStatus || "DRAFT"; // Preserve status if not sent back
 
-      // Prepare data with updated status
+      // Prepare data with updated status - use the same approach as Submit to ensure status is preserved
       const sectionDataWithStatus = {
         ...sanitizedFormData[sectionKey],
         status: newStatus,
       };
 
-      // Update submission using updateSubmission directly to preserve status
-      const existingSubmission = await apiService.getSubmission(
-        userSubmission.id
-      );
-      const existingFormData = existingSubmission?.formData || {};
-
-      // Preserve all existing category data and update only this indicator
-      const updatedFormData = {
-        ...existingFormData,
-        infraFinancing: {
-          ...(existingFormData.infraFinancing || {}),
-          [sectionKey]: sectionDataWithStatus,
-        },
+      // Create sanitized data with status for the saved indicator (same format as Submit)
+      const sanitizedFormDataWithStatus = {
+        ...sanitizedFormData,
+        [sectionKey]: sectionDataWithStatus,
       };
 
-      // Update submission with preserved status
-      await apiService.updateSubmission(userSubmission.id, {
-        formData: updatedFormData,
-      });
+      // Use submitSectionToStateApprover API which properly handles RESUBMITTED status
+      // This ensures the status is preserved correctly in the database
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormDataWithStatus,
+        "infraFinancing",
+        [indicatorCode]
+      );
 
-      // Update local formData state
-      setFormData((prev: any) => ({
-        ...prev,
-        [sectionKey]: sectionDataWithStatus,
-      }));
-
-      // Save form data to localStorage (via updateFormData)
-      updateFormData("infraFinancing", {
-        ...formData,
-        [sectionKey]: sectionDataWithStatus,
-      });
-
-      // Exit edit mode
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
       setEditingIndicators((prev) => {
         const newSet = new Set(prev);
         newSet.delete(indicatorCode);
         return newSet;
+      });
+
+      // Update local formData state immediately to reflect RESUBMITTED status
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: sectionDataWithStatus,
+        };
+        // Also update form persistence with the merged data
+        updateFormData("infraFinancing", {
+          ...prev,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
       });
 
       toast({
@@ -1630,11 +1650,7 @@ export const InfraFinancingStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("1.1")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("1.1", isSubmitting)}
                 </Button>
               </div>
             </SectionCard>
@@ -1790,14 +1806,7 @@ export const InfraFinancingStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
-                  {(() => {
-                    const isSubmitted = isIndicatorSubmitted("1.2");
-                    return isSubmitting
-                      ? "Submitting..."
-                      : isSubmitted
-                      ? "Submitted"
-                      : "Submit";
-                  })()}
+                  {getSubmitButtonText("1.2", isSubmitting)}
                 </Button>
               </div>
             </SectionCard>
@@ -2145,14 +2154,7 @@ export const InfraFinancingStep = () => {
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {(() => {
-                      const isSubmitted = isIndicatorSubmitted("1.3");
-                      return isSubmitting
-                        ? "Submitting..."
-                        : isSubmitted
-                        ? "Submitted"
-                        : "Submit";
-                    })()}
+                    {getSubmitButtonText("1.3", isSubmitting)}
                   </Button>
                 </div>
               </div>
@@ -2463,11 +2465,7 @@ export const InfraFinancingStep = () => {
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("1.4")
-                      ? "Submitted"
-                      : "Submit"}
+                    {getSubmitButtonText("1.4", isSubmitting)}
                   </Button>
                 </div>
               </div>
@@ -2922,11 +2920,7 @@ export const InfraFinancingStep = () => {
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("1.5")
-                      ? "Submitted"
-                      : "Submit"}
+                    {getSubmitButtonText("1.5", isSubmitting)}
                   </Button>
                 </div>
               </div>
