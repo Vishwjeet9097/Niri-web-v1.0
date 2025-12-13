@@ -62,6 +62,7 @@ export const InfraFinancingStep = () => {
     error: indicatorError,
     assignedIndicators,
     availableIndicators,
+    effectiveIndicators,
     hasIndicatorAccess,
     isNodalOfficer,
     isStateApprover,
@@ -138,7 +139,7 @@ export const InfraFinancingStep = () => {
   const allowedIndicators = useMemo(
     () =>
       (isNodalOfficer
-        ? assignedIndicators
+        ? effectiveIndicators // Use effectiveIndicators (includes fallback to all if empty)
         : isStateApprover
         ? availableIndicators
         : null
@@ -146,7 +147,7 @@ export const InfraFinancingStep = () => {
     [
       isNodalOfficer,
       isStateApprover,
-      assignedIndicators,
+      effectiveIndicators,
       availableIndicators,
       sectionIndicators,
     ]
@@ -615,8 +616,8 @@ export const InfraFinancingStep = () => {
     );
   }
 
-  // Nodal access check (unchanged logic)
-  if (isNodalOfficer) {
+  // Access check for both NODAL_OFFICER and STATE_APPROVER
+  if (isNodalOfficer || isStateApprover) {
     const hasAccessToSection =
       hasIndicatorAccess("1.1") ||
       hasIndicatorAccess("1.2") ||
@@ -625,7 +626,9 @@ export const InfraFinancingStep = () => {
       hasIndicatorAccess("1.5");
     console.log("🔍 InfraFinancingStep: Access control check", {
       isNodalOfficer,
+      isStateApprover,
       assignedIndicators,
+      availableIndicators,
       hasAccessToSection,
       hasAccess1_1: hasIndicatorAccess("1.1"),
       hasAccess1_2: hasIndicatorAccess("1.2"),
@@ -751,7 +754,7 @@ export const InfraFinancingStep = () => {
                 </div>
                 <div>
                   <Label>
-                    Capital Allocation for FY (INR)
+                    Capital Allocation for FY (INR - values is in CRORES)
                     <span className="text-red-500">*</span>
                     {/* <Info className="h-4 w-4 text-gray-500 inline-block ml-2" /> */}
                   </Label>
@@ -781,7 +784,7 @@ export const InfraFinancingStep = () => {
                 </div>
                 <div>
                   <Label>
-                    GSDP for FY (INR)<span className="text-red-500">*</span>
+                    GSDP for FY (INR - values is in CRORES)<span className="text-red-500">*</span>
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </Label>
                   <Input
@@ -888,7 +891,7 @@ export const InfraFinancingStep = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>
-                    A₁ - Actual Capex (INR)
+                    A₁ - Actual Capex (INR - values is in CRORES)
                     <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -917,7 +920,7 @@ export const InfraFinancingStep = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>
-                    State Capex Utilisation (INR)
+                    State Capex Utilisation (INR - values is in CRORES)
                     <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -1047,7 +1050,9 @@ export const InfraFinancingStep = () => {
                         value={ulb.cityName}
                         onChange={(e) => {
                           showErrorsIfNeeded();
-                          const value = e.target.value;
+                          let value = e.target.value;
+                          // Only allow letters and spaces
+                          value = value.replace(/[^a-zA-Z\s]/g, "");
                           setFormData((prev) => ({
                             ...prev,
                             section1_3: {
@@ -1475,7 +1480,7 @@ export const InfraFinancingStep = () => {
                     <div className="flex items-end gap-2">
                       <div className="flex-1">
                         <Label>
-                          Value (INR crore)
+                          Value (INR - values is in CRORES)
                           <span className="text-red-500">*</span>
                         </Label>
                         <Input
@@ -1546,7 +1551,7 @@ export const InfraFinancingStep = () => {
                             Issuing Authority
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Value (INR Cr)
+                            Value (INR - values is in CRORES)
                           </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Action
@@ -1796,11 +1801,11 @@ export const InfraFinancingStep = () => {
 
                         <div>
                           <Label>
-                            Total Funding (INR)
+                            Total Funding (INR - values is in CRORES)
                             <span className="text-red-500">*</span>
                           </Label>
                           <Input
-                            placeholder="Enter total funding in INR"
+                            placeholder="Enter total funding"
                             value={intermediary.totalFunding}
                             type="number"
                             inputMode="decimal"
@@ -1912,7 +1917,7 @@ export const InfraFinancingStep = () => {
                                   Year Established
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
-                                  Total Funding (INR)
+                                  Total Funding (INR - values is in CRORES)
                                 </th>
                                 <th className="py-3 px-4 text-left text-sm font-normal">
                                   Website

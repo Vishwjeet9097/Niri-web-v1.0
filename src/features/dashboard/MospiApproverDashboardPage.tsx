@@ -45,7 +45,58 @@ export const MospiApproverDashboardPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
         
-        setSubmissions(submissionsArray);
+        // Calculate progress for each submission (same as STATE_APPROVER)
+        // For MOSPI_APPROVER: Progress excludes indicators with mospi_status = REVERTED
+        const submissionsWithProgress = submissionsArray.map((sub: any) => {
+          const fd = sub.formData || sub.form_data || {};
+          
+          // Calculate proper progress using computeAllStepsSummary
+          // This will automatically exclude sections with mospi_status = REVERTED
+          // because isSectionFilled checks for mospiStatus === "REVERTED" and returns false
+          const summary = computeAllStepsSummary(fd, {});
+          
+          // Calculate overall progress from all steps
+          const totalCompleted = 
+            summary.infraFinancing.completed +
+            summary.infraDevelopment.completed +
+            summary.pppDevelopment.completed +
+            summary.infraEnablers.completed;
+          
+          const totalSections = 
+            summary.infraFinancing.total +
+            summary.infraDevelopment.total +
+            summary.pppDevelopment.total +
+            summary.infraEnablers.total;
+          
+          // Progress = (indicators with mospi_status = ACCEPTED) / (total indicators) × 100%
+          // Indicators with mospi_status = REVERTED are NOT counted in completed
+          const progress = totalSections > 0 
+            ? Math.round((totalCompleted / totalSections) * 100)
+            : 0;
+          
+          // Debug logging (can be removed in production)
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Progress] MOSPI_APPROVER - Submission ${sub.id}:`, {
+              status: sub.status,
+              totalSections,
+              totalCompleted,
+              progress,
+              breakdown: {
+                infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
+                infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
+                pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
+                infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
+              }
+            });
+          }
+          
+          return {
+            ...sub,
+            progress: Math.round(progress),
+          };
+        });
+        
+        setSubmissions(submissionsWithProgress);
         setIsFilteredByCard(false);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
@@ -85,7 +136,35 @@ export const MospiApproverDashboardPage = () => {
               submissionsArray = (submissionsData as any).data;
             }
             
-            setSubmissions(submissionsArray);
+            // Calculate progress for each submission
+            const submissionsWithProgress = submissionsArray.map((sub: any) => {
+              const fd = sub.formData || sub.form_data || {};
+              const summary = computeAllStepsSummary(fd, {});
+              
+              const totalCompleted = 
+                summary.infraFinancing.completed +
+                summary.infraDevelopment.completed +
+                summary.pppDevelopment.completed +
+                summary.infraEnablers.completed;
+              
+              const totalSections = 
+                summary.infraFinancing.total +
+                summary.infraDevelopment.total +
+                summary.pppDevelopment.total +
+                summary.infraEnablers.total;
+              
+              // Progress excludes indicators with mospi_status = REVERTED
+              const progress = totalSections > 0 
+                ? Math.round((totalCompleted / totalSections) * 100)
+                : 0;
+              
+              return {
+                ...sub,
+                progress: Math.round(progress),
+              };
+            });
+            
+            setSubmissions(submissionsWithProgress);
           } catch (error) {
             console.error("❌ Failed to reload all submissions:", error);
             notificationService.error(
@@ -123,7 +202,37 @@ export const MospiApproverDashboardPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
         
-        setSubmissions(submissionsArray);
+        // Calculate progress for each submission (same as STATE_APPROVER)
+        const submissionsWithProgress = submissionsArray.map((sub: any) => {
+          const fd = sub.formData || sub.form_data || {};
+          
+          // Calculate proper progress using computeAllStepsSummary
+          const summary = computeAllStepsSummary(fd, {});
+          
+          const totalCompleted = 
+            summary.infraFinancing.completed +
+            summary.infraDevelopment.completed +
+            summary.pppDevelopment.completed +
+            summary.infraEnablers.completed;
+          
+          const totalSections = 
+            summary.infraFinancing.total +
+            summary.infraDevelopment.total +
+            summary.pppDevelopment.total +
+            summary.infraEnablers.total;
+          
+          // Progress excludes indicators with mospi_status = REVERTED
+          const progress = totalSections > 0 
+            ? Math.round((totalCompleted / totalSections) * 100)
+            : 0;
+          
+          return {
+            ...sub,
+            progress: Math.round(progress),
+          };
+        });
+        
+        setSubmissions(submissionsWithProgress);
         
         // Smooth scroll to table after loading filtered submissions
         setTimeout(() => {

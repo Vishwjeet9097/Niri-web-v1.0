@@ -91,6 +91,8 @@ export const PPPDevelopmentStep = () => {
     isStateApprover,
     assignedIndicators,
     availableIndicators,
+    effectiveIndicators,
+    hasIndicatorAccess,
     refresh,
     loading: indicatorLoading,
     error: indicatorError,
@@ -147,10 +149,10 @@ export const PPPDevelopmentStep = () => {
   const sectionIndicators = useMemo(() => ["3.1", "3.2", "3.3", "3.4"], []);
   const allowedIndicators = useMemo(
     () =>
-      (isNodalOfficer ? assignedIndicators : availableIndicators)?.filter(
+      (isNodalOfficer ? effectiveIndicators : availableIndicators)?.filter(
         (ind) => sectionIndicators.includes(ind)
       ) || [],
-    [isNodalOfficer, assignedIndicators, availableIndicators, sectionIndicators]
+    [isNodalOfficer, effectiveIndicators, availableIndicators, sectionIndicators]
   );
 
   // Validation - only validate sections that are accessible based on indicators
@@ -158,10 +160,17 @@ export const PPPDevelopmentStep = () => {
     // Determine which indicators to validate
     // For Nodal Officer or State Approver: only validate assigned/available indicators
     // For others: validate all (no restrictions)
-    const indicatorsToValidate =
-      (isNodalOfficer || isStateApprover) && allowedIndicators.length > 0
-        ? allowedIndicators
-        : undefined; // undefined means validate all (backward compatibility)
+    let indicatorsToValidate: string[] | undefined;
+    
+    if (isNodalOfficer || isStateApprover) {
+      // If no indicators assigned/available in this category, validate nothing (empty array = skip validation)
+      indicatorsToValidate = allowedIndicators.length > 0 
+        ? allowedIndicators 
+        : []; // Empty array means validate nothing (category not applicable)
+    } else {
+      // Other roles: validate all (backward compatibility)
+      indicatorsToValidate = undefined; // undefined means validate all
+    }
 
     return validatePPPDevelopment(formData, {
       allowedIndicators: indicatorsToValidate,
@@ -589,8 +598,7 @@ export const PPPDevelopmentStep = () => {
 
         {/* Section 3.1 */}
         {((!isNodalOfficer && !isStateApprover) ||
-          assignedIndicators.includes("3.1") ||
-          availableIndicators.includes("3.1")) &&
+          hasIndicatorAccess("3.1")) &&
           (!isEditMode ||
             formData.section3_1?.available ||
             !!formData.section3_1?.file ||
@@ -721,8 +729,7 @@ export const PPPDevelopmentStep = () => {
 
         {/* Section 3.2 */}
         {((!isNodalOfficer && !isStateApprover) ||
-          assignedIndicators.includes("3.2") ||
-          availableIndicators.includes("3.2")) &&
+          hasIndicatorAccess("3.2")) &&
           (!isEditMode ||
             formData.section3_2?.available ||
             !!formData.section3_2?.file ||
@@ -853,8 +860,7 @@ export const PPPDevelopmentStep = () => {
 
         {/* Section 3.3 */}
         {((!isNodalOfficer && !isStateApprover) ||
-          assignedIndicators.includes("3.3") ||
-          availableIndicators.includes("3.3")) &&
+          hasIndicatorAccess("3.3")) &&
           (!isEditMode ||
             (Array.isArray(formData.section3_3.VGFArray) &&
               formData.section3_3.VGFArray.length > 0)) && (
@@ -1134,8 +1140,7 @@ export const PPPDevelopmentStep = () => {
 
         {/* Section 3.4 */}
         {((!isNodalOfficer && !isStateApprover) ||
-          assignedIndicators.includes("3.4") ||
-          availableIndicators.includes("3.4")) &&
+          hasIndicatorAccess("3.4")) &&
           (!isEditMode ||
             (Array.isArray(formData.section3_4?.projects) &&
               formData.section3_4.projects.length > 0)) && (
@@ -1185,14 +1190,14 @@ export const PPPDevelopmentStep = () => {
                   <div>
                     <Label className="block min-h-[40px] leading-snug">
                       Total Project Cost of Infrastructure Projects awarded in
-                      the financial year of assessment (INR Crore)
+                      the financial year of assessment (INR - values is in CRORES)
                       <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
-                      placeholder="Enter total cost in crore INR"
+                      placeholder="Enter total cost"
                       value={formData.section3_4.totalProjectCostAwarded || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
@@ -1342,7 +1347,7 @@ export const PPPDevelopmentStep = () => {
                         </div>
 
                         <div>
-                          <Label>Total Project Cost (INR Crore)</Label>
+                          <Label>Total Project Cost (INR - values is in CRORES)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -1449,7 +1454,7 @@ export const PPPDevelopmentStep = () => {
                               Date of Award
                             </th>
                             <th className="py-3 px-4 text-left text-sm font-normal">
-                              Total Cost (INR Cr)
+                              Total Cost (INR - values is in CRORES)
                             </th>
                             <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                               Action

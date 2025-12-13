@@ -4,6 +4,14 @@ import { authService } from "@/services/auth.service";
 import { apiService } from "@/services/api.service";
 import type { IndicatorAccess, IndicatorSection, SectionAccess } from "@/types";
 
+// All NIRI indicator codes (20 total)
+export const ALL_INDICATOR_CODES = [
+  "1.1", "1.2", "1.3", "1.4", "1.5", // Infrastructure Financing
+  "2.1", "2.2", "2.3", "2.4", "2.5", // Infrastructure Development
+  "3.1", "3.2", "3.3", "3.4",         // PPP Development
+  "4.1", "4.2", "4.3", "4.4", "4.5", "4.6", // Infrastructure Enablers
+];
+
 // NIRI Indicator Sections Configuration
 export const INDICATOR_SECTIONS: IndicatorSection[] = [
   {
@@ -183,6 +191,17 @@ export function useIndicatorAccess() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadIndicators]);
 
+  // Helper: Get effective indicators for NODAL_OFFICER
+  // If no indicators assigned, return all indicators (fallback behavior)
+  const effectiveIndicators = useMemo(() => {
+    if (!isNodalOfficer) return [];
+    // If no indicators assigned, show all indicators (fallback)
+    if (assignedIndicators.length === 0) {
+      return ALL_INDICATOR_CODES;
+    }
+    return assignedIndicators;
+  }, [isNodalOfficer, assignedIndicators]);
+
   // existing derived utilities (unchanged logic, but uses availableIndicators when approver)
   const indicatorAccess = useMemo((): IndicatorAccess => {
     if (!isNodalOfficer) {
@@ -193,21 +212,37 @@ export function useIndicatorAccess() {
         restrictedSections: [],
       };
     }
+    // Use effectiveIndicators (includes fallback to all if empty)
     const availableSections = INDICATOR_SECTIONS.filter((section) =>
-      section.indicators.some((indicator) => assignedIndicators.includes(indicator))
+      section.indicators.some((indicator) => effectiveIndicators.includes(indicator))
     );
     const restrictedSections = INDICATOR_SECTIONS.filter((section) => !availableSections.includes(section)).map((s) => s.id);
     return {
-      hasAccess: assignedIndicators.length > 0,
-      assignedIndicators,
+      hasAccess: effectiveIndicators.length > 0,
+      assignedIndicators: effectiveIndicators,
       availableSections,
       restrictedSections,
     };
-  }, [isNodalOfficer, assignedIndicators]);
+  }, [isNodalOfficer, effectiveIndicators]);
 
   const hasIndicatorAccess = (indicatorCode: string) => {
-    if (!isNodalOfficer) return true;
-    return assignedIndicators.includes(indicatorCode);
+    // For non-restricted roles (MOSPI, ADMIN), allow all
+    if (!isNodalOfficer && !isStateApprover) return true;
+    
+    // For NODAL_OFFICER: If no indicators assigned, allow access to all (fallback)
+    if (isNodalOfficer) {
+      if (assignedIndicators.length === 0) {
+        return true;
+      }
+      return assignedIndicators.includes(indicatorCode);
+    }
+    
+    // For STATE_APPROVER: Only allow access to available (unassigned) indicators
+    if (isStateApprover) {
+      return availableIndicators.includes(indicatorCode);
+    }
+    
+    return false;
   };
 
   const clearCache = useCallback(() => {
@@ -223,7 +258,8 @@ export function useIndicatorAccess() {
 
   const getAvailableSections = (): IndicatorSection[] => {
     if (isNodalOfficer) {
-      return INDICATOR_SECTIONS.filter((section) => section.indicators.some((i) => assignedIndicators.includes(i)));
+      // Use effectiveIndicators (includes fallback to all if empty)
+      return INDICATOR_SECTIONS.filter((section) => section.indicators.some((i) => effectiveIndicators.includes(i)));
     }
     if (isStateApprover) {
       return INDICATOR_SECTIONS.filter((section) => section.indicators.some((i) => availableIndicators.includes(i)));
@@ -241,7 +277,10 @@ export function useIndicatorAccess() {
   };
 
   const hasAnyAccess = (): boolean => {
-    if (isNodalOfficer) return assignedIndicators.length > 0;
+    if (isNodalOfficer) {
+      // If no indicators assigned, show all (has access)
+      return assignedIndicators.length === 0 || assignedIndicators.length > 0;
+    }
     if (isStateApprover) return availableIndicators.length > 0;
     return true;
   };
@@ -259,17 +298,119 @@ export function useIndicatorAccess() {
     await loadIndicators();
   }, [loadIndicators, clearCache]);
 
+  // Listen for indicator update events and refresh cache
+  useEffect(() => {
+    const handleIndicatorUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const eventDetail = customEvent.detail || {};
+      
+      // Determine if we should refresh based on event details
+      let shouldRefresh = false;
+      
+      // Check if userId matches (for the user whose indicators changed)
+      if (eventDetail.userId && eventDetail.userId === userId) {
+        shouldRefresh = true;
+      }
+      
+      // Also check if this is a NODAL_OFFICER indicator change
+      // For STATE_APPROVERs: always refresh when any NODAL_OFFICER indicators change
+      // (backend API will filter by stateUt, so we'll only get indicators for our state)
+      // For NODAL_OFFICERs: refresh if it's their state
+      if (!shouldRefresh && eventDetail.role === "NODAL_OFFICER") {
+        if (isStateApprover) {
+          // STATE_APPROVER should always refresh when any NODAL_OFFICER indicators change
+          // The backend API getAvailableIndicatorsForApprover filters by stateUt anyway
+          shouldRefresh = true;
+          console.log('[useIndicatorAccess] STATE_APPROVER refreshing due to NODAL_OFFICER indicator change', {
+            eventStateUt: eventDetail.stateUt,
+            currentStateUt: stateUt
+          });
+        } else if (isNodalOfficer && eventDetail.stateUt) {
+          // NODAL_OFFICER should refresh if it's their state
+          // Normalize state names for comparison (case-insensitive, trim whitespace)
+          const normalizeState = (s: string) => (s || "").trim().toLowerCase();
+          const eventStateUt = normalizeState(eventDetail.stateUt);
+          const currentStateUt = normalizeState(stateUt || "");
+          
+          // Handle comma-separated states (e.g., "State1, State2")
+          const eventStates = eventStateUt.split(",").map(s => s.trim()).filter(Boolean);
+          const currentStates = currentStateUt.split(",").map(s => s.trim()).filter(Boolean);
+          
+          // Check if any state matches
+          const stateMatches = eventStates.some(es => 
+            currentStates.some(cs => cs === es || cs.includes(es) || es.includes(cs))
+          ) || eventStates.some(es => currentStateUt.includes(es)) || 
+             currentStates.some(cs => eventStateUt.includes(cs));
+          
+          shouldRefresh = stateMatches || eventStateUt === currentStateUt;
+          
+          console.log('[useIndicatorAccess] NODAL_OFFICER state comparison', {
+            eventStateUt: eventDetail.stateUt,
+            currentStateUt: stateUt,
+            normalizedEvent: eventStateUt,
+            normalizedCurrent: currentStateUt,
+            stateMatches,
+            shouldRefresh
+          });
+        }
+      }
+      
+      // If no userId or stateUt specified, refresh for all users (e.g., when admin assigns indicators globally)
+      if (!shouldRefresh && !eventDetail.userId && !eventDetail.stateUt) {
+        shouldRefresh = true;
+      }
+      
+      if (!shouldRefresh) {
+        console.log('[useIndicatorAccess] Indicators updated event received but skipping refresh', {
+          eventDetail,
+          currentUserId: userId,
+          currentStateUt: stateUt,
+          role: user?.role
+        });
+        return;
+      }
+      
+      console.log('[useIndicatorAccess] Indicators updated event received, refreshing cache...', {
+        eventDetail,
+        currentUserId: userId,
+        currentStateUt: stateUt,
+        role: user?.role,
+        isNodalOfficer,
+        isStateApprover
+      });
+      
+      // Clear cache and refresh indicators
+      console.log('[useIndicatorAccess] Calling refresh with clearCache=true');
+      refresh({ clearCache: true }).then(() => {
+        console.log('[useIndicatorAccess] Refresh completed');
+      }).catch((err) => {
+        console.error('[useIndicatorAccess] Refresh failed:', err);
+      });
+    };
+
+    window.addEventListener('indicatorsUpdated', handleIndicatorUpdate);
+    
+    return () => {
+      window.removeEventListener('indicatorsUpdated', handleIndicatorUpdate);
+    };
+  }, [refresh, userId, stateUt, user?.role, isNodalOfficer, isStateApprover]);
+
   return {
     loading,
     error,
     assignedIndicators,
     availableIndicators,
+    effectiveIndicators, // Expose effective indicators (includes fallback)
     indicatorAccess,
     hasIndicatorAccess,
     hasSectionAccess: (sectionId: string) => {
       if (!isNodalOfficer) return true;
       const section = INDICATOR_SECTIONS.find((s) => s.id === sectionId);
       if (!section) return false;
+      // If no indicators assigned, allow access to all sections (fallback)
+      if (assignedIndicators.length === 0) {
+        return true;
+      }
       return section.indicators.some((indicator) => assignedIndicators.includes(indicator));
     },
     getSectionAccess: (sectionId: string) => {
@@ -284,6 +425,17 @@ export function useIndicatorAccess() {
       }
       const section = INDICATOR_SECTIONS.find((s) => s.id === sectionId);
       if (!section) return { sectionId, hasAccess: false, assignedIndicators: [], hiddenIndicators: [] } as SectionAccess;
+      
+      // If no indicators assigned, show all indicators in section (fallback)
+      if (assignedIndicators.length === 0) {
+        return {
+          sectionId,
+          hasAccess: true,
+          assignedIndicators: section.indicators,
+          hiddenIndicators: [],
+        } as SectionAccess;
+      }
+      
       const assignedInSection = section.indicators.filter((indicator) => assignedIndicators.includes(indicator));
       const hiddenInSection = section.indicators.filter((indicator) => !assignedIndicators.includes(indicator));
       return { sectionId, hasAccess: assignedInSection.length > 0, assignedIndicators: assignedInSection, hiddenIndicators: hiddenInSection } as SectionAccess;

@@ -433,44 +433,35 @@ export function isSectionFilled(
   
   // If section doesn't exist at all, it's not filled
   if (!data) return false;
-  
-  // 🚨 Check if section was sent back (REVERTED or REJECTED)
-  // If sent back, don't count as filled even if it has data (needs resubmission)
-  // Check status at the section level (handle both object and array cases)
+
+  // Respect send-back statuses: if the section was reverted/rejected (state) or mospi_reverted,
+  // do not count it as filled even if it has data.
   let sectionStatus: string | undefined;
   let mospiStatus: string | undefined;
-  
-  // Handle both object and array cases
+
   if (Array.isArray(data)) {
-    // For array-based sections, check if the array itself has status
     sectionStatus = (data as any)?.status;
     mospiStatus = (data as any)?.mospi_status;
-  } else if (typeof data === 'object' && data !== null) {
-    // For object-based sections, check status on the object
+  } else if (typeof data === "object" && data !== null) {
     sectionStatus = (data as any)?.status;
     mospiStatus = (data as any)?.mospi_status;
   }
-  
-  // ⚠️ IMPORTANT: Only mark as NOT filled if THIS specific section is REVERTED
-  // Other sections should still count as filled if they have data
+
   if (sectionStatus === "REVERTED" || sectionStatus === "REJECTED") {
-    // This specific section was sent back - don't count as filled
     return false;
   }
-  
-  // If mospi_status is REVERTED, section is not filled (needs resubmission)
+
   if (mospiStatus === "REVERTED") {
-    // This specific section was sent back by MOSPI - don't count as filled
     return false;
   }
-  
-  // If section exists and is NOT REVERTED, check if it has meaningful data
-  // Note: Binary yes/no sections return true when "no" is selected, which counts as filled
-  const checker = REQUIRED_SECTION_CHECKS[sectionKey];
-  if (checker) {
-    const isFilled = checker(data);
-    return isFilled;
+
+  // If MoSPI has sent back at form level and set mospi_status to RETURNED_FROM_MOSPI on the section,
+  // do not count it as filled.
+  if (mospiStatus === "RETURNED_FROM_MOSPI") {
+    return false;
   }
+
+  // No mandatory field/file enforcement: any meaningful data (including "no") counts as filled.
   return hasMeaningfulValue(data);
 }
 
@@ -495,19 +486,28 @@ export function computeStepProgress(
   )?.[stepKey] as Record<string, unknown> | undefined;
 
   // 🎯 For NODAL_OFFICER: Start with assigned indicators (if available)
+  // If no indicators assigned, count all sections (fallback behavior)
   // For others: Count indicators that exist in the submission
   let sectionsInSubmission: typeof sections;
   
-  if (isNodalOfficer && assignedIndicators.length > 0) {
-    // For NODAL_OFFICER: Only consider assigned indicators that exist in formData
-    // This ensures progress is based on assigned indicators, not all indicators in submission
-    sectionsInSubmission = sections.filter((s) => {
-      // Must be in assigned indicators
-      if (!assignedIndicators.includes(s.indicator)) return false;
-      // And must exist in formData
-      if (!stepData) return false;
-      return stepData[s.sectionKey] !== undefined && stepData[s.sectionKey] !== null;
-    });
+  if (isNodalOfficer) {
+    if (assignedIndicators.length > 0) {
+      // For NODAL_OFFICER: Only consider assigned indicators that exist in formData
+      // This ensures progress is based on assigned indicators, not all indicators in submission
+      sectionsInSubmission = sections.filter((s) => {
+        // Must be in assigned indicators
+        if (!assignedIndicators.includes(s.indicator)) return false;
+        // And must exist in formData
+        if (!stepData) return false;
+        return stepData[s.sectionKey] !== undefined && stepData[s.sectionKey] !== null;
+      });
+    } else {
+      // If no indicators assigned, count all sections that exist in formData (fallback)
+      sectionsInSubmission = sections.filter((s) => {
+        if (!stepData) return false;
+        return stepData[s.sectionKey] !== undefined && stepData[s.sectionKey] !== null;
+      });
+    }
     
     // Debug logging for NODAL_OFFICER
     if (process.env.NODE_ENV === 'development') {
@@ -515,6 +515,7 @@ export function computeStepProgress(
         assignedIndicators,
         sectionsInSubmission: sectionsInSubmission.map(s => s.indicator),
         total: sectionsInSubmission.length,
+        usingFallback: assignedIndicators.length === 0,
       });
     }
   } else {

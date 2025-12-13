@@ -99,10 +99,10 @@ export type CumulativePreviewResponse = {
 };
 
 class ApiService implements HttpClient {
-    // Mark a notification as read/handled
-    async markNotificationStatus(id: string): Promise<void> {
-      await this.axios.patch(`/api/notifications/status/${id}`);
-    }
+  // Mark a notification as read/handled
+  async markNotificationStatus(id: string): Promise<void> {
+    await this.axios.patch(`/api/notifications/status/${id}`);
+  }
   private axios: AxiosInstance;
 
   constructor() {
@@ -118,7 +118,8 @@ class ApiService implements HttpClient {
     // Request interceptor - attach auth headers
     this.axios.interceptors.request.use(
       (config) => {
-        const authHeaders = authService.getAuthHeaders();
+        const isMultipart = config.data instanceof FormData;
+        const authHeaders = authService.getAuthHeaders(isMultipart);
         Object.entries(authHeaders).forEach(([key, value]) => {
           config.headers.set(key, value);
         });
@@ -263,12 +264,12 @@ class ApiService implements HttpClient {
     return this.axios.delete(url, config);
   }
 
-   // Fetch notifications for a user
+  // Fetch notifications for a user
   async getNotifications(userId: string): Promise<any[]> {
     try {
       const response = await this.axios.get(`/api/notifications/${userId}`);
       let data = response.data?.data !== undefined ? response.data.data : response.data;
-    console.log("🔍 API Service - Fetched Notifications Data:", data);
+      console.log("🔍 API Service - Fetched Notifications Data:", data);
       if (Array.isArray(data)) return data;
       if (data && Array.isArray(data.notifications)) return data.notifications;
       return [];
@@ -648,10 +649,10 @@ class ApiService implements HttpClient {
     // If statusOrRole is provided and it's a specific status, filter by that status
     // Otherwise, get all submissions
     let url = `/submission?page=${page}&limit=${limit}`;
-    
+
     // Priority: use status parameter if provided, otherwise use statusOrRole
     const statusToUse = status || statusOrRole;
-    
+
     if (statusToUse && statusToUse !== "all") {
       // Check if it's a known role, if so ignore it and get all submissions
       const knownRoles = [
@@ -784,26 +785,26 @@ class ApiService implements HttpClient {
         id,
         formData,
       });
-      
+
       console.log("📊 section_status in payload:", formData.section_status);
-      
+
       // Check if formData contains files
       const hasFiles = this.hasFileObjects(formData);
-      
+
       let response;
-      
+
       if (hasFiles) {
         // Use FormData for multipart upload
         const multipartFormData = new FormData();
-        
+
         console.log("📤 Using multipart/form-data for file upload");
         console.log("📦 Full payload before stringify:", JSON.stringify(formData, null, 2));
-        
+
         multipartFormData.append("submission", JSON.stringify(formData));
-        
+
         // Append files
         this.appendFilesToFormData(multipartFormData, formData, "formData");
-        
+
         response = await this.axios.put(`/submission/${id}`, multipartFormData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
@@ -811,10 +812,10 @@ class ApiService implements HttpClient {
         // Use regular JSON payload - include all fields from formData
         console.log("📤 Using regular JSON payload");
         console.log("📦 Full payload:", JSON.stringify(formData, null, 2));
-        
+
         response = await this.axios.put(`/submission/${id}`, formData);
       }
-      
+
       console.log(
         "🔍 API Service - Update Submission Response Status:",
         response.status
@@ -1145,8 +1146,8 @@ class ApiService implements HttpClient {
     }
 
     // Check for array-based sections (like section1_3, section1_4)
-    if (sectionKey.includes('section1_3') || sectionKey.includes('section1_4') || 
-        sectionKey.includes('section2_4') || sectionKey.includes('section3_2')) {
+    if (sectionKey.includes('section1_3') || sectionKey.includes('section1_4') ||
+      sectionKey.includes('section2_4') || sectionKey.includes('section3_2')) {
       const list = sectionData.ulbList || sectionData.bondList || sectionData.tenderList || sectionData.projectList || [];
       const hasData = Array.isArray(list) && list.length > 0;
       console.log(`📋 ${sectionKey}: Array section, has items: ${hasData}`);
@@ -1168,7 +1169,7 @@ class ApiService implements HttpClient {
       if (field === 'year') return false;
       if (field === 'percentage') return false; // Calculated field
       if (field === 'marksObtained') return false; // Calculated field
-      
+
       // Check for meaningful values
       if (typeof value === 'string' && value.trim() !== '') {
         console.log(`  ✓ ${field}: "${value}" (string)`);
@@ -1190,7 +1191,7 @@ class ApiService implements HttpClient {
         console.log(`  ✓ ${field}: object with keys`);
         return true;
       }
-      
+
       return false;
     });
 
@@ -1214,14 +1215,14 @@ class ApiService implements HttpClient {
     // Map indicator codes to section keys (e.g., '1.1' -> 'section1_1')
     indicators.forEach(indicatorCode => {
       const sectionKey = `section${indicatorCode.replace('.', '_')}`;
-      
+
       console.log(`🔎 Checking indicator ${indicatorCode} → ${sectionKey}`);
       console.log(`🔎 sectionData[${sectionKey}] exists:`, !!sectionData[sectionKey]);
-      
+
       if (sectionData[sectionKey]) {
         console.log(`🔎 sectionData[${sectionKey}] content:`, JSON.stringify(sectionData[sectionKey], null, 2));
         const hasMeaningfulData = this.hasMeaningfulSectionData(sectionKey, sectionData[sectionKey]);
-        
+
         if (hasMeaningfulData) {
           completedIndicators.push(indicatorCode);
           console.log(`✅ Indicator ${indicatorCode} (${sectionKey}) has meaningful data`);
@@ -1262,17 +1263,17 @@ class ApiService implements HttpClient {
       // Check if there's an existing submission for this user
       let existingSubmissionId: string | null = null;
       let existingSubmission: any = null;
-      
+
       try {
         // Try to get user's existing draft/in-progress submissions
         const submissions = await this.getSubmissions(1, 100);
         const userSubmission = submissions.submissions.find(
-          (sub: any) => 
-            sub.status === 'DRAFT' || 
+          (sub: any) =>
+            sub.status === 'DRAFT' ||
             sub.status === 'IN_PROGRESS' ||
             sub.status === 'RETURNED_FROM_STATE'
         );
-        
+
         if (userSubmission) {
           existingSubmissionId = userSubmission.id;
           // Fetch full submission details to get complete formData and completedIndicators
@@ -1288,12 +1289,12 @@ class ApiService implements HttpClient {
       const userId = user?.id || user?._id;
       let totalIndicatorCount = 0;
       let userAssignedIndicators: string[] = [];
-      
+
       if (userId) {
         // Fetch user's assigned indicators dynamically from backend (user_indicator_scope table)
         userAssignedIndicators = await this.getUserAssignedIndicators(userId);
         totalIndicatorCount = userAssignedIndicators.length;
-        
+
         console.log("📊 User ID:", userId);
         console.log("📊 Dynamically fetched from user_indicator_scope:", userAssignedIndicators);
         console.log("📊 Total assigned indicators (dynamic):", totalIndicatorCount);
@@ -1302,23 +1303,23 @@ class ApiService implements HttpClient {
       }
 
       let result;
-      
+
       if (existingSubmissionId) {
         // Update existing submission
         console.log("🔄 Updating existing submission:", existingSubmissionId);
-        
+
         // Get existing section_status from DB
         const existingSectionStatus = existingSubmission?.section_status || {
           completedCount: 0,
           totalAssigned: totalIndicatorCount,
           completedIndicators: []
         };
-        
+
         console.log("📋 Existing section_status from DB:", existingSectionStatus);
-        
+
         // Get existing completed indicators array
         const existingCompletedIndicators = existingSectionStatus.completedIndicators || [];
-        
+
         // Check ALL categories in formData to find indicators with data
         const existingFormData = existingSubmission?.formData || {};
         const allCategories = ['infraFinancing', 'infraDevelopment', 'infraPPP', 'infraEnablers'];
@@ -1328,19 +1329,19 @@ class ApiService implements HttpClient {
           'infraPPP': ['3.1', '3.2', '3.3', '3.4'],
           'infraEnablers': ['4.1', '4.2', '4.3', '4.4', '4.5', '4.6']
         };
-        
+
         // Find all indicators that have data in DB (across all categories)
         const indicatorsWithDataInDB: string[] = [];
         allCategories.forEach(cat => {
           const catData = existingFormData[cat] || {};
           const catIndicators = categoryToIndicatorMap[cat] || [];
-          
+
           catIndicators.forEach(indicatorCode => {
             if (userAssignedIndicators.includes(indicatorCode)) {
               const sectionKey = `section${indicatorCode.replace('.', '_')}`;
-              const hasDataInDB = catData[sectionKey] && 
-                                  this.hasMeaningfulSectionData(sectionKey, catData[sectionKey]);
-              
+              const hasDataInDB = catData[sectionKey] &&
+                this.hasMeaningfulSectionData(sectionKey, catData[sectionKey]);
+
               if (hasDataInDB) {
                 indicatorsWithDataInDB.push(indicatorCode);
                 console.log(`✅ Found data in DB for indicator ${indicatorCode} (${cat})`);
@@ -1348,41 +1349,41 @@ class ApiService implements HttpClient {
             }
           });
         });
-        
+
         // Merge: existing completed + newly completed + found in DB (remove duplicates)
         const allCompletedIndicators = Array.from(new Set([
           ...existingCompletedIndicators,
           ...completedIndicators,
           ...indicatorsWithDataInDB
         ]));
-        
+
         // Build updated section_status
         const updatedSectionStatus = {
           completedCount: allCompletedIndicators.length,
           totalAssigned: totalIndicatorCount,
           completedIndicators: allCompletedIndicators
         };
-        
+
         console.log("📊 Updated section_status:", updatedSectionStatus);
         console.log("📊 Progress:", updatedSectionStatus.completedCount, "of", updatedSectionStatus.totalAssigned);
-        
+
         const updatePayload = {
           [category]: sectionData,
           indicators,
           section_status: updatedSectionStatus
         };
-        
+
         console.log("📦 Update Payload:", {
           category,
           section_status: updatedSectionStatus
         });
-        
+
         result = await this.updateSubmission(existingSubmissionId, updatePayload);
-        
+
         // Check if all assigned indicators are completed
         if (updatedSectionStatus.completedCount >= updatedSectionStatus.totalAssigned) {
           console.log("🎉 All indicators completed! Redirecting to review page...");
-          
+
           if (typeof window !== 'undefined') {
             setTimeout(() => {
               window.location.href = `/data-submission/review/${existingSubmissionId}`;
@@ -1392,17 +1393,17 @@ class ApiService implements HttpClient {
       } else {
         // Create new submission
         console.log("➕ Creating new submission");
-        
+
         // Build initial section_status
         const initialSectionStatus = {
           completedCount: completedIndicators.length,
           totalAssigned: totalIndicatorCount,
           completedIndicators: completedIndicators
         };
-        
+
         console.log("📊 Initial section_status:", initialSectionStatus);
         console.log("📊 Progress:", initialSectionStatus.completedCount, "of", initialSectionStatus.totalAssigned);
-        
+
         const createPayload = {
           formData: {
             [category]: sectionData
@@ -1411,18 +1412,18 @@ class ApiService implements HttpClient {
           status: "DRAFT",
           section_status: initialSectionStatus
         };
-        
+
         console.log("📦 Create Payload:", {
           category,
           section_status: initialSectionStatus
         });
-        
+
         result = await this.createSubmission(createPayload);
-        
+
         // Check if all indicators completed on first submission
         if (initialSectionStatus.completedCount >= initialSectionStatus.totalAssigned) {
           console.log("🎉 All indicators completed! Redirecting to review page...");
-          
+
           const newSubmissionId = result?.id || result?.submissionId;
           if (typeof window !== 'undefined' && newSubmissionId) {
             setTimeout(() => {
@@ -1431,7 +1432,7 @@ class ApiService implements HttpClient {
           }
         }
       }
-      
+
       console.log("🔍 API Service - Processed Submit Section Data:", result);
 
       return result;
@@ -1491,20 +1492,17 @@ class ApiService implements HttpClient {
     submissionId: string,
     file: File
   ): Promise<{
-    data: any; url: string; filename: string; size: number 
-}> {
+    data: any; url: string; filename: string; size: number
+  }> {
 
-   console.log("🔍 API Service - Upload File:", submissionId, file);
+    console.log("🔍 API Service - Upload File:", submissionId, file);
     try {
       const formData = new FormData();
       formData.append("file", file);
 
       const response = await this.axios.post(
         `/file/upload/${submissionId}`,
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        formData
       );
       console.log(
         "🔍 API Service - Upload File Response Status:",
@@ -1542,10 +1540,7 @@ class ApiService implements HttpClient {
 
       const response = await this.axios.post(
         `/file/upload-multiple/${submissionId}`,
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        formData
       );
       console.log(
         "🔍 API Service - Upload Multiple Files Response Status:",
@@ -1673,15 +1668,15 @@ class ApiService implements HttpClient {
   }
 
   // ✅ Fetch dashboard data for State Approver
-async getStateApproverDashboard(): Promise<any> {
-  try {
-    const response = await this.get("/dashboard/state-approver");
-    return response?.data || response;
-  } catch (error: any) {
-    console.error("Failed to fetch State Approver Dashboard:", error);
-    throw error.response?.data || error;
+  async getStateApproverDashboard(): Promise<any> {
+    try {
+      const response = await this.get("/dashboard/state-approver");
+      return response?.data || response;
+    } catch (error: any) {
+      console.error("Failed to fetch State Approver Dashboard:", error);
+      throw error.response?.data || error;
+    }
   }
-}
 
   // User management methods
   async getAllUsers(): Promise<NiriUser[]> {
@@ -1932,12 +1927,12 @@ async getStateApproverDashboard(): Promise<any> {
 
       // Handle different response structures
       let cleanupData = data;
-      
+
       // If data has a data property (nested structure), use it
       if (data?.data !== undefined && typeof data.data === 'object') {
         cleanupData = data.data;
       }
-      
+
       // Ensure the response has the expected structure
       if (!cleanupData || typeof cleanupData !== 'object') {
         console.error("❌ API Service - Invalid response structure:", cleanupData);
@@ -2007,12 +2002,12 @@ async getStateApproverDashboard(): Promise<any> {
 
       // Handle different response structures
       let deleteData = data;
-      
+
       // If data has a data property (nested structure), use it
       if (data?.data !== undefined && typeof data.data === 'object') {
         deleteData = data.data;
       }
-      
+
       // Ensure the response has the expected structure
       if (!deleteData || typeof deleteData !== 'object') {
         console.error("❌ API Service - Invalid response structure:", deleteData);
@@ -2888,20 +2883,20 @@ async getStateApproverDashboard(): Promise<any> {
       );
       const response = await this.axios.get(`/users/${userId}/indicators`);
       const indicatorsData = response.data?.data || response.data;
-      
+
       console.log("🔍 API Service - Indicators with details:", indicatorsData);
-      
+
       if (Array.isArray(indicatorsData)) {
         // Map to include both id and code
         const indicators = indicatorsData.map((item: any) => ({
           id: item.id || item.indicatorId || item.indicator?.id,
           code: item.indicator?.code || item.code || item.indicatorCode
         })).filter((item: any) => item.id && item.code);
-        
+
         console.log("🔍 API Service - Mapped indicators:", indicators);
         return indicators;
       }
-      
+
       return [];
     } catch (error: any) {
       console.error("❌ Failed to get user assigned indicators with details:", error);
@@ -2910,18 +2905,18 @@ async getStateApproverDashboard(): Promise<any> {
   }
 
   // ✅ Fetch indicators available for a STATE_APPROVER
-async getAvailableIndicatorsForApprover(stateUt: string) {
-  try {
-    const response = await this.axios.get(
-      `/indicators/available-for-approver`,
-      { params: { stateUt} }
-    );
-    return response.data; // array of {id, code, name, category}
-  } catch (error) {
-    console.error("Failed to get available indicators for approver", error);
-    throw error;
+  async getAvailableIndicatorsForApprover(stateUt: string) {
+    try {
+      const response = await this.axios.get(
+        `/indicators/available-for-approver`,
+        { params: { stateUt } }
+      );
+      return response.data; // array of {id, code, name, category}
+    } catch (error) {
+      console.error("Failed to get available indicators for approver", error);
+      throw error;
+    }
   }
-}
 
   async getAllIndicators(): Promise<any[]> {
     try {
@@ -3041,31 +3036,31 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     try {
       // Check if payload contains File objects
       const hasFiles = this.hasFileObjects(payload);
-      
+
       let response;
-      
+
       if (hasFiles) {
         // Convert to FormData if files are present
         const formData = new FormData();
-        
+
         // Create a sanitized payload without File objects for JSON serialization
         const sanitizedPayload = this.sanitizePayloadForJSON(payload);
         formData.append("payload", JSON.stringify(sanitizedPayload));
-        
+
         // Append files recursively with proper paths
         this.appendFilesToFormData(formData, payload, "");
-        
+
         // Get auth token
         const authHeaders = authService.getAuthHeaders();
         const authToken = token || authHeaders?.Authorization || "";
-        
+
         const config: AxiosRequestConfig = {
           headers: {
             "Content-Type": "multipart/form-data",
             Authorization: authToken,
           },
         };
-        
+
         console.log("📤 Sending updateIndicator with FormData (files detected)");
         response = await this.axios.post("/submission/update-indicator", formData, config);
       } else {
@@ -3099,13 +3094,13 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
   // Helper to check if payload contains File objects
   private hasFileObjects(obj: any): boolean {
     if (!obj || typeof obj !== "object") return false;
-    
+
     if (obj instanceof File) return true;
-    
+
     if (Array.isArray(obj)) {
       return obj.some(item => this.hasFileObjects(item));
     }
-    
+
     for (const value of Object.values(obj)) {
       if (value instanceof File) return true;
       if (value && typeof value === "object") {
@@ -3115,22 +3110,22 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
         if (this.hasFileObjects(value)) return true;
       }
     }
-    
+
     return false;
   }
 
   // Helper to create a JSON-safe copy of payload (replaces File objects with placeholders)
   private sanitizePayloadForJSON(obj: any): any {
     if (!obj || typeof obj !== "object") return obj;
-    
+
     if (obj instanceof File) {
       return { _filePlaceholder: true, name: obj.name, size: obj.size };
     }
-    
+
     if (Array.isArray(obj)) {
       return obj.map(item => this.sanitizePayloadForJSON(item));
     }
-    
+
     const sanitized: any = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value instanceof File) {
@@ -3145,23 +3140,23 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
         sanitized[key] = this.sanitizePayloadForJSON(value);
       }
     }
-    
+
     return sanitized;
   }
 
   // Helper to append files to FormData recursively
   private appendFilesToFormData(formData: FormData, obj: any, parentKey: string = "") {
     if (!obj || typeof obj !== "object") return;
-    
+
     Object.entries(obj).forEach(([key, value]) => {
       const fullKey = parentKey ? `${parentKey}.${key}` : key;
-      
+
       if (value instanceof File) {
         console.log(`📎 Appending file: ${fullKey}`, value.name);
         formData.append(fullKey, value, value.name);
         return;
       }
-      
+
       if (value && typeof value === "object") {
         // Handle FileUpload objects
         if (value.file instanceof File) {
@@ -3191,11 +3186,11 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     try {
       const config: AxiosRequestConfig | undefined = token
         ? {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
-            },
-          }
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token.startsWith("Bearer") ? token : `Bearer ${token}`,
+          },
+        }
         : undefined;
 
       const response = await this.axios.post("/submission/indicator-submission-status", payload, config);
@@ -3213,87 +3208,156 @@ async getAvailableIndicatorsForApprover(stateUt: string) {
     }
   }
 
-//   async getStateIndicatorStatuses(): Promise<any> {
-//   try {
-//     const response = await this.axios.get("/indicators/state-statuses", {
-//       headers: { Accept: "application/json" },
-//     });
+  //   async getStateIndicatorStatuses(): Promise<any> {
+  //   try {
+  //     const response = await this.axios.get("/indicators/state-statuses", {
+  //       headers: { Accept: "application/json" },
+  //     });
 
-//     console.log(response.status);
-//     // normalize like you do elsewhere
-//     return response.data?.data !== undefined ? response.data.data : response.data;
-//     // If your backend shape is { status: true, data: {...} }, return response.data is fine,
-//     // since your calculator reads payload?.data?.submissions.
-//   } catch (error: any) {
-//     if (error.response?.status === 304) {
-//       const cached = error.response?.data || {};
-//       return cached?.data !== undefined ? cached.data : cached;
-//     }
-//     throw error;
-//   }
-// }
+  //     console.log(response.status);
+  //     // normalize like you do elsewhere
+  //     return response.data?.data !== undefined ? response.data.data : response.data;
+  //     // If your backend shape is { status: true, data: {...} }, return response.data is fine,
+  //     // since your calculator reads payload?.data?.submissions.
+  //   } catch (error: any) {
+  //     if (error.response?.status === 304) {
+  //       const cached = error.response?.data || {};
+  //       return cached?.data !== undefined ? cached.data : cached;
+  //     }
+  //     throw error;
+  //   }
+  // }
 
-// services/api.service.ts
+  // services/api.service.ts
 
-async getStateIndicatorStatuses(year?: string): Promise<{
-  status: boolean;
-  message?: string;
-  data: any;
-}> {
-  try {
-    const qs = year ? `?year=${encodeURIComponent(year)}` : "";
-    const resp = await this.axios.get(`/indicators/state-statuses${qs}`, {
-      headers: { Accept: "application/json" },
-    });
+  async getStateIndicatorStatuses(year?: string): Promise<{
+    status: boolean;
+    message?: string;
+    data: any;
+  }> {
+    try {
+      const qs = year ? `?year=${encodeURIComponent(year)}` : "";
+      const resp = await this.axios.get(`/indicators/state-statuses${qs}`, {
+        headers: { Accept: "application/json" },
+      });
 
-    // Always return the backend envelope so downstream can read .data.summary
-    // resp.data is expected to be { status, message, data }
-    return resp.data;
-  } catch (error: any) {
-    // If your server sometimes replies 304 with a payload, normalize it
-    if (error?.response?.status === 304) {
-      const fallback = error.response.data ?? {};
-      return typeof fallback.status === "boolean"
-        ? fallback
-        : { status: true, data: fallback };
+      // Always return the backend envelope so downstream can read .data.summary
+      // resp.data is expected to be { status, message, data }
+      return resp.data;
+    } catch (error: any) {
+      // If your server sometimes replies 304 with a payload, normalize it
+      if (error?.response?.status === 304) {
+        const fallback = error.response.data ?? {};
+        return typeof fallback.status === "boolean"
+          ? fallback
+          : { status: true, data: fallback };
+      }
+      throw error;
     }
-    throw error;
   }
-}
 
- async  getNodalMetrics() {
-  // Adjust depending on how your API client is set up (axios/fetch wrapper)
-  const res = await this.axios.get('/dashboard/nodal-metrics');
-  return res.data;
-}
+  async getNodalMetrics() {
+    // Adjust depending on how your API client is set up (axios/fetch wrapper)
+    const res = await this.axios.get('/dashboard/nodal-metrics');
+    return res.data;
+  }
 
- /**
-  * Get MOSPI metrics for Approver and Reviewer dashboards
-  * @param status Optional status filter query parameter
-  */
- async getMospiMetrics(status?: string): Promise<{
-   role: string;
-   groupedByStatus: Record<string, number>;
-   totalSubmissions: number;
-   assignedStatesCount?: number;
- }> {
-   try {
-     const url = status 
-       ? `/dashboard/mospi-metrics?status=${encodeURIComponent(status)}`
-       : "/dashboard/mospi-metrics";
-     const response = await this.get(url);
-     return response?.data || response;
-   } catch (error: any) {
-     console.error("Failed to fetch MOSPI metrics:", error);
-     throw error;
-   }
- }
+  /**
+   * Get MOSPI metrics for Approver and Reviewer dashboards
+   * @param status Optional status filter query parameter
+   */
+  async getMospiMetrics(status?: string): Promise<{
+    role: string;
+    groupedByStatus: Record<string, number>;
+    totalSubmissions: number;
+    assignedStatesCount?: number;
+  }> {
+    try {
+      const url = status
+        ? `/dashboard/mospi-metrics?status=${encodeURIComponent(status)}`
+        : "/dashboard/mospi-metrics";
+      const response = await this.get(url);
+      return response?.data || response;
+    } catch (error: any) {
+      console.error("Failed to fetch MOSPI metrics:", error);
+      throw error;
+    }
+  }
 
- async  getAssignedStateOnly(roleName: string) { 
-  const res = await this.axios.get(`/users/states/assigned-state-by-state-approver/${roleName}`);
-  return res.data;
-}
- 
+  async getAssignedStateOnly(roleName: string) {
+    const res = await this.axios.get(`/users/states/assigned-state-by-state-approver/${roleName}`);
+    return res.data;
+  }
+
+  async checkEmailAvailability(
+    email: string,
+    excludeUserId?: string
+  ): Promise<boolean> {
+    try {
+      const params = excludeUserId ? { excludeUserId } : {};
+      // Note: The response interceptor already extracts response.data, so 'response' is already the data object
+      const response = await this.axios.get(
+        `/users/check-email/${encodeURIComponent(email)}`,
+        { params }
+      );
+
+      // Log response for debugging
+      console.log("Email availability check response:", {
+        email,
+        response: response,
+        available: response?.data?.available
+      });
+
+      // Return availability status, default to true if unclear
+      // Response interceptor returns response.data, so response is already { status, data, message }
+      const isAvailable = response?.data?.available ?? true;
+      return isAvailable;
+    } catch (error: any) {
+      // If error (network, 404, etc.), assume available (don't block user)
+      // Only return false if we get a clear 200 response saying it's not available
+      console.warn("Error checking email availability, assuming available:", {
+        email,
+        error: error.response?.data || error.message,
+        status: error.response?.status
+      });
+      return true; // Assume available on error to avoid false positives
+    }
+  }
+
+  async checkContactAvailability(
+    contactNumber: string,
+    excludeUserId?: string
+  ): Promise<boolean> {
+    try {
+      const params = excludeUserId ? { excludeUserId } : {};
+      // Note: The response interceptor already extracts response.data, so 'response' is already the data object
+      const response = await this.axios.get(
+        `/users/check-contact/${encodeURIComponent(contactNumber)}`,
+        { params }
+      );
+
+      // Log response for debugging
+      console.log("Contact availability check response:", {
+        contactNumber,
+        response: response,
+        available: response?.data?.available
+      });
+
+      // Return availability status, default to true if unclear
+      // Response interceptor returns response.data, so response is already { status, data, message }
+      const isAvailable = response?.data?.available ?? true;
+      return isAvailable;
+    } catch (error: any) {
+      // If error (network, 404, etc.), assume available (don't block user)
+      // Only return false if we get a clear 200 response saying it's not available
+      console.warn("Error checking contact availability, assuming available:", {
+        contactNumber,
+        error: error.response?.data || error.message,
+        status: error.response?.status
+      });
+      return true; // Assume available on error to avoid false positives
+    }
+  }
 }
 
 

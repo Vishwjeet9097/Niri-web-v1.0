@@ -8,6 +8,7 @@ import ReviewerRecentActions from "./components/reviewer/ReviewerRecentActions";
 import ReviewerQuickActions from "./components/reviewer/ReviewerQuickActions";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { computeAllStepsSummary } from "@/features/submission/utils/progress";
 
 const ReviewerDashboardPage: React.FC = () => {
   const { hasRole } = useAuth();
@@ -41,7 +42,36 @@ const ReviewerDashboardPage: React.FC = () => {
           submissionsArray = (submissionsData as any).data;
         }
         
-        setSubmissions(submissionsArray);
+        // Calculate progress for each submission (same rules as approver views)
+        const submissionsWithProgress = submissionsArray.map((sub: any) => {
+          const fd = sub.formData || sub.form_data || {};
+
+          const summary = computeAllStepsSummary(fd, {});
+
+          const totalCompleted =
+            summary.infraFinancing.completed +
+            summary.infraDevelopment.completed +
+            summary.pppDevelopment.completed +
+            summary.infraEnablers.completed;
+
+          const totalSections =
+            summary.infraFinancing.total +
+            summary.infraDevelopment.total +
+            summary.pppDevelopment.total +
+            summary.infraEnablers.total;
+
+          const progress =
+            totalSections > 0
+              ? Math.round((totalCompleted / totalSections) * 100)
+              : 0;
+
+          return {
+            ...sub,
+            progress,
+          };
+        });
+
+        setSubmissions(submissionsWithProgress);
         setIsFilteredByCard(false);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
@@ -81,7 +111,35 @@ const ReviewerDashboardPage: React.FC = () => {
               submissionsArray = (submissionsData as any).data;
             }
             
-            setSubmissions(submissionsArray);
+            const submissionsWithProgress = submissionsArray.map((sub: any) => {
+              const fd = sub.formData || sub.form_data || {};
+
+              const summary = computeAllStepsSummary(fd, {});
+
+              const totalCompleted =
+                summary.infraFinancing.completed +
+                summary.infraDevelopment.completed +
+                summary.pppDevelopment.completed +
+                summary.infraEnablers.completed;
+
+              const totalSections =
+                summary.infraFinancing.total +
+                summary.infraDevelopment.total +
+                summary.pppDevelopment.total +
+                summary.infraEnablers.total;
+
+              const progress =
+                totalSections > 0
+                  ? Math.round((totalCompleted / totalSections) * 100)
+                  : 0;
+
+              return {
+                ...sub,
+                progress,
+              };
+            });
+
+            setSubmissions(submissionsWithProgress);
           } catch (error) {
             console.error("❌ Failed to reload all submissions:", error);
             notificationService.error(
@@ -119,7 +177,35 @@ const ReviewerDashboardPage: React.FC = () => {
           submissionsArray = (submissionsData as any).data;
         }
         
-        setSubmissions(submissionsArray);
+        const submissionsWithProgress = submissionsArray.map((sub: any) => {
+          const fd = sub.formData || sub.form_data || {};
+
+          const summary = computeAllStepsSummary(fd, {});
+
+          const totalCompleted =
+            summary.infraFinancing.completed +
+            summary.infraDevelopment.completed +
+            summary.pppDevelopment.completed +
+            summary.infraEnablers.completed;
+
+          const totalSections =
+            summary.infraFinancing.total +
+            summary.infraDevelopment.total +
+            summary.pppDevelopment.total +
+            summary.infraEnablers.total;
+
+          const progress =
+            totalSections > 0
+              ? Math.round((totalCompleted / totalSections) * 100)
+              : 0;
+
+          return {
+            ...sub,
+            progress,
+          };
+        });
+
+        setSubmissions(submissionsWithProgress);
         
         // Smooth scroll to table after loading filtered submissions
         setTimeout(() => {

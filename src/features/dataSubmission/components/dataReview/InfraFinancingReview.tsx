@@ -25,8 +25,10 @@ import { SectionCard } from "@/features/submission/components/SectionCard";
 import {
   hasInfraFinancingData,
   getSectionsWithData,
+  hasSectionData,
 } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
+import { notificationService } from "@/services/notification.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import {
   computeStepProgress,
@@ -58,6 +60,15 @@ export const InfraFinancingReview = ({
   isStateApprover = false,
   isNodalOfficer = false,
 }: InfraFinancingReviewProps) => {
+  const { saveMessage, getMessage, getComments, getAllComments } =
+    useSectionMessages(submissionId, submission);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+  const [submissionData, setSubmissionData] = useState(formData);
+  const { setFormDataForSection, updateSectionField, getSectionData } = useFormDataStore();
+
+  // State to store nodal officer's assigned indicators when reviewing their submission
+  const [nodalOfficerAssignedIndicators, setNodalOfficerAssignedIndicators] = useState<string[]>([]);
   // Section 1.4 state management
   const [section14State, setSection14State] = useState({
     totalULBs: formData?.section1_4?.totalULBs || 0,
@@ -66,18 +77,14 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Use submissionData if available (after refresh), otherwise use formData prop
+      const dataSource = submissionData || formData;
       setSection14State({
-        totalULBs: formData?.section1_4?.totalULBs || 0,
-        bondList: formData?.section1_4?.bondList || [],
+        totalULBs: dataSource?.section1_4?.totalULBs || 0,
+        bondList: dataSource?.section1_4?.bondList || [],
       });
     }
-  }, [formData?.section1_4]);
-  const { saveMessage, getMessage, getComments, getAllComments } =
-    useSectionMessages(submissionId, submission);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [timelineSection, setTimelineSection] = useState<string | null>(null);
-  const [submissionData, setSubmissionData] = useState(formData);
-  const { setFormDataForSection, updateSectionField, getSectionData } = useFormDataStore();
+  }, [formData?.section1_4, submissionData?.section1_4]);
 
   // Section 1.3 state management
   const [section13State, setSection13State] = useState({
@@ -87,12 +94,14 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Use submissionData if available (after refresh), otherwise use formData prop
+      const dataSource = submissionData || formData;
       setSection13State({
-        totalULBs: formData?.section1_3?.totalULBs || 0,
-        ulbList: formData?.section1_3?.ulbList || [],
+        totalULBs: dataSource?.section1_3?.totalULBs || 0,
+        ulbList: dataSource?.section1_3?.ulbList || [],
       });
     }
-  }, [formData?.section1_3]);
+  }, [formData?.section1_3, submissionData?.section1_3]);
 
   // Section 1.5 state management
   const [section15State, setSection15State] = useState<{
@@ -103,11 +112,13 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Use submissionData if available (after refresh), otherwise use formData prop
+      const dataSource = submissionData || formData;
       // Handle both old format (array) and new format (object)
-      if (Array.isArray(formData?.section1_5)) {
-        setSection15State({ ffiArray: formData.section1_5 });
+      if (Array.isArray(dataSource?.section1_5)) {
+        setSection15State({ ffiArray: dataSource.section1_5 });
       } else {
-        const section1_5 = formData?.section1_5 || { ffiArray: [] };
+        const section1_5 = dataSource?.section1_5 || { ffiArray: [] };
         // Log comment to verify it's present
         if (section1_5.comment) {
           console.log(`[InfraFinancingReview] ✅ Comment found in section1_5:`, section1_5.comment);
@@ -118,6 +129,29 @@ export const InfraFinancingReview = ({
       }
     }
   }, [formData?.section1_5]);
+
+  // Fetch nodal officer's assigned indicators when state approver reviews their submission
+  useEffect(() => {
+    const fetchNodalOfficerIndicators = async () => {
+      if (isStateApprover && !isPreview && (submission as any)?.user?.role === "NODAL_OFFICER") {
+        const nodalOfficerId = (submission as any)?.user?.id || (submission as any)?.submittedBy;
+        if (nodalOfficerId) {
+          try {
+            const response = await apiService.get(`/user-indicators/user/${nodalOfficerId}`);
+            const indicators = response?.data?.data?.map((scope: any) => scope.indicator?.code || scope.indicatorCode) || [];
+            setNodalOfficerAssignedIndicators(indicators);
+            console.log("🔍 [InfraFinancingReview] Fetched nodal officer's assigned indicators:", indicators);
+          } catch (error) {
+            console.warn("⚠️ Could not fetch nodal officer's assigned indicators:", error);
+            setNodalOfficerAssignedIndicators([]);
+          }
+        }
+      } else {
+        setNodalOfficerAssignedIndicators([]);
+      }
+    };
+    fetchNodalOfficerIndicators();
+  }, [isStateApprover, isPreview, submission]);
 
   // Check if this section has any data
   console.log("💡 InfraFinancing formData (raw):", formData);
@@ -131,6 +165,11 @@ export const InfraFinancingReview = ({
   );
 
   const hasData = hasInfraFinancingData({ infraFinancing: formData });
+  
+  // Check if this is a nodal officer submission or aggregate submission (needed for useMemo dependencies)
+  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
+  const isAggregateSubmission = (submission as any)?.submissionId?.startsWith("AGG-") || (submission as any)?.id?.startsWith("aggregate-");
+  
   const sectionsWithData = useMemo(() => {
     const detectedSections =
       getSectionsWithData({ infraFinancing: formData }, "infraFinancing") || [];
@@ -188,6 +227,10 @@ export const InfraFinancingReview = ({
     ])
   );
 
+  // Check if this is a nodal officer submission or aggregate submission
+  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
+  const isAggregateSubmission = (submission as any)?.submissionId?.startsWith("AGG-") || (submission as any)?.id?.startsWith("aggregate-");
+
   // For Nodal Officers (both preview and review mode): filter sections based on assigned indicators
   // Nodal Officers should only see sections for indicators assigned to them
   if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
@@ -233,37 +276,135 @@ export const InfraFinancingReview = ({
   }
   
   // For State Approvers: filter sections based on their assigned indicators
-  // State Approvers should only see sections for indicators assigned to them, not all indicators in the state
-  // IMPORTANT: Include assigned sections even if they don't have data (similar to Nodal Officers in preview mode)
+  // IMPORTANT: Only filter when STATE_APPROVER is creating their own submission (preview mode)
+  // When reviewing NODAL_OFFICER submissions, STATE_APPROVERs should see ALL indicators
+  // that the NODAL_OFFICER has filled, regardless of assignment
+  // Also, in preview mode showing consolidated/aggregate form, STATE_APPROVERs should see ALL indicators
+  // Note: isNodalOfficerSubmission and isAggregateSubmission are defined outside useMemo
   if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
-    const indicatorToSectionMap: Record<string, string> = {
-      "1.1": "section1_1",
-      "1.2": "section1_2",
-      "1.3": "section1_3",
-      "1.4": "section1_4",
-      "1.5": "section1_5",
-    };
+    // Only filter if:
+    // 1. It's preview mode AND it's NOT an aggregate submission (STATE_APPROVER creating their own submission)
+    // 2. OR it's not a NODAL_OFFICER submission (STATE_APPROVER reviewing another STATE_APPROVER's submission)
+    // When reviewing NODAL_OFFICER submissions or viewing aggregate/consolidated forms, show all sections with data
+    if ((isPreview && !isAggregateSubmission) || (!isPreview && !isNodalOfficerSubmission)) {
+      const indicatorToSectionMap: Record<string, string> = {
+        "1.1": "section1_1",
+        "1.2": "section1_2",
+        "1.3": "section1_3",
+        "1.4": "section1_4",
+        "1.5": "section1_5",
+      };
+      
+      // Get all assigned section keys
+      const assignedSectionKeys = assignedIndicators
+        .map((indicator) => indicatorToSectionMap[indicator])
+        .filter((sectionKey) => sectionKey !== undefined);
+      
+      // Filter merged to only include assigned sections
+      const filteredMerged = merged.filter((sectionKey) => 
+        assignedSectionKeys.includes(sectionKey)
+      );
+      
+      // Add assigned sections that don't have data yet (to ensure they're visible)
+      const missingAssignedSections = assignedSectionKeys.filter(
+        (sectionKey) => !merged.includes(sectionKey)
+      );
+      
+      // Combine filtered sections with missing assigned sections
+      merged.length = 0;
+      merged.push(...filteredMerged, ...missingAssignedSections);
+      
+      console.log("🔍 [InfraFinancingReview] State Approver - filtered sections by assigned indicators:", merged, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+    } else {
+      // STATE_APPROVER reviewing NODAL_OFFICER submission - show all sections with data
+      console.log("🔍 [InfraFinancingReview] State Approver reviewing NODAL_OFFICER submission - showing all sections with data:", merged);
+    }
+  }
+  
+  // For STATE_APPROVERs reviewing NODAL_OFFICER submissions:
+  // Show only sections that the NODAL_OFFICER was assigned AND has meaningful data
+  if (isStateApprover && !isPreview && isNodalOfficerSubmission) {
+    const submissionFormData = (submission as any)?.formData?.infraFinancing || {};
     
-    // Get all assigned section keys
-    const assignedSectionKeys = assignedIndicators
-      .map((indicator) => indicatorToSectionMap[indicator])
-      .filter((sectionKey) => sectionKey !== undefined);
+    // Get sections that have meaningful data using proper validation
+    // This ensures "no" selections with comments are properly detected
+    const sectionsWithMeaningfulData = Object.keys(submissionFormData).filter(sectionKey => {
+      const sectionData = submissionFormData[sectionKey];
+      if (!sectionData || typeof sectionData !== 'object') return false;
+      
+      // Use hasSectionData for proper validation that handles:
+      // - "no" selections with mandatory comments
+      // - "yes" selections with required data
+      // - Array-based sections
+      // - All edge cases
+      return hasSectionData(sectionData, sectionKey, 'infraFinancing');
+    });
     
-    // Filter merged to only include assigned sections
-    const filteredMerged = merged.filter((sectionKey) => 
-      assignedSectionKeys.includes(sectionKey)
-    );
+    // Filter by nodal officer's assigned indicators if available
+    if (nodalOfficerAssignedIndicators.length > 0) {
+      const indicatorToSectionMap: Record<string, string> = {
+        "1.1": "section1_1",
+        "1.2": "section1_2",
+        "1.3": "section1_3",
+        "1.4": "section1_4",
+        "1.5": "section1_5",
+      };
+      
+      const assignedSectionKeys = nodalOfficerAssignedIndicators
+        .map((indicator: string) => indicatorToSectionMap[indicator])
+        .filter((sectionKey: string) => sectionKey !== undefined);
+      
+      // Only show sections that are both assigned AND have meaningful data
+      const allowedSections = assignedSectionKeys.filter((sectionKey: string) => 
+        sectionsWithMeaningfulData.includes(sectionKey)
+      );
+      
+      // Filter merged to only include allowed sections
+      const filteredMerged = merged.filter((sectionKey: string) => 
+        allowedSections.includes(sectionKey)
+      );
+      
+      merged.length = 0;
+      merged.push(...filteredMerged);
+      
+      console.log("🔍 [InfraFinancingReview] State Approver - filtered by nodal's assigned indicators:", {
+        nodalOfficerAssignedIndicators,
+        sectionsWithMeaningfulData,
+        allowedSections,
+        finalSections: merged
+      });
+    } else {
+      // Fallback: show only sections with meaningful data
+      const filteredMerged = merged.filter((sectionKey: string) => 
+        sectionsWithMeaningfulData.includes(sectionKey)
+      );
+      merged.length = 0;
+      merged.push(...filteredMerged);
+      console.log("🔍 [InfraFinancingReview] State Approver - showing only sections with meaningful data (nodal indicators not available):", merged);
+    }
+  }
+  
+  // For STATE_APPROVERs viewing aggregate/consolidated forms in preview mode:
+  // Show only sections that exist in the formData AND have meaningful data
+  if (isStateApprover && isPreview && isAggregateSubmission) {
+    const allPossibleSections = ["section1_1", "section1_2", "section1_3", "section1_4", "section1_5"];
+    const submissionFormData = (submission as any)?.formData?.infraFinancing || {};
+    const formDataToCheck = formData || submissionFormData;
     
-    // Add assigned sections that don't have data yet (to ensure they're visible)
-    const missingAssignedSections = assignedSectionKeys.filter(
-      (sectionKey) => !merged.includes(sectionKey)
-    );
+    // Only include sections that have meaningful data, not just empty objects
+    const existingSections = allPossibleSections.filter(sectionKey => {
+      const sectionData = formDataToCheck[sectionKey] || submissionFormData[sectionKey];
+      // Check if section exists AND has meaningful data
+      if (!sectionData || typeof sectionData !== 'object') return false;
+      return hasSectionData(sectionData, sectionKey, 'infraFinancing');
+    });
     
-    // Combine filtered sections with missing assigned sections
-    merged.length = 0;
-    merged.push(...filteredMerged, ...missingAssignedSections);
-    
-    console.log("🔍 [InfraFinancingReview] State Approver - filtered sections by assigned indicators:", merged, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+    existingSections.forEach(sectionKey => {
+      if (!merged.includes(sectionKey)) {
+        merged.push(sectionKey);
+      }
+    });
+    console.log("🔍 [InfraFinancingReview] State Approver viewing aggregate submission - showing only sections with meaningful data:", merged);
   }
   
   // For review mode (not preview) OR preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers):
@@ -401,7 +542,7 @@ export const InfraFinancingReview = ({
   });
 
   return final;
-}, [formData, isPreview, isNodalOfficer, assignedIndicators]);
+}, [formData, isPreview, isNodalOfficer, assignedIndicators, isStateApprover, isNodalOfficerSubmission, isAggregateSubmission, nodalOfficerAssignedIndicators, submission]);
 
 
   // State for real-time calculation
@@ -500,6 +641,8 @@ export const InfraFinancingReview = ({
       section14State: JSON.parse(JSON.stringify(section14State)),
       section15State: JSON.parse(JSON.stringify(section15State)),
     });
+    // Increment reset key to force Select/Dropdown components to remount with current values
+    setSelectResetKey(prev => prev + 1);
     setEditable(sectionId, true);
   };
   
@@ -966,36 +1109,90 @@ export const InfraFinancingReview = ({
         fields
       });
 
-      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
-      if (isNodalOfficer) {
-        // Update local formData state to set status to RESUBMITTED
-        const sectionKey = `section${sectionId.replace('.', '_')}`;
-        // Update formData prop if it exists
-        if (formData && (formData as any)[sectionKey]) {
-          (formData as any)[sectionKey] = {
-            ...(formData as any)[sectionKey],
-            status: 'RESUBMITTED',
-          };
-          setSubmissionData({ ...formData });
-        }
-        // Also update submissionData to trigger re-render
-        setSubmissionData((prev: any) => {
-          if (!prev) return prev;
-          const updated = { ...prev };
-          if (updated[sectionKey]) {
-            updated[sectionKey] = {
-              ...updated[sectionKey],
-              status: 'RESUBMITTED',
-            };
-          }
-          return updated;
-        });
-      }
-
       // Disable editing after successful save
       setEditable(sectionId, false);
       // Clear the snapshot since save was successful
       setOriginalStateSnapshot(null);
+
+      // Refresh submission data from backend to get latest state
+      // This ensures frontend shows updated data after save
+      if (submissionId) {
+        try {
+          // Wait a bit for backend to process the update
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const refreshedSubmission = await apiService.getSubmission(submissionId);
+          if (refreshedSubmission && refreshedSubmission.formData?.infraFinancing) {
+            const refreshedFormData = refreshedSubmission.formData.infraFinancing;
+            
+            // Temporarily set isRestoringRef to prevent useEffect hooks from interfering
+            isRestoringRef.current = true;
+            
+            // Update submissionData first
+            setSubmissionData(refreshedFormData);
+            
+            // Update section-specific states to reflect backend changes
+            if (refreshedFormData.section1_1) {
+              if (refreshedFormData.section1_1.capitalAllocation !== undefined) {
+                setCapitalAllocation(String(refreshedFormData.section1_1.capitalAllocation || ''));
+              }
+              if (refreshedFormData.section1_1.gsdpForFY !== undefined) {
+                setGsdpForFY(String(refreshedFormData.section1_1.gsdpForFY || ''));
+              }
+            }
+            
+            if (refreshedFormData.section1_2) {
+              if (refreshedFormData.section1_2.actualCapex !== undefined) {
+                const value = typeof refreshedFormData.section1_2.actualCapex === 'string' 
+                  ? refreshedFormData.section1_2.actualCapex.replace(/[₹,Crores\s]/g, '').trim()
+                  : String(refreshedFormData.section1_2.actualCapex || '');
+                setActualCapex(value);
+              }
+              if (refreshedFormData.section1_2.stateCapexUtilisation !== undefined) {
+                setStateCapexUtilisation(String(refreshedFormData.section1_2.stateCapexUtilisation || ''));
+              }
+            }
+            
+            // Update section 1.3 state
+            if (refreshedFormData.section1_3) {
+              setSection13State({
+                totalULBs: refreshedFormData.section1_3.totalULBs || 0,
+                ulbList: refreshedFormData.section1_3.ulbList || [],
+              });
+            }
+            
+            // Update section 1.4 state
+            if (refreshedFormData.section1_4) {
+              setSection14State({
+                totalULBs: refreshedFormData.section1_4.totalULBs || 0,
+                bondList: refreshedFormData.section1_4.bondList || [],
+              });
+            }
+            
+            // Update section 1.5 state
+            if (refreshedFormData.section1_5) {
+              if (Array.isArray(refreshedFormData.section1_5)) {
+                setSection15State({ ffiArray: refreshedFormData.section1_5 });
+              } else {
+                setSection15State(refreshedFormData.section1_5);
+              }
+            }
+            
+            // Reset the flag after React has processed the state updates
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                isRestoringRef.current = false;
+              });
+            });
+            
+            console.log('✅ InfraFinancingReview - All states updated after save');
+          }
+        } catch (refreshError) {
+          console.error('Failed to refresh submission after save:', refreshError);
+          // Reset flag even on error
+          isRestoringRef.current = false;
+          // Continue even if refresh fails - save was successful
+        }
+      }
 
       // Optional: Show success message
       // toast.success(`Section ${sectionId} saved successfully`);
@@ -1172,7 +1369,7 @@ export const InfraFinancingReview = ({
   // Handle Accept confirmation
   const handleConfirmAccept = async () => {
     if (pendingActionSectionId) {
-      // Check if user is MOSPI_APPROVER
+      // Check if user is STATE_APPROVER and section is in edit mode - save data first
       const getUserRole = () => {
         try {
           const authUser = localStorage.getItem('niri_app:auth_user');
@@ -1186,7 +1383,22 @@ export const InfraFinancingReview = ({
         return null;
       };
       const userRole = getUserRole();
+      const isStateApprover = userRole === 'STATE_APPROVER';
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
+
+      // If STATE_APPROVER, always save the data before accepting (even if not in edit mode)
+      // This ensures dropdown changes and other modifications are saved
+      if (isStateApprover) {
+        try {
+          console.log(`💾 [STATE_APPROVER Accept] Saving section ${pendingActionSectionId} before accepting...`);
+          await performSave(pendingActionSectionId);
+          console.log(`✅ [STATE_APPROVER Accept] Section ${pendingActionSectionId} saved successfully`);
+        } catch (saveError) {
+          console.error(`❌ [STATE_APPROVER Accept] Failed to save section ${pendingActionSectionId}:`, saveError);
+          notificationService.error('Failed to save section before accepting. Please try again.');
+          return; // Don't proceed with accept if save failed
+        }
+      }
       
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
@@ -1200,11 +1412,75 @@ export const InfraFinancingReview = ({
           // Wait a bit for backend to process the update
           await new Promise(resolve => setTimeout(resolve, 500));
           const refreshedSubmission = await apiService.getSubmission(submissionId);
-          if (refreshedSubmission) {
-            setSubmissionData(refreshedSubmission.formData?.infraFinancing || formData);
+          if (refreshedSubmission && refreshedSubmission.formData?.infraFinancing) {
+            const refreshedFormData = refreshedSubmission.formData.infraFinancing;
+            
+            // Temporarily set isRestoringRef to prevent useEffect hooks from interfering
+            isRestoringRef.current = true;
+            
+            // Update submissionData first
+            setSubmissionData(refreshedFormData);
+            
+            // Update section-specific states to reflect backend changes
+            if (refreshedFormData.section1_1) {
+              if (refreshedFormData.section1_1.capitalAllocation !== undefined) {
+                setCapitalAllocation(String(refreshedFormData.section1_1.capitalAllocation || ''));
+              }
+              if (refreshedFormData.section1_1.gsdpForFY !== undefined) {
+                setGsdpForFY(String(refreshedFormData.section1_1.gsdpForFY || ''));
+              }
+            }
+            
+            if (refreshedFormData.section1_2) {
+              if (refreshedFormData.section1_2.actualCapex !== undefined) {
+                const value = typeof refreshedFormData.section1_2.actualCapex === 'string' 
+                  ? refreshedFormData.section1_2.actualCapex.replace(/[₹,Crores\s]/g, '').trim()
+                  : String(refreshedFormData.section1_2.actualCapex || '');
+                setActualCapex(value);
+              }
+              if (refreshedFormData.section1_2.stateCapexUtilisation !== undefined) {
+                setStateCapexUtilisation(String(refreshedFormData.section1_2.stateCapexUtilisation || ''));
+              }
+            }
+            
+            // Update section 1.3 state
+            if (refreshedFormData.section1_3) {
+              setSection13State({
+                totalULBs: refreshedFormData.section1_3.totalULBs || 0,
+                ulbList: refreshedFormData.section1_3.ulbList || [],
+              });
+            }
+            
+            // Update section 1.4 state
+            if (refreshedFormData.section1_4) {
+              setSection14State({
+                totalULBs: refreshedFormData.section1_4.totalULBs || 0,
+                bondList: refreshedFormData.section1_4.bondList || [],
+              });
+            }
+            
+            // Update section 1.5 state
+            if (refreshedFormData.section1_5) {
+              if (Array.isArray(refreshedFormData.section1_5)) {
+                setSection15State({ ffiArray: refreshedFormData.section1_5 });
+              } else {
+                setSection15State(refreshedFormData.section1_5);
+              }
+            }
+            
+            // Reset the flag after React has processed the state updates
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                isRestoringRef.current = false;
+              });
+            });
+            
+            console.log('✅ InfraFinancingReview - All states updated after accept');
           }
         } catch (refreshError) {
           console.error('Failed to refresh submission:', refreshError);
+          // Reset flag even on error
+          isRestoringRef.current = false;
           // Continue even if refresh fails - local state is already updated
         }
       }
@@ -2740,7 +3016,7 @@ const calculateAllocationPercentage = () => {
               } readOnly className='bg-gray-50' />
             </div>
             <div>
-              <Label>Capital Allocation for FY (INR-CRORES)</Label>
+              <Label>Capital Allocation for FY ( INR - values is in CRORES)</Label>
               <Input
                 value={capitalAllocation}
                 onChange={(e) => {
@@ -2757,7 +3033,7 @@ const calculateAllocationPercentage = () => {
               </div> */}
             </div>
             <div>
-              <Label>GSDP for FY (INR-CRORES)</Label>
+              <Label>GSDP for FY ( INR - values is in CRORES)</Label>
               <Input
                 value={gsdpForFY}
                 onChange={(e) => {
@@ -2827,7 +3103,7 @@ const calculateAllocationPercentage = () => {
                 />
               </div>
               <div>
-                <Label>A₁ - Actual Capex (INR-CRORES)</Label>
+                <Label>A₁ - Actual Capex ( INR - values is in CRORES)</Label>
                 <Input
                   value={
                     isEditable('1.2')
@@ -2852,7 +3128,7 @@ const calculateAllocationPercentage = () => {
                 )}
               </div>
               <div>
-                <Label>State Capex Utilisation (INR-CRORES)</Label>
+                <Label>State Capex Utilisation ( INR - values is in CRORES)</Label>
                 <Input
                   value={
                     isEditable('1.2')
@@ -3199,7 +3475,7 @@ const calculateAllocationPercentage = () => {
                           <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Organisation Name</th>
                           <th className="py-3 px-4 text-left text-sm font-normal">Organisation Type</th>
                           <th className="py-3 px-4 text-left text-sm font-normal">Year of Establishment</th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">Total Funding (₹ Crores)</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Total Funding (INR - values is in CRORES)</th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Website</th>
                         </tr>
                       </thead>
@@ -3250,6 +3526,7 @@ const calculateAllocationPercentage = () => {
                                     placeholder="Select Type"
                                     isEditable={true}
                                     resetKey={selectResetKey}
+                                    uniqueId={`1.5-organisationType-${index}`}
                                   />
                                 ) : (
                                   item.organisationType || 'N/A'
@@ -3348,6 +3625,8 @@ const calculateAllocationPercentage = () => {
                             onChange={(value) => setNewEntry1_5({...newEntry1_5, organisationType: value})}
                             placeholder="Select Type"
                             isEditable={true}
+                            resetKey={selectResetKey}
+                            uniqueId="1.5-new-organisationType"
                           />
                         </div>
                         <div>
@@ -3361,7 +3640,7 @@ const calculateAllocationPercentage = () => {
                           />
                         </div>
                         <div>
-                          <Label>Total Funding (₹ Crores)</Label>
+                          <Label>Total Funding (INR - values is in CRORES)</Label>
                           <Input
                             type="number"
                             value={newEntry1_5.totalFunding}

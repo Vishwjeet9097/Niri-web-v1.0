@@ -36,7 +36,7 @@ import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
-import { hasInfraEnablersData, getSectionsWithData } from "@/utils/sectionDataValidator";
+import { hasInfraEnablersData, getSectionsWithData, hasSectionData } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
@@ -65,18 +65,43 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
+  // State to store nodal officer's assigned indicators when reviewing their submission
+  const [nodalOfficerAssignedIndicators, setNodalOfficerAssignedIndicators] = useState<string[]>([]);
   
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
   const currentSubmission = submissionState || submission;
   const { saveMessage, getMessage, getComments, getAllComments } = useSectionMessages(submissionId, currentSubmission);
-  
+
   // Sync submissionState when submission prop changes from parent
   useEffect(() => {
     if (submission) {
       setSubmissionState(submission);
     }
   }, [submission]);
+
+  // Fetch nodal officer's assigned indicators when state approver reviews their submission
+  useEffect(() => {
+    const fetchNodalOfficerIndicators = async () => {
+      if (isStateApprover && !isPreview && (submission as any)?.user?.role === "NODAL_OFFICER") {
+        const nodalOfficerId = (submission as any)?.user?.id || (submission as any)?.submittedBy;
+        if (nodalOfficerId) {
+          try {
+            const response = await apiService.get(`/user-indicators/user/${nodalOfficerId}`);
+            const indicators = response?.data?.data?.map((scope: any) => scope.indicator?.code || scope.indicatorCode) || [];
+            setNodalOfficerAssignedIndicators(indicators);
+            console.log("🔍 [InfraEnablersReview] Fetched nodal officer's assigned indicators:", indicators);
+          } catch (error) {
+            console.warn("⚠️ Could not fetch nodal officer's assigned indicators:", error);
+            setNodalOfficerAssignedIndicators([]);
+          }
+        }
+      } else {
+        setNodalOfficerAssignedIndicators([]);
+      }
+    };
+    fetchNodalOfficerIndicators();
+  }, [isStateApprover, isPreview, submission]);
   
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] = useState<any>(null);
@@ -93,7 +118,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [pendingActionSectionId, setPendingActionSectionId] = useState<string | null>(null);
-  
+
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
@@ -106,6 +131,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     sector: "",
     file: null as FileUpload | null,
   });
+
+  // State for file delete confirmation dialog in section 4.3
+  const [showProjectFileDeleteDialog, setShowProjectFileDeleteDialog] = useState(false);
+  const [pendingProjectFileDelete, setPendingProjectFileDelete] = useState<{
+    projectIndex: number;
+  } | null>(null);
 
   // State for adding new practice in section 4.5
   const [showAddPracticeForm, setShowAddPracticeForm] = useState(false);
@@ -154,11 +185,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         const tokenFromNewKey = tokenData?.value?.accessToken;
         if (tokenFromNewKey) return tokenFromNewKey;
       }
-      
+
       // Try legacy key: access_token
       const tokenFromLegacyKey = localStorage.getItem("access_token");
       if (tokenFromLegacyKey) return tokenFromLegacyKey;
-      
+
       // Try old auth_user key as fallback
       const authUser = localStorage.getItem('niri_app:auth_user');
       if (authUser) {
@@ -220,11 +251,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
 
     // Handle S3 files (review mode) - check multiple possible properties
-    const filePath = actualFile.filePath || 
-                     actualFile.fileUrl || 
-                     actualFile.url ||
-                     actualFile.path ||
-                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
+    const filePath = actualFile.filePath ||
+      actualFile.fileUrl ||
+      actualFile.url ||
+      actualFile.path ||
+      (typeof actualFile.file === "string" ? actualFile.file : undefined);
     if (!filePath) {
       console.error("File path missing. File object:", actualFile);
       notificationService.warning("File path missing.", "Cannot View File");
@@ -270,11 +301,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
 
     // Handle S3 files (review mode) - check multiple possible properties
-    const filePath = actualFile.filePath || 
-                     actualFile.fileUrl || 
-                     actualFile.url ||
-                     actualFile.path ||
-                     (typeof actualFile.file === "string" ? actualFile.file : undefined);
+    const filePath = actualFile.filePath ||
+      actualFile.fileUrl ||
+      actualFile.url ||
+      actualFile.path ||
+      (typeof actualFile.file === "string" ? actualFile.file : undefined);
     if (!filePath) {
       console.error("File path missing. File object:", actualFile);
       notificationService.warning("File path missing.", "Cannot Download File");
@@ -329,14 +360,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
   //State for edit button 
   const { setEditable, isEditable, clearAllEditing } = useEditableSectionStore();
-  
+
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
   };
-  
+
   // Handle cancel - restore original state
   const handleCancel = (sectionId: string) => {
     if (originalFormDataSnapshot) {
@@ -346,7 +377,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       setEditable(sectionId, false);
       // Increment reset key to force Select components to remount
       setSelectResetKey(prev => prev + 1);
-      
+
       // Close and reset "Add Project" form for section 4.3
       if (sectionId === '4.3') {
         setShowAddProjectForm(false);
@@ -356,7 +387,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           file: null,
         });
       }
-      
+
       // Close and reset "Add Practice" form for section 4.5
       if (sectionId === '4.5') {
         setShowAddPracticeForm(false);
@@ -366,7 +397,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           file: null,
         });
       }
-      
+
       // Close and reset "Add Capacity Entry" form for section 4.6
       if (sectionId === '4.6') {
         setShowAddCapacityForm(false);
@@ -378,7 +409,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           trainingType: "",
         });
       }
-      
+
       // Reset the flag after React has processed the state update
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -439,21 +470,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           indicatorComment: comments,
           updatedAt: new Date().toISOString()
         }));
-        
+
         // 2. Refresh complete submission data (same as first load)
         try {
           console.log("🔄 Refreshing complete submission data...");
           const freshSubmission = await apiService.getSubmission(submissionId);
-          
+
           if (freshSubmission) {
             // Update submission state with fresh data
             setSubmissionState(freshSubmission);
-            
+
             // Update form data with fresh data (only this section's slice)
             if (freshSubmission.formData) {
               setFormDataState(freshSubmission.formData.infraEnablers);
             }
-            
+
             console.log("✅ Fresh submission data loaded:", freshSubmission);
           }
         } catch (error) {
@@ -463,21 +494,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     };
 
     window.addEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
-    
+
     return () => {
       window.removeEventListener('niri-comment-updated', handleCommentUpdate as EventListener);
     };
   }, [submissionId]);
-  
+
   // Check if this section has any data
   const hasData = hasInfraEnablersData({ infraEnablers: state });
   let sectionsWithData = getSectionsWithData({ infraEnablers: state }, 'infraEnablers');
-  
+
   console.log("🔍 [InfraEnablersReview] Initial sectionsWithData:", sectionsWithData);
   console.log("🔍 [InfraEnablersReview] state:", state);
   console.log("🔍 [InfraEnablersReview] isPreview:", isPreview, "isNodalOfficer:", isNodalOfficer);
   console.log("🔍 [InfraEnablersReview] assignedIndicators:", assignedIndicators);
-  
+
   // For nodal officers (both preview and review mode), always include assigned sections even if they have no data
   // This ensures assigned indicators are visible, regardless of data presence
   if (isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
@@ -490,7 +521,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       "4.5": "section4_5",
       "4.6": "section4_6",
     };
-    
+
     assignedIndicators.forEach((indicator) => {
       const sectionKey = indicatorToSectionMap[indicator];
       // Always include assigned sections, even if they don't have data or aren't in sectionsWithData
@@ -498,44 +529,137 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         assignedSectionKeys.push(sectionKey);
       }
     });
-    
+
     // Merge and deduplicate - assigned sections take priority
     sectionsWithData = Array.from(new Set([...assignedSectionKeys, ...sectionsWithData]));
     console.log("🔍 [InfraEnablersReview] After adding assigned sections:", sectionsWithData);
   }
-  
+
   // For State Approvers: filter sections based on their assigned indicators
-  // State Approvers should only see sections for indicators assigned to them, not all indicators in the state
-  // IMPORTANT: Include assigned sections even if they don't have data (similar to Nodal Officers)
+  // IMPORTANT: Only filter when STATE_APPROVER is creating their own submission (preview mode)
+  // When reviewing NODAL_OFFICER submissions, STATE_APPROVERs should see ALL indicators
+  // that the NODAL_OFFICER has filled, regardless of assignment
+  // Also, in preview mode showing consolidated/aggregate form, STATE_APPROVERs should see ALL indicators
+  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
+  const isAggregateSubmission = (submission as any)?.submissionId?.startsWith("AGG-") || (submission as any)?.id?.startsWith("aggregate-");
+  
   if (isStateApprover && assignedIndicators && assignedIndicators.length > 0) {
-    const indicatorToSectionMap: Record<string, string> = {
-      "4.1": "section4_1",
-      "4.2": "section4_2",
-      "4.3": "section4_3",
-      "4.4": "section4_4",
-      "4.5": "section4_5",
-      "4.6": "section4_6",
-    };
+    // Only filter if:
+    // 1. It's preview mode AND it's NOT an aggregate submission (STATE_APPROVER creating their own submission)
+    // 2. OR it's not a NODAL_OFFICER submission (STATE_APPROVER reviewing another STATE_APPROVER's submission)
+    // When reviewing NODAL_OFFICER submissions or viewing aggregate/consolidated forms, show all sections with data
+    if ((isPreview && !isAggregateSubmission) || (!isPreview && !isNodalOfficerSubmission)) {
+      const indicatorToSectionMap: Record<string, string> = {
+        "4.1": "section4_1",
+        "4.2": "section4_2",
+        "4.3": "section4_3",
+        "4.4": "section4_4",
+        "4.5": "section4_5",
+        "4.6": "section4_6",
+      };
+      
+      // Get all assigned section keys
+      const assignedSectionKeys = assignedIndicators
+        .map((indicator) => indicatorToSectionMap[indicator])
+        .filter((sectionKey) => sectionKey !== undefined);
+      
+      // Filter sectionsWithData to only include assigned sections
+      const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
+        assignedSectionKeys.includes(sectionKey)
+      );
+      
+      // Add assigned sections that don't have data yet (to ensure they're visible)
+      const missingAssignedSections = assignedSectionKeys.filter(
+        (sectionKey) => !sectionsWithData.includes(sectionKey)
+      );
+      
+      // Combine filtered sections with missing assigned sections
+      sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
+      
+      console.log("🔍 [InfraEnablersReview] State Approver - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+    } else {
+      // STATE_APPROVER reviewing NODAL_OFFICER submission - show all sections with data
+      console.log("🔍 [InfraEnablersReview] State Approver reviewing NODAL_OFFICER submission - showing all sections with data:", sectionsWithData);
+    }
+  }
+  
+  // For STATE_APPROVERs reviewing NODAL_OFFICER submissions:
+  // Show only sections that the NODAL_OFFICER was assigned AND has meaningful data
+  if (isStateApprover && !isPreview && isNodalOfficerSubmission) {
+    const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
+    const stateToCheck = state || submissionFormData;
     
-    // Get all assigned section keys
-    const assignedSectionKeys = assignedIndicators
-      .map((indicator) => indicatorToSectionMap[indicator])
-      .filter((sectionKey) => sectionKey !== undefined);
+    // Get sections that have meaningful data using proper validation
+    // This ensures "no" selections with comments are properly detected
+    const sectionsWithMeaningfulData = Object.keys(submissionFormData).filter(sectionKey => {
+      const sectionData = submissionFormData[sectionKey];
+      if (!sectionData || typeof sectionData !== 'object') return false;
+      
+      // Use hasSectionData for proper validation that handles:
+      // - "no" selections with mandatory comments
+      // - "yes" selections with required data
+      // - Array-based sections
+      // - All edge cases
+      return hasSectionData(sectionData, sectionKey, 'infraEnablers');
+    });
     
-    // Filter sectionsWithData to only include assigned sections
-    const filteredSectionsWithData = sectionsWithData.filter((sectionKey) => 
-      assignedSectionKeys.includes(sectionKey)
-    );
+    // Filter by nodal officer's assigned indicators if available
+    if (nodalOfficerAssignedIndicators.length > 0) {
+      const indicatorToSectionMap: Record<string, string> = {
+        "4.1": "section4_1",
+        "4.2": "section4_2",
+        "4.3": "section4_3",
+        "4.4": "section4_4",
+        "4.5": "section4_5",
+        "4.6": "section4_6",
+      };
+      
+      const assignedSectionKeys = nodalOfficerAssignedIndicators
+        .map((indicator: string) => indicatorToSectionMap[indicator])
+        .filter((sectionKey: string) => sectionKey !== undefined);
+      
+      // Only show sections that are both assigned AND have meaningful data
+      const allowedSections = assignedSectionKeys.filter((sectionKey: string) => 
+        sectionsWithMeaningfulData.includes(sectionKey)
+      );
+      
+      // Filter sectionsWithData to only include allowed sections
+      sectionsWithData = sectionsWithData.filter((sectionKey: string) => 
+        allowedSections.includes(sectionKey)
+      );
+      
+      console.log("🔍 [InfraEnablersReview] State Approver - filtered by nodal's assigned indicators:", {
+        nodalOfficerAssignedIndicators,
+        sectionsWithMeaningfulData,
+        allowedSections,
+        finalSections: sectionsWithData
+      });
+    } else {
+      // Fallback: show only sections with meaningful data
+      sectionsWithData = sectionsWithData.filter((sectionKey: string) => 
+        sectionsWithMeaningfulData.includes(sectionKey)
+      );
+      console.log("🔍 [InfraEnablersReview] State Approver - showing only sections with meaningful data (nodal indicators not available):", sectionsWithData);
+    }
+  }
+  
+  // For STATE_APPROVERs viewing aggregate/consolidated forms in preview mode:
+  // Show only sections that exist in the formData AND have meaningful data
+  if (isStateApprover && isPreview && isAggregateSubmission) {
+    const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+    const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
+    const stateToCheck = state || submissionFormData;
     
-    // Add assigned sections that don't have data yet (to ensure they're visible)
-    const missingAssignedSections = assignedSectionKeys.filter(
-      (sectionKey) => !sectionsWithData.includes(sectionKey)
-    );
+    // Only include sections that have meaningful data, not just empty objects
+    const existingSections = allPossibleSections.filter(sectionKey => {
+      const sectionData = stateToCheck[sectionKey] || submissionFormData[sectionKey];
+      // Check if section exists AND has meaningful data
+      if (!sectionData || typeof sectionData !== 'object') return false;
+      return hasSectionData(sectionData, sectionKey, 'infraEnablers');
+    });
     
-    // Combine filtered sections with missing assigned sections
-    sectionsWithData = [...filteredSectionsWithData, ...missingAssignedSections];
-    
-    console.log("🔍 [InfraEnablersReview] State Approver - filtered sections by assigned indicators:", sectionsWithData, "assigned indicators:", assignedIndicators, "missing sections added:", missingAssignedSections);
+    sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
+    console.log("🔍 [InfraEnablersReview] State Approver viewing aggregate submission - showing only sections with meaningful data:", sectionsWithData);
   }
   // For preview mode for non-nodal officers and non-state-approvers (e.g., MoSPI reviewers viewing aggregate):
   // Include all sections that exist in formData
@@ -545,12 +669,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
     const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
     const stateToCheck = state || submissionFormData;
-    
+
     const existingSections = allPossibleSections.filter(sectionKey => {
       // Check if section key exists in state or submission formData (even if value is null, empty object, or empty array)
       return sectionKey in stateToCheck || sectionKey in submissionFormData;
     });
-    
+
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
     console.log("🔍 [InfraEnablersReview] Preview mode (non-nodal) - showing all existing sections:", sectionsWithData);
@@ -564,19 +688,19 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const normalizedRole = userRole?.toUpperCase();
     const isMospiReviewer = normalizedRole === 'MOSPI_REVIEWER';
     const isMospiApprover = normalizedRole === 'MOSPI_APPROVER';
-    
+
     if (isMospiReviewer || isMospiApprover) {
       const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
-      
+
       // Check both state and submission.formData to ensure we catch all existing sections
       const submissionFormData = (submission as any)?.formData?.infraEnablers || {};
       const stateToCheck = state || submissionFormData;
-      
+
       const existingSections = allPossibleSections.filter(sectionKey => {
         // Check if section key exists in state or submission formData (even if value is null, empty object, or empty array)
         return sectionKey in stateToCheck || sectionKey in submissionFormData;
       });
-      
+
       // Merge existing sections with sectionsWithData, avoiding duplicates
       sectionsWithData = Array.from(new Set([...sectionsWithData, ...existingSections]));
       console.log("🔍 [InfraEnablersReview] MOSPI reviewer/approver - showing all existing sections:", sectionsWithData);
@@ -585,7 +709,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     }
   }
 
-  
+
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -613,7 +737,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const normalizedRole = userRole?.toUpperCase();
     const isMospiReviewer = normalizedRole === 'MOSPI_REVIEWER';
     const isMospiApprover = normalizedRole === 'MOSPI_APPROVER';
-    
+
     console.log('🔍 useMemo onSendBack - Debug Info:', {
       userRole,
       normalizedRole,
@@ -623,7 +747,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       activeSection,
       willReturnUndefined: isMospiReviewer || (isMospiApprover && isMospiApproverSentBack)
     });
-    
+
     // Don't pass onSendBack for MOSPI_REVIEWER or MOSPI_APPROVER (when isMospiApproverSentBack is true)
     // For MOSPI_APPROVER, handleSaveMessage will handle everything directly without confirmation dialog
     if (isMospiReviewer) {
@@ -656,7 +780,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       const userRole = getUserRole();
       // Normalize role comparison (case-insensitive, trimmed)
       const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
-      
+
       // Debug logging
       console.log('🔍 handleSaveMessage - Debug Info:', {
         shouldShowSentBackConfirmation,
@@ -792,23 +916,34 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           const section4_2Files = Array.isArray(state?.section4_2?.files)
             ? state.section4_2.files
             : state?.section4_2?.files
-            ? [state.section4_2.files]
-            : state?.section4_2?.file
-            ? [state.section4_2.file]
-            : [];
-          
-          // Format files for payload - ensure file property is string path
-          const files4_2 = section4_2Files.map((file: FileUpload) => ({
-            id: file.id,
-            file: typeof file.file === 'string' ? file.file : file.filePath || file.fileUrl || null,
-            fileName: file.fileName,
-            fileSize: file.fileSize,
-            uploadedAt: file.uploadedAt,
-            filePath: file.filePath,
-            fileUrl: file.fileUrl,
-            mimeType: file.mimeType,
-          }));
-          
+              ? [state.section4_2.files]
+              : state?.section4_2?.file
+                ? [state.section4_2.file]
+                : [];
+
+          // Format files for payload - match InfraDevelopmentReview pattern with nested file object
+          const files4_2 = section4_2Files.map((file: FileUpload) => {
+            const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
+            const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
+
+            return {
+              id: file?.id,
+              file: {
+                id: null,
+                fileUrl: file?.fileUrl || "",
+                fileName: storedFileName,
+                filePath: filePath,
+                fileSize: file?.fileSize,
+                mimeType: file?.mimeType,
+                uploadedAt: file?.uploadedAt ? new Date(file.uploadedAt).toISOString() : new Date().toISOString(),
+                originalName: file?.fileName
+              },
+              fileName: file?.fileName,
+              fileSize: file?.fileSize,
+              uploadedAt: file?.uploadedAt
+            };
+          });
+
           fields = [{
             available: state?.section4_2?.available ?? null,
             files: files4_2,
@@ -840,11 +975,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           const section4_4Files = Array.isArray(state?.section4_4?.files)
             ? state.section4_4.files
             : state?.section4_4?.files
-            ? [state.section4_4.files]
-            : state?.section4_4?.file
-            ? [state.section4_4.file]
-            : [];
-          
+              ? [state.section4_4.files]
+              : state?.section4_4?.file
+                ? [state.section4_4.file]
+                : [];
+
           // Format files for payload - ensure file property is string path
           const files4_4 = section4_4Files.map((file: FileUpload) => ({
             id: file.id,
@@ -856,7 +991,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
             fileUrl: file.fileUrl,
             mimeType: file.mimeType,
           }));
-          
+
           fields = [{
             adopted: state?.section4_4?.adopted ?? null,
             files: files4_4,
@@ -966,7 +1101,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const userRole = getUserRole();
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     const isStateApprover = userRole === 'STATE_APPROVER';
-    
+
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
       submissionId,
@@ -974,12 +1109,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       section: `section${sectionId.replace('.', '_')}`,
       status: status,
     };
-    
+
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? 'ACCEPTED' : 'REVERTED';
     }
-    
+
     // If STATE_APPROVER is accepting or sending back, get sourceSubmissionId from indicatorMapping
     if (isStateApprover) {
       const fullFormData = (submission as any)?.formData || {};
@@ -987,7 +1122,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       const sectionKey = `section${sectionId.replace('.', '_')}`;
       const mappingKey = `infraEnablers.${sectionKey}`;
       const indicatorInfo = indicatorMapping[mappingKey];
-      
+
       if (indicatorInfo?.sourceSubmissionId) {
         payload.sourceSubmissionId = indicatorInfo.sourceSubmissionId;
         const action = status ? 'Accept' : 'Send Back';
@@ -997,14 +1132,14 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         console.warn(`⚠️ [STATE_APPROVER ${action}] No sourceSubmissionId found in indicatorMapping for ${mappingKey}`);
       }
     }
-    
+
     try {
       await apiService.indicatorStatus(payload);
       // Update local formData to trigger re-render of action buttons
       const sectionKey = `section${sectionId.replace('.', '_')}`;
       const statusField = isMospiApprover ? 'mospi_status' : 'status';
       const statusValue = status ? 'ACCEPTED' : 'REVERTED';
-      
+
       // Defensive: update formDataState if section exists
       if (formDataState && (formDataState as any)[sectionKey] !== undefined) {
         setFormDataState((prev: any) => {
@@ -1032,7 +1167,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         });
       }
       console.log(`✅ Indicator ${isMospiApprover ? 'mospi_' : ''}status updated successfully`);
-      
+
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
         window.dispatchEvent(new CustomEvent('niri-indicator-status-updated', {
@@ -1090,12 +1225,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       const userId = userInfo.id;
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
       const isStateApprover = userRole === 'STATE_APPROVER';
-      
+
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
-      
+
       // Send notification if STATE_APPROVER
       const submissionIdForNotification = (submissionState as any)?.submissionId || (submission as any)?.submissionId;
       if (isStateApprover && userId && submissionIdForNotification && pendingActionSectionId) {
@@ -1114,7 +1249,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           // Don't block the flow if notification fails
         }
       }
-      
+
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -1129,7 +1264,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // Handle Accept confirmation
   const handleConfirmAccept = async () => {
     if (pendingActionSectionId) {
-      // Check if user is MOSPI_APPROVER
+      // Check if user is STATE_APPROVER and section is in edit mode - save data first
       const getUserRole = () => {
         try {
           const authUser = localStorage.getItem('niri_app:auth_user');
@@ -1143,13 +1278,27 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         return null;
       };
       const userRole = getUserRole();
+      const isStateApprover = userRole === 'STATE_APPROVER';
       const isMospiApprover = userRole === 'MOSPI_APPROVER';
-      
+
+      // If STATE_APPROVER and section is editable, save the data first
+      if (isStateApprover && isEditable(pendingActionSectionId)) {
+        try {
+          console.log(`💾 [STATE_APPROVER Accept] Saving section ${pendingActionSectionId} before accepting...`);
+          await performSave(pendingActionSectionId);
+          console.log(`✅ [STATE_APPROVER Accept] Section ${pendingActionSectionId} saved successfully`);
+        } catch (saveError) {
+          console.error(`❌ [STATE_APPROVER Accept] Failed to save section ${pendingActionSectionId}:`, saveError);
+          notificationService.error('Failed to save section before accepting. Please try again.');
+          return; // Don't proceed with accept if save failed
+        }
+      }
+
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, true);
-      
+
       // Refresh submission data to get latest state from backend
       // Add a small delay to ensure backend has processed the update
       if (submissionId) {
@@ -1168,7 +1317,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           // Continue even if refresh fails - local state is already updated
         }
       }
-      
+
       setShowAcceptDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -1202,38 +1351,38 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const sectionKey = `section${sectionId.replace('.', '_')}`;
     const previousSection = state?.[sectionKey] || {};
     const targetKey = ['4.2', '4.4'].includes(sectionId) ? 'files' : 'file';
-    
+
     // For sections that use 'files' array, ensure we always work with arrays
     let filesArray: FileUpload[] = [];
     if (targetKey === 'files') {
       // If updatedValue is null, set empty array
       if (updatedValue === null) {
         filesArray = [];
-      } 
+      }
       // If it's already an array, use it
       else if (Array.isArray(updatedValue)) {
         filesArray = updatedValue;
-      } 
+      }
       // If it's a single file, convert to array
       else {
         filesArray = [updatedValue];
       }
     }
-    
+
     const normalizedValue =
       targetKey === 'files' ? filesArray : updatedValue;
 
     const updatedSection =
       targetKey === 'files'
         ? {
-            ...previousSection,
-            files: filesArray,
-            file: toSingleFile(filesArray),
-          }
+          ...previousSection,
+          files: filesArray,
+          file: toSingleFile(filesArray),
+        }
         : {
-            ...previousSection,
-            [targetKey]: normalizedValue,
-          };
+          ...previousSection,
+          [targetKey]: normalizedValue,
+        };
 
     // Update local state
     setFormDataState((prev: any) => ({
@@ -1244,46 +1393,58 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     // Auto-save for sections 4.2 and 4.4
     if (['4.2', '4.4'].includes(sectionId)) {
       try {
-        // Ensure files array is properly formatted for API
-        const filesForPayload = filesArray.map((file) => ({
-          id: file.id,
-          file: file.file, // This should be the stored path (string)
-          fileName: file.fileName,
-          fileSize: file.fileSize,
-          uploadedAt: file.uploadedAt,
-          filePath: file.filePath,
-          fileUrl: file.fileUrl,
-          mimeType: file.mimeType,
-        }));
+        // Ensure files array is properly formatted for API - match InfraDevelopmentReview pattern
+        const filesForPayload = filesArray.map((file: FileUpload) => {
+          const filePath = file?.filePath || (typeof file?.file === 'string' ? file.file : "");
+          const storedFileName = (typeof filePath === 'string' && filePath) ? filePath.split('/').pop() : file?.fileName;
+
+          return {
+            id: file?.id,
+            file: {
+              id: null,
+              fileUrl: file?.fileUrl || "",
+              fileName: storedFileName,
+              filePath: filePath,
+              fileSize: file?.fileSize,
+              mimeType: file?.mimeType,
+              uploadedAt: file?.uploadedAt ? new Date(file.uploadedAt).toISOString() : new Date().toISOString(),
+              originalName: file?.fileName
+            },
+            fileName: file?.fileName,
+            fileSize: file?.fileSize,
+            uploadedAt: file?.uploadedAt
+          };
+        });
 
         const fields =
           sectionId === '4.2'
             ? [
-                {
-                  available: updatedSection?.available ?? null,
-                  files: filesForPayload, // Send array of file objects
-                },
-              ]
+              {
+                available: updatedSection?.available ?? null,
+                files: filesForPayload, // Send array of file objects
+              },
+            ]
             : [
-                {
-                  adopted: updatedSection?.adopted ?? null,
-                  files: filesForPayload, // Send array of file objects
-                  marksObtained: updatedSection?.marksObtained ?? null,
-                },
-              ];
+              {
+                adopted: updatedSection?.adopted ?? null,
+                files: filesForPayload, // Send array of file objects
+                marksObtained: updatedSection?.marksObtained ?? null,
+              },
+            ];
 
         console.log('📤 Saving files for section', sectionId, 'with payload:', fields);
-        
+
         await handleSaveSection({
           submissionId,
           category: 'infraEnablers',
           section: sectionKey,
           fields,
+          successMessage: 'File updated successfully',
+          errorMessage: 'Failed to update file',
         });
-        
-        if (filesArray.length === 0) {
-          await onIndicatorStatus(sectionId, false);
-        }
+
+        // Removed automatic indicator status API call when files are deleted
+        // The indicator-submission-status API should not be called automatically on file deletion
       } catch (error) {
         console.error('Failed to auto-save files for section', sectionId, error);
       }
@@ -1373,6 +1534,23 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         },
       };
     });
+  };
+
+  // Handler to show delete confirmation dialog for section 4.3 project files
+  const handleProjectFileDeleteClick = (projectIndex: number) => {
+    setPendingProjectFileDelete({
+      projectIndex,
+    });
+    setShowProjectFileDeleteDialog(true);
+  };
+
+  // Handler to confirm project file deletion
+  const handleConfirmProjectFileDelete = () => {
+    if (pendingProjectFileDelete) {
+      handleProjectFileUpdate(pendingProjectFileDelete.projectIndex, null);
+      setShowProjectFileDeleteDialog(false);
+      setPendingProjectFileDelete(null);
+    }
   };
 
   // Handle adding new practice to section 4.5
@@ -1543,17 +1721,17 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const userRole = getUserRole();
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
     if (!isMospiApprover) return null;
-    
+
     const comments = getComments(sectionId);
     if (!comments || comments.length === 0) return null;
-    
+
     const mospiReviewerComments = comments.filter((comment: any) => {
       const commentRole = comment.role || comment.userRole || '';
       return commentRole.toUpperCase() === 'MOSPI_REVIEWER';
     });
-    
+
     if (mospiReviewerComments.length === 0) return null;
-    
+
     // Sort by timestamp (newest first) and get the last (most recent) comment
     const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
       const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
@@ -1561,7 +1739,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       return timeB - timeA; // Descending order (newest first)
     });
     const lastComment = sortedComments[0]; // Get the most recent comment
-    
+
     return (
       <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
         <p className="text-sm font-semibold text-green-900 mb-2">MoSPI Reviewer Comment:</p>
@@ -1585,7 +1763,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
 
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
-    
+
     // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
     const getUserRole = () => {
       try {
@@ -1604,34 +1782,34 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const isStateApprover = userRole === 'STATE_APPROVER';
     const isMospiReviewer = userRole === 'MOSPI_REVIEWER';
     const isMospiApprover = userRole === 'MOSPI_APPROVER';
-    
-  // Get submission status
-  const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
-  
-  // Check if submission is with MoSPI (APPROVER or REVIEWER)
-  const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
-  
-  // Check if submission is returned from MoSPI and mospi_status is REVERTED
-  const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
-  
-  // Helper function to get status text for MOSPI_APPROVER
-  const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
-    const userRole = getUserRole();
-    const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
-    const currentSubmissionStatus = submissionStatus || (submission as any)?.status || (submissionState as any)?.status;
-    const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
-    
-    if (isMospiApprover && isReturned) {
-      if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
-        return 'RETURNED TO STATE';
+
+    // Get submission status
+    const submissionStatus = (submission as any)?.status || (submissionState as any)?.status;
+
+    // Check if submission is with MoSPI (APPROVER or REVIEWER)
+    const isWithMospi = submissionStatus === 'SUBMITTED_TO_MOSPI_APPROVER' || submissionStatus === 'SUBMITTED_TO_MOSPI_REVIEWER';
+
+    // Check if submission is returned from MoSPI and mospi_status is REVERTED
+    const isReturnedFromMospi = submissionStatus === 'RETURNED_FROM_MOSPI';
+
+    // Helper function to get status text for MOSPI_APPROVER
+    const getStatusTextForMospiApprover = (mospiStatus: string | undefined, submissionStatus?: string): string => {
+      const userRole = getUserRole();
+      const isMospiApprover = userRole?.toUpperCase() === 'MOSPI_APPROVER';
+      const currentSubmissionStatus = submissionStatus || (submission as any)?.status || (submissionState as any)?.status;
+      const isReturned = currentSubmissionStatus === 'RETURNED_FROM_MOSPI';
+
+      if (isMospiApprover && isReturned) {
+        if (mospiStatus === 'REVERTED' || mospiStatus === 'reverted') {
+          return 'RETURNED TO STATE';
+        }
+        if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
+          return 'Accepted';
+        }
       }
-      if (mospiStatus === 'ACCEPTED' || mospiStatus === 'accepted') {
-        return 'Accepted';
-      }
-    }
-    return 'Returned from MoSPI';
-  };
-    
+      return 'Returned from MoSPI';
+    };
+
     // For STATE_APPROVER, if submission is with MoSPI, show only "Under Review" button
     if (isStateApprover && isWithMospi) {
       return (
@@ -1648,7 +1826,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         </div>
       );
     }
-    
+
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
     // Only show Timeline button for viewing comments
     if (submissionStatus === 'APPROVED') {
@@ -1668,7 +1846,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         </div>
       );
     }
-    
+
     // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
     if (isMospiReviewer) {
       return (
@@ -1696,16 +1874,16 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         </div>
       );
     }
-    
+
     // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
     if (isMospiApprover) {
       // Check mospi_status instead of status for MOSPI_APPROVER
       const sectionKey = `section${sectionId.replace('.', '_')}`;
       const sectionData = state && state[sectionKey];
-      const mospiStatus = Array.isArray(sectionData) 
-        ? (sectionData as any)?.mospi_status 
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
         : sectionData?.mospi_status;
-      
+
       if (mospiStatus === 'ACCEPTED') {
         return (
           <div className="flex gap-2">
@@ -1730,16 +1908,16 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       if (mospiStatus === 'REVERTED') {
         // Get sectionStatus for MOSPI_APPROVER to check if status is also REVERTED
         const sectionKeyForStatus = `section${sectionId.replace('.', '_')}`;
         const sectionDataForStatus = state && state[sectionKeyForStatus];
-        const sectionStatusForMospi = Array.isArray(sectionDataForStatus) 
-          ? (sectionDataForStatus as any)?.status 
+        const sectionStatusForMospi = Array.isArray(sectionDataForStatus)
+          ? (sectionDataForStatus as any)?.status
           : sectionDataForStatus?.status;
         const isStatusAlsoReverted = sectionStatusForMospi === 'REVERTED';
-        
+
         return (
           <div className="flex gap-2">
             {/* Show "Sent Back" badge if status is also REVERTED */}
@@ -1778,7 +1956,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
       return (
         <div className="flex gap-2">
@@ -1829,21 +2007,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
     const sectionKey = `section${sectionId.replace('.', '_')}`;
     const sectionData = state && state[sectionKey];
     // Handle both array and object sections
-    const sectionStatus = Array.isArray(sectionData) 
-      ? (sectionData as any)?.status 
+    const sectionStatus = Array.isArray(sectionData)
+      ? (sectionData as any)?.status
       : sectionData?.status;
-    
+
     // Get mospi_status for all roles (needed to show both badges)
-    const mospiStatus = Array.isArray(sectionData) 
-      ? (sectionData as any)?.mospi_status 
+    const mospiStatus = Array.isArray(sectionData)
+      ? (sectionData as any)?.mospi_status
       : sectionData?.mospi_status;
-    
+
     // Check if status is REVERTED or mospi_status is REVERTED
     const isStatusReverted = sectionStatus === 'REVERTED';
     const isMospiStatusReverted = mospiStatus === 'REVERTED';
-    
+
     // isWithMospi is already declared above using submissionStatus
-      
+
     // For STATE_APPROVER, handle all edge cases based on status and mospi_status combinations
     if (isStateApprover) {
       // Helper to check if status is NA/undefined
@@ -1852,7 +2030,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
       const isMospiStatusNA = !mospiStatus || mospiStatus === 'NA' || mospiStatus === '';
       const isMospiStatusAccepted = mospiStatus === 'ACCEPTED';
       const isMospiStatusResubmitted = mospiStatus === 'RESUBMITTED';
-      
+
       // Row 1: status=ACCEPTED, mospi_status=NA → "ACCEPTED"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusNA) {
         return (
@@ -1878,7 +2056,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 2: status=REVERTED, mospi_status=NA → "Sent Back"
       if (isStatusReverted && isMospiStatusNA) {
         return (
@@ -1904,7 +2082,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 3: status=RESUBMITTED, mospi_status=NA → "Edit, Resubmitted (Disable), Accept"
       if (sectionStatus === 'RESUBMITTED' && isMospiStatusNA) {
         return (
@@ -1971,7 +2149,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 4: status=ACCEPTED, mospi_status=ACCEPTED → "Accepted(Disable)"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusAccepted) {
         return (
@@ -1997,7 +2175,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 5: status=ACCEPTED, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusReverted) {
         return (
@@ -2050,18 +2228,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
                 disabled
               >
-              <RotateCcw className="w-4 h-4" />
-              {getStatusTextForMospiApprover(mospiStatus)}
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => onIndicatorStatus(sectionId, true)}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Accept
+                <RotateCcw className="w-4 h-4" />
+                {getStatusTextForMospiApprover(mospiStatus)}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
             </Button>
             <Button
               variant="outline"
@@ -2072,11 +2250,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <Clock className="w-4 h-4" />
               Timeline ({commentCount})
             </Button>
-        </div>
-      );
-    }
-    
-    // Row 6: status=ACCEPTED, mospi_status=RESUBMITTED → "Under Review"
+          </div>
+        );
+      }
+
+      // Row 6: status=ACCEPTED, mospi_status=RESUBMITTED → "Under Review"
       if (sectionStatus === 'ACCEPTED' && isMospiStatusResubmitted) {
         return (
           <div className="flex gap-2">
@@ -2101,7 +2279,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 7: status=REVERTED, mospi_status=ACCEPTED → "Accepted(Disable)"
       if (isStatusReverted && isMospiStatusAccepted) {
         return (
@@ -2127,7 +2305,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 8: status=REVERTED, mospi_status=REVERTED → "Sent Back(Disable), Returned From Mospi (if submission status is RETURNED_FROM_MOSPI)"
       if (isStatusReverted && isMospiStatusReverted) {
         return (
@@ -2164,7 +2342,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 9: status=REVERTED, mospi_status=RESUBMITTED → "Edit, Send Back, Returned From Mospi, Accept"
       if (isStatusReverted && isMospiStatusResubmitted) {
         return (
@@ -2217,18 +2395,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
                 disabled
               >
-              <RotateCcw className="w-4 h-4" />
-              {getStatusTextForMospiApprover(mospiStatus)}
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => onIndicatorStatus(sectionId, true)}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Accept
+                <RotateCcw className="w-4 h-4" />
+                {getStatusTextForMospiApprover(mospiStatus)}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
             </Button>
             <Button
               variant="outline"
@@ -2239,11 +2417,11 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <Clock className="w-4 h-4" />
               Timeline ({commentCount})
             </Button>
-        </div>
-      );
-    }
-    
-    // Row 10: status=RESUBMITTED, mospi_status=ACCEPTED → "Accepted(Disable)"
+          </div>
+        );
+      }
+
+      // Row 10: status=RESUBMITTED, mospi_status=ACCEPTED → "Accepted(Disable)"
       if (sectionStatus === 'RESUBMITTED' && isMospiStatusAccepted) {
         return (
           <div className="flex gap-2">
@@ -2268,7 +2446,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 11: status=RESUBMITTED, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
       if (sectionStatus === 'RESUBMITTED' && isMospiStatusReverted) {
         return (
@@ -2353,7 +2531,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 12: status=RESUBMITTED, mospi_status=RESUBMITTED → "Edit, Sent Back, Returned From Mospi, Accept"
       if (sectionStatus === 'RESUBMITTED' && isMospiStatusResubmitted) {
         return (
@@ -2429,7 +2607,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 13: status=NA, mospi_status=NA → "Edit, Send Back, Accept, Timeline"
       if (isStatusNA && isMospiStatusNA) {
         return (
@@ -2496,7 +2674,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 14: status=NA, mospi_status=ACCEPTED → "Accepted(Disable)"
       if (!sectionStatus && isMospiStatusAccepted) {
         return (
@@ -2522,7 +2700,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // Row 15: status=NA, mospi_status=REVERTED → "Edit, Send Back, Returned From Mospi, Accept"
       if (!sectionStatus && isMospiStatusReverted) {
         return (
@@ -2575,18 +2753,18 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 className="flex items-center gap-1 bg-orange-100 text-orange-700 border-orange-300 cursor-default"
                 disabled
               >
-              <RotateCcw className="w-4 h-4" />
-              {getStatusTextForMospiApprover(mospiStatus)}
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => onIndicatorStatus(sectionId, true)}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Accept
+                <RotateCcw className="w-4 h-4" />
+                {getStatusTextForMospiApprover(mospiStatus)}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
             </Button>
             <Button
               variant="outline"
@@ -2597,12 +2775,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               <Clock className="w-4 h-4" />
               Timeline ({commentCount})
             </Button>
-        </div>
-      );
+          </div>
+        );
+      }
     }
-  }
-  
-  // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
+
+    // Rule 3: For non-STATE_APPROVER roles, if status is ACCEPTED
     if (sectionStatus === 'ACCEPTED') {
       // If mospi_status is RESUBMITTED, show "Under Review"
       if (mospiStatus === 'RESUBMITTED') {
@@ -2678,8 +2856,8 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         </div>
       );
     }
-    
-    
+
+
     // Rule 2: If status = "REVERTED", show disabled "Sent Back" badge
     // For NODAL_OFFICER, also show Edit button
     if (isStatusReverted) {
@@ -2752,7 +2930,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           </div>
         );
       }
-      
+
       // For other roles, show only disabled "Sent Back" badge (no Edit, no Send Back button)
       return (
         <div className="flex gap-2">
@@ -2897,12 +3075,12 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
   // For nodal officers (both preview and review mode), don't return early if they have assigned indicators
   // For state approvers viewing nodal officer submissions, don't return early if sections exist (even if no data)
   // Even if hasData is false, we want to show assigned sections
-  const isNodalOfficerSubmission = (submission as any)?.user?.role === "NODAL_OFFICER";
+  // Note: isNodalOfficerSubmission is already declared earlier in the function
   const hasAssignedIndicators = assignedIndicators && assignedIndicators.length > 0;
-  const shouldShowSections = (isNodalOfficer && hasAssignedIndicators) || 
-                             (isStateApprover && !isPreview && isNodalOfficerSubmission && hasAssignedIndicators) ||
-                             (isStateApprover && !isPreview && !isNodalOfficerSubmission && sectionsWithData.length > 0);
-  
+  const shouldShowSections = (isNodalOfficer && hasAssignedIndicators) ||
+    (isStateApprover && !isPreview && isNodalOfficerSubmission && hasAssignedIndicators) ||
+    (isStateApprover && !isPreview && !isNodalOfficerSubmission && sectionsWithData.length > 0);
+
   if (!hasData && !shouldShowSections && sectionsWithData.length === 0) {
     return (
       <div className="text-center py-8">
@@ -2937,21 +3115,21 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
         })()}
         {/* Section 4.1 */}
         {sectionsWithData.includes('section4_1') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.1 -</span> Eligible Infrastructure Projects{" "}
-              </span>
-              {renderActionButtons("4.1")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("4.1")}
-          {/* <CardHeader className="bg-muted/30">
+          <SectionCard
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">4.1 -</span> Eligible Infrastructure Projects{" "}
+                </span>
+                {renderActionButtons("4.1")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.1")}
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                  
@@ -2969,67 +3147,67 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               )}
             </div>
           </CardHeader> */}
-          <div className="flex flex-col gap-4 w-[40%]">
-            <div>
-              <Label className="mb-3 block">All Eligible Infra Projects on NIP Portal?*</Label>
-              {isEditable('4.1') ? (
-                <RadioGroup
-                  value={state?.section4_1?.allEligible || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.1', 'allEligible', value)}
-                  className="flex flex-row gap-6"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.1-yes" />
-                    <Label htmlFor="4.1-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.1-no" />
-                    <Label htmlFor="4.1-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_1?.allEligible === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {state?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {(state?.section4_1?.allEligible === "yes") && (
+            <div className="flex flex-col gap-4 w-[40%]">
               <div>
-                <Label>Website Link</Label>
-                <Input 
-                  value={state?.section4_1?.websiteLink || ""} 
-                  readOnly={!isEditable('4.1')}
-                  className={isEditable('4.1') ? 'bg-white' : 'bg-gray-50'}
-                  onChange={(e) => handleFieldUpdate('4.1', 'websiteLink', e.target.value)}
-                />
-              </div>
-            )}
-
-            {(state?.section4_1?.allEligible === "no") && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
+                <Label className="mb-3 block">All Eligible Infra Projects on NIP Portal?*</Label>
                 {isEditable('4.1') ? (
-                  <Textarea
-                    value={state?.section4_1?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.1', 'comment', e.target.value)}
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
+                  <RadioGroup
+                    value={state?.section4_1?.allEligible || ""}
+                    onValueChange={(value) => handleFieldUpdate('4.1', 'allEligible', value)}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.1-yes" />
+                      <Label htmlFor="4.1-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.1-no" />
+                      <Label htmlFor="4.1-no">No</Label>
+                    </div>
+                  </RadioGroup>
                 ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_1?.comment || "No comment provided"}
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_1?.allEligible === "yes"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}>
+                      {state?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
+                    </span>
                   </div>
                 )}
               </div>
-            )}
 
-            {/* {(formDataState?.section4_1?.allEligible === "yes") && (
+              {(state?.section4_1?.allEligible === "yes") && (
+                <div>
+                  <Label>Website Link</Label>
+                  <Input
+                    value={state?.section4_1?.websiteLink || ""}
+                    readOnly={!isEditable('4.1')}
+                    className={isEditable('4.1') ? 'bg-white' : 'bg-gray-50'}
+                    onChange={(e) => handleFieldUpdate('4.1', 'websiteLink', e.target.value)}
+                  />
+                </div>
+              )}
+
+              {(state?.section4_1?.allEligible === "no") && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {isEditable('4.1') ? (
+                    <Textarea
+                      value={state?.section4_1?.comment || ""}
+                      onChange={(e) => handleFieldUpdate('4.1', 'comment', e.target.value)}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_1?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* {(formDataState?.section4_1?.allEligible === "yes") && (
               <div>
                 <EditableFileDisplay
                   files={formDataState?.section4_1?.file || null}
@@ -3042,112 +3220,112 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </div>
             )} */}
 
-            {/* <p className="text-xs text-muted-foreground">
+              {/* <p className="text-xs text-muted-foreground">
               Annex 9: Self-certification required
             </p> */}
             </div>
 
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.2 */}
         {sectionsWithData.includes('section4_2') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.2 -</span> Availability & Use of State/UT PMG <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
-              </span>
-              {renderActionButtons("4.2")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("4.2")}
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
-              {isEditable('4.2') ? (
-                <RadioGroup
-                  value={state?.section4_2?.available || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.2', 'available', value)}
-                  className="flex flex-row gap-6"
-                >
+          <SectionCard
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">4.2 -</span> Availability & Use of State/UT PMG <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
+                </span>
+                {renderActionButtons("4.2")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.2")}
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-3 block">Availability and Use of EaseMPR?*</Label>
+                {isEditable('4.2') ? (
+                  <RadioGroup
+                    value={state?.section4_2?.available || ""}
+                    onValueChange={(value) => handleFieldUpdate('4.2', 'available', value)}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.2-yes" />
+                      <Label htmlFor="4.2-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.2-no" />
+                      <Label htmlFor="4.2-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.2-yes" />
-                    <Label htmlFor="4.2-yes">Yes</Label>
+                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_2?.available === "yes"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}>
+                      {state?.section4_2?.available === "yes" ? "Yes" : "No"}
+                    </span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.2-no" />
-                    <Label htmlFor="4.2-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_2?.available === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {state?.section4_2?.available === "yes" ? "Yes" : "No"}
-                  </span>
+                )}
+              </div>
+
+              {(state?.section4_2?.available === "yes") && (
+                <div>
+                  <EditableFileDisplay
+                    files={state?.section4_2?.files ?? (state?.section4_2?.file ? [state.section4_2.file] : null)}
+                    isEditable={isEditable('4.2')}
+                    submissionId={submissionId}
+                    onFilesChange={(updatedFiles) => handleFileUpdate('4.2', updatedFiles)}
+                    label="Uploaded File"
+                    multiple={true}
+                  />
+                </div>
+              )}
+
+              {(state?.section4_2?.available === "no") && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {isEditable('4.2') ? (
+                    <Textarea
+                      value={state?.section4_2?.comment || ""}
+                      onChange={(e) => handleFieldUpdate('4.2', 'comment', e.target.value)}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_2?.comment || "No comment provided"}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {(state?.section4_2?.available === "yes") && (
-              <div>
-                <EditableFileDisplay
-                  files={state?.section4_2?.files ?? (state?.section4_2?.file ? [state.section4_2.file] : null)}
-                  isEditable={isEditable('4.2')}
-                  submissionId={submissionId}
-                  onFilesChange={(updatedFiles) => handleFileUpdate('4.2', updatedFiles)}
-                  label="Uploaded File"
-                  multiple={true}
-                />
-              </div>
-            )}
-
-            {(state?.section4_2?.available === "no") && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
-                {isEditable('4.2') ? (
-                  <Textarea
-                    value={state?.section4_2?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.2', 'comment', e.target.value)}
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_2?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
-            </div>
-
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.3 */}
         {sectionsWithData.includes('section4_3') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.3 -</span> Adoption of PM GatiShakti <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per 1%)</span>{" "}
-              </span>
-              {renderActionButtons("4.3")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("4.3")}
-          {/* <CardHeader className="bg-muted/30">
+          <SectionCard
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">4.3 -</span> Adoption of PM GatiShakti <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per 1%)</span>{" "}
+                </span>
+                {renderActionButtons("4.3")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.3")}
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                  
@@ -3165,425 +3343,423 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               )}
             </div>
           </CardHeader> */}
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-3 block">Adoption of PM GatiShakti?*</Label>
-              {isEditable('4.3') ? (
-                <RadioGroup
-                  value={state?.section4_3?.adopted || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.3', 'adopted', value)}
-                  className="flex flex-row gap-6"
-                >
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-3 block">Adoption of PM GatiShakti?*</Label>
+                {isEditable('4.3') ? (
+                  <RadioGroup
+                    value={state?.section4_3?.adopted || ""}
+                    onValueChange={(value) => handleFieldUpdate('4.3', 'adopted', value)}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.3-yes" />
+                      <Label htmlFor="4.3-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.3-no" />
+                      <Label htmlFor="4.3-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.3-yes" />
-                    <Label htmlFor="4.3-yes">Yes</Label>
+                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_3?.adopted === "yes"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}>
+                      {state?.section4_3?.adopted === "yes" ? "Yes" : "No"}
+                    </span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.3-no" />
-                    <Label htmlFor="4.3-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_3?.adopted === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {state?.section4_3?.adopted === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            {(state?.section4_3?.adopted === "yes") && (
-              <>
-                {/* Projects Table */}
-                <div className="overflow-x-auto rounded-xl">
-                  <table className="min-w-full border-separate border-spacing-0">
-                    <thead>
-                      <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project Name</th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const projects = Array.isArray(state?.section4_3?.projects)
-                          ? state.section4_3.projects
-                          : [];
+              {(state?.section4_3?.adopted === "yes") && (
+                <>
+                  {/* Projects Table */}
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Project Name</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Sector</th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const projects = Array.isArray(state?.section4_3?.projects)
+                            ? state.section4_3.projects
+                            : [];
 
-                        if (!projects.length) {
-                          return (
-                            <tr>
-                              <td colSpan={3} className="py-8 text-center text-muted-foreground">
-                                No projects available
+                          if (!projects.length) {
+                            return (
+                              <tr>
+                                <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                                  No projects available
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return projects.map((project: any, idx: number) => (
+                            <tr key={project.id || idx} className="border-b">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('4.3') ? (
+                                  <Input
+                                    value={project.projectName || ""}
+                                    onChange={(e) => handleProjectFieldUpdate(idx, 'projectName', e.target.value)}
+                                    className="w-full"
+                                    placeholder="Enter project name"
+                                  />
+                                ) : (
+                                  project.projectName || 'N/A'
+                                )}
                               </td>
-                            </tr>
-                          );
-                        }
-
-                        return projects.map((project: any, idx: number) => (
-                          <tr key={project.id || idx} className="border-b">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.3') ? (
-                                <Input
-                                  value={project.projectName || ""}
-                                  onChange={(e) => handleProjectFieldUpdate(idx, 'projectName', e.target.value)}
-                                  className="w-full"
-                                  placeholder="Enter project name"
-                                />
-                              ) : (
-                                project.projectName || 'N/A'
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.3') ? (
-                                <Dropdown
-                                  value={project.sector || ""}
-                                  onChange={(value) => handleProjectFieldUpdate(idx, 'sector', value)}
-                                  options={dropdownValues.sector}
-                                  placeholder="Select sector"
-                                />
-                              ) : (
-                                project.sector || 'N/A'
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.3') ? (
-                                <div className="space-y-1.5">
-                                  {project.file ? (
-                                    <Badge 
-                                      variant="secondary" 
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                      title={project.file.fileName || 'Unknown file'}
-                                    >
-                                      <Upload className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handleProjectFileUpdate(idx, null);
-                                        }}
-                                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                      </button>
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">No file</span>
-                                  )}
-                                  <div className="flex items-center">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.doc,.docx"
-                                      onChange={async (e) => {
-                                        const selectedFile = e.target.files?.[0];
-                                        if (selectedFile) {
-                                          // Upload file immediately (same as create submission)
-                                          try {
-                                            const response = await apiService.uploadFile(submissionId, selectedFile);
-                                            const fileData = response?.data || response;
-                                            
-                                            const newFile: FileUpload = {
-                                              id: fileData.id ?? crypto.randomUUID(),
-                                              file: null, // File not stored locally when backend handles upload
-                                              fileName: fileData.fileName || fileData.filename || selectedFile.name,
-                                              fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
-                                              uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
-                                              filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
-                                              fileUrl: fileData.fileUrl || fileData.url,
-                                              mimeType: fileData.mimeType,
-                                            };
-                                            
-                                            await handleProjectFileUpdate(idx, newFile);
-                                            e.target.value = ''; // Reset input
-                                          } catch (error: any) {
-                                            console.error('Failed to upload file:', error);
-                                          }
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id={`file-input-4.3-${idx}`}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => document.getElementById(`file-input-4.3-${idx}`)?.click()}
-                                      className="h-6 px-2 text-xs"
-                                    >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Add
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                project.file ? (() => {
-                                  const fileKey = `4.3-readonly-${idx}`;
-                                  const isLoading = fileLoading[fileKey] || false;
-                                  const hasFile = project.file && project.file.fileName;
-                                  return (
-                                    <div className="flex items-center gap-1">
-                                      <Badge 
-                                        variant="secondary" 
-                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('4.3') ? (
+                                  <Dropdown
+                                    value={project.sector || ""}
+                                    onChange={(value) => handleProjectFieldUpdate(idx, 'sector', value)}
+                                    options={dropdownValues.sector}
+                                    placeholder="Select sector"
+                                  />
+                                ) : (
+                                  project.sector || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('4.3') ? (
+                                  <div className="space-y-1.5">
+                                    {project.file ? (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
                                         title={project.file.fileName || 'Unknown file'}
                                       >
                                         <Upload className="w-3 h-3 flex-shrink-0" />
                                         <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleProjectFileDeleteClick(idx)}
+                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                        </button>
                                       </Badge>
-                                      {hasFile && (
-                                        <>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleFileView(project.file, fileKey)}
-                                            disabled={isLoading}
-                                            className="h-6 w-6 p-0"
-                                            title="View file"
-                                          >
-                                            {isLoading ? (
-                                              <Loader2 className="w-3 h-3 animate-spin" />
-                                            ) : (
-                                              <Eye className="w-3 h-3" />
-                                            )}
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleFileDownload(project.file, fileKey)}
-                                            disabled={isLoading}
-                                            className="h-6 w-6 p-0"
-                                            title="Download file"
-                                          >
-                                            {isLoading ? (
-                                              <Loader2 className="w-3 h-3 animate-spin" />
-                                            ) : (
-                                              <Download className="w-3 h-3" />
-                                            )}
-                                          </Button>
-                                        </>
-                                      )}
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">No file</span>
+                                    )}
+                                    <div className="flex items-center">
+                                      <input
+                                        type="file"
+                                        accept=".pdf,.doc,.docx"
+                                        onChange={async (e) => {
+                                          const selectedFile = e.target.files?.[0];
+                                          if (selectedFile) {
+                                            // Upload file immediately (same as create submission)
+                                            try {
+                                              const response = await apiService.uploadFile(submissionId, selectedFile);
+                                              const fileData = response?.data || response;
+
+                                              const newFile: FileUpload = {
+                                                id: fileData.id ?? crypto.randomUUID(),
+                                                file: null, // File not stored locally when backend handles upload
+                                                fileName: fileData.fileName || fileData.filename || selectedFile.name,
+                                                fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
+                                                uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
+                                                filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
+                                                fileUrl: fileData.fileUrl || fileData.url,
+                                                mimeType: fileData.mimeType,
+                                              };
+
+                                              await handleProjectFileUpdate(idx, newFile);
+                                              e.target.value = ''; // Reset input
+                                            } catch (error: any) {
+                                              console.error('Failed to upload file:', error);
+                                            }
+                                          }
+                                        }}
+                                        className="hidden"
+                                        id={`file-input-4.3-${idx}`}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => document.getElementById(`file-input-4.3-${idx}`)?.click()}
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        <Plus className="w-3 h-3 mr-1" />
+                                        Add
+                                      </Button>
                                     </div>
-                                  );
-                                })() : (
-                                  <span className="text-muted-foreground text-xs">No file</span>
-                                )
-                              )}
-                            </td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
+                                  </div>
+                                ) : (
+                                  project.file ? (() => {
+                                    const fileKey = `4.3-readonly-${idx}`;
+                                    const isLoading = fileLoading[fileKey] || false;
+                                    const hasFile = project.file && project.file.fileName;
+                                    return (
+                                      <div className="flex items-center gap-1">
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
+                                          title={project.file.fileName || 'Unknown file'}
+                                        >
+                                          <Upload className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">{project.file.fileName || 'Unknown file'}</span>
+                                        </Badge>
+                                        {hasFile && (
+                                          <>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileView(project.file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="View file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Eye className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileDownload(project.file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="Download file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Download className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })() : (
+                                    <span className="text-muted-foreground text-xs">No file</span>
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Add More Button - Only visible when adopted is "yes" and in edit mode */}
+                  {isEditable('4.3') && !showAddProjectForm && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => setShowAddProjectForm(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More
+                    </Button>
+                  )}
+
+                  {/* Add Project Form - Only visible when showAddProjectForm is true */}
+                  {showAddProjectForm && isEditable('4.3') && (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium mb-3">Add New Project</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Project Name</Label>
+                          <Input
+                            value={newProject.projectName}
+                            onChange={(e) => setNewProject({ ...newProject, projectName: e.target.value })}
+                            className="bg-white"
+                            placeholder="Enter project name"
+                          />
+                        </div>
+                        <div>
+                          <Label>Sector</Label>
+                          <Dropdown
+                            value={newProject.sector}
+                            onChange={(value) => setNewProject({ ...newProject, sector: value })}
+                            options={dropdownValues.sector}
+                            placeholder="Select sector"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Upload File</Label>
+                          <EditableFileDisplay
+                            files={newProject.file}
+                            isEditable={true}
+                            submissionId={submissionId}
+                            onFilesChange={(updatedFile) => {
+                              setNewProject({ ...newProject, file: updatedFile as FileUpload | null });
+                            }}
+                            label=""
+                            multiple={false}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleAddNewProject}
+                          className="flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Save Project
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCancelAddProject}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {(state?.section4_3?.adopted === "no") && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {isEditable('4.3') ? (
+                    <Textarea
+                      value={state?.section4_3?.comment || ""}
+                      onChange={(e) => handleFieldUpdate('4.3', 'comment', e.target.value)}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_3?.comment || "No comment provided"}
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {/* Add More Button - Only visible when adopted is "yes" and in edit mode */}
-                {isEditable('4.3') && !showAddProjectForm && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                    onClick={() => setShowAddProjectForm(true)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add More
-                  </Button>
-                )}
-
-                {/* Add Project Form - Only visible when showAddProjectForm is true */}
-                {showAddProjectForm && isEditable('4.3') && (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <h4 className="font-medium mb-3">Add New Project</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Project Name</Label>
-                        <Input 
-                          value={newProject.projectName} 
-                          onChange={(e) => setNewProject({...newProject, projectName: e.target.value})}
-                          className="bg-white"
-                          placeholder="Enter project name"
-                        />
-                      </div>
-                      <div>
-                        <Label>Sector</Label>
-                        <Dropdown
-                          value={newProject.sector}
-                          onChange={(value) => setNewProject({...newProject, sector: value})}
-                          options={dropdownValues.sector}
-                          placeholder="Select sector"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label>Upload File</Label>
-                        <EditableFileDisplay
-                          files={newProject.file}
-                          isEditable={true}
-                          submissionId={submissionId}
-                          onFilesChange={(updatedFile) => {
-                            setNewProject({...newProject, file: updatedFile as FileUpload | null});
-                          }}
-                          label=""
-                          multiple={false}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleAddNewProject}
-                        className="flex items-center gap-2"
-                      >
-                        <Check className="w-4 h-4" />
-                        Save Project
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCancelAddProject}
-                        className="flex items-center gap-2"
-                      >
-                        <X className="w-4 h-4" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {(state?.section4_3?.adopted === "no") && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
-                {isEditable('4.3') ? (
-                  <Textarea
-                    value={state?.section4_3?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.3', 'comment', e.target.value)}
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_3?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              Upload GatiShakti evidence
-            </p>
+              <p className="text-xs text-muted-foreground">
+                Upload GatiShakti evidence
+              </p>
             </div>
 
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.4 */}
         {sectionsWithData.includes('section4_4') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.4 -</span> Adoption of ADR <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
-              </span>
-              {renderActionButtons("4.4")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("4.4")}
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-3 block">Adoption of Alternate Dispute Resolution (ADR)?*</Label>
-              {isEditable('4.4') ? (
-                <RadioGroup
-                  value={state?.section4_4?.adopted || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.4', 'adopted', value)}
-                  className="flex flex-row gap-6"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.4-yes" />
-                    <Label htmlFor="4.4-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.4-no" />
-                    <Label htmlFor="4.4-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_4?.adopted === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {state?.section4_4?.adopted === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {state?.section4_4?.adopted === "yes" && (
-              <div>
-                <EditableFileDisplay
-                  files={state?.section4_4?.files ?? (state?.section4_4?.file ? [state.section4_4.file] : null)}
-                  isEditable={isEditable('4.4')}
-                  submissionId={submissionId}
-                  onFilesChange={(updatedFiles) => handleFileUpdate('4.4', updatedFiles)}
-                  label="Uploaded File"
-                  multiple={true}
-                />
+          <SectionCard
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">4.4 -</span> Adoption of ADR <span className="font-normal text-xs text-muted-foreground ml-1">(5 marks per 1%)</span>{" "}
+                </span>
+                {renderActionButtons("4.4")}
               </div>
-            )}
-
-            {(state?.section4_4?.adopted === "no") && (
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.4")}
+            <div className="space-y-4">
               <div>
-                <Label className="mb-2 block">Comment</Label>
+                <Label className="mb-3 block">Adoption of Alternate Dispute Resolution (ADR)?*</Label>
                 {isEditable('4.4') ? (
-                  <Textarea
-                    value={state?.section4_4?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.4', 'comment', e.target.value)}
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
+                  <RadioGroup
+                    value={state?.section4_4?.adopted || ""}
+                    onValueChange={(value) => handleFieldUpdate('4.4', 'adopted', value)}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.4-yes" />
+                      <Label htmlFor="4.4-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.4-no" />
+                      <Label htmlFor="4.4-no">No</Label>
+                    </div>
+                  </RadioGroup>
                 ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_4?.comment || "No comment provided"}
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_4?.adopted === "yes"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}>
+                      {state?.section4_4?.adopted === "yes" ? "Yes" : "No"}
+                    </span>
                   </div>
                 )}
               </div>
-            )}
 
-            <p className="text-xs text-muted-foreground">
-              Upload ADR orders/notification
-            </p>
+              {state?.section4_4?.adopted === "yes" && (
+                <div>
+                  <EditableFileDisplay
+                    files={state?.section4_4?.files ?? (state?.section4_4?.file ? [state.section4_4.file] : null)}
+                    isEditable={isEditable('4.4')}
+                    submissionId={submissionId}
+                    onFilesChange={(updatedFiles) => handleFileUpdate('4.4', updatedFiles)}
+                    label="Uploaded File"
+                    multiple={true}
+                  />
+                </div>
+              )}
+
+              {(state?.section4_4?.adopted === "no") && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {isEditable('4.4') ? (
+                    <Textarea
+                      value={state?.section4_4?.comment || ""}
+                      onChange={(e) => handleFieldUpdate('4.4', 'comment', e.target.value)}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_4?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Upload ADR orders/notification
+              </p>
             </div>
 
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.5 */}
         {sectionsWithData.includes('section4_5') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.5 -</span>Innovative Practices <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per practice)</span>{" "}
-              </span>
-              {renderActionButtons("4.5")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("4.5")}
-          {/* <CardHeader className="bg-muted/30">
+          <SectionCard
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">4.5 -</span>Innovative Practices <span className="font-normal text-xs text-muted-foreground ml-1">(10 marks per practice)</span>{" "}
+                </span>
+                {renderActionButtons("4.5")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.5")}
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 
@@ -3599,213 +3775,469 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
               </Button> )}
             </div>
           </CardHeader> */}
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-3 block">Implemented?*</Label>
-              {isEditable('4.5') ? (
-                <RadioGroup
-                  value={state?.section4_5?.implemented || ""}
-                  onValueChange={(value) => handleFieldUpdate('4.5', 'implemented', value)}
-                  className="flex flex-row gap-6"
-                >
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-3 block">Implemented?*</Label>
+                {isEditable('4.5') ? (
+                  <RadioGroup
+                    value={state?.section4_5?.implemented || ""}
+                    onValueChange={(value) => handleFieldUpdate('4.5', 'implemented', value)}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.5-yes" />
+                      <Label htmlFor="4.5-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.5-no" />
+                      <Label htmlFor="4.5-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.5-yes" />
-                    <Label htmlFor="4.5-yes">Yes</Label>
+                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_5?.implemented === "yes"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}>
+                      {state?.section4_5?.implemented === "yes" ? "Yes" : "No"}
+                    </span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.5-no" />
-                    <Label htmlFor="4.5-no">No</Label>
+                )}
+              </div>
+
+              {(state?.section4_5?.implemented === "yes") && (
+                <>
+                  {/* Practices Table */}
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
+                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Practice Name</th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">Impact</th>
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const practices = Array.isArray(state?.section4_5?.practices)
+                            ? state.section4_5.practices
+                            : [];
+
+                          if (!practices.length) {
+                            return (
+                              <tr>
+                                <td colSpan={3} className="py-8 text-center text-muted-foreground">
+                                  No practices available
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return practices.map((practice: any, idx: number) => (
+                            <tr key={practice.id || idx} className="border-b">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('4.5') ? (
+                                  <Input
+                                    value={practice.practiceName || ""}
+                                    onChange={(e) => handlePracticeFieldUpdate(idx, 'practiceName', e.target.value)}
+                                    className="w-full"
+                                    placeholder="Enter practice name"
+                                  />
+                                ) : (
+                                  practice.practiceName || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('4.5') ? (
+                                  <Dropdown
+                                    value={practice.impact || ""}
+                                    onChange={(value) => handlePracticeFieldUpdate(idx, 'impact', value)}
+                                    options={IMPACT_OPTIONS}
+                                    placeholder="Select impact"
+                                  />
+                                ) : (
+                                  practice.impact || 'N/A'
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {isEditable('4.5') ? (
+                                  <div className="space-y-1.5">
+                                    {practice.file ? (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                        title={practice.file.fileName || 'Unknown file'}
+                                      >
+                                        <Upload className="w-3 h-3 flex-shrink-0" />
+                                        <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            handlePracticeFileUpdate(idx, null);
+                                          }}
+                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                        </button>
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">No file</span>
+                                    )}
+                                    <div className="flex items-center">
+                                      <input
+                                        type="file"
+                                        accept=".pdf,.doc,.docx"
+                                        onChange={async (e) => {
+                                          const selectedFile = e.target.files?.[0];
+                                          if (selectedFile) {
+                                            // Upload file immediately (same as create submission)
+                                            try {
+                                              const response = await apiService.uploadFile(submissionId, selectedFile);
+                                              const fileData = response?.data || response;
+
+                                              const newFile: FileUpload = {
+                                                id: fileData.id ?? crypto.randomUUID(),
+                                                file: null, // File not stored locally when backend handles upload
+                                                fileName: fileData.fileName || fileData.filename || selectedFile.name,
+                                                fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
+                                                uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
+                                                filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
+                                                fileUrl: fileData.fileUrl || fileData.url,
+                                                mimeType: fileData.mimeType,
+                                              };
+
+                                              await handlePracticeFileUpdate(idx, newFile);
+                                              e.target.value = ''; // Reset input
+                                            } catch (error: any) {
+                                              console.error('Failed to upload file:', error);
+                                            }
+                                          }
+                                        }}
+                                        className="hidden"
+                                        id={`file-input-4.5-${idx}`}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => document.getElementById(`file-input-4.5-${idx}`)?.click()}
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        <Plus className="w-3 h-3 mr-1" />
+                                        Add
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  practice.file ? (() => {
+                                    const fileKey = `4.5-readonly-${idx}`;
+                                    const isLoading = fileLoading[fileKey] || false;
+                                    const hasFile = practice.file && practice.file.fileName;
+                                    return (
+                                      <div className="flex items-center gap-1">
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
+                                          title={practice.file.fileName || 'Unknown file'}
+                                        >
+                                          <Upload className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
+                                        </Badge>
+                                        {hasFile && (
+                                          <>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileView(practice.file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="View file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Eye className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleFileDownload(practice.file, fileKey)}
+                                              disabled={isLoading}
+                                              className="h-6 w-6 p-0"
+                                              title="Download file"
+                                            >
+                                              {isLoading ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Download className="w-3 h-3" />
+                                              )}
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })() : (
+                                    <span className="text-muted-foreground text-xs">No file</span>
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
                   </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_5?.implemented === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {state?.section4_5?.implemented === "yes" ? "Yes" : "No"}
-                  </span>
+
+                  {/* Add More Practice Button - Only visible when in edit mode */}
+                  {isEditable('4.5') && !showAddPracticeForm && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => setShowAddPracticeForm(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More Practice
+                    </Button>
+                  )}
+
+                  {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
+                  {showAddPracticeForm && isEditable('4.5') && (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium mb-3">Add New Practice</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Practice Name</Label>
+                          <Input
+                            value={newPractice.practiceName}
+                            onChange={(e) => setNewPractice({ ...newPractice, practiceName: e.target.value })}
+                            className="bg-white"
+                            placeholder="Enter practice name"
+                          />
+                        </div>
+                        <div>
+                          <Label>Impact</Label>
+                          <Dropdown
+                            value={newPractice.impact}
+                            onChange={(value) => setNewPractice({ ...newPractice, impact: value })}
+                            options={IMPACT_OPTIONS}
+                            placeholder="Select impact"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Upload File</Label>
+                          <EditableFileDisplay
+                            files={newPractice.file}
+                            isEditable={true}
+                            submissionId={submissionId}
+                            onFilesChange={(updatedFile) => {
+                              setNewPractice({ ...newPractice, file: updatedFile as FileUpload | null });
+                            }}
+                            label=""
+                            multiple={false}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleAddNewPractice}
+                          className="flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Save Practice
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCancelAddPractice}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {(state?.section4_5?.implemented === "no") && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {isEditable('4.5') ? (
+                    <Textarea
+                      value={state?.section4_5?.comment || ""}
+                      onChange={(e) => handleFieldUpdate('4.5', 'comment', e.target.value)}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_5?.comment || "No comment provided"}
+                    </div>
+                  )}
                 </div>
               )}
+
+              <p className="text-xs text-muted-foreground">
+                Upload RMB orders/Awards
+              </p>
+
+              <p className="text-xs text-muted-foreground">
+                Annex 10
+              </p>
             </div>
 
-            {(state?.section4_5?.implemented === "yes") && (
-              <>
-                {/* Practices Table */}
+          </SectionCard>
+        )}
+
+
+        {/* Section 4.6 */}
+        {sectionsWithData.includes('section4_6') && (
+          <SectionCard
+            title={<div className="flex flex-col relative">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold ">
+                  <span className="text-primary">4.6 -</span> Capacity Building - Officer Participation{" "}
+                </span>
+                {renderActionButtons("4.6")}
+              </div>
+            </div>}
+            subtitle=""
+            className="mb-6"
+          >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.6")}
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-3 block">Capacity Building – Officer Participation*</Label>
+                {isEditable('4.6') ? (
+                  <RadioGroup
+                    value={state?.section4_6?.participated || ""}
+                    onValueChange={(value) => {
+                      handleFieldUpdate('4.6', 'participated', value);
+                      if (value === "yes") {
+                        handleFieldUpdate('4.6', 'comment', '');
+                      } else {
+                        handleFieldUpdate('4.6', 'capacityArray', []);
+                      }
+                    }}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.6-yes" />
+                      <Label htmlFor="4.6-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.6-no" />
+                      <Label htmlFor="4.6-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_6?.participated === "yes"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}>
+                      {state?.section4_6?.participated === "yes" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {(state?.section4_6?.participated === "yes") && (
                 <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Practice Name</th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">Impact</th>
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Uploaded File</th>
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Officer Name</th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">Designation</th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">Program Name</th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">Training Type</th>
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Organiser</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const practices = Array.isArray(state?.section4_5?.practices)
-                          ? state.section4_5.practices
+                        const capacityArray = Array.isArray(state?.section4_6?.capacityArray)
+                          ? state.section4_6.capacityArray
                           : [];
 
-                        if (!practices.length) {
+                        if (!capacityArray.length) {
                           return (
                             <tr>
-                              <td colSpan={3} className="py-8 text-center text-muted-foreground">
-                                No practices available
+                              <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                                No capacity building data available
                               </td>
                             </tr>
                           );
                         }
 
-                        return practices.map((practice: any, idx: number) => (
-                          <tr key={practice.id || idx} className="border-b">
+                        return capacityArray.map((item: any, idx: number) => (
+                          <tr key={item.id || idx} className="border-b">
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.5') ? (
+                              {isEditable('4.6') ? (
                                 <Input
-                                  value={practice.practiceName || ""}
-                                  onChange={(e) => handlePracticeFieldUpdate(idx, 'practiceName', e.target.value)}
+                                  value={item.officerName || ""}
+                                  onChange={(e) => handleTableFieldUpdate(idx, 'officerName', e.target.value)}
                                   className="w-full"
-                                  placeholder="Enter practice name"
+                                  placeholder="Enter officer name"
                                 />
                               ) : (
-                                practice.practiceName || 'N/A'
+                                item.officerName || 'N/A'
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.5') ? (
+                              {isEditable('4.6') ? (
+                                <Input
+                                  value={item.designation || ""}
+                                  onChange={(e) => handleTableFieldUpdate(idx, 'designation', e.target.value)}
+                                  className="w-full"
+                                  placeholder="Enter designation"
+                                />
+                              ) : (
+                                item.designation || 'N/A'
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {isEditable('4.6') ? (
+                                <Input
+                                  value={item.programName || ""}
+                                  onChange={(e) => handleTableFieldUpdate(idx, 'programName', e.target.value)}
+                                  className="w-full"
+                                  placeholder="Enter program name"
+                                />
+                              ) : (
+                                item.programName || 'N/A'
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {isEditable('4.6') ? (
                                 <Dropdown
-                                  value={practice.impact || ""}
-                                  onChange={(value) => handlePracticeFieldUpdate(idx, 'impact', value)}
-                                  options={IMPACT_OPTIONS}
-                                  placeholder="Select impact"
+                                  value={item.trainingType || ""}
+                                  onChange={(value) => handleTableFieldUpdate(idx, 'trainingType', value)}
+                                  options={TRAINING_TYPE_OPTIONS}
+                                  placeholder="Select training type"
                                 />
                               ) : (
-                                practice.impact || 'N/A'
+                                item.trainingType || 'N/A'
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable('4.5') ? (
-                                <div className="space-y-1.5">
-                                  {practice.file ? (
-                                    <Badge 
-                                      variant="secondary" 
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                      title={practice.file.fileName || 'Unknown file'}
-                                    >
-                                      <Upload className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handlePracticeFileUpdate(idx, null);
-                                        }}
-                                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                      </button>
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">No file</span>
-                                  )}
-                                  <div className="flex items-center">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.doc,.docx"
-                                      onChange={async (e) => {
-                                        const selectedFile = e.target.files?.[0];
-                                        if (selectedFile) {
-                                          // Upload file immediately (same as create submission)
-                                          try {
-                                            const response = await apiService.uploadFile(submissionId, selectedFile);
-                                            const fileData = response?.data || response;
-                                            
-                                            const newFile: FileUpload = {
-                                              id: fileData.id ?? crypto.randomUUID(),
-                                              file: null, // File not stored locally when backend handles upload
-                                              fileName: fileData.fileName || fileData.filename || selectedFile.name,
-                                              fileSize: Number(fileData.fileSize ?? fileData.size ?? selectedFile.size ?? 0),
-                                              uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
-                                              filePath: fileData.filePath ?? fileData.file ?? fileData.url ?? fileData.path,
-                                              fileUrl: fileData.fileUrl || fileData.url,
-                                              mimeType: fileData.mimeType,
-                                            };
-                                            
-                                            await handlePracticeFileUpdate(idx, newFile);
-                                            e.target.value = ''; // Reset input
-                                          } catch (error: any) {
-                                            console.error('Failed to upload file:', error);
-                                          }
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id={`file-input-4.5-${idx}`}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => document.getElementById(`file-input-4.5-${idx}`)?.click()}
-                                      className="h-6 px-2 text-xs"
-                                    >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Add
-                                    </Button>
-                                  </div>
-                                </div>
+                              {isEditable('4.6') ? (
+                                <Input
+                                  value={item.organiser || ""}
+                                  onChange={(e) => handleTableFieldUpdate(idx, 'organiser', e.target.value)}
+                                  className="w-full"
+                                  placeholder="Enter organiser"
+                                />
                               ) : (
-                                practice.file ? (() => {
-                                  const fileKey = `4.5-readonly-${idx}`;
-                                  const isLoading = fileLoading[fileKey] || false;
-                                  const hasFile = practice.file && practice.file.fileName;
-                                  return (
-                                    <div className="flex items-center gap-1">
-                                      <Badge 
-                                        variant="secondary" 
-                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px]"
-                                        title={practice.file.fileName || 'Unknown file'}
-                                      >
-                                        <Upload className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">{practice.file.fileName || 'Unknown file'}</span>
-                                      </Badge>
-                                      {hasFile && (
-                                        <>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleFileView(practice.file, fileKey)}
-                                            disabled={isLoading}
-                                            className="h-6 w-6 p-0"
-                                            title="View file"
-                                          >
-                                            {isLoading ? (
-                                              <Loader2 className="w-3 h-3 animate-spin" />
-                                            ) : (
-                                              <Eye className="w-3 h-3" />
-                                            )}
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleFileDownload(practice.file, fileKey)}
-                                            disabled={isLoading}
-                                            className="h-6 w-6 p-0"
-                                            title="Download file"
-                                          >
-                                            {isLoading ? (
-                                              <Loader2 className="w-3 h-3 animate-spin" />
-                                            ) : (
-                                              <Download className="w-3 h-3" />
-                                            )}
-                                          </Button>
-                                        </>
-                                      )}
-                                    </div>
-                                  );
-                                })() : (
-                                  <span className="text-muted-foreground text-xs">No file</span>
-                                )
+                                item.organiser || 'N/A'
                               )}
                             </td>
                           </tr>
@@ -3814,374 +4246,118 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                     </tbody>
                   </table>
                 </div>
+              )}
 
-                {/* Add More Practice Button - Only visible when in edit mode */}
-                {isEditable('4.5') && !showAddPracticeForm && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                    onClick={() => setShowAddPracticeForm(true)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add More Practice
-                  </Button>
-                )}
-
-                {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
-                {showAddPracticeForm && isEditable('4.5') && (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <h4 className="font-medium mb-3">Add New Practice</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Practice Name</Label>
-                        <Input 
-                          value={newPractice.practiceName} 
-                          onChange={(e) => setNewPractice({...newPractice, practiceName: e.target.value})}
-                          className="bg-white"
-                          placeholder="Enter practice name"
-                        />
-                      </div>
-                      <div>
-                        <Label>Impact</Label>
-                        <Dropdown
-                          value={newPractice.impact}
-                          onChange={(value) => setNewPractice({...newPractice, impact: value})}
-                          options={IMPACT_OPTIONS}
-                          placeholder="Select impact"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label>Upload File</Label>
-                        <EditableFileDisplay
-                          files={newPractice.file}
-                          isEditable={true}
-                          submissionId={submissionId}
-                          onFilesChange={(updatedFile) => {
-                            setNewPractice({...newPractice, file: updatedFile as FileUpload | null});
-                          }}
-                          label=""
-                          multiple={false}
-                        />
-                      </div>
+              {(state?.section4_6?.participated === "no") && (
+                <div>
+                  <Label className="mb-2 block">Comments (Reason)</Label>
+                  {isEditable('4.6') ? (
+                    <Textarea
+                      value={state?.section4_6?.comment || ""}
+                      onChange={(e) => handleFieldUpdate('4.6', 'comment', e.target.value)}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_6?.comment || "No comment provided"}
                     </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleAddNewPractice}
-                        className="flex items-center gap-2"
-                      >
-                        <Check className="w-4 h-4" />
-                        Save Practice
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCancelAddPractice}
-                        className="flex items-center gap-2"
-                      >
-                        <X className="w-4 h-4" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {(state?.section4_5?.implemented === "no") && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
-                {isEditable('4.5') ? (
-                  <Textarea
-                    value={state?.section4_5?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.5', 'comment', e.target.value)}
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_5?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              Upload RMB orders/Awards
-            </p>
-
-            <p className="text-xs text-muted-foreground">
-              Annex 10
-            </p>
-            </div>
-
-        </SectionCard>
-        )}
-
-
-        {/* Section 4.6 */}
-        {sectionsWithData.includes('section4_6') && (
-        <SectionCard
-          title={<div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
-                <span className="text-primary">4.6 -</span> Capacity Building - Officer Participation{" "}
-              </span>
-              {renderActionButtons("4.6")}
-            </div>
-          </div>}
-          subtitle=""
-          className="mb-6"
-        >
-          {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
-          {renderMOSPIReviewerComments("4.6")}
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-3 block">Capacity Building – Officer Participation*</Label>
-              {isEditable('4.6') ? (
-                <RadioGroup
-                  value={state?.section4_6?.participated || ""}
-                  onValueChange={(value) => {
-                    handleFieldUpdate('4.6', 'participated', value);
-                    if (value === "yes") {
-                      handleFieldUpdate('4.6', 'comment', '');
-                    } else {
-                      handleFieldUpdate('4.6', 'capacityArray', []);
-                    }
-                  }}
-                  className="flex flex-row gap-6"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.6-yes" />
-                    <Label htmlFor="4.6-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.6-no" />
-                    <Label htmlFor="4.6-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm ${state?.section4_6?.participated === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                    }`}>
-                    {state?.section4_6?.participated === "yes" ? "Yes" : "No"}
-                  </span>
+                  )}
                 </div>
               )}
-            </div>
 
-            {(state?.section4_6?.participated === "yes") && (
-            <div className="overflow-x-auto rounded-xl">
-              <table className="min-w-full border-separate border-spacing-0">
-                <thead>
-                  <tr className="bg-[#DDE3F9]">
-                    <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Officer Name</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Designation</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Program Name</th>
-                    <th className="py-3 px-4 text-left text-sm font-normal">Training Type</th>
-                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Organiser</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const capacityArray = Array.isArray(state?.section4_6?.capacityArray)
-                      ? state.section4_6.capacityArray
-                      : [];
+              {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
+              {state?.section4_6?.participated === "yes" && isEditable('4.6') && !showAddCapacityForm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  onClick={() => setShowAddCapacityForm(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add More
+                </Button>
+              )}
 
-                    if (!capacityArray.length) {
-                      return (
-                        <tr>
-                          <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                            No capacity building data available
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    return capacityArray.map((item: any, idx: number) => (
-                      <tr key={item.id || idx} className="border-b">
-                        <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
-                            <Input
-                              value={item.officerName || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'officerName', e.target.value)}
-                              className="w-full"
-                              placeholder="Enter officer name"
-                            />
-                          ) : (
-                            item.officerName || 'N/A'
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
-                            <Input
-                              value={item.designation || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'designation', e.target.value)}
-                              className="w-full"
-                              placeholder="Enter designation"
-                            />
-                          ) : (
-                            item.designation || 'N/A'
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
-                            <Input
-                              value={item.programName || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'programName', e.target.value)}
-                              className="w-full"
-                              placeholder="Enter program name"
-                            />
-                          ) : (
-                            item.programName || 'N/A'
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
-                            <Dropdown
-                              value={item.trainingType || ""}
-                              onChange={(value) => handleTableFieldUpdate(idx, 'trainingType', value)}
-                              options={TRAINING_TYPE_OPTIONS}
-                              placeholder="Select training type"
-                            />
-                          ) : (
-                            item.trainingType || 'N/A'
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-normal">
-                          {isEditable('4.6') ? (
-                            <Input
-                              value={item.organiser || ""}
-                              onChange={(e) => handleTableFieldUpdate(idx, 'organiser', e.target.value)}
-                              className="w-full"
-                              placeholder="Enter organiser"
-                            />
-                          ) : (
-                            item.organiser || 'N/A'
-                          )}
-                        </td>
-                      </tr>
-                    ));
-                  })()}
-                </tbody>
-              </table>
-            </div>
-            )}
-
-            {(state?.section4_6?.participated === "no") && (
-              <div>
-                <Label className="mb-2 block">Comments (Reason)</Label>
-                {isEditable('4.6') ? (
-                  <Textarea
-                    value={state?.section4_6?.comment || ""}
-                    onChange={(e) => handleFieldUpdate('4.6', 'comment', e.target.value)}
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_6?.comment || "No comment provided"}
+              {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
+              {state?.section4_6?.participated === "yes" && showAddCapacityForm && isEditable('4.6') && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-medium mb-3">Add New Capacity Building Entry</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Officer Name</Label>
+                      <Input
+                        value={newCapacityEntry.officerName}
+                        onChange={(e) => setNewCapacityEntry({ ...newCapacityEntry, officerName: e.target.value })}
+                        className="bg-white"
+                        placeholder="Enter officer name"
+                      />
+                    </div>
+                    <div>
+                      <Label>Designation</Label>
+                      <Input
+                        value={newCapacityEntry.designation}
+                        onChange={(e) => setNewCapacityEntry({ ...newCapacityEntry, designation: e.target.value })}
+                        className="bg-white"
+                        placeholder="Enter designation"
+                      />
+                    </div>
+                    <div>
+                      <Label>Program Name</Label>
+                      <Input
+                        value={newCapacityEntry.programName}
+                        onChange={(e) => setNewCapacityEntry({ ...newCapacityEntry, programName: e.target.value })}
+                        className="bg-white"
+                        placeholder="Enter program name"
+                      />
+                    </div>
+                    <div>
+                      <Label>Training Type</Label>
+                      <Dropdown
+                        value={newCapacityEntry.trainingType}
+                        onChange={(value) => setNewCapacityEntry({ ...newCapacityEntry, trainingType: value })}
+                        options={TRAINING_TYPE_OPTIONS}
+                        placeholder="Select training type"
+                      />
+                    </div>
+                    <div>
+                      <Label>Organiser</Label>
+                      <Input
+                        value={newCapacityEntry.organiser}
+                        onChange={(e) => setNewCapacityEntry({ ...newCapacityEntry, organiser: e.target.value })}
+                        className="bg-white"
+                        placeholder="Enter organiser"
+                      />
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
-            {state?.section4_6?.participated === "yes" && isEditable('4.6') && !showAddCapacityForm && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                onClick={() => setShowAddCapacityForm(true)}
-              >
-                <Plus className="w-4 h-4" />
-                Add More
-              </Button>
-            )}
-
-            {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
-            {state?.section4_6?.participated === "yes" && showAddCapacityForm && isEditable('4.6') && (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <h4 className="font-medium mb-3">Add New Capacity Building Entry</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Officer Name</Label>
-                    <Input 
-                      value={newCapacityEntry.officerName} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, officerName: e.target.value})}
-                      className="bg-white"
-                      placeholder="Enter officer name"
-                    />
-                  </div>
-                  <div>
-                    <Label>Designation</Label>
-                    <Input 
-                      value={newCapacityEntry.designation} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, designation: e.target.value})}
-                      className="bg-white"
-                      placeholder="Enter designation"
-                    />
-                  </div>
-                  <div>
-                    <Label>Program Name</Label>
-                    <Input 
-                      value={newCapacityEntry.programName} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, programName: e.target.value})}
-                      className="bg-white"
-                      placeholder="Enter program name"
-                    />
-                  </div>
-                  <div>
-                    <Label>Training Type</Label>
-                    <Dropdown
-                      value={newCapacityEntry.trainingType}
-                      onChange={(value) => setNewCapacityEntry({...newCapacityEntry, trainingType: value})}
-                      options={TRAINING_TYPE_OPTIONS}
-                      placeholder="Select training type"
-                    />
-                  </div>
-                  <div>
-                    <Label>Organiser</Label>
-                    <Input 
-                      value={newCapacityEntry.organiser} 
-                      onChange={(e) => setNewCapacityEntry({...newCapacityEntry, organiser: e.target.value})}
-                      className="bg-white"
-                      placeholder="Enter organiser"
-                    />
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleAddNewCapacityEntry}
+                      className="flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Save Entry
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelAddCapacityEntry}
+                      className="flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleAddNewCapacityEntry}
-                    className="flex items-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    Save Entry
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCancelAddCapacityEntry}
-                    className="flex items-center gap-2"
-                  >
-                    <X className="w-4 h-4" />
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
+              )}
 
-            <p className="text-xs text-muted-foreground">
-              Upload capacity building participation data
-            </p>
-          </div>
-        </SectionCard>
+              <p className="text-xs text-muted-foreground">
+                Upload capacity building participation data
+              </p>
+            </div>
+          </SectionCard>
         )}
       </div>
 
@@ -4246,7 +4422,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 };
                 const userRole = getUserRole();
                 const isMospiApprover = userRole === 'MOSPI_APPROVER';
-                
+
                 return isMospiApprover
                   ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
                   : "Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.";
@@ -4281,7 +4457,7 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
                 };
                 const userRole = getUserRole();
                 const isMospiApprover = userRole === 'MOSPI_APPROVER';
-                
+
                 return isMospiApprover
                   ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
                   : "Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.";
@@ -4291,6 +4467,30 @@ export const InfraEnablersReview = ({ submissionId, formData, submission, isPrev
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancelAccept}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAccept}>Confirm & Accept</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for Section 4.3 Project File Deletion */}
+      <AlertDialog open={showProjectFileDeleteDialog} onOpenChange={setShowProjectFileDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete file permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This file will be deleted permanently. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowProjectFileDeleteDialog(false);
+              setPendingProjectFileDelete(null);
+            }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmProjectFileDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

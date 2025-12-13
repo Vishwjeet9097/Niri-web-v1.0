@@ -106,7 +106,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Bond Type</th>
               <th className="py-3 px-4 text-left text-sm font-normal">City</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Issuing Authority</th>
-              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Value (₹ Crores)</th>
+              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Value (INR - values is in CRORES)</th>
             </tr>
           </thead>
           <tbody>
@@ -121,6 +121,8 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleBondChange(index, "bondType", value)}
                         placeholder="Select Bond Type"
                         isEditable={true}
+                        resetKey={resetKey || 0}
+                        uniqueId={`1.4-bondType-${index}`}
                       />
                     ) : (
                       item.bondType || 'N/A'
@@ -134,6 +136,8 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleBondChange(index, "cityName", value)}
                         placeholder="Select City"
                         isEditable={true}
+                        resetKey={resetKey || 0}
+                        uniqueId={`1.4-cityName-${index}`}
                       />
                     ) : (
                       item.cityName || 'N/A'
@@ -147,6 +151,8 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleBondChange(index, "issuingAuthority", value)}
                         placeholder="Select Authority"
                         isEditable={true}
+                        resetKey={resetKey || 0}
+                        uniqueId={`1.4-issuingAuthority-${index}`}
                       />
                     ) : (
                       item.issuingAuthority || 'N/A'
@@ -204,6 +210,8 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewBondEntry({...newBondEntry, bondType: value})}
                 placeholder="Select Bond Type"
                 isEditable={true}
+                resetKey={resetKey || 0}
+                uniqueId="1.4-new-bondType"
               />
             </div>
             <div>
@@ -214,6 +222,8 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewBondEntry({...newBondEntry, cityName: value})}
                 placeholder="Select City"
                 isEditable={true}
+                resetKey={resetKey || 0}
+                uniqueId="1.4-new-cityName"
               />
             </div>
             <div>
@@ -224,10 +234,12 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewBondEntry({...newBondEntry, issuingAuthority: value})}
                 placeholder="Select Authority"
                 isEditable={true}
+                resetKey={resetKey || 0}
+                uniqueId="1.4-new-issuingAuthority"
               />
             </div>
             <div>
-              <Label>Value (₹ Crores)</Label>
+              <Label>Value (INR - values is in CRORES)</Label>
               <Input
                 type="number"
                 value={newBondEntry.value}

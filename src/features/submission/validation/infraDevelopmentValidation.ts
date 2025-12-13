@@ -79,9 +79,13 @@ export const validateInfraDevelopment = (
 
   // Helper function to check if a section should be validated
   const shouldValidateSection = (indicator: string): boolean => {
-    // If no allowedIndicators provided, validate all (for backward compatibility)
-    if (!allowedIndicators || allowedIndicators.length === 0) {
+    // If allowedIndicators is undefined, validate all (for backward compatibility with other roles)
+    if (allowedIndicators === undefined) {
       return true;
+    }
+    // If allowedIndicators is an empty array, validate nothing (category not applicable)
+    if (Array.isArray(allowedIndicators) && allowedIndicators.length === 0) {
+      return false;
     }
     // Only validate if the indicator is in the allowed list
     return allowedIndicators.includes(indicator);
@@ -90,9 +94,9 @@ export const validateInfraDevelopment = (
   // Section 2.1 - Availability of Infrastructure Act/Policy
   if (shouldValidateSection("2.1")) {
     const section21 = data.section2_1;
-    if (!section21.infraActArray || section21.infraActArray.length < 3) {
+    if (!section21.infraActArray || section21.infraActArray.length < 1) {
       errors["section2_1.infraActArray"] =
-        "Minimum 3 sectors required. Add at least 3 entries.";
+        "At least one entry is required.";
     } else {
       section21.infraActArray.forEach((entry, index) => {
         if (!entry.sector || entry.sector.trim() === "") {

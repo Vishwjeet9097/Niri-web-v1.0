@@ -91,7 +91,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Organisation Name</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Organisation Type</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Year of Establishment</th>
-              <th className="py-3 px-4 text-left text-sm font-normal">Total Funding (₹ Crores)</th>
+              <th className="py-3 px-4 text-left text-sm font-normal">Total Funding (INR - values is in CRORES)</th>
               <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Website</th>
             </tr>
           </thead>
@@ -119,6 +119,8 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                         onChange={(value) => handleOrgChange(index, "organisationType", value)}
                         placeholder="Select Type"
                         isEditable={true}
+                        resetKey={resetKey || 0}
+                        uniqueId={`1.5-organisationType-${index}`}
                       />
                     ) : (
                       item.organisationType || 'N/A'
@@ -211,6 +213,8 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                 onChange={(value) => setNewOrgEntry({...newOrgEntry, organisationType: value})}
                 placeholder="Select Type"
                 isEditable={true}
+                resetKey={resetKey || 0}
+                uniqueId="1.5-new-organisationType"
               />
             </div>
             <div>
@@ -224,7 +228,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
               />
             </div>
             <div>
-              <Label>Total Funding (₹ Crores)</Label>
+              <Label>Total Funding (INR - values is in CRORES)</Label>
               <Input
                 type="number"
                 value={newOrgEntry.totalFunding}
