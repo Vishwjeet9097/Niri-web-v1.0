@@ -889,13 +889,26 @@ export const PPPDevelopmentReview = ({
           return;
       }
 
-      // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
+      // If NODAL_OFFICER, check current status and set RESUBMITTED only if status was REVERTED
       if (isNodalOfficer && fields.length > 0) {
-        // Add status to the first field object
-        fields[0] = {
-          ...fields[0],
-          status: "RESUBMITTED",
-        };
+        // Get current status from formDataState
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData = formDataState && formDataState[sectionKey];
+        const currentStatus = sectionData
+          ? Array.isArray(sectionData)
+            ? (sectionData as any).status
+            : sectionData.status
+          : undefined;
+        const upperStatus = (currentStatus || "").toUpperCase();
+
+        // Only set RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Add status to the first field object
+          fields[0] = {
+            ...fields[0],
+            status: "RESUBMITTED",
+          };
+        }
       }
 
       await handleSaveSection({
@@ -905,21 +918,33 @@ export const PPPDevelopmentReview = ({
         fields,
       });
 
-      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
+      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
-        // Update formDataState to set status to RESUBMITTED
+        // Get current status from formDataState
         const sectionKey = `section${sectionId.replace(".", "_")}`;
-        setFormDataState((prev: any) => {
-          if (!prev) return prev;
-          const updated = { ...prev };
-          if (updated[sectionKey]) {
-            updated[sectionKey] = {
-              ...updated[sectionKey],
-              status: "RESUBMITTED",
-            };
-          }
-          return updated;
-        });
+        const sectionData = formDataState && formDataState[sectionKey];
+        const currentStatus = sectionData
+          ? Array.isArray(sectionData)
+            ? (sectionData as any).status
+            : sectionData.status
+          : undefined;
+        const upperStatus = (currentStatus || "").toUpperCase();
+
+        // Only update to RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Update formDataState to set status to RESUBMITTED
+          setFormDataState((prev: any) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (updated[sectionKey]) {
+              updated[sectionKey] = {
+                ...updated[sectionKey],
+                status: "RESUBMITTED",
+              };
+            }
+            return updated;
+          });
+        }
       }
 
       // Disable editing after successful save
@@ -1481,12 +1506,36 @@ export const PPPDevelopmentReview = ({
       );
     }
 
-    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE, RESUBMITTED, or null/undefined
+    // For NODAL_OFFICER, show "Resubmitted" badge if status is RESUBMITTED
+    if (isNodalOfficer && sectionStatus === "RESUBMITTED") {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Resubmitted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+
+    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE or null/undefined
     if (
       isNodalOfficer &&
-      (sectionStatus === "SUBMITTED_TO_STATE" ||
-        sectionStatus === "RESUBMITTED" ||
-        !sectionStatus)
+      (sectionStatus === "SUBMITTED_TO_STATE" || !sectionStatus)
     ) {
       return (
         <div className="flex gap-2">

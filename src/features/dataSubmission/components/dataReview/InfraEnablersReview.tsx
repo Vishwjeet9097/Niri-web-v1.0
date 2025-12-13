@@ -90,20 +90,20 @@ export const InfraEnablersReview = ({
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
-  
+
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
   const currentSubmission = submissionState || submission;
   const { saveMessage, getMessage, getComments, getAllComments } =
     useSectionMessages(submissionId, currentSubmission);
-  
+
   // Sync submissionState when submission prop changes from parent
   useEffect(() => {
     if (submission) {
       setSubmissionState(submission);
     }
   }, [submission]);
-  
+
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] =
     useState<any>(null);
@@ -124,7 +124,7 @@ export const InfraEnablersReview = ({
   const [pendingActionSectionId, setPendingActionSectionId] = useState<
     string | null
   >(null);
-  
+
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
@@ -172,17 +172,17 @@ export const InfraEnablersReview = ({
     return null;
   };
 
-  //State for edit button 
+  //State for edit button
   const { setEditable, isEditable, clearAllEditing } =
     useEditableSectionStore();
-  
+
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
   };
-  
+
   // Handle cancel - restore original state
   const handleCancel = (sectionId: string) => {
     if (originalFormDataSnapshot) {
@@ -192,7 +192,7 @@ export const InfraEnablersReview = ({
       setEditable(sectionId, false);
       // Increment reset key to force Select components to remount
       setSelectResetKey((prev) => prev + 1);
-      
+
       // Close and reset "Add Project" form for section 4.3
       if (sectionId === "4.3") {
         setShowAddProjectForm(false);
@@ -202,7 +202,7 @@ export const InfraEnablersReview = ({
           file: null,
         });
       }
-      
+
       // Close and reset "Add Practice" form for section 4.5
       if (sectionId === "4.5") {
         setShowAddPracticeForm(false);
@@ -212,7 +212,7 @@ export const InfraEnablersReview = ({
           file: null,
         });
       }
-      
+
       // Close and reset "Add Capacity Entry" form for section 4.6
       if (sectionId === "4.6") {
         setShowAddCapacityForm(false);
@@ -224,7 +224,7 @@ export const InfraEnablersReview = ({
           trainingType: "",
         });
       }
-      
+
       // Reset the flag after React has processed the state update
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -285,21 +285,21 @@ export const InfraEnablersReview = ({
           indicatorComment: comments,
           updatedAt: new Date().toISOString(),
         }));
-        
+
         // 2. Refresh complete submission data (same as first load)
         try {
           console.log("🔄 Refreshing complete submission data...");
           const freshSubmission = await apiService.getSubmission(submissionId);
-          
+
           if (freshSubmission) {
             // Update submission state with fresh data
             setSubmissionState(freshSubmission);
-            
+
             // Update form data with fresh data (only this section's slice)
             if (freshSubmission.formData) {
               setFormDataState(freshSubmission.formData.infraEnablers);
             }
-            
+
             console.log("✅ Fresh submission data loaded:", freshSubmission);
           }
         } catch (error) {
@@ -312,7 +312,7 @@ export const InfraEnablersReview = ({
       "niri-comment-updated",
       handleCommentUpdate as EventListener
     );
-    
+
     return () => {
       window.removeEventListener(
         "niri-comment-updated",
@@ -320,14 +320,14 @@ export const InfraEnablersReview = ({
       );
     };
   }, [submissionId]);
-  
+
   // Check if this section has any data
   const hasData = hasInfraEnablersData({ infraEnablers: state });
   let sectionsWithData = getSectionsWithData(
     { infraEnablers: state },
     "infraEnablers"
   );
-  
+
   // For preview mode with assigned indicators, always include assigned sections even if they have no data
   // This ensures assigned indicators are visible in preview, regardless of data presence
   if (
@@ -345,17 +345,17 @@ export const InfraEnablersReview = ({
       "4.5": "section4_5",
       "4.6": "section4_6",
     };
-    
+
     assignedIndicators.forEach((indicator) => {
       const sectionKey = indicatorToSectionMap[indicator];
       if (sectionKey && !sectionsWithData.includes(sectionKey)) {
         assignedSectionKeys.push(sectionKey);
       }
     });
-    
+
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
-  
+
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
   // Only include sections that have meaningful data - don't show empty/unsubmitted indicators
   // This ensures state approvers only see indicators that were actually saved/submitted by nodal officers
@@ -408,7 +408,7 @@ export const InfraEnablersReview = ({
         return true;
       });
     });
-    
+
     // Merge existing sections with sectionsWithData, avoiding duplicates
     sectionsWithData = Array.from(
       new Set([...sectionsWithData, ...existingSections])
@@ -522,10 +522,10 @@ export const InfraEnablersReview = ({
           console.log("Section_4_1 state", state?.section4_1);
           fields = [
             {
-            allEligible: state?.section4_1?.allEligible ?? null,
-            websiteLink: state?.section4_1?.websiteLink ?? null,
-            file: state?.section4_1?.file ?? null,
-            comment: state?.section4_1?.comment ?? null,
+              allEligible: state?.section4_1?.allEligible ?? null,
+              websiteLink: state?.section4_1?.websiteLink ?? null,
+              file: state?.section4_1?.file ?? null,
+              comment: state?.section4_1?.comment ?? null,
             },
           ];
           break;
@@ -540,7 +540,7 @@ export const InfraEnablersReview = ({
             : state?.section4_2?.file
             ? [state.section4_2.file]
             : [];
-          
+
           // Format files for payload - ensure file property is string path
           const files4_2 = section4_2Files.map((file: FileUpload) => ({
             id: file.id,
@@ -555,14 +555,14 @@ export const InfraEnablersReview = ({
             fileUrl: file.fileUrl,
             mimeType: file.mimeType,
           }));
-          
+
           fields = [
             {
-            available: state?.section4_2?.available ?? null,
-            files: files4_2,
-            file: toSingleFile(section4_2Files),
-            websiteLink: state?.section4_2?.websiteLink ?? null,
-            comment: state?.section4_2?.comment ?? null,
+              available: state?.section4_2?.available ?? null,
+              files: files4_2,
+              file: toSingleFile(section4_2Files),
+              websiteLink: state?.section4_2?.websiteLink ?? null,
+              comment: state?.section4_2?.comment ?? null,
             },
           ];
           break;
@@ -572,17 +572,17 @@ export const InfraEnablersReview = ({
           console.log("Section_4_3 state", state?.section4_3);
           const projects4_3 = (state?.section4_3?.projects || []).map(
             (project: any) => ({
-            id: project.id,
-            projectName: project.projectName ?? null,
-            sector: project.sector ?? null,
-            file: project.file ?? null,
+              id: project.id,
+              projectName: project.projectName ?? null,
+              sector: project.sector ?? null,
+              file: project.file ?? null,
             })
           );
           fields = [
             {
-            adopted: state?.section4_3?.adopted ?? null,
-            projects: projects4_3,
-            comment: state?.section4_3?.comment ?? null,
+              adopted: state?.section4_3?.adopted ?? null,
+              projects: projects4_3,
+              comment: state?.section4_3?.comment ?? null,
             },
           ];
           break;
@@ -597,7 +597,7 @@ export const InfraEnablersReview = ({
             : state?.section4_4?.file
             ? [state.section4_4.file]
             : [];
-          
+
           // Format files for payload - ensure file property is string path
           const files4_4 = section4_4Files.map((file: FileUpload) => ({
             id: file.id,
@@ -612,14 +612,14 @@ export const InfraEnablersReview = ({
             fileUrl: file.fileUrl,
             mimeType: file.mimeType,
           }));
-          
+
           fields = [
             {
-            adopted: state?.section4_4?.adopted ?? null,
-            files: files4_4,
-            file: toSingleFile(section4_4Files),
-            marksObtained: state?.section4_4?.marksObtained ?? null,
-            comment: state?.section4_4?.comment ?? null,
+              adopted: state?.section4_4?.adopted ?? null,
+              files: files4_4,
+              file: toSingleFile(section4_4Files),
+              marksObtained: state?.section4_4?.marksObtained ?? null,
+              comment: state?.section4_4?.comment ?? null,
             },
           ];
           break;
@@ -629,17 +629,17 @@ export const InfraEnablersReview = ({
           console.log("Section_4_5 state", state?.section4_5);
           const practices4_5 = (state?.section4_5?.practices || []).map(
             (practice: any) => ({
-            id: practice.id,
-            practiceName: practice.practiceName ?? null,
-            impact: practice.impact ?? null,
-            file: practice.file ?? null,
+              id: practice.id,
+              practiceName: practice.practiceName ?? null,
+              impact: practice.impact ?? null,
+              file: practice.file ?? null,
             })
           );
           fields = [
             {
-            implemented: state?.section4_5?.implemented ?? null,
-            practices: practices4_5,
-            comment: state?.section4_5?.comment ?? null,
+              implemented: state?.section4_5?.implemented ?? null,
+              practices: practices4_5,
+              comment: state?.section4_5?.comment ?? null,
             },
           ];
           break;
@@ -651,11 +651,11 @@ export const InfraEnablersReview = ({
             {
               capacityArray: (state?.section4_6?.capacityArray || []).map(
                 (item: any) => ({
-                officerName: item?.officerName ?? null,
-                designation: item?.designation ?? null,
-                programName: item?.programName ?? null,
-                trainingType: item?.trainingType ?? null,
-                organiser: item?.organiser ?? null,
+                  officerName: item?.officerName ?? null,
+                  designation: item?.designation ?? null,
+                  programName: item?.programName ?? null,
+                  trainingType: item?.trainingType ?? null,
+                  organiser: item?.organiser ?? null,
                 })
               ),
               participated: state?.section4_6?.participated ?? null,
@@ -669,13 +669,26 @@ export const InfraEnablersReview = ({
           return;
       }
 
-      // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
+      // If NODAL_OFFICER, check current status and set RESUBMITTED only if status was REVERTED
       if (isNodalOfficer && fields.length > 0) {
-        // Add status to the first field object
-        fields[0] = {
-          ...fields[0],
-          status: "RESUBMITTED",
-        };
+        // Get current status from formDataState
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData = formDataState && formDataState[sectionKey];
+        const currentStatus = sectionData
+          ? Array.isArray(sectionData)
+            ? (sectionData as any).status
+            : sectionData.status
+          : undefined;
+        const upperStatus = (currentStatus || "").toUpperCase();
+
+        // Only set RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Add status to the first field object
+          fields[0] = {
+            ...fields[0],
+            status: "RESUBMITTED",
+          };
+        }
       }
 
       await handleSaveSection({
@@ -685,21 +698,33 @@ export const InfraEnablersReview = ({
         fields,
       });
 
-      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
+      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
-        // Update formDataState to set status to RESUBMITTED
+        // Get current status from formDataState
         const sectionKey = `section${sectionId.replace(".", "_")}`;
-        setFormDataState((prev: any) => {
-          if (!prev) return prev;
-          const updated = { ...prev };
-          if (updated[sectionKey]) {
-            updated[sectionKey] = {
-              ...updated[sectionKey],
-              status: "RESUBMITTED",
-            };
-          }
-          return updated;
-        });
+        const sectionData = formDataState && formDataState[sectionKey];
+        const currentStatus = sectionData
+          ? Array.isArray(sectionData)
+            ? (sectionData as any).status
+            : sectionData.status
+          : undefined;
+        const upperStatus = (currentStatus || "").toUpperCase();
+
+        // Only update to RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Update formDataState to set status to RESUBMITTED
+          setFormDataState((prev: any) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (updated[sectionKey]) {
+              updated[sectionKey] = {
+                ...updated[sectionKey],
+                status: "RESUBMITTED",
+              };
+            }
+            return updated;
+          });
+        }
       }
 
       // Disable editing after successful save
@@ -729,7 +754,7 @@ export const InfraEnablersReview = ({
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
-    
+
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
       submissionId,
@@ -737,19 +762,19 @@ export const InfraEnablersReview = ({
       section: `section${sectionId.replace(".", "_")}`,
       status: status,
     };
-    
+
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
     }
-    
+
     try {
       await apiService.indicatorStatus(payload);
       // Update local formData to trigger re-render of action buttons
       const sectionKey = `section${sectionId.replace(".", "_")}`;
       const statusField = isMospiApprover ? "mospi_status" : "status";
       const statusValue = status ? "ACCEPTED" : "REVERTED";
-      
+
       // Defensive: update formDataState if section exists
       if (formDataState && (formDataState as any)[sectionKey] !== undefined) {
         setFormDataState((prev: any) => {
@@ -781,7 +806,7 @@ export const InfraEnablersReview = ({
           isMospiApprover ? "mospi_" : ""
         }status updated successfully`
       );
-      
+
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
         window.dispatchEvent(
@@ -840,12 +865,12 @@ export const InfraEnablersReview = ({
       };
       const userRole = getUserRole();
       const isMospiApprover = userRole === "MOSPI_APPROVER";
-      
+
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
-      
+
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -875,12 +900,12 @@ export const InfraEnablersReview = ({
       };
       const userRole = getUserRole();
       const isMospiApprover = userRole === "MOSPI_APPROVER";
-      
+
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, true);
-      
+
       setShowAcceptDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -916,24 +941,24 @@ export const InfraEnablersReview = ({
     const sectionKey = `section${sectionId.replace(".", "_")}`;
     const previousSection = state?.[sectionKey] || {};
     const targetKey = ["4.2", "4.4"].includes(sectionId) ? "files" : "file";
-    
+
     // For sections that use 'files' array, ensure we always work with arrays
     let filesArray: FileUpload[] = [];
     if (targetKey === "files") {
       // If updatedValue is null, set empty array
       if (updatedValue === null) {
         filesArray = [];
-      } 
+      }
       // If it's already an array, use it
       else if (Array.isArray(updatedValue)) {
         filesArray = updatedValue;
-      } 
+      }
       // If it's a single file, convert to array
       else {
         filesArray = [updatedValue];
       }
     }
-    
+
     const normalizedValue = targetKey === "files" ? filesArray : updatedValue;
 
     const updatedSection =
@@ -991,14 +1016,14 @@ export const InfraEnablersReview = ({
           "with payload:",
           fields
         );
-        
+
         await handleSaveSection({
           submissionId,
           category: "infraEnablers",
           section: sectionKey,
           fields,
         });
-        
+
         if (filesArray.length === 0) {
           await onIndicatorStatus(sectionId, false);
         }
@@ -1255,7 +1280,7 @@ export const InfraEnablersReview = ({
 
     const comments = getComments(sectionId);
     const commentCount = comments ? comments.length : 0;
-    
+
     // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
     const getUserRole = () => {
       try {
@@ -1274,13 +1299,13 @@ export const InfraEnablersReview = ({
     const isStateApprover = userRole === "STATE_APPROVER";
     const isMospiReviewer = userRole === "MOSPI_REVIEWER";
     const isMospiApprover = userRole === "MOSPI_APPROVER";
-    
+
     // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
     const submissionStatus = submission?.status;
     if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
       return null;
     }
-    
+
     // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
     // Only show Timeline button for viewing comments
     if (submissionStatus === "APPROVED") {
@@ -1300,7 +1325,7 @@ export const InfraEnablersReview = ({
         </div>
       );
     }
-    
+
     // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
     if (isMospiReviewer) {
       return (
@@ -1328,16 +1353,16 @@ export const InfraEnablersReview = ({
         </div>
       );
     }
-    
+
     // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
     if (isMospiApprover) {
       // Check mospi_status instead of status for MOSPI_APPROVER
       const sectionKey = `section${sectionId.replace(".", "_")}`;
       const sectionData = state && state[sectionKey];
-      const mospiStatus = Array.isArray(sectionData) 
-        ? (sectionData as any)?.mospi_status 
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
         : sectionData?.mospi_status;
-      
+
       if (mospiStatus === "ACCEPTED") {
         return (
           <div className="flex gap-2">
@@ -1362,7 +1387,7 @@ export const InfraEnablersReview = ({
           </div>
         );
       }
-      
+
       if (mospiStatus === "REVERTED") {
         return (
           <div className="flex gap-2">
@@ -1387,7 +1412,7 @@ export const InfraEnablersReview = ({
           </div>
         );
       }
-      
+
       // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
       return (
         <div className="flex gap-2">
@@ -1396,7 +1421,7 @@ export const InfraEnablersReview = ({
             size="sm"
             className="flex items-center gap-1"
             onClick={() => {
-              // For MOSPI_APPROVER, send back action: 
+              // For MOSPI_APPROVER, send back action:
               // 1. Set flag to track this is a "Sent Back" action
               // 2. Open comment modal first
               setIsMospiApproverSentBack(true);
@@ -1412,7 +1437,7 @@ export const InfraEnablersReview = ({
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => {
-              // For MOSPI_APPROVER, accept action: 
+              // For MOSPI_APPROVER, accept action:
               // Show confirmation dialog directly (no comment required)
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
@@ -1438,10 +1463,10 @@ export const InfraEnablersReview = ({
     const sectionKey = `section${sectionId.replace(".", "_")}`;
     const sectionData = state && state[sectionKey];
     // Handle both array and object sections
-    const sectionStatus = Array.isArray(sectionData) 
-      ? (sectionData as any)?.status 
+    const sectionStatus = Array.isArray(sectionData)
+      ? (sectionData as any)?.status
       : sectionData?.status;
-      
+
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
     // REVERTED is excluded because user can resubmit after being sent back
     const isSubmitted =
@@ -1473,7 +1498,7 @@ export const InfraEnablersReview = ({
         </div>
       );
     }
-    
+
     // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
     if (isStateApprover && sectionStatus === "RESUBMITTED") {
       return (
@@ -1543,7 +1568,7 @@ export const InfraEnablersReview = ({
         </div>
       );
     }
-    
+
     if (sectionStatus === "REVERTED") {
       // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
       if (isNodalOfficer) {
@@ -1603,7 +1628,7 @@ export const InfraEnablersReview = ({
           </div>
         );
       }
-      
+
       // For reviewers/approvers, show only the disabled Sent Back button
       return (
         <div className="flex gap-2">
@@ -1629,8 +1654,37 @@ export const InfraEnablersReview = ({
       );
     }
 
-    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE, RESUBMITTED, or null/undefined
-    if (isNodalOfficer && (sectionStatus === "SUBMITTED_TO_STATE" || sectionStatus === "RESUBMITTED" || !sectionStatus)) {
+    // For NODAL_OFFICER, show "Resubmitted" badge if status is RESUBMITTED
+    if (isNodalOfficer && sectionStatus === "RESUBMITTED") {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Resubmitted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+
+    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE or null/undefined
+    if (
+      isNodalOfficer &&
+      (sectionStatus === "SUBMITTED_TO_STATE" || !sectionStatus)
+    ) {
       return (
         <div className="flex gap-2">
           <Button
@@ -1663,8 +1717,8 @@ export const InfraEnablersReview = ({
       sectionStatus !== "RESUBMITTED" &&
       sectionStatus !== "SUBMITTED_TO_STATE"
     ) {
-    return null;
-  }
+      return null;
+    }
 
     return (
       <div className="flex gap-2">
@@ -1779,22 +1833,22 @@ export const InfraEnablersReview = ({
         })()}
         {/* Section 4.1 */}
         {sectionsWithData.includes("section4_1") && (
-        <SectionCard
+          <SectionCard
             title={
               <div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
                     <span className="text-primary">4.1 -</span> Eligible
                     Infrastructure Projects{" "}
-              </span>
-              {renderActionButtons("4.1")}
-            </div>
+                  </span>
+                  {renderActionButtons("4.1")}
+                </div>
               </div>
             }
-          subtitle=""
-          className="mb-6"
-        >
-          {/* <CardHeader className="bg-muted/30">
+            subtitle=""
+            className="mb-6"
+          >
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                  
@@ -1812,78 +1866,78 @@ export const InfraEnablersReview = ({
               )}
             </div>
           </CardHeader> */}
-          <div className="flex flex-col gap-4 w-[40%]">
-            <div>
+            <div className="flex flex-col gap-4 w-[40%]">
+              <div>
                 <Label className="mb-3 block">
                   All Eligible Infra Projects on NIP Portal?*
                 </Label>
                 {isEditable("4.1") ? (
-                <RadioGroup
-                  value={state?.section4_1?.allEligible || ""}
+                  <RadioGroup
+                    value={state?.section4_1?.allEligible || ""}
                     onValueChange={(value) =>
                       handleFieldUpdate("4.1", "allEligible", value)
                     }
-                  className="flex flex-row gap-6"
-                >
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.1-yes" />
+                      <Label htmlFor="4.1-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.1-no" />
+                      <Label htmlFor="4.1-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.1-yes" />
-                    <Label htmlFor="4.1-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.1-no" />
-                    <Label htmlFor="4.1-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
                         state?.section4_1?.allEligible === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
-                    {state?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
+                      {state?.section4_1?.allEligible === "yes" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {state?.section4_1?.allEligible === "yes" && (
-              <div>
-                <Label>Website Link</Label>
-                <Input 
-                  value={state?.section4_1?.websiteLink || ""} 
+                <div>
+                  <Label>Website Link</Label>
+                  <Input
+                    value={state?.section4_1?.websiteLink || ""}
                     readOnly={!isEditable("4.1")}
                     className={isEditable("4.1") ? "bg-white" : "bg-gray-50"}
                     onChange={(e) =>
                       handleFieldUpdate("4.1", "websiteLink", e.target.value)
                     }
-                />
-              </div>
-            )}
+                  />
+                </div>
+              )}
 
               {state?.section4_1?.allEligible === "no" && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
                   {isEditable("4.1") ? (
-                  <Textarea
-                    value={state?.section4_1?.comment || ""}
+                    <Textarea
+                      value={state?.section4_1?.comment || ""}
                       onChange={(e) =>
                         handleFieldUpdate("4.1", "comment", e.target.value)
                       }
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_1?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_1?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* {(formDataState?.section4_1?.allEligible === "yes") && (
+              {/* {(formDataState?.section4_1?.allEligible === "yes") && (
               <div>
                 <EditableFileDisplay
                   files={formDataState?.section4_1?.file || null}
@@ -1896,132 +1950,132 @@ export const InfraEnablersReview = ({
               </div>
             )} */}
 
-            {/* <p className="text-xs text-muted-foreground">
+              {/* <p className="text-xs text-muted-foreground">
               Annex 9: Self-certification required
             </p> */}
             </div>
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.2 */}
         {sectionsWithData.includes("section4_2") && (
-        <SectionCard
+          <SectionCard
             title={
               <div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
                     <span className="text-primary">4.2 -</span> Availability &
                     Use of State/UT PMG{" "}
                     <span className="font-normal text-xs text-muted-foreground ml-1">
                       (5 marks per 1%)
                     </span>{" "}
-              </span>
-              {renderActionButtons("4.2")}
-            </div>
+                  </span>
+                  {renderActionButtons("4.2")}
+                </div>
               </div>
             }
-          subtitle=""
-          className="mb-6"
-        >
-          <div className="space-y-4">
-            <div>
+            subtitle=""
+            className="mb-6"
+          >
+            <div className="space-y-4">
+              <div>
                 <Label className="mb-3 block">
                   Availability and Use of EaseMPR?*
                 </Label>
                 {isEditable("4.2") ? (
-                <RadioGroup
-                  value={state?.section4_2?.available || ""}
+                  <RadioGroup
+                    value={state?.section4_2?.available || ""}
                     onValueChange={(value) =>
                       handleFieldUpdate("4.2", "available", value)
                     }
-                  className="flex flex-row gap-6"
-                >
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.2-yes" />
+                      <Label htmlFor="4.2-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.2-no" />
+                      <Label htmlFor="4.2-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.2-yes" />
-                    <Label htmlFor="4.2-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.2-no" />
-                    <Label htmlFor="4.2-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
                         state?.section4_2?.available === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
-                    {state?.section4_2?.available === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
+                      {state?.section4_2?.available === "yes" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {state?.section4_2?.available === "yes" && (
-              <div>
-                <EditableFileDisplay
+                <div>
+                  <EditableFileDisplay
                     files={
                       state?.section4_2?.files ??
                       (state?.section4_2?.file ? [state.section4_2.file] : null)
                     }
                     isEditable={isEditable("4.2")}
-                  submissionId={submissionId}
+                    submissionId={submissionId}
                     onFilesChange={(updatedFiles) =>
                       handleFileUpdate("4.2", updatedFiles)
                     }
-                  label="Uploaded File"
-                  multiple={true}
-                />
-              </div>
-            )}
+                    label="Uploaded File"
+                    multiple={true}
+                  />
+                </div>
+              )}
 
               {state?.section4_2?.available === "no" && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
                   {isEditable("4.2") ? (
-                  <Textarea
-                    value={state?.section4_2?.comment || ""}
+                    <Textarea
+                      value={state?.section4_2?.comment || ""}
                       onChange={(e) =>
                         handleFieldUpdate("4.2", "comment", e.target.value)
                       }
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_2?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_2?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.3 */}
         {sectionsWithData.includes("section4_3") && (
-        <SectionCard
+          <SectionCard
             title={
               <div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
                     <span className="text-primary">4.3 -</span> Adoption of PM
                     GatiShakti{" "}
                     <span className="font-normal text-xs text-muted-foreground ml-1">
                       (10 marks per 1%)
                     </span>{" "}
-              </span>
-              {renderActionButtons("4.3")}
-            </div>
+                  </span>
+                  {renderActionButtons("4.3")}
+                </div>
               </div>
             }
-          subtitle=""
-          className="mb-6"
-        >
-          {/* <CardHeader className="bg-muted/30">
+            subtitle=""
+            className="mb-6"
+          >
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                  
@@ -2039,50 +2093,50 @@ export const InfraEnablersReview = ({
               )}
             </div>
           </CardHeader> */}
-          <div className="space-y-4">
-            <div>
+            <div className="space-y-4">
+              <div>
                 <Label className="mb-3 block">
                   Adoption of PM GatiShakti?*
                 </Label>
                 {isEditable("4.3") ? (
-                <RadioGroup
-                  value={state?.section4_3?.adopted || ""}
+                  <RadioGroup
+                    value={state?.section4_3?.adopted || ""}
                     onValueChange={(value) =>
                       handleFieldUpdate("4.3", "adopted", value)
                     }
-                  className="flex flex-row gap-6"
-                >
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.3-yes" />
+                      <Label htmlFor="4.3-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.3-no" />
+                      <Label htmlFor="4.3-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.3-yes" />
-                    <Label htmlFor="4.3-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.3-no" />
-                    <Label htmlFor="4.3-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
                         state?.section4_3?.adopted === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
-                    {state?.section4_3?.adopted === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
+                      {state?.section4_3?.adopted === "yes" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {state?.section4_3?.adopted === "yes" && (
-              <>
-                {/* Projects Table */}
-                <div className="overflow-x-auto rounded-xl">
-                  <table className="min-w-full border-separate border-spacing-0">
-                    <thead>
-                      <tr className="bg-[#DDE3F9]">
+                <>
+                  {/* Projects Table */}
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
                           <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
                             Project Name
                           </th>
@@ -2092,35 +2146,35 @@ export const InfraEnablersReview = ({
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Uploaded File
                           </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
                           const projects = Array.isArray(
                             state?.section4_3?.projects
                           )
-                          ? state.section4_3.projects
-                          : [];
+                            ? state.section4_3.projects
+                            : [];
 
-                        if (!projects.length) {
-                          return (
-                            <tr>
+                          if (!projects.length) {
+                            return (
+                              <tr>
                                 <td
                                   colSpan={3}
                                   className="py-8 text-center text-muted-foreground"
                                 >
-                                No projects available
-                              </td>
-                            </tr>
-                          );
-                        }
+                                  No projects available
+                                </td>
+                              </tr>
+                            );
+                          }
 
-                        return projects.map((project: any, idx: number) => (
-                          <tr key={project.id || idx} className="border-b">
-                            <td className="py-3 px-4 text-sm font-normal">
+                          return projects.map((project: any, idx: number) => (
+                            <tr key={project.id || idx} className="border-b">
+                              <td className="py-3 px-4 text-sm font-normal">
                                 {isEditable("4.3") ? (
-                                <Input
-                                  value={project.projectName || ""}
+                                  <Input
+                                    value={project.projectName || ""}
                                     onChange={(e) =>
                                       handleProjectFieldUpdate(
                                         idx,
@@ -2128,17 +2182,17 @@ export const InfraEnablersReview = ({
                                         e.target.value
                                       )
                                     }
-                                  className="w-full"
-                                  placeholder="Enter project name"
-                                />
-                              ) : (
+                                    className="w-full"
+                                    placeholder="Enter project name"
+                                  />
+                                ) : (
                                   project.projectName || "N/A"
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
                                 {isEditable("4.3") ? (
-                                <Dropdown
-                                  value={project.sector || ""}
+                                  <Dropdown
+                                    value={project.sector || ""}
                                     onChange={(value) =>
                                       handleProjectFieldUpdate(
                                         idx,
@@ -2146,55 +2200,55 @@ export const InfraEnablersReview = ({
                                         value
                                       )
                                     }
-                                  options={dropdownValues.sector}
-                                  placeholder="Select sector"
-                                />
-                              ) : (
+                                    options={dropdownValues.sector}
+                                    placeholder="Select sector"
+                                  />
+                                ) : (
                                   project.sector || "N/A"
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
                                 {isEditable("4.3") ? (
-                                <div className="space-y-1.5">
-                                  {project.file ? (
-                                    <Badge 
-                                      variant="secondary" 
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                  <div className="space-y-1.5">
+                                    {project.file ? (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
                                         title={
                                           project.file.fileName ||
                                           "Unknown file"
                                         }
-                                    >
-                                      <Upload className="w-3 h-3 flex-shrink-0" />
+                                      >
+                                        <Upload className="w-3 h-3 flex-shrink-0" />
                                         <span className="truncate">
                                           {project.file.fileName ||
                                             "Unknown file"}
                                         </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handleProjectFileUpdate(idx, null);
-                                        }}
-                                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                      </button>
-                                    </Badge>
-                                  ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            handleProjectFileUpdate(idx, null);
+                                          }}
+                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                        </button>
+                                      </Badge>
+                                    ) : (
                                       <span className="text-muted-foreground text-xs">
                                         No file
                                       </span>
-                                  )}
-                                  <div className="flex items-center">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.doc,.docx"
-                                      onChange={async (e) => {
+                                    )}
+                                    <div className="flex items-center">
+                                      <input
+                                        type="file"
+                                        accept=".pdf,.doc,.docx"
+                                        onChange={async (e) => {
                                           const selectedFile =
                                             e.target.files?.[0];
-                                        if (selectedFile) {
-                                          // Upload file immediately (same as create submission)
-                                          try {
+                                          if (selectedFile) {
+                                            // Upload file immediately (same as create submission)
+                                            try {
                                               const response =
                                                 await apiService.uploadFile(
                                                   submissionId,
@@ -2202,12 +2256,12 @@ export const InfraEnablersReview = ({
                                                 );
                                               const fileData =
                                                 response?.data || response;
-                                            
-                                            const newFile: FileUpload = {
+
+                                              const newFile: FileUpload = {
                                                 id:
                                                   fileData.id ??
                                                   crypto.randomUUID(),
-                                              file: null, // File not stored locally when backend handles upload
+                                                file: null, // File not stored locally when backend handles upload
                                                 fileName:
                                                   fileData.fileName ||
                                                   fileData.filename ||
@@ -2230,29 +2284,29 @@ export const InfraEnablersReview = ({
                                                 fileUrl:
                                                   fileData.fileUrl ||
                                                   fileData.url,
-                                              mimeType: fileData.mimeType,
-                                            };
-                                            
+                                                mimeType: fileData.mimeType,
+                                              };
+
                                               await handleProjectFileUpdate(
                                                 idx,
                                                 newFile
                                               );
                                               e.target.value = ""; // Reset input
-                                          } catch (error: any) {
+                                            } catch (error: any) {
                                               console.error(
                                                 "Failed to upload file:",
                                                 error
                                               );
+                                            }
                                           }
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id={`file-input-4.3-${idx}`}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
+                                        }}
+                                        className="hidden"
+                                        id={`file-input-4.3-${idx}`}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() =>
                                           document
                                             .getElementById(
@@ -2260,16 +2314,16 @@ export const InfraEnablersReview = ({
                                             )
                                             ?.click()
                                         }
-                                      className="h-6 px-2 text-xs"
-                                    >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Add
-                                    </Button>
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        <Plus className="w-3 h-3 mr-1" />
+                                        Add
+                                      </Button>
+                                    </div>
                                   </div>
-                                </div>
                                 ) : project.file ? (
-                                  <Badge 
-                                    variant="secondary" 
+                                  <Badge
+                                    variant="secondary"
                                     className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
                                     title={
                                       project.file.fileName || "Unknown file"
@@ -2284,249 +2338,249 @@ export const InfraEnablersReview = ({
                                   <span className="text-muted-foreground text-xs">
                                     No file
                                   </span>
-                              )}
-                            </td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
+                                )}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
 
-                {/* Add More Button - Only visible when adopted is "yes" and in edit mode */}
+                  {/* Add More Button - Only visible when adopted is "yes" and in edit mode */}
                   {isEditable("4.3") && !showAddProjectForm && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                    onClick={() => setShowAddProjectForm(true)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add More
-                  </Button>
-                )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => setShowAddProjectForm(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More
+                    </Button>
+                  )}
 
-                {/* Add Project Form - Only visible when showAddProjectForm is true */}
+                  {/* Add Project Form - Only visible when showAddProjectForm is true */}
                   {showAddProjectForm && isEditable("4.3") && (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <h4 className="font-medium mb-3">Add New Project</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Project Name</Label>
-                        <Input 
-                          value={newProject.projectName} 
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium mb-3">Add New Project</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Project Name</Label>
+                          <Input
+                            value={newProject.projectName}
                             onChange={(e) =>
                               setNewProject({
                                 ...newProject,
                                 projectName: e.target.value,
                               })
                             }
-                          className="bg-white"
-                          placeholder="Enter project name"
-                        />
-                      </div>
-                      <div>
-                        <Label>Sector</Label>
-                        <Dropdown
-                          value={newProject.sector}
+                            className="bg-white"
+                            placeholder="Enter project name"
+                          />
+                        </div>
+                        <div>
+                          <Label>Sector</Label>
+                          <Dropdown
+                            value={newProject.sector}
                             onChange={(value) =>
                               setNewProject({ ...newProject, sector: value })
                             }
-                          options={dropdownValues.sector}
-                          placeholder="Select sector"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label>Upload File</Label>
-                        <EditableFileDisplay
-                          files={newProject.file}
-                          isEditable={true}
-                          submissionId={submissionId}
-                          onFilesChange={(updatedFile) => {
+                            options={dropdownValues.sector}
+                            placeholder="Select sector"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Upload File</Label>
+                          <EditableFileDisplay
+                            files={newProject.file}
+                            isEditable={true}
+                            submissionId={submissionId}
+                            onFilesChange={(updatedFile) => {
                               setNewProject({
                                 ...newProject,
                                 file: updatedFile as FileUpload | null,
                               });
-                          }}
-                          label=""
-                          multiple={false}
-                        />
+                            }}
+                            label=""
+                            multiple={false}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleAddNewProject}
+                          className="flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Save Project
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCancelAddProject}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleAddNewProject}
-                        className="flex items-center gap-2"
-                      >
-                        <Check className="w-4 h-4" />
-                        Save Project
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCancelAddProject}
-                        className="flex items-center gap-2"
-                      >
-                        <X className="w-4 h-4" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              )}
 
               {state?.section4_3?.adopted === "no" && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
                   {isEditable("4.3") ? (
-                  <Textarea
-                    value={state?.section4_3?.comment || ""}
+                    <Textarea
+                      value={state?.section4_3?.comment || ""}
                       onChange={(e) =>
                         handleFieldUpdate("4.3", "comment", e.target.value)
                       }
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_3?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_3?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            <p className="text-xs text-muted-foreground">
-              Upload GatiShakti evidence
-            </p>
+              <p className="text-xs text-muted-foreground">
+                Upload GatiShakti evidence
+              </p>
             </div>
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.4 */}
         {sectionsWithData.includes("section4_4") && (
-        <SectionCard
+          <SectionCard
             title={
               <div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
                     <span className="text-primary">4.4 -</span> Adoption of ADR{" "}
                     <span className="font-normal text-xs text-muted-foreground ml-1">
                       (5 marks per 1%)
                     </span>{" "}
-              </span>
-              {renderActionButtons("4.4")}
-            </div>
+                  </span>
+                  {renderActionButtons("4.4")}
+                </div>
               </div>
             }
-          subtitle=""
-          className="mb-6"
-        >
-          <div className="space-y-4">
-            <div>
+            subtitle=""
+            className="mb-6"
+          >
+            <div className="space-y-4">
+              <div>
                 <Label className="mb-3 block">
                   Adoption of Alternate Dispute Resolution (ADR)?*
                 </Label>
                 {isEditable("4.4") ? (
-                <RadioGroup
-                  value={state?.section4_4?.adopted || ""}
+                  <RadioGroup
+                    value={state?.section4_4?.adopted || ""}
                     onValueChange={(value) =>
                       handleFieldUpdate("4.4", "adopted", value)
                     }
-                  className="flex flex-row gap-6"
-                >
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.4-yes" />
+                      <Label htmlFor="4.4-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.4-no" />
+                      <Label htmlFor="4.4-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.4-yes" />
-                    <Label htmlFor="4.4-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.4-no" />
-                    <Label htmlFor="4.4-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
                         state?.section4_4?.adopted === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
-                    {state?.section4_4?.adopted === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
+                      {state?.section4_4?.adopted === "yes" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
+              </div>
 
-            {state?.section4_4?.adopted === "yes" && (
-              <div>
-                <EditableFileDisplay
+              {state?.section4_4?.adopted === "yes" && (
+                <div>
+                  <EditableFileDisplay
                     files={
                       state?.section4_4?.files ??
                       (state?.section4_4?.file ? [state.section4_4.file] : null)
                     }
                     isEditable={isEditable("4.4")}
-                  submissionId={submissionId}
+                    submissionId={submissionId}
                     onFilesChange={(updatedFiles) =>
                       handleFileUpdate("4.4", updatedFiles)
                     }
-                  label="Uploaded File"
-                  multiple={true}
-                />
-              </div>
-            )}
+                    label="Uploaded File"
+                    multiple={true}
+                  />
+                </div>
+              )}
 
               {state?.section4_4?.adopted === "no" && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
                   {isEditable("4.4") ? (
-                  <Textarea
-                    value={state?.section4_4?.comment || ""}
+                    <Textarea
+                      value={state?.section4_4?.comment || ""}
                       onChange={(e) =>
                         handleFieldUpdate("4.4", "comment", e.target.value)
                       }
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_4?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_4?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            <p className="text-xs text-muted-foreground">
-              Upload ADR orders/notification
-            </p>
+              <p className="text-xs text-muted-foreground">
+                Upload ADR orders/notification
+              </p>
             </div>
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.5 */}
         {sectionsWithData.includes("section4_5") && (
-        <SectionCard
+          <SectionCard
             title={
               <div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
                     <span className="text-primary">4.5 -</span>Innovative
                     Practices{" "}
                     <span className="font-normal text-xs text-muted-foreground ml-1">
                       (10 marks per practice)
                     </span>{" "}
-              </span>
-              {renderActionButtons("4.5")}
-            </div>
+                  </span>
+                  {renderActionButtons("4.5")}
+                </div>
               </div>
             }
-          subtitle=""
-          className="mb-6"
-        >
-          {/* <CardHeader className="bg-muted/30">
+            subtitle=""
+            className="mb-6"
+          >
+            {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 
@@ -2542,48 +2596,48 @@ export const InfraEnablersReview = ({
               </Button> )}
             </div>
           </CardHeader> */}
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-3 block">Implemented?*</Label>
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-3 block">Implemented?*</Label>
                 {isEditable("4.5") ? (
-                <RadioGroup
-                  value={state?.section4_5?.implemented || ""}
+                  <RadioGroup
+                    value={state?.section4_5?.implemented || ""}
                     onValueChange={(value) =>
                       handleFieldUpdate("4.5", "implemented", value)
                     }
-                  className="flex flex-row gap-6"
-                >
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.5-yes" />
+                      <Label htmlFor="4.5-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.5-no" />
+                      <Label htmlFor="4.5-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.5-yes" />
-                    <Label htmlFor="4.5-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.5-no" />
-                    <Label htmlFor="4.5-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
                         state?.section4_5?.implemented === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
-                    {state?.section4_5?.implemented === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
+                      {state?.section4_5?.implemented === "yes" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {state?.section4_5?.implemented === "yes" && (
-              <>
-                {/* Practices Table */}
-                <div className="overflow-x-auto rounded-xl">
-                  <table className="min-w-full border-separate border-spacing-0">
-                    <thead>
-                      <tr className="bg-[#DDE3F9]">
+                <>
+                  {/* Practices Table */}
+                  <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#DDE3F9]">
                           <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
                             Practice Name
                           </th>
@@ -2593,35 +2647,35 @@ export const InfraEnablersReview = ({
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Uploaded File
                           </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
                           const practices = Array.isArray(
                             state?.section4_5?.practices
                           )
-                          ? state.section4_5.practices
-                          : [];
+                            ? state.section4_5.practices
+                            : [];
 
-                        if (!practices.length) {
-                          return (
-                            <tr>
+                          if (!practices.length) {
+                            return (
+                              <tr>
                                 <td
                                   colSpan={3}
                                   className="py-8 text-center text-muted-foreground"
                                 >
-                                No practices available
-                              </td>
-                            </tr>
-                          );
-                        }
+                                  No practices available
+                                </td>
+                              </tr>
+                            );
+                          }
 
-                        return practices.map((practice: any, idx: number) => (
-                          <tr key={practice.id || idx} className="border-b">
-                            <td className="py-3 px-4 text-sm font-normal">
+                          return practices.map((practice: any, idx: number) => (
+                            <tr key={practice.id || idx} className="border-b">
+                              <td className="py-3 px-4 text-sm font-normal">
                                 {isEditable("4.5") ? (
-                                <Input
-                                  value={practice.practiceName || ""}
+                                  <Input
+                                    value={practice.practiceName || ""}
                                     onChange={(e) =>
                                       handlePracticeFieldUpdate(
                                         idx,
@@ -2629,17 +2683,17 @@ export const InfraEnablersReview = ({
                                         e.target.value
                                       )
                                     }
-                                  className="w-full"
-                                  placeholder="Enter practice name"
-                                />
-                              ) : (
+                                    className="w-full"
+                                    placeholder="Enter practice name"
+                                  />
+                                ) : (
                                   practice.practiceName || "N/A"
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
                                 {isEditable("4.5") ? (
-                                <Dropdown
-                                  value={practice.impact || ""}
+                                  <Dropdown
+                                    value={practice.impact || ""}
                                     onChange={(value) =>
                                       handlePracticeFieldUpdate(
                                         idx,
@@ -2647,55 +2701,55 @@ export const InfraEnablersReview = ({
                                         value
                                       )
                                     }
-                                  options={IMPACT_OPTIONS}
-                                  placeholder="Select impact"
-                                />
-                              ) : (
+                                    options={IMPACT_OPTIONS}
+                                    placeholder="Select impact"
+                                  />
+                                ) : (
                                   practice.impact || "N/A"
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
                                 {isEditable("4.5") ? (
-                                <div className="space-y-1.5">
-                                  {practice.file ? (
-                                    <Badge 
-                                      variant="secondary" 
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                  <div className="space-y-1.5">
+                                    {practice.file ? (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
                                         title={
                                           practice.file.fileName ||
                                           "Unknown file"
                                         }
-                                    >
-                                      <Upload className="w-3 h-3 flex-shrink-0" />
+                                      >
+                                        <Upload className="w-3 h-3 flex-shrink-0" />
                                         <span className="truncate">
                                           {practice.file.fileName ||
                                             "Unknown file"}
                                         </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          handlePracticeFileUpdate(idx, null);
-                                        }}
-                                        className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                                      </button>
-                                    </Badge>
-                                  ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            handlePracticeFileUpdate(idx, null);
+                                          }}
+                                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                        </button>
+                                      </Badge>
+                                    ) : (
                                       <span className="text-muted-foreground text-xs">
                                         No file
                                       </span>
-                                  )}
-                                  <div className="flex items-center">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.doc,.docx"
-                                      onChange={async (e) => {
+                                    )}
+                                    <div className="flex items-center">
+                                      <input
+                                        type="file"
+                                        accept=".pdf,.doc,.docx"
+                                        onChange={async (e) => {
                                           const selectedFile =
                                             e.target.files?.[0];
-                                        if (selectedFile) {
-                                          // Upload file immediately (same as create submission)
-                                          try {
+                                          if (selectedFile) {
+                                            // Upload file immediately (same as create submission)
+                                            try {
                                               const response =
                                                 await apiService.uploadFile(
                                                   submissionId,
@@ -2703,12 +2757,12 @@ export const InfraEnablersReview = ({
                                                 );
                                               const fileData =
                                                 response?.data || response;
-                                            
-                                            const newFile: FileUpload = {
+
+                                              const newFile: FileUpload = {
                                                 id:
                                                   fileData.id ??
                                                   crypto.randomUUID(),
-                                              file: null, // File not stored locally when backend handles upload
+                                                file: null, // File not stored locally when backend handles upload
                                                 fileName:
                                                   fileData.fileName ||
                                                   fileData.filename ||
@@ -2731,29 +2785,29 @@ export const InfraEnablersReview = ({
                                                 fileUrl:
                                                   fileData.fileUrl ||
                                                   fileData.url,
-                                              mimeType: fileData.mimeType,
-                                            };
-                                            
+                                                mimeType: fileData.mimeType,
+                                              };
+
                                               await handlePracticeFileUpdate(
                                                 idx,
                                                 newFile
                                               );
                                               e.target.value = ""; // Reset input
-                                          } catch (error: any) {
+                                            } catch (error: any) {
                                               console.error(
                                                 "Failed to upload file:",
                                                 error
                                               );
+                                            }
                                           }
-                                        }
-                                      }}
-                                      className="hidden"
-                                      id={`file-input-4.5-${idx}`}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
+                                        }}
+                                        className="hidden"
+                                        id={`file-input-4.5-${idx}`}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() =>
                                           document
                                             .getElementById(
@@ -2761,16 +2815,16 @@ export const InfraEnablersReview = ({
                                             )
                                             ?.click()
                                         }
-                                      className="h-6 px-2 text-xs"
-                                    >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Add
-                                    </Button>
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        <Plus className="w-3 h-3 mr-1" />
+                                        Add
+                                      </Button>
+                                    </div>
                                   </div>
-                                </div>
                                 ) : practice.file ? (
-                                  <Badge 
-                                    variant="secondary" 
+                                  <Badge
+                                    variant="secondary"
                                     className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
                                     title={
                                       practice.file.fileName || "Unknown file"
@@ -2785,193 +2839,193 @@ export const InfraEnablersReview = ({
                                   <span className="text-muted-foreground text-xs">
                                     No file
                                   </span>
-                              )}
-                            </td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
+                                )}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
 
-                {/* Add More Practice Button - Only visible when in edit mode */}
+                  {/* Add More Practice Button - Only visible when in edit mode */}
                   {isEditable("4.5") && !showAddPracticeForm && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                    onClick={() => setShowAddPracticeForm(true)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add More Practice
-                  </Button>
-                )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => setShowAddPracticeForm(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More Practice
+                    </Button>
+                  )}
 
-                {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
+                  {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
                   {showAddPracticeForm && isEditable("4.5") && (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <h4 className="font-medium mb-3">Add New Practice</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Practice Name</Label>
-                        <Input 
-                          value={newPractice.practiceName} 
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <h4 className="font-medium mb-3">Add New Practice</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Practice Name</Label>
+                          <Input
+                            value={newPractice.practiceName}
                             onChange={(e) =>
                               setNewPractice({
                                 ...newPractice,
                                 practiceName: e.target.value,
                               })
                             }
-                          className="bg-white"
-                          placeholder="Enter practice name"
-                        />
-                      </div>
-                      <div>
-                        <Label>Impact</Label>
-                        <Dropdown
-                          value={newPractice.impact}
+                            className="bg-white"
+                            placeholder="Enter practice name"
+                          />
+                        </div>
+                        <div>
+                          <Label>Impact</Label>
+                          <Dropdown
+                            value={newPractice.impact}
                             onChange={(value) =>
                               setNewPractice({ ...newPractice, impact: value })
                             }
-                          options={IMPACT_OPTIONS}
-                          placeholder="Select impact"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label>Upload File</Label>
-                        <EditableFileDisplay
-                          files={newPractice.file}
-                          isEditable={true}
-                          submissionId={submissionId}
-                          onFilesChange={(updatedFile) => {
+                            options={IMPACT_OPTIONS}
+                            placeholder="Select impact"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Upload File</Label>
+                          <EditableFileDisplay
+                            files={newPractice.file}
+                            isEditable={true}
+                            submissionId={submissionId}
+                            onFilesChange={(updatedFile) => {
                               setNewPractice({
                                 ...newPractice,
                                 file: updatedFile as FileUpload | null,
                               });
-                          }}
-                          label=""
-                          multiple={false}
-                        />
+                            }}
+                            label=""
+                            multiple={false}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleAddNewPractice}
+                          className="flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Save Practice
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCancelAddPractice}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleAddNewPractice}
-                        className="flex items-center gap-2"
-                      >
-                        <Check className="w-4 h-4" />
-                        Save Practice
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCancelAddPractice}
-                        className="flex items-center gap-2"
-                      >
-                        <X className="w-4 h-4" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              )}
 
               {state?.section4_5?.implemented === "no" && (
-              <div>
-                <Label className="mb-2 block">Comment</Label>
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
                   {isEditable("4.5") ? (
-                  <Textarea
-                    value={state?.section4_5?.comment || ""}
+                    <Textarea
+                      value={state?.section4_5?.comment || ""}
                       onChange={(e) =>
                         handleFieldUpdate("4.5", "comment", e.target.value)
                       }
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_5?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_5?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            <p className="text-xs text-muted-foreground">
-              Upload RMB orders/Awards
-            </p>
+              <p className="text-xs text-muted-foreground">
+                Upload RMB orders/Awards
+              </p>
 
               <p className="text-xs text-muted-foreground">Annex 10</p>
             </div>
-        </SectionCard>
+          </SectionCard>
         )}
 
         {/* Section 4.6 */}
         {sectionsWithData.includes("section4_6") && (
-        <SectionCard
+          <SectionCard
             title={
               <div className="flex flex-col relative">
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold ">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold ">
                     <span className="text-primary">4.6 -</span> Capacity
                     Building - Officer Participation{" "}
-              </span>
-              {renderActionButtons("4.6")}
-            </div>
+                  </span>
+                  {renderActionButtons("4.6")}
+                </div>
               </div>
             }
-          subtitle=""
-          className="mb-6"
-        >
-          <div className="space-y-4">
-            <div>
+            subtitle=""
+            className="mb-6"
+          >
+            <div className="space-y-4">
+              <div>
                 <Label className="mb-3 block">
                   Capacity Building – Officer Participation*
                 </Label>
                 {isEditable("4.6") ? (
-                <RadioGroup
-                  value={state?.section4_6?.participated || ""}
-                  onValueChange={(value) => {
+                  <RadioGroup
+                    value={state?.section4_6?.participated || ""}
+                    onValueChange={(value) => {
                       handleFieldUpdate("4.6", "participated", value);
-                    if (value === "yes") {
+                      if (value === "yes") {
                         handleFieldUpdate("4.6", "comment", "");
-                    } else {
+                      } else {
                         handleFieldUpdate("4.6", "capacityArray", []);
-                    }
-                  }}
-                  className="flex flex-row gap-6"
-                >
+                      }
+                    }}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="4.6-yes" />
+                      <Label htmlFor="4.6-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="4.6-no" />
+                      <Label htmlFor="4.6-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="yes" id="4.6-yes" />
-                    <Label htmlFor="4.6-yes">Yes</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no" id="4.6-no" />
-                    <Label htmlFor="4.6-no">No</Label>
-                  </div>
-                </RadioGroup>
-              ) : (
-                <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
                         state?.section4_6?.participated === "yes"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
-                    {state?.section4_6?.participated === "yes" ? "Yes" : "No"}
-                  </span>
-                </div>
-              )}
-            </div>
+                      {state?.section4_6?.participated === "yes" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {state?.section4_6?.participated === "yes" && (
-            <div className="overflow-x-auto rounded-xl">
-              <table className="min-w-full border-separate border-spacing-0">
-                <thead>
-                  <tr className="bg-[#DDE3F9]">
+                <div className="overflow-x-auto rounded-xl">
+                  <table className="min-w-full border-separate border-spacing-0">
+                    <thead>
+                      <tr className="bg-[#DDE3F9]">
                         <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
                           Officer Name
                         </th>
@@ -2987,35 +3041,35 @@ export const InfraEnablersReview = ({
                         <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                           Organiser
                         </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
                         const capacityArray = Array.isArray(
                           state?.section4_6?.capacityArray
                         )
-                      ? state.section4_6.capacityArray
-                      : [];
+                          ? state.section4_6.capacityArray
+                          : [];
 
-                    if (!capacityArray.length) {
-                      return (
-                        <tr>
+                        if (!capacityArray.length) {
+                          return (
+                            <tr>
                               <td
                                 colSpan={5}
                                 className="py-8 text-center text-muted-foreground"
                               >
-                            No capacity building data available
-                          </td>
-                        </tr>
-                      );
-                    }
+                                No capacity building data available
+                              </td>
+                            </tr>
+                          );
+                        }
 
-                    return capacityArray.map((item: any, idx: number) => (
-                      <tr key={item.id || idx} className="border-b">
-                        <td className="py-3 px-4 text-sm font-normal">
+                        return capacityArray.map((item: any, idx: number) => (
+                          <tr key={item.id || idx} className="border-b">
+                            <td className="py-3 px-4 text-sm font-normal">
                               {isEditable("4.6") ? (
-                            <Input
-                              value={item.officerName || ""}
+                                <Input
+                                  value={item.officerName || ""}
                                   onChange={(e) =>
                                     handleTableFieldUpdate(
                                       idx,
@@ -3023,17 +3077,17 @@ export const InfraEnablersReview = ({
                                       e.target.value
                                     )
                                   }
-                              className="w-full"
-                              placeholder="Enter officer name"
-                            />
-                          ) : (
+                                  className="w-full"
+                                  placeholder="Enter officer name"
+                                />
+                              ) : (
                                 item.officerName || "N/A"
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-normal">
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
                               {isEditable("4.6") ? (
-                            <Input
-                              value={item.designation || ""}
+                                <Input
+                                  value={item.designation || ""}
                                   onChange={(e) =>
                                     handleTableFieldUpdate(
                                       idx,
@@ -3041,17 +3095,17 @@ export const InfraEnablersReview = ({
                                       e.target.value
                                     )
                                   }
-                              className="w-full"
-                              placeholder="Enter designation"
-                            />
-                          ) : (
+                                  className="w-full"
+                                  placeholder="Enter designation"
+                                />
+                              ) : (
                                 item.designation || "N/A"
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-normal">
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
                               {isEditable("4.6") ? (
-                            <Input
-                              value={item.programName || ""}
+                                <Input
+                                  value={item.programName || ""}
                                   onChange={(e) =>
                                     handleTableFieldUpdate(
                                       idx,
@@ -3059,17 +3113,17 @@ export const InfraEnablersReview = ({
                                       e.target.value
                                     )
                                   }
-                              className="w-full"
-                              placeholder="Enter program name"
-                            />
-                          ) : (
+                                  className="w-full"
+                                  placeholder="Enter program name"
+                                />
+                              ) : (
                                 item.programName || "N/A"
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-normal">
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
                               {isEditable("4.6") ? (
-                            <Dropdown
-                              value={item.trainingType || ""}
+                                <Dropdown
+                                  value={item.trainingType || ""}
                                   onChange={(value) =>
                                     handleTableFieldUpdate(
                                       idx,
@@ -3077,17 +3131,17 @@ export const InfraEnablersReview = ({
                                       value
                                     )
                                   }
-                              options={TRAINING_TYPE_OPTIONS}
-                              placeholder="Select training type"
-                            />
-                          ) : (
+                                  options={TRAINING_TYPE_OPTIONS}
+                                  placeholder="Select training type"
+                                />
+                              ) : (
                                 item.trainingType || "N/A"
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-normal">
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
                               {isEditable("4.6") ? (
-                            <Input
-                              value={item.organiser || ""}
+                                <Input
+                                  value={item.organiser || ""}
                                   onChange={(e) =>
                                     handleTableFieldUpdate(
                                       idx,
@@ -3095,164 +3149,164 @@ export const InfraEnablersReview = ({
                                       e.target.value
                                     )
                                   }
-                              className="w-full"
-                              placeholder="Enter organiser"
-                            />
-                          ) : (
+                                  className="w-full"
+                                  placeholder="Enter organiser"
+                                />
+                              ) : (
                                 item.organiser || "N/A"
-                          )}
-                        </td>
-                      </tr>
-                    ));
-                  })()}
-                </tbody>
-              </table>
-            </div>
-            )}
+                              )}
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {state?.section4_6?.participated === "no" && (
-              <div>
-                <Label className="mb-2 block">Comments (Reason)</Label>
+                <div>
+                  <Label className="mb-2 block">Comments (Reason)</Label>
                   {isEditable("4.6") ? (
-                  <Textarea
-                    value={state?.section4_6?.comment || ""}
+                    <Textarea
+                      value={state?.section4_6?.comment || ""}
                       onChange={(e) =>
                         handleFieldUpdate("4.6", "comment", e.target.value)
                       }
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section4_6?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
-            )}
+                      placeholder="Please provide a comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section4_6?.comment || "No comment provided"}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
+              {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
               {state?.section4_6?.participated === "yes" &&
                 isEditable("4.6") &&
                 !showAddCapacityForm && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
-                onClick={() => setShowAddCapacityForm(true)}
-              >
-                <Plus className="w-4 h-4" />
-                Add More
-              </Button>
-            )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                    onClick={() => setShowAddCapacityForm(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add More
+                  </Button>
+                )}
 
-            {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
+              {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
               {state?.section4_6?.participated === "yes" &&
                 showAddCapacityForm &&
                 isEditable("4.6") && (
-              <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="border rounded-lg p-4 bg-gray-50">
                     <h4 className="font-medium mb-3">
                       Add New Capacity Building Entry
                     </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Officer Name</Label>
-                    <Input 
-                      value={newCapacityEntry.officerName} 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Officer Name</Label>
+                        <Input
+                          value={newCapacityEntry.officerName}
                           onChange={(e) =>
                             setNewCapacityEntry({
                               ...newCapacityEntry,
                               officerName: e.target.value,
                             })
                           }
-                      className="bg-white"
-                      placeholder="Enter officer name"
-                    />
-                  </div>
-                  <div>
-                    <Label>Designation</Label>
-                    <Input 
-                      value={newCapacityEntry.designation} 
+                          className="bg-white"
+                          placeholder="Enter officer name"
+                        />
+                      </div>
+                      <div>
+                        <Label>Designation</Label>
+                        <Input
+                          value={newCapacityEntry.designation}
                           onChange={(e) =>
                             setNewCapacityEntry({
                               ...newCapacityEntry,
                               designation: e.target.value,
                             })
                           }
-                      className="bg-white"
-                      placeholder="Enter designation"
-                    />
-                  </div>
-                  <div>
-                    <Label>Program Name</Label>
-                    <Input 
-                      value={newCapacityEntry.programName} 
+                          className="bg-white"
+                          placeholder="Enter designation"
+                        />
+                      </div>
+                      <div>
+                        <Label>Program Name</Label>
+                        <Input
+                          value={newCapacityEntry.programName}
                           onChange={(e) =>
                             setNewCapacityEntry({
                               ...newCapacityEntry,
                               programName: e.target.value,
                             })
                           }
-                      className="bg-white"
-                      placeholder="Enter program name"
-                    />
-                  </div>
-                  <div>
-                    <Label>Training Type</Label>
-                    <Dropdown
-                      value={newCapacityEntry.trainingType}
+                          className="bg-white"
+                          placeholder="Enter program name"
+                        />
+                      </div>
+                      <div>
+                        <Label>Training Type</Label>
+                        <Dropdown
+                          value={newCapacityEntry.trainingType}
                           onChange={(value) =>
                             setNewCapacityEntry({
                               ...newCapacityEntry,
                               trainingType: value,
                             })
                           }
-                      options={TRAINING_TYPE_OPTIONS}
-                      placeholder="Select training type"
-                    />
-                  </div>
-                  <div>
-                    <Label>Organiser</Label>
-                    <Input 
-                      value={newCapacityEntry.organiser} 
+                          options={TRAINING_TYPE_OPTIONS}
+                          placeholder="Select training type"
+                        />
+                      </div>
+                      <div>
+                        <Label>Organiser</Label>
+                        <Input
+                          value={newCapacityEntry.organiser}
                           onChange={(e) =>
                             setNewCapacityEntry({
                               ...newCapacityEntry,
                               organiser: e.target.value,
                             })
                           }
-                      className="bg-white"
-                      placeholder="Enter organiser"
-                    />
+                          className="bg-white"
+                          placeholder="Enter organiser"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleAddNewCapacityEntry}
+                        className="flex items-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Save Entry
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelAddCapacityEntry}
+                        className="flex items-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleAddNewCapacityEntry}
-                    className="flex items-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    Save Entry
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCancelAddCapacityEntry}
-                    className="flex items-center gap-2"
-                  >
-                    <X className="w-4 h-4" />
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
+                )}
 
-            <p className="text-xs text-muted-foreground">
-              Upload capacity building participation data
-            </p>
-          </div>
-        </SectionCard>
+              <p className="text-xs text-muted-foreground">
+                Upload capacity building participation data
+              </p>
+            </div>
+          </SectionCard>
         )}
       </div>
 
@@ -3275,17 +3329,17 @@ export const InfraEnablersReview = ({
           getUserRole() === "MOSPI_REVIEWER"
             ? undefined
             : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-              // Accept no longer requires comment, so it's not included here
-              // For other cases, use the normal flow
-              isMospiApproverSentBack
-              ? async () => {
-                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+            // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+            // Accept no longer requires comment, so it's not included here
+            // For other cases, use the normal flow
+            isMospiApproverSentBack
+            ? async () => {
+                // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
                 console.log(
                   "MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage"
                 );
-                }
-              : (sectionId) => onIndicatorStatus(sectionId, false)
+              }
+            : (sectionId) => onIndicatorStatus(sectionId, false)
         }
       />
 
@@ -3344,7 +3398,7 @@ export const InfraEnablersReview = ({
                 };
                 const userRole = getUserRole();
                 const isMospiApprover = userRole === "MOSPI_APPROVER";
-                
+
                 return isMospiApprover
                   ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
                   : "Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.";
@@ -3383,7 +3437,7 @@ export const InfraEnablersReview = ({
                 };
                 const userRole = getUserRole();
                 const isMospiApprover = userRole === "MOSPI_APPROVER";
-                
+
                 return isMospiApprover
                   ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
                   : "Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.";

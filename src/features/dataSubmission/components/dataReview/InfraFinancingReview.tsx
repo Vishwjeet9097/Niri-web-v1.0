@@ -143,11 +143,11 @@ export const InfraFinancingReview = ({
         ? (formData as any).infraFinancing || formData
         : {};
 
-  // Filter out sections 1.1 and 1.2 from detectedSections if they don't have meaningful data
-  // (exclude year, percentage, and marksObtained from meaningful data check)
-  const filteredDetectedSections = detectedSections.filter((sec) => {
-    if (sec === "section1_1") {
-      const section = infraPayload?.section1_1;
+    // Filter out sections 1.1 and 1.2 from detectedSections if they don't have meaningful data
+    // (exclude year, percentage, and marksObtained from meaningful data check)
+    const filteredDetectedSections = detectedSections.filter((sec) => {
+      if (sec === "section1_1") {
+        const section = infraPayload?.section1_1;
         if (!section || typeof section !== "object") return false;
         const fieldsToCheck = [
           "gsdpForFY",
@@ -158,12 +158,12 @@ export const InfraFinancingReview = ({
           "stateCapex",
         ];
         return fieldsToCheck.some((field) => {
-        const val = section[field];
+          const val = section[field];
           return val !== null && val !== undefined && val !== "" && val !== 0;
-      });
-    }
-    if (sec === "section1_2") {
-      const section = infraPayload?.section1_2;
+        });
+      }
+      if (sec === "section1_2") {
+        const section = infraPayload?.section1_2;
         if (!section || typeof section !== "object") return false;
         const fieldsToCheck = [
           "gsdpForFY",
@@ -174,68 +174,68 @@ export const InfraFinancingReview = ({
           "stateCapex",
         ];
         return fieldsToCheck.some((field) => {
-        const val = section[field];
+          const val = section[field];
           return val !== null && val !== undefined && val !== "" && val !== 0;
-      });
-    }
-    return true; // Keep all other sections
-  });
+        });
+      }
+      return true; // Keep all other sections
+    });
 
-  // Require non-empty lists for 1.3 / 1.4 (don't treat empty objects/count-only as presence)
-  const hasSection13Manual = Boolean(
-    Array.isArray(infraPayload?.section1_3?.ulbList) &&
-      infraPayload.section1_3.ulbList.length > 0
-  );
+    // Require non-empty lists for 1.3 / 1.4 (don't treat empty objects/count-only as presence)
+    const hasSection13Manual = Boolean(
+      Array.isArray(infraPayload?.section1_3?.ulbList) &&
+        infraPayload.section1_3.ulbList.length > 0
+    );
 
-  const hasSection14Manual = Boolean(
-    Array.isArray(infraPayload?.section1_4?.bondList) &&
-      infraPayload.section1_4.bondList.length > 0
-  );
+    const hasSection14Manual = Boolean(
+      Array.isArray(infraPayload?.section1_4?.bondList) &&
+        infraPayload.section1_4.bondList.length > 0
+    );
 
-  // Merge validator result + manual detections, preserving order and deduping
-  const merged = Array.from(
-    new Set([
-      ...filteredDetectedSections, // Use filtered detected sections
-      ...(hasSection13Manual ? ["section1_3"] : []),
-      ...(hasSection14Manual ? ["section1_4"] : []),
-    ])
-  );
+    // Merge validator result + manual detections, preserving order and deduping
+    const merged = Array.from(
+      new Set([
+        ...filteredDetectedSections, // Use filtered detected sections
+        ...(hasSection13Manual ? ["section1_3"] : []),
+        ...(hasSection14Manual ? ["section1_4"] : []),
+      ])
+    );
 
-  // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
-  // This ensures assigned indicators are visible in preview, regardless of data presence
+    // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
+    // This ensures assigned indicators are visible in preview, regardless of data presence
     if (
       isPreview &&
       isNodalOfficer &&
       assignedIndicators &&
       assignedIndicators.length > 0
     ) {
-    const assignedSectionKeys: string[] = [];
-    const indicatorToSectionMap: Record<string, string> = {
-      "1.1": "section1_1",
-      "1.2": "section1_2",
-      "1.3": "section1_3",
-      "1.4": "section1_4",
-      "1.5": "section1_5",
-    };
-    
-    assignedIndicators.forEach((indicator) => {
-      const sectionKey = indicatorToSectionMap[indicator];
-      // Exclude sections 1.1 and 1.2 from being added via assigned indicators
-      // They should only be shown if they have meaningful data (filtered later)
+      const assignedSectionKeys: string[] = [];
+      const indicatorToSectionMap: Record<string, string> = {
+        "1.1": "section1_1",
+        "1.2": "section1_2",
+        "1.3": "section1_3",
+        "1.4": "section1_4",
+        "1.5": "section1_5",
+      };
+
+      assignedIndicators.forEach((indicator) => {
+        const sectionKey = indicatorToSectionMap[indicator];
+        // Exclude sections 1.1 and 1.2 from being added via assigned indicators
+        // They should only be shown if they have meaningful data (filtered later)
         if (
           sectionKey &&
           sectionKey !== "section1_1" &&
           sectionKey !== "section1_2" &&
           !merged.includes(sectionKey)
         ) {
-        assignedSectionKeys.push(sectionKey);
-      }
-    });
-    
-    merged.push(...assignedSectionKeys);
-  }
-  
-  // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
+          assignedSectionKeys.push(sectionKey);
+        }
+      });
+
+      merged.push(...assignedSectionKeys);
+    }
+
+    // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
     // Only include sections that have meaningful data - don't show empty/unsubmitted indicators
     // This ensures state approvers only see indicators that were actually saved/submitted by nodal officers
     if (
@@ -243,12 +243,12 @@ export const InfraFinancingReview = ({
       infraPayload &&
       typeof infraPayload === "object"
     ) {
-    // Check sections 1.1 and 1.2 separately to see if they should be added (only if they have meaningful data)
-    const section1_1 = infraPayload.section1_1;
-    const section1_2 = infraPayload.section1_2;
-    
-    // Only add section 1.1 if it has meaningful data (excluding percentage, marksObtained, and year)
-    // year is often a default value and alone should not determine visibility
+      // Check sections 1.1 and 1.2 separately to see if they should be added (only if they have meaningful data)
+      const section1_1 = infraPayload.section1_1;
+      const section1_2 = infraPayload.section1_2;
+
+      // Only add section 1.1 if it has meaningful data (excluding percentage, marksObtained, and year)
+      // year is often a default value and alone should not determine visibility
       if (section1_1 && typeof section1_1 === "object") {
         const fieldsToCheck1_1 = [
           "gsdpForFY",
@@ -259,16 +259,16 @@ export const InfraFinancingReview = ({
           "stateCapex",
         ];
         const hasMeaningfulData1_1 = fieldsToCheck1_1.some((field) => {
-        const val = section1_1[field];
+          const val = section1_1[field];
           return val !== null && val !== undefined && val !== "" && val !== 0;
-      });
-      if (hasMeaningfulData1_1 && !merged.includes("section1_1")) {
-        merged.push("section1_1");
+        });
+        if (hasMeaningfulData1_1 && !merged.includes("section1_1")) {
+          merged.push("section1_1");
+        }
       }
-    }
-    
-    // Only add section 1.2 if it has meaningful data (excluding percentage, marksObtained, and year)
-    // year is often a default value and alone should not determine visibility
+
+      // Only add section 1.2 if it has meaningful data (excluding percentage, marksObtained, and year)
+      // year is often a default value and alone should not determine visibility
       if (section1_2 && typeof section1_2 === "object") {
         const fieldsToCheck1_2 = [
           "gsdpForFY",
@@ -279,14 +279,14 @@ export const InfraFinancingReview = ({
           "stateCapex",
         ];
         const hasMeaningfulData1_2 = fieldsToCheck1_2.some((field) => {
-        const val = section1_2[field];
+          const val = section1_2[field];
           return val !== null && val !== undefined && val !== "" && val !== 0;
-      });
-      if (hasMeaningfulData1_2 && !merged.includes("section1_2")) {
-        merged.push("section1_2");
+        });
+        if (hasMeaningfulData1_2 && !merged.includes("section1_2")) {
+          merged.push("section1_2");
+        }
       }
-    }
-    
+
       // For sections 1.3, 1.4, and 1.5, only include if they have meaningful data
       // Don't include them just because they exist in formData
       const section1_3 = infraPayload.section1_3;
@@ -295,7 +295,7 @@ export const InfraFinancingReview = ({
           Array.isArray(section1_3.ulbList) && section1_3.ulbList.length > 0;
         if (hasSection1_3Data && !merged.includes("section1_3")) {
           merged.push("section1_3");
-      }
+        }
       }
 
       const section1_4 = infraPayload.section1_4;
@@ -337,15 +337,15 @@ export const InfraFinancingReview = ({
     // All sections (including 1.3, 1.4, 1.5) should be filtered based on meaningful data
     // This ensures only saved/submitted indicators are shown to STATE_APPROVER
     const final = merged.filter((sec) => {
-    if (sec === "section1_1") {
-      const section = infraPayload?.section1_1;
-      if (!section) {
-        console.log("🚫 Section 1.1 excluded: no section object");
-        return false;
-      }
-      // Exclude percentage, marksObtained, and year from meaningful data check
-      // percentage and marksObtained are calculated/backend fields and should not determine visibility
-      // year is often a default value and alone should not determine visibility
+      if (sec === "section1_1") {
+        const section = infraPayload?.section1_1;
+        if (!section) {
+          console.log("🚫 Section 1.1 excluded: no section object");
+          return false;
+        }
+        // Exclude percentage, marksObtained, and year from meaningful data check
+        // percentage and marksObtained are calculated/backend fields and should not determine visibility
+        // year is often a default value and alone should not determine visibility
         const fieldsToCheck = [
           "gsdpForFY",
           "allocationToGSDP",
@@ -355,28 +355,28 @@ export const InfraFinancingReview = ({
           "stateCapex",
         ];
         const hasData = fieldsToCheck.some((field) => {
-        const val = section[field];
+          const val = section[field];
           if (val === null || val === undefined || val === "" || val === 0)
             return false;
-        return true;
-      });
+          return true;
+        });
         console.log(
           `${hasData ? "✅" : "🚫"} Section 1.1 ${
             hasData ? "included" : "excluded"
           }:`,
           section
         );
-      return hasData;
-    }
-    if (sec === "section1_2") {
-      const section = infraPayload?.section1_2;
-      if (!section) {
-        console.log("🚫 Section 1.2 excluded: no section object");
-        return false;
+        return hasData;
       }
-      // Exclude percentage, marksObtained, and year from meaningful data check
-      // percentage and marksObtained are calculated/backend fields and should not determine visibility
-      // year is often a default value and alone should not determine visibility
+      if (sec === "section1_2") {
+        const section = infraPayload?.section1_2;
+        if (!section) {
+          console.log("🚫 Section 1.2 excluded: no section object");
+          return false;
+        }
+        // Exclude percentage, marksObtained, and year from meaningful data check
+        // percentage and marksObtained are calculated/backend fields and should not determine visibility
+        // year is often a default value and alone should not determine visibility
         const fieldsToCheck = [
           "gsdpForFY",
           "actualCapex",
@@ -386,48 +386,48 @@ export const InfraFinancingReview = ({
           "stateCapex",
         ];
         const hasData = fieldsToCheck.some((field) => {
-        const val = section[field];
+          const val = section[field];
           if (val === null || val === undefined || val === "" || val === 0)
             return false;
-        return true;
-      });
+          return true;
+        });
         console.log(
           `${hasData ? "✅" : "🚫"} Section 1.2 ${
             hasData ? "included" : "excluded"
           }:`,
           section
         );
-      return hasData;
-    }
-    if (sec === "section1_3") {
-      return (
-        Array.isArray(infraPayload?.section1_3?.ulbList) &&
-        infraPayload.section1_3.ulbList.length > 0
-      );
-    }
-    if (sec === "section1_4") {
-      return (
-        Array.isArray(infraPayload?.section1_4?.bondList) &&
-        infraPayload.section1_4.bondList.length > 0
-      );
-    }
-    if (sec === "section1_5") {
-      const section = infraPayload?.section1_5;
-      if (!section) return false;
-      // Check if it has the new format with hasIntermediary
-      if (section.hasIntermediary) return true;
-      // Check if it has ffiArray with data
+        return hasData;
+      }
+      if (sec === "section1_3") {
+        return (
+          Array.isArray(infraPayload?.section1_3?.ulbList) &&
+          infraPayload.section1_3.ulbList.length > 0
+        );
+      }
+      if (sec === "section1_4") {
+        return (
+          Array.isArray(infraPayload?.section1_4?.bondList) &&
+          infraPayload.section1_4.bondList.length > 0
+        );
+      }
+      if (sec === "section1_5") {
+        const section = infraPayload?.section1_5;
+        if (!section) return false;
+        // Check if it has the new format with hasIntermediary
+        if (section.hasIntermediary) return true;
+        // Check if it has ffiArray with data
         if (Array.isArray(section.ffiArray) && section.ffiArray.length > 0)
           return true;
-      // Check if it's the old array format
-      if (Array.isArray(section) && section.length > 0) return true;
-      return false;
-    }
-    return true;
-  });
+        // Check if it's the old array format
+        if (Array.isArray(section) && section.length > 0) return true;
+        return false;
+      }
+      return true;
+    });
 
-  return final;
-}, [formData, isPreview, isNodalOfficer, assignedIndicators]);
+    return final;
+  }, [formData, isPreview, isNodalOfficer, assignedIndicators]);
 
   // State for real-time calculation
   const [capitalAllocation, setCapitalAllocation] = useState("");
@@ -449,7 +449,7 @@ export const InfraFinancingReview = ({
   const [pendingActionSectionId, setPendingActionSectionId] = useState<
     string | null
   >(null);
-  
+
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
@@ -491,7 +491,7 @@ export const InfraFinancingReview = ({
             ? formData.section1_2.actualCapex
                 .replace(/[₹,Crores\s]/g, "")
                 .trim()
-          : String(formData.section1_2.actualCapex);
+            : String(formData.section1_2.actualCapex);
         setActualCapex(value);
       } else {
         setActualCapex("");
@@ -504,7 +504,7 @@ export const InfraFinancingReview = ({
             ? formData.section1_2.stateCapexUtilisation
                 .replace(/[₹,Crores\s]/g, "")
                 .trim()
-          : String(formData.section1_2.stateCapexUtilisation);
+            : String(formData.section1_2.stateCapexUtilisation);
         setStateCapexUtilisation(value);
       } else {
         setStateCapexUtilisation("");
@@ -515,14 +515,14 @@ export const InfraFinancingReview = ({
   // State for edit fucntionality indicator wise
   const { setEditable, isEditable, clearAllEditing } =
     useEditableSectionStore();
-  
+
   // Store original state snapshots when edit mode starts (for cancel functionality)
   const [originalStateSnapshot, setOriginalStateSnapshot] = useState<any>(null);
   // Flag to prevent useEffect from overriding cancel restore
   const isRestoringRef = useRef(false);
   // Counter to force remount of Select components on cancel
   const [selectResetKey, setSelectResetKey] = useState(0);
-  
+
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
     // Store a deep copy of all relevant state
@@ -538,7 +538,7 @@ export const InfraFinancingReview = ({
     });
     setEditable(sectionId, true);
   };
-  
+
   // Handle adding new entry for section 1.5
   const handleAddNewEntry1_5 = () => {
     const newEntryWithId = {
@@ -876,9 +876,9 @@ export const InfraFinancingReview = ({
           fields = [
             {
               ulbList: (section13State.ulbList || []).map((item: any) => ({
-            cityName: item.cityName,
-            ulb: item.ulb,
-            ratingDate: item.ratingDate,
+                cityName: item.cityName,
+                ulb: item.ulb,
+                ratingDate: item.ratingDate,
                 rating: item.rating,
               })),
             },
@@ -897,11 +897,11 @@ export const InfraFinancingReview = ({
           fields = [
             {
               bondList: (section14State.bondList || []).map((item: any) => ({
-              bondType: item.bondType,
-              cityName: item.cityName,
-              issuingAuthority: item.issuingAuthority,
-              value: item.value,
-            })),
+                bondType: item.bondType,
+                cityName: item.cityName,
+                issuingAuthority: item.issuingAuthority,
+                value: item.value,
+              })),
               totalULBs: section14State.totalULBs,
             },
           ];
@@ -912,13 +912,13 @@ export const InfraFinancingReview = ({
           console.log("Section_1_5 state", section15State);
           fields = [
             {
-            hasIntermediary: section15State?.hasIntermediary || null,
-            comment: section15State?.comment || null,
-            ffiArray: (section15State?.ffiArray || []).map((item: any) => ({
-              organisationName: item.organisationName,
-              organisationType: item.organisationType,
-              yearEstablished: item.yearEstablished,
-              totalFunding: item.totalFunding,
+              hasIntermediary: section15State?.hasIntermediary || null,
+              comment: section15State?.comment || null,
+              ffiArray: (section15State?.ffiArray || []).map((item: any) => ({
+                organisationName: item.organisationName,
+                organisationType: item.organisationType,
+                yearEstablished: item.yearEstablished,
+                totalFunding: item.totalFunding,
                 website: item.website,
               })),
             },
@@ -942,14 +942,27 @@ export const InfraFinancingReview = ({
       // Check if user is NODAL_OFFICER to add status to payload
       const userRole = getUserRole();
       const isNodalOfficer = userRole === "NODAL_OFFICER";
-      
-      // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
+
+      // If NODAL_OFFICER, check current status and set RESUBMITTED only if status was REVERTED
       if (isNodalOfficer && fields.length > 0) {
-        // Add status to the first field object (or create a new one if needed)
-        fields[0] = {
-          ...fields[0],
-          status: "RESUBMITTED",
-        };
+        // Get current status from formData
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData = formData && formData[sectionKey];
+        const currentStatus = sectionData
+          ? Array.isArray(sectionData)
+            ? (sectionData as any).status
+            : sectionData.status
+          : undefined;
+        const upperStatus = (currentStatus || "").toUpperCase();
+
+        // Only set RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Add status to the first field object (or create a new one if needed)
+          fields[0] = {
+            ...fields[0],
+            status: "RESUBMITTED",
+          };
+        }
       }
 
       // Ensure we're only sending data for the specific section being saved
@@ -969,30 +982,41 @@ export const InfraFinancingReview = ({
 
       await handleSaveSection(savePayload);
 
-      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
+      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
-        // Update local formData state to set status to RESUBMITTED
+        // Get current status from formData
         const sectionKey = `section${sectionId.replace(".", "_")}`;
-        // Update formData prop if it exists
-        if (formData && (formData as any)[sectionKey]) {
-          (formData as any)[sectionKey] = {
-            ...(formData as any)[sectionKey],
-            status: "RESUBMITTED",
-          };
-          setSubmissionData({ ...formData });
-        }
-        // Also update submissionData to trigger re-render
-        setSubmissionData((prev: any) => {
-          if (!prev) return prev;
-          const updated = { ...prev };
-          if (updated[sectionKey]) {
-            updated[sectionKey] = {
-              ...updated[sectionKey],
+        const sectionData = formData && formData[sectionKey];
+        const currentStatus = sectionData
+          ? Array.isArray(sectionData)
+            ? (sectionData as any).status
+            : sectionData.status
+          : undefined;
+        const upperStatus = (currentStatus || "").toUpperCase();
+
+        // Only update to RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Update formData prop if it exists
+          if (formData && (formData as any)[sectionKey]) {
+            (formData as any)[sectionKey] = {
+              ...(formData as any)[sectionKey],
               status: "RESUBMITTED",
             };
+            setSubmissionData({ ...formData });
           }
-          return updated;
-        });
+          // Also update submissionData to trigger re-render
+          setSubmissionData((prev: any) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (updated[sectionKey]) {
+              updated[sectionKey] = {
+                ...updated[sectionKey],
+                status: "RESUBMITTED",
+              };
+            }
+            return updated;
+          });
+        }
       }
 
       // Disable editing after successful save
@@ -1028,7 +1052,7 @@ export const InfraFinancingReview = ({
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
-    
+
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
       submissionId,
@@ -1036,19 +1060,19 @@ export const InfraFinancingReview = ({
       section: `section${sectionId.replace(".", "_")}`,
       status: status,
     };
-    
+
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
     }
-    
+
     try {
       await apiService.indicatorStatus(payload);
       // Update local formData to trigger re-render of action buttons
       const sectionKey = `section${sectionId.replace(".", "_")}`;
       const statusField = isMospiApprover ? "mospi_status" : "status";
       const statusValue = status ? "ACCEPTED" : "REVERTED";
-      
+
       // Defensive: clone formData if possible
       if (formData && formData[sectionKey]) {
         formData[sectionKey] = {
@@ -1062,7 +1086,7 @@ export const InfraFinancingReview = ({
           isMospiApprover ? "mospi_" : ""
         }status updated successfully`
       );
-      
+
       // Dispatch custom event to notify other components (e.g., UnifiedReviewPage) that indicator status was updated
       if (isMospiApprover) {
         window.dispatchEvent(
@@ -1121,12 +1145,12 @@ export const InfraFinancingReview = ({
       };
       const userRole = getUserRole();
       const isMospiApprover = userRole === "MOSPI_APPROVER";
-      
+
       // For MOSPI_APPROVER, update mospi_status to REVERTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, false);
-      
+
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -1156,12 +1180,12 @@ export const InfraFinancingReview = ({
       };
       const userRole = getUserRole();
       const isMospiApprover = userRole === "MOSPI_APPROVER";
-      
+
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
       // Both use performIndicatorStatus, which handles the role check internally
       await performIndicatorStatus(pendingActionSectionId, true);
-      
+
       setShowAcceptDialog(false);
       setPendingActionSectionId(null);
       // Comment modal is already closed before showing confirmation dialog
@@ -1173,101 +1197,213 @@ export const InfraFinancingReview = ({
     setPendingActionSectionId(null);
   };
 
-// 🧑‍💻🧑‍💻Edited by Harsh
-const renderActionButtons = (sectionId: string) => {
-  // Don't show action buttons in preview mode
-  if (isPreview) {
-    return null;
-  }
-
-  const comments = getComments(sectionId);
-  const commentCount = comments ? comments.length : 0;
-  
-  // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
-  const getUserRole = () => {
-    try {
-        const authUser = localStorage.getItem("niri_app:auth_user");
-      if (authUser) {
-        const user = JSON.parse(authUser);
-        return user.value?.role;
-      }
-    } catch (error) {
-        console.error("Error reading user role:", error);
+  // 🧑‍💻🧑‍💻Edited by Harsh
+  const renderActionButtons = (sectionId: string) => {
+    // Don't show action buttons in preview mode
+    if (isPreview) {
+      return null;
     }
-    return null;
-  };
-  const userRole = getUserRole();
+
+    const comments = getComments(sectionId);
+    const commentCount = comments ? comments.length : 0;
+
+    // Check if user is NODAL_OFFICER from localStorage - MUST CHECK ROLE FIRST
+    const getUserRole = () => {
+      try {
+        const authUser = localStorage.getItem("niri_app:auth_user");
+        if (authUser) {
+          const user = JSON.parse(authUser);
+          return user.value?.role;
+        }
+      } catch (error) {
+        console.error("Error reading user role:", error);
+      }
+      return null;
+    };
+    const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
     const isStateApprover = userRole === "STATE_APPROVER";
     const isMospiReviewer = userRole === "MOSPI_REVIEWER";
     const isMospiApprover = userRole === "MOSPI_APPROVER";
-  
-  // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
-  const submissionStatus = submission?.status;
+
+    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
+    const submissionStatus = submission?.status;
     if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
-    return null;
-  }
-  
-  // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
-  // Only show Timeline button for viewing comments
+      return null;
+    }
+
+    // Hide all action buttons (Edit, Send Back, Accept) if submission is APPROVED
+    // Only show Timeline button for viewing comments
     if (submissionStatus === "APPROVED") {
-    return (
-      <div className="flex gap-2">
-        {commentCount > 0 && (
+      return (
+        <div className="flex gap-2">
+          {commentCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
+    if (isMospiReviewer) {
+      return (
+        <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 h-7 px-2 text-xs"
-            onClick={() => handleOpenTimeline(sectionId)}
+            className="flex items-center gap-1"
+            onClick={() => handleOpenModal(sectionId)}
           >
-            <Clock className="w-3 h-3" />
-            Timeline ({commentCount})
+            <MessageSquare className="w-4 h-4" />
+            Add Comment
           </Button>
-        )}
-      </div>
-    );
-  }
-  
-  // For MOSPI_REVIEWER, show Add Comment and Timeline buttons
-  if (isMospiReviewer) {
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenModal(sectionId)}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Add Comment
-        </Button>
-        {commentCount > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 h-7 px-2 text-xs"
-            onClick={() => handleOpenTimeline(sectionId)}
-          >
-            <Clock className="w-3 h-3" />
-            Timeline ({commentCount})
-          </Button>
-        )}
-      </div>
-    );
-  }
-  
-  // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
-  if (isMospiApprover) {
-    // Check mospi_status instead of status for MOSPI_APPROVER
+          {commentCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    // For MOSPI_APPROVER, show Sent Back and Accepted buttons (using mospi_status only)
+    if (isMospiApprover) {
+      // Check mospi_status instead of status for MOSPI_APPROVER
       const sectionKey = `section${sectionId.replace(".", "_")}`;
-    const sectionData = formData && formData[sectionKey];
-    const mospiStatus = sectionData
-      ? Array.isArray(sectionData)
-        ? (sectionData as any)?.mospi_status
-        : sectionData?.mospi_status
-      : undefined;
-    
+      const sectionData = formData && formData[sectionKey];
+      const mospiStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.mospi_status
+          : sectionData?.mospi_status
+        : undefined;
+
       if (mospiStatus === "ACCEPTED") {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+
+      if (mospiStatus === "REVERTED") {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+
+      // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => {
+              // For MOSPI_APPROVER, send back action:
+              // 1. Set flag to track this is a "Sent Back" action
+              // 2. Open comment modal first
+              setIsMospiApproverSentBack(true);
+              setMospiSentBackSectionId(sectionId);
+              handleOpenModal(sectionId);
+            }}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Sent Back
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => {
+              // For MOSPI_APPROVER, accept action:
+              // Show confirmation dialog directly (no comment required)
+              setPendingActionSectionId(sectionId);
+              setShowAcceptDialog(true);
+            }}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+
+    // For all other roles, check status field as before
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+    const sectionData = formData && formData[sectionKey];
+    const sectionStatus = sectionData
+      ? Array.isArray(sectionData)
+        ? (sectionData as any).status
+        : sectionData.status
+      : undefined;
+
+    // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
+    // REVERTED is excluded because user can resubmit after being sent back
+    const isSubmitted =
+      sectionStatus === "SUBMITTED" ||
+      sectionStatus === "RESUBMITTED" ||
+      sectionStatus === "ACCEPTED";
+
+    if (sectionStatus === "ACCEPTED") {
       return (
         <div className="flex gap-2">
           <Button
@@ -1282,203 +1418,19 @@ const renderActionButtons = (sectionId: string) => {
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 h-7 px-2 text-xs"
+            className="flex items-center gap-1"
             onClick={() => handleOpenTimeline(sectionId)}
           >
-            <Clock className="w-3 h-3" />
+            <Clock className="w-4 h-4" />
             Timeline ({commentCount})
           </Button>
         </div>
       );
     }
-    
-      if (mospiStatus === "REVERTED") {
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
-            disabled
-          >
-            <RotateCcw className="w-4 h-4" />
-            Sent Back
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1 h-7 px-2 text-xs"
-            onClick={() => handleOpenTimeline(sectionId)}
-          >
-            <Clock className="w-3 h-3" />
-            Timeline ({commentCount})
-          </Button>
-        </div>
-      );
-    }
-    
-    // Show Sent Back and Accepted buttons for MOSPI_APPROVER (when mospi_status is null/undefined)
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => {
-            // For MOSPI_APPROVER, send back action: 
-            // 1. Set flag to track this is a "Sent Back" action
-            // 2. Open comment modal first
-            setIsMospiApproverSentBack(true);
-            setMospiSentBackSectionId(sectionId);
-            handleOpenModal(sectionId);
-          }}
-        >
-          <RotateCcw className="w-4 h-4" />
-          Sent Back
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => {
-            // For MOSPI_APPROVER, accept action: 
-            // Show confirmation dialog directly (no comment required)
-            setPendingActionSectionId(sectionId);
-            setShowAcceptDialog(true);
-          }}
-        >
-          <CheckCircle className="w-4 h-4" />
-          Accept
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenTimeline(sectionId)}
-        >
-          <Clock className="w-4 h-4" />
-          Timeline ({commentCount})
-        </Button>
-      </div>
-    );
-  }
 
-  // For all other roles, check status field as before
-    const sectionKey = `section${sectionId.replace(".", "_")}`;
-  const sectionData = formData && formData[sectionKey];
-  const sectionStatus = sectionData
-    ? Array.isArray(sectionData)
-      ? (sectionData as any).status
-      : sectionData.status
-    : undefined;
-
-    // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
-    // REVERTED is excluded because user can resubmit after being sent back
-    const isSubmitted =
-      sectionStatus === "SUBMITTED" ||
-      sectionStatus === "RESUBMITTED" ||
-      sectionStatus === "ACCEPTED";
-
-    if (sectionStatus === "ACCEPTED") {
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
-          disabled
-        >
-          <CheckCircle className="w-4 h-4" />
-          Accepted
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenTimeline(sectionId)}
-        >
-          <Clock className="w-4 h-4" />
-          Timeline ({commentCount})
-        </Button>
-      </div>
-    );
-  }
-  
-  // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
+    // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
     if (isStateApprover && sectionStatus === "RESUBMITTED") {
       // RESUBMITTED means already submitted, so disable submit button
-    return (
-      <div className="flex gap-2">
-        {!isEditable(sectionId) ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1"
-            onClick={() => handleEditStart(sectionId)}
-          >
-            <Edit3 className="w-4 h-4" />
-            Edit
-          </Button>
-        ) : (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => onSaveSection(sectionId)}
-                disabled={true} // Already submitted, disable button
-            >
-              <Check className="w-4 h-4" />
-              Save
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleCancel(sectionId)}
-            >
-              <X className="w-4 h-4" />
-              Cancel
-            </Button>
-          </>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
-          disabled
-        >
-          <CheckCircle className="w-4 h-4" />
-          Re Submitted
-        </Button>
-        {!isNodalOfficer && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => onIndicatorStatus(sectionId, true)}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Accept
-          </Button>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenTimeline(sectionId)}
-        >
-          <Clock className="w-4 h-4" />
-          Timeline ({commentCount})
-        </Button>
-      </div>
-    );
-  }
-  
-    if (sectionStatus === "REVERTED") {
-    // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
-      // REVERTED means it was sent back, so user can resubmit (not disabled)
-    if (isNodalOfficer) {
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -1498,7 +1450,7 @@ const renderActionButtons = (sectionId: string) => {
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => onSaveSection(sectionId)}
-                  disabled={false} // Can resubmit after being sent back
+                disabled={true} // Already submitted, disable button
               >
                 <Check className="w-4 h-4" />
                 Save
@@ -1517,6 +1469,103 @@ const renderActionButtons = (sectionId: string) => {
           <Button
             variant="outline"
             size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Re Submitted
+          </Button>
+          {!isNodalOfficer && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => onIndicatorStatus(sectionId, true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accept
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <Clock className="w-4 h-4" />
+            Timeline ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+
+    if (sectionStatus === "REVERTED") {
+      // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
+      // REVERTED means it was sent back, so user can resubmit (not disabled)
+      if (isNodalOfficer) {
+        return (
+          <div className="flex gap-2">
+            {!isEditable(sectionId) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => handleEditStart(sectionId)}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                  disabled={false} // Can resubmit after being sent back
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Sent Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 h-7 px-2 text-xs"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-3 h-3" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+
+      // For reviewers/approvers, show only the disabled Sent Back button
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
             className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
             disabled
           >
@@ -1526,68 +1575,72 @@ const renderActionButtons = (sectionId: string) => {
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center gap-1 h-7 px-2 text-xs"
+            className="flex items-center gap-1"
             onClick={() => handleOpenTimeline(sectionId)}
           >
-            <Clock className="w-3 h-3" />
+            <Clock className="w-4 h-4" />
             Timeline ({commentCount})
           </Button>
         </div>
       );
     }
-    
-    // For reviewers/approvers, show only the disabled Sent Back button
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1 bg-red-100 text-red-700 cursor-default"
-          disabled
-        >
-          <RotateCcw className="w-4 h-4" />
-          Sent Back
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenTimeline(sectionId)}
-        >
-          <Clock className="w-4 h-4" />
-          Timeline ({commentCount})
-        </Button>
-      </div>
-    );
-  }
 
-  // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE, RESUBMITTED, or null/undefined
-    if (isNodalOfficer && (sectionStatus === "SUBMITTED_TO_STATE" || sectionStatus === "RESUBMITTED" || !sectionStatus)) {
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
-          disabled
-        >
-          <Clock className="w-4 h-4" />
-          Under Review
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1 h-7 px-2 text-xs"
-          onClick={() => handleOpenTimeline(sectionId)}
-        >
-          <MessageSquare className="w-3 h-3" />
-          View Comments ({commentCount})
-        </Button>
-      </div>
-    );
-  }
+    // For NODAL_OFFICER, show "Resubmitted" badge if status is RESUBMITTED
+    if (isNodalOfficer && sectionStatus === "RESUBMITTED") {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Resubmitted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
+          </Button>
+        </div>
+      );
+    }
 
-  // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, RESUBMITTED, or SUBMITTED_TO_STATE, don't show any buttons
+    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE or null/undefined
+    if (
+      isNodalOfficer &&
+      (sectionStatus === "SUBMITTED_TO_STATE" || !sectionStatus)
+    ) {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <Clock className="w-4 h-4" />
+            Under Review
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+
+    // For NODAL_OFFICER, if status is not REVERTED, ACCEPTED, RESUBMITTED, or SUBMITTED_TO_STATE, don't show any buttons
     if (
       isNodalOfficer &&
       sectionStatus !== "REVERTED" &&
@@ -1595,88 +1648,88 @@ const renderActionButtons = (sectionId: string) => {
       sectionStatus !== "RESUBMITTED" &&
       sectionStatus !== "SUBMITTED_TO_STATE"
     ) {
-    return null;
-  }
+      return null;
+    }
 
-  return (
-    <div className="flex gap-2">
-      {!isEditable(sectionId) ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-1"
-          onClick={() => setEditable(sectionId, true)}
-        >
-          <Edit3 className="w-4 h-4" />
-          Edit
-        </Button>
-      ) : (
-        <>
+    return (
+      <div className="flex gap-2">
+        {!isEditable(sectionId) ? (
           <Button
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => onSaveSection(sectionId)}
+            onClick={() => setEditable(sectionId, true)}
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => onSaveSection(sectionId)}
               disabled={isSubmitted}
-          >
-            <Check className="w-4 h-4" />
-            Save
-          </Button>
+            >
+              <Check className="w-4 h-4" />
+              Save
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => setEditable(sectionId, false)}
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </Button>
+          </>
+        )}
+
+        {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
+        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
           <Button
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => setEditable(sectionId, false)}
+            onClick={() => handleOpenModal(sectionId)}
           >
-            <X className="w-4 h-4" />
-            Cancel
+            <RotateCcw className="w-4 h-4" />
+            Send Back
+            {/* ({commentCount}) */}
           </Button>
-        </>
-      )}
+        )}
 
-      {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
-        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
         <Button
           variant="outline"
           size="sm"
-          className="flex items-center gap-1"
-          onClick={() => handleOpenModal(sectionId)}
+          className="flex items-center gap-1 h-7 px-2 text-xs"
+          onClick={() => handleOpenTimeline(sectionId)}
         >
-          <RotateCcw className="w-4 h-4" />
-          Send Back 
-          {/* ({commentCount}) */}
+          <Clock className="w-3 h-3" />
+          Timeline ({commentCount})
         </Button>
-      )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-1 h-7 px-2 text-xs"
-        onClick={() => handleOpenTimeline(sectionId)}
-      >
-        <Clock className="w-3 h-3" />
-        Timeline ({commentCount})
-      </Button>
+        {!isNodalOfficer && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => onIndicatorStatus(sectionId, true)}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Accept
+          </Button>
+        )}
+      </div>
+    );
+  };
 
-      {!isNodalOfficer && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => onIndicatorStatus(sectionId, true)}
-        >
-          <CheckCircle className="w-4 h-4" />
-          Accept
-        </Button>
-      )}
-    </div>
-  );
-};
-
-// Real-time calculation for % Allocation to GSDP
-const calculateAllocationPercentage = () => {
-  const capValue = parseFloat(capitalAllocation);
-  const gsdpValue = parseFloat(gsdpForFY);
+  // Real-time calculation for % Allocation to GSDP
+  const calculateAllocationPercentage = () => {
+    const capValue = parseFloat(capitalAllocation);
+    const gsdpValue = parseFloat(gsdpForFY);
 
     console.log("🔍 Real-time Calculation:", {
       capitalAllocation,
@@ -1697,11 +1750,11 @@ const calculateAllocationPercentage = () => {
       const result = percentage.toFixed(1) + "%";
       // Debug logging removed for performance
 
-    return result;
-  }
+      return result;
+    }
 
-  // Return empty string if no valid calculation
-  // Debug logging removed for performance
+    // Return empty string if no valid calculation
+    // Debug logging removed for performance
 
     return "";
   };
@@ -1781,9 +1834,9 @@ const calculateAllocationPercentage = () => {
             </p>
           </CardHeader> */}
 
-          <div className="grid grid-cols-2 gap-4 max-w-[70%]">
-            <div>
-              <Label>Year</Label>
+            <div className="grid grid-cols-2 gap-4 max-w-[70%]">
+              <div>
+                <Label>Year</Label>
                 <Input
                   value={
                     (getFormDataValue("section1_1") as { year?: string })
@@ -1792,67 +1845,67 @@ const calculateAllocationPercentage = () => {
                   readOnly
                   className="bg-gray-50"
                 />
-            </div>
-            <div>
-              <Label>Capital Allocation for FY (INR)</Label>
-              <Input
-                value={capitalAllocation}
-                onChange={(e) => {
-                  // Debug logging removed for performance
-
-                  setCapitalAllocation(e.target.value);
-                }}
-                placeholder="Enter Capital Allocation value"
-                  readOnly={!isEditable("1.1")}
-                  className={isEditable("1.1") ? "bg-white" : "bg-gray-50"}
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                Current value: "{capitalAllocation}"
               </div>
-            </div>
-            <div>
-              <Label>GSDP for FY (INR)</Label>
-              <Input
-                value={gsdpForFY}
-                onChange={(e) => {
-                  // Debug logging removed for performance
-
-                  setGsdpForFY(e.target.value);
-                }}
-                placeholder="Enter GSDP value"
-                  readOnly={!isEditable("1.1")}
-                  className={isEditable("1.1") ? "bg-white" : "bg-gray-50"}
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                Current value: "{gsdpForFY}"
-              </div>
-            </div>
-            <div>
-              <Label>% Allocation to GSDP</Label>
-              <div className="relative">
+              <div>
+                <Label>Capital Allocation for FY (INR)</Label>
                 <Input
-                  value={calculateAllocationPercentage()}
-                  readOnly
-                  className="bg-gray-50 cursor-not-allowed pr-8"
+                  value={capitalAllocation}
+                  onChange={(e) => {
+                    // Debug logging removed for performance
+
+                    setCapitalAllocation(e.target.value);
+                  }}
+                  placeholder="Enter Capital Allocation value"
+                  readOnly={!isEditable("1.1")}
+                  className={isEditable("1.1") ? "bg-white" : "bg-gray-50"}
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  Current value: "{capitalAllocation}"
+                </div>
+              </div>
+              <div>
+                <Label>GSDP for FY (INR)</Label>
+                <Input
+                  value={gsdpForFY}
+                  onChange={(e) => {
+                    // Debug logging removed for performance
+
+                    setGsdpForFY(e.target.value);
+                  }}
+                  placeholder="Enter GSDP value"
+                  readOnly={!isEditable("1.1")}
+                  className={isEditable("1.1") ? "bg-white" : "bg-gray-50"}
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  Current value: "{gsdpForFY}"
+                </div>
+              </div>
+              <div>
+                <Label>% Allocation to GSDP</Label>
+                <div className="relative">
+                  <Input
+                    value={calculateAllocationPercentage()}
+                    readOnly
+                    className="bg-gray-50 cursor-not-allowed pr-8"
                     placeholder={
                       capitalAllocation && gsdpForFY
                         ? "Calculating..."
                         : "Auto-calculated"
                     }
-                />
-                {calculateAllocationPercentage() && (
-                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
-                    ✓
-                  </div>
-                )}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Calculation result: "{calculateAllocationPercentage()}"
+                  />
+                  {calculateAllocationPercentage() && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
+                      ✓
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Calculation result: "{calculateAllocationPercentage()}"
+                </div>
               </div>
             </div>
-          </div>
-        </SectionCard>
-      )}
+          </SectionCard>
+        )}
 
         {/* Section 1.2 */}
         {sectionsWithData.includes("section1_2") && (
@@ -1978,7 +2031,7 @@ const calculateAllocationPercentage = () => {
           >
             {/* <div className="space-y-4">
               {/* ✅ Show Total ULBs at the top */}
-              {/* {formData?.section1_3?.totalULBs !== undefined && (
+            {/* {formData?.section1_3?.totalULBs !== undefined && (
                 <div className="max-w-xs">
                   <Label>Total Number of ULBs</Label>
                   <Input
@@ -1990,8 +2043,8 @@ const calculateAllocationPercentage = () => {
                 </div>
               )} */}
 
-              {/* Existing ULB List */}
-              {/* {formData?.section1_3?.ulbList?.length > 0 ? (
+            {/* Existing ULB List */}
+            {/* {formData?.section1_3?.ulbList?.length > 0 ? (
                 formData.section1_3.ulbList.map((item: any, index: number) => (
                   <div key={item.id || index}>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -2004,12 +2057,12 @@ const calculateAllocationPercentage = () => {
                       </div>
                       <div>
                         <Label>ULB</Label> */}
-                        {/* <Input
+            {/* <Input
                          value={item.ulb || ""}  
                          readOnly={!isEditable('1.3')}
                          className={isEditable('1.3') ? 'bg-white' : 'bg-gray-50'}
                          /> */}
-                        {/* {getDropdown(
+            {/* {getDropdown(
   dropdownValues.ulbList,
   item.ulb || "",
   (value) => {
@@ -2026,7 +2079,7 @@ const calculateAllocationPercentage = () => {
   "Select ULB",
   isEditable('1.3') // Pass the editable state
 )} */
-/* }
+            /* }
                       </div>
                       <div>
                         <Label>Rating Date</Label>
@@ -2078,9 +2131,9 @@ const calculateAllocationPercentage = () => {
                   No ULB data available
                 </div>
               )} */}
-             {/* </div> */} 
+            {/* </div> */}
 
-            <Section_1_3 
+            <Section_1_3
               formData={{ section1_3: section13State }}
               isEditable={isEditable}
               setSectionState={setSection13State}
@@ -2225,11 +2278,11 @@ const calculateAllocationPercentage = () => {
                   <div className="flex items-center space-x-2">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
-                      section15State?.hasIntermediary === "yes"
-                        ? "bg-green-100 text-green-800"
-                        : section15State?.hasIntermediary === "no"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-gray-100 text-gray-800"
+                        section15State?.hasIntermediary === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : section15State?.hasIntermediary === "no"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {section15State?.hasIntermediary === "yes"
@@ -2416,9 +2469,9 @@ const calculateAllocationPercentage = () => {
 
                   {/* Add More Button - Only visible when in edit mode */}
                   {isEditable("1.5") && !showAddForm1_5 && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
                       onClick={() => setShowAddForm1_5(true)}
                     >
@@ -2615,19 +2668,19 @@ const calculateAllocationPercentage = () => {
           })()
             ? undefined
             : // Pass onSendBack callback to prevent auto-close when we need to show confirmation
-              // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
-              // Accept no longer requires comment, so it's not included here
-              // For other cases, use the normal flow
-              isMospiApproverSentBack
-              ? async () => {
-                  // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
+            // For MOSPI_APPROVER Sent Back, we'll show confirmation in handleSaveMessage
+            // Accept no longer requires comment, so it's not included here
+            // For other cases, use the normal flow
+            isMospiApproverSentBack
+            ? async () => {
+                // This prevents auto-close - handleSaveMessage will handle closing and showing confirmation
                 console.log(
                   "MOSPI_APPROVER Sent Back - showing confirmation in handleSaveMessage"
                 );
-                }
-              : (sectionId) => onIndicatorStatus(sectionId, false)
+              }
+            : (sectionId) => onIndicatorStatus(sectionId, false)
         }
-    />
+      />
 
       <TimelineModal
         isOpen={timelineSection !== null}
@@ -2684,7 +2737,7 @@ const calculateAllocationPercentage = () => {
                 };
                 const userRole = getUserRole();
                 const isMospiApprover = userRole === "MOSPI_APPROVER";
-                
+
                 return isMospiApprover
                   ? "Are you sure you want to send this section back to the State Approver? This action will mark the section as REVERTED."
                   : "Are you sure you want to send back this section? On send back, this will be returned to the Nodal Officer for corrections.";
@@ -2723,7 +2776,7 @@ const calculateAllocationPercentage = () => {
                 };
                 const userRole = getUserRole();
                 const isMospiApprover = userRole === "MOSPI_APPROVER";
-                
+
                 return isMospiApprover
                   ? "Are you sure you want to accept this section? This action will mark the section as ACCEPTED and finalize the review."
                   : "Are you sure you want to accept this section? Now it is moved to the Reviewer. No further action can be taken after accept.";
