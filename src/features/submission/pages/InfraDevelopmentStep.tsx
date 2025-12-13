@@ -1254,25 +1254,38 @@ export const InfraDevelopmentStep = () => {
         "infraDevelopment",
         [indicatorCode]
       );
+
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+
+      // Optimistically update formData with the correct status immediately
+      // This ensures the UI updates without requiring a refresh
+      const sectionKey = finalSectionKey;
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            ...sanitizedFormData[sectionKey],
+            status: newStatus,
+          },
+        };
+        // Update form persistence with the merged data
+        updateFormData("infraDevelopment", {
+          ...updated,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
+      });
+
       toast({
         title: "Success",
         description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
         variant: "default",
-      });
-
-      // Optimistically update formData with the correct status
-      const sectionKey = finalSectionKey;
-      setFormData((prev: any) => {
-        if (prev[sectionKey]) {
-          return {
-            ...prev,
-            [sectionKey]: {
-              ...prev[sectionKey],
-              status: newStatus,
-            },
-          };
-        }
-        return prev;
       });
 
       // 🔍 DEBUG: Log before updating form data

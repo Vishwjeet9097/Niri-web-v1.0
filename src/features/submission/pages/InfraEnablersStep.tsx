@@ -911,24 +911,36 @@ export const InfraEnablersStep = () => {
         [indicatorCode]
       );
 
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+
+      // Optimistically update formData with the correct status immediately
+      // This ensures the UI updates without requiring a refresh
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            ...sanitizedFormData[sectionKey],
+            status: newStatus,
+          },
+        };
+        // Update form persistence with the merged data
+        updateFormData("infraEnablers", {
+          ...updated,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
+      });
+
       toast({
         title: "Success",
         description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
         variant: "default",
-      });
-
-      // Optimistically update formData with the correct status
-      setFormData((prev: any) => {
-        if (prev[sectionKey]) {
-          return {
-            ...prev,
-            [sectionKey]: {
-              ...prev[sectionKey],
-              status: newStatus,
-            },
-          };
-        }
-        return prev;
       });
 
       // Update form data with sanitized data that includes status
