@@ -60,11 +60,11 @@ import {
 
 const defaultData: PPPDevelopmentData = {
   section3_1: {
-    available: "no",
+    available: "",
     file: null,
   },
   section3_2: {
-    available: "no",
+    available: "",
     file: null,
   },
   section3_3: { VGFArray: [] },
