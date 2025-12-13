@@ -112,7 +112,7 @@ export function LoginPage() {
         setUser(mockUser);
         setIsAuthenticated(true);
 
-        notificationService.success(`Welcome back, ${mockUser.firstName}! You have been successfully signed in.`, "Sign In Successful");
+        notificationService.success(`Welcome, ${mockUser.firstName}! You have been successfully signed in.`, "Sign In Successful");
 
         // Navigate to dashboard
         const from = location.state?.from?.pathname || "/dashboard";
@@ -140,10 +140,11 @@ export function LoginPage() {
       const result = await login(email, password);
 
       if (result.success) {
-        notificationService.success(`Welcome back, ${result.user.firstName}! You have been successfully signed in.`, "Sign In Successful");
+        notificationService.success(`Welcome, ${result.user.firstName}! You have been successfully signed in.`, "Sign In Successful");
         // Admin redirects to user management, others to dashboard
-        const defaultPath = result.user.role === "ADMIN" ? "/user-management" : "/dashboard";
-        const from = location.state?.from?.pathname || defaultPath;
+       // const defaultPath = result.user.role === "ADMIN" ? "/user-management" : "/dashboard";
+       const defaultPath = "/dashboard";
+       const from = location.state?.from?.pathname || defaultPath;
         navigate(from, { replace: true });
       } else {
         // Error message is already shown by UserService, no need to show again
