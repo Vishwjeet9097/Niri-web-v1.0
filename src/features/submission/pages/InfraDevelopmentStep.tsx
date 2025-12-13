@@ -1224,11 +1224,20 @@ export const InfraDevelopmentStep = () => {
 
       // 🔍 DEBUG: Log final payload
       const finalSectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Check current status - if REVERTED, set to RESUBMITTED, otherwise SUBMITTED_TO_STATE
+      const currentStatus = getIndicatorStatus(indicatorCode);
+      const upperStatus = (currentStatus || "").toUpperCase();
+      const newStatus =
+        upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
+          ? "RESUBMITTED"
+          : "SUBMITTED_TO_STATE";
+
       const sanitizedFormDataWithStatus = {
         ...sanitizedFormData,
         [finalSectionKey]: {
           ...sanitizedFormData[finalSectionKey],
-          status: "SUBMITTED_TO_STATE",
+          status: newStatus,
         },
       };
       console.log(`🔍 [SUBMIT ${indicatorCode}] Final payload being sent:`, {
@@ -1236,6 +1245,8 @@ export const InfraDevelopmentStep = () => {
         category: "infraDevelopment",
         payloadSection: payload[finalSectionKey],
         fullPayload: payload,
+        previousStatus: currentStatus,
+        newStatus: newStatus,
       });
 
       await apiService.submitSectionToStateApprover(
@@ -1249,7 +1260,7 @@ export const InfraDevelopmentStep = () => {
         variant: "default",
       });
 
-      // Optimistically update formData to set status to SUBMITTED_TO_STATE
+      // Optimistically update formData with the correct status
       const sectionKey = finalSectionKey;
       setFormData((prev: any) => {
         if (prev[sectionKey]) {
@@ -1257,7 +1268,7 @@ export const InfraDevelopmentStep = () => {
             ...prev,
             [sectionKey]: {
               ...prev[sectionKey],
-              status: "SUBMITTED_TO_STATE",
+              status: newStatus,
             },
           };
         }

@@ -830,11 +830,20 @@ export const PPPDevelopmentStep = () => {
 
       // Create sanitized data with status for the submitted indicator
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Check current status - if REVERTED, set to RESUBMITTED, otherwise SUBMITTED_TO_STATE
+      const currentStatus = getIndicatorStatus(indicatorCode);
+      const upperStatus = (currentStatus || "").toUpperCase();
+      const newStatus =
+        upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
+          ? "RESUBMITTED"
+          : "SUBMITTED_TO_STATE";
+
       const sanitizedFormDataWithStatus = {
         ...sanitizedFormData,
         [sectionKey]: {
           ...sanitizedFormData[sectionKey],
-          status: "SUBMITTED_TO_STATE",
+          status: newStatus,
         },
       };
 
@@ -850,7 +859,7 @@ export const PPPDevelopmentStep = () => {
         variant: "default",
       });
 
-      // Optimistically update formData to set status to SUBMITTED_TO_STATE
+      // Optimistically update formData with the correct status
       const finalSectionKey = sectionKey;
       setFormData((prev: any) => {
         if (prev[finalSectionKey]) {
@@ -858,7 +867,7 @@ export const PPPDevelopmentStep = () => {
             ...prev,
             [finalSectionKey]: {
               ...prev[finalSectionKey],
-              status: "SUBMITTED_TO_STATE",
+              status: newStatus,
             },
           };
         }
