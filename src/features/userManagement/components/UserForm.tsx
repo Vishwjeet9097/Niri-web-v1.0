@@ -25,6 +25,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { statesService, State } from "@/services/states.service";
 import { apiService } from "@/services/api.service";
 import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
@@ -39,6 +40,7 @@ interface UserFormProps {
   allIndicators?: { code?: string }[];
   officers?: NodalOfficer[];
   loadingIndicators?: boolean;
+  stateApproverHasSubmission?: boolean;
 }
 
 
@@ -49,6 +51,7 @@ export function UserForm({
   allIndicators = [],
   officers = [],
   loadingIndicators = false,
+  stateApproverHasSubmission = false,
 }: UserFormProps) {
   const { user } = useAuth();
 
@@ -101,66 +104,176 @@ export function UserForm({
   const [showAllSelectedIndicators, setShowAllSelectedIndicators] =
     useState(false);
   const [disabledStateNames, setDisabledStateNames] = useState<string[]>([]);
+  const [nodalHasSubmission, setNodalHasSubmission] = useState(false);
+  const [checkingNodalSubmission, setCheckingNodalSubmission] = useState(false);
 
-  // Compute available indicator codes for the selected state (or globally for non-admin)
-  const availableIndicatorCodes = useMemo(() => {
-    // Build set of assigned indicator codes in the same state (excluding the officer being edited)
-    const assignedSet = new Set<string>();
 
-    // Resolve selected state NAME (state name used in officers[].state)
-    const selectedStateName = (() => {
+  // State for API response
+  const [availableIndicatorsForState, setAvailableIndicatorsForState] = useState<any[]>([]);
+
+  // State for checking duplicates
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [checkingContact, setCheckingContact] = useState(false);
+
+  // Debounced values for real-time validation
+  const debouncedEmail = useDebounce(formData.email, 500);
+  const debouncedContactNumber = useDebounce(formData.contactNumber, 500);
+
+  // Compute available indicators for selected state (using backend API for real-time data)
+  useEffect(() => {
+    const computeAvailableIndicators = async () => {
+      // Only compute indicators if creating a NODAL_OFFICER
+      if (formData.role !== "NODAL_OFFICER") {
+        setAvailableIndicatorsForState([]);
+        return;
+      }
+
+      let stateName = "";
       if (user?.role === "ADMIN") {
-        // Admin sets state via stateId; convert to name if possible
-        if (!formData.stateId) return ""; // empty means admin hasn't chosen -> treat as "all"
-        const found = states.find((s) => s.id === formData.stateId);
-        return found ? found.name : formData.stateId;
-      } else {
-        // Non-admin use current user's state
-        return user?.state || "";
-      }
-    })();
-
-    (officers || []).forEach((o) => {
-      const officerState = (o.state || o.stateId || "").toString();
-      // If selectedStateName is empty, treat as global (admin hasn't chosen state) -> don't block options
-      if (!selectedStateName || officerState === selectedStateName) {
-        const assigned = (o.assignedIndicators && Array.isArray(o.assignedIndicators))
-          ? o.assignedIndicators
-          : o.assignedIndicator ? [o.assignedIndicator] : [];
-        if (o.id !== officer?.id) {
-          assigned.forEach((code) => {
-            if (code) assignedSet.add(code);
-          });
+        if (!formData.stateId) {
+          setAvailableIndicatorsForState([]);
+          return;
         }
+        let stateIdStr = Array.isArray(formData.stateId) ? formData.stateId[0] : formData.stateId;
+        const found = states.find((s) => s.id === stateIdStr);
+        stateName = found ? found.name : stateIdStr;
+      } else {
+        stateName = user?.state || "";
       }
-    });
+      
+      if (!stateName) {
+        setAvailableIndicatorsForState([]);
+        return;
+      }
 
-    // Build list of all indicator codes from allIndicators (fallback: if allIndicators items are strings)
-    const allCodes = (allIndicators || []).map((i: any) => (typeof i === "string" ? i : i.code)).filter(Boolean);
+      try {
+        // Use backend API to get real-time available indicators
+        const availableIndicators: any = await apiService.getAvailableIndicatorsForApprover(stateName);
+        
+        // Handle response structure (interceptor may have extracted data)
+        let indicators: any = availableIndicators;
+        if (availableIndicators && typeof availableIndicators === 'object' && !Array.isArray(availableIndicators)) {
+          // If response has data property, extract it
+          if (availableIndicators.data && Array.isArray(availableIndicators.data)) {
+            indicators = availableIndicators.data;
+          } else if (Array.isArray(availableIndicators)) {
+            indicators = availableIndicators;
+          } else {
+            indicators = [];
+          }
+        }
+        
+        // Ensure we have an array
+        if (!Array.isArray(indicators)) {
+          console.warn("⚠️ API returned invalid indicators format:", indicators);
+          indicators = [];
+        }
+        
+        setAvailableIndicatorsForState(indicators);
+      } catch (error) {
+        console.error("❌ Failed to fetch available indicators from API, falling back to frontend filtering:", error);
+        
+        // Fallback to frontend filtering if API fails
+        if (allIndicators.length === 0) {
+          setAvailableIndicatorsForState([]);
+          return;
+        }
 
-    // Return set of available codes (those that are not in assignedSet)
-    return new Set(allCodes.filter((c: string) => !assignedSet.has(c)));
-  }, [allIndicators, officers, formData.stateId, officer, user?.role, states]);
+        // Build a set of codes that are already assigned in this state to all users (except current officer)
+        const assignedSet = new Set<string>();
+
+        // Officers array already contains users for the current scope (for Admin it may contain all states)
+        officers.forEach((o) => {
+          // Only consider assigned indicators of users in the same state
+          const officerState = o.state || o.stateId || "";
+          if (!stateName || officerState === stateName) {
+            // assignedIndicators may be an array of codes
+            const assigned =
+              o.assignedIndicators ||
+              (o.assignedIndicator ? [o.assignedIndicator] : []);
+            // Exclude current officer being edited
+            if (o.id !== officer?.id) {
+              assigned.forEach((code) => {
+                if (code) assignedSet.add(code);
+              });
+            }
+          }
+        });
+
+        // Return indicators whose code is NOT in assignedSet
+        // Convert to the same format as API response (array of objects with code, name, category)
+        const available = allIndicators.filter((ind: any) => !assignedSet.has(ind.code));
+        
+        // Transform to match API response format
+        const formattedAvailable = available.map((ind: any) => ({
+          code: ind.code,
+          name: ind.name || getIndicatorDisplayName(ind.code),
+          category: ind.category || '',
+          id: ind.id,
+        }));
+        
+        setAvailableIndicatorsForState(formattedAvailable);
+      }
+    };
+    
+    computeAvailableIndicators();
+  }, [formData.stateId, formData.role, user?.role, states, allIndicators, officers, officer?.id]);
 
   // Build the options list from INDICATOR_SECTIONS but only include:
   //  - indicators present in availableIndicatorCodes OR
   //  - indicators already selected for this form (so editing doesn't drop them)
   const indicatorOptions: MultiSelectOption[] = useMemo(() => {
-    const selectedSet = new Set(formData.assignedIndicators || []);
-    return INDICATOR_SECTIONS.flatMap((section) =>
-      section.indicators
-        .filter((indicator) => {
-          // include if available OR currently selected for this officer
-          return availableIndicatorCodes.has(indicator) || selectedSet.has(indicator);
-        })
-        .map((indicator) => ({
-          value: indicator,
-          label: `${indicator} - ${getIndicatorDisplayName(indicator)}`,
-          section: section.name,
-          description: section.description,
-        }))
-    );
-  }, [availableIndicatorCodes, formData.assignedIndicators]);
+    // Collect all codes from API response
+    let apiCodes: string[] = [];
+    if (!availableIndicatorsForState || availableIndicatorsForState.length === 0) {
+      apiCodes = [];
+    } else if (typeof availableIndicatorsForState[0] === 'object') {
+      apiCodes = availableIndicatorsForState.map((item: any) => item.code);
+    } else {
+      apiCodes = availableIndicatorsForState;
+    }
+
+    // Sort: assigned indicators first (in their order), then API indicators (in their order, excluding duplicates)
+    const assigned = formData.assignedIndicators || [];
+    const apiUnique = apiCodes.filter(code => !assigned.includes(code));
+    const allCodes = [...assigned, ...apiUnique];
+
+    // Build name map from API response (object) or fallback
+    const indicatorNameMap: Record<string, string> = {};
+    if (typeof availableIndicatorsForState[0] === 'object') {
+      availableIndicatorsForState.forEach((item: any) => {
+        if (item && item.code && item.name) {
+          indicatorNameMap[item.code] = item.name;
+        }
+      });
+    }
+    // Fallback for codes not in API response
+    allCodes.forEach((code: string) => {
+      if (!indicatorNameMap[code]) {
+        indicatorNameMap[code] = getIndicatorDisplayName(code);
+      }
+    });
+
+    // Build options array
+    return allCodes.map((code: string) => {
+      // If API response is object, try to get section/category
+      let section = '';
+      let description = indicatorNameMap[code];
+      if (typeof availableIndicatorsForState[0] === 'object') {
+        const found = availableIndicatorsForState.find((item: any) => item.code === code);
+        if (found) {
+          section = found.category || '';
+          description = found.name || indicatorNameMap[code];
+        }
+      }
+      return {
+        value: code,
+        label: `${code} - ${indicatorNameMap[code]}`,
+        section,
+        description,
+      };
+    });
+  }, [availableIndicatorsForState]);
 
 // Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
 
@@ -200,6 +313,45 @@ export function UserForm({
     }
   };
 
+  // Check if nodal officer has submitted their form
+  const checkNodalOfficerSubmission = async (userId: string) => {
+    if (!userId || formData.role !== "NODAL_OFFICER") {
+      setNodalHasSubmission(false);
+      return;
+    }
+
+    setCheckingNodalSubmission(true);
+    try {
+      const response = await apiService.get(`/submission/user/${userId}`);
+      const submission = response?.data?.data || response?.data;
+      
+      if (submission?.id && submission?.formData) {
+        const formData = submission.formData;
+        // Check if any step has data
+        const hasData = Object.keys(formData).some((stepKey) => {
+          const stepData = formData[stepKey];
+          if (typeof stepData === "object" && stepData !== null) {
+            return Object.keys(stepData).length > 0;
+          }
+          return false;
+        });
+        setNodalHasSubmission(hasData);
+      } else {
+        setNodalHasSubmission(false);
+      }
+    } catch (error: any) {
+      // If 404 or no submissions, set to false
+      if (error?.response?.status === 404) {
+        setNodalHasSubmission(false);
+      } else {
+        console.warn("⚠️ Error checking nodal officer submission:", error);
+        setNodalHasSubmission(false);
+      }
+    } finally {
+      setCheckingNodalSubmission(false);
+    }
+  };
+
   // Get available roles based on current user's role
   const getAvailableRoles = useCallback(() => {
     const currentUserRole = user?.role;
@@ -230,10 +382,6 @@ export function UserForm({
       case "ADMIN":
         // Admin can create all roles (for system administration)
         return [
-          {
-            value: "NODAL_OFFICER",
-            label: getRoleDisplayName("NODAL_OFFICER"),
-          },
           {
             value: "STATE_APPROVER",
             label: getRoleDisplayName("STATE_APPROVER"),
@@ -309,6 +457,10 @@ export function UserForm({
       // Fetch assigned indicators from API for NODAL_OFFICER
       if (officer.role === "NODAL_OFFICER" && officer.id) {
         fetchAssignedIndicators(officer.id);
+        // Check if nodal officer has submitted
+        checkNodalOfficerSubmission(officer.id);
+      } else {
+        setNodalHasSubmission(false);
       }
     } else {
       // Reset form when no officer (new user)
@@ -328,6 +480,8 @@ export function UserForm({
         assignedIndicators: [], 
         stateUt: "", 
       });
+      // Reset nodal submission check for new user
+      setNodalHasSubmission(false);
     }
   }, [officer, user?.state, user?.role, getAvailableRoles, states]);
 
@@ -414,6 +568,19 @@ export function UserForm({
       newErrors.contactNumber = "Contact number is required";
     } else if (!/^\d{10}$/.test(formData.contactNumber.replace(/\s/g, ""))) {
       newErrors.contactNumber = "Please enter a valid 10-digit phone number";
+    } else {
+      // Check for duplicate contact number
+      const normalizedContactNumber = formData.contactNumber.replace(/\s/g, "");
+      const duplicateContact = officers.find(
+        (o) =>
+          o.id !== officer?.id && // Exclude current officer if editing
+          o.contactNumber &&
+          o.contactNumber.replace(/\s/g, "") === normalizedContactNumber
+      );
+      if (duplicateContact) {
+        newErrors.contactNumber =
+          "This contact number is already assigned to another user";
+      }
     }
 
     if (!formData.email.trim()) {
@@ -445,14 +612,8 @@ export function UserForm({
    }
 
 
-    // ✅ Indicator validation for NODAL_OFFICER
-    if (
-      formData.role === "NODAL_OFFICER" &&
-      formData.assignedIndicators.length === 0
-    ) {
-      newErrors.assignedIndicators =
-        "At least one indicator must be assigned to Nodal Officer";
-    }
+    // Indicator assignment is optional for NODAL_OFFICER
+    // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
     // ✅ State validation for MOSPI_APPROVER and ADMIN
    if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
@@ -643,16 +804,188 @@ const handleStateChange = (values: string | string[]) => {
     fetchDisabledStates();
   }, [formData.role]); // Re-fetch when role changes
 
+  // Real-time email availability check
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkEmail = async () => {
+      // Skip if editing and email hasn't changed
+      if (officer && debouncedEmail === officer.email) {
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors.email;
+            return newErrors;
+          });
+        }
+        return;
+      }
+
+      // Clear duplicate error if email is empty or invalid format
+      if (!debouncedEmail || !/@(gov\.in|nic\.in)$/i.test(debouncedEmail)) {
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            // Only clear duplicate error, keep format errors
+            if (newErrors.email === "This email is already registered to another user") {
+              delete newErrors.email;
+            }
+            return newErrors;
+          });
+        }
+        return; // Don't check if email format is invalid
+      }
+
+      if (!isCancelled) {
+        setCheckingEmail(true);
+      }
+
+      try {
+        const isAvailable = await apiService.checkEmailAvailability(
+          debouncedEmail,
+          officer?.id
+        );
+        
+        // Only update state if this request hasn't been cancelled
+        if (!isCancelled) {
+          if (!isAvailable) {
+            setErrors((prev) => ({
+              ...prev,
+              email: "This email is already registered to another user",
+            }));
+          } else {
+            setErrors((prev) => {
+              const newErrors = { ...prev };
+              // Only clear email error if it's a duplicate error, keep format errors
+              if (newErrors.email === "This email is already registered to another user") {
+                delete newErrors.email;
+              }
+              return newErrors;
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error checking email availability:", error);
+        // On error, clear the duplicate error (assume available)
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            if (newErrors.email === "This email is already registered to another user") {
+              delete newErrors.email;
+            }
+            return newErrors;
+          });
+        }
+      } finally {
+        if (!isCancelled) {
+          setCheckingEmail(false);
+        }
+      }
+    };
+
+    checkEmail();
+
+    // Cleanup: cancel this effect if email changes
+    return () => {
+      isCancelled = true;
+    };
+  }, [debouncedEmail, officer?.id, officer?.email]);
+
+  // Real-time contact number availability check
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkContact = async () => {
+      // Skip if editing and contact number hasn't changed
+      if (officer && debouncedContactNumber === officer.contactNumber) {
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors.contactNumber;
+            return newErrors;
+          });
+        }
+        return;
+      }
+
+      // Only check if it's a valid 10-digit number
+      const normalizedContact = debouncedContactNumber.replace(/\s/g, "");
+      if (!normalizedContact || !/^\d{10}$/.test(normalizedContact)) {
+        // Clear duplicate error if contact number is empty or invalid format
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            // Only clear duplicate error, keep format errors
+            if (newErrors.contactNumber === "This contact number is already registered to another user") {
+              delete newErrors.contactNumber;
+            }
+            return newErrors;
+          });
+        }
+        return; // Don't check if format is invalid
+      }
+
+      if (!isCancelled) {
+        setCheckingContact(true);
+      }
+
+      try {
+        const isAvailable = await apiService.checkContactAvailability(
+          normalizedContact,
+          officer?.id
+        );
+        
+        // Only update state if this request hasn't been cancelled
+        if (!isCancelled) {
+          if (!isAvailable) {
+            setErrors((prev) => ({
+              ...prev,
+              contactNumber: "This contact number is already registered to another user",
+            }));
+          } else {
+            setErrors((prev) => {
+              const newErrors = { ...prev };
+              // Only clear duplicate error, keep format errors
+              if (newErrors.contactNumber === "This contact number is already registered to another user") {
+                delete newErrors.contactNumber;
+              }
+              return newErrors;
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error checking contact availability:", error);
+        // On error, clear the duplicate error (assume available)
+        if (!isCancelled) {
+          setErrors((prev) => {
+            const newErrors = { ...prev };
+            if (newErrors.contactNumber === "This contact number is already registered to another user") {
+              delete newErrors.contactNumber;
+            }
+            return newErrors;
+          });
+        }
+      } finally {
+        if (!isCancelled) {
+          setCheckingContact(false);
+        }
+      }
+    };
+
+    checkContact();
+
+    // Cleanup: cancel this effect if contact number changes
+    return () => {
+      isCancelled = true;
+    };
+  }, [debouncedContactNumber, officer?.id, officer?.contactNumber]);
+
   return (
     <div className="max-w-4xl space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Enter officer details
-        </h2>
-        <p className="text-muted-foreground">
-          Add Nodal Officers for your State/UT and assign them specific
-          indicators for data submission.
-        </p>
+          User Management
+        </h2>        
       </div>
 
       <div className="grid grid-cols-2 gap-6">
@@ -660,7 +993,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="firstName" className="flex items-center gap-2">
             First Name
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -669,7 +1002,7 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Enter the officer's first name</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Input
             id="firstName"
@@ -689,7 +1022,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="lastName" className="flex items-center gap-2">
             Last Name
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -698,7 +1031,7 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Enter the officer's last name</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Input
             id="lastName"
@@ -718,7 +1051,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="contactNumber" className="flex items-center gap-2">
             Contact Number
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -727,17 +1060,30 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Enter 10-digit mobile number</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Input
             id="contactNumber"
             placeholder="Enter you 10-digit phone number"
             value={formData.contactNumber}
-            onChange={(e) =>
-              setFormData({ ...formData, contactNumber: e.target.value })
-            }
+            onChange={(e) => {
+              const contactNumber = e.target.value;
+              setFormData({ ...formData, contactNumber });
+
+              // Clear duplicate error when user starts typing
+              if (errors.contactNumber?.includes("already registered")) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.contactNumber;
+                  return newErrors;
+                });
+              }
+            }}
             className={errors.contactNumber ? "border-destructive" : ""}
           />
+          {checkingContact && (
+            <p className="text-sm text-muted-foreground">Checking availability...</p>
+          )}
           {errors.contactNumber && (
             <p className="text-sm text-destructive">{errors.contactNumber}</p>
           )}
@@ -747,7 +1093,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="email" className="flex items-center gap-2">
             Email
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -756,16 +1102,26 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Only @gov.in and @nic.in email addresses are allowed</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Input
             id="email"
             type="email"
             placeholder="e.g. user@gujarat.gov.in or user@nic.in"
             value={formData.email}
+            disabled={!!officer} // Disable email field when editing existing user
             onChange={(e) => {
               const email = e.target.value;
               setFormData({ ...formData, email });
+
+              // Clear duplicate error immediately when user starts typing
+              if (errors.email?.includes("already registered")) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.email;
+                  return newErrors;
+                });
+              }
 
               // Real-time validation for email domain
               if (email.trim() === "") {
@@ -782,16 +1138,21 @@ const handleStateChange = (values: string | string[]) => {
                   email: "Only @gov.in and @nic.in email addresses are allowed",
                 }));
               } else {
-                // Clear error if domain is correct
+                // Clear format error if domain is correct (but keep duplicate error if exists, it will be cleared by debounced check)
                 setErrors((prev) => {
                   const newErrors = { ...prev };
-                  delete newErrors.email;
+                  if (newErrors.email === "Only @gov.in and @nic.in email addresses are allowed") {
+                    delete newErrors.email;
+                  }
                   return newErrors;
                 });
               }
             }}
-            className={errors.email ? "border-destructive" : ""}
+            className={errors.email ? "border-destructive" : officer ? "bg-muted cursor-not-allowed" : ""}
           />
+          {checkingEmail && !officer && (
+            <p className="text-sm text-muted-foreground">Checking availability...</p>
+          )}
           {errors.email && (
             <p className="text-sm text-destructive">{errors.email}</p>
           )}
@@ -802,7 +1163,7 @@ const handleStateChange = (values: string | string[]) => {
             <Label htmlFor="password" className="flex items-center gap-2">
               Password
               <span className="text-destructive">*</span>
-              <TooltipProvider>
+              {/* <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -811,7 +1172,7 @@ const handleStateChange = (values: string | string[]) => {
                     <p>Enter password for the new user</p>
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
+              </TooltipProvider> */}
             </Label>
             <div className="relative">
               <Input
@@ -848,7 +1209,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="role" className="flex items-center gap-2">
             Role
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -857,7 +1218,7 @@ const handleStateChange = (values: string | string[]) => {
                   <p>Select the officer's role</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           <Select
             value={formData.role}
@@ -868,6 +1229,13 @@ const handleStateChange = (values: string | string[]) => {
                 stateId: value === "MOSPI_REVIEWER" ? [] : '',
                 stateUt: ''
               }));
+              // Reset nodal submission check when role changes
+              if (value !== "NODAL_OFFICER") {
+                setNodalHasSubmission(false);
+              } else if (officer?.id && value === "NODAL_OFFICER") {
+                // Re-check if switching back to NODAL_OFFICER
+                checkNodalOfficerSubmission(officer.id);
+              }
             }}
           >
             <SelectTrigger className={errors.role ? "border-destructive" : ""}>
@@ -891,7 +1259,7 @@ const handleStateChange = (values: string | string[]) => {
           <Label htmlFor="stateId" className="flex items-center gap-2">
               State/UT
             <span className="text-destructive">*</span>
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -904,7 +1272,7 @@ const handleStateChange = (values: string | string[]) => {
                   </p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
           </Label>
           </>
       )}
@@ -1002,18 +1370,8 @@ const handleStateChange = (values: string | string[]) => {
   })}
   value={Array.isArray(formData.stateId) ? formData.stateId : [formData.stateId].filter(Boolean)}
   onChange={(selected) => {
-    const filtered = selected.filter(value => {
-      const state = states.find(s => s.id === value);
-      const stateNameNorm = (state?.name || '').trim().toLowerCase();
-      const normalizedDisabledNames = disabledStateNames.map(n => n.toString().trim().toLowerCase());
-      const isAssigned = (officers || []).some(o =>
-        o.role === 'MOSPI_REVIEWER' &&
-        o.id !== officer?.id &&
-        ((Array.isArray(o.stateId) && o.stateId.includes(state?.id)) || (!Array.isArray(o.stateId) && o.stateId === state?.id))
-      );
-      return state?.isActive && !isAssigned && !normalizedDisabledNames.includes(stateNameNorm);
-    });
-    handleStateChange(filtered);
+    // Only keep the current selection, do not merge with previous state
+    handleStateChange(selected);
   }}
   placeholder={loadingStates ? "Loading states..." : "Select multiple states"}
   searchPlaceholder="Search states..."
@@ -1053,8 +1411,22 @@ const handleStateChange = (values: string | string[]) => {
             const isDisabledByName = disabledStateNames.some(
               n => n.trim().toLowerCase() === state.name.trim().toLowerCase()
             );
+            
+            // Check if STATE_APPROVER already exists for this state
+            // Each state can have only one active STATE_APPROVER
+            const hasStateApprover = formData.role === "STATE_APPROVER" && (officers || []).some(o =>
+              o.role === 'STATE_APPROVER' &&
+              o.id !== officer?.id && // Exclude current officer if editing
+              o.isActive !== false && // Only check active STATE_APPROVERs (exclude explicitly deactivated ones)
+              (
+                (typeof o.state === 'string' && o.state.trim().toLowerCase() === state.name.trim().toLowerCase()) ||
+                (typeof o.stateId === 'string' && o.stateId === state.id) ||
+                (Array.isArray(o.stateId) && o.stateId.includes(state.id))
+              )
+            );
+            
             return (
-              <SelectItem key={state.id} value={state.id} disabled={!state.isActive || isDisabledByName}>
+              <SelectItem key={state.id} value={state.id} disabled={!state.isActive || isDisabledByName || hasStateApprover}>
                 {state.name}
               </SelectItem>
             );
@@ -1094,8 +1466,7 @@ const handleStateChange = (values: string | string[]) => {
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               Assign Indicators
-              <span className="text-destructive">*</span>
-              <TooltipProvider>
+              {/* <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -1107,8 +1478,32 @@ const handleStateChange = (values: string | string[]) => {
                     </p>
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
+              </TooltipProvider> */}
             </Label>
+
+            {/* Warning if state approver has submitted */}
+            {stateApproverHasSubmission && officer && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> Indicator reassignment is disabled because you have already submitted your consolidated submission.
+                </p>
+              </div>
+            )}
+
+            {/* Warning if nodal officer has submitted */}
+            {nodalHasSubmission && officer && !stateApproverHasSubmission && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm text-orange-800">
+                  <strong>Note:</strong> Indicator modification is disabled because this nodal officer has already submitted their submission. No indicator changes are allowed.
+                </p>
+              </div>
+            )}
+
+            {checkingNodalSubmission && (
+              <p className="text-sm text-muted-foreground">
+                Checking submission status...
+              </p>
+            )}
 
             <MultiSelect
               options={indicatorOptions}
@@ -1126,7 +1521,7 @@ const handleStateChange = (values: string | string[]) => {
               groupBySection={true}
               className="w-full"
               maxHeight="250px"
-              disabled={loadingIndicators}
+              disabled={loadingIndicators || (stateApproverHasSubmission && !!officer) || (nodalHasSubmission && !!officer)}
             />
             {loadingIndicators && (
               <p className="text-sm text-muted-foreground mt-1">

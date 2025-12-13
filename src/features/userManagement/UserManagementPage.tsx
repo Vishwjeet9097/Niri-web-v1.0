@@ -19,6 +19,7 @@ import {
 import { UserForm } from "./components/UserForm";
 import { UserTable } from "./components/UserTable";
 import { EmptyState } from "./components/EmptyState";
+import { CleanupButtons } from "./components/CleanupButtons";
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
@@ -26,6 +27,7 @@ import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { useMemo } from "react";
+import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 
 export function UserManagementPage() {
   const { user } = useAuth();
@@ -46,6 +48,10 @@ export function UserManagementPage() {
   const [checkingSubmissions, setCheckingSubmissions] = useState(false);
 
   const { refresh } = useIndicatorAccess();
+  
+  // Check if state approver has submitted their form
+  const { hasSubmission: stateApproverHasSubmission } = useUserSubmissionStatus();
+
   const loadStates = async () => {
     try {
       const statesData = await statesService.getStates();
@@ -75,6 +81,14 @@ export function UserManagementPage() {
         backendUsers = await apiService.getUsersByState(user?.state || "");
       }
       // Debug logging removed for performance
+
+      // Safety check: ensure backendUsers is an array
+      if (!backendUsers || !Array.isArray(backendUsers)) {
+        console.warn("⚠️ Backend API returned invalid data, using local storage:", backendUsers);
+        const data = userManagementService.getOfficers(user?.state || "");
+        setOfficers(data);
+        return;
+      }
 
       // Transform backend users to NodalOfficer format
       const transformedOfficers: NodalOfficer[] = backendUsers.map(
@@ -134,6 +148,20 @@ export function UserManagementPage() {
     loadStates();
   }, [loadOfficers]); // Add loadOfficers dependency back
 
+  // Refresh officers list when window regains focus (handles multi-tab scenarios)
+  useEffect(() => {
+    const handleFocus = () => {
+      // Refresh officers list when user switches back to this tab
+      // This ensures UI stays in sync if user creates/deletes users in another tab
+      loadOfficers();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loadOfficers]);
+
   const computeAvailableIndicatorsForState = (
     stateName: string,
     editingOfficerId?: string
@@ -172,6 +200,138 @@ export function UserManagementPage() {
     setShowForm(true);
   };
 
+  // Helper function to check if nodal officer has any submission
+  const checkNodalOfficerHasSubmission = async (
+    userId: string
+  ): Promise<boolean> => {
+    try {
+      const response = await apiService.get(`/submission/user/${userId}`);
+      const submission = response?.data?.data || response?.data;
+      
+      // Check if submission exists and has meaningful data
+      if (!submission?.id) {
+        return false;
+      }
+
+      // Check if submission has formData with any submitted indicators
+      if (submission?.formData) {
+        const formData = submission.formData;
+        // Check if any step has data
+        const hasData = Object.keys(formData).some((stepKey) => {
+          const stepData = formData[stepKey];
+          if (typeof stepData === "object" && stepData !== null) {
+            return Object.keys(stepData).length > 0;
+          }
+          return false;
+        });
+        return hasData;
+      }
+
+      return false;
+    } catch (error: any) {
+      // If 404 or no submissions, return false
+      if (error?.response?.status === 404) {
+        return false;
+      }
+      console.warn("⚠️ Error checking nodal officer submission:", error);
+      // Return false on error to allow changes (fail open)
+      return false;
+    }
+  };
+
+  // Helper function to check if nodal officer has submitted for specific indicators
+  const checkNodalOfficerHasSubmittedIndicators = async (
+    userId: string,
+    indicatorsToRemove: string[]
+  ): Promise<{ hasSubmitted: boolean; submittedIndicators: string[] }> => {
+    try {
+      const response = await apiService.get(`/submission/user/${userId}`);
+      const submission = response?.data?.data || response?.data;
+      
+      if (!submission?.id || !submission?.formData) {
+        return { hasSubmitted: false, submittedIndicators: [] };
+      }
+
+      // Extract indicators from submission formData
+      const submittedIndicators: string[] = [];
+      const formData = submission.formData;
+
+      // Map section keys to indicator codes
+      const sectionToIndicatorMap: Record<string, string> = {
+        // Infra Financing (Step 1)
+        section1_1: "1.1",
+        section1_2: "1.2",
+        section1_3: "1.3",
+        section1_4: "1.4",
+        section1_5: "1.5",
+        // Infra Development (Step 2)
+        section2_1: "2.1",
+        section2_2: "2.2",
+        section2_3: "2.3",
+        section2_4: "2.4",
+        section2_5: "2.5",
+        // PPP Development (Step 3)
+        section3_1: "3.1",
+        section3_2: "3.2",
+        section3_3: "3.3",
+        section3_4: "3.4",
+        section3_5: "3.5",
+        // Infra Enablers (Step 4)
+        section4_1: "4.1",
+        section4_2: "4.2",
+        section4_3: "4.3",
+        section4_4: "4.4",
+        section4_5: "4.5",
+        section4_6: "4.6",
+      };
+
+      // Check all form data sections
+      Object.keys(formData).forEach((stepKey) => {
+        const stepData = formData[stepKey];
+        if (typeof stepData === "object" && stepData !== null) {
+          Object.keys(stepData).forEach((sectionKey) => {
+            const indicatorCode = sectionToIndicatorMap[sectionKey];
+            if (indicatorCode) {
+              const sectionData = stepData[sectionKey];
+              // Check if section has data and status (submitted)
+              if (
+                sectionData &&
+                typeof sectionData === "object" &&
+                (sectionData.status === "SUBMITTED" ||
+                  sectionData.status === "ACCEPTED" ||
+                  sectionData.status === "REVERTED" ||
+                  // If section has meaningful data, consider it submitted
+                  Object.keys(sectionData).length > 0)
+              ) {
+                if (!submittedIndicators.includes(indicatorCode)) {
+                  submittedIndicators.push(indicatorCode);
+                }
+              }
+            }
+          });
+        }
+      });
+
+      // Check if any of the indicators being removed have been submitted
+      const conflictingIndicators = indicatorsToRemove.filter((ind) =>
+        submittedIndicators.includes(ind)
+      );
+
+      return {
+        hasSubmitted: conflictingIndicators.length > 0,
+        submittedIndicators: conflictingIndicators,
+      };
+    } catch (error: any) {
+      // If 404 or no submissions, return false
+      if (error?.response?.status === 404) {
+        return { hasSubmitted: false, submittedIndicators: [] };
+      }
+      console.warn("⚠️ Error checking nodal officer submissions:", error);
+      // Return false on error to allow reassignment (fail open)
+      return { hasSubmitted: false, submittedIndicators: [] };
+    }
+  };
+
   const handleSaveUser = async (
     officerData: Omit<
       NodalOfficer,
@@ -180,6 +340,74 @@ export function UserManagementPage() {
   ) => {
     try {
       if (editingOfficer) {
+        // ✅ VALIDATION: Check if this is indicator manipulation for NODAL_OFFICER
+        if (
+          editingOfficer.role === "NODAL_OFFICER" &&
+          officerData.assignedIndicators !== undefined &&
+          user?.role === "STATE_APPROVER"
+        ) {
+          // Get current and new indicator assignments
+          const currentIndicators =
+            editingOfficer.assignedIndicators ||
+            (editingOfficer.assignedIndicator
+              ? [editingOfficer.assignedIndicator]
+              : []);
+          const newIndicators = officerData.assignedIndicators || [];
+
+          // Check if indicators are being changed (added or removed)
+          const indicatorsChanged = 
+            currentIndicators.length !== newIndicators.length ||
+            currentIndicators.some((ind) => !newIndicators.includes(ind)) ||
+            newIndicators.some((ind) => !currentIndicators.includes(ind));
+
+          if (indicatorsChanged) {
+            // ✅ Check 1: State Approver has submitted their form
+            if (stateApproverHasSubmission) {
+              notificationService.error(
+                "Cannot modify indicators. You have already submitted your consolidated submission. Please contact administrator.",
+                "Modification Blocked"
+              );
+              return;
+            }
+
+            // ✅ Check 2: Nodal Officer has submitted their form (block ALL changes if they have submitted)
+            const nodalHasSubmission = await checkNodalOfficerHasSubmission(
+              editingOfficer.id
+            );
+
+            if (nodalHasSubmission) {
+              notificationService.error(
+                "Cannot modify indicators. This nodal officer has already submitted their submission. No indicator changes are allowed.",
+                "Modification Blocked"
+              );
+              return;
+            }
+
+            // ✅ Check 3: If adding indicators, check if any being added conflict with existing submissions
+            // (This is a safety check, but Check 2 should catch most cases)
+            const indicatorsBeingRemoved = currentIndicators.filter(
+              (ind) => !newIndicators.includes(ind)
+            );
+
+            if (indicatorsBeingRemoved.length > 0) {
+              const submissionCheck = await checkNodalOfficerHasSubmittedIndicators(
+                editingOfficer.id,
+                indicatorsBeingRemoved
+              );
+
+              if (submissionCheck.hasSubmitted) {
+                notificationService.error(
+                  `Cannot remove indicators ${submissionCheck.submittedIndicators.join(
+                    ", "
+                  )}. This nodal officer has already submitted data for these indicators.`,
+                  "Removal Blocked"
+                );
+                return;
+              }
+            }
+          }
+        }
+
         // Update existing user via backend API
         let selectedState = "";
 
@@ -235,6 +463,7 @@ export function UserManagementPage() {
           //throw new Error("State is required but not provided");
         }
 
+ 
         await apiService.updateUser(editingOfficer.id, {
           firstName: officerData.firstName,
           lastName: officerData.lastName,
@@ -254,6 +483,33 @@ export function UserManagementPage() {
           "Officer updated successfully",
           "Update Successful"
         );
+
+        // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
+        // Check if indicators were actually updated
+        if (officerData.assignedIndicators !== undefined) {
+          console.log("📢 Dispatching indicatorsUpdated event after user update", {
+            officerRole: editingOfficer.role,
+            officerState: editingOfficer.state,
+            officerStateUt: editingOfficer.stateUt,
+            newIndicators: officerData.assignedIndicators
+          });
+          // For NODAL_OFFICER indicator changes, include role so STATE_APPROVERs refresh
+          // The NODAL_OFFICER themselves will refresh via the userId check, but STATE_APPROVERs need to refresh too
+          const eventDetail: any = { action: 'update' };
+          if (editingOfficer.role === "NODAL_OFFICER") {
+            // Include stateUt and role so STATE_APPROVERs can refresh
+            // STATE_APPROVERs will always refresh when any NODAL_OFFICER indicators change
+            eventDetail.stateUt = editingOfficer.state || editingOfficer.stateUt;
+            eventDetail.role = "NODAL_OFFICER";
+            // Also include userId for the NODAL_OFFICER themselves to refresh
+            eventDetail.userId = editingOfficer.id;
+          } else {
+            // For other roles, include userId for targeted refresh
+            eventDetail.userId = editingOfficer.id;
+          }
+          console.log("📢 Event detail:", eventDetail);
+          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
+        }
       } else {
         // Create new user via backend API
         // Debug logging removed for performance
@@ -281,7 +537,7 @@ export function UserManagementPage() {
                 selectedStateId = officerData.stateId; // Fallback to ID if not found
                 selectedStateName = officerData.stateId; // Fallback to ID if not found
                 console.warn(
-                  "⚠️ State not found in states array:",
+                  "⚠️ State not found in states array1:",
                   officerData.stateId
                 );
               }
@@ -296,7 +552,7 @@ export function UserManagementPage() {
                 selectedStateId = officerData.stateId; // Fallback
                 selectedStateName = officerData.stateId; // Fallback
                 console.warn(
-                  "⚠️ State not found in states array:",
+                  "⚠️ State not found in states array2:",
                   officerData.stateId
                 );
               }
@@ -327,8 +583,9 @@ export function UserManagementPage() {
         }
 
         // Before calling register, compute final values to send:
-        const stateUtToSend =
-          selectedStateName || officerData.stateUt || selectedStateId || "";
+        const stateUtToSend = 
+            selectedStateName || officerData.stateUt || selectedStateId || "";
+ 
 
         // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
         const newUser = await apiService.register(
@@ -338,7 +595,7 @@ export function UserManagementPage() {
           officerData.lastName,
           officerData.contactNumber,
           officerData.role,
-          stateUtToSend, // <- pass state NAME here (was officerData.stateUt)
+          officerData.stateUt, // <- pass state NAME here (was officerData.stateUt)
           selectedStateId, // <- state ID
           officerData.assignedIndicators // indicators
         );
@@ -358,6 +615,22 @@ export function UserManagementPage() {
           "Officer added successfully",
           "Registration Successful"
         );
+
+        // Dispatch custom event to notify DashboardLayout to refresh indicators immediately
+        // Check if indicators were assigned to the new user (or if assignment is empty, to notify STATE_APPROVERs)
+        if (officerData.assignedIndicators !== undefined) {
+          console.log("📢 Dispatching indicatorsUpdated event after user creation");
+          // For NODAL_OFFICER indicator assignment, include stateUt so STATE_APPROVERs refresh
+          const eventDetail: any = { 
+            action: 'create', 
+            assignedIndicators: officerData.assignedIndicators 
+          };
+          if (officerData.role === "NODAL_OFFICER") {
+            eventDetail.role = "NODAL_OFFICER";
+            eventDetail.stateUt = selectedStateName || officerData.stateUt;
+          }
+          window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
+        }
       }
       await loadOfficers();
       setShowForm(false);
@@ -526,11 +799,14 @@ export function UserManagementPage() {
   // Filter and sort officers
   const filteredOfficers = officers
     .filter((officer) => {
+      const lowerSearch = searchTerm.toLowerCase();
       const matchesSearch =
         searchTerm === "" ||
-        officer.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        officer.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        officer.email.toLowerCase().includes(searchTerm.toLowerCase());
+        officer.firstName.toLowerCase().includes(lowerSearch) ||
+        officer.lastName.toLowerCase().includes(lowerSearch) ||
+        officer.email.toLowerCase().includes(lowerSearch) ||
+        (officer.state && officer.state.toLowerCase().includes(lowerSearch)) ||
+        (officer.stateId && officer.stateId.toLowerCase().includes(lowerSearch));
 
       // If current user is STATE_APPROVER, "All" should behave as NODAL_OFFICER only
       const isStateApprover = user?.role === "STATE_APPROVER";
@@ -712,6 +988,7 @@ export function UserManagementPage() {
           allIndicators={allIndicators}
           officers={officers}
           loadingIndicators={isIndicatorsLoading}
+          stateApproverHasSubmission={stateApproverHasSubmission}
         />
       </div>
     );
@@ -729,11 +1006,7 @@ export function UserManagementPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               User Management
-            </h1>
-            <p className="text-muted-foreground">
-              Add or remove Nodal Officers for your State/UT and assign them
-              specific indicators for data submission
-            </p>
+            </h1>            
           </div>
         </div>
         <EmptyState onAddClick={handleAddUser} />
@@ -792,25 +1065,32 @@ export function UserManagementPage() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">
-              Enter officer details
-            </h1>
-            <p className="text-[#000]">
-              Add or remove Nodal Officers for your State/UT and assign them
-              specific indicators for data submission.
-            </p>
+              User Management
+            </h1> 
           </div>
         </div>
         <div className="flex gap-3">
+          {/* Cleanup Buttons Component - Comment/Uncomment to enable/disable */}
+          <CleanupButtons
+            userRole={user?.role}
+            onRefresh={loadOfficers}
+            isDeleting={isDeleting}
+          />
+          {/* End Cleanup Buttons Component */}
           <Button
             variant="outline"
             onClick={handleDeleteAll}
             disabled={
-              isDeleting || (selectedIds.size === 0 && officers.length === 0)
+              isDeleting ||
+              (selectedIds.size === 0 && officers.length === 0)
             }
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </Button>
-          <Button onClick={handleAddUser} disabled={isDeleting}>
+          <Button
+            onClick={handleAddUser}
+            disabled={isDeleting}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add User
           </Button>
@@ -822,7 +1102,7 @@ export function UserManagementPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search by name or email..."
+            placeholder="Search by name, email or state name..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -844,10 +1124,13 @@ export function UserManagementPage() {
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
+              <SelectItem value="all">Select Roles</SelectItem>
+
+               {user?.role !== "ADMIN" && (
               <SelectItem value="NODAL_OFFICER">
                 {getRoleDisplayName("NODAL_OFFICER")}
               </SelectItem>
+               )}
               {user?.role !== "STATE_APPROVER" && (
                 <>
                   <SelectItem value="STATE_APPROVER">
@@ -859,11 +1142,13 @@ export function UserManagementPage() {
                   <SelectItem value="MOSPI_APPROVER">
                     {getRoleDisplayName("MOSPI_APPROVER")}
                   </SelectItem>
-                  <SelectItem value="ADMIN">
-                    {getRoleDisplayName("ADMIN")}
-                  </SelectItem>
+                  
                 </>
               )}
+               {user?.role == "ADMIN" && (<SelectItem value="ADMIN">
+                    {getRoleDisplayName("ADMIN")}
+                  </SelectItem>
+                )}
             </SelectContent>
           </Select>
         </div>
@@ -909,7 +1194,7 @@ export function UserManagementPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
+            {/* Page {currentPage} of {totalPages} */}
           </div>
           <div className="flex items-center space-x-2">
             <Button

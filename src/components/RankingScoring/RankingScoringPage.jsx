@@ -4,9 +4,11 @@ import { scoringService } from "../../services/scoring.service";
 import StateRankingTable from "./StateRankingTable";
 import Filters from "./Filters";
 import SearchBar from "./SearchBar";
-import InfoCards from "./InfoCards";
+// import InfoCards from "./InfoCards";
 import BenchmarkingAnalysis from "./BenchmarkingAnalysis";
 import ExportButton from "./ExportButton";
+import CategoryCountCards from "./CategoryCountCards";
+import TopPerformers from "./TopPerformers";
 
 /**
  * Main Ranking & Scoring Page
@@ -20,7 +22,7 @@ const RankingScoringPage = () => {
   
   // State for filters, search, pagination
   const [search, setSearch] = useState("");
-  const [region, setRegion] = useState("All Region");
+  // const [region, setRegion] = useState("All Region");
   const [category, setCategory] = useState("Overall");
   const [page, setPage] = useState(1);
   const itemsPerPage = 7;
@@ -33,26 +35,27 @@ const RankingScoringPage = () => {
   const [hasData, setHasData] = useState(false);
 
   // Static data for UI elements (not ranking data)
-  const infoCards = [
-    {
-      label: "Total States/UTs",
-      value: apiStates.length > 0 ? apiStates.length.toString() : "0",
-      sub: "With ranking data",
-      icon: "trophy",
-    },
-    {
-      label: "Average Score",
-      value: apiStatistics?.averageScore ? apiStatistics.averageScore.toFixed(1) : "N/A",
-      sub: "Across all states",
-      icon: "score",
-    },
-    {
-      label: "Highest Score",
-      value: apiStatistics?.highestScore ? apiStatistics.highestScore.toString() : "N/A",
-      sub: "Top performing state",
-      icon: "category",
-    },
-  ];
+  // Commented out - replaced with TopPerformers component
+  // const infoCards = [
+  //   {
+  //     label: "Total States/UTs",
+  //     value: apiStates.length > 0 ? apiStates.length.toString() : "0",
+  //     sub: "With ranking data",
+  //     icon: "trophy",
+  //   },
+  //   {
+  //     label: "Average Score",
+  //     value: apiStatistics?.averageScore ? apiStatistics.averageScore.toFixed(1) : "N/A",
+  //     sub: "Across all states",
+  //     icon: "score",
+  //   },
+  //   {
+  //     label: "Highest Score",
+  //     value: apiStatistics?.highestScore ? apiStatistics.highestScore.toString() : "N/A",
+  //     sub: "Top performing state",
+  //     icon: "category",
+  //   },
+  // ];
 
   const categories = [
     {
@@ -133,54 +136,75 @@ const RankingScoringPage = () => {
     period: "Data is updated quarterly based on the latest available information from state governments.",
   };
 
-  // Load data from API on component mount
-  useEffect(() => {
-    const loadScoringData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        setHasData(false);
+  // Function to load scoring data
+  const loadScoringData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setHasData(false);
 
-        console.log("🔍 Ranking Page - Loading data for user role:", user?.role);
+      console.log("🔍 Ranking Page - Loading data for user role:", user?.role);
 
-        // Load rankings and statistics in parallel based on user role
-        const [rankingsData, statisticsData] = await Promise.all([
-          scoringService.getRankingsByRole(user.role, user.state),
-          scoringService.getStatistics()
-        ]);
+      // Load rankings and statistics in parallel based on user role
+      const [rankingsData, statisticsData] = await Promise.all([
+        scoringService.getRankingsByRole(user.role, user.state),
+        scoringService.getStatistics()
+      ]);
 
-        console.log("🔍 Ranking Page - Received rankings data:", rankingsData);
-        console.log("🔍 Ranking Page - Received statistics data:", statisticsData);
+      console.log("🔍 Ranking Page - Received rankings data:", rankingsData);
+      console.log("🔍 Ranking Page - Received statistics data:", statisticsData);
 
-        // Check if we have valid data
-        if (rankingsData && rankingsData.length > 0) {
-          // Transform API data to match expected format using scoring service
-          const transformedStates = scoringService.transformRankingData(rankingsData);
-          console.log("🔍 Ranking Page - Transformed states:", transformedStates);
-          
-          setApiStates(transformedStates);
-          setApiStatistics(statisticsData);
-          setHasData(true);
-        } else {
-          console.log("🔍 Ranking Page - No ranking data available");
-          setApiStates([]);
-          setApiStatistics(null);
-          setHasData(false);
-        }
-      } catch (err) {
-        console.error("Error loading scoring data:", err);
-        setError(err.message);
+      // Check if we have valid data
+      if (rankingsData && rankingsData.length > 0) {
+        // Transform API data to match expected format using scoring service
+        const transformedStates = scoringService.transformRankingData(rankingsData);
+        console.log("🔍 Ranking Page - Transformed states:", transformedStates);
+        
+        setApiStates(transformedStates);
+        setApiStatistics(statisticsData);
+        setHasData(true);
+      } else {
+        console.log("🔍 Ranking Page - No ranking data available");
         setApiStates([]);
         setApiStatistics(null);
         setHasData(false);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error("Error loading scoring data:", err);
+      setError(err.message);
+      setApiStates([]);
+      setApiStatistics(null);
+      setHasData(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Load data from API on component mount
+  useEffect(() => {
     if (user) {
       loadScoringData();
     }
+  }, [user]);
+
+  // Listen for score update events (when MOSPI Approver approves a submission)
+  useEffect(() => {
+    const handleScoreUpdate = async (event) => {
+      console.log("🔄 Ranking Page - Score update event received:", event.detail);
+      // Wait a moment for backend to finish calculating and saving the score
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Refresh the ranking data when a new score is calculated
+      if (user) {
+        console.log("🔄 Ranking Page - Refreshing ranking data after score update...");
+        await loadScoringData();
+      }
+    };
+
+    window.addEventListener('niri-score-updated', handleScoreUpdate);
+
+    return () => {
+      window.removeEventListener('niri-score-updated', handleScoreUpdate);
+    };
   }, [user]);
 
 
@@ -188,17 +212,17 @@ const RankingScoringPage = () => {
   const currentStates = apiStates;
 
   // Unique region list for filter dropdown
-  const regionOptions = useMemo(() => {
-    const allRegions = currentStates.map((s) => s.region).filter(Boolean);
-    return ["All Region", ...Array.from(new Set(allRegions))];
-  }, [currentStates]);
+  // const regionOptions = useMemo(() => {
+  //   const allRegions = currentStates.map((s) => s.region).filter(Boolean);
+  //   return ["All Region", ...Array.from(new Set(allRegions))];
+  // }, [currentStates]);
 
   // Filtering and searching logic
   const filteredStates = useMemo(() => {
     let filtered = [...currentStates];
-    if (region !== "All Region") {
-      filtered = filtered.filter((s) => s.region === region);
-    }
+    // if (region !== "All Region") {
+    //   filtered = filtered.filter((s) => s.region === region);
+    // }
     if (category !== "Overall") {
       filtered = filtered.filter((s) => s.category === category);
     }
@@ -208,7 +232,9 @@ const RankingScoringPage = () => {
       );
     }
     return filtered;
-  }, [currentStates, region, category, search]);
+  }, [currentStates, 
+    // region, 
+    category, search]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredStates.length / itemsPerPage);
@@ -218,10 +244,10 @@ const RankingScoringPage = () => {
   }, [filteredStates, page, itemsPerPage]);
 
   // Handle filter/search/pagination changes
-  const handleRegionChange = (val) => {
-    setRegion(val);
-    setPage(1);
-  };
+  // const handleRegionChange = (val) => {
+  //   setRegion(val);
+  //   setPage(1);
+  // };
   const handleCategoryChange = (val) => {
     setCategory(val);
     setPage(1);
@@ -314,11 +340,22 @@ const RankingScoringPage = () => {
 
   return (
     <div className="ranking-scoring-page " style={{ padding: "32px 0" }}>
-      {/* Info Cards */}
-      <InfoCards cards={infoCards} />
+      {/* Info Cards - Commented out, replaced with TopPerformers */}
+      {/* <InfoCards cards={infoCards} /> */}
+
+      {/* Top 3 Performers - NEW */}
+      <TopPerformers states={apiStates} />
+
+      {/* Category Count Cards - Shows count of states in each category */}
+      <CategoryCountCards 
+        states={apiStates} 
+        categories={categories}
+        onCategoryClick={handleCategoryChange}
+        selectedCategory={category}
+      />
 
       {/* Category Legend */}
-      <div style={{ display: "flex", gap: 16, margin: "24px 0" }}>
+      {/* <div style={{ display: "flex", gap: 16, margin: "24px 0" }}>
         {categories.map((cat) => (
           <div
             key={cat.name}
@@ -339,6 +376,37 @@ const RankingScoringPage = () => {
             </div>
           </div>
         ))}
+      </div> */}
+
+      {/* Visual Separator */}
+      <div style={{ 
+        height: 1, 
+        background: "linear-gradient(to right, transparent, #E0E0E0, transparent)",
+        margin: "32px 0 24px 0"
+      }} />
+
+      {/* Table Header */}
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        marginBottom: 20,
+      }}>
+        <h2 style={{ 
+          fontSize: 22, 
+          fontWeight: 600, 
+          color: "#1A1A1A",
+          margin: 0,
+        }}>
+          State Rankings
+        </h2>
+        <div style={{ 
+          fontSize: 14, 
+          color: "#666",
+          fontWeight: 500,
+        }}>
+          Showing <span style={{ fontWeight: 600, color: "#2B5CB8" }}>{filteredStates.length}</span> {filteredStates.length === 1 ? 'state' : 'states'}
+        </div>
       </div>
 
       {/* Table Controls */}
@@ -348,7 +416,14 @@ const RankingScoringPage = () => {
           display: "flex",
           alignItems: "center",
           gap: 16,
-          marginBottom: 12,
+          marginBottom: 20,
+          background: "#fff",
+          borderRadius: 12,
+          boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+          border: "1px solid #E5E7EB",
+          padding: "20px 24px",
+          position: "relative",
+          zIndex: 2,
         }}
       >
         <SearchBar
@@ -357,11 +432,11 @@ const RankingScoringPage = () => {
           placeholder="Search States"
         />
         <Filters
-          region={region}
-          regionOptions={regionOptions}
+          // region={region}
+          // regionOptions={regionOptions}
           category={category}
           categoryOptions={["Overall", ...categories.map((c) => c.name)]}
-          onRegionChange={handleRegionChange}
+          // onRegionChange={handleRegionChange}
           onCategoryChange={handleCategoryChange}
         />
         <ExportButton onClick={handleExport} />
@@ -378,37 +453,110 @@ const RankingScoringPage = () => {
       />
 
       {/* Benchmarking Analysis */}
-      <BenchmarkingAnalysis benchmarking={benchmarking} />
+      {/* <BenchmarkingAnalysis benchmarking={benchmarking} /> */}
+
+      {/* Visual Separator */}
+      <div style={{ 
+        height: 1, 
+        background: "linear-gradient(to right, transparent, #E0E0E0, transparent)",
+        margin: "48px 0 32px 0"
+      }} />
 
       {/* Methodology Section */}
       <div
         style={{
-          background: "#F7F9FB",
-          borderRadius: 12,
-          padding: 24,
+          background: "linear-gradient(135deg, #F7F9FB 0%, #FFFFFF 100%)",
+          borderRadius: 16,
+          padding: 32,
           marginTop: 32,
+          border: "1px solid #E5E7EB",
+          borderLeft: "4px solid #2B5CB8",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.04)",
         }}
       >
-        <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>
-          About NIRI Methodology
+        <div style={{ 
+          marginBottom: 20 
+        }}>
+          <h2 style={{ 
+            fontWeight: 700, 
+            fontSize: 22, 
+            color: "#1A1A1A",
+            margin: 0,
+          }}>
+            About NIRI Methodology
+          </h2>
         </div>
-        <div style={{ fontSize: 15, color: "#3A3A3A", marginBottom: 12 }}>
+        <div style={{ 
+          fontSize: 15, 
+          color: "#3A3A3A", 
+          marginBottom: 20,
+          lineHeight: 1.6,
+        }}>
           {methodology.description}
         </div>
-        <ul style={{ marginBottom: 12 }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: 16,
+          marginBottom: 20,
+        }}>
           {methodology.pillars.map((pillar) => (
-            <li key={pillar.name} style={{ marginBottom: 4 }}>
-              <span style={{ fontWeight: 600, color: "#2B5CB8" }}>
-                {pillar.name} ({pillar.points}):
-              </span>{" "}
-              <span style={{ color: "#444" }}>{pillar.details}</span>
-            </li>
+            <div
+              key={pillar.name}
+              style={{
+                background: "#fff",
+                borderRadius: 8,
+                padding: "16px 20px",
+                border: "1px solid #E5E7EB",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+              }}
+            >
+              <div style={{ 
+                fontWeight: 600, 
+                color: "#2B5CB8",
+                fontSize: 15,
+                marginBottom: 6,
+              }}>
+                {pillar.name}
+              </div>
+              <div style={{ 
+                fontSize: 13, 
+                color: "#666",
+                marginBottom: 8,
+                fontWeight: 500,
+              }}>
+                {pillar.points} points
+              </div>
+              <div style={{ 
+                fontSize: 14, 
+                color: "#444",
+                lineHeight: 1.5,
+              }}>
+                {pillar.details}
+              </div>
+            </div>
           ))}
-        </ul>
-        <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
-          {methodology.note}
         </div>
-        <div style={{ fontSize: 12, color: "#888" }}>{methodology.period}</div>
+        <div style={{ 
+          paddingTop: 20,
+          borderTop: "1px solid #E5E7EB",
+        }}>
+          <div style={{ 
+            fontSize: 14, 
+            color: "#666", 
+            marginBottom: 8,
+            fontWeight: 500,
+          }}>
+            {methodology.note}
+          </div>
+          <div style={{ 
+            fontSize: 13, 
+            color: "#888",
+            fontStyle: "italic",
+          }}>
+            {methodology.period}
+          </div>
+        </div>
       </div>
     </div>
   );

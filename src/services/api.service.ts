@@ -34,6 +34,7 @@ export interface NiriUser {
   lastName: string;
   contactNumber?: string;
   role:
+  "ADMIN"
     | "NODAL_OFFICER"
     | "STATE_APPROVER"
     | "MOSPI_REVIEWER"
@@ -99,6 +100,9 @@ export type CumulativePreviewResponse = {
 };
 
 class ApiService implements HttpClient {
+  async markNotificationStatus(id: string): Promise<void> {
+    await this.axios.patch(`/api/notifications/status/${id}`);
+  }
   private axios: AxiosInstance;
 
   constructor() {
@@ -114,7 +118,8 @@ class ApiService implements HttpClient {
     // Request interceptor - attach auth headers
     this.axios.interceptors.request.use(
       (config) => {
-        const authHeaders = authService.getAuthHeaders();
+        const isMultipart = config.data instanceof FormData;
+        const authHeaders = authService.getAuthHeaders(isMultipart);
         Object.entries(authHeaders).forEach(([key, value]) => {
           config.headers.set(key, value);
         });
@@ -258,6 +263,38 @@ class ApiService implements HttpClient {
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.axios.delete(url, config);
   }
+
+   // Fetch notifications for a user
+  async getNotifications(userId: string): Promise<any[]> {
+    try {
+      const response = await this.axios.get(`/api/notifications/${userId}`);
+      let data = response.data?.data !== undefined ? response.data.data : response.data;
+      console.log("🔍 API Service - Fetched Notifications Data:", data);
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.notifications)) return data.notifications;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Send notification
+  async sendNotification(payload: {
+    title: string;
+    message: string;
+    senderId: string;
+    submissionId: string;
+  }): Promise<any> {
+    try {
+      const response = await this.axios.post('/api/notifications', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+      throw error;
+    }
+  }
+
+
 
   // Enhanced error handling methods
   private getFallbackErrorMessage(status?: number, url?: string): string {
@@ -613,7 +650,8 @@ class ApiService implements HttpClient {
   async getSubmissions(
     page = 1,
     limit = 10,
-    statusOrRole?: string
+    statusOrRole?: string,
+    status?: string
   ): Promise<{
     submissions: NiriSubmission[];
     total: number;
@@ -626,7 +664,9 @@ class ApiService implements HttpClient {
     // If statusOrRole is provided and it's a specific status, filter by that status
     // Otherwise, get all submissions
     let url = `/submission?page=${page}&limit=${limit}`;
-    if (statusOrRole && statusOrRole !== "all") {
+     const statusToUse = status || statusOrRole;
+
+    if (statusToUse && statusToUse !== "all") {
       // Check if it's a known role, if so ignore it and get all submissions
       const knownRoles = [
         "state_approver",
@@ -640,8 +680,8 @@ class ApiService implements HttpClient {
       ];
 
       // Only add status filter if it's not a role
-      if (!knownRoles.includes(statusOrRole)) {
-        url += `&status=${statusOrRole}`;
+      if (!knownRoles.includes(statusToUse)) {
+        url += `&status=${encodeURIComponent(statusToUse)}`;
       }
     }
 
