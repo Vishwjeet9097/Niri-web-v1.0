@@ -1040,6 +1040,42 @@ class ApiService implements HttpClient {
     }
   }
 
+   async mospiApproverSendBack(id: string): Promise<NiriSubmission> {
+    try {
+      const response = await this.axios.post(
+        `/submission/mospi-approver-send-back/${id}`,
+        {}
+      );
+      console.log(
+        "🔍 API Service - MOSPI Approver Send Back Response Status:",
+        response.status
+      );
+      console.log(
+        "🔍 API Service - MOSPI Approver Send Back Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const submissionData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "🔍 API Service - Processed MOSPI Approver Send Back Data:",
+        submissionData
+      );
+
+      return submissionData;
+    } catch (error: any) {
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 MOSPI Approver Send Back 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      throw error;
+    }
+  }
+
+
   async finalReject(id: string, comment: string): Promise<NiriSubmission> {
     try {
       // Get current user's role to determine rejection status
@@ -1132,138 +1168,210 @@ class ApiService implements HttpClient {
       console.log(`❌ ${sectionKey}: No data or not an object`);
       return false;
     }
-
-    // Check for section2_4 (Investment Ready Project Pipeline) - special handling
-    if (sectionKey.includes("section2_4")) {
-      const hasInvestmentReady = sectionData.hasInvestmentReady;
-      const investmentReadyArray = sectionData.investmentReadyArray || [];
-      const websiteLink = sectionData.websiteLink || "";
-      const comment = sectionData.comment || "";
-
-      // If hasInvestmentReady is "yes", check for websiteLink and array
-      if (hasInvestmentReady === "yes") {
-        const hasData =
-          websiteLink.trim() !== "" &&
-          Array.isArray(investmentReadyArray) &&
-          investmentReadyArray.length > 0;
-        console.log(
-          `📋 ${sectionKey}: Investment Ready (yes), hasData: ${hasData}`,
-          {
-            websiteLink: websiteLink.trim() !== "",
-            arrayLength: investmentReadyArray.length,
-          }
-        );
-        return hasData;
+  
+    // Helper: Check if a value is meaningful
+    const isMeaningful = (value: any): boolean => {
+      if (value === null || value === undefined) return false;
+      if (typeof value === "string") return value.trim() !== "";
+      if (typeof value === "number") return value !== 0;
+      if (typeof value === "boolean") return true;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === "object") {
+        // For file objects, check if it has file data
+        if (value.file || value.fileName || value.filePath) return true;
+        // For other objects, check if it has any keys
+        return Object.keys(value).length > 0;
       }
-
-      // If hasInvestmentReady is "no", check for comment
-      if (hasInvestmentReady === "no") {
-        const hasData = comment.trim() !== "";
-        console.log(
-          `📋 ${sectionKey}: Investment Ready (no), hasData: ${hasData}`,
-          {
-            comment: comment.trim() !== "",
-          }
-        );
-        return hasData;
-      }
-
-      // If hasInvestmentReady is not set, no data
-      console.log(`📋 ${sectionKey}: Investment Ready not set, no data`);
       return false;
-    }
-
-    // Check for array-based sections (like section1_3, section1_4)
-    if (
-      sectionKey.includes("section1_3") ||
-      sectionKey.includes("section1_4")
-    ) {
-      const list =
-        sectionData.ulbList ||
-        sectionData.bondList ||
-        sectionData.tenderList ||
-        sectionData.projectList ||
-        [];
-      const hasData = Array.isArray(list) && list.length > 0;
-      console.log(`📋 ${sectionKey}: Array section, has items: ${hasData}`);
-      return hasData;
-    }
-
-    // Check for section3_2 (PPP Cell/Unit Availability) - has available field, file, and comment
-    if (sectionKey.includes("section3_2")) {
-      const available = sectionData.available || "";
-      const file = sectionData.file;
-      const comment = sectionData.comment || "";
-      const files = sectionData.files;
-
-      const hasAvailable = available !== "";
-      const hasFile = file !== null && file !== undefined;
-      const hasFiles = Array.isArray(files) && files.length > 0;
-      const hasComment = comment.trim() !== "";
-
-      const hasData = hasAvailable || hasFile || hasFiles || hasComment;
-      console.log(`📋 ${sectionKey}: PPP Cell/Unit, hasData: ${hasData}`, {
-        available,
-        hasFile,
-        hasFiles,
-        hasComment,
+    };
+  
+    // Helper: Check if a file object has meaningful data
+    const hasFileData = (file: any): boolean => {
+      if (!file) return false;
+      return !!(file.file || file.fileName || file.filePath || file.fileUrl);
+    };
+  
+    // Helper: Check if an array has meaningful items
+    const hasMeaningfulArrayItems = (arr: any[]): boolean => {
+      if (!Array.isArray(arr) || arr.length === 0) return false;
+      // Check if at least one item has meaningful data
+      return arr.some((item) => {
+        if (!item || typeof item !== "object") return false;
+        // Check if item has at least one meaningful field (excluding id)
+        return Object.entries(item).some(([key, value]) => {
+          if (key === "id") return false; // id alone doesn't count
+          return isMeaningful(value);
+        });
       });
-      return hasData;
+    };
+  
+    // Pattern 1: Check for conditional Yes/No fields
+    // Common conditional field names: available, allEligible, hasInvestmentReady, 
+    // hasIntermediary, hasInfraDevelopmentPlan, adopted, implemented, participated
+    const conditionalFields = [
+      "available",
+      "allEligible",
+      "hasInvestmentReady",
+      "hasIntermediary",
+      "hasInfraDevelopmentPlan",
+      "adopted",
+      "implemented",
+      "participated",
+    ];
+  
+    for (const fieldName of conditionalFields) {
+      const conditionalValue = sectionData[fieldName];
+      
+      // If this conditional field exists and has a value
+      if (conditionalValue === "yes" || conditionalValue === "no") {
+        console.log(`📋 ${sectionKey}: Found conditional field "${fieldName}" = "${conditionalValue}"`);
+  
+        if (conditionalValue === "yes") {
+          // For "yes", check for required fields based on common patterns
+          
+          // Pattern 1a: Yes requires websiteLink + array (section2_4)
+          if (fieldName === "hasInvestmentReady" && sectionData.websiteLink) {
+            if (
+              isMeaningful(sectionData.websiteLink) &&
+              hasMeaningfulArrayItems(sectionData.investmentReadyArray || [])
+            ) {
+              console.log(`  ✓ ${sectionKey}: Yes with websiteLink and investmentReadyArray`);
+              return true;
+            }
+            // If websiteLink exists but array is empty, return false
+            console.log(`  ⚠️ ${sectionKey}: Yes with websiteLink but no array data`);
+            return false;
+          }
+          
+          // Pattern 1b: Yes requires websiteLink only (section4_1)
+          if (fieldName === "allEligible" && isMeaningful(sectionData.websiteLink)) {
+            console.log(`  ✓ ${sectionKey}: Yes with websiteLink`);
+            return true;
+          }
+          
+          // Pattern 1c: Yes requires file (section3_1, section3_2, section4_2, section4_4)
+          if (hasFileData(sectionData.file)) {
+            console.log(`  ✓ ${sectionKey}: Yes with file`);
+            return true;
+          }
+          
+          // Pattern 1d: Yes requires array (section1_5, section2_3, section4_3, section4_5, section4_6)
+          const arrayFields = Object.keys(sectionData).filter((key) =>
+            key.toLowerCase().includes("array") || 
+            key === "projects" || 
+            key === "practices" ||
+            key === "ffiArray" ||
+            key === "infraDevelopmentArray" ||
+            key === "capacityArray"
+          );
+          
+          for (const arrKey of arrayFields) {
+            if (hasMeaningfulArrayItems(sectionData[arrKey])) {
+              console.log(`  ✓ ${sectionKey}: Yes with array "${arrKey}"`);
+              return true;
+            }
+          }
+          
+          // If "yes" but requirements not met, return false
+          console.log(`  ⚠️ ${sectionKey}: Yes but requirements not met`);
+          return false;
+        } 
+        
+        // IMPORTANT: For "no", ONLY check comment - don't check other patterns
+        if (conditionalValue === "no") {
+          if (isMeaningful(sectionData.comment)) {
+            console.log(`  ✓ ${sectionKey}: No with comment`);
+            return true;
+          }
+          // If "no" but no comment, return false immediately
+          console.log(`  ⚠️ ${sectionKey}: No but no comment provided`);
+          return false;
+        }
+      }
     }
-
-    // Check for section1_5 (FFI with intermediary)
-    if (sectionKey.includes("section1_5")) {
-      const hasIntermediary = sectionData.hasIntermediary;
-      const ffiArray = sectionData.ffiArray || [];
-      const hasData =
-        hasIntermediary === "yes" ||
-        hasIntermediary === "no" ||
-        ffiArray.length > 0;
-      console.log(`📋 ${sectionKey}: FFI section, has data: ${hasData}`);
-      return hasData;
+  
+    // Pattern 2: Check for array-based sections (no conditional logic)
+    // Look for common array field names
+    const arrayFieldNames = [
+      "ulbList",
+      "bondList",
+      "tenderList",
+      "projectList",
+      "infraActArray",
+      "specializedEntityArray",
+      "assetMonetizationArray",
+      "VGFArray",
+      "investmentReadyArray",
+    ];
+  
+    for (const arrKey of arrayFieldNames) {
+      if (sectionData[arrKey] !== undefined) {
+        if (hasMeaningfulArrayItems(sectionData[arrKey])) {
+          console.log(`📋 ${sectionKey}: Array section "${arrKey}" has meaningful items`);
+          return true;
+        }
+      }
     }
-
-    // For regular sections, check if any field has meaningful value
+  
+    // Also check for generic array patterns (any field ending in Array/List or named projects)
+    for (const [key, value] of Object.entries(sectionData)) {
+      if (
+        (key.toLowerCase().endsWith("array") ||
+          key.toLowerCase().endsWith("list") ||
+          key === "projects") &&
+        Array.isArray(value)
+      ) {
+        if (hasMeaningfulArrayItems(value)) {
+          console.log(`📋 ${sectionKey}: Found array "${key}" with meaningful items`);
+          return true;
+        }
+      }
+    }
+  
+    // Pattern 3: Check for file-based sections
+    if (hasFileData(sectionData.file)) {
+      console.log(`📋 ${sectionKey}: Has file data`);
+      return true;
+    }
+  
+    if (Array.isArray(sectionData.files) && sectionData.files.length > 0) {
+      const hasAnyFile = sectionData.files.some((f: any) => hasFileData(f));
+      if (hasAnyFile) {
+        console.log(`📋 ${sectionKey}: Has files array with data`);
+        return true;
+      }
+    }
+  
+    // Pattern 4: For regular sections, check if any field has meaningful value
+    // (excluding calculated/auto-populated fields)
+    const ignoredFields = new Set([
+      "year", // Auto-populated in some cases
+      "percentage", // Calculated field
+      "marksObtained", // Calculated field
+      "proportion", // Calculated field
+      "allocationToGSDP", // Calculated field
+      "capexActualsToGSDP", // Calculated field
+      "capexToCapexActuals", // Calculated field
+      "stateCapexUtilisation", // Calculated field
+      "numberOfProjects", // Calculated field
+      "tpcOfPPPProjects", // Calculated field
+      "totalProjectsAwarded", // May be calculated
+      "totalProjectCostAwarded", // May be calculated
+      "totalProjectCost", // May be calculated
+      "totalULBs", // May be auto-populated
+    ]);
+  
     const meaningfulFields = Object.entries(sectionData).filter(
       ([field, value]) => {
-        // Fields to ignore (auto-populated or calculated)
-        if (field === "year") return false;
-        if (field === "percentage") return false; // Calculated field
-        if (field === "marksObtained") return false; // Calculated field
-
-        // Check for meaningful values
-        if (typeof value === "string" && value.trim() !== "") {
-          console.log(`  ✓ ${field}: "${value}" (string)`);
-          return true;
-        }
-        if (typeof value === "number" && value !== 0) {
-          console.log(`  ✓ ${field}: ${value} (number)`);
-          return true;
-        }
-        if (typeof value === "boolean") {
-          console.log(`  ✓ ${field}: ${value} (boolean)`);
-          return true;
-        }
-        if (Array.isArray(value) && value.length > 0) {
-          console.log(`  ✓ ${field}: array with ${value.length} items`);
-          return true;
-        }
-        if (
-          typeof value === "object" &&
-          value !== null &&
-          Object.keys(value).length > 0
-        ) {
-          console.log(`  ✓ ${field}: object with keys`);
-          return true;
-        }
-
-        return false;
+        if (ignoredFields.has(field)) return false;
+        return isMeaningful(value);
       }
     );
-
+  
     const hasData = meaningfulFields.length > 0;
     console.log(
-      `📊 ${sectionKey}: ${meaningfulFields.length} meaningful fields, hasData: ${hasData}`
+      `📊 ${sectionKey}: ${meaningfulFields.length} meaningful fields, hasData: ${hasData}`,
+      meaningfulFields.map(([f]) => f)
     );
     return hasData;
   }
@@ -1435,13 +1543,13 @@ class ApiService implements HttpClient {
         const allCategories = [
           "infraFinancing",
           "infraDevelopment",
-          "infraPPP",
+          "pppDevelopment",
           "infraEnablers",
         ];
         const categoryToIndicatorMap: Record<string, string[]> = {
           infraFinancing: ["1.1", "1.2", "1.3", "1.4", "1.5"],
           infraDevelopment: ["2.1", "2.2", "2.3", "2.4", "2.5"],
-          infraPPP: ["3.1", "3.2", "3.3", "3.4"],
+          pppDevelopment: ["3.1", "3.2", "3.3", "3.4"],
           infraEnablers: ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"],
         };
 
@@ -2177,49 +2285,203 @@ class ApiService implements HttpClient {
       throw error;
     }
   }
+/**
+   * TESTING ONLY: Cleanup test data
+   * Deletes all test submissions, final scores, and user indicator scopes
+   * WARNING: This is a destructive operation for testing purposes only!
+   */
+async cleanupTestData(): Promise<{
+  success: boolean;
+  message: string;
+  deleted: {
+    submissions: number;
+    finalScores: number;
+    userIndicatorScopes: number;
+    auditLogs: number;
+  };
+}> {
+  try {
+    // Note: The response interceptor already extracts response.data, so 'data' is already the response body
+    const data = await this.axios.post(`/submission/cleanup-test-data`);
+    console.log(
+      "🔍 API Service - Cleanup Test Data Response:",
+      JSON.stringify(data, null, 2)
+    );
 
-  // Report methods
-  async getRankings(): Promise<any[]> {
-    try {
-      const response = await this.axios.get("/report/ranking");
-      console.log(
-        "🔍 API Service - Get Rankings Response Status:",
-        response.status
-      );
-      console.log(
-        "🔍 API Service - Get Rankings Response Data:",
-        response.data
-      );
+    // Handle different response structures
+    let cleanupData = data;
 
-      // Handle response.data.data pattern
-      const rankingsData =
-        response.data?.data !== undefined ? response.data.data : response.data;
-      console.log(
-        "🔍 API Service - Processed Get Rankings Data:",
-        rankingsData
-      );
-
-      return rankingsData;
-    } catch (error: any) {
-      // Handle 304 as success
-      if (error.response?.status === 304) {
-        console.log("📋 Get Rankings 304 - Using cached data");
-        const cachedData = error.response?.data || {};
-        return cachedData?.data !== undefined ? cachedData.data : cachedData;
-      }
-      console.warn(
-        "⚠️ Backend rankings failed, using dummy data:",
-        error.message
-      );
-      return [
-        { state: "Maharashtra", score: 85, rank: 1 },
-        { state: "Karnataka", score: 82, rank: 2 },
-        { state: "Tamil Nadu", score: 78, rank: 3 },
-        { state: "Gujarat", score: 75, rank: 4 },
-        { state: "Rajasthan", score: 72, rank: 5 },
-      ];
+    // If data has a data property (nested structure), use it
+    if (data?.data !== undefined && typeof data.data === 'object') {
+      cleanupData = data.data;
     }
+
+    // Ensure the response has the expected structure
+    if (!cleanupData || typeof cleanupData !== 'object') {
+      console.error("❌ API Service - Invalid response structure:", cleanupData);
+      console.error("❌ API Service - Raw response:", data);
+      throw new Error("Invalid response from server");
+    }
+
+    // Ensure deleted property exists with defaults
+    if (!cleanupData.deleted) {
+      console.warn("⚠️ API Service - Response missing 'deleted' property, using defaults");
+      cleanupData.deleted = {
+        submissions: 0,
+        finalScores: 0,
+        userIndicatorScopes: 0,
+        auditLogs: 0,
+      };
+    }
+
+    console.log(
+      "🔍 API Service - Processed Cleanup Test Data:",
+      JSON.stringify(cleanupData, null, 2)
+    );
+
+    return cleanupData;
+  } catch (error: any) {
+    console.error("❌ API Service - Cleanup Test Data Error:", error);
+    if (error.response) {
+      console.error("❌ API Service - Error Response:", error.response.data);
+      throw new Error(
+        error.response.data?.message ||
+        error.response.data?.error ||
+        "Failed to cleanup test data"
+      );
+    }
+    // If error is already a string/Error, use it directly
+    if (error.message) {
+      throw error;
+    }
+    throw new Error("Failed to cleanup test data");
   }
+}
+
+/**
+ * TESTING ONLY: Delete users by role
+ * Deletes all users with the specified role along with their related data
+ * WARNING: This is a destructive operation for testing purposes only!
+ */
+async deleteUsersByRole(role: string): Promise<{
+  success: boolean;
+  message: string;
+  deletedCount: number;
+  deleted: {
+    users: number;
+    userIndicatorScopes: number;
+    submissions: number;
+    finalScores: number;
+    auditLogs: number;
+  };
+}> {
+  try {
+    // Note: The response interceptor already extracts response.data, so 'data' is already the response body
+    const data = await this.axios.delete(`/users/by-role/${role}`);
+    console.log(
+      "🔍 API Service - Delete Users By Role Response:",
+      JSON.stringify(data, null, 2)
+    );
+
+    // Handle different response structures
+    let deleteData = data;
+
+    // If data has a data property (nested structure), use it
+    if (data?.data !== undefined && typeof data.data === 'object') {
+      deleteData = data.data;
+    }
+
+    // Ensure the response has the expected structure
+    if (!deleteData || typeof deleteData !== 'object') {
+      console.error("❌ API Service - Invalid response structure:", deleteData);
+      console.error("❌ API Service - Raw response:", data);
+      throw new Error("Invalid response from server");
+    }
+
+    // Ensure deleted property exists with defaults
+    if (!deleteData.deleted) {
+      console.warn("⚠️ API Service - Response missing 'deleted' property, using defaults");
+      deleteData.deleted = {
+        users: 0,
+        userIndicatorScopes: 0,
+        submissions: 0,
+        finalScores: 0,
+        auditLogs: 0,
+      };
+    }
+
+    // Ensure deletedCount exists
+    if (deleteData.deletedCount === undefined) {
+      deleteData.deletedCount = deleteData.deleted?.users || 0;
+    }
+
+    console.log(
+      "🔍 API Service - Processed Delete Users By Role Data:",
+      JSON.stringify(deleteData, null, 2)
+    );
+
+    return deleteData;
+  } catch (error: any) {
+    console.error("❌ API Service - Delete Users By Role Error:", error);
+    if (error.response) {
+      console.error("❌ API Service - Error Response:", error.response.data);
+      throw new Error(
+        error.response.data?.message ||
+        error.response.data?.error ||
+        "Failed to delete users by role"
+      );
+    }
+    // If error is already a string/Error, use it directly
+    if (error.message) {
+      throw error;
+    }
+    throw new Error("Failed to delete users by role");
+  }
+}
+
+// Report methods
+async getRankings(): Promise<any[]> {
+  try {
+    const response = await this.axios.get("/report/ranking");
+    console.log(
+      "🔍 API Service - Get Rankings Response Status:",
+      response.status
+    );
+    console.log(
+      "🔍 API Service - Get Rankings Response Data:",
+      response.data
+    );
+
+    // Handle response.data.data pattern
+    const rankingsData =
+      response.data?.data !== undefined ? response.data.data : response.data;
+    console.log(
+      "🔍 API Service - Processed Get Rankings Data:",
+      rankingsData
+    );
+
+    return rankingsData;
+  } catch (error: any) {
+    // Handle 304 as success
+    if (error.response?.status === 304) {
+      console.log("📋 Get Rankings 304 - Using cached data");
+      const cachedData = error.response?.data || {};
+      return cachedData?.data !== undefined ? cachedData.data : cachedData;
+    }
+    console.warn(
+      "⚠️ Backend rankings failed, using dummy data:",
+      error.message
+    );
+    return [
+      { state: "Maharashtra", score: 85, rank: 1 },
+      { state: "Karnataka", score: 82, rank: 2 },
+      { state: "Tamil Nadu", score: 78, rank: 3 },
+      { state: "Gujarat", score: 75, rank: 4 },
+      { state: "Rajasthan", score: 72, rank: 5 },
+    ];
+  }
+}
+
 
   async getFullReport(): Promise<any> {
     try {
