@@ -1356,6 +1356,7 @@ export const InfraFinancingReview = ({
               setMospiSentBackSectionId(sectionId);
               handleOpenModal(sectionId);
             }}
+            disabled={isEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
@@ -1370,6 +1371,7 @@ export const InfraFinancingReview = ({
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
             }}
+            disabled={isEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -1694,6 +1696,7 @@ export const InfraFinancingReview = ({
             size="sm"
             className="flex items-center gap-1"
             onClick={() => handleOpenModal(sectionId)}
+            disabled={isEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Send Back
@@ -1717,6 +1720,7 @@ export const InfraFinancingReview = ({
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onIndicatorStatus(sectionId, true)}
+            disabled={isEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
