@@ -1088,13 +1088,6 @@ export const InfraFinancingStep = () => {
                         open={ulbSearchOpen[ulb.id]} 
                         onOpenChange={(open) => {
                           setUlbSearchOpen(prev => ({ ...prev, [ulb.id]: open }));
-                          // Auto-focus search input when opened
-                          if (open) {
-                            setTimeout(() => {
-                              const input = document.querySelector(`[cmdk-input]`) as HTMLInputElement;
-                              if (input) input.focus();
-                            }, 0);
-                          }
                         }}
                       >
                         <PopoverTrigger asChild>
@@ -1151,26 +1144,30 @@ export const InfraFinancingStep = () => {
                                       key={ulbItem.id}
                                       value={searchValue}
                                       keywords={[ulbName, cityName, ulbType].filter(Boolean)}
-                                      onSelect={() => {
-                                      showErrorsIfNeeded();
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        section1_3: {
-                                          ...prev.section1_3,
-                                          ulbList: prev.section1_3.ulbList.map((item) =>
-                                            item.id === ulb.id
-                                              ? {
-                                                  ...item,
-                                                  ulb: ulbItem.id,
-                                                  cityName: ulbItem.city_name,
-                                                }
-                                              : item
-                                          ),
-                                        },
-                                      }));
-                                      setUlbSearchOpen(prev => ({ ...prev, [ulb.id]: false }));
-                                    }}
-                                  >
+                                      className="cursor-pointer"
+                                      onSelect={(currentValue) => {
+                                        // Close immediately for faster response
+                                        setUlbSearchOpen(prev => ({ ...prev, [ulb.id]: false }));
+                                        
+                                        // Update form data
+                                        showErrorsIfNeeded();
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          section1_3: {
+                                            ...prev.section1_3,
+                                            ulbList: prev.section1_3.ulbList.map((item) =>
+                                              item.id === ulb.id
+                                                ? {
+                                                    ...item,
+                                                    ulb: ulbItem.id,
+                                                    cityName: ulbItem.city_name || '',
+                                                  }
+                                                : item
+                                            ),
+                                          },
+                                        }));
+                                      }}
+                                    >
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
