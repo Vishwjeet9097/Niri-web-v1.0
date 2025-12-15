@@ -830,11 +830,20 @@ export const PPPDevelopmentStep = () => {
 
       // Create sanitized data with status for the submitted indicator
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Check current status - if REVERTED, set to RESUBMITTED, otherwise SUBMITTED_TO_STATE
+      const currentStatus = getIndicatorStatus(indicatorCode);
+      const upperStatus = (currentStatus || "").toUpperCase();
+      const newStatus =
+        upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
+          ? "RESUBMITTED"
+          : "SUBMITTED_TO_STATE";
+
       const sanitizedFormDataWithStatus = {
         ...sanitizedFormData,
         [sectionKey]: {
           ...sanitizedFormData[sectionKey],
-          status: "SUBMITTED_TO_STATE",
+          status: newStatus,
         },
       };
 
@@ -844,25 +853,37 @@ export const PPPDevelopmentStep = () => {
         [indicatorCode]
       );
 
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+
+      // Optimistically update formData with the correct status immediately
+      // This ensures the UI updates without requiring a refresh
+      const finalSectionKey = sectionKey;
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [finalSectionKey]: {
+            ...prev[finalSectionKey],
+            ...sanitizedFormData[sectionKey],
+            status: newStatus,
+          },
+        };
+        // Update form persistence with the merged data
+        updateFormData("pppDevelopment", {
+          ...updated,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
+      });
+
       toast({
         title: "Success",
         description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
         variant: "default",
-      });
-
-      // Optimistically update formData to set status to SUBMITTED_TO_STATE
-      const finalSectionKey = sectionKey;
-      setFormData((prev: any) => {
-        if (prev[finalSectionKey]) {
-          return {
-            ...prev,
-            [finalSectionKey]: {
-              ...prev[finalSectionKey],
-              status: "SUBMITTED_TO_STATE",
-            },
-          };
-        }
-        return prev;
       });
 
       // Update form data with sanitized data that includes status
@@ -1038,6 +1059,30 @@ export const PPPDevelopmentStep = () => {
     );
   };
 
+  // Get button text based on indicator status
+  const getSubmitButtonText = (
+    indicatorCode: string,
+    isSubmitting: boolean
+  ): string => {
+    if (isSubmitting) return "Submitting...";
+
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return "Submit";
+
+    const upperStatus = status.toUpperCase();
+    if (upperStatus === "RESUBMITTED") {
+      return "Resubmitted";
+    } else if (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED"
+    ) {
+      return "Submitted";
+    }
+
+    return "Submit";
+  };
+
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
@@ -1089,8 +1134,8 @@ export const PPPDevelopmentStep = () => {
         sanitizeFilesInFormData(formData)
       );
 
-      // If indicator was sent back (REVERTED/RESUBMITTED), change status to RESUBMITTED after saving
-      // This makes it non-editable again until sent back again
+      // If indicator was sent back (REVERTED), change status to RESUBMITTED after saving
+      // Both Save and Submit buttons should change REVERTED to RESUBMITTED
       const upperStatus = currentStatus?.toUpperCase() || "";
       const newStatus =
         upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
@@ -1103,36 +1148,39 @@ export const PPPDevelopmentStep = () => {
         status: newStatus,
       };
 
-      // Update submission using updateSubmission directly to preserve status
-      const existingSubmission = await apiService.getSubmission(
-        userSubmission.id
-      );
-      const existingFormData = existingSubmission?.formData || {};
-
-      // Preserve all existing category data and update only this indicator
-      const updatedFormData = {
-        ...existingFormData,
-        pppDevelopment: {
-          ...(existingFormData.pppDevelopment || {}),
-          [sectionKey]: sectionDataWithStatus,
-        },
+      // Create sanitized data with status for the saved indicator (same format as Submit)
+      const sanitizedFormDataWithStatus = {
+        ...sanitizedFormData,
+        [sectionKey]: sectionDataWithStatus,
       };
 
-      // Update submission with preserved status
-      await apiService.updateSubmission(userSubmission.id, {
-        formData: updatedFormData,
+      // Use submitSectionToStateApprover API which properly handles RESUBMITTED status
+      // This ensures the status is preserved correctly in the database
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormDataWithStatus,
+        "pppDevelopment",
+        [indicatorCode]
+      );
+
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
       });
 
-      // Update local formData state
-      setFormData((prev: any) => ({
-        ...prev,
-        [sectionKey]: sectionDataWithStatus,
-      }));
-
-      // Save form data to localStorage (via updateFormData)
-      updateFormData("pppDevelopment", {
-        ...formData,
-        [sectionKey]: sectionDataWithStatus,
+      // Update local formData state immediately to reflect RESUBMITTED status
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: sectionDataWithStatus,
+        };
+        // Also update form persistence with the merged data
+        updateFormData("pppDevelopment", {
+          ...prev,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
       });
 
       // Exit edit mode
@@ -1366,11 +1414,7 @@ export const PPPDevelopmentStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("3.1")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("3.1", isSubmitting)}
                 </Button>
               </div>
             </div>
@@ -1531,11 +1575,7 @@ export const PPPDevelopmentStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("3.2")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("3.2", isSubmitting)}
                 </Button>
               </div>
             </div>
@@ -1848,11 +1888,7 @@ export const PPPDevelopmentStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("3.3")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("3.3", isSubmitting)}
                 </Button>
               </div>
             </div>
@@ -2300,11 +2336,7 @@ export const PPPDevelopmentStep = () => {
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("3.4")
-                      ? "Submitted"
-                      : "Submit"}
+                    {getSubmitButtonText("3.4", isSubmitting)}
                   </Button>
                 </div>
               </div>

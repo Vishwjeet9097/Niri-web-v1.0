@@ -1224,11 +1224,20 @@ export const InfraDevelopmentStep = () => {
 
       // 🔍 DEBUG: Log final payload
       const finalSectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Check current status - if REVERTED, set to RESUBMITTED, otherwise SUBMITTED_TO_STATE
+      const currentStatus = getIndicatorStatus(indicatorCode);
+      const upperStatus = (currentStatus || "").toUpperCase();
+      const newStatus =
+        upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
+          ? "RESUBMITTED"
+          : "SUBMITTED_TO_STATE";
+
       const sanitizedFormDataWithStatus = {
         ...sanitizedFormData,
         [finalSectionKey]: {
           ...sanitizedFormData[finalSectionKey],
-          status: "SUBMITTED_TO_STATE",
+          status: newStatus,
         },
       };
       console.log(`🔍 [SUBMIT ${indicatorCode}] Final payload being sent:`, {
@@ -1236,6 +1245,8 @@ export const InfraDevelopmentStep = () => {
         category: "infraDevelopment",
         payloadSection: payload[finalSectionKey],
         fullPayload: payload,
+        previousStatus: currentStatus,
+        newStatus: newStatus,
       });
 
       await apiService.submitSectionToStateApprover(
@@ -1243,25 +1254,38 @@ export const InfraDevelopmentStep = () => {
         "infraDevelopment",
         [indicatorCode]
       );
+
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+
+      // Optimistically update formData with the correct status immediately
+      // This ensures the UI updates without requiring a refresh
+      const sectionKey = finalSectionKey;
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            ...sanitizedFormData[sectionKey],
+            status: newStatus,
+          },
+        };
+        // Update form persistence with the merged data
+        updateFormData("infraDevelopment", {
+          ...updated,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
+      });
+
       toast({
         title: "Success",
         description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
         variant: "default",
-      });
-
-      // Optimistically update formData to set status to SUBMITTED_TO_STATE
-      const sectionKey = finalSectionKey;
-      setFormData((prev: any) => {
-        if (prev[sectionKey]) {
-          return {
-            ...prev,
-            [sectionKey]: {
-              ...prev[sectionKey],
-              status: "SUBMITTED_TO_STATE",
-            },
-          };
-        }
-        return prev;
       });
 
       // 🔍 DEBUG: Log before updating form data
@@ -1485,6 +1509,30 @@ export const InfraDevelopmentStep = () => {
     );
   };
 
+  // Get button text based on indicator status
+  const getSubmitButtonText = (
+    indicatorCode: string,
+    isSubmitting: boolean
+  ): string => {
+    if (isSubmitting) return "Submitting...";
+
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return "Submit";
+
+    const upperStatus = status.toUpperCase();
+    if (upperStatus === "RESUBMITTED") {
+      return "Resubmitted";
+    } else if (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED"
+    ) {
+      return "Submitted";
+    }
+
+    return "Submit";
+  };
+
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
@@ -1536,8 +1584,8 @@ export const InfraDevelopmentStep = () => {
         sanitizeFilesInFormData(formData)
       );
 
-      // If indicator was sent back (REVERTED/RESUBMITTED), change status to RESUBMITTED after saving
-      // This makes it non-editable again until sent back again
+      // If indicator was sent back (REVERTED), change status to RESUBMITTED after saving
+      // Both Save and Submit buttons should change REVERTED to RESUBMITTED
       const upperStatus = currentStatus?.toUpperCase() || "";
       const newStatus =
         upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
@@ -1550,36 +1598,39 @@ export const InfraDevelopmentStep = () => {
         status: newStatus,
       };
 
-      // Update submission using updateSubmission directly to preserve status
-      const existingSubmission = await apiService.getSubmission(
-        userSubmission.id
-      );
-      const existingFormData = existingSubmission?.formData || {};
-
-      // Preserve all existing category data and update only this indicator
-      const updatedFormData = {
-        ...existingFormData,
-        infraDevelopment: {
-          ...(existingFormData.infraDevelopment || {}),
-          [sectionKey]: sectionDataWithStatus,
-        },
+      // Create sanitized data with status for the saved indicator (same format as Submit)
+      const sanitizedFormDataWithStatus = {
+        ...sanitizedFormData,
+        [sectionKey]: sectionDataWithStatus,
       };
 
-      // Update submission with preserved status
-      await apiService.updateSubmission(userSubmission.id, {
-        formData: updatedFormData,
+      // Use submitSectionToStateApprover API which properly handles RESUBMITTED status
+      // This ensures the status is preserved correctly in the database
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormDataWithStatus,
+        "infraDevelopment",
+        [indicatorCode]
+      );
+
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
       });
 
-      // Update local formData state
-      setFormData((prev: any) => ({
-        ...prev,
-        [sectionKey]: sectionDataWithStatus,
-      }));
-
-      // Save form data to localStorage (via updateFormData)
-      updateFormData("infraDevelopment", {
-        ...formData,
-        [sectionKey]: sectionDataWithStatus,
+      // Update local formData state immediately to reflect RESUBMITTED status
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: sectionDataWithStatus,
+        };
+        // Also update form persistence with the merged data
+        updateFormData("infraDevelopment", {
+          ...prev,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
       });
 
       // Exit edit mode
@@ -1910,11 +1961,7 @@ export const InfraDevelopmentStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("2.1")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("2.1", isSubmitting)}
                 </Button>
               </div>
             </div>
@@ -2122,11 +2169,7 @@ export const InfraDevelopmentStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("2.2")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("2.2", isSubmitting)}
                 </Button>
               </div>
             </div>
@@ -2438,11 +2481,7 @@ export const InfraDevelopmentStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("2.3")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("2.3", isSubmitting)}
                 </Button>
               </div>
             </div>
@@ -2902,11 +2941,7 @@ export const InfraDevelopmentStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("2.4")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("2.4", isSubmitting)}
                 </Button>
               </div>
             </div>
@@ -3213,11 +3248,7 @@ export const InfraDevelopmentStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("2.5")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("2.5", isSubmitting)}
                 </Button>
               </div>
             </div>

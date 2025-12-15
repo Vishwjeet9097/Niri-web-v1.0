@@ -1489,18 +1489,37 @@ class ApiService implements HttpClient {
         // Use allCompletedIndicators to ensure we include all saved indicators
         allCompletedIndicators.forEach((indicatorCode) => {
           const sectionKey = `section${indicatorCode.replace(".", "_")}`;
-          // If this indicator is being saved now, use new data with SUBMITTED_TO_STATE status; otherwise keep existing
+          // If this indicator is being saved now, use new data with appropriate status; otherwise keep existing
           if (
             completedIndicators.includes(indicatorCode) &&
             sectionData[sectionKey]
           ) {
-            // Set status to SUBMITTED_TO_STATE for newly submitted indicators
+            // Check if incoming data has a status (e.g., RESUBMITTED), otherwise determine based on existing status
+            const incomingStatus = sectionData[sectionKey]?.status;
+            const existingStatus = existingCategoryData[sectionKey]?.status;
+            const upperExistingStatus = (existingStatus || "").toUpperCase();
+
+            // If incoming data has a status, use it (preserve RESUBMITTED)
+            // Otherwise, if existing status was REVERTED/RESUBMITTED, set to RESUBMITTED
+            // Otherwise, set to SUBMITTED_TO_STATE
+            let finalStatus: string;
+            if (incomingStatus) {
+              finalStatus = incomingStatus; // Preserve the status sent from frontend (e.g., RESUBMITTED)
+            } else if (
+              upperExistingStatus === "REVERTED" ||
+              upperExistingStatus === "RESUBMITTED"
+            ) {
+              finalStatus = "RESUBMITTED";
+            } else {
+              finalStatus = "SUBMITTED_TO_STATE";
+            }
+
             filteredSectionData[sectionKey] = {
               ...sectionData[sectionKey],
-              status: "SUBMITTED_TO_STATE",
+              status: finalStatus,
             };
             console.log(
-              `✅ Updating section ${sectionKey} for indicator ${indicatorCode} with status SUBMITTED_TO_STATE`
+              `✅ Updating section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}`
             );
             console.log(
               `🔍 [API UPDATE] Section ${sectionKey} data:`,
@@ -1596,13 +1615,16 @@ class ApiService implements HttpClient {
         completedIndicators.forEach((indicatorCode) => {
           const sectionKey = `section${indicatorCode.replace(".", "_")}`;
           if (sectionData[sectionKey]) {
-            // Set status to SUBMITTED_TO_STATE for submitted indicators
+            // Preserve incoming status if present (e.g., RESUBMITTED), otherwise default to SUBMITTED_TO_STATE
+            const incomingStatus = sectionData[sectionKey]?.status;
+            const finalStatus = incomingStatus || "SUBMITTED_TO_STATE";
+
             filteredSectionData[sectionKey] = {
               ...sectionData[sectionKey],
-              status: "SUBMITTED_TO_STATE",
+              status: finalStatus,
             };
             console.log(
-              `✅ Including section ${sectionKey} for indicator ${indicatorCode} with status SUBMITTED_TO_STATE`
+              `✅ Including section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}`
             );
             console.log(
               `🔍 [API CREATE] Section ${sectionKey} data:`,
