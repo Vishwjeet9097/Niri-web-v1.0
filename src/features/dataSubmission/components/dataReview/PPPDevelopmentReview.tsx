@@ -182,6 +182,11 @@ export const PPPDevelopmentReview = ({
     string | null
   >(null);
 
+  // State to track if comment modal was opened from STATE_APPROVER "Send Back" button
+  const [isStateApproverSentBack, setIsStateApproverSentBack] = useState(false);
+  const [stateApproverSentBackSectionId, setStateApproverSentBackSectionId] =
+    useState<string | null>(null);
+
   // Helper function to check user role
   const getUserRole = () => {
     try {
@@ -468,6 +473,9 @@ export const PPPDevelopmentReview = ({
     // (Accept no longer uses comment modal, so no need to reset Accept flags)
     setIsMospiApproverSentBack(false);
     setMospiSentBackSectionId(null);
+    // Reset STATE_APPROVER Sent Back flags when modal closes
+    setIsStateApproverSentBack(false);
+    setStateApproverSentBackSectionId(null);
   };
 
   const handleOpenTimeline = (sectionId: string) => {
@@ -492,16 +500,20 @@ export const PPPDevelopmentReview = ({
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
       const shouldShowSentBackConfirmation =
-        isMospiApproverSentBack && mospiSentBackSectionId;
+        (isMospiApproverSentBack && mospiSentBackSectionId) ||
+        (isStateApproverSentBack && stateApproverSentBackSectionId);
 
-      // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
+      // If this was opened from MOSPI_APPROVER or STATE_APPROVER "Sent Back" button, show confirmation dialog
       if (shouldShowSentBackConfirmation) {
         // Store section ID before resetting flags
-        const sectionIdToUse = mospiSentBackSectionId;
+        const sectionIdToUse =
+          mospiSentBackSectionId || stateApproverSentBackSectionId;
         setPendingActionSectionId(sectionIdToUse);
         // Reset the flags
         setIsMospiApproverSentBack(false);
         setMospiSentBackSectionId(null);
+        setIsStateApproverSentBack(false);
+        setStateApproverSentBackSectionId(null);
         // Close the comment modal
         setActiveSection(null);
         // Show confirmation dialog
@@ -1097,7 +1109,11 @@ export const PPPDevelopmentReview = ({
 
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
-      // Comment modal is already closed before showing confirmation dialog
+      // Ensure comment modal is closed
+      setActiveSection(null);
+      // Reset any flags
+      setIsStateApproverSentBack(false);
+      setStateApproverSentBackSectionId(null);
     }
   };
 
@@ -1667,7 +1683,14 @@ export const PPPDevelopmentReview = ({
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => handleOpenModal(sectionId)}
+            onClick={() => {
+              // Track that this was opened from STATE_APPROVER "Send Back" button
+              if (isStateApprover) {
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+              }
+              handleOpenModal(sectionId);
+            }}
             disabled={isEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
