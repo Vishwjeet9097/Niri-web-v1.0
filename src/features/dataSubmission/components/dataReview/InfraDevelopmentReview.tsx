@@ -159,6 +159,10 @@ export const InfraDevelopmentReview = ({
   });
   const [newEntry2_4, setNewEntry2_4] = useState({
     projectName: "",
+    sector: "",
+    status: "",
+    projectSize: "",
+    investmentType: "",
     dprFile: null as FileUpload | null,
   });
   const [newEntry2_5, setNewEntry2_5] = useState({
@@ -224,7 +228,14 @@ export const InfraDevelopmentReview = ({
       setNewEntry2_3({ sector: "", files: [] });
     } else if (sectionId === "2.4") {
       setShowAddForm2_4(false);
-      setNewEntry2_4({ projectName: "", dprFile: null });
+      setNewEntry2_4({
+        projectName: "",
+        sector: "",
+        status: "",
+        projectSize: "",
+        investmentType: "",
+        dprFile: null,
+      });
     } else if (sectionId === "2.5") {
       setShowAddForm2_5(false);
       setNewEntry2_5({
@@ -361,7 +372,14 @@ export const InfraDevelopmentReview = ({
       value === "no"
     ) {
       setShowAddForm2_4(false);
-      setNewEntry2_4({ projectName: "", dprFile: null });
+      setNewEntry2_4({
+        projectName: "",
+        sector: "",
+        status: "",
+        projectSize: "",
+        investmentType: "",
+        dprFile: null,
+      });
     }
 
     // If switching hasInfraDevelopmentPlan to "no", reset the Add More form state
@@ -402,6 +420,10 @@ export const InfraDevelopmentReview = ({
     const newEntry = {
       id: `investment-ready-${Date.now()}`,
       projectName: newEntry2_4.projectName,
+      sector: newEntry2_4.sector,
+      status: newEntry2_4.status,
+      projectSize: newEntry2_4.projectSize,
+      investmentType: newEntry2_4.investmentType,
       dprFile: newEntry2_4.dprFile,
     };
 
@@ -419,7 +441,14 @@ export const InfraDevelopmentReview = ({
     }));
 
     // Reset form
-    setNewEntry2_4({ projectName: "", dprFile: null });
+    setNewEntry2_4({
+      projectName: "",
+      sector: "",
+      status: "",
+      projectSize: "",
+      investmentType: "",
+      dprFile: null,
+    });
     setShowAddForm2_4(false);
   };
 
@@ -1070,6 +1099,10 @@ export const InfraDevelopmentReview = ({
             investmentReadyArray: investmentReadyArray.map((item: any) => ({
               id: item?.id ?? null,
               projectName: item?.projectName ?? null,
+              sector: item?.sector ?? null,
+              status: item?.status ?? null,
+              projectSize: item?.projectSize ?? null,
+              investmentType: item?.investmentType ?? null,
               dprFile: toSingleFile(item?.dprFile),
             })),
           },
@@ -3470,6 +3503,33 @@ export const InfraDevelopmentReview = ({
               {/* Show table and Add More button if hasInvestmentReady is "yes" */}
               {state?.section2_4?.hasInvestmentReady === "yes" && (
                 <>
+                  {/* Website Link Field */}
+                  <div className="max-w-[60%]">
+                    <Label className="mb-2 block">
+                      Website Link <span className="text-destructive">*</span>
+                    </Label>
+                    {isEditable("2.4") ? (
+                      <Input
+                        type="url"
+                        placeholder="Enter website URL"
+                        value={state?.section2_4?.websiteLink || ""}
+                        onChange={(e) =>
+                          handleSectionFieldUpdate(
+                            "2.4",
+                            "websiteLink",
+                            e.target.value
+                          )
+                        }
+                        className="bg-white"
+                      />
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {state?.section2_4?.websiteLink ||
+                          "No website link provided"}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Table Display */}
                   <div className="overflow-x-auto rounded-xl">
                     <table className="min-w-full border-separate border-spacing-0">
@@ -3479,10 +3539,16 @@ export const InfraDevelopmentReview = ({
                             Project Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Uploaded File
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Status
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Project Size (Cr)
                           </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                            File Type
+                            Type of Investment
                           </th>
                         </tr>
                       </thead>
@@ -3498,7 +3564,7 @@ export const InfraDevelopmentReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={3}
+                                  colSpan={5}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No data available
@@ -3531,49 +3597,88 @@ export const InfraDevelopmentReview = ({
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {isEditable("2.4") ? (
-                                    <EditableFileDisplay
-                                      files={item.dprFile || null}
-                                      isEditable={true}
-                                      submissionId={submissionId}
-                                      onFilesChange={(updatedFiles) =>
-                                        handleFilesUpdate(
+                                    <Dropdown
+                                      options={dropdownValues.sector}
+                                      value={item.sector || ""}
+                                      onChange={(value) =>
+                                        handleArrayFieldUpdate(
                                           "2.4",
                                           index,
-                                          updatedFiles
+                                          "sector",
+                                          value
                                         )
                                       }
-                                      label=""
-                                      multiple={false}
+                                      placeholder="Select Sector"
+                                      isEditable={true}
                                     />
-                                  ) : item.dprFile && item.dprFile.fileName ? (
-                                    <div className="flex items-center gap-2">
-                                      <Upload className="w-4 h-4" />
-                                      <span className="text-sm">
-                                        {item.dprFile.fileName ||
-                                          "Unknown file"}
-                                      </span>
-                                    </div>
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">
-                                      No file uploaded
-                                    </span>
+                                    item.sector || "N/A"
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {item.dprFile && item.dprFile.fileName ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs px-1.5 py-0.5"
-                                    >
-                                      {item.dprFile.fileName
-                                        ?.split(".")
-                                        .pop()
-                                        ?.toUpperCase() || "N/A"}
-                                    </Badge>
+                                  {isEditable("2.4") ? (
+                                    <Dropdown
+                                      options={[
+                                        "Tender Done",
+                                        "Bidding",
+                                        "Other",
+                                      ]}
+                                      value={item.status || ""}
+                                      onChange={(value) =>
+                                        handleArrayFieldUpdate(
+                                          "2.4",
+                                          index,
+                                          "status",
+                                          value
+                                        )
+                                      }
+                                      placeholder="Select Status"
+                                      isEditable={true}
+                                    />
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">
-                                      N/A
-                                    </span>
+                                    item.status || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {isEditable("2.4") ? (
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={item.projectSize || ""}
+                                      onChange={(e) =>
+                                        handleArrayFieldUpdate(
+                                          "2.4",
+                                          index,
+                                          "projectSize",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="w-full"
+                                      placeholder="Enter project size"
+                                    />
+                                  ) : (
+                                    item.projectSize || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {isEditable("2.4") ? (
+                                    <Dropdown
+                                      options={["Partner", "Investor", "Other"]}
+                                      value={item.investmentType || ""}
+                                      onChange={(value) =>
+                                        handleArrayFieldUpdate(
+                                          "2.4",
+                                          index,
+                                          "investmentType",
+                                          value
+                                        )
+                                      }
+                                      placeholder="Select Type"
+                                      isEditable={true}
+                                    />
+                                  ) : (
+                                    item.investmentType || "N/A"
                                   )}
                                 </td>
                               </tr>
@@ -3605,7 +3710,10 @@ export const InfraDevelopmentReview = ({
                       </h4>
                       <div className="space-y-4">
                         <div>
-                          <Label>Project Name</Label>
+                          <Label>
+                            Project Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
                           <Input
                             value={newEntry2_4.projectName}
                             onChange={(e) =>
@@ -3616,6 +3724,78 @@ export const InfraDevelopmentReview = ({
                             }
                             className="bg-white"
                             placeholder="Enter project name"
+                          />
+                        </div>
+                        <div>
+                          <Label>
+                            Sector <span className="text-destructive">*</span>
+                          </Label>
+                          <Dropdown
+                            options={dropdownValues.sector}
+                            value={newEntry2_4.sector}
+                            onChange={(value) =>
+                              setNewEntry2_4({
+                                ...newEntry2_4,
+                                sector: value,
+                              })
+                            }
+                            placeholder="Select Sector"
+                            isEditable={true}
+                          />
+                        </div>
+                        <div>
+                          <Label>
+                            Status <span className="text-destructive">*</span>
+                          </Label>
+                          <Dropdown
+                            options={["Tender Done", "Bidding", "Other"]}
+                            value={newEntry2_4.status}
+                            onChange={(value) =>
+                              setNewEntry2_4({
+                                ...newEntry2_4,
+                                status: value,
+                              })
+                            }
+                            placeholder="Select Status"
+                            isEditable={true}
+                          />
+                        </div>
+                        <div>
+                          <Label>
+                            Project Size (INR - values is in CRORES){" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={newEntry2_4.projectSize}
+                            onChange={(e) =>
+                              setNewEntry2_4({
+                                ...newEntry2_4,
+                                projectSize: e.target.value,
+                              })
+                            }
+                            className="bg-white"
+                            placeholder="Enter project size"
+                          />
+                        </div>
+                        <div>
+                          <Label>
+                            Type of Investment{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Dropdown
+                            options={["Partner", "Investor", "Other"]}
+                            value={newEntry2_4.investmentType}
+                            onChange={(value) =>
+                              setNewEntry2_4({
+                                ...newEntry2_4,
+                                investmentType: value,
+                              })
+                            }
+                            placeholder="Select Type"
+                            isEditable={true}
                           />
                         </div>
                         <div>
@@ -3650,7 +3830,14 @@ export const InfraDevelopmentReview = ({
                           size="sm"
                           onClick={() => {
                             setShowAddForm2_4(false);
-                            setNewEntry2_4({ projectName: "", dprFile: null });
+                            setNewEntry2_4({
+                              projectName: "",
+                              sector: "",
+                              status: "",
+                              projectSize: "",
+                              investmentType: "",
+                              dprFile: null,
+                            });
                           }}
                           className="flex items-center gap-2"
                         >
@@ -3667,30 +3854,24 @@ export const InfraDevelopmentReview = ({
                 </>
               )}
 
-              {/* Show comment field if hasInvestmentReady is "no" */}
-              {state?.section2_4?.hasInvestmentReady === "no" && (
-                <div>
-                  <Label className="mb-2 block">Comment</Label>
-                  {isEditable("2.4") ? (
-                    <Textarea
-                      value={state?.section2_4?.comment || ""}
-                      onChange={(e) =>
-                        handleSectionFieldUpdate(
-                          "2.4",
-                          "comment",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Please provide a comment..."
-                      className="min-h-[100px]"
-                    />
-                  ) : (
-                    <div className="p-3 bg-gray-50 rounded-md text-sm">
-                      {state?.section2_4?.comment || "No comment provided"}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Show comment field - for both "yes" and "no" */}
+              <div>
+                <Label className="mb-2 block">Comment</Label>
+                {isEditable("2.4") ? (
+                  <Textarea
+                    value={state?.section2_4?.comment || ""}
+                    onChange={(e) =>
+                      handleSectionFieldUpdate("2.4", "comment", e.target.value)
+                    }
+                    placeholder="Please provide a comment..."
+                    className="min-h-[100px]"
+                  />
+                ) : (
+                  <div className="p-3 bg-gray-50 rounded-md text-sm">
+                    {state?.section2_4?.comment || "No comment provided"}
+                  </div>
+                )}
+              </div>
             </div>
           </SectionCard>
         )}

@@ -201,15 +201,14 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     return false;
   },
-  section3_3: (data) =>
+  section3_3: (data: any) =>
     anyValid(
-      data,
+      data?.VGFArray,
       (r) =>
         hasMeaningfulValue(r.projectName) &&
         hasMeaningfulValue(r.sector) &&
         hasMeaningfulValue(r.type) &&
-        hasMeaningfulValue(r.submissionDate) &&
-        hasMeaningfulValue(r.file)
+        hasMeaningfulValue(r.submissionDate) 
     ),
   section3_4: (data) => {
     const d = data as
