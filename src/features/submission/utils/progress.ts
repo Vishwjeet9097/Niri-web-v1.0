@@ -212,8 +212,21 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.file)
     ),
   section3_4: (data) => {
-    const d = data as { projects?: unknown[] } | undefined;
-    return anyValid(
+    const d = data as
+      | {
+          projects?: unknown[];
+          totalProjectsAwarded?: unknown;
+          totalProjectCostAwarded?: unknown;
+        }
+      | undefined;
+
+    // Check if mandatory summary fields are filled
+    const hasSummaryFields =
+      hasMeaningfulValue(d?.totalProjectsAwarded) &&
+      hasMeaningfulValue(d?.totalProjectCostAwarded);
+
+    // Also check if projects array has valid entries (optional but can be used for completion)
+    const hasValidProjects = anyValid(
       d?.projects,
       (r) =>
         hasMeaningfulValue(r.nameOfProject) &&
@@ -223,6 +236,9 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.dateOfAward) &&
         hasMeaningfulValue(r.capexPercentage)
     );
+
+    // Section is complete if mandatory summary fields are filled
+    return hasSummaryFields || hasValidProjects;
   },
 
   // 4.x Infra Enablers
