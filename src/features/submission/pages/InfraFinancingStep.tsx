@@ -22,7 +22,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Trash2, Info } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { CalendarIcon, Plus, Trash2, Info, Check, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
@@ -39,6 +47,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
+import { ulbService, type ULB } from "@/services/ulb.service";
 
 export const InfraFinancingStep = () => {
   const {
@@ -129,6 +138,11 @@ export const InfraFinancingStep = () => {
 
   const [formData, setFormData] = useState<InfraFinancingData>(initialData);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  
+  // ULB state management
+  const [ulbList, setUlbList] = useState<ULB[]>([]);
+  const [loadingULBs, setLoadingULBs] = useState(false);
+  const [ulbSearchOpen, setUlbSearchOpen] = useState<Record<string, boolean>>({});
 
   // Calculate allowed indicators for validation
   const sectionIndicators = useMemo(
@@ -217,6 +231,34 @@ export const InfraFinancingStep = () => {
       <p className="text-xs text-destructive mt-1">{message}</p>
     ) : null;
   };
+
+  // Fetch ULBs based on user's state
+  useEffect(() => {
+    const fetchULBs = async () => {
+      if (!user?.stateUt) {
+        console.warn("⚠️ No state information found for user");
+        return;
+      }
+
+      setLoadingULBs(true);
+      try {
+        const ulbs = await ulbService.getULBsByState(user.stateUt);
+        setUlbList(ulbs);
+        console.log(`✅ Loaded ${ulbs.length} ULBs for state: ${user.stateUt}`);
+      } catch (error) {
+        console.error("Error loading ULBs:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load ULBs. Please refresh the page.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingULBs(false);
+      }
+    };
+
+    fetchULBs();
+  }, [user?.stateUt, toast]);
 
   // ensure year defaults to current FY
   useEffect(() => {
@@ -1040,79 +1082,131 @@ export const InfraFinancingStep = () => {
                   <div key={ulb.id} className="grid grid-cols-4 gap-4">
                     <div>
                       <Label>
+                        ULB<span className="text-red-500">*</span>
+                      </Label>
+                      <Popover 
+                        open={ulbSearchOpen[ulb.id]} 
+                        onOpenChange={(open) => {
+                          setUlbSearchOpen(prev => ({ ...prev, [ulb.id]: open }));
+                          // Auto-focus search input when opened
+                          if (open) {
+                            setTimeout(() => {
+                              const input = document.querySelector(`[cmdk-input]`) as HTMLInputElement;
+                              if (input) input.focus();
+                            }, 0);
+                          }
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={ulbSearchOpen[ulb.id]}
+                            disabled={loadingULBs}
+                            className={cn(
+                              "w-full justify-between text-left font-normal h-10",
+                              !ulb.ulb && "text-muted-foreground",
+                              getInputValidationClass(
+                                `section1_3.ulbList.${index}.ulb`
+                              )
+                            )}
+                          >
+                            <span className="truncate">
+                              {ulb.ulb
+                                ? ulbList.find((u) => u.id === ulb.ulb)
+                                  ? ulbService.formatULBDisplay(ulbList.find((u) => u.id === ulb.ulb)!)
+                                  : "Select ULB"
+                                : loadingULBs
+                                ? "Loading ULBs..."
+                                : "Select ULB"}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[500px] p-0" align="start">
+                          <Command shouldFilter={true} filter={(value, search) => {
+                            if (!search || !value) return 1;
+                            const searchLower = search.toLowerCase().trim();
+                            const valueLower = value.toLowerCase();
+                            // Search in the entire formatted string
+                            if (valueLower.includes(searchLower)) return 1;
+                            return 0;
+                          }}>
+                            <CommandInput 
+                              placeholder="Search ULB by name, city or type..." 
+                              className="h-10"
+                              autoFocus
+                            />
+                            <CommandList>
+                              <CommandEmpty>No ULB found.</CommandEmpty>
+                              <CommandGroup>
+                                {ulbList.map((ulbItem) => {
+                                  const ulbName = ulbItem.ulb_name || '';
+                                  const cityName = ulbItem.city_name || '';
+                                  const ulbType = ulbItem.ulb_type || '';
+                                  const searchValue = `${ulbName} ${cityName} ${ulbType}`.trim();
+                                  
+                                  return (
+                                    <CommandItem
+                                      key={ulbItem.id}
+                                      value={searchValue}
+                                      keywords={[ulbName, cityName, ulbType].filter(Boolean)}
+                                      onSelect={() => {
+                                      showErrorsIfNeeded();
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        section1_3: {
+                                          ...prev.section1_3,
+                                          ulbList: prev.section1_3.ulbList.map((item) =>
+                                            item.id === ulb.id
+                                              ? {
+                                                  ...item,
+                                                  ulb: ulbItem.id,
+                                                  cityName: ulbItem.city_name,
+                                                }
+                                              : item
+                                          ),
+                                        },
+                                      }));
+                                      setUlbSearchOpen(prev => ({ ...prev, [ulb.id]: false }));
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        ulb.ulb === ulbItem.id
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    {ulbService.formatULBDisplay(ulbItem)}
+                                  </CommandItem>
+                                  );
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
+                    </div>
+                    <div>
+                      <Label>
                         City name<span className="text-red-500">*</span>
                       </Label>
                       <Input
-                        placeholder="Enter City Name"
+                        placeholder="Auto-filled from ULB"
                         value={ulb.cityName}
-                        onChange={(e) => {
-                          showErrorsIfNeeded();
-                          let value = e.target.value;
-                          // Only allow letters and spaces
-                          value = value.replace(/[^a-zA-Z\s]/g, "");
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_3: {
-                              ...prev.section1_3,
-                              ulbList: prev.section1_3.ulbList.map((item) =>
-                                item.id === ulb.id
-                                  ? { ...item, cityName: value }
-                                  : item
-                              ),
-                            },
-                          }));
-                        }}
+                        readOnly
+                        disabled
                         className={cn(
+                          "bg-gray-100 cursor-not-allowed",
                           getInputValidationClass(
                             `section1_3.ulbList.${index}.cityName`
                           )
                         )}
                       />
                       {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
-                    </div>
-                    <div>
-                      <Label>
-                        ULB<span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={ulb.ulb}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_3: {
-                              ...prev.section1_3,
-                              ulbList: prev.section1_3.ulbList.map((item) =>
-                                item.id === ulb.id
-                                  ? { ...item, ulb: value }
-                                  : item
-                              ),
-                            },
-                          }));
-                        }}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section1_3.ulbList.${index}.ulb`
-                            )
-                          )}
-                        >
-                          <SelectValue placeholder="Select ULB" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Pune Municipal Corporation">
-                            Pune Municipal Corporation
-                          </SelectItem>
-                          <SelectItem value="Mumbai Municipal Corporation">
-                            Mumbai Municipal Corporation
-                          </SelectItem>
-                          <SelectItem value="Nagpur Municipal Corporation">
-                            Nagpur Municipal Corporation
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
                     </div>
                     <div>
                       <Label>
@@ -1272,34 +1366,37 @@ export const InfraFinancingStep = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {formData.section1_3.ulbList.map((ulb) => (
-                          <tr key={ulb.id} className="bg-white">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {ulb.cityName}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {ulb.ulb}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {ulb.ratingDate
-                                ? format(new Date(ulb.ratingDate), "dd-MM-yyyy")
-                                : "-"}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {ulb.rating}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() => removeULB(ulb.id)}
-                                className="text-red-600 hover:text-red-800"
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {formData.section1_3.ulbList.map((ulb) => {
+                          const ulbData = ulbList.find((u) => u.id === ulb.ulb);
+                          return (
+                            <tr key={ulb.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {ulb.cityName}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {ulbData ? ulbService.formatULBDisplay(ulbData) : ulb.ulb}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {ulb.ratingDate
+                                  ? format(new Date(ulb.ratingDate), "dd-MM-yyyy")
+                                  : "-"}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {ulb.rating}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() => removeULB(ulb.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

@@ -66,4 +66,8 @@ export const API_ENDPOINTS = {
     user: (userId: string) => `${BASE}/audit/user/${userId}`,
     myActivity: `${BASE}/audit/my-activity`,
   },
+  ulb: {
+    root: `${BASE}/ulb`,
+    byState: (stateCode: string) => `${BASE}/ulb?state=${stateCode}`,
+  },
 };
