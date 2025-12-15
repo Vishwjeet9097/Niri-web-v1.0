@@ -939,22 +939,23 @@ export const InfraFinancingReview = ({
         "- not including other sections"
       );
 
-      // Check if user is NODAL_OFFICER to add status to payload
+      // Check if user is NODAL_OFFICER or STATE_APPROVER to preserve status
       const userRole = getUserRole();
       const isNodalOfficer = userRole === "NODAL_OFFICER";
+      const isStateApprover = userRole === "STATE_APPROVER";
+
+      // Get current status from formData
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData = formData && formData[sectionKey];
+      const currentStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+      const upperStatus = (currentStatus || "").toUpperCase();
 
       // If NODAL_OFFICER, check current status and set RESUBMITTED only if status was REVERTED
       if (isNodalOfficer && fields.length > 0) {
-        // Get current status from formData
-        const sectionKey = `section${sectionId.replace(".", "_")}`;
-        const sectionData = formData && formData[sectionKey];
-        const currentStatus = sectionData
-          ? Array.isArray(sectionData)
-            ? (sectionData as any).status
-            : sectionData.status
-          : undefined;
-        const upperStatus = (currentStatus || "").toUpperCase();
-
         // Only set RESUBMITTED if the indicator was previously REVERTED (sent back)
         if (upperStatus === "REVERTED") {
           // Add status to the first field object (or create a new one if needed)
@@ -963,6 +964,19 @@ export const InfraFinancingReview = ({
             status: "RESUBMITTED",
           };
         }
+      }
+
+      // If STATE_APPROVER, preserve RESUBMITTED status when saving edits
+      if (
+        isStateApprover &&
+        fields.length > 0 &&
+        upperStatus === "RESUBMITTED"
+      ) {
+        // Preserve RESUBMITTED status when STATE_APPROVER saves edits
+        fields[0] = {
+          ...fields[0],
+          status: "RESUBMITTED",
+        };
       }
 
       // Ensure we're only sending data for the specific section being saved
@@ -984,16 +998,6 @@ export const InfraFinancingReview = ({
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
-        // Get current status from formData
-        const sectionKey = `section${sectionId.replace(".", "_")}`;
-        const sectionData = formData && formData[sectionKey];
-        const currentStatus = sectionData
-          ? Array.isArray(sectionData)
-            ? (sectionData as any).status
-            : sectionData.status
-          : undefined;
-        const upperStatus = (currentStatus || "").toUpperCase();
-
         // Only update to RESUBMITTED if the indicator was previously REVERTED (sent back)
         if (upperStatus === "REVERTED") {
           // Update formData prop if it exists
@@ -1017,6 +1021,22 @@ export const InfraFinancingReview = ({
             return updated;
           });
         }
+      }
+
+      // If STATE_APPROVER, preserve RESUBMITTED status in local state after save
+      if (isStateApprover && upperStatus === "RESUBMITTED") {
+        // Preserve RESUBMITTED status in submissionData
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (updated[sectionKey]) {
+            updated[sectionKey] = {
+              ...updated[sectionKey],
+              status: "RESUBMITTED",
+            };
+          }
+          return updated;
+        });
       }
 
       // Disable editing after successful save
@@ -1391,12 +1411,25 @@ export const InfraFinancingReview = ({
 
     // For all other roles, check status field as before
     const sectionKey = `section${sectionId.replace(".", "_")}`;
-    const sectionData = formData && formData[sectionKey];
+    // Check both formData prop and store data to ensure we get the correct status after refresh
+    const storeSectionData = getSectionData(sectionKey) as any;
+    const sectionData = (formData && formData[sectionKey]) || storeSectionData;
     const sectionStatus = sectionData
       ? Array.isArray(sectionData)
         ? (sectionData as any).status
         : sectionData.status
       : undefined;
+
+    // Debug logging
+    console.log(`[InfraFinancingReview] Section ${sectionId}:`, {
+      sectionKey,
+      sectionStatus,
+      isStateApprover,
+      hasFormData: !!(formData && formData[sectionKey]),
+      hasStoreData: !!storeSectionData,
+      formDataData: formData && formData[sectionKey],
+      storeData: storeSectionData,
+    });
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
     // REVERTED is excluded because user can resubmit after being sent back
@@ -1432,7 +1465,9 @@ export const InfraFinancingReview = ({
 
     // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
     if (isStateApprover && sectionStatus === "RESUBMITTED") {
-      // RESUBMITTED means already submitted, so disable submit button
+      console.log(
+        `[InfraFinancingReview] RESUBMITTED block hit for section ${sectionId}`
+      );
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -1452,7 +1487,7 @@ export const InfraFinancingReview = ({
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => onSaveSection(sectionId)}
-                disabled={true} // Already submitted, disable button
+                disabled={false} // Enable save for editing RESUBMITTED indicators
               >
                 <Check className="w-4 h-4" />
                 Save
@@ -1483,6 +1518,7 @@ export const InfraFinancingReview = ({
               size="sm"
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => onIndicatorStatus(sectionId, true)}
+              disabled={isEditable(sectionId)} // Disable Accept during editing
             >
               <CheckCircle className="w-4 h-4" />
               Accept
@@ -1690,7 +1726,21 @@ export const InfraFinancingReview = ({
         )}
 
         {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
-        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
+        {(() => {
+          const shouldShowSendBack = !(
+            isStateApprover && sectionStatus === "RESUBMITTED"
+          );
+          console.log(
+            `[InfraFinancingReview] Section ${sectionId} - Send Back visibility:`,
+            {
+              shouldShowSendBack,
+              isStateApprover,
+              sectionStatus,
+              condition: `!(${isStateApprover} && ${sectionStatus} === "RESUBMITTED")`,
+            }
+          );
+          return shouldShowSendBack;
+        })() && (
           <Button
             variant="outline"
             size="sm"
