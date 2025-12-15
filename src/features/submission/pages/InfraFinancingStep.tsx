@@ -38,6 +38,7 @@ import { getCurrentFinancialYear } from "@/utils/dateUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { apiService } from "@/services/api.service";
+import { ulbService, ULB } from "@/services/ulb.service";
 import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
 import {
@@ -52,6 +53,28 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const InfraFinancingStep = () => {
+    // ULB dropdown state
+    const [ulbOptions, setUlbOptions] = useState<ULB[]>([]);
+    // Per-row search state for ULB dropdowns
+    const [ulbSearchMap, setUlbSearchMap] = useState<{ [id: string]: string }>({});
+    // Per-row visible count for infinite scroll
+    const [ulbVisibleCountMap, setUlbVisibleCountMap] = useState<{ [id: string]: number }>({});
+
+    // Fetch all ULBs on mount (or filter by state if needed)
+    useEffect(() => {
+      let mounted = true;
+      // Use a microtask to allow React to render before fetching
+      Promise.resolve().then(async () => {
+        const ulbs = await ulbService.getAllULBs();
+        const unique = Array.from(
+          new Map(
+            ulbs.map((u) => [u.ulb_name + u.city_name + u.ulb_type, u])
+          ).values()
+        );
+        if (mounted) setUlbOptions(unique);
+      });
+      return () => { mounted = false; };
+    }, []);
   const { user } = useAuth();
   const [sectionStatus, setSectionStatus] = useState<any>({
     completedIndicators: [],
@@ -1868,83 +1891,166 @@ export const InfraFinancingStep = () => {
 
                 {formData.section1_3.ulbList.map((ulb, index) => (
                   <div key={ulb.id} className="grid grid-cols-12 gap-4">
+                    <div className="col-span-4">
+                      <Label>
+                        ULB<span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Select
+                          value={ulb.ulb}
+                          onValueChange={(value) => {
+                            showErrorsIfNeeded();
+                            // Find selected ULB object
+                            const selectedULB = ulbOptions.find(
+                              (u) => u.id === value
+                            );
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_3: {
+                                ...prev.section1_3,
+                                ulbList: prev.section1_3.ulbList.map((item) =>
+                                  item.id === ulb.id
+                                    ? {
+                                        ...item,
+                                        ulb: value,
+                                        cityName: selectedULB?.city_name || "",
+                                        ulbType: selectedULB?.ulb_type || "",
+                                      }
+                                    : item
+                                ),
+                              },
+                            }));
+                          }}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              setUlbSearchMap((prev) => ({ ...prev, [ulb.id]: "" }));
+                              setUlbVisibleCountMap((prev) => ({ ...prev, [ulb.id]: 10 }));
+                            }
+                          }}
+                          disabled={isIndicatorSubmitted("1.3")}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_3.ulbList.${index}.ulb`
+                              ),
+                              "cursor-pointer"
+                            )}
+                            tabIndex={0}
+                          >
+                            <SelectValue placeholder="Select ULB" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <div className="px-2 py-1 transition-all duration-200 ease-in-out">
+                              <Input
+                                placeholder="Search ULB..."
+                                value={ulbSearchMap[ulb.id] || ""}
+                                onChange={e => {
+                                  const value = e.target.value;
+                                  setUlbSearchMap(prev => ({ ...prev, [ulb.id]: value }));
+                                  setUlbVisibleCountMap(prev => ({ ...prev, [ulb.id]: 10 }));
+                                }}
+                                className="mb-2 focus:shadow-lg focus:border-blue-400 transition-all duration-200 ease-in-out"
+                                disabled={isIndicatorSubmitted("1.3")}
+                                autoFocus
+                                onClick={e => {
+                                  e.currentTarget.focus();
+                                }}
+                              />
+                            </div>
+                            {(ulbSearchMap[ulb.id] || "").trim() ? (
+                              <div>
+                                {(() => {
+                                  const filtered = ulbOptions.filter((u) =>
+                                    `${u.ulb_name} ${u.city_name} ${u.ulb_type}`
+                                      .toLowerCase()
+                                      .includes((ulbSearchMap[ulb.id] || "").toLowerCase())
+                                  );
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <div className="px-3 py-2 text-gray-500 text-sm">No results found</div>
+                                    );
+                                  }
+                                  return filtered.map((u) => (
+                                    <SelectItem
+                                      key={u.id}
+                                      value={u.id}
+                                      className="cursor-pointer"
+                                    >
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type})
+                                    </SelectItem>
+                                  ));
+                                })()}
+                              </div>
+                            ) : (
+                              <div
+                                style={{ maxHeight: 240, overflowY: 'auto' }}
+                                onScroll={e => {
+                                  const el = e.currentTarget;
+                                  if (
+                                    el.scrollTop + el.clientHeight >= el.scrollHeight - 10 &&
+                                    (ulbVisibleCountMap[ulb.id] || 10) < ulbOptions.length
+                                  ) {
+                                    setUlbVisibleCountMap(prev => ({
+                                      ...prev,
+                                      [ulb.id]: Math.min((prev[ulb.id] || 10) + 10, ulbOptions.length)
+                                    }));
+                                  }
+                                }}
+                              >
+                                {ulbOptions
+                                  .slice(0, ulbVisibleCountMap[ulb.id] || 10)
+                                  .map((u) => (
+                                    <SelectItem
+                                      key={u.id}
+                                      value={u.id}
+                                      className="cursor-pointer"
+                                    >
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type})
+                                    </SelectItem>
+                                  ))}
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
+                    </div>
                     <div className="col-span-2">
                       <Label>
                         City name<span className="text-red-500">*</span>
                       </Label>
                       <Input
-                        placeholder="Enter City Name"
+                        placeholder="City Name"
                         value={ulb.cityName}
+                        readOnly={!!ulb.ulb}
                         onChange={(e) => {
-                          showErrorsIfNeeded();
-                          const value = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_3: {
-                              ...prev.section1_3,
-                              ulbList: prev.section1_3.ulbList.map((item) =>
-                                item.id === ulb.id
-                                  ? { ...item, cityName: value }
-                                  : item
-                              ),
-                            },
-                          }));
+                          if (!ulb.ulb) {
+                            showErrorsIfNeeded();
+                            const value = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_3: {
+                                ...prev.section1_3,
+                                ulbList: prev.section1_3.ulbList.map((item) =>
+                                  item.id === ulb.id
+                                    ? { ...item, cityName: value }
+                                    : item
+                                ),
+                              },
+                            }));
+                          }
                         }}
                         disabled={isIndicatorSubmitted("1.3")}
                         className={cn(
                           getInputValidationClass(
                             `section1_3.ulbList.${index}.cityName`
                           ),
-                          isIndicatorSubmitted("1.3") &&
+                          (isIndicatorSubmitted("1.3") || ulb.ulb) &&
                             "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
-                    </div>
-                    <div className="col-span-4">
-                      <Label>
-                        ULB<span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={ulb.ulb}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_3: {
-                              ...prev.section1_3,
-                              ulbList: prev.section1_3.ulbList.map((item) =>
-                                item.id === ulb.id
-                                  ? { ...item, ulb: value }
-                                  : item
-                              ),
-                            },
-                          }));
-                        }}
-                        disabled={isIndicatorSubmitted("1.3")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section1_3.ulbList.${index}.ulb`
-                            )
-                          )}
-                        >
-                          <SelectValue placeholder="Select ULB" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Pune Municipal Corporation">
-                            Pune Municipal Corporation
-                          </SelectItem>
-                          <SelectItem value="Mumbai Municipal Corporation">
-                            Mumbai Municipal Corporation
-                          </SelectItem>
-                          <SelectItem value="Nagpur Municipal Corporation">
-                            Nagpur Municipal Corporation
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
                     </div>
                     <div className="col-span-3">
                       <Label>
