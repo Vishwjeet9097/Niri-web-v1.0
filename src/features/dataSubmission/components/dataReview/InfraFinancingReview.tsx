@@ -855,14 +855,25 @@ export const InfraFinancingReview = ({
     const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
 
-    // If NODAL_OFFICER, show confirmation dialog first
-    if (isNodalOfficer) {
+    // Check if this is a resubmission of a sent-back indicator
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+    const sectionData = formData && formData[sectionKey];
+    const currentStatus = sectionData
+      ? Array.isArray(sectionData)
+        ? (sectionData as any).status
+        : sectionData.status
+      : undefined;
+    const upperStatus = (currentStatus || "").toUpperCase();
+    const isReverted = upperStatus === "REVERTED";
+
+    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
+    if (isNodalOfficer && isReverted) {
       setPendingSaveSectionId(sectionId);
       setShowSaveDialog(true);
       return;
     }
 
-    // For non-NODAL_OFFICER users, proceed with submit directly
+    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with submit directly
     await performSave(sectionId);
   };
 
@@ -2832,7 +2843,8 @@ export const InfraFinancingReview = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Save</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to save this indicator?
+            Are you sure you want to save this indicator? This will resubmit
+            it to the State Approver.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
