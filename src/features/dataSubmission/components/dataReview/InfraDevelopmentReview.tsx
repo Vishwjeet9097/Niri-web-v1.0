@@ -134,6 +134,11 @@ export const InfraDevelopmentReview = ({
     string | null
   >(null);
 
+  // State to track if comment modal was opened from STATE_APPROVER "Send Back" button
+  const [isStateApproverSentBack, setIsStateApproverSentBack] = useState(false);
+  const [stateApproverSentBackSectionId, setStateApproverSentBackSectionId] =
+    useState<string | null>(null);
+
   // State for Add More forms in sections 2.1, 2.2, 2.3, 2.4, and 2.5
   const [showAddForm2_1, setShowAddForm2_1] = useState(false);
   const [showAddForm2_2, setShowAddForm2_2] = useState(false);
@@ -154,6 +159,10 @@ export const InfraDevelopmentReview = ({
   });
   const [newEntry2_4, setNewEntry2_4] = useState({
     projectName: "",
+    sector: "",
+    status: "",
+    projectSize: "",
+    investmentType: "",
     dprFile: null as FileUpload | null,
   });
   const [newEntry2_5, setNewEntry2_5] = useState({
@@ -219,7 +228,14 @@ export const InfraDevelopmentReview = ({
       setNewEntry2_3({ sector: "", files: [] });
     } else if (sectionId === "2.4") {
       setShowAddForm2_4(false);
-      setNewEntry2_4({ projectName: "", dprFile: null });
+      setNewEntry2_4({
+        projectName: "",
+        sector: "",
+        status: "",
+        projectSize: "",
+        investmentType: "",
+        dprFile: null,
+      });
     } else if (sectionId === "2.5") {
       setShowAddForm2_5(false);
       setNewEntry2_5({
@@ -356,7 +372,14 @@ export const InfraDevelopmentReview = ({
       value === "no"
     ) {
       setShowAddForm2_4(false);
-      setNewEntry2_4({ projectName: "", dprFile: null });
+      setNewEntry2_4({
+        projectName: "",
+        sector: "",
+        status: "",
+        projectSize: "",
+        investmentType: "",
+        dprFile: null,
+      });
     }
 
     // If switching hasInfraDevelopmentPlan to "no", reset the Add More form state
@@ -397,6 +420,10 @@ export const InfraDevelopmentReview = ({
     const newEntry = {
       id: `investment-ready-${Date.now()}`,
       projectName: newEntry2_4.projectName,
+      sector: newEntry2_4.sector,
+      status: newEntry2_4.status,
+      projectSize: newEntry2_4.projectSize,
+      investmentType: newEntry2_4.investmentType,
       dprFile: newEntry2_4.dprFile,
     };
 
@@ -414,7 +441,14 @@ export const InfraDevelopmentReview = ({
     }));
 
     // Reset form
-    setNewEntry2_4({ projectName: "", dprFile: null });
+    setNewEntry2_4({
+      projectName: "",
+      sector: "",
+      status: "",
+      projectSize: "",
+      investmentType: "",
+      dprFile: null,
+    });
     setShowAddForm2_4(false);
   };
 
@@ -901,6 +935,9 @@ export const InfraDevelopmentReview = ({
     // (Accept no longer uses comment modal, so no need to reset Accept flags)
     setIsMospiApproverSentBack(false);
     setMospiSentBackSectionId(null);
+    // Reset STATE_APPROVER Sent Back flags when modal closes
+    setIsStateApproverSentBack(false);
+    setStateApproverSentBackSectionId(null);
   };
 
   const handleOpenTimeline = (sectionId: string) => {
@@ -922,16 +959,20 @@ export const InfraDevelopmentReview = ({
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
       const shouldShowSentBackConfirmation =
-        isMospiApproverSentBack && mospiSentBackSectionId;
+        (isMospiApproverSentBack && mospiSentBackSectionId) ||
+        (isStateApproverSentBack && stateApproverSentBackSectionId);
 
-      // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
+      // If this was opened from MOSPI_APPROVER or STATE_APPROVER "Sent Back" button, show confirmation dialog
       if (shouldShowSentBackConfirmation) {
         // Store section ID before resetting flags
-        const sectionIdToUse = mospiSentBackSectionId;
+        const sectionIdToUse =
+          mospiSentBackSectionId || stateApproverSentBackSectionId;
         setPendingActionSectionId(sectionIdToUse);
         // Reset the flags
         setIsMospiApproverSentBack(false);
         setMospiSentBackSectionId(null);
+        setIsStateApproverSentBack(false);
+        setStateApproverSentBackSectionId(null);
         // Close the comment modal
         setActiveSection(null);
         // Show confirmation dialog
@@ -1058,6 +1099,10 @@ export const InfraDevelopmentReview = ({
             investmentReadyArray: investmentReadyArray.map((item: any) => ({
               id: item?.id ?? null,
               projectName: item?.projectName ?? null,
+              sector: item?.sector ?? null,
+              status: item?.status ?? null,
+              projectSize: item?.projectSize ?? null,
+              investmentType: item?.investmentType ?? null,
               dprFile: toSingleFile(item?.dprFile),
             })),
           },
@@ -1118,13 +1163,40 @@ export const InfraDevelopmentReview = ({
       // Use the local formData state (formDataState) to build fields for this section
       let fields = buildSectionFields(sectionId);
 
-      // Check if user is NODAL_OFFICER to add status to payload
+      // Check if user is NODAL_OFFICER or STATE_APPROVER to preserve status
       const userRole = getUserRole();
       const isNodalOfficer = userRole === "NODAL_OFFICER";
+      const isStateApprover = userRole === "STATE_APPROVER";
 
-      // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
+      // Get current status from formDataState
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData = formDataState && formDataState[sectionKey];
+      const currentStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+      const upperStatus = (currentStatus || "").toUpperCase();
+
+      // If NODAL_OFFICER, check current status and set RESUBMITTED only if status was REVERTED
       if (isNodalOfficer && fields.length > 0) {
-        // Add status to the first field object
+        // Only set RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Add status to the first field object
+          fields[0] = {
+            ...fields[0],
+            status: "RESUBMITTED",
+          };
+        }
+      }
+
+      // If STATE_APPROVER, preserve RESUBMITTED status when saving edits
+      if (
+        isStateApprover &&
+        fields.length > 0 &&
+        upperStatus === "RESUBMITTED"
+      ) {
+        // Preserve RESUBMITTED status when STATE_APPROVER saves edits
         fields[0] = {
           ...fields[0],
           status: "RESUBMITTED",
@@ -1138,10 +1210,28 @@ export const InfraDevelopmentReview = ({
         fields,
       });
 
-      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
+      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
-        // Update formDataState to set status to RESUBMITTED
-        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        // Only update to RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Update formDataState to set status to RESUBMITTED
+          setFormDataState((prev: any) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (updated[sectionKey]) {
+              updated[sectionKey] = {
+                ...updated[sectionKey],
+                status: "RESUBMITTED",
+              };
+            }
+            return updated;
+          });
+        }
+      }
+
+      // If STATE_APPROVER, preserve RESUBMITTED status in local state after save
+      if (isStateApprover && upperStatus === "RESUBMITTED") {
+        // Preserve RESUBMITTED status in local state
         setFormDataState((prev: any) => {
           if (!prev) return prev;
           const updated = { ...prev };
@@ -1301,7 +1391,11 @@ export const InfraDevelopmentReview = ({
 
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
-      // Comment modal is already closed before showing confirmation dialog
+      // Ensure comment modal is closed
+      setActiveSection(null);
+      // Reset any flags
+      setIsStateApproverSentBack(false);
+      setStateApproverSentBackSectionId(null);
     }
   };
 
@@ -1816,6 +1910,7 @@ export const InfraDevelopmentReview = ({
               setMospiSentBackSectionId(sectionId);
               handleOpenModal(sectionId);
             }}
+            disabled={isEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
@@ -1830,6 +1925,7 @@ export const InfraDevelopmentReview = ({
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
             }}
+            disabled={isEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -1849,11 +1945,24 @@ export const InfraDevelopmentReview = ({
 
     // For all other roles, check status field as before
     const sectionKey = `section${sectionId.replace(".", "_")}`;
-    const sectionData = state && state[sectionKey];
+    // Check both state and formData to ensure we get the correct status after refresh
+    const sectionData =
+      (state && state[sectionKey]) || (formData && formData[sectionKey]);
     // Handle both array and object sections
     const sectionStatus = Array.isArray(sectionData)
       ? (sectionData as any)?.status
       : sectionData?.status;
+
+    // Debug logging
+    console.log(`[InfraDevelopmentReview] Section ${sectionId}:`, {
+      sectionKey,
+      sectionStatus,
+      isStateApprover,
+      hasStateData: !!(state && state[sectionKey]),
+      hasFormData: !!(formData && formData[sectionKey]),
+      stateData: state && state[sectionKey],
+      formDataData: formData && formData[sectionKey],
+    });
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
     // REVERTED is excluded because user can resubmit after being sent back
@@ -1889,6 +1998,9 @@ export const InfraDevelopmentReview = ({
 
     // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
     if (isStateApprover && sectionStatus === "RESUBMITTED") {
+      console.log(
+        `[InfraDevelopmentReview] RESUBMITTED block hit for section ${sectionId}`
+      );
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -1908,7 +2020,7 @@ export const InfraDevelopmentReview = ({
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => onSaveSection(sectionId)}
-                disabled={true} // Already submitted (RESUBMITTED), disable button
+                disabled={false} // Enable save for editing RESUBMITTED indicators
               >
                 <Check className="w-4 h-4" />
                 Save
@@ -1939,6 +2051,7 @@ export const InfraDevelopmentReview = ({
               size="sm"
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => onIndicatorStatus(sectionId, true)}
+              disabled={isEditable(sectionId)} // Disable Accept during editing
             >
               <CheckCircle className="w-4 h-4" />
               Accept
@@ -2042,12 +2155,36 @@ export const InfraDevelopmentReview = ({
       );
     }
 
-    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE, RESUBMITTED, or null/undefined
+    // For NODAL_OFFICER, show "Resubmitted" badge if status is RESUBMITTED
+    if (isNodalOfficer && sectionStatus === "RESUBMITTED") {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Resubmitted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+
+    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE or null/undefined
     if (
       isNodalOfficer &&
-      (sectionStatus === "SUBMITTED_TO_STATE" ||
-        sectionStatus === "RESUBMITTED" ||
-        !sectionStatus)
+      (sectionStatus === "SUBMITTED_TO_STATE" || !sectionStatus)
     ) {
       return (
         <div className="flex gap-2">
@@ -2123,12 +2260,34 @@ export const InfraDevelopmentReview = ({
         )}
 
         {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
-        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
+        {(() => {
+          const shouldShowSendBack = !(
+            isStateApprover && sectionStatus === "RESUBMITTED"
+          );
+          console.log(
+            `[InfraDevelopmentReview] Section ${sectionId} - Send Back visibility:`,
+            {
+              shouldShowSendBack,
+              isStateApprover,
+              sectionStatus,
+              condition: `!(${isStateApprover} && ${sectionStatus} === "RESUBMITTED")`,
+            }
+          );
+          return shouldShowSendBack;
+        })() && (
           <Button
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => handleOpenModal(sectionId)}
+            onClick={() => {
+              // Track that this was opened from STATE_APPROVER "Send Back" button
+              if (isStateApprover) {
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+              }
+              handleOpenModal(sectionId);
+            }}
+            disabled={isEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Send Back
@@ -2151,6 +2310,7 @@ export const InfraDevelopmentReview = ({
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onIndicatorStatus(sectionId, true)}
+            disabled={isEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -3343,6 +3503,33 @@ export const InfraDevelopmentReview = ({
               {/* Show table and Add More button if hasInvestmentReady is "yes" */}
               {state?.section2_4?.hasInvestmentReady === "yes" && (
                 <>
+                  {/* Website Link Field */}
+                  <div className="max-w-[60%]">
+                    <Label className="mb-2 block">
+                      Website Link <span className="text-destructive">*</span>
+                    </Label>
+                    {isEditable("2.4") ? (
+                      <Input
+                        type="url"
+                        placeholder="Enter website URL"
+                        value={state?.section2_4?.websiteLink || ""}
+                        onChange={(e) =>
+                          handleSectionFieldUpdate(
+                            "2.4",
+                            "websiteLink",
+                            e.target.value
+                          )
+                        }
+                        className="bg-white"
+                      />
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm">
+                        {state?.section2_4?.websiteLink ||
+                          "No website link provided"}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Table Display */}
                   <div className="overflow-x-auto rounded-xl">
                     <table className="min-w-full border-separate border-spacing-0">
@@ -3352,10 +3539,16 @@ export const InfraDevelopmentReview = ({
                             Project Name
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Uploaded File
+                            Sector
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Status
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Project Size (Cr)
                           </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
-                            File Type
+                            Type of Investment
                           </th>
                         </tr>
                       </thead>
@@ -3371,7 +3564,7 @@ export const InfraDevelopmentReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={3}
+                                  colSpan={5}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No data available
@@ -3404,49 +3597,88 @@ export const InfraDevelopmentReview = ({
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {isEditable("2.4") ? (
-                                    <EditableFileDisplay
-                                      files={item.dprFile || null}
-                                      isEditable={true}
-                                      submissionId={submissionId}
-                                      onFilesChange={(updatedFiles) =>
-                                        handleFilesUpdate(
+                                    <Dropdown
+                                      options={dropdownValues.sector}
+                                      value={item.sector || ""}
+                                      onChange={(value) =>
+                                        handleArrayFieldUpdate(
                                           "2.4",
                                           index,
-                                          updatedFiles
+                                          "sector",
+                                          value
                                         )
                                       }
-                                      label=""
-                                      multiple={false}
+                                      placeholder="Select Sector"
+                                      isEditable={true}
                                     />
-                                  ) : item.dprFile && item.dprFile.fileName ? (
-                                    <div className="flex items-center gap-2">
-                                      <Upload className="w-4 h-4" />
-                                      <span className="text-sm">
-                                        {item.dprFile.fileName ||
-                                          "Unknown file"}
-                                      </span>
-                                    </div>
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">
-                                      No file uploaded
-                                    </span>
+                                    item.sector || "N/A"
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {item.dprFile && item.dprFile.fileName ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs px-1.5 py-0.5"
-                                    >
-                                      {item.dprFile.fileName
-                                        ?.split(".")
-                                        .pop()
-                                        ?.toUpperCase() || "N/A"}
-                                    </Badge>
+                                  {isEditable("2.4") ? (
+                                    <Dropdown
+                                      options={[
+                                        "Tender Done",
+                                        "Bidding",
+                                        "Other",
+                                      ]}
+                                      value={item.status || ""}
+                                      onChange={(value) =>
+                                        handleArrayFieldUpdate(
+                                          "2.4",
+                                          index,
+                                          "status",
+                                          value
+                                        )
+                                      }
+                                      placeholder="Select Status"
+                                      isEditable={true}
+                                    />
                                   ) : (
-                                    <span className="text-muted-foreground text-xs">
-                                      N/A
-                                    </span>
+                                    item.status || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {isEditable("2.4") ? (
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={item.projectSize || ""}
+                                      onChange={(e) =>
+                                        handleArrayFieldUpdate(
+                                          "2.4",
+                                          index,
+                                          "projectSize",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="w-full"
+                                      placeholder="Enter project size"
+                                    />
+                                  ) : (
+                                    item.projectSize || "N/A"
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {isEditable("2.4") ? (
+                                    <Dropdown
+                                      options={["Partner", "Investor", "Other"]}
+                                      value={item.investmentType || ""}
+                                      onChange={(value) =>
+                                        handleArrayFieldUpdate(
+                                          "2.4",
+                                          index,
+                                          "investmentType",
+                                          value
+                                        )
+                                      }
+                                      placeholder="Select Type"
+                                      isEditable={true}
+                                    />
+                                  ) : (
+                                    item.investmentType || "N/A"
                                   )}
                                 </td>
                               </tr>
@@ -3478,7 +3710,10 @@ export const InfraDevelopmentReview = ({
                       </h4>
                       <div className="space-y-4">
                         <div>
-                          <Label>Project Name</Label>
+                          <Label>
+                            Project Name{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
                           <Input
                             value={newEntry2_4.projectName}
                             onChange={(e) =>
@@ -3489,6 +3724,78 @@ export const InfraDevelopmentReview = ({
                             }
                             className="bg-white"
                             placeholder="Enter project name"
+                          />
+                        </div>
+                        <div>
+                          <Label>
+                            Sector <span className="text-destructive">*</span>
+                          </Label>
+                          <Dropdown
+                            options={dropdownValues.sector}
+                            value={newEntry2_4.sector}
+                            onChange={(value) =>
+                              setNewEntry2_4({
+                                ...newEntry2_4,
+                                sector: value,
+                              })
+                            }
+                            placeholder="Select Sector"
+                            isEditable={true}
+                          />
+                        </div>
+                        <div>
+                          <Label>
+                            Status <span className="text-destructive">*</span>
+                          </Label>
+                          <Dropdown
+                            options={["Tender Done", "Bidding", "Other"]}
+                            value={newEntry2_4.status}
+                            onChange={(value) =>
+                              setNewEntry2_4({
+                                ...newEntry2_4,
+                                status: value,
+                              })
+                            }
+                            placeholder="Select Status"
+                            isEditable={true}
+                          />
+                        </div>
+                        <div>
+                          <Label>
+                            Project Size (INR - values is in CRORES){" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={newEntry2_4.projectSize}
+                            onChange={(e) =>
+                              setNewEntry2_4({
+                                ...newEntry2_4,
+                                projectSize: e.target.value,
+                              })
+                            }
+                            className="bg-white"
+                            placeholder="Enter project size"
+                          />
+                        </div>
+                        <div>
+                          <Label>
+                            Type of Investment{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Dropdown
+                            options={["Partner", "Investor", "Other"]}
+                            value={newEntry2_4.investmentType}
+                            onChange={(value) =>
+                              setNewEntry2_4({
+                                ...newEntry2_4,
+                                investmentType: value,
+                              })
+                            }
+                            placeholder="Select Type"
+                            isEditable={true}
                           />
                         </div>
                         <div>
@@ -3523,7 +3830,14 @@ export const InfraDevelopmentReview = ({
                           size="sm"
                           onClick={() => {
                             setShowAddForm2_4(false);
-                            setNewEntry2_4({ projectName: "", dprFile: null });
+                            setNewEntry2_4({
+                              projectName: "",
+                              sector: "",
+                              status: "",
+                              projectSize: "",
+                              investmentType: "",
+                              dprFile: null,
+                            });
                           }}
                           className="flex items-center gap-2"
                         >
@@ -3540,30 +3854,24 @@ export const InfraDevelopmentReview = ({
                 </>
               )}
 
-              {/* Show comment field if hasInvestmentReady is "no" */}
-              {state?.section2_4?.hasInvestmentReady === "no" && (
-                <div>
-                  <Label className="mb-2 block">Comment</Label>
-                  {isEditable("2.4") ? (
-                    <Textarea
-                      value={state?.section2_4?.comment || ""}
-                      onChange={(e) =>
-                        handleSectionFieldUpdate(
-                          "2.4",
-                          "comment",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Please provide a comment..."
-                      className="min-h-[100px]"
-                    />
-                  ) : (
-                    <div className="p-3 bg-gray-50 rounded-md text-sm">
-                      {state?.section2_4?.comment || "No comment provided"}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Show comment field - for both "yes" and "no" */}
+              <div>
+                <Label className="mb-2 block">Comment</Label>
+                {isEditable("2.4") ? (
+                  <Textarea
+                    value={state?.section2_4?.comment || ""}
+                    onChange={(e) =>
+                      handleSectionFieldUpdate("2.4", "comment", e.target.value)
+                    }
+                    placeholder="Please provide a comment..."
+                    className="min-h-[100px]"
+                  />
+                ) : (
+                  <div className="p-3 bg-gray-50 rounded-md text-sm">
+                    {state?.section2_4?.comment || "No comment provided"}
+                  </div>
+                )}
+              </div>
             </div>
           </SectionCard>
         )}

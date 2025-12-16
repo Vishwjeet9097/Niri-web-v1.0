@@ -201,19 +201,31 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     return false;
   },
-  section3_3: (data) =>
+  section3_3: (data: any) =>
     anyValid(
-      data,
+      data?.VGFArray,
       (r) =>
         hasMeaningfulValue(r.projectName) &&
         hasMeaningfulValue(r.sector) &&
         hasMeaningfulValue(r.type) &&
-        hasMeaningfulValue(r.submissionDate) &&
-        hasMeaningfulValue(r.file)
+        hasMeaningfulValue(r.submissionDate) 
     ),
   section3_4: (data) => {
-    const d = data as { projects?: unknown[] } | undefined;
-    return anyValid(
+    const d = data as
+      | {
+          projects?: unknown[];
+          totalProjectsAwarded?: unknown;
+          totalProjectCostAwarded?: unknown;
+        }
+      | undefined;
+
+    // Check if mandatory summary fields are filled
+    const hasSummaryFields =
+      hasMeaningfulValue(d?.totalProjectsAwarded) &&
+      hasMeaningfulValue(d?.totalProjectCostAwarded);
+
+    // Also check if projects array has valid entries (optional but can be used for completion)
+    const hasValidProjects = anyValid(
       d?.projects,
       (r) =>
         hasMeaningfulValue(r.nameOfProject) &&
@@ -223,6 +235,9 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.dateOfAward) &&
         hasMeaningfulValue(r.capexPercentage)
     );
+
+    // Section is complete if mandatory summary fields are filled
+    return hasSummaryFields || hasValidProjects;
   },
 
   // 4.x Infra Enablers

@@ -182,6 +182,11 @@ export const PPPDevelopmentReview = ({
     string | null
   >(null);
 
+  // State to track if comment modal was opened from STATE_APPROVER "Send Back" button
+  const [isStateApproverSentBack, setIsStateApproverSentBack] = useState(false);
+  const [stateApproverSentBackSectionId, setStateApproverSentBackSectionId] =
+    useState<string | null>(null);
+
   // Helper function to check user role
   const getUserRole = () => {
     try {
@@ -468,6 +473,9 @@ export const PPPDevelopmentReview = ({
     // (Accept no longer uses comment modal, so no need to reset Accept flags)
     setIsMospiApproverSentBack(false);
     setMospiSentBackSectionId(null);
+    // Reset STATE_APPROVER Sent Back flags when modal closes
+    setIsStateApproverSentBack(false);
+    setStateApproverSentBackSectionId(null);
   };
 
   const handleOpenTimeline = (sectionId: string) => {
@@ -492,16 +500,20 @@ export const PPPDevelopmentReview = ({
 
       // Check flags BEFORE closing modal to determine if we need to show confirmation
       const shouldShowSentBackConfirmation =
-        isMospiApproverSentBack && mospiSentBackSectionId;
+        (isMospiApproverSentBack && mospiSentBackSectionId) ||
+        (isStateApproverSentBack && stateApproverSentBackSectionId);
 
-      // If this was opened from MOSPI_APPROVER "Sent Back" button, show confirmation dialog
+      // If this was opened from MOSPI_APPROVER or STATE_APPROVER "Sent Back" button, show confirmation dialog
       if (shouldShowSentBackConfirmation) {
         // Store section ID before resetting flags
-        const sectionIdToUse = mospiSentBackSectionId;
+        const sectionIdToUse =
+          mospiSentBackSectionId || stateApproverSentBackSectionId;
         setPendingActionSectionId(sectionIdToUse);
         // Reset the flags
         setIsMospiApproverSentBack(false);
         setMospiSentBackSectionId(null);
+        setIsStateApproverSentBack(false);
+        setStateApproverSentBackSectionId(null);
         // Close the comment modal
         setActiveSection(null);
         // Show confirmation dialog
@@ -816,9 +828,10 @@ export const PPPDevelopmentReview = ({
       // Use the local formData state to build fields for this section
       let fields: Record<string, any>[] = [];
 
-      // Check if user is NODAL_OFFICER to add status to payload
+      // Check if user is NODAL_OFFICER or STATE_APPROVER to preserve status
       const userRole = getUserRole();
       const isNodalOfficer = userRole === "NODAL_OFFICER";
+      const isStateApprover = userRole === "STATE_APPROVER";
 
       switch (sectionId) {
         case "3.1":
@@ -889,9 +902,35 @@ export const PPPDevelopmentReview = ({
           return;
       }
 
-      // If NODAL_OFFICER, add status: "RESUBMITTED" to fields
+      // Get current status from formDataState
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData = formDataState && formDataState[sectionKey];
+      const currentStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+      const upperStatus = (currentStatus || "").toUpperCase();
+
+      // If NODAL_OFFICER, check current status and set RESUBMITTED only if status was REVERTED
       if (isNodalOfficer && fields.length > 0) {
-        // Add status to the first field object
+        // Only set RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Add status to the first field object
+          fields[0] = {
+            ...fields[0],
+            status: "RESUBMITTED",
+          };
+        }
+      }
+
+      // If STATE_APPROVER, preserve RESUBMITTED status when saving edits
+      if (
+        isStateApprover &&
+        fields.length > 0 &&
+        upperStatus === "RESUBMITTED"
+      ) {
+        // Preserve RESUBMITTED status when STATE_APPROVER saves edits
         fields[0] = {
           ...fields[0],
           status: "RESUBMITTED",
@@ -905,10 +944,28 @@ export const PPPDevelopmentReview = ({
         fields,
       });
 
-      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status
+      // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
-        // Update formDataState to set status to RESUBMITTED
-        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        // Only update to RESUBMITTED if the indicator was previously REVERTED (sent back)
+        if (upperStatus === "REVERTED") {
+          // Update formDataState to set status to RESUBMITTED
+          setFormDataState((prev: any) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (updated[sectionKey]) {
+              updated[sectionKey] = {
+                ...updated[sectionKey],
+                status: "RESUBMITTED",
+              };
+            }
+            return updated;
+          });
+        }
+      }
+
+      // If STATE_APPROVER, preserve RESUBMITTED status in local state after save
+      if (isStateApprover && upperStatus === "RESUBMITTED") {
+        // Preserve RESUBMITTED status in local state
         setFormDataState((prev: any) => {
           if (!prev) return prev;
           const updated = { ...prev };
@@ -1052,7 +1109,11 @@ export const PPPDevelopmentReview = ({
 
       setShowSendBackDialog(false);
       setPendingActionSectionId(null);
-      // Comment modal is already closed before showing confirmation dialog
+      // Ensure comment modal is closed
+      setActiveSection(null);
+      // Reset any flags
+      setIsStateApproverSentBack(false);
+      setStateApproverSentBackSectionId(null);
     }
   };
 
@@ -1254,6 +1315,7 @@ export const PPPDevelopmentReview = ({
               setMospiSentBackSectionId(sectionId);
               handleOpenModal(sectionId);
             }}
+            disabled={isEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
@@ -1268,6 +1330,7 @@ export const PPPDevelopmentReview = ({
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
             }}
+            disabled={isEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -1287,12 +1350,25 @@ export const PPPDevelopmentReview = ({
 
     // For all other roles, check status field as before
     const sectionKey = `section${sectionId.replace(".", "_")}`;
-    const sectionData = state ? state[sectionKey] : undefined;
+    // Check both state and formData to ensure we get the correct status after refresh
+    const sectionData =
+      (state && state[sectionKey]) || (formData && formData[sectionKey]);
     const sectionStatus = sectionData
       ? Array.isArray(sectionData)
         ? (sectionData as any).status
         : sectionData.status
       : undefined;
+
+    // Debug logging
+    console.log(`[PPPDevelopmentReview] Section ${sectionId}:`, {
+      sectionKey,
+      sectionStatus,
+      isStateApprover,
+      hasStateData: !!(state && state[sectionKey]),
+      hasFormData: !!(formData && formData[sectionKey]),
+      stateData: state && state[sectionKey],
+      formDataData: formData && formData[sectionKey],
+    });
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
     // REVERTED is excluded because user can resubmit after being sent back
@@ -1328,6 +1404,9 @@ export const PPPDevelopmentReview = ({
 
     // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
     if (isStateApprover && sectionStatus === "RESUBMITTED") {
+      console.log(
+        `[PPPDevelopmentReview] RESUBMITTED block hit for section ${sectionId}`
+      );
       return (
         <div className="flex gap-2">
           {!isEditable(sectionId) ? (
@@ -1347,7 +1426,7 @@ export const PPPDevelopmentReview = ({
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => onSaveSection(sectionId)}
-                disabled={true} // Already submitted (RESUBMITTED), disable button
+                disabled={false} // Enable save for editing RESUBMITTED indicators
               >
                 <Check className="w-4 h-4" />
                 Save
@@ -1378,6 +1457,7 @@ export const PPPDevelopmentReview = ({
               size="sm"
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => onIndicatorStatus(sectionId, true)}
+              disabled={isEditable(sectionId)} // Disable Accept during editing
             >
               <CheckCircle className="w-4 h-4" />
               Accept
@@ -1481,12 +1561,36 @@ export const PPPDevelopmentReview = ({
       );
     }
 
-    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE, RESUBMITTED, or null/undefined
+    // For NODAL_OFFICER, show "Resubmitted" badge if status is RESUBMITTED
+    if (isNodalOfficer && sectionStatus === "RESUBMITTED") {
+      return (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-yellow-100 text-yellow-700 cursor-default"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+            Resubmitted
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+            onClick={() => handleOpenTimeline(sectionId)}
+          >
+            <MessageSquare className="w-3 h-3" />
+            View Comments ({commentCount})
+          </Button>
+        </div>
+      );
+    }
+
+    // For NODAL_OFFICER, show "Under Review" badge if status is SUBMITTED_TO_STATE or null/undefined
     if (
       isNodalOfficer &&
-      (sectionStatus === "SUBMITTED_TO_STATE" ||
-        sectionStatus === "RESUBMITTED" ||
-        !sectionStatus)
+      (sectionStatus === "SUBMITTED_TO_STATE" || !sectionStatus)
     ) {
       return (
         <div className="flex gap-2">
@@ -1560,12 +1664,34 @@ export const PPPDevelopmentReview = ({
         )}
 
         {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
-        {!(isStateApprover && sectionStatus === "RESUBMITTED") && (
+        {(() => {
+          const shouldShowSendBack = !(
+            isStateApprover && sectionStatus === "RESUBMITTED"
+          );
+          console.log(
+            `[PPPDevelopmentReview] Section ${sectionId} - Send Back visibility:`,
+            {
+              shouldShowSendBack,
+              isStateApprover,
+              sectionStatus,
+              condition: `!(${isStateApprover} && ${sectionStatus} === "RESUBMITTED")`,
+            }
+          );
+          return shouldShowSendBack;
+        })() && (
           <Button
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => handleOpenModal(sectionId)}
+            onClick={() => {
+              // Track that this was opened from STATE_APPROVER "Send Back" button
+              if (isStateApprover) {
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+              }
+              handleOpenModal(sectionId);
+            }}
+            disabled={isEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Send Back
@@ -1588,6 +1714,7 @@ export const PPPDevelopmentReview = ({
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onIndicatorStatus(sectionId, true)}
+            disabled={isEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept

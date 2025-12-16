@@ -38,6 +38,7 @@ import { getCurrentFinancialYear } from "@/utils/dateUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { apiService } from "@/services/api.service";
+import { ulbService, ULB } from "@/services/ulb.service";
 import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
 import {
@@ -52,6 +53,28 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const InfraFinancingStep = () => {
+    // ULB dropdown state
+    const [ulbOptions, setUlbOptions] = useState<ULB[]>([]);
+    // Per-row search state for ULB dropdowns
+    const [ulbSearchMap, setUlbSearchMap] = useState<{ [id: string]: string }>({});
+    // Per-row visible count for infinite scroll
+    const [ulbVisibleCountMap, setUlbVisibleCountMap] = useState<{ [id: string]: number }>({});
+
+    // Fetch all ULBs on mount (or filter by state if needed)
+    useEffect(() => {
+      let mounted = true;
+      // Use a microtask to allow React to render before fetching
+      Promise.resolve().then(async () => {
+        const ulbs = await ulbService.getAllULBs();
+        const unique = Array.from(
+          new Map(
+            ulbs.map((u) => [u.ulb_name + u.city_name + u.ulb_type, u])
+          ).values()
+        );
+        if (mounted) setUlbOptions(unique);
+      });
+      return () => { mounted = false; };
+    }, []);
   const { user } = useAuth();
   const [sectionStatus, setSectionStatus] = useState<any>({
     completedIndicators: [],
@@ -989,11 +1012,20 @@ export const InfraFinancingStep = () => {
 
       // Create sanitized data with status for the submitted indicator
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+
+      // Check current status - if REVERTED, set to RESUBMITTED, otherwise SUBMITTED_TO_STATE
+      const currentStatus = getIndicatorStatus(indicatorCode);
+      const upperStatus = (currentStatus || "").toUpperCase();
+      const newStatus =
+        upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
+          ? "RESUBMITTED"
+          : "SUBMITTED_TO_STATE";
+
       const sanitizedFormDataWithStatus = {
         ...sanitizedFormData,
         [sectionKey]: {
           ...sanitizedFormData[sectionKey],
-          status: "SUBMITTED_TO_STATE",
+          status: newStatus,
         },
       };
 
@@ -1003,28 +1035,38 @@ export const InfraFinancingStep = () => {
         "infraFinancing",
         [indicatorCode]
       );
+
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
+      setEditingIndicators((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(indicatorCode);
+        return newSet;
+      });
+
+      // Optimistically update formData with the correct status immediately
+      // This ensures the UI updates without requiring a refresh
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: {
+            ...prev[sectionKey],
+            ...sanitizedFormData[sectionKey],
+            status: newStatus,
+          },
+        };
+        // Update form persistence with the merged data
+        updateFormData("infraFinancing", {
+          ...updated,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
+      });
+
       toast({
         title: "Success",
         description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
         variant: "default",
       });
-
-      // Optimistically update formData to set status to SUBMITTED_TO_STATE
-      setFormData((prev: any) => {
-        if (prev[sectionKey]) {
-          return {
-            ...prev,
-            [sectionKey]: {
-              ...prev[sectionKey],
-              status: "SUBMITTED_TO_STATE",
-            },
-          };
-        }
-        return prev;
-      });
-
-      // Update form data with sanitized data that includes status
-      updateFormData("infraFinancing", sanitizedFormDataWithStatus);
 
       // Optimistically update sectionStatus to immediately disable the button
       // Use functional update to ensure we have the latest state
@@ -1294,6 +1336,30 @@ export const InfraFinancingStep = () => {
     );
   };
 
+  // Get button text based on indicator status
+  const getSubmitButtonText = (
+    indicatorCode: string,
+    isSubmitting: boolean
+  ): string => {
+    if (isSubmitting) return "Submitting...";
+
+    const status = getIndicatorStatus(indicatorCode);
+    if (!status) return "Submit";
+
+    const upperStatus = status.toUpperCase();
+    if (upperStatus === "RESUBMITTED") {
+      return "Resubmitted";
+    } else if (
+      upperStatus === "SUBMITTED_TO_STATE" ||
+      upperStatus === "ACCEPTED" ||
+      upperStatus === "APPROVED"
+    ) {
+      return "Submitted";
+    }
+
+    return "Submit";
+  };
+
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
@@ -1345,57 +1411,53 @@ export const InfraFinancingStep = () => {
         sanitizeFilesInFormData(formData)
       );
 
-      // If indicator was sent back (REVERTED/RESUBMITTED), change status to RESUBMITTED after saving
-      // This makes it non-editable again until sent back again
+      // If indicator was sent back (REVERTED), change status to RESUBMITTED after saving
+      // Both Save and Submit buttons should change REVERTED to RESUBMITTED
       const upperStatus = currentStatus?.toUpperCase() || "";
       const newStatus =
         upperStatus === "REVERTED" || upperStatus === "RESUBMITTED"
           ? "RESUBMITTED"
           : currentStatus || "DRAFT"; // Preserve status if not sent back
 
-      // Prepare data with updated status
+      // Prepare data with updated status - use the same approach as Submit to ensure status is preserved
       const sectionDataWithStatus = {
         ...sanitizedFormData[sectionKey],
         status: newStatus,
       };
 
-      // Update submission using updateSubmission directly to preserve status
-      const existingSubmission = await apiService.getSubmission(
-        userSubmission.id
-      );
-      const existingFormData = existingSubmission?.formData || {};
-
-      // Preserve all existing category data and update only this indicator
-      const updatedFormData = {
-        ...existingFormData,
-        infraFinancing: {
-          ...(existingFormData.infraFinancing || {}),
-          [sectionKey]: sectionDataWithStatus,
-        },
+      // Create sanitized data with status for the saved indicator (same format as Submit)
+      const sanitizedFormDataWithStatus = {
+        ...sanitizedFormData,
+        [sectionKey]: sectionDataWithStatus,
       };
 
-      // Update submission with preserved status
-      await apiService.updateSubmission(userSubmission.id, {
-        formData: updatedFormData,
-      });
+      // Use submitSectionToStateApprover API which properly handles RESUBMITTED status
+      // This ensures the status is preserved correctly in the database
+      await apiService.submitSectionToStateApprover(
+        sanitizedFormDataWithStatus,
+        "infraFinancing",
+        [indicatorCode]
+      );
 
-      // Update local formData state
-      setFormData((prev: any) => ({
-        ...prev,
-        [sectionKey]: sectionDataWithStatus,
-      }));
-
-      // Save form data to localStorage (via updateFormData)
-      updateFormData("infraFinancing", {
-        ...formData,
-        [sectionKey]: sectionDataWithStatus,
-      });
-
-      // Exit edit mode
+      // Remove from editingIndicators first to ensure it becomes non-editable immediately
       setEditingIndicators((prev) => {
         const newSet = new Set(prev);
         newSet.delete(indicatorCode);
         return newSet;
+      });
+
+      // Update local formData state immediately to reflect RESUBMITTED status
+      setFormData((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: sectionDataWithStatus,
+        };
+        // Also update form persistence with the merged data
+        updateFormData("infraFinancing", {
+          ...prev,
+          ...sanitizedFormDataWithStatus,
+        });
+        return updated;
       });
 
       toast({
@@ -1611,11 +1673,7 @@ export const InfraFinancingStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
-                  {isSubmitting
-                    ? "Submitting..."
-                    : isIndicatorSubmitted("1.1")
-                    ? "Submitted"
-                    : "Submit"}
+                  {getSubmitButtonText("1.1", isSubmitting)}
                 </Button>
               </div>
             </SectionCard>
@@ -1771,14 +1829,7 @@ export const InfraFinancingStep = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
-                  {(() => {
-                    const isSubmitted = isIndicatorSubmitted("1.2");
-                    return isSubmitting
-                      ? "Submitting..."
-                      : isSubmitted
-                      ? "Submitted"
-                      : "Submit";
-                  })()}
+                  {getSubmitButtonText("1.2", isSubmitting)}
                 </Button>
               </div>
             </SectionCard>
@@ -1840,83 +1891,166 @@ export const InfraFinancingStep = () => {
 
                 {formData.section1_3.ulbList.map((ulb, index) => (
                   <div key={ulb.id} className="grid grid-cols-12 gap-4">
+                    <div className="col-span-4">
+                      <Label>
+                        ULB<span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Select
+                          value={ulb.ulb}
+                          onValueChange={(value) => {
+                            showErrorsIfNeeded();
+                            // Find selected ULB object
+                            const selectedULB = ulbOptions.find(
+                              (u) => u.id === value
+                            );
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_3: {
+                                ...prev.section1_3,
+                                ulbList: prev.section1_3.ulbList.map((item) =>
+                                  item.id === ulb.id
+                                    ? {
+                                        ...item,
+                                        ulb: value,
+                                        cityName: selectedULB?.city_name || "",
+                                        ulbType: selectedULB?.ulb_type || "",
+                                      }
+                                    : item
+                                ),
+                              },
+                            }));
+                          }}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              setUlbSearchMap((prev) => ({ ...prev, [ulb.id]: "" }));
+                              setUlbVisibleCountMap((prev) => ({ ...prev, [ulb.id]: 10 }));
+                            }
+                          }}
+                          disabled={isIndicatorSubmitted("1.3")}
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              getInputValidationClass(
+                                `section1_3.ulbList.${index}.ulb`
+                              ),
+                              "cursor-pointer"
+                            )}
+                            tabIndex={0}
+                          >
+                            <SelectValue placeholder="Select ULB" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <div className="px-2 py-1 transition-all duration-200 ease-in-out">
+                              <Input
+                                placeholder="Search ULB..."
+                                value={ulbSearchMap[ulb.id] || ""}
+                                onChange={e => {
+                                  const value = e.target.value;
+                                  setUlbSearchMap(prev => ({ ...prev, [ulb.id]: value }));
+                                  setUlbVisibleCountMap(prev => ({ ...prev, [ulb.id]: 10 }));
+                                }}
+                                className="mb-2 focus:shadow-lg focus:border-blue-400 transition-all duration-200 ease-in-out"
+                                disabled={isIndicatorSubmitted("1.3")}
+                                autoFocus
+                                onClick={e => {
+                                  e.currentTarget.focus();
+                                }}
+                              />
+                            </div>
+                            {(ulbSearchMap[ulb.id] || "").trim() ? (
+                              <div>
+                                {(() => {
+                                  const filtered = ulbOptions.filter((u) =>
+                                    `${u.ulb_name} ${u.city_name} ${u.ulb_type}`
+                                      .toLowerCase()
+                                      .includes((ulbSearchMap[ulb.id] || "").toLowerCase())
+                                  );
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <div className="px-3 py-2 text-gray-500 text-sm">No results found</div>
+                                    );
+                                  }
+                                  return filtered.map((u) => (
+                                    <SelectItem
+                                      key={u.id}
+                                      value={u.id}
+                                      className="cursor-pointer"
+                                    >
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type})
+                                    </SelectItem>
+                                  ));
+                                })()}
+                              </div>
+                            ) : (
+                              <div
+                                style={{ maxHeight: 240, overflowY: 'auto' }}
+                                onScroll={e => {
+                                  const el = e.currentTarget;
+                                  if (
+                                    el.scrollTop + el.clientHeight >= el.scrollHeight - 10 &&
+                                    (ulbVisibleCountMap[ulb.id] || 10) < ulbOptions.length
+                                  ) {
+                                    setUlbVisibleCountMap(prev => ({
+                                      ...prev,
+                                      [ulb.id]: Math.min((prev[ulb.id] || 10) + 10, ulbOptions.length)
+                                    }));
+                                  }
+                                }}
+                              >
+                                {ulbOptions
+                                  .slice(0, ulbVisibleCountMap[ulb.id] || 10)
+                                  .map((u) => (
+                                    <SelectItem
+                                      key={u.id}
+                                      value={u.id}
+                                      className="cursor-pointer"
+                                    >
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type})
+                                    </SelectItem>
+                                  ))}
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
+                    </div>
                     <div className="col-span-2">
                       <Label>
                         City name<span className="text-red-500">*</span>
                       </Label>
                       <Input
-                        placeholder="Enter City Name"
+                        placeholder="City Name"
                         value={ulb.cityName}
+                        readOnly={!!ulb.ulb}
                         onChange={(e) => {
-                          showErrorsIfNeeded();
-                          const value = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_3: {
-                              ...prev.section1_3,
-                              ulbList: prev.section1_3.ulbList.map((item) =>
-                                item.id === ulb.id
-                                  ? { ...item, cityName: value }
-                                  : item
-                              ),
-                            },
-                          }));
+                          if (!ulb.ulb) {
+                            showErrorsIfNeeded();
+                            const value = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              section1_3: {
+                                ...prev.section1_3,
+                                ulbList: prev.section1_3.ulbList.map((item) =>
+                                  item.id === ulb.id
+                                    ? { ...item, cityName: value }
+                                    : item
+                                ),
+                              },
+                            }));
+                          }
                         }}
                         disabled={isIndicatorSubmitted("1.3")}
                         className={cn(
                           getInputValidationClass(
                             `section1_3.ulbList.${index}.cityName`
                           ),
-                          isIndicatorSubmitted("1.3") &&
+                          (isIndicatorSubmitted("1.3") || ulb.ulb) &&
                             "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
-                    </div>
-                    <div className="col-span-4">
-                      <Label>
-                        ULB<span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={ulb.ulb}
-                        onValueChange={(value) => {
-                          showErrorsIfNeeded();
-                          setFormData((prev) => ({
-                            ...prev,
-                            section1_3: {
-                              ...prev.section1_3,
-                              ulbList: prev.section1_3.ulbList.map((item) =>
-                                item.id === ulb.id
-                                  ? { ...item, ulb: value }
-                                  : item
-                              ),
-                            },
-                          }));
-                        }}
-                        disabled={isIndicatorSubmitted("1.3")}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            getInputValidationClass(
-                              `section1_3.ulbList.${index}.ulb`
-                            )
-                          )}
-                        >
-                          <SelectValue placeholder="Select ULB" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Pune Municipal Corporation">
-                            Pune Municipal Corporation
-                          </SelectItem>
-                          <SelectItem value="Mumbai Municipal Corporation">
-                            Mumbai Municipal Corporation
-                          </SelectItem>
-                          <SelectItem value="Nagpur Municipal Corporation">
-                            Nagpur Municipal Corporation
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {renderFieldError(`section1_3.ulbList.${index}.ulb`)}
                     </div>
                     <div className="col-span-3">
                       <Label>
@@ -2126,14 +2260,7 @@ export const InfraFinancingStep = () => {
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {(() => {
-                      const isSubmitted = isIndicatorSubmitted("1.3");
-                      return isSubmitting
-                        ? "Submitting..."
-                        : isSubmitted
-                        ? "Submitted"
-                        : "Submit";
-                    })()}
+                    {getSubmitButtonText("1.3", isSubmitting)}
                   </Button>
                 </div>
               </div>
@@ -2444,11 +2571,7 @@ export const InfraFinancingStep = () => {
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("1.4")
-                      ? "Submitted"
-                      : "Submit"}
+                    {getSubmitButtonText("1.4", isSubmitting)}
                   </Button>
                 </div>
               </div>
@@ -2903,11 +3026,7 @@ export const InfraFinancingStep = () => {
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : isIndicatorSubmitted("1.5")
-                      ? "Submitted"
-                      : "Submit"}
+                    {getSubmitButtonText("1.5", isSubmitting)}
                   </Button>
                 </div>
               </div>
