@@ -87,6 +87,18 @@ export const hasInfraEnablersData = (formData: any): boolean => {
         );
 
       case "section4_3":
+        // Check mandatory field: adopted (yes/no)
+        if (section.adopted === "yes" || section.adopted === "no") {
+          // If "yes", check for projects array
+          if (section.adopted === "yes") {
+            return hasArrayData(section.projects);
+          }
+          // If "no", check for comment (required)
+          if (section.adopted === "no") {
+            return hasMeaningfulValue(section.comment);
+          }
+        }
+        // Fallback: check calculated fields (for backward compatibility)
         return (
           hasMeaningfulValue(section.marksObtained) ||
           hasMeaningfulValue(section.numberOfProjects)
@@ -109,6 +121,18 @@ export const hasInfraEnablersData = (formData: any): boolean => {
         );
 
       case "section4_6":
+        // Check mandatory field: participated (yes/no)
+        if (section.participated === "yes" || section.participated === "no") {
+          // If "yes", check for capacityArray
+          if (section.participated === "yes") {
+            return hasArrayData(section.capacityArray);
+          }
+          // If "no", check for comment (required)
+          if (section.participated === "no") {
+            return hasMeaningfulValue(section.comment);
+          }
+        }
+        // Fallback: check for capacityArray (for backward compatibility)
         return hasArrayData(section?.capacityArray);
 
       default:
@@ -387,6 +411,10 @@ export const hasPPPDevelopmentData = (formData: any): boolean => {
 
       case "section3_4":
         return (
+          // Check mandatory fields first
+          hasMeaningfulValue(section.totalProjectsAwarded) ||
+          hasMeaningfulValue(section.totalProjectCostAwarded) ||
+          // Then check optional/calculated fields
           hasArrayData(section.projects) ||
           hasMeaningfulValue(section.proportion) ||
           hasMeaningfulValue(section.marksObtained) ||
@@ -544,6 +572,18 @@ const hasSectionData = (
             hasFileData(section.files)
           );
         case "section4_3":
+          // Check mandatory field: adopted (yes/no)
+          if (section.adopted === "yes" || section.adopted === "no") {
+            // If "yes", check for projects array
+            if (section.adopted === "yes") {
+              return hasArrayData(section.projects);
+            }
+            // If "no", check for comment (required)
+            if (section.adopted === "no") {
+              return hasMeaningfulValue(section.comment);
+            }
+          }
+          // Fallback: check calculated fields (for backward compatibility)
           return (
             hasMeaningfulValue(section.marksObtained) ||
             hasMeaningfulValue(section.numberOfProjects)
@@ -563,6 +603,18 @@ const hasSectionData = (
             hasMeaningfulValue(section.practiceName)
           );
         case "section4_6":
+          // Check mandatory field: participated (yes/no)
+          if (section.participated === "yes" || section.participated === "no") {
+            // If "yes", check for capacityArray
+            if (section.participated === "yes") {
+              return hasArrayData(section.capacityArray);
+            }
+            // If "no", check for comment (required)
+            if (section.participated === "no") {
+              return hasMeaningfulValue(section.comment);
+            }
+          }
+          // Fallback: check for capacityArray (for backward compatibility)
           return hasArrayData(section?.capacityArray);
         default:
           return false;
@@ -771,6 +823,10 @@ const hasSectionData = (
           return hasArrayData(section?.VGFArray) || hasArrayData(section);
         case "section3_4":
           return (
+            // Check mandatory fields first
+            hasMeaningfulValue(section.totalProjectsAwarded) ||
+            hasMeaningfulValue(section.totalProjectCostAwarded) ||
+            // Then check optional/calculated fields
             hasArrayData(section.projects) ||
             hasMeaningfulValue(section.proportion) ||
             hasMeaningfulValue(section.marksObtained) ||
