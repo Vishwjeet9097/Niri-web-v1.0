@@ -1456,6 +1456,12 @@ class ApiService implements HttpClient {
         sectionData,
       });
 
+      // Get user info early to check role and ownership
+      const user = authService.getUser();
+      const userId = user?.id || user?._id;
+      const userRole = user?.role;
+      const stateUt = user?.state || user?.stateUt;
+
       // Extract only indicators that have meaningful data
       const completedIndicators = this.extractCompletedIndicators(
         sectionData,
@@ -1473,28 +1479,60 @@ class ApiService implements HttpClient {
       try {
         // Try to get user's existing draft/in-progress submissions
         const submissions = await this.getSubmissions(1, 100);
-        const userSubmission = submissions.submissions.find(
-          (sub: any) =>
+
+        // For STATE_APPROVER: only find submissions that belong to STATE_APPROVER
+        // For NODAL_OFFICER: find submissions that belong to NODAL_OFFICER
+        const userSubmission = submissions.submissions.find((sub: any) => {
+          const matchesStatus =
             sub.status === "DRAFT" ||
             sub.status === "IN_PROGRESS" ||
-            sub.status === "RETURNED_FROM_STATE"
-        );
+            sub.status === "RETURNED_FROM_STATE";
+
+          if (!matchesStatus) return false;
+
+          // Check ownership: submission.user.role or currentOwnerRole
+          const submissionOwnerRole = sub.user?.role || sub.currentOwnerRole;
+
+          if (userRole === "STATE_APPROVER") {
+            // STATE_APPROVER should only update their own submissions
+            // Don't update NODAL_OFFICER submissions
+            return submissionOwnerRole === "STATE_APPROVER";
+          } else if (userRole === "NODAL_OFFICER") {
+            // NODAL_OFFICER should only update their own submissions
+            return submissionOwnerRole === "NODAL_OFFICER";
+          }
+
+          // For other roles, use existing logic (check by userId if available)
+          if (userId && sub.submittedBy) {
+            return sub.submittedBy === userId || sub.user?.id === userId;
+          }
+
+          return true; // Fallback: allow if status matches
+        });
 
         if (userSubmission) {
           existingSubmissionId = userSubmission.id;
           // Fetch full submission details to get complete formData and completedIndicators
           existingSubmission = await this.getSubmission(userSubmission.id);
           console.log("📋 Found existing submission:", existingSubmissionId);
+          console.log(
+            "📋 Submission owner role:",
+            existingSubmission?.user?.role ||
+              existingSubmission?.currentOwnerRole
+          );
+        } else {
+          console.log(
+            "📋 No existing submission found for",
+            userRole,
+            "- will create new one"
+          );
         }
       } catch (err) {
         console.log("⚠️ No existing submission found, will create new one");
       }
 
       // Get user's total assigned/available indicator count dynamically
-      const user = authService.getUser();
-      const userId = user?.id || user?._id;
-      const userRole = user?.role;
-      const stateUt = user?.state || user?.stateUt;
+      // (user info already fetched above)
       let totalIndicatorCount = 0;
       let userAssignedIndicators: string[] = [];
 
