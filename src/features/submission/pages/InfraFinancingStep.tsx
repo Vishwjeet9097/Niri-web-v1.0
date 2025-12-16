@@ -53,28 +53,34 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const InfraFinancingStep = () => {
-    // ULB dropdown state
-    const [ulbOptions, setUlbOptions] = useState<ULB[]>([]);
-    // Per-row search state for ULB dropdowns
-    const [ulbSearchMap, setUlbSearchMap] = useState<{ [id: string]: string }>({});
-    // Per-row visible count for infinite scroll
-    const [ulbVisibleCountMap, setUlbVisibleCountMap] = useState<{ [id: string]: number }>({});
+  // ULB dropdown state
+  const [ulbOptions, setUlbOptions] = useState<ULB[]>([]);
+  // Per-row search state for ULB dropdowns
+  const [ulbSearchMap, setUlbSearchMap] = useState<{ [id: string]: string }>(
+    {}
+  );
+  // Per-row visible count for infinite scroll
+  const [ulbVisibleCountMap, setUlbVisibleCountMap] = useState<{
+    [id: string]: number;
+  }>({});
 
-    // Fetch all ULBs on mount (or filter by state if needed)
-    useEffect(() => {
-      let mounted = true;
-      // Use a microtask to allow React to render before fetching
-      Promise.resolve().then(async () => {
-        const ulbs = await ulbService.getAllULBs();
-        const unique = Array.from(
-          new Map(
-            ulbs.map((u) => [u.ulb_name + u.city_name + u.ulb_type, u])
-          ).values()
-        );
-        if (mounted) setUlbOptions(unique);
-      });
-      return () => { mounted = false; };
-    }, []);
+  // Fetch all ULBs on mount (or filter by state if needed)
+  useEffect(() => {
+    let mounted = true;
+    // Use a microtask to allow React to render before fetching
+    Promise.resolve().then(async () => {
+      const ulbs = await ulbService.getAllULBs();
+      const unique = Array.from(
+        new Map(
+          ulbs.map((u) => [u.ulb_name + u.city_name + u.ulb_type, u])
+        ).values()
+      );
+      if (mounted) setUlbOptions(unique);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const { user } = useAuth();
   const [sectionStatus, setSectionStatus] = useState<any>({
     completedIndicators: [],
@@ -213,6 +219,11 @@ export const InfraFinancingStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // State for save confirmation dialog
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
+    string | null
+  >(null);
 
   // Calculate allowed indicators for validation
   const sectionIndicators = useMemo(
@@ -1367,6 +1378,24 @@ export const InfraFinancingStep = () => {
 
   // Handle Save button click for sent back indicators
   const handleSaveIndicator = async (indicatorCode: string) => {
+    // Check if user is NODAL_OFFICER and indicator is REVERTED
+    const currentStatus = getIndicatorStatus(indicatorCode);
+    const upperStatus = (currentStatus || "").toUpperCase();
+    const isReverted = upperStatus === "REVERTED";
+
+    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
+    if (isNodalOfficer && isReverted) {
+      setPendingSaveIndicatorCode(indicatorCode);
+      setShowSaveDialog(true);
+      return;
+    }
+
+    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    await performSaveIndicator(indicatorCode);
+  };
+
+  // Actual save function that performs the save operation
+  const performSaveIndicator = async (indicatorCode: string) => {
     setSavingIndicators((prev) => new Set(prev).add(indicatorCode));
     try {
       // Validate the indicator before saving
@@ -1478,6 +1507,20 @@ export const InfraFinancingStep = () => {
         return newSet;
       });
     }
+  };
+
+  // Handle confirmation dialog actions
+  const handleConfirmSave = async () => {
+    if (pendingSaveIndicatorCode) {
+      await performSaveIndicator(pendingSaveIndicatorCode);
+      setShowSaveDialog(false);
+      setPendingSaveIndicatorCode(null);
+    }
+  };
+
+  const handleCancelSave = () => {
+    setShowSaveDialog(false);
+    setPendingSaveIndicatorCode(null);
   };
 
   // Handle Cancel button click for sent back indicators
@@ -1923,8 +1966,14 @@ export const InfraFinancingStep = () => {
                           }}
                           onOpenChange={(open) => {
                             if (open) {
-                              setUlbSearchMap((prev) => ({ ...prev, [ulb.id]: "" }));
-                              setUlbVisibleCountMap((prev) => ({ ...prev, [ulb.id]: 10 }));
+                              setUlbSearchMap((prev) => ({
+                                ...prev,
+                                [ulb.id]: "",
+                              }));
+                              setUlbVisibleCountMap((prev) => ({
+                                ...prev,
+                                [ulb.id]: 10,
+                              }));
                             }
                           }}
                           disabled={isIndicatorSubmitted("1.3")}
@@ -1945,15 +1994,21 @@ export const InfraFinancingStep = () => {
                               <Input
                                 placeholder="Search ULB..."
                                 value={ulbSearchMap[ulb.id] || ""}
-                                onChange={e => {
+                                onChange={(e) => {
                                   const value = e.target.value;
-                                  setUlbSearchMap(prev => ({ ...prev, [ulb.id]: value }));
-                                  setUlbVisibleCountMap(prev => ({ ...prev, [ulb.id]: 10 }));
+                                  setUlbSearchMap((prev) => ({
+                                    ...prev,
+                                    [ulb.id]: value,
+                                  }));
+                                  setUlbVisibleCountMap((prev) => ({
+                                    ...prev,
+                                    [ulb.id]: 10,
+                                  }));
                                 }}
                                 className="mb-2 focus:shadow-lg focus:border-blue-400 transition-all duration-200 ease-in-out"
                                 disabled={isIndicatorSubmitted("1.3")}
                                 autoFocus
-                                onClick={e => {
+                                onClick={(e) => {
                                   e.currentTarget.focus();
                                 }}
                               />
@@ -1964,11 +2019,17 @@ export const InfraFinancingStep = () => {
                                   const filtered = ulbOptions.filter((u) =>
                                     `${u.ulb_name} ${u.city_name} ${u.ulb_type}`
                                       .toLowerCase()
-                                      .includes((ulbSearchMap[ulb.id] || "").toLowerCase())
+                                      .includes(
+                                        (
+                                          ulbSearchMap[ulb.id] || ""
+                                        ).toLowerCase()
+                                      )
                                   );
                                   if (filtered.length === 0) {
                                     return (
-                                      <div className="px-3 py-2 text-gray-500 text-sm">No results found</div>
+                                      <div className="px-3 py-2 text-gray-500 text-sm">
+                                        No results found
+                                      </div>
                                     );
                                   }
                                   return filtered.map((u) => (
@@ -1977,23 +2038,29 @@ export const InfraFinancingStep = () => {
                                       value={u.id}
                                       className="cursor-pointer"
                                     >
-                                      {u.ulb_name} - {u.city_name} ({u.ulb_type})
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type}
+                                      )
                                     </SelectItem>
                                   ));
                                 })()}
                               </div>
                             ) : (
                               <div
-                                style={{ maxHeight: 240, overflowY: 'auto' }}
-                                onScroll={e => {
+                                style={{ maxHeight: 240, overflowY: "auto" }}
+                                onScroll={(e) => {
                                   const el = e.currentTarget;
                                   if (
-                                    el.scrollTop + el.clientHeight >= el.scrollHeight - 10 &&
-                                    (ulbVisibleCountMap[ulb.id] || 10) < ulbOptions.length
+                                    el.scrollTop + el.clientHeight >=
+                                      el.scrollHeight - 10 &&
+                                    (ulbVisibleCountMap[ulb.id] || 10) <
+                                      ulbOptions.length
                                   ) {
-                                    setUlbVisibleCountMap(prev => ({
+                                    setUlbVisibleCountMap((prev) => ({
                                       ...prev,
-                                      [ulb.id]: Math.min((prev[ulb.id] || 10) + 10, ulbOptions.length)
+                                      [ulb.id]: Math.min(
+                                        (prev[ulb.id] || 10) + 10,
+                                        ulbOptions.length
+                                      ),
                                     }));
                                   }
                                 }}
@@ -2006,7 +2073,8 @@ export const InfraFinancingStep = () => {
                                       value={u.id}
                                       className="cursor-pointer"
                                     >
-                                      {u.ulb_name} - {u.city_name} ({u.ulb_type})
+                                      {u.ulb_name} - {u.city_name} ({u.ulb_type}
+                                      )
                                     </SelectItem>
                                   ))}
                               </div>
@@ -3092,6 +3160,27 @@ export const InfraFinancingStep = () => {
               disabled={isSubmitting}
             >
               {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for NODAL_OFFICER Save */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save this indicator? This will resubmit
+              it to the State Approver.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              Confirm & Save
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -203,6 +203,11 @@ export const InfraEnablersStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // State for save confirmation dialog
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
+    string | null
+  >(null);
   const { toast } = useToast();
 
   // On mount, fetch submission from DB and populate form
@@ -1138,6 +1143,24 @@ export const InfraEnablersStep = () => {
 
   // Handle Save button click for sent back indicators
   const handleSaveIndicator = async (indicatorCode: string) => {
+    // Check if user is NODAL_OFFICER and indicator is REVERTED
+    const currentStatus = getIndicatorStatus(indicatorCode);
+    const upperStatus = (currentStatus || "").toUpperCase();
+    const isReverted = upperStatus === "REVERTED";
+
+    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
+    if (isNodalOfficer && isReverted) {
+      setPendingSaveIndicatorCode(indicatorCode);
+      setShowSaveDialog(true);
+      return;
+    }
+
+    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    await performSaveIndicator(indicatorCode);
+  };
+
+  // Actual save function that performs the save operation
+  const performSaveIndicator = async (indicatorCode: string) => {
     setSavingIndicators((prev) => new Set(prev).add(indicatorCode));
     try {
       // Validate the indicator before saving
@@ -1256,6 +1279,20 @@ export const InfraEnablersStep = () => {
         return newSet;
       });
     }
+  };
+
+  // Handle confirmation dialog actions
+  const handleConfirmSave = async () => {
+    if (pendingSaveIndicatorCode) {
+      await performSaveIndicator(pendingSaveIndicatorCode);
+      setShowSaveDialog(false);
+      setPendingSaveIndicatorCode(null);
+    }
+  };
+
+  const handleCancelSave = () => {
+    setShowSaveDialog(false);
+    setPendingSaveIndicatorCode(null);
   };
 
   // Handle Cancel button click for sent back indicators
@@ -2799,6 +2836,27 @@ export const InfraEnablersStep = () => {
               disabled={isSubmitting}
             >
               {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for NODAL_OFFICER Save */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save this indicator? This will resubmit
+              it to the State Approver.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              Confirm & Save
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
