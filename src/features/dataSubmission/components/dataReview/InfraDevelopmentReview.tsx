@@ -1361,6 +1361,16 @@ export const InfraDevelopmentReview = ({
       return; // Don't show dialog, just return
     }
 
+    // If STATE_APPROVER is accepting their own indicator, show confirmation dialog
+    if (isStateApprover && status && isSubmissionFromStateApprover) {
+      console.log(
+        `[InfraDevelopmentReview] STATE_APPROVER accepting their own indicator ${sectionId} - showing confirmation dialog`
+      );
+      setPendingActionSectionId(sectionId);
+      setShowAcceptDialog(true);
+      return;
+    }
+
     if (isStateApprover && !isSubmissionFromStateApprover) {
       // Show appropriate dialog based on action (only for NODAL_OFFICER submissions)
       setPendingActionSectionId(sectionId);
