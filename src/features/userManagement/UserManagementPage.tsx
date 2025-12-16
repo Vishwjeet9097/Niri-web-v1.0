@@ -1099,11 +1099,11 @@ export function UserManagementPage() {
         </div>
         <div className="flex gap-3">
           {/* Cleanup Buttons Component - Comment/Uncomment to enable/disable */}
-          <CleanupButtons
+          {/* <CleanupButtons
             userRole={user?.role}
             onRefresh={loadOfficers}
             isDeleting={isDeleting}
-          />
+          /> */}
           {/* End Cleanup Buttons Component */}
           <Button
             variant="outline"
