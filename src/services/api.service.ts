@@ -1175,11 +1175,22 @@ class ApiService implements HttpClient {
     if (sectionKey.includes("section1_5")) {
       const hasIntermediary = sectionData.hasIntermediary;
       const ffiArray = sectionData.ffiArray || [];
+      const comment = sectionData.comment || "";
+
+      // Has data if:
+      // 1. hasIntermediary is "yes" (regardless of ffiArray)
+      // 2. hasIntermediary is "no" AND comment is provided (required for "no")
+      // 3. ffiArray has items (legacy format or yes with items)
       const hasData =
         hasIntermediary === "yes" ||
-        hasIntermediary === "no" ||
+        (hasIntermediary === "no" && comment.trim() !== "") ||
         ffiArray.length > 0;
-      console.log(`📋 ${sectionKey}: FFI section, has data: ${hasData}`);
+
+      console.log(`📋 ${sectionKey}: FFI section, has data: ${hasData}`, {
+        hasIntermediary,
+        hasComment: comment.trim() !== "",
+        ffiArrayLength: ffiArray.length,
+      });
       return hasData;
     }
 
