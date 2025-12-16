@@ -1066,14 +1066,27 @@ export const PPPDevelopmentReview = ({
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
 
-    if (isStateApprover) {
-      // Show appropriate dialog based on action
+    // Check if submission is from STATE_APPROVER
+    const isSubmissionFromStateApprover =
+      submission?.user?.role === "STATE_APPROVER" ||
+      submission?.currentOwnerRole === "STATE_APPROVER";
+
+    // If STATE_APPROVER is trying to send back their own indicator, prevent it
+    if (isStateApprover && !status && isSubmissionFromStateApprover) {
+      console.log(
+        `[PPPDevelopmentReview] STATE_APPROVER cannot send back their own indicator ${sectionId}`
+      );
+      return; // Don't show dialog, just return
+    }
+
+    if (isStateApprover && !isSubmissionFromStateApprover) {
+      // Show appropriate dialog based on action (only for NODAL_OFFICER submissions)
       setPendingActionSectionId(sectionId);
       if (status) {
         // Accept action
         setShowAcceptDialog(true);
       } else {
-        // Send Back action
+        // Send Back action (only for NODAL_OFFICER submissions)
         setShowSendBackDialog(true);
       }
       return;
@@ -1663,18 +1676,27 @@ export const PPPDevelopmentReview = ({
           </>
         )}
 
-        {/* Only show Send Back if status is not RESUBMITTED for STATE_APPROVER */}
+        {/* Hide Send Back button if STATE_APPROVER is viewing their own submission */}
         {(() => {
+          // Check if submission is from STATE_APPROVER
+          const isSubmissionFromStateApprover =
+            submission?.user?.role === "STATE_APPROVER" ||
+            submission?.currentOwnerRole === "STATE_APPROVER";
+
+          // Hide Send Back if current user is STATE_APPROVER AND submission is from STATE_APPROVER
           const shouldShowSendBack = !(
-            isStateApprover && sectionStatus === "RESUBMITTED"
+            isStateApprover && isSubmissionFromStateApprover
           );
+
           console.log(
             `[PPPDevelopmentReview] Section ${sectionId} - Send Back visibility:`,
             {
               shouldShowSendBack,
               isStateApprover,
+              isSubmissionFromStateApprover,
               sectionStatus,
-              condition: `!(${isStateApprover} && ${sectionStatus} === "RESUBMITTED")`,
+              submissionUserRole: submission?.user?.role,
+              currentOwnerRole: submission?.currentOwnerRole,
             }
           );
           return shouldShowSendBack;

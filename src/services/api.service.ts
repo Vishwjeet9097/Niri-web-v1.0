@@ -1342,29 +1342,76 @@ class ApiService implements HttpClient {
         console.log("⚠️ No existing submission found, will create new one");
       }
 
-      // Get user's total assigned indicator count dynamically
+      // Get user's total assigned/available indicator count dynamically
       const user = authService.getUser();
       const userId = user?.id || user?._id;
+      const userRole = user?.role;
+      const stateUt = user?.state || user?.stateUt;
       let totalIndicatorCount = 0;
       let userAssignedIndicators: string[] = [];
 
       if (userId) {
-        // Fetch user's assigned indicators dynamically from backend (user_indicator_scope table)
-        userAssignedIndicators = await this.getUserAssignedIndicators(userId);
-        totalIndicatorCount = userAssignedIndicators.length;
+        // For NODAL_OFFICER: fetch assigned indicators from user_indicator_scope table
+        // For STATE_APPROVER: fetch available indicators (leftover indicators not assigned to NODAL_OFFICERs)
+        if (userRole === "STATE_APPROVER" && stateUt) {
+          console.log(
+            "📊 STATE_APPROVER detected, fetching available indicators"
+          );
+          const availableIndicatorsResponse =
+            await this.getAvailableIndicatorsForApprover(stateUt);
+          // Normalize response to array of indicator codes
+          if (Array.isArray(availableIndicatorsResponse)) {
+            userAssignedIndicators = availableIndicatorsResponse
+              .map(
+                (item: any) =>
+                  item?.code ||
+                  item?.indicator?.code ||
+                  (typeof item === "string" ? item : null)
+              )
+              .filter(Boolean);
+          } else if (availableIndicatorsResponse?.data) {
+            const data = availableIndicatorsResponse.data;
+            if (Array.isArray(data)) {
+              userAssignedIndicators = data
+                .map(
+                  (item: any) =>
+                    item?.code ||
+                    item?.indicator?.code ||
+                    (typeof item === "string" ? item : null)
+                )
+                .filter(Boolean);
+            }
+          }
+          totalIndicatorCount = userAssignedIndicators.length;
 
-        console.log("📊 User ID:", userId);
-        console.log(
-          "📊 Dynamically fetched from user_indicator_scope:",
-          userAssignedIndicators
-        );
-        console.log(
-          "📊 Total assigned indicators (dynamic):",
-          totalIndicatorCount
-        );
+          console.log("📊 User ID:", userId);
+          console.log("📊 State/UT:", stateUt);
+          console.log(
+            "📊 Dynamically fetched available indicators for STATE_APPROVER:",
+            userAssignedIndicators
+          );
+          console.log(
+            "📊 Total available indicators (dynamic):",
+            totalIndicatorCount
+          );
+        } else {
+          // NODAL_OFFICER or other roles: use assigned indicators
+          userAssignedIndicators = await this.getUserAssignedIndicators(userId);
+          totalIndicatorCount = userAssignedIndicators.length;
+
+          console.log("📊 User ID:", userId);
+          console.log(
+            "📊 Dynamically fetched from user_indicator_scope:",
+            userAssignedIndicators
+          );
+          console.log(
+            "📊 Total assigned indicators (dynamic):",
+            totalIndicatorCount
+          );
+        }
       } else {
         console.warn(
-          "⚠️ No user ID found, cannot fetch assigned indicators from user_indicator_scope"
+          "⚠️ No user ID found, cannot fetch assigned/available indicators"
         );
       }
 
@@ -1406,12 +1453,15 @@ class ApiService implements HttpClient {
         };
 
         // Find all indicators that have data in DB (across all categories)
+        // For NODAL_OFFICER: check against assigned indicators
+        // For STATE_APPROVER: check against available indicators
         const indicatorsWithDataInDB: string[] = [];
         allCategories.forEach((cat) => {
           const catData = existingFormData[cat] || {};
           const catIndicators = categoryToIndicatorMap[cat] || [];
 
           catIndicators.forEach((indicatorCode) => {
+            // Check if indicator is in user's assigned/available list
             if (userAssignedIndicators.includes(indicatorCode)) {
               const sectionKey = `section${indicatorCode.replace(".", "_")}`;
               const hasDataInDB =
