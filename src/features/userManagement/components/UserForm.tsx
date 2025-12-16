@@ -60,12 +60,16 @@ export function UserForm({
   const { toast } = useToast();
   
   // Local state for submitted indicators (fallback if not provided)
-  const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<string[]>(submittedIndicatorsInState);
+  const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<string[]>(() => 
+    Array.isArray(submittedIndicatorsInState) ? submittedIndicatorsInState : []
+  );
   
   // Use provided submittedIndicatorsInState or fallback to local state
-  const effectiveSubmittedIndicators = submittedIndicatorsInState.length > 0 
-    ? submittedIndicatorsInState 
-    : localSubmittedIndicators;
+  // Memoized to prevent unnecessary recalculations
+  const effectiveSubmittedIndicators = useMemo(() => {
+    const submitted = Array.isArray(submittedIndicatorsInState) ? submittedIndicatorsInState : [];
+    return submitted.length > 0 ? submitted : localSubmittedIndicators;
+  }, [submittedIndicatorsInState, localSubmittedIndicators]);
   
   // Debug: Log when component receives submittedIndicatorsInState
   useEffect(() => {
@@ -78,7 +82,7 @@ export function UserForm({
     console.log("🔍 [UserForm] Current user stateUt:", user?.stateUt);
     console.log("🔍 [UserForm] Current user state:", user?.state);
     console.log("🔍 [UserForm] Current user:", user);
-  }, [submittedIndicatorsInState, localSubmittedIndicators, effectiveSubmittedIndicators, officer?.stateUt, user]);
+  }, [submittedIndicatorsInState, localSubmittedIndicators, effectiveSubmittedIndicators, officer?.stateUt, officer?.state, user?.stateUt, user?.state, user]);
   
   // Fallback: Fetch submitted indicators if not provided and we have a stateUt
   useEffect(() => {
@@ -200,18 +204,23 @@ export function UserForm({
         return;
       }
 
-      let stateName = "";
+      // Admin should have access to all indicators - no need to fetch filtered list
       if (user?.role === "ADMIN") {
-        if (!formData.stateId) {
-          setAvailableIndicatorsForState([]);
-          return;
+        // For admin, use allIndicators directly (no filtering needed)
+        if (allIndicators.length > 0) {
+          const formattedAvailable = allIndicators.map((ind: any) => ({
+            code: ind.code,
+            name: ind.name || getIndicatorDisplayName(ind.code),
+            category: ind.category || ind.section || '',
+            id: ind.id,
+          }));
+          setAvailableIndicatorsForState(formattedAvailable);
         }
-        let stateIdStr = Array.isArray(formData.stateId) ? formData.stateId[0] : formData.stateId;
-        const found = states.find((s) => s.id === stateIdStr);
-        stateName = found ? found.name : stateIdStr;
-      } else {
-        stateName = user?.state || "";
+        return;
       }
+
+      // For non-admin users (STATE_APPROVER, etc.), fetch filtered indicators
+      const stateName = user?.state || "";
       
       if (!stateName) {
         setAvailableIndicatorsForState([]);
@@ -290,7 +299,7 @@ export function UserForm({
     };
     
     computeAvailableIndicators();
-  }, [formData.stateId, formData.role, user?.role, states, allIndicators, officers, officer?.id]);
+  }, [formData.role, user?.role, user?.state, allIndicators, officers, officer?.id, states]);
 
   // Build the options list from INDICATOR_SECTIONS but only include:
   //  - indicators present in availableIndicatorCodes OR
@@ -423,6 +432,19 @@ export function UserForm({
 
     return options;
   }, [availableIndicatorsForState, formData.assignedIndicators, allIndicators, effectiveSubmittedIndicators]);
+
+  // Memoize the MultiSelect value to ensure submitted indicators are always included
+  const multiSelectValue = useMemo(() => {
+    // Ensure submitted indicators are always in the value, even if somehow removed
+    const currentAssigned = formData.assignedIndicators || [];
+    // Always include submitted indicators that are assigned to this user
+    const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
+      currentAssigned.includes(code)
+    );
+    // Merge: current assigned + ensure submitted ones are included
+    const finalValue = Array.from(new Set([...currentAssigned, ...submittedAssigned]));
+    return finalValue;
+  }, [formData.assignedIndicators, effectiveSubmittedIndicators]);
 
 // Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
 
@@ -660,10 +682,15 @@ export function UserForm({
       }
     } else {
       // Reset form when no officer (new user)
-      // Set default role based on current user's permissions
-      const availableRoles = getAvailableRoles();
-      const defaultRole =
-        availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
+      // Set default role based on current user's permissions - compute directly instead of calling getAvailableRoles
+      let defaultRole = "NODAL_OFFICER";
+      if (user?.role === "STATE_APPROVER") {
+        defaultRole = "NODAL_OFFICER";
+      } else if (user?.role === "MOSPI_APPROVER") {
+        defaultRole = "MOSPI_REVIEWER";
+      } else if (user?.role === "ADMIN") {
+        defaultRole = "STATE_APPROVER";
+      }
 
       setFormData({
         firstName: "",
@@ -679,7 +706,8 @@ export function UserForm({
       // Reset nodal submission check for new user
       setNodalHasSubmission(false);
     }
-  }, [officer, user?.state, user?.role, getAvailableRoles, states]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [officer, user?.state, user?.role, states]);
 
   // Load states on component mount
   useEffect(() => {
@@ -798,33 +826,20 @@ export function UserForm({
       newErrors.role = "Role is required";
     }
 
-    // ✅ State validation for ADMIN only
-   
-
-    if (formData.role !== "MOSPI_APPROVER") {
-      if (user?.role === "ADMIN" && !formData.stateId) {
-        newErrors.stateId = "State is required";
-      } 
-   }
-
-
     // Indicator assignment is optional for NODAL_OFFICER
     // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
-    // ✅ State validation for MOSPI_APPROVER and ADMIN
+    // ✅ State validation - ADMIN and MOSPI_APPROVER roles don't require state
    if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
     if (formData.role === "MOSPI_REVIEWER") {
       // Validate multiple states for MOSPI_REVIEWER
       if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
         newErrors.stateId = "Please select at least one state";
       }
-    } else {
-
-      if (formData.role !== "MOSPI_APPROVER") {
-      // Validate single state for other roles
+    } else if (formData.role !== "MOSPI_APPROVER" && formData.role !== "ADMIN") {
+      // Validate single state for other roles (excluding MOSPI_APPROVER and ADMIN)
       if (!formData.stateId || (Array.isArray(formData.stateId) && formData.stateId.length === 0)) {
         newErrors.stateId = "State is required";
-      }
       }
     }
   }
@@ -980,6 +995,13 @@ const handleStateChange = (values: string | string[]) => {
       try {
         // Use the selected role from formData, default to empty if no role selected
         if (!formData.role) {
+          setDisabledStateNames([]);
+          return;
+        }
+        
+        // Only fetch for roles that can have state assignments checked
+        // Skip NODAL_OFFICER as they don't need this check (they are assigned to states, not the other way around)
+        if (formData.role === "NODAL_OFFICER") {
           setDisabledStateNames([]);
           return;
         }
@@ -1489,12 +1511,11 @@ const handleStateChange = (values: string | string[]) => {
           </Label>
           {(() => {
             const availableRoles = getAvailableRoles();
-            const isRoleFixed = availableRoles.length === 1;
             
             return (
               <Select
                 value={formData.role}
-                disabled={isRoleFixed}
+                disabled={user?.role === "STATE_APPROVER"}
                 onValueChange={(value) => {
                   setFormData(prev => ({
                     ...prev,
@@ -1512,7 +1533,7 @@ const handleStateChange = (values: string | string[]) => {
                 }}
               >
                 <SelectTrigger 
-                  className={errors.role ? "border-destructive" : isRoleFixed ? "bg-muted cursor-not-allowed opacity-50" : ""}
+                  className={errors.role ? "border-destructive" : ""}
                 >
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
@@ -1532,7 +1553,7 @@ const handleStateChange = (values: string | string[]) => {
         </div>
 
         <div className="space-y-2">
-          {formData?.role !== "MOSPI_APPROVER" && (<>
+          {formData?.role !== "MOSPI_APPROVER" && formData?.role !== "ADMIN" && (<>
           <Label htmlFor="stateId" className="flex items-center gap-2">
               State/UT
             <span className="text-destructive">*</span>
@@ -1661,7 +1682,7 @@ const handleStateChange = (values: string | string[]) => {
         Clear
       </Button>
     </div>
-  ) : formData.role !== "MOSPI_APPROVER" ? (
+  ) : formData.role !== "MOSPI_APPROVER" && formData.role !== "ADMIN" ? (
     <Select
       value={typeof formData.stateId === 'string' ? formData.stateId : Array.isArray(formData.stateId) ? formData.stateId[0] : ''}
       onValueChange={(value) => handleStateChange(value)}
@@ -1722,11 +1743,7 @@ const handleStateChange = (values: string | string[]) => {
   />
 )}
 
-          {formData?.role === "ADMIN" ? (
-            <p className="text-sm text-muted-foreground">
-              Select the state where you want to create the user
-            </p>
-          ) : (
+          {formData?.role !== "ADMIN" && formData?.role !== "MOSPI_APPROVER" && (
             <p className="text-sm text-muted-foreground">
               {/* Users will be created in your current state:{" "} */}
               {/* <strong>{user?.state}</strong> */}
@@ -1799,17 +1816,7 @@ const handleStateChange = (values: string | string[]) => {
 
             <MultiSelect
               options={indicatorOptions}
-              value={useMemo(() => {
-                // Ensure submitted indicators are always in the value, even if somehow removed
-                const currentAssigned = formData.assignedIndicators || [];
-                // Always include submitted indicators that are assigned to this user
-                const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
-                  currentAssigned.includes(code)
-                );
-                // Merge: current assigned + ensure submitted ones are included
-                const finalValue = Array.from(new Set([...currentAssigned, ...submittedAssigned]));
-                return finalValue;
-              }, [formData.assignedIndicators, effectiveSubmittedIndicators])}
+              value={multiSelectValue}
               onChange={handleIndicatorChange}
               placeholder={
                 loadingIndicators
