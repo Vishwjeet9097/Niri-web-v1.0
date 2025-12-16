@@ -26,6 +26,7 @@ import { statesService, State } from "@/services/states.service";
 import { apiService } from "@/services/api.service";
 import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserFormProps {
   officer: NodalOfficer | null;
@@ -41,6 +42,7 @@ interface UserFormProps {
   officers?: NodalOfficer[];
   loadingIndicators?: boolean;
   stateApproverHasSubmission?: boolean;
+  submittedIndicatorsInState?: string[];
 }
 
 
@@ -52,8 +54,78 @@ export function UserForm({
   officers = [],
   loadingIndicators = false,
   stateApproverHasSubmission = false,
+  submittedIndicatorsInState = [],
 }: UserFormProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
+  
+  // Local state for submitted indicators (fallback if not provided)
+  const [localSubmittedIndicators, setLocalSubmittedIndicators] = useState<string[]>(submittedIndicatorsInState);
+  
+  // Use provided submittedIndicatorsInState or fallback to local state
+  const effectiveSubmittedIndicators = submittedIndicatorsInState.length > 0 
+    ? submittedIndicatorsInState 
+    : localSubmittedIndicators;
+  
+  // Debug: Log when component receives submittedIndicatorsInState
+  useEffect(() => {
+    console.log("🔍 [UserForm] Component mounted/re-rendered");
+    console.log("🔍 [UserForm] submittedIndicatorsInState prop:", submittedIndicatorsInState);
+    console.log("🔍 [UserForm] localSubmittedIndicators:", localSubmittedIndicators);
+    console.log("🔍 [UserForm] effectiveSubmittedIndicators:", effectiveSubmittedIndicators);
+    console.log("🔍 [UserForm] Officer stateUt:", officer?.stateUt);
+    console.log("🔍 [UserForm] Officer state:", officer?.state);
+    console.log("🔍 [UserForm] Current user stateUt:", user?.stateUt);
+    console.log("🔍 [UserForm] Current user state:", user?.state);
+    console.log("🔍 [UserForm] Current user:", user);
+  }, [submittedIndicatorsInState, localSubmittedIndicators, effectiveSubmittedIndicators, officer?.stateUt, user]);
+  
+  // Fallback: Fetch submitted indicators if not provided and we have a stateUt
+  useEffect(() => {
+    const fetchIfNeeded = async () => {
+      // Only fetch if:
+      // 1. No submitted indicators provided
+      // 2. We have a stateUt (from officer or user)
+      // 3. We haven't already fetched
+      if (submittedIndicatorsInState.length === 0 && localSubmittedIndicators.length === 0) {
+        // Priority: officer.stateUt > officer.state > user.stateUt > user.state
+        // For state approvers managing officers, use their own state (since officers are in the same state)
+        const stateUt = officer?.stateUt || officer?.state || user?.stateUt || user?.state;
+        
+        console.log("🔍 [UserForm] Determining stateUt for submitted indicators fetch:", {
+          officerStateUt: officer?.stateUt,
+          officerState: officer?.state,
+          userStateUt: user?.stateUt,
+          userState: user?.state,
+          resolvedStateUt: stateUt,
+        });
+        
+        if (stateUt) {
+          console.log("🔍 [UserForm] Fetching submitted indicators as fallback for stateUt:", stateUt);
+          console.log("🔍 [UserForm] NOTE: This query is STATE-SCOPED - only finds submissions within state:", stateUt);
+          try {
+            const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
+            console.log("✅ [UserForm] Fetched submitted indicators (fallback):", submitted);
+            console.log("✅ [UserForm] These indicators are submitted within state:", stateUt, "only (not globally)");
+            setLocalSubmittedIndicators(submitted);
+          } catch (error) {
+            console.error("❌ [UserForm] Error fetching submitted indicators (fallback):", error);
+          }
+        } else {
+          console.warn("⚠️ [UserForm] Cannot fetch submitted indicators - no stateUt available from officer or user");
+        }
+      }
+    };
+    
+    fetchIfNeeded();
+  }, [submittedIndicatorsInState.length, localSubmittedIndicators.length, officer?.stateUt, officer?.state, user?.stateUt, user?.state]);
+  
+  // Update local state when prop changes
+  useEffect(() => {
+    if (submittedIndicatorsInState.length > 0) {
+      setLocalSubmittedIndicators(submittedIndicatorsInState);
+    }
+  }, [submittedIndicatorsInState]);
 
   // Debug user info (temporarily enabled)
   // console.log("🔍 UserForm - User info:", {
@@ -175,6 +247,7 @@ export function UserForm({
         
         // Fallback to frontend filtering if API fails
         if (allIndicators.length === 0) {
+          console.warn("⚠️ allIndicators is empty, cannot show indicators. Please wait for indicators to load.");
           setAvailableIndicatorsForState([]);
           return;
         }
@@ -208,7 +281,7 @@ export function UserForm({
         const formattedAvailable = available.map((ind: any) => ({
           code: ind.code,
           name: ind.name || getIndicatorDisplayName(ind.code),
-          category: ind.category || '',
+          category: ind.category || ind.section || '',
           id: ind.id,
         }));
         
@@ -227,53 +300,129 @@ export function UserForm({
     let apiCodes: string[] = [];
     if (!availableIndicatorsForState || availableIndicatorsForState.length === 0) {
       apiCodes = [];
-    } else if (typeof availableIndicatorsForState[0] === 'object') {
+    } else if (availableIndicatorsForState.length > 0 && typeof availableIndicatorsForState[0] === 'object') {
       apiCodes = availableIndicatorsForState.map((item: any) => item.code);
     } else {
       apiCodes = availableIndicatorsForState;
     }
 
     // Sort: assigned indicators first (in their order), then API indicators (in their order, excluding duplicates)
+    // CRITICAL: Always include submitted indicators that are in the current assigned list
+    // This ensures they remain visible even if user tries to remove them
     const assigned = formData.assignedIndicators || [];
     const apiUnique = apiCodes.filter(code => !assigned.includes(code));
-    const allCodes = [...assigned, ...apiUnique];
+    
+    // Get submitted indicators that are currently assigned - these MUST always appear
+    const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
+      assigned.includes(code)
+    );
+    
+    // Build allCodes: assigned first, then unassigned from API
+    let allCodes = [...assigned, ...apiUnique];
+    
+    // CRITICAL: Ensure ALL submitted indicators that are assigned are ALWAYS in allCodes
+    // This prevents them from disappearing even if they're temporarily removed from assigned
+    // Add them at the beginning to ensure they're always visible
+    submittedAssigned.forEach(code => {
+      if (!allCodes.includes(code)) {
+        allCodes.unshift(code); // Add at beginning to keep them visible
+      }
+    });
 
-    // Build name map from API response (object) or fallback
+    // Build name map - prioritize API response, then allIndicators, then fallback
     const indicatorNameMap: Record<string, string> = {};
-    if (typeof availableIndicatorsForState[0] === 'object') {
+    const indicatorCategoryMap: Record<string, string> = {};
+    
+    // First, add from API response
+    if (availableIndicatorsForState && availableIndicatorsForState.length > 0 && typeof availableIndicatorsForState[0] === 'object') {
       availableIndicatorsForState.forEach((item: any) => {
-        if (item && item.code && item.name) {
-          indicatorNameMap[item.code] = item.name;
+        if (item && item.code) {
+          if (item.name) indicatorNameMap[item.code] = item.name;
+          if (item.category) indicatorCategoryMap[item.code] = item.category;
         }
       });
     }
-    // Fallback for codes not in API response
+    
+    // Then, add from allIndicators for any missing ones (especially assigned indicators)
+    allIndicators.forEach((ind: any) => {
+      const code = ind.code;
+      if (code) {
+        if (!indicatorNameMap[code] && ind.name) {
+          indicatorNameMap[code] = ind.name;
+        }
+        if (!indicatorCategoryMap[code] && (ind.category || ind.section)) {
+          indicatorCategoryMap[code] = ind.category || ind.section || '';
+        }
+      }
+    });
+    
+    // Finally, fallback to getIndicatorDisplayName for any remaining codes
     allCodes.forEach((code: string) => {
       if (!indicatorNameMap[code]) {
         indicatorNameMap[code] = getIndicatorDisplayName(code);
       }
     });
 
-    // Build options array
-    return allCodes.map((code: string) => {
-      // If API response is object, try to get section/category
-      let section = '';
+    // Build options array - ensure ALL codes (especially assigned ones) are included
+    const options = allCodes.map((code: string) => {
+      // Try to get category from availableIndicatorsForState first
+      let section = indicatorCategoryMap[code] || '';
       let description = indicatorNameMap[code];
-      if (typeof availableIndicatorsForState[0] === 'object') {
+      
+      // If not found in maps, try to find in API response
+      if (!section && availableIndicatorsForState && availableIndicatorsForState.length > 0 && typeof availableIndicatorsForState[0] === 'object') {
         const found = availableIndicatorsForState.find((item: any) => item.code === code);
         if (found) {
-          section = found.category || '';
-          description = found.name || indicatorNameMap[code];
+          section = found.category || section;
+          description = found.name || description;
         }
       }
+      
+      const isSubmitted = effectiveSubmittedIndicators.includes(code);
+      
+      // Debug logging for indicator 1.1 specifically
+      if (code === "1.1") {
+        console.log("🔍 [UserForm] Indicator 1.1 Debug:", {
+          code,
+          isSubmitted,
+          submittedIndicatorsInState,
+          effectiveSubmittedIndicators,
+          inArray: effectiveSubmittedIndicators.includes(code),
+          assigned: assigned.includes(code),
+          allCodesIncludes: allCodes.includes(code),
+          submittedIndicatorsLength: submittedIndicatorsInState.length,
+        });
+      }
+      
       return {
         value: code,
-        label: `${code} - ${indicatorNameMap[code]}`,
+        label: isSubmitted 
+          ? `${code} - ${indicatorNameMap[code]} (Submitted)`
+          : `${code} - ${indicatorNameMap[code]}`,
         section,
         description,
+        disabled: isSubmitted,
       };
     });
-  }, [availableIndicatorsForState]);
+
+    // Debug logging to help troubleshoot
+    if (formData.assignedIndicators && formData.assignedIndicators.length > 0) {
+      console.log("🔍 [UserForm] Indicator Options Debug:", {
+        assignedIndicators: formData.assignedIndicators,
+        availableFromAPI: apiCodes.length,
+        allCodesCount: allCodes.length,
+        optionsCount: options.length,
+        assignedInOptions: options.filter(opt => formData.assignedIndicators.includes(opt.value)).map(opt => opt.value),
+        submittedIndicatorsInState: submittedIndicatorsInState,
+        effectiveSubmittedIndicators: effectiveSubmittedIndicators,
+        localSubmittedIndicators: localSubmittedIndicators,
+        submittedIndicatorsCount: effectiveSubmittedIndicators.length,
+        disabledOptions: options.filter(opt => opt.disabled).map(opt => opt.value),
+      });
+    }
+
+    return options;
+  }, [availableIndicatorsForState, formData.assignedIndicators, allIndicators, effectiveSubmittedIndicators]);
 
 // Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
 
@@ -288,9 +437,56 @@ export function UserForm({
 
   // Handle indicator selection change
   const handleIndicatorChange = (selectedIndicators: string[]) => {
+    console.log("🔍 [UserForm] handleIndicatorChange called:", {
+      selectedIndicators,
+      currentAssigned: formData.assignedIndicators,
+      submittedIndicatorsInState,
+      effectiveSubmittedIndicators,
+    });
+    
+    // Always preserve submitted indicators that are currently assigned
+    const currentlySelected = formData.assignedIndicators || [];
+    const submittedAssigned = currentlySelected.filter((ind) =>
+      effectiveSubmittedIndicators.includes(ind)
+    );
+
+    console.log("🔍 [UserForm] handleIndicatorChange - submittedAssigned:", submittedAssigned);
+
+    // Check if user tried to remove any submitted indicators
+    const beingRemoved = currentlySelected.filter(
+      (ind) => !selectedIndicators.includes(ind)
+    );
+    const cannotRemove = beingRemoved.filter((ind) =>
+      effectiveSubmittedIndicators.includes(ind)
+    );
+
+    console.log("🔍 [UserForm] handleIndicatorChange - beingRemoved:", beingRemoved);
+    console.log("🔍 [UserForm] handleIndicatorChange - cannotRemove:", cannotRemove);
+
+    // If user tried to remove submitted indicators, show error and prevent change
+    if (cannotRemove.length > 0) {
+      console.warn("⚠️ [UserForm] Attempted to remove submitted indicators:", cannotRemove);
+      toast({
+        title: "Cannot Remove Indicators",
+        description: `The following indicators are already submitted and cannot be removed: ${cannotRemove.join(", ")}`,
+        variant: "destructive",
+      });
+      // Don't update state - keep submitted indicators
+      return;
+    }
+
+    // Merge: keep submitted indicators + new selection (excluding submitted ones from new selection to avoid duplicates)
+    const newSelectionWithoutSubmitted = selectedIndicators.filter(
+      (ind) => !effectiveSubmittedIndicators.includes(ind)
+    );
+    const finalSelection = [...submittedAssigned, ...newSelectionWithoutSubmitted];
+
+    console.log("🔍 [UserForm] handleIndicatorChange - finalSelection:", finalSelection);
+
+    // Always update with final selection (includes submitted indicators)
     setFormData((prev) => ({
       ...prev,
-      assignedIndicators: selectedIndicators,
+      assignedIndicators: finalSelection,
     }));
   };
 
@@ -1008,9 +1204,17 @@ const handleStateChange = (values: string | string[]) => {
             id="firstName"
             placeholder="Enter your first name"
             value={formData.firstName}
-            onChange={(e) =>
-              setFormData({ ...formData, firstName: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, firstName: e.target.value });
+              // Clear error when user starts typing
+              if (errors.firstName) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.firstName;
+                  return newErrors;
+                });
+              }
+            }}
             className={errors.firstName ? "border-destructive" : ""}
           />
           {errors.firstName && (
@@ -1037,9 +1241,17 @@ const handleStateChange = (values: string | string[]) => {
             id="lastName"
             placeholder="Enter your last name"
             value={formData.lastName}
-            onChange={(e) =>
-              setFormData({ ...formData, lastName: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, lastName: e.target.value });
+              // Clear error when user starts typing
+              if (errors.lastName) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.lastName;
+                  return newErrors;
+                });
+              }
+            }}
             className={errors.lastName ? "border-destructive" : ""}
           />
           {errors.lastName && (
@@ -1064,19 +1276,64 @@ const handleStateChange = (values: string | string[]) => {
           </Label>
           <Input
             id="contactNumber"
-            placeholder="Enter you 10-digit phone number"
+            placeholder="Enter your 10-digit phone number"
+            type="tel"
+            maxLength={10}
             value={formData.contactNumber}
             onChange={(e) => {
-              const contactNumber = e.target.value;
+              // Only allow numeric characters
+              const inputValue = e.target.value.replace(/\D/g, '');
+              
+              // Limit to 10 digits
+              const contactNumber = inputValue.slice(0, 10);
+              
               setFormData({ ...formData, contactNumber });
 
-              // Clear duplicate error when user starts typing
-              if (errors.contactNumber?.includes("already registered")) {
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
+              // Real-time validation
+              const newErrors: Record<string, string> = { ...errors };
+              
+              if (!contactNumber.trim()) {
+                // Only show required error if there was a previous error (user has interacted)
+                if (errors.contactNumber) {
+                  newErrors.contactNumber = "Contact number is required";
+                } else {
+                  // Clear error if field is empty and no previous error
                   delete newErrors.contactNumber;
-                  return newErrors;
-                });
+                }
+              } else if (contactNumber.length !== 10) {
+                // Show error if not exactly 10 digits
+                newErrors.contactNumber = "Please enter a valid 10-digit phone number";
+              } else {
+                // Valid format (10 digits) - check for local duplicates (quick check)
+                const normalizedContactNumber = contactNumber.replace(/\s/g, "");
+                const duplicateContact = officers.find(
+                  (o) =>
+                    o.id !== officer?.id && // Exclude current officer if editing
+                    o.contactNumber &&
+                    o.contactNumber.replace(/\s/g, "") === normalizedContactNumber
+                );
+                if (duplicateContact) {
+                  newErrors.contactNumber = "This contact number is already assigned to another user";
+                } else {
+                  // Clear format errors, but preserve API duplicate error if it exists
+                  // The checkContactAvailability function will handle API-level duplicate checking
+                  if (newErrors.contactNumber === "Please enter a valid 10-digit phone number") {
+                    delete newErrors.contactNumber;
+                  }
+                  // Note: We preserve "This contact number is already registered to another user" error
+                  // which is set by the checkContactAvailability function
+                }
+              }
+              
+              setErrors(newErrors);
+            }}
+            onBlur={() => {
+              // Show required error on blur if field is empty
+              if (!formData.contactNumber.trim()) {
+                setErrors((prev) => ({
+                  ...prev,
+                  contactNumber: "Contact number is required",
+                }));
               }
             }}
             className={errors.contactNumber ? "border-destructive" : ""}
@@ -1114,38 +1371,48 @@ const handleStateChange = (values: string | string[]) => {
               const email = e.target.value;
               setFormData({ ...formData, email });
 
-              // Clear duplicate error immediately when user starts typing
-              if (errors.email?.includes("already registered")) {
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
+              // Real-time validation
+              const newErrors: Record<string, string> = { ...errors };
+              
+              if (!email.trim()) {
+                // Only show required error if there was a previous error (user has interacted)
+                if (errors.email && errors.email === "Email is required") {
+                  newErrors.email = "Email is required";
+                } else {
+                  // Clear error if field is empty and no previous required error
                   delete newErrors.email;
-                  return newErrors;
-                });
-              }
-
-              // Real-time validation for email domain
-              if (email.trim() === "") {
-                // Clear error if field is empty
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors.email;
-                  return newErrors;
-                });
-              } else if (!/@(gov\.in|nic\.in)$/i.test(email)) {
-                // Show error if domain is not @gov.in or @nic.in
-                setErrors((prev) => ({
-                  ...prev,
-                  email: "Only @gov.in and @nic.in email addresses are allowed",
-                }));
+                }
               } else {
-                // Clear format error if domain is correct (but keep duplicate error if exists, it will be cleared by debounced check)
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
-                  if (newErrors.email === "Only @gov.in and @nic.in email addresses are allowed") {
+                // Check email format first
+                const emailFormatRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailFormatRegex.test(email)) {
+                  // Invalid email format
+                  newErrors.email = "Please enter a valid email address";
+                } else if (!/@(gov\.in|nic\.in)$/i.test(email)) {
+                  // Valid format but wrong domain
+                  newErrors.email = "Only @gov.in and @nic.in email addresses are allowed";
+                } else {
+                  // Valid email with correct domain - clear format/domain errors
+                  // But preserve duplicate error if it exists (will be checked by checkEmailAvailability)
+                  if (newErrors.email && 
+                      (newErrors.email === "Please enter a valid email address" || 
+                       newErrors.email === "Only @gov.in and @nic.in email addresses are allowed")) {
                     delete newErrors.email;
                   }
-                  return newErrors;
-                });
+                  // Note: We preserve "This email is already registered to another user" error
+                  // which is set by the checkEmailAvailability function
+                }
+              }
+              
+              setErrors(newErrors);
+            }}
+            onBlur={() => {
+              // Show required error on blur if field is empty
+              if (!formData.email.trim()) {
+                setErrors((prev) => ({
+                  ...prev,
+                  email: "Email is required",
+                }));
               }
             }}
             className={errors.email ? "border-destructive" : officer ? "bg-muted cursor-not-allowed" : ""}
@@ -1220,35 +1487,45 @@ const handleStateChange = (values: string | string[]) => {
               </Tooltip>
             </TooltipProvider> */}
           </Label>
-          <Select
-            value={formData.role}
-            onValueChange={(value) => {
-              setFormData(prev => ({
-                ...prev,
-                role: value,
-                stateId: value === "MOSPI_REVIEWER" ? [] : '',
-                stateUt: ''
-              }));
-              // Reset nodal submission check when role changes
-              if (value !== "NODAL_OFFICER") {
-                setNodalHasSubmission(false);
-              } else if (officer?.id && value === "NODAL_OFFICER") {
-                // Re-check if switching back to NODAL_OFFICER
-                checkNodalOfficerSubmission(officer.id);
-              }
-            }}
-          >
-            <SelectTrigger className={errors.role ? "border-destructive" : ""}>
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              {getAvailableRoles().map((role) => (
-                <SelectItem key={role.value} value={role.value}>
-                  {role.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {(() => {
+            const availableRoles = getAvailableRoles();
+            const isRoleFixed = availableRoles.length === 1;
+            
+            return (
+              <Select
+                value={formData.role}
+                disabled={isRoleFixed}
+                onValueChange={(value) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    role: value,
+                    stateId: value === "MOSPI_REVIEWER" ? [] : '',
+                    stateUt: ''
+                  }));
+                  // Reset nodal submission check when role changes
+                  if (value !== "NODAL_OFFICER") {
+                    setNodalHasSubmission(false);
+                  } else if (officer?.id && value === "NODAL_OFFICER") {
+                    // Re-check if switching back to NODAL_OFFICER
+                    checkNodalOfficerSubmission(officer.id);
+                  }
+                }}
+              >
+                <SelectTrigger 
+                  className={errors.role ? "border-destructive" : isRoleFixed ? "bg-muted cursor-not-allowed opacity-50" : ""}
+                >
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableRoles.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          })()}
           {errors.role && (
             <p className="text-sm text-destructive">{errors.role}</p>
           )}
@@ -1505,9 +1782,34 @@ const handleStateChange = (values: string | string[]) => {
               </p>
             )}
 
+            {/* Warning about submitted indicators - only show if at least one submitted indicator is present in the options list */}
+            {(() => {
+              // Check if any submitted indicators are actually present in the options list
+              const submittedInOptions = indicatorOptions.some(opt => 
+                effectiveSubmittedIndicators.includes(opt.value) && opt.disabled
+              );
+              return submittedInOptions;
+            })() && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Some indicators are disabled because they have already been submitted by the nodal officer in your state. These indicators cannot be reassigned to prevent duplicate submissions.
+                </p>
+              </div>
+            )}
+
             <MultiSelect
               options={indicatorOptions}
-              value={formData.assignedIndicators}
+              value={useMemo(() => {
+                // Ensure submitted indicators are always in the value, even if somehow removed
+                const currentAssigned = formData.assignedIndicators || [];
+                // Always include submitted indicators that are assigned to this user
+                const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
+                  currentAssigned.includes(code)
+                );
+                // Merge: current assigned + ensure submitted ones are included
+                const finalValue = Array.from(new Set([...currentAssigned, ...submittedAssigned]));
+                return finalValue;
+              }, [formData.assignedIndicators, effectiveSubmittedIndicators])}
               onChange={handleIndicatorChange}
               placeholder={
                 loadingIndicators

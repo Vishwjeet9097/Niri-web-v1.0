@@ -2302,14 +2302,19 @@ async cleanupTestData(): Promise<{
 }> {
   try {
     // Note: The response interceptor already extracts response.data, so 'data' is already the response body
-    const data = await this.axios.post(`/submission/cleanup-test-data`);
+    const response = await this.axios.post(`/submission/cleanup-test-data`);
+    // Extract data from response (interceptor may have already done this, but TypeScript doesn't know)
+    const data = (response as any)?.data !== undefined && typeof (response as any).data === 'object' 
+      ? (response as any).data 
+      : response;
+    
     console.log(
       "🔍 API Service - Cleanup Test Data Response:",
       JSON.stringify(data, null, 2)
     );
 
     // Handle different response structures
-    let cleanupData = data;
+    let cleanupData: any = data;
 
     // If data has a data property (nested structure), use it
     if (data?.data !== undefined && typeof data.data === 'object') {
@@ -2339,7 +2344,16 @@ async cleanupTestData(): Promise<{
       JSON.stringify(cleanupData, null, 2)
     );
 
-    return cleanupData;
+    return cleanupData as {
+      success: boolean;
+      message: string;
+      deleted: {
+        submissions: number;
+        finalScores: number;
+        userIndicatorScopes: number;
+        auditLogs: number;
+      };
+    };
   } catch (error: any) {
     console.error("❌ API Service - Cleanup Test Data Error:", error);
     if (error.response) {
@@ -2377,14 +2391,19 @@ async deleteUsersByRole(role: string): Promise<{
 }> {
   try {
     // Note: The response interceptor already extracts response.data, so 'data' is already the response body
-    const data = await this.axios.delete(`/users/by-role/${role}`);
+    const response = await this.axios.delete(`/users/by-role/${role}`);
+    // Extract data from response (interceptor may have already done this, but TypeScript doesn't know)
+    const data = (response as any)?.data !== undefined && typeof (response as any).data === 'object' 
+      ? (response as any).data 
+      : response;
+    
     console.log(
       "🔍 API Service - Delete Users By Role Response:",
       JSON.stringify(data, null, 2)
     );
 
     // Handle different response structures
-    let deleteData = data;
+    let deleteData: any = data;
 
     // If data has a data property (nested structure), use it
     if (data?.data !== undefined && typeof data.data === 'object') {
@@ -2420,7 +2439,18 @@ async deleteUsersByRole(role: string): Promise<{
       JSON.stringify(deleteData, null, 2)
     );
 
-    return deleteData;
+    return deleteData as {
+      success: boolean;
+      message: string;
+      deletedCount: number;
+      deleted: {
+        users: number;
+        userIndicatorScopes: number;
+        submissions: number;
+        finalScores: number;
+        auditLogs: number;
+      };
+    };
   } catch (error: any) {
     console.error("❌ API Service - Delete Users By Role Error:", error);
     if (error.response) {
@@ -3253,6 +3283,52 @@ async getRankings(): Promise<any[]> {
   }
 
   /**
+   * Get submitted indicators in a state
+   * Returns array of indicator codes that have been submitted by any user in the state
+   */
+  async getSubmittedIndicatorsInState(stateUt: string): Promise<string[]> {
+    try {
+      console.log(
+        "🔍 [API Service] getSubmittedIndicatorsInState called with stateUt:",
+        stateUt
+      );
+      const response = await this.axios.get(
+        `/indicators/submitted-in-state/${encodeURIComponent(stateUt)}`
+      );
+      console.log(
+        "🔍 [API Service] Raw response:",
+        response.data
+      );
+      const data = response.data?.data || response.data || [];
+      console.log(
+        "✅ [API Service] Submitted indicators in state:",
+        data
+      );
+      console.log(
+        "✅ [API Service] Submitted indicators type:",
+        Array.isArray(data) ? "array" : typeof data,
+        "length:",
+        Array.isArray(data) ? data.length : "N/A"
+      );
+      console.log(
+        "✅ [API Service] Is 1.1 in response?",
+        Array.isArray(data) ? data.includes("1.1") : "N/A"
+      );
+      return Array.isArray(data) ? data : [];
+    } catch (error: any) {
+      console.error(
+        "❌ [API Service] Failed to get submitted indicators in state:",
+        error
+      );
+      console.error(
+        "❌ [API Service] Error details:",
+        error.response?.data || error.message
+      );
+      return [];
+    }
+  }
+
+  /**
    * Get user assigned indicators with full details (UUID + code)
    * Returns array of objects: [{ id: uuid, code: "1.1" }, ...]
    */
@@ -3705,6 +3781,76 @@ async getRankings(): Promise<any[]> {
       `/users/states/assigned-state-by-state-approver/${roleName}`
     );
     return res.data;
+  }
+
+  async checkEmailAvailability(
+    email: string,
+    excludeUserId?: string
+  ): Promise<boolean> {
+    try {
+      const params = excludeUserId ? { excludeUserId } : {};
+      // Note: The response interceptor already extracts response.data, so 'response' is already the data object
+      const response = await this.axios.get(
+        `/users/check-email/${encodeURIComponent(email)}`,
+        { params }
+      );
+
+      // Log response for debugging
+      console.log("Email availability check response:", {
+        email,
+        response: response,
+        available: response?.data?.available
+      });
+
+      // Return availability status, default to true if unclear
+      // Response interceptor returns response.data, so response is already { status, data, message }
+      const isAvailable = response?.data?.available ?? true;
+      return isAvailable;
+    } catch (error: any) {
+      // If error (network, 404, etc.), assume available (don't block user)
+      // Only return false if we get a clear 200 response saying it's not available
+      console.warn("Error checking email availability, assuming available:", {
+        email,
+        error: error.response?.data || error.message,
+        status: error.response?.status
+      });
+      return true; // Assume available on error to avoid false positives
+    }
+  }
+
+  async checkContactAvailability(
+    contactNumber: string,
+    excludeUserId?: string
+  ): Promise<boolean> {
+    try {
+      const params = excludeUserId ? { excludeUserId } : {};
+      // Note: The response interceptor already extracts response.data, so 'response' is already the data object
+      const response = await this.axios.get(
+        `/users/check-contact/${encodeURIComponent(contactNumber)}`,
+        { params }
+      );
+
+      // Log response for debugging
+      console.log("Contact availability check response:", {
+        contactNumber,
+        response: response,
+        available: response?.data?.available
+      });
+
+      // Return availability status, default to true if unclear
+      // Response interceptor returns response.data, so response is already { status, data, message }
+      const isAvailable = response?.data?.available ?? true;
+      return isAvailable;
+    } catch (error: any) {
+      // If error (network, 404, etc.), assume available (don't block user)
+      // Only return false if we get a clear 200 response saying it's not available
+      console.warn("Error checking contact availability, assuming available:", {
+        contactNumber,
+        error: error.response?.data || error.message,
+        status: error.response?.status
+      });
+      return true; // Assume available on error to avoid false positives
+    }
   }
 }
 

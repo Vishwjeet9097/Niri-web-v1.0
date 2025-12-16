@@ -90,8 +90,12 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
 
   // Handle individual option toggle
   const handleOptionToggle = (optionValue: string, isDisabled?: boolean) => {
+    // Look up the option to check if it's disabled
+    const option = options.find(opt => opt.value === optionValue);
+    const optionIsDisabled = isDisabled !== undefined ? isDisabled : (option?.disabled || false);
+    
     // Prevent toggling if option is disabled
-    if (isDisabled) return;
+    if (optionIsDisabled) return;
     
     if (value.includes(optionValue)) {
       onChange(value.filter((v) => v !== optionValue));
@@ -197,27 +201,34 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                 {selectedOptions.slice(0, 3).map((option) => (
                   <span
                     key={option.value}
-                    className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded"
+                    className={cn(
+                      "inline-flex items-center px-2 py-1 text-xs rounded",
+                      option.disabled 
+                        ? "bg-gray-100 text-gray-600 cursor-not-allowed" 
+                        : "bg-blue-100 text-blue-800"
+                    )}
                   >
                     {option.label}
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOptionToggle(option.value);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
+                    {!option.disabled && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
                           e.stopPropagation();
                           handleOptionToggle(option.value);
-                        }
-                      }}
-                      className="ml-1 hover:text-blue-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 rounded"
-                    >
-                      <X className="w-3 h-3" />
-                    </span>
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleOptionToggle(option.value);
+                          }
+                        }}
+                        className="ml-1 hover:text-blue-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 rounded"
+                      >
+                        <X className="w-3 h-3" />
+                      </span>
+                    )}
                   </span>
                 ))}
                 {selectedOptions.length > 3 && (
@@ -345,8 +356,14 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                       <button
                         key={option.value}
                         type="button"
-                        onClick={() => handleOptionToggle(option.value, isDisabled)}
-                        onMouseEnter={() => setFocusedIndex(globalIndex)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!isDisabled) {
+                            handleOptionToggle(option.value, isDisabled);
+                          }
+                        }}
+                        onMouseEnter={() => !isDisabled && setFocusedIndex(globalIndex)}
                         disabled={isDisabled}
                         className={cn(
                           "w-full flex items-start px-3 py-2 text-sm text-left transition-colors",
@@ -354,7 +371,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                           !isDisabled && "hover:bg-gray-100",
                           isFocused && !isDisabled && "bg-gray-100",
                           isSelected && !isDisabled && "bg-blue-50",
-                          isDisabled && "opacity-50 cursor-not-allowed bg-gray-50"
+                          isDisabled && "opacity-50 cursor-not-allowed bg-gray-50 pointer-events-none"
                         )}
                       >
                         <div className="flex-shrink-0 mt-0.5 mr-3">

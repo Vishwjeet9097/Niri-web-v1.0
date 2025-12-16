@@ -46,6 +46,7 @@ export function UserManagementPage() {
   const [isIndicatorsLoading, setIsIndicatorsLoading] = useState(false);
   const [hasSubmissions, setHasSubmissions] = useState(false);
   const [checkingSubmissions, setCheckingSubmissions] = useState(false);
+  const [submittedIndicatorsInState, setSubmittedIndicatorsInState] = useState<string[]>([]);
 
   const { refresh } = useIndicatorAccess();
   
@@ -147,6 +148,32 @@ export function UserManagementPage() {
     // Load states to ensure cache is available
     loadStates();
   }, [loadOfficers]); // Add loadOfficers dependency back
+
+  // Fetch submitted indicators in state when component loads or state changes
+  // NOTE: This is STATE-SCOPED, not global. Only finds submissions within the user's state.
+  useEffect(() => {
+    const fetchSubmittedIndicators = async () => {
+      if (user?.stateUt || user?.state) {
+        try {
+          const stateUt = user.stateUt || user.state;
+          console.log("🔍 [UserManagementPage] Fetching submitted indicators for state:", stateUt);
+          console.log("🔍 [UserManagementPage] NOTE: Query is STATE-SCOPED - only finds submissions within this state, not globally");
+          const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
+          console.log("📊 [UserManagementPage] Submitted indicators in state:", submitted);
+          console.log("📊 [UserManagementPage] Submitted indicators array:", JSON.stringify(submitted));
+          console.log("📊 [UserManagementPage] Is 1.1 in submitted?", submitted.includes("1.1"));
+          setSubmittedIndicatorsInState(submitted);
+        } catch (error) {
+          console.error("❌ [UserManagementPage] Error fetching submitted indicators:", error);
+          setSubmittedIndicatorsInState([]);
+        }
+      } else {
+        console.warn("⚠️ [UserManagementPage] No stateUt or state found for user:", user);
+      }
+    };
+
+    fetchSubmittedIndicators();
+  }, [user?.stateUt, user?.state]);
 
   // Refresh officers list when window regains focus (handles multi-tab scenarios)
   useEffect(() => {
@@ -989,6 +1016,7 @@ export function UserManagementPage() {
           officers={officers}
           loadingIndicators={isIndicatorsLoading}
           stateApproverHasSubmission={stateApproverHasSubmission}
+          submittedIndicatorsInState={submittedIndicatorsInState}
         />
       </div>
     );
