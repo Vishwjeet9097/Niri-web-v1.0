@@ -176,6 +176,19 @@ export const hasInfraFinancingData = (formData: any): boolean => {
           hasMeaningfulValue(section?.totalULBs)
         );
       case "section1_5":
+        // Check if hasIntermediary is set (yes or no)
+        if (
+          section.hasIntermediary === "yes" ||
+          section.hasIntermediary === "no"
+        ) {
+          // If "no", also check for comment (required for "no")
+          if (section.hasIntermediary === "no") {
+            return hasMeaningfulValue(section.comment);
+          }
+          // If "yes", always return true (even if ffiArray is empty initially)
+          return true;
+        }
+        // Legacy format: check for ffiArray
         return hasArrayData(section?.ffiArray) || hasArrayData(section);
 
       default:
@@ -590,6 +603,19 @@ const hasSectionData = (
             hasMeaningfulValue(section?.totalULBs)
           );
         case "section1_5":
+          // Check if hasIntermediary is set (yes or no)
+          if (
+            section.hasIntermediary === "yes" ||
+            section.hasIntermediary === "no"
+          ) {
+            // If "no", also check for comment (required for "no")
+            if (section.hasIntermediary === "no") {
+              return hasMeaningfulValue(section.comment);
+            }
+            // If "yes", always return true (even if ffiArray is empty initially)
+            return true;
+          }
+          // Legacy format: check for ffiArray
           return hasArrayData(section?.ffiArray) || hasArrayData(section);
         default:
           return false;

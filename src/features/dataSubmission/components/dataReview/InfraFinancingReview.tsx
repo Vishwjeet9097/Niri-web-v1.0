@@ -192,12 +192,24 @@ export const InfraFinancingReview = ({
         infraPayload.section1_4.bondList.length > 0
     );
 
+    // Check for section1_5 manually (similar to 1.3 and 1.4)
+    // Section1_5 has data if hasIntermediary is set (yes or no) OR if ffiArray has items
+    const hasSection15Manual = Boolean(
+      infraPayload?.section1_5 &&
+        typeof infraPayload.section1_5 === "object" &&
+        (infraPayload.section1_5.hasIntermediary === "yes" ||
+          infraPayload.section1_5.hasIntermediary === "no" ||
+          (Array.isArray(infraPayload.section1_5.ffiArray) &&
+            infraPayload.section1_5.ffiArray.length > 0))
+    );
+
     // Merge validator result + manual detections, preserving order and deduping
     const merged = Array.from(
       new Set([
         ...filteredDetectedSections, // Use filtered detected sections
         ...(hasSection13Manual ? ["section1_3"] : []),
         ...(hasSection14Manual ? ["section1_4"] : []),
+        ...(hasSection15Manual ? ["section1_5"] : []),
       ])
     );
 
@@ -312,10 +324,14 @@ export const InfraFinancingReview = ({
         let hasSection1_5Data = false;
         if (typeof section1_5 === "object") {
           // Check if it has the new format with hasIntermediary
-          if (section1_5.hasIntermediary) {
-            hasSection1_5Data = true;
+          if (section1_5.hasIntermediary === "yes") {
+            hasSection1_5Data = true; // "yes" always has data
+          } else if (section1_5.hasIntermediary === "no") {
+            // "no" requires a comment to be considered as having data
+            const comment = section1_5.comment || "";
+            hasSection1_5Data = comment.trim() !== "";
           }
-          // Check if it has ffiArray with data
+          // Check if it has ffiArray with data (legacy format or yes with items)
           else if (
             Array.isArray(section1_5.ffiArray) &&
             section1_5.ffiArray.length > 0
@@ -414,9 +430,17 @@ export const InfraFinancingReview = ({
       if (sec === "section1_5") {
         const section = infraPayload?.section1_5;
         if (!section) return false;
+
         // Check if it has the new format with hasIntermediary
-        if (section.hasIntermediary) return true;
-        // Check if it has ffiArray with data
+        if (section.hasIntermediary === "yes") {
+          return true; // "yes" always has data (even if ffiArray is empty initially)
+        }
+        if (section.hasIntermediary === "no") {
+          // "no" requires a comment to be considered as having data
+          const comment = section.comment || "";
+          return comment.trim() !== "";
+        }
+        // Check if it has ffiArray with data (legacy format or yes with items)
         if (Array.isArray(section.ffiArray) && section.ffiArray.length > 0)
           return true;
         // Check if it's the old array format
