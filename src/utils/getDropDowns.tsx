@@ -5,9 +5,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 // Dropdown values as arrays
 export const dropdownValues = {
   ulbList: [
-    "Pune Municipal Corporation",
-    "Mumbai Municipal Corporation",
-    "Nagpur Municipal Corporation"
+    { value: "c05f8cf3-3a06-438f-9330-9d604e9a0366", label: "Pune Municipal Corporation" },
+    { value: "a12b7e21-1b2c-4d3e-8f9a-123456789abc", label: "Mumbai Municipal Corporation" },
+    { value: "b23c8d34-2c3d-5e4f-9a0b-abcdef123456", label: "Nagpur Municipal Corporation" }
   ],
 
   ratingList: [
@@ -67,7 +67,7 @@ export const Dropdown = ({
   isEditable = true,
   resetKey = 0
 }: {
-  options: string[];
+  options: { value: string; label: string }[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -86,8 +86,8 @@ export const Dropdown = ({
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (
-          <SelectItem key={option} value={option}>
-            {option}
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
           </SelectItem>
         ))}
       </SelectContent>
