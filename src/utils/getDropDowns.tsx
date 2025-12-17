@@ -59,13 +59,16 @@ export const dropdownValues = {
 
 };
 
+import { useState, useMemo } from 'react';
+
 export const Dropdown = ({
   options,
   value,
   onChange,
   placeholder = "Select option",
   isEditable = true,
-  resetKey = 0
+  resetKey = 0,
+  isSearchable = false
 }: {
   options: { value: string; label: string }[];
   value: string;
@@ -73,7 +76,16 @@ export const Dropdown = ({
   placeholder?: string;
   isEditable?: boolean;
   resetKey?: number;
+  isSearchable?: boolean;
 }) => {
+  const [search, setSearch] = useState("");
+  const filteredOptions = useMemo(() => {
+    if (!isSearchable || !search) return options;
+    return options.filter(option =>
+      option.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [options, search, isSearchable]);
+
   return (
     <Select
       key={`dropdown-${resetKey}`}
@@ -85,11 +97,28 @@ export const Dropdown = ({
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
+        {isSearchable && (
+          <div className="px-2 py-1">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full px-2 py-1 border rounded text-sm mb-1"
+              autoFocus
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+        )}
+        {filteredOptions.length > 0 ? (
+          filteredOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))
+        ) : (
+          <div className="px-2 py-2 text-muted-foreground text-sm">No options found</div>
+        )}
       </SelectContent>
     </Select>
   );

@@ -46,8 +46,10 @@ import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { useFormDataStore } from "@/utils/FormDataStore";
+
 import { Section_1_3 } from "./Sections/Section_1_3";
 import { Section_1_4 } from "./Sections/Section_1_4";
+import { validateInfraFinancing } from "@/features/submission/validation/infraFinancingValidation";
 
 interface InfraFinancingReviewProps {
   submissionId: string;
@@ -108,6 +110,9 @@ export const InfraFinancingReview = ({
     ffiArray?: any[];
     comment?: string;
   }>(formData?.section1_5 || { ffiArray: [] });
+
+  // Validation error state
+  const [validationErrors, setValidationErrors] = useState<any>({});
 
   useEffect(() => {
     if (!isRestoringRef.current) {
@@ -1024,6 +1029,27 @@ export const InfraFinancingReview = ({
           ...fields[0],
           status: "RESUBMITTED",
         };
+      }
+
+
+      // --- VALIDATION ---
+      // Prepare the full data object for validation
+      const fullData = {
+        ...formData,
+        section1_3: section13State,
+        section1_4: section14State,
+        section1_5: section15State,
+      };
+      const validationResult = validateInfraFinancing(fullData, {
+        allowedIndicators: assignedIndicators,
+      });
+      if (!validationResult.isValid) {
+        setValidationErrors(validationResult.errors);
+        // Optionally, scroll to first error or show a toast
+        console.warn("Validation failed", validationResult.errors);
+        return;
+      } else {
+        setValidationErrors({});
       }
 
       // Ensure we're only sending data for the specific section being saved

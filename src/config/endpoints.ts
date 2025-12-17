@@ -69,5 +69,6 @@ export const API_ENDPOINTS = {
   ulb: {
     root: `${BASE}/ulb`,
     byState: (stateName: string) => `${BASE}/ulb?state_name=${encodeURIComponent(stateName)}`,
+    byId: (ulbId: string) => `${BASE}/ulb/${ulbId}`,
   },
 };
