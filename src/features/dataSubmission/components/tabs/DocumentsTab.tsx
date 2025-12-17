@@ -1,14 +1,18 @@
 import React from "react";
-import { Eye, Download, MoreVertical, FileText } from "lucide-react";
+import { Eye, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { SectionCard } from "@/features/submission/components/SectionCard";
+import { getIndicatorDisplayName } from "@/utils/indicatorUtils";
 
 interface Document {
   id: string;
@@ -19,6 +23,11 @@ interface Document {
   mimeType?: string;
   uploadedBy?: string;
   uploadedAt?: string | Date;
+  category?: string;
+  indicatorCode?: string;
+  indicatorName?: string;
+  sectionKey?: string;
+  entryIndex?: number; // For tracking multiple entries within an indicator
 }
 
 interface DocumentsTabProps {
@@ -27,10 +36,6 @@ interface DocumentsTabProps {
   authToken?: string; // optional token override
   submissionId?: string; // optional submission ID
 }
-
-const getFileIcon = (fileType: string) => (
-  <FileText className="w-10 h-10 text-red-500" />
-);
 
 function readAccessTokenFromLocalStorage(): string | undefined {
   try {
@@ -97,45 +102,96 @@ function downloadByLink(signedUrl: string, filename?: string) {
   a.remove();
 }
 
+// Map section keys to indicator codes
+const SECTION_TO_INDICATOR_MAP: Record<string, string> = {
+  section1_1: "1.1",
+  section1_2: "1.2",
+  section1_3: "1.3",
+  section1_4: "1.4",
+  section1_5: "1.5",
+  section2_1: "2.1",
+  section2_2: "2.2",
+  section2_3: "2.3",
+  section2_4: "2.4",
+  section2_5: "2.5",
+  section3_1: "3.1",
+  section3_2: "3.2",
+  section3_3: "3.3",
+  section3_4: "3.4",
+  section4_1: "4.1",
+  section4_2: "4.2",
+  section4_3: "4.3",
+  section4_4: "4.4",
+  section4_5: "4.5",
+  section4_6: "4.6",
+};
+
 /**
- * Recursively extract file metadata from nested formData structure
- * Files are stored as objects with filePath, fileName, originalName, etc.
+ * Recursively extract files from formData with category and indicator tracking
+ * This allows same file to appear multiple times if used in different indicators/entries
  */
-function extractFilesFromFormData(obj: any, collectedFiles: Document[] = [], seenPaths: Set<string> = new Set()): Document[] {
+function extractFilesWithContext(
+  obj: any,
+  collectedFiles: Document[] = [],
+  path: string[] = [],
+  category?: string,
+  sectionKey?: string,
+  entryIndex?: number
+): Document[] {
   if (!obj || typeof obj !== "object") return collectedFiles;
 
-  // Check if this object itself is a file metadata object
-  // File metadata objects have filePath and (fileName or originalName)
-  if (obj.filePath && typeof obj.filePath === "string" && obj.filePath.trim() !== "") {
-    // Avoid duplicates by checking filePath
-    if (!seenPaths.has(obj.filePath)) {
-      seenPaths.add(obj.filePath);
-      collectedFiles.push({
-        id: obj.id ?? obj.filePath,
-        fileName: obj.fileName,
-        originalName: obj.originalName,
-        filePath: obj.filePath,
-        fileSize: typeof obj.fileSize === "number" ? obj.fileSize : Number(obj.fileSize) || undefined,
-        mimeType: obj.mimeType,
-        uploadedBy: obj.uploadedBy ?? "Unknown",
-        uploadedAt: obj.uploadedAt ?? obj.uploadedAtString ?? undefined,
-      });
+  // Detect category from path
+  let currentCategory = category;
+  let currentSectionKey = sectionKey;
+  let currentEntryIndex = entryIndex;
+
+  // Check if we're entering a category
+  if (path.length === 1 && ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"].includes(path[0])) {
+    currentCategory = path[0];
+  }
+
+  // Check if we're entering a section
+  if (path.length === 2 && path[0] && ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"].includes(path[0])) {
+    const section = path[1];
+    if (section && typeof section === "string" && section.startsWith("section")) {
+      currentSectionKey = section;
     }
-    // Don't recurse into file metadata objects
+  }
+
+  // Check if we're in an array (for tracking entry index)
+  if (Array.isArray(obj) && currentSectionKey) {
+    obj.forEach((item, idx) => {
+      extractFilesWithContext(item, collectedFiles, [...path, `[${idx}]`], currentCategory, currentSectionKey, idx);
+    });
     return collectedFiles;
   }
 
-  // Handle arrays
-  if (Array.isArray(obj)) {
-    obj.forEach((item) => {
-      extractFilesFromFormData(item, collectedFiles, seenPaths);
+  // Check if this object is a file metadata object
+  if (obj.filePath && typeof obj.filePath === "string" && obj.filePath.trim() !== "") {
+    const indicatorCode = currentSectionKey ? SECTION_TO_INDICATOR_MAP[currentSectionKey] : undefined;
+    const indicatorName = indicatorCode ? getIndicatorDisplayName(indicatorCode) : undefined;
+    
+    collectedFiles.push({
+      id: obj.id ?? obj.filePath,
+      fileName: obj.fileName,
+      originalName: obj.originalName,
+      filePath: obj.filePath,
+      fileSize: typeof obj.fileSize === "number" ? obj.fileSize : Number(obj.fileSize) || undefined,
+      mimeType: obj.mimeType,
+      uploadedBy: obj.uploadedBy ?? "Unknown",
+      uploadedAt: obj.uploadedAt ?? obj.uploadedAtString ?? undefined,
+      category: currentCategory,
+      indicatorCode,
+      indicatorName,
+      sectionKey: currentSectionKey,
+      entryIndex: currentEntryIndex,
     });
     return collectedFiles;
   }
 
   // Handle objects - recurse into all properties
-  Object.values(obj).forEach((value) => {
-    extractFilesFromFormData(value, collectedFiles, seenPaths);
+  Object.entries(obj).forEach(([key, value]) => {
+    extractFilesWithContext(value, collectedFiles, [...path, key], currentCategory, currentSectionKey, currentEntryIndex);
   });
 
   return collectedFiles;
@@ -146,18 +202,20 @@ export const DocumentsTab = ({
   formData,
   authToken,
 }: DocumentsTabProps) => {
-  // Extract files from formData (both attachedFiles and nested fields)
+  // Extract files from formData with context tracking
   const docsFromForm = React.useMemo(() => {
     if (!formData) return [];
 
     const collectedFiles: Document[] = [];
-    const seenPaths = new Set<string>();
 
-    // First, check for attachedFiles array (if present)
-    if (Array.isArray(formData.attachedFiles) && formData.attachedFiles.length) {
-      formData.attachedFiles.forEach((f: any, idx: number) => {
-        if (f.filePath && !seenPaths.has(f.filePath)) {
-          seenPaths.add(f.filePath);
+    // Extract files from nested formData fields with context tracking
+    const { attachedFiles, ...restOfFormData } = formData;
+    extractFilesWithContext(restOfFormData, collectedFiles);
+
+    // Also handle attachedFiles if present
+    if (Array.isArray(attachedFiles) && attachedFiles.length) {
+      attachedFiles.forEach((f: any, idx: number) => {
+        if (f.filePath && typeof f.filePath === "string" && f.filePath.trim() !== "") {
           collectedFiles.push({
             id: f.id ?? `attached-${idx}`,
             fileName: f.fileName,
@@ -167,42 +225,39 @@ export const DocumentsTab = ({
             mimeType: f.mimeType,
             uploadedBy: f.uploadedBy ?? "Unknown",
             uploadedAt: f.uploadedAt ?? f.uploadedAtString ?? undefined,
+            category: "attachedFiles",
+            indicatorCode: undefined,
+            indicatorName: "Attached Files",
           });
         }
       });
     }
 
-    // Then, recursively extract files from nested formData fields
-    // Skip the attachedFiles property to avoid double-processing
-    const { attachedFiles, ...restOfFormData } = formData;
-    extractFilesFromFormData(restOfFormData, collectedFiles, seenPaths);
-
     return collectedFiles;
   }, [formData]);
 
-  // Merge documents prop and extracted files, deduplicating by filePath
+  // Merge documents prop and extracted files (allow duplicates for same file in different indicators)
   const allDocuments = React.useMemo(() => {
-    const merged: Document[] = [];
-    const seenPaths = new Set<string>();
-
-    // First add documents from prop
-    documents.forEach((doc) => {
-      if (doc.filePath && !seenPaths.has(doc.filePath)) {
-        seenPaths.add(doc.filePath);
-        merged.push(doc);
-      }
-    });
-
-    // Then add documents extracted from formData (avoiding duplicates)
+    const merged: Document[] = [...documents];
+    
+    // Add documents extracted from formData (allow duplicates for same file in different indicators)
     docsFromForm.forEach((doc) => {
-      if (doc.filePath && !seenPaths.has(doc.filePath)) {
-        seenPaths.add(doc.filePath);
-        merged.push(doc);
-      }
+      merged.push(doc);
     });
 
     return merged;
   }, [documents, docsFromForm]);
+
+  // Flatten all files for single table display, filtering out files without proper category
+  const allFilesFlat = React.useMemo(() => {
+    return allDocuments.filter((doc) => {
+      const category = doc.category;
+      // Only include files with valid categories (exclude "other" and undefined)
+      return category && 
+             category !== "other" && 
+             ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers", "attachedFiles"].includes(category);
+    });
+  }, [allDocuments]);
 
   const [loading, setLoading] = React.useState<Record<string, boolean>>({});
   const token =
@@ -211,32 +266,66 @@ export const DocumentsTab = ({
       ? readAccessTokenFromLocalStorage()
       : undefined);
 
-  // Helper to extract original name from UUID-prefixed fileName for existing files
-  const extractOriginalName = (fileName: string, originalName?: string): string => {
-    if (originalName && originalName.trim()) return originalName;
+  // Helper to extract original name from UUID-prefixed string
+  const extractOriginalNameFromString = (name: string): string => {
+    if (!name || !name.trim()) return name || "";
     
     // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+    // Matches UUID followed by underscore or hyphen
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[_-]/i;
     
-    if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+    if (uuidPattern.test(name)) {
+      const extracted = name.replace(uuidPattern, '');
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
     
-    return fileName;
+    return name;
+  };
+
+  // Helper to extract original name from UUID-prefixed fileName for existing files
+  const extractOriginalName = (fileName: string | undefined, originalName?: string): string => {
+    // First priority: use originalName if available
+    if (originalName && originalName.trim()) return originalName;
+    
+    // Second priority: extract from fileName if it exists
+    if (fileName && fileName.trim()) {
+      return extractOriginalNameFromString(fileName);
+    }
+    
+    return fileName || "";
   };
 
   const pickLabel = (d: Document) => {
-    // prefer originalName, then extracted from fileName, then fileName, then last segment of filePath
-    if (d.originalName) return d.originalName;
-    if (d.fileName) {
-      const extracted = extractOriginalName(d.fileName, d.originalName);
-      if (extracted !== d.fileName) return extracted; // If extraction succeeded, use it
-      return d.fileName;
+    // Priority 1: Use originalName if available
+    if (d.originalName && d.originalName.trim()) {
+      return d.originalName;
     }
-    if (d.filePath) return d.filePath.split("/").pop() ?? d.filePath;
+    
+    // Priority 2: Extract from fileName
+    if (d.fileName && d.fileName.trim()) {
+      const extracted = extractOriginalName(d.fileName, d.originalName);
+      if (extracted && extracted.trim().length > 0 && extracted !== d.fileName) {
+        return extracted;
+      }
+      // If extraction didn't change the name, check if it's not a UUID pattern
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[_-]/i;
+      if (!uuidPattern.test(d.fileName)) {
+        return d.fileName;
+      }
+    }
+    
+    // Priority 3: Extract from filePath (last segment)
+    if (d.filePath && d.filePath.trim()) {
+      const fileNameFromPath = d.filePath.split("/").pop() ?? d.filePath;
+      const extracted = extractOriginalNameFromString(fileNameFromPath);
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+      return fileNameFromPath;
+    }
+    
     return "unknown-file";
   };
 
@@ -254,6 +343,18 @@ export const DocumentsTab = ({
     const dt = d instanceof Date ? d : new Date(d);
     if (isNaN(dt.getTime())) return "Unknown date";
     return dt.toLocaleString();
+  };
+
+  const getCategoryDisplayName = (category: string): string => {
+    const names: Record<string, string> = {
+      infraFinancing: "Infrastructure Financing",
+      infraDevelopment: "Infrastructure Development",
+      pppDevelopment: "PPP Development",
+      infraEnablers: "Infrastructure Enablers",
+      attachedFiles: "Attached Files",
+      other: "Other",
+    };
+    return names[category] || category;
   };
 
   const onView = async (doc: Document, docKey: string) => {
@@ -337,75 +438,103 @@ export const DocumentsTab = ({
   return (
     <SectionCard
       title="Document Review"
-      subtitle="Data related to infrastructure financing and budget allocation"
+      subtitle="All documents organized by category and indicator"
       className="mb-6"
     >
-      <CardContent className="space-y-4">
-        {allDocuments.length === 0 ? (
+      <CardContent>
+        {allFilesFlat.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p>No documents found in this submission</p>
           </div>
         ) : (
-          allDocuments.map((doc, idx) => {
-            const docKey = doc.id ?? doc.filePath ?? `doc-${idx}`;
-            const label = pickLabel(doc);
-            const isLoading = !!loading[docKey];
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">Category</TableHead>
+                  <TableHead className="w-[250px]">Indicator</TableHead>
+                  <TableHead>File Name</TableHead>
+                  <TableHead className="w-[100px]">File Size</TableHead>
+                  <TableHead className="w-[180px]">Uploaded At</TableHead>
+                  <TableHead className="w-[180px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allFilesFlat.map((doc, fileIndex) => {
+                  const category = doc.category!; // Already filtered, so it's safe
+                  const indicatorCode = doc.indicatorCode;
+                  const docKey = `${doc.id ?? doc.filePath ?? `doc-${fileIndex}`}-${category}-${indicatorCode || 'unknown'}-${fileIndex}`;
+                  const label = pickLabel(doc);
+                  const isLoading = !!loading[docKey];
+                  
+                  // Get indicator name
+                  const indicatorName = indicatorCode 
+                    ? (doc.indicatorName || getIndicatorDisplayName(indicatorCode))
+                    : (doc.indicatorName || "N/A");
 
-            return (
-              <div
-                key={docKey}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  {getFileIcon(
-                    (doc.fileName || doc.originalName || "").split(".").pop() ||
-                      ""
-                  )}
-                  <div>
-                    <h4 className="font-semibold text-foreground">{label}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {formatSize(doc.fileSize)} | Uploaded by{" "}
-                      {doc.uploadedBy ?? "User"} on {formatDate(doc.uploadedAt)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => onView(doc, docKey)}
-                    disabled={isLoading}
-                  >
-                    <Eye className="w-4 h-4" />
-                    {isLoading ? "Opening..." : "View"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => onDownload(doc, docKey)}
-                    disabled={isLoading}
-                  >
-                    <Download className="w-4 h-4" />
-                    {isLoading ? "Downloading..." : "Download"}
-                  </Button>
-                  {/* <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Delete</DropdownMenuItem>
-                      <DropdownMenuItem>Share</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu> */}
-                </div>
-              </div>
-            );
-          })
+                  return (
+                    <TableRow key={docKey}>
+                      <TableCell className="font-medium text-sm">
+                        {getCategoryDisplayName(category)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {indicatorCode && (
+                            <Badge variant="outline" className="w-fit bg-primary/10 text-primary border-primary/20">
+                              {indicatorCode}
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {indicatorName}
+                          </span>
+                          {doc.entryIndex !== undefined && (
+                            <span className="text-[10px] text-muted-foreground">
+                              (Entry {doc.entryIndex + 1})
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-red-500 flex-shrink-0" />
+                          <span className="font-medium text-sm truncate">{label}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">{formatSize(doc.fileSize)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(doc.uploadedAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 h-8 px-2 text-xs"
+                            onClick={() => onView(doc, docKey)}
+                            disabled={isLoading}
+                          >
+                            <Eye className="w-3 h-3" />
+                            {isLoading ? "..." : "View"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 h-8 px-2 text-xs"
+                            onClick={() => onDownload(doc, docKey)}
+                            disabled={isLoading}
+                          >
+                            <Download className="w-3 h-3" />
+                            {isLoading ? "..." : "Download"}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </SectionCard>
