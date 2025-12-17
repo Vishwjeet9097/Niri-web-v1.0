@@ -181,8 +181,92 @@ export const InfraEnablersReview = ({
   const { setEditable, isEditable, clearAllEditing } =
     useEditableSectionStore();
 
+  // Helper function to check if section should be editable based on mospi_status for STATE_APPROVER
+  const shouldBeEditable = (sectionId: string): boolean => {
+    const userRole = getUserRole();
+    const isStateApprover = userRole === "STATE_APPROVER";
+
+    // For STATE_APPROVER, check submission status first
+    if (isStateApprover) {
+      const submissionStatus = submission?.status;
+      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
+      if (
+        submissionStatus !== "SUBMITTED_TO_STATE" &&
+        submissionStatus !== "RETURNED_FROM_MOSPI"
+      ) {
+        return false;
+      }
+
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (state && state[sectionKey]) || (formData && formData[sectionKey]);
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If mospi_status is ACCEPTED, section should NOT be editable
+      if (mospiStatus === "ACCEPTED") {
+        return false;
+      }
+      // If mospi_status is REVERTED, section CAN be edited
+      // But it's only editable if it's currently in edit mode (isEditable returns true)
+      if (mospiStatus === "REVERTED") {
+        return isEditable(sectionId);
+      }
+      // If mospi_status is not set, allow editing if in edit mode (for initial state editing)
+      return isEditable(sectionId);
+    }
+
+    // For other roles or when mospi_status is not set, use existing isEditable logic
+    return isEditable(sectionId);
+  };
+
   // Handle edit mode start - store original state snapshot
+  // Helper function to check if section CAN be edited (permission check, not state check)
+  const canEditSection = (sectionId: string): boolean => {
+    const userRole = getUserRole();
+    const isStateApprover = userRole === "STATE_APPROVER";
+
+    if (isStateApprover) {
+      const submissionStatus = submission?.status;
+      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      if (
+        submissionStatus !== "SUBMITTED_TO_STATE" &&
+        submissionStatus !== "RETURNED_FROM_MOSPI"
+      ) {
+        return false;
+      }
+
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (state && state[sectionKey]) || (formData && formData[sectionKey]);
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If mospi_status is ACCEPTED, section CANNOT be edited
+      if (mospiStatus === "ACCEPTED") {
+        return false;
+      }
+      // If mospi_status is REVERTED, section CAN be edited
+      if (mospiStatus === "REVERTED") {
+        return true;
+      }
+    }
+
+    // For other roles or when mospi_status is not set, allow editing
+    return true;
+  };
+
   const handleEditStart = (sectionId: string) => {
+    // Check if section CAN be edited (permission check)
+    if (!canEditSection(sectionId)) {
+      console.log(
+        `[InfraEnablersReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED or invalid status`
+      );
+      return;
+    }
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
@@ -970,6 +1054,35 @@ export const InfraEnablersReview = ({
       };
       const userRole = getUserRole();
       const isMospiApprover = userRole === "MOSPI_APPROVER";
+      const isStateApprover = userRole === "STATE_APPROVER";
+
+      // If STATE_APPROVER is accepting, check if there's a comment that needs to be saved first
+      // This ensures comments are preserved when accepting indicators with "No" selection
+      if (isStateApprover) {
+        const sectionKey = `section${pendingActionSectionId.replace(".", "_")}`;
+        const sectionData = state?.[sectionKey];
+        const hasComment =
+          sectionData?.comment && sectionData.comment.trim() !== "";
+
+        // If there's a comment, save it first before accepting
+        if (hasComment) {
+          console.log(
+            `💬 [Accept] Saving comment for indicator ${pendingActionSectionId} before accepting`
+          );
+          try {
+            await performSave(pendingActionSectionId);
+            console.log(
+              `✅ [Accept] Comment saved successfully for indicator ${pendingActionSectionId}`
+            );
+          } catch (error) {
+            console.error(
+              `❌ [Accept] Failed to save comment for indicator ${pendingActionSectionId}:`,
+              error
+            );
+            // Continue with acceptance even if comment save fails
+          }
+        }
+      }
 
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
@@ -1342,6 +1455,65 @@ export const InfraEnablersReview = ({
     setShowAddCapacityForm(false);
   };
 
+  // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  const renderMOSPIReviewerComments = (sectionId: string) => {
+    const getUserRole = () => {
+      try {
+        const authUser = localStorage.getItem("niri_app:auth_user");
+        if (authUser) {
+          const user = JSON.parse(authUser);
+          const role = user.value?.role;
+          // Normalize role string (trim whitespace, convert to uppercase for comparison)
+          return role ? String(role).trim() : null;
+        }
+      } catch (error) {
+        console.error("Error reading user role:", error);
+      }
+      return null;
+    };
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
+    if (!isMospiApprover) return null;
+
+    const comments = getComments(sectionId);
+    if (!comments || comments.length === 0) return null;
+
+    const mospiReviewerComments = comments.filter((comment: any) => {
+      const commentRole = comment.role || comment.userRole || "";
+      return commentRole.toUpperCase() === "MOSPI_REVIEWER";
+    });
+
+    if (mospiReviewerComments.length === 0) return null;
+
+    // Sort by timestamp (newest first) and get the last (most recent) comment
+    const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
+    });
+    const lastComment = sortedComments[0]; // Get the most recent comment
+
+    return (
+      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+        <p className="text-sm font-semibold text-green-900 mb-2">
+          MoSPI Reviewer Comment:
+        </p>
+        <div className="mb-2 last:mb-0">
+          <p className="text-sm text-green-800">
+            {(lastComment as any).text ||
+              (lastComment as any).message ||
+              (lastComment as any).comment}
+          </p>
+          {lastComment.timestamp && (
+            <p className="text-xs text-green-600 mt-1">
+              {new Date(lastComment.timestamp).toLocaleString()}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
@@ -1370,9 +1542,13 @@ export const InfraEnablersReview = ({
     const isMospiReviewer = userRole === "MOSPI_REVIEWER";
     const isMospiApprover = userRole === "MOSPI_APPROVER";
 
-    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
+    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer or MoSPI Approver
     const submissionStatus = submission?.status;
-    if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
+    if (
+      isStateApprover &&
+      (submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER" ||
+        submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")
+    ) {
       return null;
     }
 
@@ -1498,7 +1674,7 @@ export const InfraEnablersReview = ({
               setMospiSentBackSectionId(sectionId);
               handleOpenModal(sectionId);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
@@ -1513,7 +1689,7 @@ export const InfraEnablersReview = ({
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -1584,6 +1760,42 @@ export const InfraEnablersReview = ({
       );
     }
 
+    // For STATE_APPROVER, check mospi_status to determine if section should be editable
+    if (isStateApprover) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (state && state[sectionKey]) || (formData && formData[sectionKey]);
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If mospi_status is ACCEPTED, show as accepted and non-editable
+      if (mospiStatus === "ACCEPTED") {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+    }
+
     // For STATE_APPROVER, show "Re Submitted" badge if status is RESUBMITTED
     if (isStateApprover && sectionStatus === "RESUBMITTED") {
       console.log(
@@ -1591,7 +1803,7 @@ export const InfraEnablersReview = ({
       );
       return (
         <div className="flex gap-2">
-          {!isEditable(sectionId) ? (
+          {!shouldBeEditable(sectionId) ? (
             <Button
               variant="outline"
               size="sm"
@@ -1639,7 +1851,7 @@ export const InfraEnablersReview = ({
               size="sm"
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => onIndicatorStatus(sectionId, true)}
-              disabled={isEditable(sectionId)} // Disable Accept during editing
+              disabled={shouldBeEditable(sectionId)} // Disable Accept during editing
             >
               <CheckCircle className="w-4 h-4" />
               Accept
@@ -1663,7 +1875,7 @@ export const InfraEnablersReview = ({
       if (isNodalOfficer) {
         return (
           <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
+            {!shouldBeEditable(sectionId) ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -1811,12 +2023,26 @@ export const InfraEnablersReview = ({
 
     return (
       <div className="flex gap-2">
-        {!isEditable(sectionId) ? (
+        {!shouldBeEditable(sectionId) ? (
           <Button
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => setEditable(sectionId, true)}
+            onClick={() => handleEditStart(sectionId)}
+            disabled={(() => {
+              // For STATE_APPROVER, disable edit button if mospi_status is ACCEPTED
+              if (isStateApprover) {
+                const sectionKey = `section${sectionId.replace(".", "_")}`;
+                const sectionData =
+                  (state && state[sectionKey]) ||
+                  (formData && formData[sectionKey]);
+                const mospiStatus = Array.isArray(sectionData)
+                  ? (sectionData as any)?.mospi_status
+                  : sectionData?.mospi_status;
+                return mospiStatus === "ACCEPTED";
+              }
+              return false;
+            })()}
           >
             <Edit3 className="w-4 h-4" />
             Edit
@@ -1882,7 +2108,7 @@ export const InfraEnablersReview = ({
               }
               handleOpenModal(sectionId);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Send Back
@@ -1905,7 +2131,7 @@ export const InfraEnablersReview = ({
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onIndicatorStatus(sectionId, true)}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -1969,6 +2195,8 @@ export const InfraEnablersReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.1")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -1992,7 +2220,7 @@ export const InfraEnablersReview = ({
                 <Label className="mb-3 block">
                   All Eligible Infra Projects on NIP Portal?*
                 </Label>
-                {isEditable("4.1") ? (
+                {shouldBeEditable("4.1") ? (
                   <RadioGroup
                     value={state?.section4_1?.allEligible || ""}
                     onValueChange={(value) =>
@@ -2029,8 +2257,10 @@ export const InfraEnablersReview = ({
                   <Label>Website Link</Label>
                   <Input
                     value={state?.section4_1?.websiteLink || ""}
-                    readOnly={!isEditable("4.1")}
-                    className={isEditable("4.1") ? "bg-white" : "bg-gray-50"}
+                    readOnly={!shouldBeEditable("4.1")}
+                    className={
+                      shouldBeEditable("4.1") ? "bg-white" : "bg-gray-50"
+                    }
                     onChange={(e) =>
                       handleFieldUpdate("4.1", "websiteLink", e.target.value)
                     }
@@ -2041,7 +2271,7 @@ export const InfraEnablersReview = ({
               {state?.section4_1?.allEligible === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable("4.1") ? (
+                  {shouldBeEditable("4.1") ? (
                     <Textarea
                       value={state?.section4_1?.comment || ""}
                       onChange={(e) =>
@@ -2062,7 +2292,7 @@ export const InfraEnablersReview = ({
               <div>
                 <EditableFileDisplay
                   files={formDataState?.section4_1?.file || null}
-                  isEditable={isEditable('4.1')}
+                  isEditable={shouldBeEditable('4.1')}
                   submissionId={submissionId}
                   onFilesChange={(updatedFile) => handleFileUpdate('4.1', updatedFile)}
                   label="Uploaded File"
@@ -2098,12 +2328,14 @@ export const InfraEnablersReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.2")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">
                   Availability and Use of EaseMPR?*
                 </Label>
-                {isEditable("4.2") ? (
+                {shouldBeEditable("4.2") ? (
                   <RadioGroup
                     value={state?.section4_2?.available || ""}
                     onValueChange={(value) =>
@@ -2142,7 +2374,7 @@ export const InfraEnablersReview = ({
                       state?.section4_2?.files ??
                       (state?.section4_2?.file ? [state.section4_2.file] : null)
                     }
-                    isEditable={isEditable("4.2")}
+                    isEditable={shouldBeEditable("4.2")}
                     submissionId={submissionId}
                     onFilesChange={(updatedFiles) =>
                       handleFileUpdate("4.2", updatedFiles)
@@ -2156,7 +2388,7 @@ export const InfraEnablersReview = ({
               {state?.section4_2?.available === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable("4.2") ? (
+                  {shouldBeEditable("4.2") ? (
                     <Textarea
                       value={state?.section4_2?.comment || ""}
                       onChange={(e) =>
@@ -2214,12 +2446,14 @@ export const InfraEnablersReview = ({
               )}
             </div>
           </CardHeader> */}
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.3")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">
                   Adoption of PM GatiShakti?*
                 </Label>
-                {isEditable("4.3") ? (
+                {shouldBeEditable("4.3") ? (
                   <RadioGroup
                     value={state?.section4_3?.adopted || ""}
                     onValueChange={(value) =>
@@ -2293,7 +2527,7 @@ export const InfraEnablersReview = ({
                           return projects.map((project: any, idx: number) => (
                             <tr key={project.id || idx} className="border-b">
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("4.3") ? (
+                                {shouldBeEditable("4.3") ? (
                                   <Input
                                     value={project.projectName || ""}
                                     onChange={(e) =>
@@ -2311,7 +2545,7 @@ export const InfraEnablersReview = ({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("4.3") ? (
+                                {shouldBeEditable("4.3") ? (
                                   <Dropdown
                                     value={project.sector || ""}
                                     onChange={(value) =>
@@ -2329,7 +2563,7 @@ export const InfraEnablersReview = ({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("4.3") ? (
+                                {shouldBeEditable("4.3") ? (
                                   <div className="space-y-1.5">
                                     {project.file ? (
                                       <Badge
@@ -2469,7 +2703,7 @@ export const InfraEnablersReview = ({
                   </div>
 
                   {/* Add More Button - Only visible when adopted is "yes" and in edit mode */}
-                  {isEditable("4.3") && !showAddProjectForm && (
+                  {shouldBeEditable("4.3") && !showAddProjectForm && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -2482,7 +2716,7 @@ export const InfraEnablersReview = ({
                   )}
 
                   {/* Add Project Form - Only visible when showAddProjectForm is true */}
-                  {showAddProjectForm && isEditable("4.3") && (
+                  {showAddProjectForm && shouldBeEditable("4.3") && (
                     <div className="border rounded-lg p-4 bg-gray-50">
                       <h4 className="font-medium mb-3">Add New Project</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2556,7 +2790,7 @@ export const InfraEnablersReview = ({
               {state?.section4_3?.adopted === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable("4.3") ? (
+                  {shouldBeEditable("4.3") ? (
                     <Textarea
                       value={state?.section4_3?.comment || ""}
                       onChange={(e) =>
@@ -2599,12 +2833,14 @@ export const InfraEnablersReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.4")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">
                   Adoption of Alternate Dispute Resolution (ADR)?*
                 </Label>
-                {isEditable("4.4") ? (
+                {shouldBeEditable("4.4") ? (
                   <RadioGroup
                     value={state?.section4_4?.adopted || ""}
                     onValueChange={(value) =>
@@ -2643,7 +2879,7 @@ export const InfraEnablersReview = ({
                       state?.section4_4?.files ??
                       (state?.section4_4?.file ? [state.section4_4.file] : null)
                     }
-                    isEditable={isEditable("4.4")}
+                    isEditable={shouldBeEditable("4.4")}
                     submissionId={submissionId}
                     onFilesChange={(updatedFiles) =>
                       handleFileUpdate("4.4", updatedFiles)
@@ -2657,7 +2893,7 @@ export const InfraEnablersReview = ({
               {state?.section4_4?.adopted === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable("4.4") ? (
+                  {shouldBeEditable("4.4") ? (
                     <Textarea
                       value={state?.section4_4?.comment || ""}
                       onChange={(e) =>
@@ -2701,6 +2937,8 @@ export const InfraEnablersReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.5")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2720,7 +2958,7 @@ export const InfraEnablersReview = ({
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">Implemented?*</Label>
-                {isEditable("4.5") ? (
+                {shouldBeEditable("4.5") ? (
                   <RadioGroup
                     value={state?.section4_5?.implemented || ""}
                     onValueChange={(value) =>
@@ -2794,7 +3032,7 @@ export const InfraEnablersReview = ({
                           return practices.map((practice: any, idx: number) => (
                             <tr key={practice.id || idx} className="border-b">
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("4.5") ? (
+                                {shouldBeEditable("4.5") ? (
                                   <Input
                                     value={practice.practiceName || ""}
                                     onChange={(e) =>
@@ -2812,7 +3050,7 @@ export const InfraEnablersReview = ({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("4.5") ? (
+                                {shouldBeEditable("4.5") ? (
                                   <Dropdown
                                     value={practice.impact || ""}
                                     onChange={(value) =>
@@ -2830,7 +3068,7 @@ export const InfraEnablersReview = ({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("4.5") ? (
+                                {shouldBeEditable("4.5") ? (
                                   <div className="space-y-1.5">
                                     {practice.file ? (
                                       <Badge
@@ -2970,7 +3208,7 @@ export const InfraEnablersReview = ({
                   </div>
 
                   {/* Add More Practice Button - Only visible when in edit mode */}
-                  {isEditable("4.5") && !showAddPracticeForm && (
+                  {shouldBeEditable("4.5") && !showAddPracticeForm && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -2983,7 +3221,7 @@ export const InfraEnablersReview = ({
                   )}
 
                   {/* Add Practice Form - Only visible when showAddPracticeForm is true */}
-                  {showAddPracticeForm && isEditable("4.5") && (
+                  {showAddPracticeForm && shouldBeEditable("4.5") && (
                     <div className="border rounded-lg p-4 bg-gray-50">
                       <h4 className="font-medium mb-3">Add New Practice</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3057,7 +3295,7 @@ export const InfraEnablersReview = ({
               {state?.section4_5?.implemented === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable("4.5") ? (
+                  {shouldBeEditable("4.5") ? (
                     <Textarea
                       value={state?.section4_5?.comment || ""}
                       onChange={(e) =>
@@ -3100,12 +3338,14 @@ export const InfraEnablersReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("4.6")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">
                   Capacity Building – Officer Participation*
                 </Label>
-                {isEditable("4.6") ? (
+                {shouldBeEditable("4.6") ? (
                   <RadioGroup
                     value={state?.section4_6?.participated || ""}
                     onValueChange={(value) => {
@@ -3188,7 +3428,7 @@ export const InfraEnablersReview = ({
                         return capacityArray.map((item: any, idx: number) => (
                           <tr key={item.id || idx} className="border-b">
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable("4.6") ? (
+                              {shouldBeEditable("4.6") ? (
                                 <Input
                                   value={item.officerName || ""}
                                   onChange={(e) =>
@@ -3206,7 +3446,7 @@ export const InfraEnablersReview = ({
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable("4.6") ? (
+                              {shouldBeEditable("4.6") ? (
                                 <Input
                                   value={item.designation || ""}
                                   onChange={(e) =>
@@ -3224,7 +3464,7 @@ export const InfraEnablersReview = ({
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable("4.6") ? (
+                              {shouldBeEditable("4.6") ? (
                                 <Input
                                   value={item.programName || ""}
                                   onChange={(e) =>
@@ -3242,7 +3482,7 @@ export const InfraEnablersReview = ({
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable("4.6") ? (
+                              {shouldBeEditable("4.6") ? (
                                 <Dropdown
                                   value={item.trainingType || ""}
                                   onChange={(value) =>
@@ -3260,7 +3500,7 @@ export const InfraEnablersReview = ({
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable("4.6") ? (
+                              {shouldBeEditable("4.6") ? (
                                 <Input
                                   value={item.organiser || ""}
                                   onChange={(e) =>
@@ -3288,7 +3528,7 @@ export const InfraEnablersReview = ({
               {state?.section4_6?.participated === "no" && (
                 <div>
                   <Label className="mb-2 block">Comments (Reason)</Label>
-                  {isEditable("4.6") ? (
+                  {shouldBeEditable("4.6") ? (
                     <Textarea
                       value={state?.section4_6?.comment || ""}
                       onChange={(e) =>
@@ -3307,7 +3547,7 @@ export const InfraEnablersReview = ({
 
               {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
               {state?.section4_6?.participated === "yes" &&
-                isEditable("4.6") &&
+                shouldBeEditable("4.6") &&
                 !showAddCapacityForm && (
                   <Button
                     variant="outline"
@@ -3323,7 +3563,7 @@ export const InfraEnablersReview = ({
               {/* Add Capacity Entry Form - Only visible when showAddCapacityForm is true and "yes" is selected */}
               {state?.section4_6?.participated === "yes" &&
                 showAddCapacityForm &&
-                isEditable("4.6") && (
+                shouldBeEditable("4.6") && (
                   <div className="border rounded-lg p-4 bg-gray-50">
                     <h4 className="font-medium mb-3">
                       Add New Capacity Building Entry
@@ -3481,7 +3721,8 @@ export const InfraEnablersReview = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Save</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to save this indicator? This will resubmit it to the State Approver.
+              Are you sure you want to save this indicator? This will resubmit
+              it to the State Approver.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

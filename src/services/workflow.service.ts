@@ -132,6 +132,8 @@ class WorkflowService {
           return true;
         }
         // STATE_APPROVER can edit SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+        // STATE_APPROVER should NOT have editing access when status is SUBMITTED_TO_MOSPI_APPROVER
+        // (only after MOSPI_APPROVER sends back, status becomes RETURNED_FROM_MOSPI)
         if (
           (submission.status === WORKFLOW_STATES.SUBMITTED_TO_STATE ||
             submission.status === WORKFLOW_STATES.RETURNED_FROM_MOSPI) &&
@@ -459,6 +461,8 @@ class WorkflowService {
       return true;
     }
     // STATE_APPROVER can edit SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+    // STATE_APPROVER should NOT have editing access when status is SUBMITTED_TO_MOSPI_APPROVER
+    // (only after MOSPI_APPROVER sends back, status becomes RETURNED_FROM_MOSPI)
     if (
       (submission.status === WORKFLOW_STATES.SUBMITTED_TO_STATE ||
         submission.status === WORKFLOW_STATES.RETURNED_FROM_MOSPI) &&
