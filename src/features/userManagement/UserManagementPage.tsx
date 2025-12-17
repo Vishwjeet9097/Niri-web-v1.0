@@ -1002,27 +1002,9 @@ export function UserManagementPage() {
     setShowForm(false);
     setEditingOfficer(null);
   };
-  if (showForm) {
-    // Debug logging removed for performance
 
-    // Determine stateName to pass if needed (UserForm computes availability itself)
-    return (
-      <div className="p-6 space-y-6">
-        <UserForm
-          officer={editingOfficer}
-          onSave={handleSaveUser}
-          onCancel={handleCancel}
-          allIndicators={allIndicators}
-          officers={officers}
-          loadingIndicators={isIndicatorsLoading}
-          stateApproverHasSubmission={stateApproverHasSubmission}
-          submittedIndicatorsInState={submittedIndicatorsInState}
-        />
-      </div>
-    );
-  }
-
-  if (officers.length === 0) {
+  // Early returns for access control and loading - these are OK as they happen before any conditional logic
+  if (officers.length === 0 && !showForm) {
     // Debug logging removed for performance
 
     return (
@@ -1080,6 +1062,24 @@ export function UserManagementPage() {
             Please wait while we fetch the user data...
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Show form if showForm is true - render conditionally in return
+  if (showForm) {
+    return (
+      <div className="p-6 space-y-6">
+        <UserForm
+          officer={editingOfficer}
+          onSave={handleSaveUser}
+          onCancel={handleCancel}
+          allIndicators={allIndicators}
+          officers={officers}
+          loadingIndicators={isIndicatorsLoading}
+          stateApproverHasSubmission={stateApproverHasSubmission}
+          submittedIndicatorsInState={submittedIndicatorsInState}
+        />
       </div>
     );
   }

@@ -38,12 +38,11 @@ export function CleanupButtons({
       
       console.log("🔍 Cleanup result:", result);
 
-      // Safely access deleted property with fallback
-      const deleted = result?.deleted || {};
-      const submissions = deleted.submissions || 0;
-      const finalScores = deleted.finalScores || 0;
-      const userIndicatorScopes = deleted.userIndicatorScopes || 0;
-      const auditLogs = deleted.auditLogs || 0;
+      // Safely access deleted property with optional chaining
+      const submissions = result?.deleted?.submissions || 0;
+      const finalScores = result?.deleted?.finalScores || 0;
+      const userIndicatorScopes = result?.deleted?.userIndicatorScopes || 0;
+      const auditLogs = result?.deleted?.auditLogs || 0;
 
       notificationService.success(
         `Test data cleanup completed successfully. Deleted: ${submissions} submissions, ${finalScores} final scores, ${userIndicatorScopes} indicator assignments, ${auditLogs} audit logs.`,
