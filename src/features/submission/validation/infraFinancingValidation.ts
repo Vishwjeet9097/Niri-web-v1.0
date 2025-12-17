@@ -186,9 +186,15 @@ export const validateInfraFinancing = (
       }
     });
 
-    if (section13.totalULBs > 0 && section13.ulbList.length === 0) {
-      errors["section1_3.ulbList"] =
-        "Add at least one ULB entry when total number of ULBs is greater than zero.";
+    // Require at least one ULB entry when submitting
+    if (section13.ulbList.length === 0) {
+      if (section13.totalULBs > 0) {
+        errors["section1_3.ulbList"] =
+          "Add at least one ULB entry when total number of ULBs is greater than zero.";
+      } else {
+        errors["section1_3.ulbList"] =
+          "Add at least one ULB entry before submitting this indicator.";
+      }
     }
   }
 
@@ -220,9 +226,15 @@ export const validateInfraFinancing = (
       }
     });
 
-    if (section14.totalULBs > 0 && section14.bondList.length === 0) {
-      errors["section1_4.bondList"] =
-        "Add at least one bond entry when total number of ULBs is greater than zero.";
+    // Require at least one bond entry when submitting
+    if (section14.bondList.length === 0) {
+      if (section14.totalULBs > 0) {
+        errors["section1_4.bondList"] =
+          "Add at least one bond entry when total number of ULBs is greater than zero.";
+      } else {
+        errors["section1_4.bondList"] =
+          "Add at least one bond entry before submitting this indicator.";
+      }
     }
   }
 

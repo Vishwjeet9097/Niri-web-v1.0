@@ -65,9 +65,8 @@ export const SECTOR_OPTIONS = [
 ];
 
 export const BOND_TYPE_OPTIONS = [
-  "Municipal bond",
-  "State bond",
-  "Green bond",
+  "Municipal",
+  "Green", 
   "Other",
 ];
 
@@ -117,8 +116,6 @@ export const IMPACT_OPTIONS = [
 
 export const TRAINING_TYPE_OPTIONS = [
   "Select Status",
-  "Technical",
-  "Management",
-  "Leadership",
-  "Other",
+  "Online",
+  "Offline" 
 ];

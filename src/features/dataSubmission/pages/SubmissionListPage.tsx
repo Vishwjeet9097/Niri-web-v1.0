@@ -61,7 +61,7 @@ type AggregatedIndicator = {
   category?: string;
   maxScore?: number | string;
   status?: string;
-  remarks?: string | null;
+  comment?: string | null;
   score?: number | string | null;
   updatedAt?: string | null;
   year?: string | null;
@@ -310,6 +310,33 @@ const transformIndicatorsToFormData = (
           formFields.year = indicator.year;
         } else if (indicatorData.year) {
           formFields.year = indicatorData.year;
+        }
+
+        // Add comment if available (from indicator.comment - comments are at indicator level, not in data)
+        // Include both non-null values and empty strings (empty strings should show "No comment provided" in UI)
+        if (indicator.comment !== null && indicator.comment !== undefined) {
+          formFields.comment = indicator.comment;
+          console.log(
+            `[Transform] Indicator ${code} - added comment:`,
+            indicator.comment || "(empty string)"
+          );
+        } else if (
+          indicatorData?.comment !== null &&
+          indicatorData?.comment !== undefined
+        ) {
+          // Fallback: check if comment is in indicatorData
+          formFields.comment = indicatorData.comment;
+          console.log(
+            `[Transform] Indicator ${code} - added comment from data:`,
+            indicatorData.comment || "(empty string)"
+          );
+        } else if (
+          indicator.comment === null ||
+          indicatorData?.comment === null
+        ) {
+          // Explicitly set to null so UI can distinguish between "no comment field" and "comment is null"
+          formFields.comment = null;
+          console.log(`[Transform] Indicator ${code} - comment is null`);
         }
 
         // Handle status field - infer form fields from status for some indicators

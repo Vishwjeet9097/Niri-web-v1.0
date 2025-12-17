@@ -56,32 +56,83 @@ export const InfraFinancingStep = () => {
   // ULB dropdown state
   const [ulbOptions, setUlbOptions] = useState<ULB[]>([]);
   // Per-row search state for ULB dropdowns
-  const [ulbSearchMap, setUlbSearchMap] = useState<{ [id: string]: string }>(
-    {}
-  );
+  const [ulbSearchMap, setUlbSearchMap] = useState<{ [id: string]: string }>({});
   // Per-row visible count for infinite scroll
-  const [ulbVisibleCountMap, setUlbVisibleCountMap] = useState<{
-    [id: string]: number;
-  }>({});
+  const [ulbVisibleCountMap, setUlbVisibleCountMap] = useState<{ [id: string]: number }>({});
 
-  // Fetch all ULBs on mount (or filter by state if needed)
+  // Make sure user is initialized before use
+  const { user } = useAuth();
+
+  // Fetch ULBs for the logged-in user's state (dynamic API call)
   useEffect(() => {
     let mounted = true;
-    // Use a microtask to allow React to render before fetching
-    Promise.resolve().then(async () => {
-      const ulbs = await ulbService.getAllULBs();
-      const unique = Array.from(
-        new Map(
-          ulbs.map((u) => [u.ulb_name + u.city_name + u.ulb_type, u])
-        ).values()
-      );
-      if (mounted) setUlbOptions(unique);
-    });
+    if (!user) {
+      console.error("User not found in context. ULB dropdown will not populate.");
+      setUlbOptions([]);
+      return;
+    }
+    if (!user.state || user.state.trim() === "") {
+      toast({
+        title: "User state missing",
+        description: "Your user profile does not have a state assigned. ULB dropdown cannot be populated.",
+        variant: "destructive",
+      });
+      setUlbOptions([]);
+      console.error("User state missing. User:", user);
+      return;
+    }
+    (async () => {
+      try {
+        // Call the API with the dynamic state name
+        const response = await ulbService.getULBsByState(user.state);
+        let ulbs = [];
+        // Handle new API response structure: { status, data: { total, data: [...] } }
+        if (response && response.data && Array.isArray(response.data.data)) {
+          ulbs = response.data.data;
+        } else if (Array.isArray(response)) {
+          ulbs = response;
+        } else if (response && Array.isArray(response.data)) {
+          ulbs = response.data;
+        } else if (Array.isArray(response.data)) {
+          ulbs = response.data;
+        }
+        console.log('ULB API raw:', ulbs);
+        if (!Array.isArray(ulbs) || ulbs.length === 0) {
+           toast({
+            title: 'No ULBs found',
+            description: `No ULBs are available for the state: ${user.state}. Please check the API response or contact admin.`,
+            variant: 'destructive',
+          });
+          if (mounted) setUlbOptions([]);
+          return;
+        }
+        // Remove duplicates by ulb_name + city_name + ulb_type
+        const unique = Array.from(
+          new Map(
+            ulbs.map((u) => [
+              (u.ulb_name || u.ulbName || u.name || '') +
+                (u.city_name || u.cityName || '') +
+                (u.ulb_type || u.ulbType || ''),
+              u
+            ])
+          ).values()
+        );
+        console.log('ULB options set:', unique);
+        if (mounted) setUlbOptions(unique);
+      } catch (err) {
+        console.error('Failed to fetch ULBs:', err);
+        setUlbOptions([]);
+        toast({
+          title: 'ULB Fetch Error',
+          description: 'Failed to fetch ULBs for the selected state.',
+          variant: 'destructive',
+        });
+      }
+    })();
     return () => {
       mounted = false;
     };
-  }, []);
-  const { user } = useAuth();
+  }, [user]);
   const [sectionStatus, setSectionStatus] = useState<any>({
     completedIndicators: [],
     completedCount: 0,
@@ -202,7 +253,30 @@ export const InfraFinancingStep = () => {
   const initialData: InfraFinancingData =
     safeInfraFinancingFormData(loadedData);
 
-  const [formData, setFormData] = useState<InfraFinancingData>(initialData);
+  // Ensure at least one row in ulbList for ULB dropdown visibility
+  const ensureUlbList = (data: InfraFinancingData) => {
+    if (!Array.isArray(data.section1_3.ulbList) || data.section1_3.ulbList.length === 0) {
+      return {
+        ...data,
+        section1_3: {
+          ...data.section1_3,
+          ulbList: [
+            {
+              id: Math.random().toString(36).substr(2, 9),
+              ulb: "",
+              cityName: "",
+              ulbType: "",
+              rating: "",
+              ratingDate: "",
+              // add other required fields as per your form structure
+            },
+          ],
+        },
+      };
+    }
+    return data;
+  };
+  const [formData, setFormData] = useState<InfraFinancingData>(ensureUlbList(initialData));
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -1937,7 +2011,7 @@ export const InfraFinancingStep = () => {
                     <div className="col-span-4">
                       <Label>
                         ULB<span className="text-red-500">*</span>
-                      </Label>
+                      </Label>                       
                       <div className="relative">
                         <Select
                           value={ulb.ulb}
@@ -1992,7 +2066,7 @@ export const InfraFinancingStep = () => {
                           <SelectContent>
                             <div className="px-2 py-1 transition-all duration-200 ease-in-out">
                               <Input
-                                placeholder="Search ULB..."
+                                placeholder="Search by ULB name, city, or type..."
                                 value={ulbSearchMap[ulb.id] || ""}
                                 onChange={(e) => {
                                   const value = e.target.value;
@@ -2292,7 +2366,10 @@ export const InfraFinancingStep = () => {
                               {ulb.cityName}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {ulb.ulb}
+                              {(() => {
+                                const found = ulbOptions?.find(u => u.id === ulb.ulb);
+                                return found ? found.ulb_name : ulb.ulb;
+                              })()}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {ulb.ratingDate
@@ -2618,7 +2695,8 @@ export const InfraFinancingStep = () => {
                               <button
                                 type="button"
                                 onClick={() => removeBond(bond.id)}
-                                className="text-red-600 hover:text-red-800"
+                                disabled={isIndicatorSubmitted("1.4")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                 aria-label="Delete"
                               >
                                 <Trash2 className="w-5 h-5" />

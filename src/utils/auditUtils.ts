@@ -500,6 +500,10 @@ export const canEditSubmission = (
         submissionStatus === "RETURNED_FROM_STATE"
       );
     case "STATE_APPROVER":
+      // STATE_APPROVER can only edit when:
+      // 1. Status is SUBMITTED_TO_STATE (initial state)
+      // 2. Status is RETURNED_FROM_MOSPI (after MOSPI_APPROVER sends back)
+      // STATE_APPROVER should NOT have editing access when status is SUBMITTED_TO_MOSPI_APPROVER
       return (
         submissionStatus === "SUBMITTED_TO_STATE" ||
         submissionStatus === "RETURNED_FROM_MOSPI"

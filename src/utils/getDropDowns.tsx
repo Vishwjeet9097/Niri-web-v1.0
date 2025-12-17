@@ -5,9 +5,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 // Dropdown values as arrays
 export const dropdownValues = {
   ulbList: [
-    "Pune Municipal Corporation",
-    "Mumbai Municipal Corporation",
-    "Nagpur Municipal Corporation"
+    { value: "c05f8cf3-3a06-438f-9330-9d604e9a0366", label: "Pune Municipal Corporation" },
+    { value: "a12b7e21-1b2c-4d3e-8f9a-123456789abc", label: "Mumbai Municipal Corporation" },
+    { value: "b23c8d34-2c3d-5e4f-9a0b-abcdef123456", label: "Nagpur Municipal Corporation" }
   ],
 
   ratingList: [
@@ -19,9 +19,9 @@ export const dropdownValues = {
   ],
 
   bondTypeList: [
-    "Municipal bond",
-    "Infrastructure bond",
-    "Revenue bond"
+   "Municipal",
+    "Green", 
+    "Other"
   ],
 
   cityList: [
@@ -32,13 +32,11 @@ export const dropdownValues = {
   ],
 
   issuingAuthorityList: [
-    // "Authority Name",
-    // "Municipal Corporation",
-    // "Development Authority"
-    "Trust", 
-    "Society", 
-    "Corporation", 
-    "Company"
+      "Corporation",
+      "Trust",
+      "Society",
+      "Partnership",
+      "Other"
   ],
 
   sector: [
@@ -63,21 +61,33 @@ export const dropdownValues = {
 
 };
 
+import { useState, useMemo } from 'react';
+
 export const Dropdown = ({
   options,
   value,
   onChange,
   placeholder = "Select option",
   isEditable = true,
-  resetKey = 0
+  resetKey = 0,
+  isSearchable = false
 }: {
-  options: string[];
+  options: { value: string; label: string }[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   isEditable?: boolean;
   resetKey?: number;
+  isSearchable?: boolean;
 }) => {
+  const [search, setSearch] = useState("");
+  const filteredOptions = useMemo(() => {
+    if (!isSearchable || !search) return options;
+    return options.filter(option =>
+      option.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [options, search, isSearchable]);
+
   return (
     <Select
       key={`dropdown-${resetKey}`}
@@ -89,11 +99,28 @@ export const Dropdown = ({
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option} value={option}>
-            {option}
-          </SelectItem>
-        ))}
+        {isSearchable && (
+          <div className="px-2 py-1">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full px-2 py-1 border rounded text-sm mb-1"
+              autoFocus
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+        )}
+        {filteredOptions.length > 0 ? (
+          filteredOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))
+        ) : (
+          <div className="px-2 py-2 text-muted-foreground text-sm">No options found</div>
+        )}
       </SelectContent>
     </Select>
   );
