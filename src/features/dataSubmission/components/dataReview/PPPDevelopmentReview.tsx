@@ -2115,7 +2115,7 @@ export const PPPDevelopmentReview = ({
               {state?.section3_1?.available === "yes" && (
                 <div>
                   <EditableFileDisplay
-                    files={state?.section3_1?.files ?? null}
+                    files={state?.section3_1?.file ?? null}
                     isEditable={shouldBeEditable("3.1")}
                     submissionId={submissionId}
                     onFilesChange={(updatedFile) =>
