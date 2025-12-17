@@ -1812,19 +1812,20 @@ class ApiService implements HttpClient {
         );
 
         // Check if all assigned indicators are completed
+        // Only redirect for NODAL_OFFICER, not for STATE_APPROVER
         if (
           updatedSectionStatus.completedCount >=
-          updatedSectionStatus.totalAssigned
+            updatedSectionStatus.totalAssigned 
         ) {
           console.log(
             "🎉 All indicators completed! Redirecting to review page..."
           );
 
-          if (typeof window !== "undefined") {
-            setTimeout(() => {
-              window.location.href = `/data-submission/review/${existingSubmissionId}`;
-            }, 1000);
-          }
+          // if (typeof window !== "undefined") {
+          //   setTimeout(() => {
+          //     window.location.href = `/data-submission/review/${existingSubmissionId}`;
+          //   }, 1000);
+          // }
         }
       } else {
         // Create new submission
@@ -1914,9 +1915,11 @@ class ApiService implements HttpClient {
         result = await this.createSubmission(createPayload);
 
         // Check if all indicators completed on first submission
+        // Only redirect for NODAL_OFFICER, not for STATE_APPROVER
         if (
           initialSectionStatus.completedCount >=
-          initialSectionStatus.totalAssigned
+            initialSectionStatus.totalAssigned &&
+          userRole === "NODAL_OFFICER"
         ) {
           console.log(
             "🎉 All indicators completed! Redirecting to review page..."
