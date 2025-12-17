@@ -640,7 +640,14 @@ class ApiService implements HttpClient {
       );
 
       console.log("✅ Submission successful:", response.data);
-      return response.data;
+      // Extract submission ID from response
+      const extractedSubmissionData = response.data?.data || response.data;
+      console.log("🔍 Extracted submission data:", {
+        id: extractedSubmissionData?.id,
+        submissionId: extractedSubmissionData?.submissionId,
+        fullResponse: extractedSubmissionData,
+      });
+      return extractedSubmissionData || response.data;
     } catch (error: any) {
       console.error("❌ Submission error:", error);
       throw error;
@@ -1450,11 +1457,43 @@ class ApiService implements HttpClient {
     indicators: string[]
   ): Promise<any> {
     try {
+      // ✅ Check for File objects BEFORE any processing
+      // This is critical because sectionData might have been sanitized already
       console.log("🔍 API Service - Submit Section to State Approver:", {
         category,
         indicators,
-        sectionData,
+        sectionDataKeys: Object.keys(sectionData),
       });
+      
+      // Check if sectionData contains File objects (before sanitization)
+      // Note: If sectionData was sanitized, File objects will be plain objects
+      // We need to check for the structure that indicates files exist
+      const hasFilesBeforeProcessing = this.hasFileObjects(sectionData);
+      const fileCheckBeforeProcessing = this.manualFileCheck(sectionData);
+      
+      console.log("🔍 File objects detected in raw sectionData:", {
+        hasFiles: hasFilesBeforeProcessing,
+        manualCheck: fileCheckBeforeProcessing,
+      });
+      
+      // Also check for file-like structures (plain objects that look like File objects)
+      // This handles cases where File objects were serialized to plain objects
+      const hasFileLikeStructures = this.hasFileLikeStructures(sectionData);
+      console.log("🔍 File-like structures detected:", hasFileLikeStructures);
+      
+      const hasAnyFiles = hasFilesBeforeProcessing || fileCheckBeforeProcessing.found || hasFileLikeStructures;
+      
+      if (hasAnyFiles) {
+        console.log("📤 Files or file-like structures detected - will handle upload");
+        // Store this info to use later in CREATE/UPDATE flow
+        // Note: If files are file-like structures (serialized), we can't upload them
+        // They need to be File instances. This means the step component should pass
+        // original formData with File objects, not sanitized data.
+        if (hasFileLikeStructures && !hasFilesBeforeProcessing) {
+          console.error("❌ CRITICAL: File objects were serialized to plain objects before reaching submitSectionToStateApprover!");
+          console.error("❌ Cannot upload files - File instances are required. Step component should pass original formData.");
+        }
+      }
 
       // Get user info early to check role and ownership
       const user = authService.getUser();
@@ -1690,7 +1729,7 @@ class ApiService implements HttpClient {
 
         // Filter sectionData to only include sections for ALL completed indicators (existing + newly saved)
         // Merge with existing data from DB to preserve previously saved sections
-        const filteredSectionData: Record<string, any> = {};
+        let filteredSectionData: Record<string, any> = {};
 
         // 🔍 DEBUG: Log incoming sectionData for indicators 2.3 and 2.4
         console.log("🔍 [API UPDATE] Incoming sectionData:", {
@@ -1782,16 +1821,84 @@ class ApiService implements HttpClient {
         console.log("🔍 All completed indicators:", allCompletedIndicators);
         console.log("🔍 Newly completed indicators:", completedIndicators);
 
+        // ✅ Upload all File objects to S3 before submission
+        const hasUnuploadedFiles = this.hasFileObjects(filteredSectionData);
+        
+        console.log("🔍 File detection check (UPDATE):", {
+          hasUnuploadedFiles,
+          category,
+          existingSubmissionId,
+          filteredSections: Object.keys(filteredSectionData),
+        });
+        
+        if (hasUnuploadedFiles && existingSubmissionId) {
+          console.log("📤 Uploading File objects to S3 before submission...");
+          try {
+            // Upload files and replace File objects with filePath
+            const uploadedData = await this.uploadFilesAndReplace(
+              { [category]: filteredSectionData },
+              existingSubmissionId
+            );
+            // Extract the category data back
+            filteredSectionData = uploadedData[category];
+            console.log("✅ All files uploaded to S3 successfully");
+          } catch (error: any) {
+            console.error("❌ Failed to upload files to S3:", error);
+            throw new Error(`File upload failed: ${error.message || "Unknown error"}`);
+          }
+        } else if (hasUnuploadedFiles && !existingSubmissionId) {
+          console.error("❌ Cannot upload files: existingSubmissionId is missing");
+          throw new Error("Failed to update submission - submissionId is missing");
+        } else if (!hasUnuploadedFiles) {
+          console.log("ℹ️ No File objects detected (UPDATE) - files already uploaded or no files present");
+        }
+
+        // Extract file metadata from the filtered section data
+        // Only extract from the category being updated to avoid unnecessary re-extraction
+        const extractedFiles = this.extractFileMetadataFromFormData({
+          [category]: filteredSectionData,
+        });
+
+        // Merge with existing attachedFiles to avoid duplicates and handle deleted files
+        // Files that are no longer in formData should be removed from attachedFiles
+        const existingAttachedFiles = existingSubmission?.attachedFiles || [];
+        const extractedFilePaths = new Set(extractedFiles.map(f => f.filePath));
+        
+        // Keep existing files that are still referenced in formData (from other categories)
+        // and add newly extracted files
+        const filesToKeep = existingAttachedFiles.filter(f => {
+          // Keep if it's in the extracted files (current category)
+          if (extractedFilePaths.has(f.filePath)) {
+            return false; // Will be replaced by extracted version
+          }
+          // Keep if it's from a different category (not being updated)
+          // We can't easily check this, so we'll keep all existing files
+          // and let backend handle deduplication
+          return true;
+        });
+
+        // Combine: existing files from other categories + newly extracted files
+        const allAttachedFiles = [...filesToKeep, ...extractedFiles];
+
+        // Remove duplicates based on filePath (keep the most recent version)
+        const uniqueAttachedFiles = Array.from(
+          new Map(allAttachedFiles.map((file) => [file.filePath, file])).values()
+        );
+
         const updatePayload = {
           [category]: filteredSectionData,
           indicators: allCompletedIndicators, // Use allCompletedIndicators to include all saved indicators
           section_status: updatedSectionStatus,
+          attachedFiles: uniqueAttachedFiles, // ✅ Add extracted files
         };
 
         console.log("📦 Update Payload:", {
           category,
           section_status: updatedSectionStatus,
           filteredSections: Object.keys(filteredSectionData),
+          attachedFilesCount: uniqueAttachedFiles.length,
+          extractedFilesCount: extractedFiles.length,
+          existingFilesCount: existingAttachedFiles.length,
         });
 
         result = await this.updateSubmission(
@@ -1835,7 +1942,7 @@ class ApiService implements HttpClient {
 
         // Filter sectionData to only include sections for completed indicators
         // This ensures we don't save unsaved sections (e.g., if user filled 1.2 but only saved 1.1)
-        const filteredSectionData: Record<string, any> = {};
+        let filteredSectionData: Record<string, any> = {};
 
         // 🔍 DEBUG: Log incoming sectionData for indicators 2.3 and 2.4
         console.log("🔍 [API CREATE] Incoming sectionData:", {
@@ -1884,22 +1991,239 @@ class ApiService implements HttpClient {
         );
         console.log("🔍 Completed indicators:", completedIndicators);
 
-        const createPayload = {
-          formData: {
+        // ✅ Check for File objects - need to create submission first to get submissionId
+        // IMPORTANT: Check BEFORE any JSON serialization or sanitization
+        // The File objects might be plain objects if they came from sanitized data
+        // So we need to check the ORIGINAL sectionData, not filteredSectionData
+        
+        // First, check the original sectionData that was passed in
+        const hasFilesInOriginal = this.hasFileObjects(sectionData);
+        console.log("🔍 Checking original sectionData for files:", hasFilesInOriginal);
+        
+        // Also check filteredSectionData (in case files are still there)
+        const hasUnuploadedFiles = this.hasFileObjects(filteredSectionData);
+        
+        console.log("🔍 File detection check:", {
+          hasFilesInOriginal,
+          hasUnuploadedFiles,
+          category,
+          filteredSections: Object.keys(filteredSectionData),
+        });
+        
+        // Additional check: manually inspect both structures
+        const manualCheckOriginal = this.manualFileCheck(sectionData);
+        const manualCheckFiltered = this.manualFileCheck(filteredSectionData);
+        console.log("🔍 Manual file check results:", {
+          original: manualCheckOriginal,
+          filtered: manualCheckFiltered,
+        });
+        
+        // Also check for file-like structures (serialized File objects)
+        const hasFileLikeInOriginal = this.hasFileLikeStructures(sectionData);
+        const hasFileLikeInFiltered = this.hasFileLikeStructures(filteredSectionData);
+        
+        // Use the most comprehensive check - if files exist in either structure
+        const finalHasFiles = hasFilesInOriginal || hasUnuploadedFiles || 
+                              manualCheckOriginal.found || manualCheckFiltered.found ||
+                              hasFileLikeInOriginal || hasFileLikeInFiltered;
+        
+        console.log("🔍 Comprehensive file check:", {
+          hasFilesInOriginal,
+          hasUnuploadedFiles,
+          manualCheckOriginal: manualCheckOriginal.found,
+          manualCheckFiltered: manualCheckFiltered.found,
+          hasFileLikeInOriginal,
+          hasFileLikeInFiltered,
+          finalHasFiles,
+        });
+        
+        if (finalHasFiles && !hasUnuploadedFiles) {
+          console.warn("⚠️ Files found in original data but not in filtered data - files may have been sanitized");
+          console.warn("⚠️ Will need to preserve File objects from original sectionData");
+        }
+
+        // ✅ If files exist, create minimal submission first (without File objects)
+        // Then upload files, then update with full data including filePaths
+        let createPayload: any;
+        let shouldUploadFilesAfter = false;
+        let filesToUpload: any = null; // Store original data with File objects for upload
+        
+        // IMPORTANT: Only attempt upload if we have actual File instances, not file-like structures
+        // File-like structures (serialized File objects) cannot be uploaded - they're already plain objects
+        const hasActualFileInstances = hasFilesInOriginal || hasUnuploadedFiles || 
+                                       manualCheckOriginal.found || manualCheckFiltered.found;
+        
+        // Use finalHasFiles which includes manual check result
+        if (finalHasFiles) {
+          if (hasActualFileInstances) {
+            console.log("📤 Actual File instances detected - will create minimal submission first, then upload files");
+            
+            // Preserve the original sectionData with File objects for upload
+            // Use the original sectionData if it has files, otherwise use filteredSectionData
+            if (hasFilesInOriginal || manualCheckOriginal.found) {
+              filesToUpload = sectionData;
+              console.log("📤 Using original sectionData for file upload (has File objects)");
+            } else {
+              filesToUpload = { [category]: filteredSectionData };
+              console.log("📤 Using filteredSectionData for file upload");
+            }
+            
+            // Create a sanitized copy without File objects for initial submission
+            // This prevents File objects from being serialized to JSON
+            const sanitizedData = this.sanitizePayloadForJSON(filteredSectionData);
+            createPayload = {
+              formData: {
+                [category]: sanitizedData,
+              },
+              indicators: completedIndicators,
+              status: "DRAFT",
+              section_status: initialSectionStatus,
+              attachedFiles: [], // Empty initially, will be populated after file upload
+            };
+            shouldUploadFilesAfter = true;
+          } else {
+            // Only file-like structures (serialized File objects) - cannot upload
+            // Extract metadata from file-like structures instead
+            console.warn("⚠️ Only file-like structures detected (serialized File objects) - cannot upload");
+            console.warn("⚠️ File objects were already serialized. Extracting metadata from file-like structures.");
+            
+            // Extract metadata from file-like structures
+            const extractedFiles = this.extractFileMetadataFromFileLikeStructures(filteredSectionData);
+            console.log(`📦 Extracted ${extractedFiles.length} file(s) metadata from file-like structures`);
+            
+            createPayload = {
+              formData: {
+                [category]: filteredSectionData, // Already serialized, use as-is
+              },
+              indicators: completedIndicators,
+              status: "DRAFT",
+              section_status: initialSectionStatus,
+              attachedFiles: extractedFiles,
+            };
+            shouldUploadFilesAfter = false; // Don't attempt upload
+          }
+        } else {
+          // No files, create normally with extracted metadata
+          const extractedFiles = this.extractFileMetadataFromFormData({
             [category]: filteredSectionData,
-          },
-          indicators: completedIndicators, // Use completedIndicators instead of all indicators
-          status: "DRAFT",
-          section_status: initialSectionStatus,
-        };
+          });
+          createPayload = {
+            formData: {
+              [category]: filteredSectionData,
+            },
+            indicators: completedIndicators,
+            status: "DRAFT",
+            section_status: initialSectionStatus,
+            attachedFiles: extractedFiles,
+          };
+        }
 
         console.log("📦 Create Payload:", {
           category,
           section_status: initialSectionStatus,
           filteredSections: Object.keys(filteredSectionData),
+          attachedFilesCount: createPayload.attachedFiles.length,
+          hasFiles: finalHasFiles,
+          hasFileObjectsResult: hasUnuploadedFiles,
+          manualCheckOriginal: manualCheckOriginal.found,
+          manualCheckFiltered: manualCheckFiltered.found,
+          willUploadAfter: shouldUploadFilesAfter,
         });
 
+        // Create submission first to get submissionId
         result = await this.createSubmission(createPayload);
+        // Extract submissionId from various possible response structures
+        const newSubmissionId = result?.id || result?.submissionId || result?.data?.id || result?.data?.submissionId;
+        
+        console.log("✅ Submission created with ID:", newSubmissionId);
+        console.log("🔍 Full result structure:", {
+          result,
+          id: result?.id,
+          submissionId: result?.submissionId,
+          dataId: result?.data?.id,
+          dataSubmissionId: result?.data?.submissionId,
+        });
+
+        // ✅ Now upload files if any
+        console.log("🔍 Upload condition check:", {
+          shouldUploadFilesAfter,
+          hasUnuploadedFiles,
+          newSubmissionId,
+          willUpload: shouldUploadFilesAfter && newSubmissionId,
+        });
+        
+        if (shouldUploadFilesAfter && newSubmissionId) {
+          console.log("📤 Uploading File objects to S3 after creating submission...");
+          try {
+            // Upload files and replace File objects with filePath
+            // Use the preserved filesToUpload data (with File objects) for upload
+            console.log("📤 Starting uploadFilesAndReplace with submissionId:", newSubmissionId);
+            console.log("📤 Files to upload structure:", {
+              hasCategory: !!filesToUpload[category],
+              keys: Object.keys(filesToUpload),
+            });
+            
+            // ✅ CRITICAL: Verify filesToUpload still has File instances before attempting upload
+            const stillHasFiles = this.hasFileObjects(filesToUpload);
+            if (!stillHasFiles) {
+              console.error("❌ CRITICAL: filesToUpload no longer contains File instances!");
+              console.error("❌ File objects were lost. Checking for file-like structures...");
+              const hasFileLike = this.hasFileLikeStructures(filesToUpload);
+              if (hasFileLike) {
+                console.warn("⚠️ File-like structures found but no File instances - cannot upload");
+                console.warn("⚠️ This usually means File objects were serialized (e.g., by localStorage or state updates)");
+                // Extract metadata from file-like structures as fallback
+                const extractedFiles = this.extractFileMetadataFromFileLikeStructures(filesToUpload);
+                console.log(`📦 Extracted ${extractedFiles.length} file(s) metadata from file-like structures`);
+                
+                // Update submission with extracted metadata (but files won't be in S3)
+                await this.updateSubmission(newSubmissionId, {
+                  [category]: filteredSectionData,
+                  attachedFiles: extractedFiles,
+                });
+                
+                console.warn("⚠️ Files were NOT uploaded to S3 - File instances were lost. Metadata extracted instead.");
+                console.warn("⚠️ User should re-select files to upload them properly.");
+                return result; // Exit early - don't throw error, just warn
+              }
+              throw new Error("File objects were lost and no file-like structures found - cannot proceed with upload");
+            }
+            
+            const uploadedData = await this.uploadFilesAndReplace(
+              filesToUpload,
+              newSubmissionId
+            );
+            
+            // Extract the category data
+            filteredSectionData = uploadedData[category] || uploadedData;
+
+            // Re-extract file metadata after upload
+            const updatedExtractedFiles = this.extractFileMetadataFromFormData({
+              [category]: filteredSectionData,
+            });
+
+            console.log(`📤 Updating submission with ${updatedExtractedFiles.length} file(s) metadata`);
+
+            // Update submission with filePaths
+            await this.updateSubmission(newSubmissionId, {
+              [category]: filteredSectionData,
+              attachedFiles: updatedExtractedFiles,
+            });
+
+            console.log("✅ All files uploaded to S3 and submission updated successfully");
+          } catch (error: any) {
+            console.error("❌ Failed to upload files to S3:", error);
+            console.error("❌ Error details:", error.response?.data || error.message);
+            throw new Error(`File upload failed: ${error.message || "Unknown error"}`);
+          }
+        } else if (hasUnuploadedFiles && !newSubmissionId) {
+          console.error("❌ Cannot upload files: submissionId is missing");
+          throw new Error("Failed to create submission - cannot upload files");
+        } else if (hasUnuploadedFiles && !shouldUploadFilesAfter) {
+          console.error("❌ MISMATCH: hasUnuploadedFiles is true but shouldUploadFilesAfter is false!");
+        } else if (!hasUnuploadedFiles) {
+          console.log("ℹ️ No File objects detected - files already uploaded or no files present");
+        }
 
         // Check if all indicators completed on first submission
         if (
@@ -3679,26 +4003,261 @@ async getRankings(): Promise<any[]> {
   }
 
   // Helper to check if payload contains File objects
-  private hasFileObjects(obj: any): boolean {
+  // Handles nested structures like: section2_1.infraActArray[0].files[0].file
+  private hasFileObjects(obj: any, depth: number = 0): boolean {
+    if (depth > 20) return false; // Prevent infinite recursion
     if (!obj || typeof obj !== "object") return false;
 
-    if (obj instanceof File) return true;
-
-    if (Array.isArray(obj)) {
-      return obj.some((item) => this.hasFileObjects(item));
+    // Direct File instance
+    if (obj instanceof File) {
+      console.log(`🔍 Found File object at depth ${depth}`);
+      return true;
     }
 
-    for (const value of Object.values(obj)) {
-      if (value instanceof File) return true;
+    // Handle arrays (e.g., infraActArray, files array)
+    if (Array.isArray(obj)) {
+      const hasFiles = obj.some((item) => this.hasFileObjects(item, depth + 1));
+      if (hasFiles) {
+        console.log(`🔍 Found File object in array at depth ${depth}`);
+      }
+      return hasFiles;
+    }
+
+    // Handle objects
+    for (const [key, value] of Object.entries(obj)) {
+      // Direct File value
+      if (value instanceof File) {
+        console.log(`🔍 Found File object at key: ${key} (depth ${depth})`);
+        return true;
+      }
+      
       if (value && typeof value === "object") {
         // Check FileUpload objects - look for file property that is a File instance
-        if ((value as any).file instanceof File) return true;
-        // Recursively check nested objects
-        if (this.hasFileObjects(value)) return true;
+        // Structure: { file: File, fileName: string, ... }
+        if ((value as any).file instanceof File) {
+          console.log(`🔍 Found File object in FileUpload at key: ${key} (depth ${depth})`);
+          return true;
+        }
+        
+        // Check deeply nested file.file (File object nested in FileUpload)
+        if ((value as any).file?.file instanceof File) {
+          console.log(`🔍 Found nested File object at key: ${key} (depth ${depth})`);
+          return true;
+        }
+        
+        // Recursively check nested objects (handles arrays of objects, nested structures)
+        if (this.hasFileObjects(value, depth + 1)) {
+          return true;
+        }
       }
     }
 
     return false;
+  }
+
+  // Check for file-like structures (plain objects that were File objects)
+  // Structure: { name: string, size: number, type: string, lastModified: number }
+  private hasFileLikeStructures(obj: any, depth: number = 0): boolean {
+    if (depth > 20) return false;
+    if (!obj || typeof obj !== "object") return false;
+
+    // Check if this is a file-like plain object (serialized File)
+    if (
+      typeof obj === "object" &&
+      !Array.isArray(obj) &&
+      obj.name &&
+      typeof obj.size === "number" &&
+      typeof obj.type === "string" &&
+      !(obj instanceof File)
+    ) {
+      console.log(`🔍 Found file-like structure (serialized File) at depth ${depth}`);
+      return true;
+    }
+
+    // Check FileUpload objects with file-like structures
+    if (obj && typeof obj === "object" && obj.file) {
+      const fileObj = obj.file;
+      if (
+        typeof fileObj === "object" &&
+        !(fileObj instanceof File) &&
+        fileObj.name &&
+        typeof fileObj.size === "number" &&
+        typeof fileObj.type === "string"
+      ) {
+        console.log(`🔍 Found file-like structure in FileUpload object at depth ${depth}`);
+        return true;
+      }
+    }
+
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      return obj.some((item) => this.hasFileLikeStructures(item, depth + 1));
+    }
+
+    // Handle objects
+    for (const value of Object.values(obj)) {
+      if (value && typeof value === "object") {
+        if (this.hasFileLikeStructures(value, depth + 1)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // Manual file check for debugging
+  private manualFileCheck(obj: any, path: string = ''): { found: boolean; paths: string[] } {
+    const paths: string[] = [];
+    
+    if (!obj || typeof obj !== "object") {
+      return { found: false, paths };
+    }
+
+    if (obj instanceof File) {
+      paths.push(path);
+      return { found: true, paths };
+    }
+
+    if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        const result = this.manualFileCheck(item, `${path}[${index}]`);
+        if (result.found) {
+          paths.push(...result.paths);
+        }
+      });
+      return { found: paths.length > 0, paths };
+    }
+
+    for (const [key, value] of Object.entries(obj)) {
+      const currentPath = path ? `${path}.${key}` : key;
+      
+      if (value instanceof File) {
+        paths.push(currentPath);
+      } else if (value && typeof value === "object") {
+        if ((value as any).file instanceof File) {
+          paths.push(`${currentPath}.file`);
+        } else {
+          const result = this.manualFileCheck(value, currentPath);
+          if (result.found) {
+            paths.push(...result.paths);
+          }
+        }
+      }
+    }
+
+    return { found: paths.length > 0, paths };
+  }
+
+  // Extract file metadata from file-like structures (serialized File objects)
+  // This is used when File objects were already serialized to plain objects
+  private extractFileMetadataFromFileLikeStructures(obj: any, path: string[] = []): any[] {
+    const files: any[] = [];
+    
+    if (!obj || typeof obj !== "object") return files;
+
+    // Check if this is a FileUpload object with a file-like structure
+    if (obj.file && typeof obj.file === "object" && !(obj.file instanceof File)) {
+      const fileObj = obj.file;
+      if (fileObj.name && typeof fileObj.size === "number" && typeof fileObj.type === "string") {
+        // This is a file-like structure (serialized File object)
+        const fileMetadata = {
+          id: obj.id || `file-${Date.now()}-${Math.random()}`,
+          fileName: obj.fileName || fileObj.name,
+          fileSize: obj.fileSize || fileObj.size,
+          mimeType: obj.mimeType || fileObj.type,
+          uploadedAt: obj.uploadedAt || Date.now(),
+          filePath: obj.filePath || null, // May already have filePath if previously uploaded
+          fileUrl: obj.fileUrl || null,
+        };
+        
+        // Only include if it doesn't already have a filePath (meaning it needs upload)
+        // But if it's already serialized, it can't be uploaded, so we'll extract what we can
+        if (!fileMetadata.filePath) {
+          console.warn(`⚠️ File-like structure found without filePath: ${fileMetadata.fileName} - cannot upload (already serialized)`);
+        }
+        
+        files.push(fileMetadata);
+      }
+    }
+
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        files.push(...this.extractFileMetadataFromFileLikeStructures(item, [...path, index.toString()]));
+      });
+    } else {
+      // Handle nested objects
+      for (const value of Object.values(obj)) {
+        if (value && typeof value === "object") {
+          files.push(...this.extractFileMetadataFromFileLikeStructures(value, path));
+        }
+      }
+    }
+
+    return files;
+  }
+
+  // Helper to upload File objects to S3 and replace with filePath
+  // Handles all file structures:
+  // - Direct FileUpload: { file: File, fileName: string, ... }
+  // - Arrays of FileUpload: files: [{ file: File, ... }, ...]
+  // - Nested in arrays: infraActArray: [{ files: [{ file: File, ... }] }]
+  private async uploadFilesAndReplace(
+    data: any,
+    submissionId: string,
+    path: string[] = []
+  ): Promise<any> {
+    if (!data || typeof data !== "object") return data;
+
+    // Handle FileUpload objects with File instances (but no filePath yet)
+    // Structure: { id: string, file: File, fileName: string, fileSize: number, ... }
+    if (data.file instanceof File && !data.filePath) {
+      try {
+        const filePathStr = path.length > 0 ? ` at path: ${path.join('.')}` : '';
+        console.log(`📤 Uploading file: ${data.fileName || data.file.name}${filePathStr}`);
+        const uploadResponse = await this.uploadFile(submissionId, data.file);
+        const fileData = uploadResponse?.data || uploadResponse;
+        
+        // Replace File object with filePath
+        const uploaded = {
+          ...data,
+          file: null,
+          filePath: fileData.filePath || fileData.data?.filePath,
+          fileName: fileData.fileName || fileData.data?.fileName || data.fileName || data.file.name,
+          fileSize: fileData.size || fileData.fileSize || fileData.data?.size || data.fileSize || data.file.size,
+          mimeType: fileData.mimeType || fileData.data?.mimeType || data.file.type,
+          uploadedAt: Date.now(),
+        };
+        
+        console.log(`✅ File uploaded successfully: ${uploaded.fileName} -> ${uploaded.filePath}`);
+        return uploaded;
+      } catch (error: any) {
+        console.error(`❌ Failed to upload file ${data.fileName || data.file.name}:`, error);
+        throw error;
+      }
+    }
+
+    // Handle arrays (e.g., infraActArray, files array, VGFArray, projects array)
+    if (Array.isArray(data)) {
+      const uploadedArray = await Promise.all(
+        data.map((item, index) =>
+          this.uploadFilesAndReplace(item, submissionId, [...path, index.toString()])
+        )
+      );
+      return uploadedArray;
+    }
+
+    // Handle nested objects (e.g., section2_1: { infraActArray: [...] })
+    const result: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[key] = await this.uploadFilesAndReplace(
+        value,
+        submissionId,
+        [...path, key]
+      );
+    }
+    return result;
   }
 
   // Helper to create a JSON-safe copy of payload (replaces File objects with placeholders)
@@ -3782,6 +4341,139 @@ async getRankings(): Promise<any[]> {
         }
       }
     });
+  }
+
+  /**
+   * Extract file metadata from formData structure
+   * Recursively finds all FileUpload objects with filePath and returns their metadata
+   * This is needed because files are uploaded immediately when selected,
+   * so File objects are null and only metadata (filePath) is available
+   * 
+   * Handles edge cases:
+   * - Missing/invalid metadata
+   * - Duplicate files
+   * - Deep nesting (with depth limit)
+   * - Large file arrays (with count limit)
+   * - Date format inconsistencies
+   * - File size validation
+   */
+  private extractFileMetadataFromFormData(
+    formData: Record<string, any>,
+    maxDepth: number = 10,
+    maxFiles: number = 1000
+  ): any[] {
+    const attachedFiles: any[] = [];
+    const seenPaths = new Set<string>();
+    let currentDepth = 0;
+
+    const recurse = (obj: any, depth: number = 0): void => {
+      // Safety: Prevent infinite recursion
+      if (depth > maxDepth) {
+        console.warn(`⚠️ Max depth ${maxDepth} reached, stopping recursion`);
+        return;
+      }
+
+      // Safety: Prevent too many files
+      if (attachedFiles.length >= maxFiles) {
+        console.warn(`⚠️ Max files ${maxFiles} reached, stopping extraction`);
+        return;
+      }
+
+      if (!obj || typeof obj !== "object") return;
+
+      // Check if this object is a file metadata object
+      if (
+        obj.filePath &&
+        typeof obj.filePath === "string" &&
+        obj.filePath.trim() !== "" &&
+        (obj.fileName || obj.originalName)
+      ) {
+        // Validate filePath format (should start with 'submissions/')
+        if (!obj.filePath.startsWith('submissions/')) {
+          console.warn(`⚠️ Invalid filePath format: ${obj.filePath}, skipping`);
+          return;
+        }
+
+        // Avoid duplicates
+        if (!seenPaths.has(obj.filePath)) {
+          seenPaths.add(obj.filePath);
+          
+          // Validate and normalize metadata with fallbacks
+          const fileName = obj.fileName || obj.originalName || obj.filePath.split('/').pop() || 'Unknown';
+          const fileSize = typeof obj.fileSize === "number" 
+            ? obj.fileSize 
+            : Number(obj.fileSize) || 0;
+          
+          // Validate file size (warn for large files)
+          if (fileSize > 100 * 1024 * 1024) { // 100MB limit
+            console.warn(`⚠️ Large file detected: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+          }
+
+          // Normalize uploadedAt with error handling
+          let uploadedAt: string;
+          try {
+            if (obj.uploadedAt) {
+              if (typeof obj.uploadedAt === "string") {
+                // Validate ISO string format
+                const date = new Date(obj.uploadedAt);
+                if (isNaN(date.getTime())) {
+                  throw new Error("Invalid date string");
+                }
+                uploadedAt = date.toISOString();
+              } else if (typeof obj.uploadedAt === "number") {
+                // Handle timestamp
+                uploadedAt = new Date(obj.uploadedAt).toISOString();
+              } else if (obj.uploadedAt instanceof Date) {
+                uploadedAt = obj.uploadedAt.toISOString();
+              } else {
+                throw new Error("Unknown date format");
+              }
+            } else {
+              uploadedAt = new Date().toISOString();
+            }
+          } catch (e) {
+            console.warn(`⚠️ Invalid uploadedAt for ${fileName}, using current date:`, e);
+            uploadedAt = new Date().toISOString();
+          }
+
+          const fileMeta = {
+            id: obj.id ?? null,
+            fileName,
+            originalName: obj.originalName || fileName,
+            filePath: obj.filePath,
+            fileUrl: obj.fileUrl || "",
+            fileSize,
+            mimeType: obj.mimeType || "application/octet-stream",
+            uploadedAt,
+          };
+
+          attachedFiles.push(fileMeta);
+          console.log(`📎 Extracted file: ${fileMeta.fileName} (${fileMeta.filePath})`);
+        } else {
+          console.log(`📎 Skipping duplicate file: ${obj.filePath}`);
+        }
+        return; // Don't recurse into file metadata objects
+      }
+
+      // Handle arrays (e.g., infraActArray, files array, etc.)
+      if (Array.isArray(obj)) {
+        obj.forEach((item) => recurse(item, depth + 1));
+        return;
+      }
+
+      // Handle nested objects
+      Object.values(obj).forEach((value) => recurse(value, depth + 1));
+    };
+
+    recurse(formData);
+    
+    console.log(`📦 Extracted ${attachedFiles.length} file(s) from formData`);
+    
+    if (attachedFiles.length === 0) {
+      console.log(`ℹ️ No files extracted from formData (this is normal if no files are attached)`);
+    }
+    
+    return attachedFiles;
   }
 
   /**

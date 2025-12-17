@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Upload, X, File, Loader2 } from "lucide-react";
+import { Upload, X, File as FileIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -33,8 +33,6 @@ export const FileUploadSection = ({
   disabled = false,
 }: FileUploadSectionProps) => {
   const [dragActive, setDragActive] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFile = async (file: File) => {
     if (disabled) return;
@@ -53,66 +51,23 @@ export const FileUploadSection = ({
       type: file.type,
     });
 
-    // If submissionId is provided, upload to backend
-    if (submissionId) {
-      await uploadToBackend(file);
-    } else {
-      // Local file handling (keep actual File instance)
-      const fileUpload: FileUpload = {
-        id: crypto.randomUUID(),
-        file:
-          file && file.constructor && file.constructor.name === "File"
-            ? file
-            : null,
-        fileName: file.name,
-        fileSize: file.size,
-        uploadedAt: Date.now(),
-      };
-      onChange(fileUpload);
+    // ✅ Always store file locally - upload to S3 only on submit
+    // Ensure we preserve the actual File instance
+    const fileUpload: FileUpload = {
+      id: crypto.randomUUID(),
+      file: file, // file is already typed as File, so we can use it directly
+      fileName: file.name,
+      fileSize: file.size,
+      uploadedAt: Date.now(),
+    };
+    
+    // Verify File instance is preserved
+    if (!fileUpload.file || !(fileUpload.file instanceof globalThis.File)) {
+      console.error("❌ CRITICAL: File instance lost when creating FileUpload object!");
+      console.error("File details:", { file, isFile: file instanceof globalThis.File, constructor: file?.constructor?.name });
     }
-  };
-
-  const uploadToBackend = async (file: File) => {
-    if (!submissionId) return;
-    setUploading(true);
-    setUploadProgress(0);
-
-    try {
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
-      }, 200);
-
-      const response = await apiService.uploadFile(submissionId, file);
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      const fileUpload: FileUpload = {
-        id: crypto.randomUUID(),
-        file: null, // File not stored locally when backend handles upload
-        fileName: response.data.fileName,
-        fileSize: response.data.fileSize,
-        uploadedAt: Date.now(),
-        filePath: response.data.filePath,
-        fileUrl: response.data.fileUrl,
-        mimeType: response.data.mimeType,
-      };
-
-      onChange(fileUpload);
-      onUploadComplete?.(fileUpload);
-
-      notificationService.success(
-        "File uploaded successfully",
-        "Upload Complete"
-      );
-    } catch (error: any) {
-      notificationService.error(
-        error.message || "Failed to upload file. Please try again.",
-        "Upload Failed"
-      );
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
+    
+    onChange(fileUpload);
   };
 
   const handleRemoveFile = async () => {
@@ -163,23 +118,7 @@ export const FileUploadSection = ({
         <p className="text-sm text-muted-foreground">{description}</p>
       )}
 
-      {uploading ? (
-        <div className="border-2 border-dashed rounded-lg p-8 text-center">
-          <Loader2 className="w-8 h-8 mx-auto mb-3 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground mb-3">
-            Uploading file...
-          </p>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-            <div
-              className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {uploadProgress}% complete
-          </p>
-        </div>
-      ) : !value ? (
+      {!value ? (
         <div className="flex items-center gap-3">
           <label
             htmlFor={`file-${label}`}
@@ -208,7 +147,7 @@ export const FileUploadSection = ({
         </div>
       ) : (
         <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/30">
-          <File className="w-8 h-8 text-primary flex-shrink-0" />
+          <FileIcon className="w-8 h-8 text-primary flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{value.fileName}</p>
             <p className="text-xs text-muted-foreground">
@@ -230,7 +169,7 @@ export const FileUploadSection = ({
             variant="ghost"
             size="sm"
             onClick={handleRemoveFile}
-            disabled={uploading || disabled}
+            disabled={disabled}
           >
             <X className="w-4 h-4" />
           </Button>

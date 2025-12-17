@@ -32,9 +32,13 @@ export const dropdownValues = {
   ],
 
   issuingAuthorityList: [
-    "Authority Name",
-    "Municipal Corporation",
-    "Development Authority"
+    // "Authority Name",
+    // "Municipal Corporation",
+    // "Development Authority"
+    "Trust", 
+    "Society", 
+    "Corporation", 
+    "Company"
   ],
 
   sector: [

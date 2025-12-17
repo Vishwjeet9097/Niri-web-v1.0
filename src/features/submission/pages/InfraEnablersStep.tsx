@@ -208,6 +208,10 @@ export const InfraEnablersStep = () => {
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
+  
+  // State for submissionId to enable immediate file uploads
+  const [submissionId, setSubmissionId] = useState<string | undefined>();
+  
   const { toast } = useToast();
 
   // On mount, fetch submission from DB and populate form
@@ -240,6 +244,14 @@ export const InfraEnablersStep = () => {
             sub.status === "RETURNED_FROM_STATE" ||
             sub.status === "PENDING_STATE_APPROVAL"
         );
+        
+        // Set submissionId for immediate file uploads
+        if (userSubmission?.id) {
+          setSubmissionId(userSubmission.id);
+          console.log("✅ Found existing submissionId:", userSubmission.id);
+        } else {
+          console.log("ℹ️ No existing submission found, files will upload on submit");
+        }
 
         let sectionStatusFromDB = undefined;
         if (userSubmission && userSubmission.id) {
@@ -722,7 +734,8 @@ export const InfraEnablersStep = () => {
     goToNext();
   };
 
-  // Remove unwanted keys and sanitize files before submit
+  // Remove unwanted keys from all levels of the payload
+  // CRITICAL: Preserves File and Blob instances (they cannot be serialized to JSON)
   function deepRemoveUnwantedKeys(obj) {
     const keysToRemove = [
       "sectionStatus",
@@ -731,24 +744,57 @@ export const InfraEnablersStep = () => {
       "totalIndicators",
       "completedIndicators",
     ];
+    
+    // Preserve File and Blob instances - return them as-is
+    if (obj instanceof File || obj instanceof Blob) {
+      return obj;
+    }
+    
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
+    
     if (obj && typeof obj === "object") {
       const newObj = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
-          if (
-            key === "normalizedFormData" &&
-            obj[key] &&
-            typeof obj[key] === "object"
+          const value = obj[key];
+          
+          // Preserve File and Blob instances
+          if (value instanceof File || value instanceof Blob) {
+            newObj[key] = value; // Keep File/Blob instance as-is
+          }
+          // Preserve FileUpload objects with File instances
+          else if (
+            value &&
+            typeof value === "object" &&
+            "file" in value &&
+            (value.file instanceof File || value.file instanceof Blob)
           ) {
-            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            // Preserve the FileUpload object structure, including the File instance
+            const fileUploadObj: any = {};
+            for (const prop in value) {
+              if (prop === "file" && (value.file instanceof File || value.file instanceof Blob)) {
+                fileUploadObj[prop] = value.file; // Keep File/Blob instance as-is
+              } else {
+                fileUploadObj[prop] = deepRemoveUnwantedKeys(value[prop]);
+              }
+            }
+            newObj[key] = fileUploadObj;
+          }
+          // Special handling for normalizedFormData and its 'original' property
+          else if (
+            key === "normalizedFormData" &&
+            value &&
+            typeof value === "object"
+          ) {
+            newObj[key] = deepRemoveUnwantedKeys(value);
+            // Remove section_status from normalizedFormData.original if present
             if (newObj[key].original) {
               newObj[key].original = deepRemoveUnwantedKeys(
                 newObj[key].original
               );
             }
           } else {
-            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            newObj[key] = deepRemoveUnwantedKeys(value);
           }
         }
       }
@@ -808,10 +854,8 @@ export const InfraEnablersStep = () => {
         "4.5",
         "4.6",
       ];
-      // Sanitize files and remove unwanted keys
-      let sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
+      // Remove unwanted keys (preserves File instances for upload)
+      let sanitizedFormData = deepRemoveUnwantedKeys(formData);
       // Debug: Log sanitized payload before submit
       console.log(
         "[DEBUG] Payload to submit InfraEnablersStep:",
@@ -886,10 +930,8 @@ export const InfraEnablersStep = () => {
       setIsSubmitting(true);
       setShowSubmitDialog(false);
 
-      // Sanitize files and remove unwanted keys
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
+      // Remove unwanted keys (preserves File instances for upload)
+      const sanitizedFormData = deepRemoveUnwantedKeys(formData);
 
       // Create sanitized data with status for the submitted indicator
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
@@ -910,11 +952,20 @@ export const InfraEnablersStep = () => {
         },
       };
 
-      await apiService.submitSectionToStateApprover(
+      const result = await apiService.submitSectionToStateApprover(
         sanitizedFormDataWithStatus,
         "infraEnablers",
         [indicatorCode]
       );
+
+      // Update submissionId if it was created/updated
+      if (result?.id || result?.submissionId) {
+        const newSubmissionId = result.id || result.submissionId;
+        if (newSubmissionId && newSubmissionId !== submissionId) {
+          setSubmissionId(newSubmissionId);
+          console.log("✅ Updated submissionId after submit:", newSubmissionId);
+        }
+      }
 
       // Remove from editingIndicators first to ensure it becomes non-editable immediately
       setEditingIndicators((prev) => {
@@ -1025,11 +1076,21 @@ export const InfraEnablersStep = () => {
 
   const handleSaveDraft = async () => {
     try {
-      await apiService.submitSectionToStateApprover(
+      const result = await apiService.submitSectionToStateApprover(
         formData,
         "infraEnablers",
         allowedIndicators || ["4.1", "4.2", "4.3", "4.4", "4.5"]
       );
+      
+      // Update submissionId if it was created/updated
+      if (result?.id || result?.submissionId) {
+        const newSubmissionId = result.id || result.submissionId;
+        if (newSubmissionId && newSubmissionId !== submissionId) {
+          setSubmissionId(newSubmissionId);
+          console.log("✅ Updated submissionId after draft save:", newSubmissionId);
+        }
+      }
+      
       updateFormData("infraEnablers", formData);
       toast({
         title: "Draft Saved",
@@ -1200,10 +1261,8 @@ export const InfraEnablersStep = () => {
       const currentStatus = getIndicatorStatus(indicatorCode);
       const sectionKey = `section${indicatorCode.replace(".", "_")}`;
 
-      // Sanitize files and remove unwanted keys before saving
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
+      // Remove unwanted keys before saving (preserves File instances for upload)
+      const sanitizedFormData = deepRemoveUnwantedKeys(formData);
 
       // If indicator was sent back (REVERTED), change status to RESUBMITTED after saving
       // Both Save and Submit buttons should change REVERTED to RESUBMITTED
@@ -1227,11 +1286,20 @@ export const InfraEnablersStep = () => {
 
       // Use submitSectionToStateApprover API which properly handles RESUBMITTED status
       // This ensures the status is preserved correctly in the database
-      await apiService.submitSectionToStateApprover(
+      const result = await apiService.submitSectionToStateApprover(
         sanitizedFormDataWithStatus,
         "infraEnablers",
         [indicatorCode]
       );
+
+      // Update submissionId if it was created/updated
+      if (result?.id || result?.submissionId) {
+        const newSubmissionId = result.id || result.submissionId;
+        if (newSubmissionId && newSubmissionId !== submissionId) {
+          setSubmissionId(newSubmissionId);
+          console.log("✅ Updated submissionId after resubmit:", newSubmissionId);
+        }
+      }
 
       // Remove from editingIndicators first to ensure it becomes non-editable immediately
       setEditingIndicators((prev) => {
@@ -1596,6 +1664,7 @@ export const InfraEnablersStep = () => {
                       section4_2: { ...prev.section4_2, file },
                     }));
                   }}
+                  submissionId={submissionId}
                   disabled={isIndicatorSubmitted("4.2")}
                 />
                 <p className="text-xs text-muted-foreground">Description</p>
@@ -1841,6 +1910,7 @@ export const InfraEnablersStep = () => {
                           showErrorsIfNeeded();
                           updateGatiProject(entry.id, "file", file);
                         }}
+                        submissionId={submissionId}
                         disabled={isIndicatorSubmitted("4.3")}
                       />
                       {renderFieldError(
@@ -2076,6 +2146,7 @@ export const InfraEnablersStep = () => {
                       section4_4: { ...prev.section4_4, file },
                     }));
                   }}
+                  submissionId={submissionId}
                   disabled={isIndicatorSubmitted("4.4")}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -2327,6 +2398,7 @@ export const InfraEnablersStep = () => {
                           showErrorsIfNeeded();
                           updatePractice(entry.id, "file", file);
                         }}
+                        submissionId={submissionId}
                         disabled={isIndicatorSubmitted("4.5")}
                       />
                       {renderFieldError(

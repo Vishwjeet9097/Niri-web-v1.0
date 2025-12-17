@@ -72,11 +72,10 @@ export const BOND_TYPE_OPTIONS = [
 ];
 
 export const ORGANISATION_TYPE_OPTIONS = [
-  "Corporation",
-  "Trust",
-  "Society",
-  "Partnership",
-  "Other",
+    "Trust", 
+    "Society", 
+    "Corporation", 
+    "Company"
 ];
 
 export const PROJECT_TYPE_OPTIONS = ["BOT", "BOOT", "HAM", "EPC", "Other"];

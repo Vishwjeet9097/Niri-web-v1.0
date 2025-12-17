@@ -249,6 +249,9 @@ export const InfraDevelopmentStep = () => {
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
+  
+  // State for submissionId to enable immediate file uploads
+  const [submissionId, setSubmissionId] = useState<string | undefined>();
 
   // On mount, fetch submission from DB and populate form
   // Helper to merge normalized and legacy data for each section
@@ -280,6 +283,14 @@ export const InfraDevelopmentStep = () => {
             sub.status === "RETURNED_FROM_STATE" ||
             sub.status === "PENDING_STATE_APPROVAL"
         );
+        
+        // Set submissionId for immediate file uploads
+        if (userSubmission?.id) {
+          setSubmissionId(userSubmission.id);
+          console.log("✅ Found existing submissionId:", userSubmission.id);
+        } else {
+          console.log("ℹ️ No existing submission found, files will upload on submit");
+        }
 
         let sectionStatusFromDB = undefined;
         if (userSubmission && userSubmission.id) {
@@ -952,6 +963,7 @@ export const InfraDevelopmentStep = () => {
 
   // Remove sectionStatus and section_status from all levels of the payload
   // Remove unwanted keys from all levels of the payload
+  // CRITICAL: Preserves File and Blob instances (they cannot be serialized to JSON)
   function deepRemoveUnwantedKeys(obj) {
     const keysToRemove = [
       "sectionStatus",
@@ -960,18 +972,50 @@ export const InfraDevelopmentStep = () => {
       "totalIndicators",
       "completedIndicators",
     ];
+    
+    // Preserve File and Blob instances - return them as-is
+    if (obj instanceof File || obj instanceof Blob) {
+      return obj;
+    }
+    
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
+    
     if (obj && typeof obj === "object") {
       const newObj = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
-          // Special handling for normalizedFormData and its 'original' property
-          if (
-            key === "normalizedFormData" &&
-            obj[key] &&
-            typeof obj[key] === "object"
+          const value = obj[key];
+          
+          // Preserve File and Blob instances
+          if (value instanceof File || value instanceof Blob) {
+            newObj[key] = value; // Keep File/Blob instance as-is
+          }
+          // Preserve FileUpload objects with File instances
+          else if (
+            value &&
+            typeof value === "object" &&
+            "file" in value &&
+            (value.file instanceof File || value.file instanceof Blob)
           ) {
-            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            // Preserve the FileUpload object structure, including the File instance
+            // Use Object.assign to preserve all properties including the File instance
+            const fileUploadObj: any = {};
+            for (const prop in value) {
+              if (prop === "file" && (value.file instanceof File || value.file instanceof Blob)) {
+                fileUploadObj[prop] = value.file; // Keep File/Blob instance as-is
+              } else {
+                fileUploadObj[prop] = deepRemoveUnwantedKeys(value[prop]);
+              }
+            }
+            newObj[key] = fileUploadObj;
+          }
+          // Special handling for normalizedFormData and its 'original' property
+          else if (
+            key === "normalizedFormData" &&
+            value &&
+            typeof value === "object"
+          ) {
+            newObj[key] = deepRemoveUnwantedKeys(value);
             // Remove section_status from normalizedFormData.original if present
             if (newObj[key].original) {
               newObj[key].original = deepRemoveUnwantedKeys(
@@ -979,7 +1023,7 @@ export const InfraDevelopmentStep = () => {
               );
             }
           } else {
-            newObj[key] = deepRemoveUnwantedKeys(obj[key]);
+            newObj[key] = deepRemoveUnwantedKeys(value);
           }
         }
       }
@@ -1139,10 +1183,44 @@ export const InfraDevelopmentStep = () => {
         fullFormData: formData,
       });
 
-      // Remove sectionStatus and section_status from payload and deeply sanitize files
-      const sanitizedFormData = deepRemoveUnwantedKeys(
-        sanitizeFilesInFormData(formData)
-      );
+      // ✅ Check for File objects BEFORE sanitization
+      // Helper to check for File objects
+      const hasFileObjects = (obj: any): boolean => {
+        if (!obj || typeof obj !== "object") return false;
+        if (obj instanceof File) return true;
+        if (Array.isArray(obj)) return obj.some(hasFileObjects);
+        for (const value of Object.values(obj)) {
+          if (value instanceof File) return true;
+          if (value && typeof value === "object") {
+            if ((value as any).file instanceof File) return true;
+            if (hasFileObjects(value)) return true;
+          }
+        }
+        return false;
+      };
+
+      const hasFiles = hasFileObjects(formData);
+      console.log(`🔍 [SUBMIT ${indicatorCode}] File objects detected in formData:`, hasFiles);
+
+      // ✅ If files exist, pass original formData (with File objects) to submitSectionToStateApprover
+      // The API service will handle sanitization internally after uploading files
+      // If no files, use sanitized data as before
+      let dataToSubmit: any;
+      
+      if (hasFiles) {
+        console.log(`📤 [SUBMIT ${indicatorCode}] Files detected - passing original formData with File objects`);
+        // Only remove unwanted keys, don't sanitize files yet
+        // The API service will upload files and sanitize them
+        dataToSubmit = deepRemoveUnwantedKeys(formData);
+      } else {
+        // No files, sanitize as before
+        dataToSubmit = deepRemoveUnwantedKeys(
+          sanitizeFilesInFormData(formData)
+        );
+      }
+
+      // Use dataToSubmit for all subsequent operations
+      const sanitizedFormData = dataToSubmit;
 
       // 🔍 DEBUG: Log after sanitization
       const debugSectionKey = `section${indicatorCode.replace(".", "_")}`;
@@ -1245,6 +1323,31 @@ export const InfraDevelopmentStep = () => {
           status: newStatus,
         },
       };
+      
+      // ✅ Verify File instances are still present before sending to API
+      const verifyFileInstances = (obj: any, path: string = ""): boolean => {
+        if (!obj || typeof obj !== "object") return false;
+        if (obj instanceof File) return true;
+        if (Array.isArray(obj)) {
+          return obj.some((item, idx) => verifyFileInstances(item, `${path}[${idx}]`));
+        }
+        for (const [key, value] of Object.entries(obj)) {
+          if (value instanceof File) {
+            console.log(`✅ File instance found at ${path}.${key}`);
+            return true;
+          }
+          if (value && typeof value === "object" && "file" in value && value.file instanceof File) {
+            console.log(`✅ File instance found in FileUpload at ${path}.${key}.file`);
+            return true;
+          }
+          if (verifyFileInstances(value, path ? `${path}.${key}` : key)) return true;
+        }
+        return false;
+      };
+      
+      const stillHasFiles = verifyFileInstances(sanitizedFormDataWithStatus);
+      console.log(`🔍 [SUBMIT ${indicatorCode}] File instances verification before API call:`, stillHasFiles);
+      
       console.log(`🔍 [SUBMIT ${indicatorCode}] Final payload being sent:`, {
         indicatorCode,
         category: "infraDevelopment",
@@ -1252,13 +1355,23 @@ export const InfraDevelopmentStep = () => {
         fullPayload: payload,
         previousStatus: currentStatus,
         newStatus: newStatus,
+        hasFileInstances: stillHasFiles,
       });
 
-      await apiService.submitSectionToStateApprover(
+      const result = await apiService.submitSectionToStateApprover(
         sanitizedFormDataWithStatus,
         "infraDevelopment",
         [indicatorCode]
       );
+
+      // Update submissionId if it was created/updated
+      if (result?.id || result?.submissionId) {
+        const newSubmissionId = result.id || result.submissionId;
+        if (newSubmissionId && newSubmissionId !== submissionId) {
+          setSubmissionId(newSubmissionId);
+          console.log("✅ Updated submissionId after submit:", newSubmissionId);
+        }
+      }
 
       // Remove from editingIndicators first to ensure it becomes non-editable immediately
       setEditingIndicators((prev) => {
@@ -1416,11 +1529,21 @@ export const InfraDevelopmentStep = () => {
         sectionStatus: undefined,
         section_status: undefined,
       };
-      await apiService.submitSectionToStateApprover(
+      const result = await apiService.submitSectionToStateApprover(
         payload,
         "infraDevelopment",
         allowedIndicators || ["2.1", "2.2", "2.3", "2.4", "2.5"]
       );
+      
+      // Update submissionId if it was created/updated
+      if (result?.id || result?.submissionId) {
+        const newSubmissionId = result.id || result.submissionId;
+        if (newSubmissionId && newSubmissionId !== submissionId) {
+          setSubmissionId(newSubmissionId);
+          console.log("✅ Updated submissionId after draft save:", newSubmissionId);
+        }
+      }
+      
       updateFormData("infraDevelopment", sanitizedFormData);
       toast({
         title: "Draft Saved",
@@ -1629,11 +1752,20 @@ export const InfraDevelopmentStep = () => {
 
       // Use submitSectionToStateApprover API which properly handles RESUBMITTED status
       // This ensures the status is preserved correctly in the database
-      await apiService.submitSectionToStateApprover(
+      const result = await apiService.submitSectionToStateApprover(
         sanitizedFormDataWithStatus,
         "infraDevelopment",
         [indicatorCode]
       );
+
+      // Update submissionId if it was created/updated
+      if (result?.id || result?.submissionId) {
+        const newSubmissionId = result.id || result.submissionId;
+        if (newSubmissionId && newSubmissionId !== submissionId) {
+          setSubmissionId(newSubmissionId);
+          console.log("✅ Updated submissionId after resubmit:", newSubmissionId);
+        }
+      }
 
       // Remove from editingIndicators first to ensure it becomes non-editable immediately
       setEditingIndicators((prev) => {
@@ -1885,6 +2017,7 @@ export const InfraDevelopmentStep = () => {
                             safeFile ? [safeFile] : []
                           );
                         }}
+                        submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("2.1")}
                       />
@@ -2094,6 +2227,7 @@ export const InfraDevelopmentStep = () => {
                             safeFile ? [safeFile] : []
                           );
                         }}
+                        submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("2.2")}
                       />
@@ -2369,6 +2503,7 @@ export const InfraDevelopmentStep = () => {
                                 file ? [file] : []
                               );
                             }}
+                            submissionId={submissionId}
                             required
                             disabled={isIndicatorSubmitted("2.3")}
                           />
