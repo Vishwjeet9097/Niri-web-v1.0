@@ -220,22 +220,62 @@ export const InfraDevelopmentReview = ({
       if (mospiStatus === "ACCEPTED") {
         return false;
       }
-      // If mospi_status is REVERTED, section SHOULD be editable
+      // If mospi_status is REVERTED, section CAN be edited
+      // But it's only editable if it's currently in edit mode (isEditable returns true)
       if (mospiStatus === "REVERTED") {
         return isEditable(sectionId);
       }
+      // If mospi_status is not set, allow editing if in edit mode (for initial state editing)
+      return isEditable(sectionId);
     }
 
     // For other roles or when mospi_status is not set, use existing isEditable logic
     return isEditable(sectionId);
   };
 
+  // Helper function to check if section CAN be edited (permission check, not state check)
+  const canEditSection = (sectionId: string): boolean => {
+    const userRole = getUserRole();
+    const isStateApprover = userRole === "STATE_APPROVER";
+
+    if (isStateApprover) {
+      const submissionStatus = submission?.status;
+      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      if (
+        submissionStatus !== "SUBMITTED_TO_STATE" &&
+        submissionStatus !== "RETURNED_FROM_MOSPI"
+      ) {
+        return false;
+      }
+
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (formDataState && formDataState[sectionKey]) ||
+        (formData && formData[sectionKey]);
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If mospi_status is ACCEPTED, section CANNOT be edited
+      if (mospiStatus === "ACCEPTED") {
+        return false;
+      }
+      // If mospi_status is REVERTED, section CAN be edited
+      if (mospiStatus === "REVERTED") {
+        return true;
+      }
+    }
+
+    // For other roles or when mospi_status is not set, allow editing
+    return true;
+  };
+
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
-    // Check if section should be editable before allowing edit
-    if (!shouldBeEditable(sectionId)) {
+    // Check if section CAN be edited (permission check)
+    if (!canEditSection(sectionId)) {
       console.log(
-        `[InfraDevelopmentReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED`
+        `[InfraDevelopmentReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED or invalid status`
       );
       return;
     }
