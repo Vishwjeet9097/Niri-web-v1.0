@@ -20,30 +20,30 @@ class ULBService {
    * @param stateCode - The state code to filter ULBs
    * @returns Promise<ULB[]>
    */
-  async getULBsByState(stateCode: string): Promise<ULB[]> {
+  async getULBsByState(stateName: string): Promise<ULB[]> {
     // Check cache first
-    const cacheKey = stateCode.toLowerCase();
-    const cachedData = this.ulbCache.get(cacheKey);
-    const expiry = this.cacheExpiry.get(cacheKey);
+    // const cacheKey = stateName.toLowerCase();
+    // const cachedData = this.ulbCache.get(cacheKey);
+    // const expiry = this.cacheExpiry.get(cacheKey);
 
-    if (cachedData && expiry && Date.now() < expiry) {
-      console.log(`🏢 Returning cached ULBs for state: ${stateCode}`);
-      return cachedData;
-    }
+    // if (cachedData && expiry && Date.now() < expiry) {
+    //   console.log(`🏢 Returning cached ULBs for state: ${stateName}`);
+    //   return cachedData;
+    // }
 
     try {
-      console.log(`🏢 Fetching ULBs from API for state: ${stateCode}`);
-      const response = await fetch(API_ENDPOINTS.ulb.byState(stateCode));
-
+      const response = await fetch(API_ENDPOINTS.ulb.byState(stateName));
       if (!response.ok) {
         throw new Error(`Failed to fetch ULBs: ${response.status}`);
       }
-
       const data = await response.json();
       console.log("🏢 ULB API Response:", data);
 
-      let ulbs: ULB[];
-      if (Array.isArray(data)) {
+      let ulbs: ULB[] = [];
+      // Support for API response: { status, data: { total, data: [...] } }
+      if (data && data.data && Array.isArray(data.data.data)) {
+        ulbs = data.data.data;
+      } else if (Array.isArray(data)) {
         ulbs = data;
       } else if (data.data && Array.isArray(data.data)) {
         ulbs = data.data;
@@ -53,10 +53,11 @@ class ULBService {
       }
 
       // Cache the data
-      this.ulbCache.set(cacheKey, ulbs);
-      this.cacheExpiry.set(cacheKey, Date.now() + this.CACHE_DURATION);
+      // const cacheKey = stateName.toLowerCase();
+      // this.ulbCache.set(cacheKey, ulbs);
+      // this.cacheExpiry.set(cacheKey, Date.now() + this.CACHE_DURATION);
 
-      console.log(`🏢 Cached ${ulbs.length} ULBs for state: ${stateCode}`);
+      console.log(`🏢 Cached ${ulbs.length} ULBs for state: ${stateName}`);
       return ulbs;
     } catch (error) {
       console.error("Error fetching ULBs:", error);

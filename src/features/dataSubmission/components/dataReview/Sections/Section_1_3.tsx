@@ -139,7 +139,10 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                         isEditable={true}
                       />
                     ) : (
-                      item.ulb || 'N/A'
+                      (() => {
+                        const found = dropdownValues.ulbList?.find(u => u.value === item.ulb);
+                        return found ? found.label : (item.ulb || 'N/A');
+                      })()
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
