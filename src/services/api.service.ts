@@ -1815,7 +1815,7 @@ class ApiService implements HttpClient {
         // Only redirect for NODAL_OFFICER, not for STATE_APPROVER
         if (
           updatedSectionStatus.completedCount >=
-            updatedSectionStatus.totalAssigned 
+          updatedSectionStatus.totalAssigned
         ) {
           console.log(
             "🎉 All indicators completed! Redirecting to review page..."
