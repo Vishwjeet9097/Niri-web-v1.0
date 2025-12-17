@@ -116,7 +116,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
                       <Dropdown
-                        options={dropdownValues.bondTypeList}
+                        options={dropdownValues.bondTypeList.map(opt => ({ label: opt, value: opt }))}
                         value={item.bondType || ""}
                         onChange={(value) => handleBondChange(index, "bondType", value)}
                         placeholder="Select Bond Type"
@@ -129,7 +129,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
                       <Dropdown
-                        options={dropdownValues.cityList}
+                        options={dropdownValues.cityList.map(opt => ({ label: opt, value: opt }))}
                         value={item.cityName || ""}
                         onChange={(value) => handleBondChange(index, "cityName", value)}
                         placeholder="Select City"
@@ -141,12 +141,11 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
-                      <Dropdown
-                        options={dropdownValues.issuingAuthorityList}
+                      <Input
                         value={item.issuingAuthority || ""}
-                        onChange={(value) => handleBondChange(index, "issuingAuthority", value)}
-                        placeholder="Select Authority"
-                        isEditable={true}
+                        onChange={(e) => handleBondChange(index, "issuingAuthority", e.target.value)}
+                        className="w-full"
+                        placeholder="Enter Issuing Authority"
                       />
                     ) : (
                       item.issuingAuthority || 'N/A'
@@ -199,7 +198,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
             <div>
               <Label>Bond Type</Label>
               <Dropdown
-                options={dropdownValues.bondTypeList}
+                options={dropdownValues.bondTypeList.map(opt => ({ label: opt, value: opt }))}
                 value={newBondEntry.bondType}
                 onChange={(value) => setNewBondEntry({...newBondEntry, bondType: value})}
                 placeholder="Select Bond Type"
@@ -209,7 +208,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
             <div>
               <Label>City</Label>
               <Dropdown
-                options={dropdownValues.cityList}
+                options={dropdownValues.cityList.map(opt => ({ label: opt, value: opt }))}
                 value={newBondEntry.cityName}
                 onChange={(value) => setNewBondEntry({...newBondEntry, cityName: value})}
                 placeholder="Select City"
@@ -218,16 +217,15 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
             </div>
             <div>
               <Label>Issuing Authority</Label>
-              <Dropdown
-                options={dropdownValues.issuingAuthorityList}
+              <Input
                 value={newBondEntry.issuingAuthority}
-                onChange={(value) => setNewBondEntry({...newBondEntry, issuingAuthority: value})}
-                placeholder="Select Authority"
-                isEditable={true}
+                onChange={(e) => setNewBondEntry({ ...newBondEntry, issuingAuthority: e.target.value })}
+                className="bg-white"
+                placeholder="Enter Issuing Authority"
               />
             </div>
             <div>
-              <Label>Value (₹ Crores)</Label>
+              <Label>Value ( INR - values is in CRORES)</Label>
               <Input
                 type="number"
                 value={newBondEntry.value}

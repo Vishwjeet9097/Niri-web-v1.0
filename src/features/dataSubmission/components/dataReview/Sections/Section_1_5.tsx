@@ -114,7 +114,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.5") ? (
                       <Dropdown
-                        options={dropdownValues.issuingAuthorityList}
+                        options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
                         value={item.organisationType || ""}
                         onChange={(value) => handleOrgChange(index, "organisationType", value)}
                         placeholder="Select Type"
@@ -206,7 +206,7 @@ export const Section_1_5 = ({ formData, isEditable, setSectionState, resetKey }:
             <div>
               <Label>Organisation Type</Label>
               <Dropdown
-                options={dropdownValues.issuingAuthorityList}
+                options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
                 value={newOrgEntry.organisationType}
                 onChange={(value) => setNewOrgEntry({...newOrgEntry, organisationType: value})}
                 placeholder="Select Type"

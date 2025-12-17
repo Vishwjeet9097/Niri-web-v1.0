@@ -2555,7 +2555,7 @@ export const InfraEnablersReview = ({
                                         value
                                       )
                                     }
-                                    options={dropdownValues.sector}
+                                    options={dropdownValues.sector.map(opt => ({ label: opt, value: opt }))}
                                     placeholder="Select sector"
                                   />
                                 ) : (
@@ -2741,7 +2741,7 @@ export const InfraEnablersReview = ({
                             onChange={(value) =>
                               setNewProject({ ...newProject, sector: value })
                             }
-                            options={dropdownValues.sector}
+                            options={dropdownValues.sector.map(opt => ({ label: opt, value: opt }))}
                             placeholder="Select sector"
                           />
                         </div>
@@ -3052,6 +3052,7 @@ export const InfraEnablersReview = ({
                               <td className="py-3 px-4 text-sm font-normal">
                                 {shouldBeEditable("4.5") ? (
                                   <Dropdown
+                                    resetKey={idx}
                                     value={practice.impact || ""}
                                     onChange={(value) =>
                                       handlePracticeFieldUpdate(
@@ -3060,7 +3061,7 @@ export const InfraEnablersReview = ({
                                         value
                                       )
                                     }
-                                    options={IMPACT_OPTIONS}
+                                    options={IMPACT_OPTIONS.map(opt => ({ label: opt, value: opt }))}
                                     placeholder="Select impact"
                                   />
                                 ) : (
@@ -3246,7 +3247,7 @@ export const InfraEnablersReview = ({
                             onChange={(value) =>
                               setNewPractice({ ...newPractice, impact: value })
                             }
-                            options={IMPACT_OPTIONS}
+                            options={IMPACT_OPTIONS.map(opt => ({ label: opt, value: opt }))}
                             placeholder="Select impact"
                           />
                         </div>
@@ -3397,7 +3398,7 @@ export const InfraEnablersReview = ({
                           Program Name
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
-                          Training Type
+                          Type
                         </th>
                         <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                           Organiser
@@ -3484,6 +3485,7 @@ export const InfraEnablersReview = ({
                             <td className="py-3 px-4 text-sm font-normal">
                               {shouldBeEditable("4.6") ? (
                                 <Dropdown
+                                  resetKey={idx}
                                   value={item.trainingType || ""}
                                   onChange={(value) =>
                                     handleTableFieldUpdate(
@@ -3492,7 +3494,7 @@ export const InfraEnablersReview = ({
                                       value
                                     )
                                   }
-                                  options={TRAINING_TYPE_OPTIONS}
+                                  options={TRAINING_TYPE_OPTIONS.map(opt => ({ label: opt, value: opt }))}
                                   placeholder="Select training type"
                                 />
                               ) : (
@@ -3612,7 +3614,7 @@ export const InfraEnablersReview = ({
                         />
                       </div>
                       <div>
-                        <Label>Training Type</Label>
+                        <Label>Type</Label>
                         <Dropdown
                           value={newCapacityEntry.trainingType}
                           onChange={(value) =>
@@ -3621,7 +3623,7 @@ export const InfraEnablersReview = ({
                               trainingType: value,
                             })
                           }
-                          options={TRAINING_TYPE_OPTIONS}
+                          options={TRAINING_TYPE_OPTIONS.map(opt => ({ label: opt, value: opt }))}
                           placeholder="Select training type"
                         />
                       </div>

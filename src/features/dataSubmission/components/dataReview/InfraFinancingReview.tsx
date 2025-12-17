@@ -2787,9 +2787,7 @@ export const InfraFinancingReview = ({
                               <td className="py-3 px-4 text-sm font-normal">
                                 {shouldBeEditable("1.5") ? (
                                   <Dropdown
-                                    options={
-                                      dropdownValues.issuingAuthorityList
-                                    }
+                                    options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
                                     value={item.organisationType || ""}
                                     onChange={(value) => {
                                       const updatedArray = [...ffiArray];
@@ -2921,7 +2919,7 @@ export const InfraFinancingReview = ({
                         <div>
                           <Label>Organisation Type</Label>
                           <Dropdown
-                            options={dropdownValues.issuingAuthorityList}
+                            options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
                             value={newEntry1_5.organisationType}
                             onChange={(value) =>
                               setNewEntry1_5({
