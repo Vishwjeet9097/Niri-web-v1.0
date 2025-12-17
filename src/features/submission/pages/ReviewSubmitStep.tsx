@@ -35,7 +35,7 @@ export const ReviewSubmitStep = () => {
     isStateApprover,
   } = useIndicatorAccess();
   const navigate = useNavigate();
-  const [showPreview, setShowPreview] = useState(false);
+  const [showReview, setShowReview] = useState(false);
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -169,9 +169,10 @@ export const ReviewSubmitStep = () => {
 
   const indicatorSummary = getIndicatorSummary();
 
-  if (showPreview) {
+  if (showReview) {
     // Use absolute path to avoid nested duplicate segments in edit mode
-    navigate("/submissions/preview");
+    // navigate("/submissions/preview");
+    navigate(`/data-submission/review/${submission?.id}`);
     return null;
   }
 
@@ -378,9 +379,9 @@ export const ReviewSubmitStep = () => {
           </Button>
 
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setShowPreview(true)}>
+            <Button variant="outline" onClick={() => setShowReview(true)}>
               <Eye className="w-4 h-4 mr-2" />
-              Preview Submission
+              Review Submission
             </Button>
           </div>
         </div>

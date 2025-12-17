@@ -486,6 +486,23 @@ export const PPPDevelopmentReview = ({
     setTimelineSection(null);
   };
 
+  // Helper to extract original name from UUID-prefixed fileName for existing files
+  const extractOriginalName = (fileName: string, originalName?: string): string => {
+    if (originalName && originalName.trim()) return originalName;
+    
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+    
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, '');
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+    
+    return fileName;
+  };
+
   const handleSaveMessage = async (updatedSubmission: unknown) => {
     // MessageModal already saved the comment, so we just need to update state and check flags
     if (updatedSubmission && typeof updatedSubmission === "object") {
@@ -585,20 +602,17 @@ export const PPPDevelopmentReview = ({
   ) => {
     const sectionKey = `section${sectionId.replace(".", "_")}`;
     const previousSection = state?.[sectionKey] || {};
-    const targetKey = sectionId === "3.1" ? "files" : "file";
+    const targetKey = "file"; // Section 3.1 uses 'file' (singular), same as 3.2
     const filesArray = toFileArray(updatedValue);
-    const normalizedValue = targetKey === "files" ? filesArray : updatedValue;
+    // For single file sections (3.1, 3.2), use the first file or null
+    const normalizedValue = Array.isArray(updatedValue) && updatedValue.length > 0 
+      ? updatedValue[0] 
+      : (Array.isArray(updatedValue) ? null : updatedValue);
 
-    const updatedSection =
-      targetKey === "files"
-        ? {
-            ...previousSection,
-            files: filesArray,
-          }
-        : {
-            ...previousSection,
-            [targetKey]: normalizedValue,
-          };
+    const updatedSection = {
+      ...previousSection,
+      [targetKey]: normalizedValue,
+    };
 
     setFormDataState((prev: any) => ({
       ...prev,
@@ -611,7 +625,8 @@ export const PPPDevelopmentReview = ({
         const fields = [
           {
             available: updatedSection?.available ?? null,
-            files: filesArray,
+            file: normalizedValue,
+            comment: updatedSection?.comment ?? null,
           },
         ];
 
@@ -622,7 +637,7 @@ export const PPPDevelopmentReview = ({
           fields,
         });
 
-        if (filesArray.length === 0) {
+        if (!normalizedValue) {
           await onIndicatorStatus(sectionId, false);
         }
       } catch (error) {
@@ -849,11 +864,7 @@ export const PPPDevelopmentReview = ({
           fields = [
             {
               available: state?.section3_1?.available ?? null,
-              files: Array.isArray(state?.section3_1?.files)
-                ? state.section3_1.files
-                : state?.section3_1?.files
-                ? [state.section3_1.files]
-                : [],
+              file: state?.section3_1?.file ?? null,
               comment: state?.section3_1?.comment ?? null,
             },
           ];
@@ -1877,14 +1888,14 @@ export const PPPDevelopmentReview = ({
               {state?.section3_1?.available === "yes" && (
                 <div>
                   <EditableFileDisplay
-                    files={state?.section3_1?.files ?? null}
+                    files={state?.section3_1?.file ?? null}
                     isEditable={isEditable("3.1")}
                     submissionId={submissionId}
-                    onFilesChange={(updatedFiles) =>
-                      handleFileUpdate("3.1", updatedFiles)
+                    onFilesChange={(updatedFile) =>
+                      handleFileUpdate("3.1", updatedFile)
                     }
-                    label="Uploaded Files"
-                    multiple={true}
+                    label="Uploaded File"
+                    multiple={false}
                   />
                 </div>
               )}
@@ -2215,11 +2226,19 @@ export const PPPDevelopmentReview = ({
                                   <Badge
                                     variant="secondary"
                                     className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
-                                    title={item.file.fileName || "Unknown file"}
+                                    title={
+                                      extractOriginalName(
+                                        item.file.fileName || "",
+                                        (item.file as any)?.originalName
+                                      ) || "Unknown file"
+                                    }
                                   >
                                     <Upload className="w-3 h-3 flex-shrink-0" />
                                     <span className="truncate">
-                                      {item.file.fileName || "Unknown file"}
+                                      {extractOriginalName(
+                                        item.file.fileName || "",
+                                        (item.file as any)?.originalName
+                                      ) || "Unknown file"}
                                     </span>
                                     <button
                                       type="button"
@@ -2266,6 +2285,7 @@ export const PPPDevelopmentReview = ({
                                               fileData.fileName ||
                                               fileData.filename ||
                                               selectedFile.name,
+                                            originalName: selectedFile.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name
                                             fileSize: Number(
                                               fileData.fileSize ??
                                                 fileData.size ??
@@ -2324,11 +2344,11 @@ export const PPPDevelopmentReview = ({
                               <Badge
                                 variant="secondary"
                                 className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                title={item.file.fileName || "Unknown file"}
+                                title={(item.file as any).originalName || item.file.fileName || "Unknown file"}
                               >
                                 <Upload className="w-3 h-3" />
                                 <span className="truncate">
-                                  {item.file.fileName || "Unknown file"}
+                                  {(item.file as any).originalName || item.file.fileName || "Unknown file"}
                                 </span>
                               </Badge>
                             ) : (

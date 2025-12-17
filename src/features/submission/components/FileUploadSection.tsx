@@ -57,6 +57,7 @@ export const FileUploadSection = ({
       id: crypto.randomUUID(),
       file: file, // file is already typed as File, so we can use it directly
       fileName: file.name,
+      originalName: file.name, // Preserve original file name
       fileSize: file.size,
       uploadedAt: Date.now(),
     };
@@ -109,6 +110,23 @@ export const FileUploadSection = ({
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+  // Helper to extract original name from UUID-prefixed fileName for existing files
+  const extractOriginalName = (fileName: string, originalName?: string): string => {
+    if (originalName && originalName.trim()) return originalName;
+    
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+    
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, '');
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+    
+    return fileName;
+  };
+
   return (
     <div className="space-y-2">
       <Label>
@@ -142,14 +160,16 @@ export const FileUploadSection = ({
           />
 
           <span className="text-gray-600 text-sm truncate max-w-[200px]">
-            {value ? value.fileName : "No file chosen"}
+            {value ? extractOriginalName(value.fileName || "", value.originalName) : "No file chosen"}
           </span>
         </div>
       ) : (
         <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/30">
           <FileIcon className="w-8 h-8 text-primary flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{value.fileName}</p>
+            <p className="text-sm font-medium truncate">
+              {extractOriginalName(value.fileName || "", value.originalName)}
+            </p>
             <p className="text-xs text-muted-foreground">
               {formatFileSize(value.fileSize)}
             </p>

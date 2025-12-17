@@ -2083,13 +2083,55 @@ export const InfraDevelopmentStep = () => {
                         {(Array.isArray(formData.section2_1?.infraActArray)
                           ? formData.section2_1.infraActArray
                           : []
-                        ).map((entry) => (
+                        ).map((entry) => {
+                          const file = entry.files?.[0];
+                          if (!file) {
+                            return (
+                              <tr key={entry.id} className="bg-white">
+                                <td className="py-3 px-4 text-sm font-normal">{entry.sector}</td>
+                                <td className="py-3 px-4 text-sm font-normal">No file uploaded</td>
+                                <td className="py-3 px-4 text-sm font-normal">N/A</td>
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEntry("section2_1", entry.id)}
+                                    disabled={isIndicatorSubmitted("2.1")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }
+                          
+                          // Extract original name from UUID-prefixed fileName if originalName is not available
+                          const extractOriginalName = (fileName: string, originalName?: string): string => {
+                            if (originalName && originalName.trim()) return originalName;
+                            
+                            // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+                            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+                            
+                            if (uuidPattern.test(fileName)) {
+                              const extracted = fileName.replace(uuidPattern, '');
+                              if (extracted && extracted.trim().length > 0) {
+                                return extracted;
+                              }
+                            }
+                            
+                            return fileName;
+                          };
+                          
+                          const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
+                          
+                          return (
                           <tr key={entry.id} className="bg-white">
                             <td className="py-3 px-4 text-sm font-normal">
                               {entry.sector}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {entry.files?.[0]?.fileName || "No file uploaded"}
+                              {displayName}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {entry.files?.[0]?.fileSize
@@ -2114,7 +2156,8 @@ export const InfraDevelopmentStep = () => {
                               </button>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -2295,13 +2338,55 @@ export const InfraDevelopmentStep = () => {
                         )
                           ? formData.section2_2.specializedEntityArray
                           : []
-                        ).map((entry) => (
+                        ).map((entry) => {
+                          const file = entry.files?.[0];
+                          if (!file) {
+                            return (
+                              <tr key={entry.id} className="bg-white">
+                                <td className="py-3 px-4 text-sm font-normal">{entry.sector}</td>
+                                <td className="py-3 px-4 text-sm font-normal">No file uploaded</td>
+                                <td className="py-3 px-4 text-sm font-normal">N/A</td>
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEntry("section2_2", entry.id)}
+                                    disabled={isIndicatorSubmitted("2.2")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }
+                          
+                          // Extract original name from UUID-prefixed fileName if originalName is not available
+                          const extractOriginalName = (fileName: string, originalName?: string): string => {
+                            if (originalName && originalName.trim()) return originalName;
+                            
+                            // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+                            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+                            
+                            if (uuidPattern.test(fileName)) {
+                              const extracted = fileName.replace(uuidPattern, '');
+                              if (extracted && extracted.trim().length > 0) {
+                                return extracted;
+                              }
+                            }
+                            
+                            return fileName;
+                          };
+                          
+                          const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
+                          
+                          return (
                           <tr key={entry.id} className="bg-white">
                             <td className="py-3 px-4 text-sm font-normal">
                               {entry.sector}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {entry.files?.[0]?.fileName || "No file uploaded"}
+                              {displayName}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {entry.files?.[0]?.fileSize
@@ -2326,7 +2411,8 @@ export const InfraDevelopmentStep = () => {
                               </button>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -2605,13 +2691,55 @@ export const InfraDevelopmentStep = () => {
                         )
                           ? formData.section2_3.infraDevelopmentArray
                           : []
-                        ).map((entry) => (
+                        ).map((entry) => {
+                          const file = entry.files?.[0];
+                          if (!file) {
+                            return (
+                              <tr key={entry.id} className="bg-white">
+                                <td className="py-3 px-4 text-sm font-normal">{entry.sector}</td>
+                                <td className="py-3 px-4 text-sm font-normal">No file uploaded</td>
+                                <td className="py-3 px-4 text-sm font-normal">N/A</td>
+                                <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEntry("section2_3", entry.id)}
+                                    disabled={isIndicatorSubmitted("2.3")}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }
+                          
+                          // Extract original name from UUID-prefixed fileName if originalName is not available
+                          const extractOriginalName = (fileName: string, originalName?: string): string => {
+                            if (originalName && originalName.trim()) return originalName;
+                            
+                            // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+                            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+                            
+                            if (uuidPattern.test(fileName)) {
+                              const extracted = fileName.replace(uuidPattern, '');
+                              if (extracted && extracted.trim().length > 0) {
+                                return extracted;
+                              }
+                            }
+                            
+                            return fileName;
+                          };
+                          
+                          const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
+                          
+                          return (
                           <tr key={entry.id} className="bg-white">
                             <td className="py-3 px-4 text-sm font-normal">
                               {entry.sector}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {entry.files?.[0]?.fileName || "No file uploaded"}
+                              {displayName}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {entry.files?.[0]?.fileSize
@@ -2636,7 +2764,8 @@ export const InfraDevelopmentStep = () => {
                               </button>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

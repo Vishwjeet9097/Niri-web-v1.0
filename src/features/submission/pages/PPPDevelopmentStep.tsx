@@ -1961,7 +1961,56 @@ export const PPPDevelopmentStep = () => {
                       {(Array.isArray(formData.section3_3?.VGFArray)
                         ? formData.section3_3.VGFArray
                         : []
-                      ).map((entry) => (
+                      ).map((entry) => {
+                        const file = entry.file;
+                        if (!file) {
+                          return (
+                            <tr key={entry.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm">{entry.projectName}</td>
+                              <td className="py-3 px-4 text-sm">{entry.sector}</td>
+                              <td className="py-3 px-4 text-sm">{entry.type}</td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.submissionDate
+                                  ? format(new Date(entry.submissionDate), "dd-MM-yyyy")
+                                  : "-"}
+                              </td>
+                              <td className="py-3 px-4 text-sm">No file uploaded</td>
+                              <td className="py-3 px-4 text-sm">N/A</td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() => removeProject(entry.id)}
+                                  disabled={isIndicatorSubmitted("3.3")}
+                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        }
+                        
+                        // Extract original name from UUID-prefixed fileName if originalName is not available
+                        const extractOriginalName = (fileName: string, originalName?: string): string => {
+                          if (originalName && originalName.trim()) return originalName;
+                          
+                          // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+                          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+                          
+                          if (uuidPattern.test(fileName)) {
+                            const extracted = fileName.replace(uuidPattern, '');
+                            if (extracted && extracted.trim().length > 0) {
+                              return extracted;
+                            }
+                          }
+                          
+                          return fileName;
+                        };
+                        
+                        const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
+                        
+                        return (
                         <tr key={entry.id} className="bg-white">
                           <td className="py-3 px-4 text-sm">
                             {entry.projectName}
@@ -1977,7 +2026,7 @@ export const PPPDevelopmentStep = () => {
                               : "-"}
                           </td>
                           <td className="py-3 px-4 text-sm">
-                            {entry.file?.fileName || "No file uploaded"}
+                            {displayName}
                           </td>
                           <td className="py-3 px-4 text-sm">
                             {entry.file?.fileSize
@@ -1998,7 +2047,8 @@ export const PPPDevelopmentStep = () => {
                             </button>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

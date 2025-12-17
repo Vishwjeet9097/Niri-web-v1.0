@@ -14,6 +14,7 @@ export interface FileUpload {
   id: string;
   file: File | null; // Local file (null once uploaded to backend)
   fileName: string;
+  originalName?: string; // Original file name before upload (without UUID prefix)
   fileSize: number;
   uploadedAt: number;
   filePath?: string; // ✅ path returned from backend (e.g. submissions/...pdf)

@@ -130,6 +130,23 @@ export const InfraDevelopmentReview = ({
   // State to track if comment modal was opened from MOSPI_APPROVER "Sent Back" button
   // (Accept no longer requires comment, so it directly shows confirmation)
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
+
+  // Helper to extract original name from UUID-prefixed fileName for existing files
+  const extractOriginalName = (fileName: string, originalName?: string): string => {
+    if (originalName && originalName.trim()) return originalName;
+    
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+    
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, '');
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+    
+    return fileName;
+  };
   const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<
     string | null
   >(null);
@@ -1020,6 +1037,7 @@ export const InfraDevelopmentReview = ({
           files: toFileArray(item?.files).map((file: FileUpload) => ({
             id: file?.id,
             fileName: file?.fileName,
+            originalName: (file as any)?.originalName || file?.fileName,
             fileSize: file?.fileSize,
             uploadedAt: file?.uploadedAt,
             filePath: file?.filePath || file?.file,
@@ -1043,6 +1061,7 @@ export const InfraDevelopmentReview = ({
           files: toFileArray(item?.files).map((file: FileUpload) => ({
             id: file?.id,
             fileName: file?.fileName,
+            originalName: (file as any)?.originalName || file?.fileName,
             fileSize: file?.fileSize,
             uploadedAt: file?.uploadedAt,
             filePath: file?.filePath || file?.file,
@@ -1066,6 +1085,7 @@ export const InfraDevelopmentReview = ({
           files: toFileArray(item?.files).map((file: FileUpload) => ({
             id: file?.id,
             fileName: file?.fileName,
+            originalName: (file as any)?.originalName || file?.fileName,
             fileSize: file?.fileSize,
             uploadedAt: file?.uploadedAt,
             filePath: file?.filePath || file?.file,
@@ -1616,6 +1636,7 @@ export const InfraDevelopmentReview = ({
         id: fileData.id ?? crypto.randomUUID(),
         file: storedPath, // Store file path (string) not File object
         fileName: fileData.fileName || fileData.filename || file.name,
+        originalName: file.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name
         fileSize: Number(fileData.fileSize ?? fileData.size ?? file.size ?? 0),
         uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
         filePath: storedPath ?? undefined,
@@ -2509,12 +2530,18 @@ export const InfraDevelopmentReview = ({
                                           variant="secondary"
                                           className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
                                           title={
-                                            file.fileName || "Unknown file"
+                                            extractOriginalName(
+                                              file.fileName || "",
+                                              (file as any)?.originalName
+                                            ) || "Unknown file"
                                           }
                                         >
                                           <Upload className="w-3 h-3 flex-shrink-0" />
                                           <span className="truncate">
-                                            {file.fileName || "Unknown file"}
+                                            {extractOriginalName(
+                                              file.fileName || "",
+                                              (file as any)?.originalName
+                                            ) || "Unknown file"}
                                           </span>
                                           <button
                                             type="button"
@@ -2595,11 +2622,19 @@ export const InfraDevelopmentReview = ({
                                       key={fileIndex}
                                       variant="secondary"
                                       className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={file.fileName || "Unknown file"}
+                                      title={
+                                        extractOriginalName(
+                                          file.fileName || "",
+                                          (file as any)?.originalName
+                                        ) || "Unknown file"
+                                      }
                                     >
                                       <Upload className="w-3 h-3" />
                                       <span className="truncate">
-                                        {file.fileName || "Unknown file"}
+                                        {extractOriginalName(
+                                          file.fileName || "",
+                                          (file as any)?.originalName
+                                        ) || "Unknown file"}
                                       </span>
                                     </Badge>
                                   )
@@ -2833,12 +2868,18 @@ export const InfraDevelopmentReview = ({
                                             variant="secondary"
                                             className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
                                             title={
-                                              file.fileName || "Unknown file"
+                                              extractOriginalName(
+                                                file.fileName || "",
+                                                (file as any)?.originalName
+                                              ) || "Unknown file"
                                             }
                                           >
                                             <Upload className="w-3 h-3 flex-shrink-0" />
                                             <span className="truncate">
-                                              {file.fileName || "Unknown file"}
+                                              {extractOriginalName(
+                                                file.fileName || "",
+                                                (file as any)?.originalName
+                                              ) || "Unknown file"}
                                             </span>
                                             <button
                                               type="button"
@@ -2922,11 +2963,19 @@ export const InfraDevelopmentReview = ({
                                         key={fileIndex}
                                         variant="secondary"
                                         className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                        title={file.fileName || "Unknown file"}
+                                        title={
+                                          extractOriginalName(
+                                            file.fileName || "",
+                                            (file as any)?.originalName
+                                          ) || "Unknown file"
+                                        }
                                       >
                                         <Upload className="w-3 h-3" />
                                         <span className="truncate">
-                                          {file.fileName || "Unknown file"}
+                                          {extractOriginalName(
+                                            file.fileName || "",
+                                            (file as any)?.originalName
+                                          ) || "Unknown file"}
                                         </span>
                                       </Badge>
                                     )
@@ -3209,14 +3258,18 @@ export const InfraDevelopmentReview = ({
                                                 variant="secondary"
                                                 className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
                                                 title={
-                                                  file.fileName ||
-                                                  "Unknown file"
+                                                  extractOriginalName(
+                                                    file.fileName || "",
+                                                    (file as any)?.originalName
+                                                  ) || "Unknown file"
                                                 }
                                               >
                                                 <Upload className="w-3 h-3 flex-shrink-0" />
                                                 <span className="truncate">
-                                                  {file.fileName ||
-                                                    "Unknown file"}
+                                                  {extractOriginalName(
+                                                    file.fileName || "",
+                                                    (file as any)?.originalName
+                                                  ) || "Unknown file"}
                                                 </span>
                                                 <button
                                                   type="button"
@@ -3304,12 +3357,12 @@ export const InfraDevelopmentReview = ({
                                             variant="secondary"
                                             className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
                                             title={
-                                              file.fileName || "Unknown file"
+                                              (file as any).originalName || file.fileName || "Unknown file"
                                             }
                                           >
                                             <Upload className="w-3 h-3" />
                                             <span className="truncate">
-                                              {file.fileName || "Unknown file"}
+                                              {(file as any).originalName || file.fileName || "Unknown file"}
                                             </span>
                                           </Badge>
                                         )

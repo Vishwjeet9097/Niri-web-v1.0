@@ -102,6 +102,7 @@ export interface FileUpload {
   id: string;
   file: File | string | null;
   fileName: string;
+  originalName?: string; // Original file name before upload (without UUID prefix)
   fileSize: number;
   uploadedAt: number;
   filePath?: string;

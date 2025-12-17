@@ -52,6 +52,23 @@ export const EditableFileDisplay = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ file: FileUpload; index: number } | null>(null);
 
+  // Helper to extract original name from UUID-prefixed fileName for existing files
+  const extractOriginalName = (fileName: string, originalName?: string): string => {
+    if (originalName && originalName.trim()) return originalName;
+    
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+    
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, '');
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+    
+    return fileName;
+  };
+
   const normalizeFile = (fileLike: FileLike, fallbackIndex: number): FileUpload => {
     const anyFile = fileLike as any;
     const rawFile = anyFile.file;
@@ -75,6 +92,10 @@ export const EditableFileDisplay = ({
       id: anyFile.id ?? `file-${fallbackIndex}`,
       file: normalizedFile,
       fileName: anyFile.fileName ?? anyFile.filename ?? "File",
+      originalName: extractOriginalName(
+        anyFile.fileName ?? anyFile.filename ?? "File",
+        anyFile.originalName
+      ), // Extract originalName from fileName if not present
       fileSize: Number(anyFile.fileSize ?? anyFile.size ?? 0),
       uploadedAt: Number(anyFile.uploadedAt ?? Date.now()),
       filePath: anyFile.filePath ?? (typeof normalizedFile === "string" ? normalizedFile : undefined),
@@ -117,6 +138,7 @@ export const EditableFileDisplay = ({
         id: fileData.id ?? crypto.randomUUID(),
         file: storedPath,
         fileName: fileData.fileName || fileData.filename || file.name,
+        originalName: file.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name from File object
         fileSize: Number(fileData.fileSize ?? fileData.size ?? file.size ?? 0),
         uploadedAt,
         filePath: storedPath ?? undefined,
@@ -195,7 +217,7 @@ export const EditableFileDisplay = ({
                 <File className="w-4 h-4 text-primary flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium truncate block">
-                    {file.fileName || "File"}
+                    {file.originalName || file.fileName || "File"}
                   </span>
                   {file.fileSize && (
                     <span className="text-xs text-muted-foreground">

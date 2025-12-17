@@ -22,6 +22,23 @@ export const FileUploadTable = ({ files, onRemove }: FileUploadTableProps) => {
     return (bytes / (1024 * 1024)).toFixed(0) + ' MB';
   };
 
+  // Helper to extract original name from UUID-prefixed fileName for existing files
+  const extractOriginalName = (fileName: string, originalName?: string): string => {
+    if (originalName && originalName.trim()) return originalName;
+    
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+    
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, '');
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+    
+    return fileName;
+  };
+
   const hasFiles = files.some((item) => item.files.length > 0);
 
   if (!hasFiles) return null;
@@ -48,7 +65,9 @@ export const FileUploadTable = ({ files, onRemove }: FileUploadTableProps) => {
                   <Checkbox />
                 </TableCell>
                 <TableCell className="font-medium">{item.sector}</TableCell>
-                <TableCell className="text-primary">{file.fileName}</TableCell>
+                <TableCell className="text-primary">
+                  {extractOriginalName(file.fileName, (file as any).originalName)}
+                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatFileSize(file.fileSize)}
                 </TableCell>

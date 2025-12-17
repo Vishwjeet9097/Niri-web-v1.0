@@ -211,10 +211,31 @@ export const DocumentsTab = ({
       ? readAccessTokenFromLocalStorage()
       : undefined);
 
+  // Helper to extract original name from UUID-prefixed fileName for existing files
+  const extractOriginalName = (fileName: string, originalName?: string): string => {
+    if (originalName && originalName.trim()) return originalName;
+    
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+    
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, '');
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+    
+    return fileName;
+  };
+
   const pickLabel = (d: Document) => {
-    // prefer originalName, then fileName, then last segment of filePath
+    // prefer originalName, then extracted from fileName, then fileName, then last segment of filePath
     if (d.originalName) return d.originalName;
-    if (d.fileName) return d.fileName;
+    if (d.fileName) {
+      const extracted = extractOriginalName(d.fileName, d.originalName);
+      if (extracted !== d.fileName) return extracted; // If extraction succeeded, use it
+      return d.fileName;
+    }
     if (d.filePath) return d.filePath.split("/").pop() ?? d.filePath;
     return "unknown-file";
   };

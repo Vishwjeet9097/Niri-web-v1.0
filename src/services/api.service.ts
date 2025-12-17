@@ -1824,20 +1824,26 @@ class ApiService implements HttpClient {
         // ✅ Upload all File objects to S3 before submission
         const hasUnuploadedFiles = this.hasFileObjects(filteredSectionData);
         
+        // Extract submissionId field (not UUID) for file upload paths
+        // existingSubmissionId is the UUID (for API routes), but file uploads need submissionId field
+        const existingSubmissionIdForFiles = existingSubmission?.submissionId;
+        
         console.log("🔍 File detection check (UPDATE):", {
           hasUnuploadedFiles,
           category,
-          existingSubmissionId,
+          existingSubmissionId, // UUID for API routes
+          existingSubmissionIdForFiles, // submissionId field for file paths
           filteredSections: Object.keys(filteredSectionData),
         });
         
-        if (hasUnuploadedFiles && existingSubmissionId) {
+        if (hasUnuploadedFiles && existingSubmissionId && existingSubmissionIdForFiles) {
           console.log("📤 Uploading File objects to S3 before submission...");
           try {
             // Upload files and replace File objects with filePath
+            // Use submissionId field (not UUID) for file upload paths
             const uploadedData = await this.uploadFilesAndReplace(
               { [category]: filteredSectionData },
-              existingSubmissionId
+              existingSubmissionIdForFiles  // Use submissionId field for file paths
             );
             // Extract the category data back
             filteredSectionData = uploadedData[category];
@@ -1846,8 +1852,8 @@ class ApiService implements HttpClient {
             console.error("❌ Failed to upload files to S3:", error);
             throw new Error(`File upload failed: ${error.message || "Unknown error"}`);
           }
-        } else if (hasUnuploadedFiles && !existingSubmissionId) {
-          console.error("❌ Cannot upload files: existingSubmissionId is missing");
+        } else if (hasUnuploadedFiles && (!existingSubmissionId || !existingSubmissionIdForFiles)) {
+          console.error("❌ Cannot upload files: existingSubmissionId (UUID) or submissionId field is missing");
           throw new Error("Failed to update submission - submissionId is missing");
         } else if (!hasUnuploadedFiles) {
           console.log("ℹ️ No File objects detected (UPDATE) - files already uploaded or no files present");
@@ -2132,10 +2138,16 @@ class ApiService implements HttpClient {
 
         // Create submission first to get submissionId
         result = await this.createSubmission(createPayload);
-        // Extract submissionId from various possible response structures
-        const newSubmissionId = result?.id || result?.submissionId || result?.data?.id || result?.data?.submissionId;
+        // Extract both UUID (for API routes) and submissionId field (for file uploads)
+        // UUID is needed for API route parameters (GET, PATCH, PUT use /submission/:id where id is UUID)
+        // submissionId field is needed for file upload paths (submissions/{submissionId}/...)
+        const newSubmissionUuid = result?.data?.id || result?.id; // UUID for API routes
+        const newSubmissionId = result?.data?.submissionId || result?.submissionId; // submissionId field for file paths
         
-        console.log("✅ Submission created with ID:", newSubmissionId);
+        console.log("✅ Submission created:", {
+          uuid: newSubmissionUuid,
+          submissionId: newSubmissionId,
+        });
         console.log("🔍 Full result structure:", {
           result,
           id: result?.id,
@@ -2152,7 +2164,7 @@ class ApiService implements HttpClient {
           willUpload: shouldUploadFilesAfter && newSubmissionId,
         });
         
-        if (shouldUploadFilesAfter && newSubmissionId) {
+        if (shouldUploadFilesAfter && newSubmissionId && newSubmissionUuid) {
           console.log("📤 Uploading File objects to S3 after creating submission...");
           try {
             // Upload files and replace File objects with filePath
@@ -2177,7 +2189,8 @@ class ApiService implements HttpClient {
                 console.log(`📦 Extracted ${extractedFiles.length} file(s) metadata from file-like structures`);
                 
                 // Update submission with extracted metadata (but files won't be in S3)
-                await this.updateSubmission(newSubmissionId, {
+                // Use UUID for API route
+                await this.updateSubmission(newSubmissionUuid, {
                   [category]: filteredSectionData,
                   attachedFiles: extractedFiles,
                 });
@@ -2189,6 +2202,7 @@ class ApiService implements HttpClient {
               throw new Error("File objects were lost and no file-like structures found - cannot proceed with upload");
             }
             
+            // Use submissionId field for file upload paths
             const uploadedData = await this.uploadFilesAndReplace(
               filesToUpload,
               newSubmissionId
@@ -2204,8 +2218,8 @@ class ApiService implements HttpClient {
 
             console.log(`📤 Updating submission with ${updatedExtractedFiles.length} file(s) metadata`);
 
-            // Update submission with filePaths
-            await this.updateSubmission(newSubmissionId, {
+            // Update submission with filePaths - use UUID for API route
+            await this.updateSubmission(newSubmissionUuid, {
               [category]: filteredSectionData,
               attachedFiles: updatedExtractedFiles,
             });
@@ -2216,8 +2230,8 @@ class ApiService implements HttpClient {
             console.error("❌ Error details:", error.response?.data || error.message);
             throw new Error(`File upload failed: ${error.message || "Unknown error"}`);
           }
-        } else if (hasUnuploadedFiles && !newSubmissionId) {
-          console.error("❌ Cannot upload files: submissionId is missing");
+        } else if (hasUnuploadedFiles && (!newSubmissionId || !newSubmissionUuid)) {
+          console.error("❌ Cannot upload files: submissionId or UUID is missing");
           throw new Error("Failed to create submission - cannot upload files");
         } else if (hasUnuploadedFiles && !shouldUploadFilesAfter) {
           console.error("❌ MISMATCH: hasUnuploadedFiles is true but shouldUploadFilesAfter is false!");
@@ -4225,6 +4239,7 @@ async getRankings(): Promise<any[]> {
           file: null,
           filePath: fileData.filePath || fileData.data?.filePath,
           fileName: fileData.fileName || fileData.data?.fileName || data.fileName || data.file.name,
+          originalName: data.file.name || data.originalName || fileData.originalName || fileData.data?.originalName || data.fileName, // Preserve original file name
           fileSize: fileData.size || fileData.fileSize || fileData.data?.size || data.fileSize || data.file.size,
           mimeType: fileData.mimeType || fileData.data?.mimeType || data.file.type,
           uploadedAt: Date.now(),
@@ -4357,6 +4372,31 @@ async getRankings(): Promise<any[]> {
    * - Date format inconsistencies
    * - File size validation
    */
+  /**
+   * Extract original file name from UUID-prefixed fileName
+   * Pattern: {uuid}_{originalName} or just {originalName}
+   * Returns originalName if it can be extracted, otherwise returns fileName
+   */
+  private extractOriginalNameFromFileName(fileName: string, originalName?: string): string {
+    // If originalName is already provided, use it
+    if (originalName && originalName.trim()) return originalName;
+    
+    // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+    
+    // If fileName starts with UUID pattern, extract everything after the UUID and underscore
+    if (uuidPattern.test(fileName)) {
+      const extracted = fileName.replace(uuidPattern, '');
+      // If extraction resulted in a non-empty string, use it
+      if (extracted && extracted.trim().length > 0) {
+        return extracted;
+      }
+    }
+    
+    // Fallback to fileName if extraction failed
+    return fileName;
+  }
+
   private extractFileMetadataFromFormData(
     formData: Record<string, any>,
     maxDepth: number = 10,
@@ -4439,7 +4479,7 @@ async getRankings(): Promise<any[]> {
           const fileMeta = {
             id: obj.id ?? null,
             fileName,
-            originalName: obj.originalName || fileName,
+            originalName: this.extractOriginalNameFromFileName(fileName, obj.originalName),
             filePath: obj.filePath,
             fileUrl: obj.fileUrl || "",
             fileSize,
