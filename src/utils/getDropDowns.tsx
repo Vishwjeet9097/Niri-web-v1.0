@@ -19,9 +19,9 @@ export const dropdownValues = {
   ],
 
   bondTypeList: [
-    "Municipal bond",
-    "Infrastructure bond",
-    "Revenue bond"
+   "Municipal",
+    "Green", 
+    "Other"
   ],
 
   cityList: [
@@ -32,9 +32,11 @@ export const dropdownValues = {
   ],
 
   issuingAuthorityList: [
-    "Authority Name",
-    "Municipal Corporation",
-    "Development Authority"
+      "Corporation",
+      "Trust",
+      "Society",
+      "Partnership",
+      "Other"
   ],
 
   sector: [

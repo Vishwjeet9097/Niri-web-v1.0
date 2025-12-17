@@ -70,7 +70,7 @@ export interface InfraFinancingData {
       id: string;
 
       organisationName: string;
-      organisationType: string;
+        organisationType: string;
       yearEstablished: string;
       totalFunding: string;
       website: string;
