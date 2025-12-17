@@ -2618,7 +2618,8 @@ export const InfraFinancingStep = () => {
                               <button
                                 type="button"
                                 onClick={() => removeBond(bond.id)}
-                                className="text-red-600 hover:text-red-800"
+                                disabled={isIndicatorSubmitted("1.4")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                 aria-label="Delete"
                               >
                                 <Trash2 className="w-5 h-5" />

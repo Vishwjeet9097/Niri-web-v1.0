@@ -61,7 +61,7 @@ type AggregatedIndicator = {
   category?: string;
   maxScore?: number | string;
   status?: string;
-  remarks?: string | null;
+  comment?: string | null;
   score?: number | string | null;
   updatedAt?: string | null;
   year?: string | null;

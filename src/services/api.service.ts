@@ -91,7 +91,7 @@ export type CumulativePreviewResponse = {
         data: any;
         status: string; // NOT_STARTED | SUBMITTED_TO_STATE | ACCEPTED | etc.
         score: number | null;
-        remarks: string | null;
+        comment: string | null;
         updatedAt: string | null;
         year: string | null;
       }>

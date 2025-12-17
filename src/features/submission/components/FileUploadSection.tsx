@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useId } from "react";
 import { Upload, X, File, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,8 @@ export const FileUploadSection = ({
   onUploadComplete,
   disabled = false,
 }: FileUploadSectionProps) => {
+  const uniqueId = useId();
+  const fileInputId = `file-${uniqueId}`;
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -181,20 +183,21 @@ export const FileUploadSection = ({
         </div>
       ) : !value ? (
         <div className="flex items-center gap-3">
-          <label
-            htmlFor={`file-${label}`}
-            className={cn(
-              "px-4 py-2 rounded-md font-medium text-sm transition",
-              disabled
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-indigo-100 text-indigo-800 cursor-pointer hover:bg-indigo-200"
-            )}
-          >
-            Upload File
-          </label>
+          {disabled ? (
+            <div className="px-4 py-2 rounded-md font-medium text-sm transition bg-gray-100 text-gray-400 cursor-not-allowed">
+              Upload File
+            </div>
+          ) : (
+            <label
+              htmlFor={fileInputId}
+              className="px-4 py-2 rounded-md font-medium text-sm transition bg-indigo-100 text-indigo-800 cursor-pointer hover:bg-indigo-200"
+            >
+              Upload File
+            </label>
+          )}
 
           <input
-            id={`file-${label}`}
+            id={fileInputId}
             type="file"
             accept={accept}
             onChange={handleChange}
