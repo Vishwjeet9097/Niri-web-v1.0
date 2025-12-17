@@ -191,8 +191,44 @@ export const InfraDevelopmentReview = ({
   const { setEditable, isEditable, clearAllEditing } =
     useEditableSectionStore();
 
+  // Helper function to check if section should be editable based on mospi_status for STATE_APPROVER
+  const shouldBeEditable = (sectionId: string): boolean => {
+    const userRole = getUserRole();
+    const isStateApprover = userRole === "STATE_APPROVER";
+
+    // For STATE_APPROVER, check mospi_status
+    if (isStateApprover) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (formDataState && formDataState[sectionKey]) ||
+        (formData && formData[sectionKey]);
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If mospi_status is ACCEPTED, section should NOT be editable
+      if (mospiStatus === "ACCEPTED") {
+        return false;
+      }
+      // If mospi_status is REVERTED, section SHOULD be editable
+      if (mospiStatus === "REVERTED") {
+        return isEditable(sectionId);
+      }
+    }
+
+    // For other roles or when mospi_status is not set, use existing isEditable logic
+    return isEditable(sectionId);
+  };
+
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
+    // Check if section should be editable before allowing edit
+    if (!shouldBeEditable(sectionId)) {
+      console.log(
+        `[InfraDevelopmentReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED`
+      );
+      return;
+    }
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
@@ -1456,6 +1492,35 @@ export const InfraDevelopmentReview = ({
       };
       const userRole = getUserRole();
       const isMospiApprover = userRole === "MOSPI_APPROVER";
+      const isStateApprover = userRole === "STATE_APPROVER";
+
+      // If STATE_APPROVER is accepting, check if there's a comment that needs to be saved first
+      // This ensures comments are preserved when accepting indicators with "No" selection
+      if (isStateApprover) {
+        const sectionKey = `section${pendingActionSectionId.replace(".", "_")}`;
+        const sectionData = state?.[sectionKey];
+        const hasComment =
+          sectionData?.comment && sectionData.comment.trim() !== "";
+
+        // If there's a comment, save it first before accepting
+        if (hasComment) {
+          console.log(
+            `💬 [Accept] Saving comment for indicator ${pendingActionSectionId} before accepting`
+          );
+          try {
+            await performSave(pendingActionSectionId);
+            console.log(
+              `✅ [Accept] Comment saved successfully for indicator ${pendingActionSectionId}`
+            );
+          } catch (error) {
+            console.error(
+              `❌ [Accept] Failed to save comment for indicator ${pendingActionSectionId}:`,
+              error
+            );
+            // Continue with acceptance even if comment save fails
+          }
+        }
+      }
 
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
@@ -2003,7 +2068,7 @@ export const InfraDevelopmentReview = ({
               setMospiSentBackSectionId(sectionId);
               handleOpenModal(sectionId);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
@@ -2018,7 +2083,7 @@ export const InfraDevelopmentReview = ({
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -2056,6 +2121,39 @@ export const InfraDevelopmentReview = ({
       stateData: state && state[sectionKey],
       formDataData: formData && formData[sectionKey],
     });
+
+    // For STATE_APPROVER, check mospi_status to determine if section should be editable
+    if (isStateApprover) {
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If mospi_status is ACCEPTED, show as accepted and non-editable
+      if (mospiStatus === "ACCEPTED") {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+    }
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
     // REVERTED is excluded because user can resubmit after being sent back
@@ -2096,7 +2194,7 @@ export const InfraDevelopmentReview = ({
       );
       return (
         <div className="flex gap-2">
-          {!isEditable(sectionId) ? (
+          {!shouldBeEditable(sectionId) ? (
             <Button
               variant="outline"
               size="sm"
@@ -2144,7 +2242,7 @@ export const InfraDevelopmentReview = ({
               size="sm"
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => onIndicatorStatus(sectionId, true)}
-              disabled={isEditable(sectionId)} // Disable Accept during editing
+              disabled={shouldBeEditable(sectionId)} // Disable Accept during editing
             >
               <CheckCircle className="w-4 h-4" />
               Accept
@@ -2168,12 +2266,26 @@ export const InfraDevelopmentReview = ({
       if (isNodalOfficer) {
         return (
           <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
+            {!shouldBeEditable(sectionId) ? (
               <Button
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => handleEditStart(sectionId)}
+                disabled={(() => {
+                  // For STATE_APPROVER, disable edit button if mospi_status is ACCEPTED
+                  if (isStateApprover) {
+                    const sectionKey = `section${sectionId.replace(".", "_")}`;
+                    const sectionData =
+                      (formDataState && formDataState[sectionKey]) ||
+                      (formData && formData[sectionKey]);
+                    const mospiStatus = Array.isArray(sectionData)
+                      ? (sectionData as any)?.mospi_status
+                      : sectionData?.mospi_status;
+                    return mospiStatus === "ACCEPTED";
+                  }
+                  return false;
+                })()}
               >
                 <Edit3 className="w-4 h-4" />
                 Edit
@@ -2389,7 +2501,7 @@ export const InfraDevelopmentReview = ({
               }
               handleOpenModal(sectionId);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Send Back
@@ -2412,7 +2524,7 @@ export const InfraDevelopmentReview = ({
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onIndicatorStatus(sectionId, true)}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -2538,7 +2650,7 @@ export const InfraDevelopmentReview = ({
                       return infraActArray.map((item: any, index: number) => (
                         <tr key={item.id || index} className="border-b">
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable("2.1") ? (
+                            {shouldBeEditable("2.1") ? (
                               <Dropdown
                                 options={dropdownValues.sector}
                                 value={item.sector || ""}
@@ -2559,7 +2671,7 @@ export const InfraDevelopmentReview = ({
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable("2.1") ? (
+                            {shouldBeEditable("2.1") ? (
                               <div className="space-y-1.5">
                                 {item.files && item.files.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
@@ -2802,6 +2914,8 @@ export const InfraDevelopmentReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("2.2")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2862,7 +2976,7 @@ export const InfraDevelopmentReview = ({
                         (item: any, index: number) => (
                           <tr key={item.id || index} className="border-b">
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable("2.2") ? (
+                              {shouldBeEditable("2.2") ? (
                                 <Dropdown
                                   options={dropdownValues.sector}
                                   value={item.sector || ""}
@@ -2883,7 +2997,7 @@ export const InfraDevelopmentReview = ({
                               )}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
-                              {isEditable("2.2") ? (
+                              {shouldBeEditable("2.2") ? (
                                 <div className="space-y-1.5">
                                   {item.files && item.files.length > 0 ? (
                                     <div className="flex flex-wrap gap-1.5">
@@ -3154,7 +3268,7 @@ export const InfraDevelopmentReview = ({
                 <Label className="mb-3 block">
                   Has Infrastructure Development Plan?*
                 </Label>
-                {isEditable("2.3") ? (
+                {shouldBeEditable("2.3") ? (
                   <RadioGroup
                     value={state?.section2_3?.hasInfraDevelopmentPlan || ""}
                     onValueChange={(value) =>
@@ -3240,7 +3354,7 @@ export const InfraDevelopmentReview = ({
                             (item: any, index: number) => (
                               <tr key={item.id || index} className="border-b">
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {isEditable("2.3") ? (
+                                  {shouldBeEditable("2.3") ? (
                                     <Dropdown
                                       options={dropdownValues.sector}
                                       value={item.sector || ""}
@@ -3261,7 +3375,7 @@ export const InfraDevelopmentReview = ({
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {isEditable("2.3") ? (
+                                  {shouldBeEditable("2.3") ? (
                                     <div className="space-y-1.5">
                                       {item.files && item.files.length > 0 ? (
                                         <div className="flex flex-wrap gap-1.5">
@@ -3499,7 +3613,7 @@ export const InfraDevelopmentReview = ({
               {state?.section2_3?.hasInfraDevelopmentPlan === "no" && (
                 <div>
                   <Label className="mb-2 block">Comment</Label>
-                  {isEditable("2.3") ? (
+                  {shouldBeEditable("2.3") ? (
                     <Textarea
                       value={state?.section2_3?.comment || ""}
                       onChange={(e) =>
@@ -3616,7 +3730,7 @@ export const InfraDevelopmentReview = ({
                     <Label className="mb-2 block">
                       Website Link <span className="text-destructive">*</span>
                     </Label>
-                    {isEditable("2.4") ? (
+                    {shouldBeEditable("2.4") ? (
                       <Input
                         type="url"
                         placeholder="Enter website URL"
@@ -3685,7 +3799,7 @@ export const InfraDevelopmentReview = ({
                             (item: any, index: number) => (
                               <tr key={item.id || index} className="border-b">
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {isEditable("2.4") ? (
+                                  {shouldBeEditable("2.4") ? (
                                     <Input
                                       value={item.projectName || ""}
                                       onChange={(e) =>
@@ -3704,7 +3818,7 @@ export const InfraDevelopmentReview = ({
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {isEditable("2.4") ? (
+                                  {shouldBeEditable("2.4") ? (
                                     <Dropdown
                                       options={dropdownValues.sector}
                                       value={item.sector || ""}
@@ -3724,7 +3838,7 @@ export const InfraDevelopmentReview = ({
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {isEditable("2.4") ? (
+                                  {shouldBeEditable("2.4") ? (
                                     <Dropdown
                                       options={[
                                         "Tender Done",
@@ -3748,7 +3862,7 @@ export const InfraDevelopmentReview = ({
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {isEditable("2.4") ? (
+                                  {shouldBeEditable("2.4") ? (
                                     <Input
                                       type="number"
                                       min="0"
@@ -3770,7 +3884,7 @@ export const InfraDevelopmentReview = ({
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
-                                  {isEditable("2.4") ? (
+                                  {shouldBeEditable("2.4") ? (
                                     <Dropdown
                                       options={["Partner", "Investor", "Other"]}
                                       value={item.investmentType || ""}
@@ -4067,7 +4181,7 @@ export const InfraDevelopmentReview = ({
                       (item: any, index: number) => (
                         <tr key={item.id || index} className="border-b">
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable("2.5") ? (
+                            {shouldBeEditable("2.5") ? (
                               <Input
                                 value={item.projectName || ""}
                                 onChange={(e) =>
@@ -4085,7 +4199,7 @@ export const InfraDevelopmentReview = ({
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable("2.5") ? (
+                            {shouldBeEditable("2.5") ? (
                               <Dropdown
                                 options={dropdownValues.sector}
                                 value={item.sector || ""}
@@ -4106,7 +4220,7 @@ export const InfraDevelopmentReview = ({
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable("2.5") ? (
+                            {shouldBeEditable("2.5") ? (
                               <Dropdown
                                 options={dropdownValues.projectType}
                                 value={item.type || ""}
@@ -4127,7 +4241,7 @@ export const InfraDevelopmentReview = ({
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable("2.5") ? (
+                            {shouldBeEditable("2.5") ? (
                               <Dropdown
                                 options={dropdownValues.ownership}
                                 value={item.ownership || ""}
@@ -4148,7 +4262,7 @@ export const InfraDevelopmentReview = ({
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
-                            {isEditable("2.5") ? (
+                            {shouldBeEditable("2.5") ? (
                               <Input
                                 value={item.estimatedMonetization || ""}
                                 onChange={(e) =>

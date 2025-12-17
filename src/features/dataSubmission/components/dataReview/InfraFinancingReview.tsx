@@ -552,8 +552,44 @@ export const InfraFinancingReview = ({
   // Counter to force remount of Select components on cancel
   const [selectResetKey, setSelectResetKey] = useState(0);
 
+  // Helper function to check if section should be editable based on mospi_status for STATE_APPROVER
+  const shouldBeEditable = (sectionId: string): boolean => {
+    const userRole = getUserRole();
+    const isStateApprover = userRole === "STATE_APPROVER";
+
+    // For STATE_APPROVER, check mospi_status
+    if (isStateApprover) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData = formData && formData[sectionKey];
+      const mospiStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.mospi_status
+          : sectionData?.mospi_status
+        : undefined;
+
+      // If mospi_status is ACCEPTED, section should NOT be editable
+      if (mospiStatus === "ACCEPTED") {
+        return false;
+      }
+      // If mospi_status is REVERTED, section SHOULD be editable
+      if (mospiStatus === "REVERTED") {
+        return isEditable(sectionId);
+      }
+    }
+
+    // For other roles or when mospi_status is not set, use existing isEditable logic
+    return isEditable(sectionId);
+  };
+
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
+    // Check if section should be editable before allowing edit
+    if (!shouldBeEditable(sectionId)) {
+      console.log(
+        `[InfraFinancingReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED`
+      );
+      return;
+    }
     // Store a deep copy of all relevant state
     setOriginalStateSnapshot({
       submissionData: JSON.parse(JSON.stringify(submissionData)),
@@ -1274,6 +1310,41 @@ export const InfraFinancingReview = ({
       };
       const userRole = getUserRole();
       const isMospiApprover = userRole === "MOSPI_APPROVER";
+      const isStateApprover = userRole === "STATE_APPROVER";
+
+      // If STATE_APPROVER is accepting, check if there's a comment that needs to be saved first
+      // This ensures comments are preserved when accepting indicators with "No" selection
+      if (isStateApprover) {
+        const sectionKey = `section${pendingActionSectionId.replace(".", "_")}`;
+        // For section 1.5, check section15State, otherwise check submissionData
+        let sectionData;
+        if (pendingActionSectionId === "1.5") {
+          sectionData = section15State;
+        } else {
+          sectionData = submissionData?.[sectionKey];
+        }
+        const hasComment =
+          sectionData?.comment && sectionData.comment.trim() !== "";
+
+        // If there's a comment, save it first before accepting
+        if (hasComment) {
+          console.log(
+            `💬 [Accept] Saving comment for indicator ${pendingActionSectionId} before accepting`
+          );
+          try {
+            await performSave(pendingActionSectionId);
+            console.log(
+              `✅ [Accept] Comment saved successfully for indicator ${pendingActionSectionId}`
+            );
+          } catch (error) {
+            console.error(
+              `❌ [Accept] Failed to save comment for indicator ${pendingActionSectionId}:`,
+              error
+            );
+            // Continue with acceptance even if comment save fails
+          }
+        }
+      }
 
       // For MOSPI_APPROVER, update mospi_status to ACCEPTED
       // For other roles (STATE_APPROVER), use regular status update
@@ -1509,7 +1580,7 @@ export const InfraFinancingReview = ({
               setMospiSentBackSectionId(sectionId);
               handleOpenModal(sectionId);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Sent Back
@@ -1524,7 +1595,7 @@ export const InfraFinancingReview = ({
               setPendingActionSectionId(sectionId);
               setShowAcceptDialog(true);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -1563,6 +1634,41 @@ export const InfraFinancingReview = ({
       formDataData: formData && formData[sectionKey],
       storeData: storeSectionData,
     });
+
+    // For STATE_APPROVER, check mospi_status to determine if section should be editable
+    if (isStateApprover) {
+      const mospiStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.mospi_status
+          : sectionData?.mospi_status
+        : undefined;
+
+      // If mospi_status is ACCEPTED, show as accepted and non-editable
+      if (mospiStatus === "ACCEPTED") {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+    }
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
     // REVERTED is excluded because user can resubmit after being sent back
@@ -1603,7 +1709,7 @@ export const InfraFinancingReview = ({
       );
       return (
         <div className="flex gap-2">
-          {!isEditable(sectionId) ? (
+          {!shouldBeEditable(sectionId) ? (
             <Button
               variant="outline"
               size="sm"
@@ -1651,7 +1757,7 @@ export const InfraFinancingReview = ({
               size="sm"
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => onIndicatorStatus(sectionId, true)}
-              disabled={isEditable(sectionId)} // Disable Accept during editing
+              disabled={shouldBeEditable(sectionId)} // Disable Accept during editing
             >
               <CheckCircle className="w-4 h-4" />
               Accept
@@ -1676,12 +1782,28 @@ export const InfraFinancingReview = ({
       if (isNodalOfficer) {
         return (
           <div className="flex gap-2">
-            {!isEditable(sectionId) ? (
+            {!shouldBeEditable(sectionId) ? (
               <Button
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => handleEditStart(sectionId)}
+                disabled={(() => {
+                  // For STATE_APPROVER, disable edit button if mospi_status is ACCEPTED
+                  if (isStateApprover) {
+                    const sectionKey = `section${sectionId.replace(".", "_")}`;
+                    const sectionData =
+                      (formData && formData[sectionKey]) ||
+                      getSectionData(sectionKey);
+                    const mospiStatus = sectionData
+                      ? Array.isArray(sectionData)
+                        ? (sectionData as any)?.mospi_status
+                        : sectionData?.mospi_status
+                      : undefined;
+                    return mospiStatus === "ACCEPTED";
+                  }
+                  return false;
+                })()}
               >
                 <Edit3 className="w-4 h-4" />
                 Edit
@@ -1829,7 +1951,7 @@ export const InfraFinancingReview = ({
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => setEditable(sectionId, true)}
+            onClick={() => handleEditStart(sectionId)}
           >
             <Edit3 className="w-4 h-4" />
             Edit
@@ -1895,7 +2017,7 @@ export const InfraFinancingReview = ({
               }
               handleOpenModal(sectionId);
             }}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <RotateCcw className="w-4 h-4" />
             Send Back
@@ -1919,7 +2041,7 @@ export const InfraFinancingReview = ({
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => onIndicatorStatus(sectionId, true)}
-            disabled={isEditable(sectionId)}
+            disabled={shouldBeEditable(sectionId)}
           >
             <CheckCircle className="w-4 h-4" />
             Accept
@@ -2061,8 +2183,10 @@ export const InfraFinancingReview = ({
                     setCapitalAllocation(e.target.value);
                   }}
                   placeholder="Enter Capital Allocation value"
-                  readOnly={!isEditable("1.1")}
-                  className={isEditable("1.1") ? "bg-white" : "bg-gray-50"}
+                  readOnly={!shouldBeEditable("1.1")}
+                  className={
+                    shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50"
+                  }
                 />
                 <div className="text-xs text-gray-500 mt-1">
                   Current value: "{capitalAllocation}"
@@ -2078,8 +2202,10 @@ export const InfraFinancingReview = ({
                     setGsdpForFY(e.target.value);
                   }}
                   placeholder="Enter GSDP value"
-                  readOnly={!isEditable("1.1")}
-                  className={isEditable("1.1") ? "bg-white" : "bg-gray-50"}
+                  readOnly={!shouldBeEditable("1.1")}
+                  className={
+                    shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50"
+                  }
                 />
                 <div className="text-xs text-gray-500 mt-1">
                   Current value: "{gsdpForFY}"
@@ -2144,7 +2270,7 @@ export const InfraFinancingReview = ({
                 <Label>A₁ - Actual Capex (INR)</Label>
                 <Input
                   value={
-                    isEditable("1.2")
+                    shouldBeEditable("1.2")
                       ? actualCapex
                       : actualCapex
                       ? `₹${actualCapex} Crores`
@@ -2169,7 +2295,7 @@ export const InfraFinancingReview = ({
                 <Label>State Capex Utilisation (INR)</Label>
                 <Input
                   value={
-                    isEditable("1.2")
+                    shouldBeEditable("1.2")
                       ? stateCapexUtilisation
                       : stateCapexUtilisation
                       ? `₹${stateCapexUtilisation} Crores`
@@ -2465,7 +2591,7 @@ export const InfraFinancingReview = ({
                 <Label className="mb-3 block">
                   Has Functional Financial Intermediary?*
                 </Label>
-                {isEditable("1.5") ? (
+                {shouldBeEditable("1.5") ? (
                   <RadioGroup
                     value={section15State?.hasIntermediary || ""}
                     onValueChange={(value) => {
@@ -2557,7 +2683,7 @@ export const InfraFinancingReview = ({
                           return ffiArray.map((item: any, index: number) => (
                             <tr key={item.id || index} className="border-b">
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("1.5") ? (
+                                {shouldBeEditable("1.5") ? (
                                   <Input
                                     value={item.organisationName || ""}
                                     onChange={(e) => {
@@ -2579,7 +2705,7 @@ export const InfraFinancingReview = ({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("1.5") ? (
+                                {shouldBeEditable("1.5") ? (
                                   <Dropdown
                                     options={
                                       dropdownValues.issuingAuthorityList
@@ -2605,7 +2731,7 @@ export const InfraFinancingReview = ({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("1.5") ? (
+                                {shouldBeEditable("1.5") ? (
                                   <Input
                                     type="number"
                                     value={item.yearEstablished || ""}
@@ -2628,7 +2754,7 @@ export const InfraFinancingReview = ({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("1.5") ? (
+                                {shouldBeEditable("1.5") ? (
                                   <Input
                                     type="number"
                                     value={item.totalFunding || ""}
@@ -2651,7 +2777,7 @@ export const InfraFinancingReview = ({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm font-normal">
-                                {isEditable("1.5") ? (
+                                {shouldBeEditable("1.5") ? (
                                   <Input
                                     type="url"
                                     value={item.website || ""}
@@ -2811,7 +2937,7 @@ export const InfraFinancingReview = ({
               {section15State?.hasIntermediary === "no" && (
                 <div>
                   <Label>Comment</Label>
-                  {isEditable("1.5") ? (
+                  {shouldBeEditable("1.5") ? (
                     <Textarea
                       value={section15State?.comment || ""}
                       onChange={(e) => {
