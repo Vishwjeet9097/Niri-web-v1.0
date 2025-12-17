@@ -257,6 +257,15 @@ export const EditableFileDisplay = ({
       return;
     }
 
+    // For local File objects (before submission), create object URL
+    if (file.file instanceof File) {
+      const url = URL.createObjectURL(file.file);
+      window.open(url, "_blank", "noopener,noreferrer");
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      return;
+    }
+
     // If file has filePath, fetch signed URL
     if (file.filePath || (typeof file.file === "string" && file.file)) {
       setLoading((s) => ({ ...s, [fileKey]: true }));
@@ -291,6 +300,21 @@ export const EditableFileDisplay = ({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      return;
+    }
+
+    // For local File objects (before submission), create object URL and download
+    if (file.file instanceof File) {
+      const url = URL.createObjectURL(file.file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.originalName || file.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100);
       return;
     }
 
@@ -359,7 +383,12 @@ export const EditableFileDisplay = ({
           {normalizedFiles.map((file, index) => {
             const fileKey = file.id || `file-${index}`;
             const isLoading = !!loading[fileKey];
-            const hasFileAccess = !!(file.filePath || (typeof file.file === "string" && file.file) || file.fileUrl);
+            const hasFileAccess = !!(
+              file.filePath || 
+              (typeof file.file === "string" && file.file) || 
+              file.fileUrl ||
+              (file.file instanceof File) // Add this check for local File objects
+            );
             return (
               <div
                 key={fileKey}

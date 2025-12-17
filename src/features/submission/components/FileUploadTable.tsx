@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, Eye, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -39,6 +39,68 @@ export const FileUploadTable = ({ files, onRemove }: FileUploadTableProps) => {
     return fileName;
   };
 
+  const handleView = (file: FileUpload) => {
+    // If file has fileUrl, use it
+    if (file.fileUrl) {
+      window.open(file.fileUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // For local File objects (before submission), create object URL
+    if (file.file instanceof File) {
+      const url = URL.createObjectURL(file.file);
+      window.open(url, "_blank", "noopener,noreferrer");
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      return;
+    }
+
+    // If file has filePath, it's already uploaded
+    if (file.filePath) {
+      alert("File viewing for uploaded files is handled by the backend. Please use the review page.");
+      return;
+    }
+
+    alert("File not available for viewing.");
+  };
+
+  const handleDownload = (file: FileUpload) => {
+    // If file has fileUrl, download it
+    if (file.fileUrl) {
+      const a = document.createElement("a");
+      a.href = file.fileUrl;
+      a.download = file.originalName || file.fileName || "file";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
+    // For local File objects (before submission), create object URL and download
+    if (file.file instanceof File) {
+      const url = URL.createObjectURL(file.file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.originalName || file.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      return;
+    }
+
+    // If file has filePath, it's already uploaded
+    if (file.filePath) {
+      alert("File download for uploaded files is handled by the backend. Please use the review page.");
+      return;
+    }
+
+    alert("File not available for download.");
+  };
+
   const hasFiles = files.some((item) => item.files.length > 0);
 
   if (!hasFiles) return null;
@@ -54,7 +116,7 @@ export const FileUploadTable = ({ files, onRemove }: FileUploadTableProps) => {
             <TableHead>Sector</TableHead>
             <TableHead>Uploaded File</TableHead>
             <TableHead>File Size</TableHead>
-            <TableHead className="w-20">Action</TableHead>
+            <TableHead className="w-32">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -72,13 +134,33 @@ export const FileUploadTable = ({ files, onRemove }: FileUploadTableProps) => {
                   {formatFileSize(file.fileSize)}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onRemove(sectorIndex, file.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleView(file)}
+                      className="h-7 w-7 p-0"
+                      title="View file"
+                    >
+                      <Eye className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownload(file)}
+                      className="h-7 w-7 p-0"
+                      title="Download file"
+                    >
+                      <Download className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onRemove(sectorIndex, file.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))

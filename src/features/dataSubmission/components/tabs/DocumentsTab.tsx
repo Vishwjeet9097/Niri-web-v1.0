@@ -488,11 +488,11 @@ export const DocumentsTab = ({
                           <span className="text-xs text-muted-foreground">
                             {indicatorName}
                           </span>
-                          {doc.entryIndex !== undefined && (
+                          {/* {doc.entryIndex !== undefined && (
                             <span className="text-[10px] text-muted-foreground">
                               (Entry {doc.entryIndex + 1})
                             </span>
-                          )}
+                          )} */}
                         </div>
                       </TableCell>
                       <TableCell>

@@ -1,5 +1,5 @@
-import { useState, useId } from "react";
-import { Upload, X, File as FileIcon } from "lucide-react";
+import { useState, useId, useEffect } from "react";
+import { Upload, X, File as FileIcon, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,16 @@ export const FileUploadSection = ({
   const uniqueId = useId();
   const fileInputId = `file-${uniqueId}`;
   const [dragActive, setDragActive] = useState(false);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  // Clean up object URL when component unmounts or file changes
+  useEffect(() => {
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [objectUrl]);
 
   const handleFile = async (file: File) => {
     if (disabled) return;
@@ -129,6 +139,81 @@ export const FileUploadSection = ({
     return fileName;
   };
 
+  const handleView = () => {
+    if (!value) return;
+
+    // If file has fileUrl, use it
+    if (value.fileUrl) {
+      window.open(value.fileUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // For local File objects (before submission), create object URL
+    if (value.file instanceof File) {
+      const url = URL.createObjectURL(value.file);
+      setObjectUrl(url);
+      window.open(url, "_blank", "noopener,noreferrer");
+      // Clean up after a delay
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        setObjectUrl(null);
+      }, 100);
+      return;
+    }
+
+    // If file has filePath, it's already uploaded - could fetch signed URL if needed
+    // For now, we'll just show an alert
+    if (value.filePath) {
+      alert("File viewing for uploaded files is handled by the backend. Please use the review page.");
+      return;
+    }
+
+    alert("File not available for viewing.");
+  };
+
+  const handleDownload = () => {
+    if (!value) return;
+
+    // If file has fileUrl, download it
+    if (value.fileUrl) {
+      const a = document.createElement("a");
+      a.href = value.fileUrl;
+      a.download = value.originalName || value.fileName || "file";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
+    // For local File objects (before submission), create object URL and download
+    if (value.file instanceof File) {
+      const url = URL.createObjectURL(value.file);
+      setObjectUrl(url);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = value.originalName || value.fileName || "file";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Clean up after a short delay
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        setObjectUrl(null);
+      }, 100);
+      return;
+    }
+
+    // If file has filePath, it's already uploaded - could use backend download if needed
+    if (value.filePath) {
+      alert("File download for uploaded files is handled by the backend. Please use the review page.");
+      return;
+    }
+
+    alert("File not available for download.");
+  };
+
   return (
     <div className="space-y-2">
       <Label>
@@ -176,26 +261,40 @@ export const FileUploadSection = ({
             <p className="text-xs text-muted-foreground">
               {formatFileSize(value.fileSize)}
             </p>
-            {value.fileUrl && (
-              <a
-                href={value.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline"
-              >
-                View File
-              </a>
-            )}
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleRemoveFile}
-            disabled={disabled}
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleView}
+              disabled={disabled}
+              className="h-8 w-8 p-0"
+              title="View file"
+            >
+              <Eye className="w-4 h-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleDownload}
+              disabled={disabled}
+              className="h-8 w-8 p-0"
+              title="Download file"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRemoveFile}
+              disabled={disabled}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       )}
     </div>
