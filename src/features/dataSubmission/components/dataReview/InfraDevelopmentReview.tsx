@@ -196,8 +196,18 @@ export const InfraDevelopmentReview = ({
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
 
-    // For STATE_APPROVER, check mospi_status
+    // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
+      const submissionStatus = submission?.status;
+      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
+      if (
+        submissionStatus !== "SUBMITTED_TO_STATE" &&
+        submissionStatus !== "RETURNED_FROM_MOSPI"
+      ) {
+        return false;
+      }
+
       const sectionKey = `section${sectionId.replace(".", "_")}`;
       const sectionData =
         (formDataState && formDataState[sectionKey]) ||
@@ -1940,9 +1950,13 @@ export const InfraDevelopmentReview = ({
     const isMospiReviewer = userRole === "MOSPI_REVIEWER";
     const isMospiApprover = userRole === "MOSPI_APPROVER";
 
-    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer
+    // Hide all action buttons if STATE_APPROVER is viewing a submission that's with MoSPI Reviewer or MoSPI Approver
     const submissionStatus = submission?.status;
-    if (isStateApprover && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
+    if (
+      isStateApprover &&
+      (submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER" ||
+        submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER")
+    ) {
       return null;
     }
 
