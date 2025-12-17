@@ -7,7 +7,15 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import { useAuth } from "@/features/auth/AuthProvider";
 
-export default function ReviewerSubmissionsTable() {
+interface ReviewerSubmissionsTableProps {
+  submissions?: any[];
+  loading?: boolean;
+}
+
+export default function ReviewerSubmissionsTable({
+  submissions: propSubmissions,
+  loading: propLoading,
+}: ReviewerSubmissionsTableProps = {}) {
   const { user } = useAuth();
   const [selectedState, setSelectedState] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -15,26 +23,45 @@ export default function ReviewerSubmissionsTable() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Use props if provided, otherwise load data
+  const displaySubmissions =
+    propSubmissions !== undefined ? propSubmissions : submissions;
+  const displayLoading = propLoading !== undefined ? propLoading : loading;
+
   useEffect(() => {
+    // Only load if props are not provided
+    if (propSubmissions !== undefined) {
+      return;
+    }
+
     const loadSubmissions = async () => {
       try {
         setLoading(true);
         const userRole = user?.role || "MOSPI_REVIEWER";
         const submissionsData = await apiService.getSubmissions(1, 20);
-    // Debug logging removed for performance
+        // Debug logging removed for performance
 
         // Extract submissions array from response
         let submissionsArray = [];
         if (Array.isArray(submissionsData)) {
           submissionsArray = submissionsData;
-        } else if (submissionsData?.submissions && Array.isArray(submissionsData.submissions)) {
+        } else if (
+          submissionsData?.submissions &&
+          Array.isArray(submissionsData.submissions)
+        ) {
           submissionsArray = submissionsData.submissions;
-        } else if ((submissionsData as any)?.data?.submissions && Array.isArray((submissionsData as any).data.submissions)) {
+        } else if (
+          (submissionsData as any)?.data?.submissions &&
+          Array.isArray((submissionsData as any).data.submissions)
+        ) {
           submissionsArray = (submissionsData as any).data.submissions;
-        } else if ((submissionsData as any)?.data && Array.isArray((submissionsData as any).data)) {
+        } else if (
+          (submissionsData as any)?.data &&
+          Array.isArray((submissionsData as any).data)
+        ) {
           submissionsArray = (submissionsData as any).data;
         }
-        
+
         setSubmissions(submissionsArray);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
@@ -49,31 +76,39 @@ export default function ReviewerSubmissionsTable() {
     };
 
     loadSubmissions();
-  }, []);
+  }, [propSubmissions]);
 
-  const filteredSubmissions = submissions.filter((submission) => {
+  const filteredSubmissions = displaySubmissions.filter((submission) => {
     // For MoSPI Reviewer: Show all submissions for all statuses
     // This includes submissions at all stages (reviewer, approver, approved, rejected, etc.)
     const statusMatch = submission.status; // Show all statuses
-    
+
     // State filter
-    const stateMatch = selectedState === "All" || submission.stateUt === selectedState;
-    
+    const stateMatch =
+      selectedState === "All" || submission.stateUt === selectedState;
+
     // Search filter
-    const searchMatch = !searchQuery || 
-      submission.submissionId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const searchMatch =
+      !searchQuery ||
+      submission.submissionId
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       submission.stateUt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.user?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.user?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      submission.user?.firstName
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      submission.user?.lastName
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       submission.status?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     return statusMatch && stateMatch && searchMatch;
   });
 
   // Get unique states for filter
   const states = [
     "All",
-    ...Array.from(new Set(submissions.map((s) => s.stateUt))),
+    ...Array.from(new Set(displaySubmissions.map((s) => s.stateUt))),
   ];
 
   const getStatusColor = (status: string) => {
@@ -100,7 +135,7 @@ export default function ReviewerSubmissionsTable() {
     navigate(`/data-submission/review/${submissionId}`);
   };
 
-  if (loading) {
+  if (displayLoading) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-center h-32">
@@ -126,7 +161,10 @@ export default function ReviewerSubmissionsTable() {
             />
           </div>
           <div>
-            <label htmlFor="state-filter" className="mr-2 text-sm text-gray-600">
+            <label
+              htmlFor="state-filter"
+              className="mr-2 text-sm text-gray-600"
+            >
               States
             </label>
             <select
@@ -162,7 +200,10 @@ export default function ReviewerSubmissionsTable() {
           <tbody>
             {filteredSubmissions.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={6}
+                  className="px-3 py-8 text-center text-muted-foreground"
+                >
                   No submissions found
                 </td>
               </tr>
@@ -181,7 +222,11 @@ export default function ReviewerSubmissionsTable() {
                     </span>
                   </td>
                   <td className="px-3 py-2 border-b">
-                    <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(submission.status)}`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
+                        submission.status
+                      )}`}
+                    >
                       {submission.status?.replace(/_/g, " ") || "Unknown"}
                     </span>
                   </td>
@@ -189,7 +234,9 @@ export default function ReviewerSubmissionsTable() {
                     {submission.user?.firstName} {submission.user?.lastName}
                   </td>
                   <td className="px-3 py-2 border-b">
-                    {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString() : "N/A"}
+                    {submission.createdAt
+                      ? new Date(submission.createdAt).toLocaleDateString()
+                      : "N/A"}
                   </td>
                   <td className="px-3 py-2 border-b text-center">
                     <Button

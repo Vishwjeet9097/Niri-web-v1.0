@@ -1788,6 +1788,65 @@ export const InfraDevelopmentReview = ({
     }
   };
 
+  // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  const renderMOSPIReviewerComments = (sectionId: string) => {
+    const getUserRole = () => {
+      try {
+        const authUser = localStorage.getItem("niri_app:auth_user");
+        if (authUser) {
+          const user = JSON.parse(authUser);
+          const role = user.value?.role;
+          // Normalize role string (trim whitespace, convert to uppercase for comparison)
+          return role ? String(role).trim() : null;
+        }
+      } catch (error) {
+        console.error("Error reading user role:", error);
+      }
+      return null;
+    };
+    const userRole = getUserRole();
+    const isMospiApprover = userRole === "MOSPI_APPROVER";
+    if (!isMospiApprover) return null;
+
+    const comments = getComments(sectionId);
+    if (!comments || comments.length === 0) return null;
+
+    const mospiReviewerComments = comments.filter((comment: any) => {
+      const commentRole = comment.role || comment.userRole || "";
+      return commentRole.toUpperCase() === "MOSPI_REVIEWER";
+    });
+
+    if (mospiReviewerComments.length === 0) return null;
+
+    // Sort by timestamp (newest first) and get the last (most recent) comment
+    const sortedComments = mospiReviewerComments.sort((a: any, b: any) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
+    });
+    const lastComment = sortedComments[0]; // Get the most recent comment
+
+    return (
+      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+        <p className="text-sm font-semibold text-green-900 mb-2">
+          MoSPI Reviewer Comment:
+        </p>
+        <div className="mb-2 last:mb-0">
+          <p className="text-sm text-green-800">
+            {(lastComment as any).text ||
+              (lastComment as any).message ||
+              (lastComment as any).comment}
+          </p>
+          {lastComment.timestamp && (
+            <p className="text-xs text-green-600 mt-1">
+              {new Date(lastComment.timestamp).toLocaleString()}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
@@ -2418,6 +2477,8 @@ export const InfraDevelopmentReview = ({
             // subtitle="Annex 4: Provide link and funding details"
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("2.1")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3067,6 +3128,8 @@ export const InfraDevelopmentReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("2.3")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3477,6 +3540,8 @@ export const InfraDevelopmentReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("2.4")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3936,6 +4001,8 @@ export const InfraDevelopmentReview = ({
             subtitle=""
             className="mb-6"
           >
+            {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
+            {renderMOSPIReviewerComments("2.5")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -4305,7 +4372,8 @@ export const InfraDevelopmentReview = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Save</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to save this indicator? This will resubmit it to the State Approver.
+              Are you sure you want to save this indicator? This will resubmit
+              it to the State Approver.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

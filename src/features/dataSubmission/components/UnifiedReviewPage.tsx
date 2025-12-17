@@ -1,11 +1,29 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Send, CheckCircle, Edit3, AlertTriangle, MessageSquare } from "lucide-react";
+import {
+  ArrowLeft,
+  Send,
+  CheckCircle,
+  Edit3,
+  AlertTriangle,
+  MessageSquare,
+  RotateCcw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { DataReviewTab } from "./tabs/DataReviewTab";
 import { DocumentsTab } from "./tabs/DocumentsTab";
@@ -23,7 +41,11 @@ import { generateAuditEntries } from "@/utils/auditUtils";
 import { MospiOverviewTab } from "./tabs/MospiOverviewTab";
 import { MospiApproverDataReviewTab } from "./tabs/MospiApproverDataReviewTab";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { areAllIndicatorsMospiAccepted } from "@/utils/indicatorStatusUtils";
+import {
+  areAllIndicatorsMospiAccepted,
+  hasAnyIndicatorMospiReverted,
+  areAllIndicatorsActioned,
+} from "@/utils/indicatorStatusUtils";
 
 interface Submission {
   id: string;
@@ -64,22 +86,24 @@ interface UnifiedReviewPageProps {
   isEditMode?: boolean;
 }
 
-export const UnifiedReviewPage = ({ 
+export const UnifiedReviewPage = ({
   submission: initialSubmission,
-  isPreview = false, 
-  isMospiApprover = false, 
-  onFinalSubmit, 
-  isSubmitting = false, 
-  isResubmit = false, 
-  isEditMode = false 
+  isPreview = false,
+  isMospiApprover = false,
+  onFinalSubmit,
+  isSubmitting = false,
+  isResubmit = false,
+  isEditMode = false,
 }) => {
   const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { assignedIndicators, isNodalOfficer } = useIndicatorAccess();
-  
-  const [submission, setSubmission] = useState<Submission | null>(initialSubmission);
+
+  const [submission, setSubmission] = useState<Submission | null>(
+    initialSubmission
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sendBackModalOpen, setSendBackModalOpen] = useState(false);
@@ -87,22 +111,25 @@ export const UnifiedReviewPage = ({
   const [sendToApproverModalOpen, setSendToApproverModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [actualEditMode, setActualEditMode] = useState(isEditMode);
-  
+  const [showSendBackConfirmationDialog, setShowSendBackConfirmationDialog] =
+    useState(false);
+  const [isSendingBack, setIsSendingBack] = useState(false);
+
   // Get active tab from URL params, default to "overview"
-  const activeTab = searchParams.get('tab') || 'overview';
-  
+  const activeTab = searchParams.get("tab") || "overview";
+
   // Handler to update active tab
   const handleTabChange = (value: string) => {
     const newSearchParams = new URLSearchParams(searchParams);
-    newSearchParams.set('tab', value);
+    newSearchParams.set("tab", value);
     setSearchParams(newSearchParams, { replace: true });
   };
 
   // Check for edit mode on mount
   useEffect(() => {
-    const isEditModeFlag = localStorage.getItem('is_edit_mode') === 'true';
-    const editingSubmission = localStorage.getItem('editing_submission');
-    
+    const isEditModeFlag = localStorage.getItem("is_edit_mode") === "true";
+    const editingSubmission = localStorage.getItem("editing_submission");
+
     if (isEditModeFlag || editingSubmission) {
       setActualEditMode(true);
     }
@@ -118,7 +145,7 @@ export const UnifiedReviewPage = ({
     }
 
     if (!id) return;
-    
+
     try {
       // Don't set loading to true if we're just refreshing after indicator update
       // This prevents the component from disappearing during reload
@@ -127,9 +154,9 @@ export const UnifiedReviewPage = ({
         setLoading(true);
       }
       setError(null);
-      
+
       const response = await apiService.getSubmission(id);
-    // Debug logging removed for performance
+      // Debug logging removed for performance
 
       if (response) {
         setSubmission(response as unknown as Submission);
@@ -161,18 +188,43 @@ export const UnifiedReviewPage = ({
       } else if (initialSubmission) {
         // For preview mode, just update the submission prop if needed
         // The local state update in the review component should handle the UI update
-        console.log('Indicator status updated in preview mode - no reload needed');
+        console.log(
+          "Indicator status updated in preview mode - no reload needed"
+        );
       }
     };
 
     // Listen for custom event when indicator status is updated
-    window.addEventListener('niri-indicator-status-updated', handleIndicatorStatusUpdate);
+    window.addEventListener(
+      "niri-indicator-status-updated",
+      handleIndicatorStatusUpdate
+    );
 
     return () => {
-      window.removeEventListener('niri-indicator-status-updated', handleIndicatorStatusUpdate);
+      window.removeEventListener(
+        "niri-indicator-status-updated",
+        handleIndicatorStatusUpdate
+      );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, initialSubmission]);
+
+  // Memoize the indicator acceptance check to recalculate when submission changes
+  // IMPORTANT: These hooks must be called BEFORE any early returns to follow Rules of Hooks
+  const allIndicatorsMospiAccepted = useMemo(() => {
+    if (!submission) return false;
+    return areAllIndicatorsMospiAccepted(submission);
+  }, [submission]);
+
+  const hasRevertedIndicators = useMemo(() => {
+    if (!submission) return false;
+    return hasAnyIndicatorMospiReverted(submission);
+  }, [submission]);
+
+  const allIndicatorsActioned = useMemo(() => {
+    if (!submission) return false;
+    return areAllIndicatorsActioned(submission);
+  }, [submission]);
 
   // Show loading state
   if (loading) {
@@ -192,8 +244,12 @@ export const UnifiedReviewPage = ({
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Error Loading Submission</h2>
-          <p className="text-muted-foreground mb-4">{error || "Submission not found"}</p>
+          <h2 className="text-xl font-semibold mb-2">
+            Error Loading Submission
+          </h2>
+          <p className="text-muted-foreground mb-4">
+            {error || "Submission not found"}
+          </p>
           <Button onClick={() => navigate(-1)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Go Back
@@ -246,7 +302,13 @@ export const UnifiedReviewPage = ({
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
             >
               <CheckCircle className="w-4 h-4" />
-              {isSubmitting ? "Submitting..." : (actualEditMode ? "Resubmit" : isResubmit ? "Resubmit" : "Submit")}
+              {isSubmitting
+                ? "Submitting..."
+                : actualEditMode
+                ? "Resubmit"
+                : isResubmit
+                ? "Resubmit"
+                : "Submit"}
             </Button>
           )}
         </div>
@@ -258,8 +320,13 @@ export const UnifiedReviewPage = ({
     const currentOwnerRole = submission?.currentOwnerRole;
 
     // Only show actions if current user is the owner or if STATE_APPROVER is handling RETURNED_FROM_MOSPI
-    if (currentUserRole !== currentOwnerRole && 
-        !(currentUserRole === "STATE_APPROVER" && submissionStatus === "RETURNED_FROM_MOSPI")) {
+    if (
+      currentUserRole !== currentOwnerRole &&
+      !(
+        currentUserRole === "STATE_APPROVER" &&
+        submissionStatus === "RETURNED_FROM_MOSPI"
+      )
+    ) {
       return null;
     }
 
@@ -283,7 +350,7 @@ export const UnifiedReviewPage = ({
 
     //           // Store in localStorage for edit page
     //           localStorage.setItem('editing_submission', JSON.stringify(freshSubmissionData));
-              
+
     //           // Navigate to edit page
     //           navigate(`/data-submission/edit/${submission.id}`);
     //         } catch (error) {
@@ -351,7 +418,10 @@ export const UnifiedReviewPage = ({
 
     // Send to Approver button
     // Disable if already submitted to MOSPI_APPROVER
-    if (currentUserRole === "MOSPI_REVIEWER" && submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER") {
+    if (
+      currentUserRole === "MOSPI_REVIEWER" &&
+      submissionStatus === "SUBMITTED_TO_MOSPI_REVIEWER"
+    ) {
       buttons.push(
         <Button
           key="send-to-approver"
@@ -364,20 +434,63 @@ export const UnifiedReviewPage = ({
         </Button>
       );
     }
-    
+
     // Hide Send to Approver button if already submitted to MOSPI_APPROVER
     // (Button should not appear when status is SUBMITTED_TO_MOSPI_APPROVER)
 
-    // Final Submit button for MOSPI_APPROVER
-    if (currentUserRole === "MOSPI_APPROVER" && submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER") {
-      // Check if all indicators have mospi_status = "ACCEPTED" or "APPROVED"
-      const allIndicatorsAccepted = areAllIndicatorsMospiAccepted(submission);
-      
+    // Final Submit and Send Back buttons for MOSPI_APPROVER
+    if (
+      currentUserRole === "MOSPI_APPROVER" &&
+      submissionStatus === "SUBMITTED_TO_MOSPI_APPROVER"
+    ) {
+      // Use memoized values to ensure we have the latest data
+      const allIndicatorsAccepted = allIndicatorsMospiAccepted;
+      const hasReverted = hasRevertedIndicators;
+      const allActioned = allIndicatorsActioned;
+
+      // Debug logging for MOSPI_APPROVER
+      console.log("🔍 [MOSPI_APPROVER] Button State Check:", {
+        allIndicatorsAccepted,
+        hasRevertedIndicators: hasReverted,
+        allIndicatorsActioned: allActioned,
+        submissionId: submission?.id,
+        submissionStatus,
+        formDataKeys: submission?.formData
+          ? Object.keys(submission.formData)
+          : [],
+        submissionUpdated: submission?.updatedAt,
+      });
+
+      // Final Submit button - enabled only if:
+      // 1. All 20 indicators have some action (ACCEPTED or REVERTED)
+      // 2. All 20 indicators are ACCEPTED
+      const canFinalSubmit = allActioned && allIndicatorsAccepted;
+
+      // Send Back button - enabled only if:
+      // 1. All 20 indicators have some action (ACCEPTED or REVERTED)
+      // 2. At least one indicator is REVERTED
+      const canSendBack = allActioned && hasReverted;
+
+      // Send Back button
+      buttons.push(
+        <Button
+          key="send-back"
+          variant="outline"
+          onClick={() => setShowSendBackConfirmationDialog(true)}
+          disabled={!canSendBack || isSendingBack}
+          className="gap-2 border-orange-500 text-orange-700 hover:bg-orange-50"
+        >
+          <RotateCcw className="w-4 h-4" />
+          {isSendingBack ? "Sending Back..." : "Send Back"}
+        </Button>
+      );
+
+      // Final Submit button
       buttons.push(
         <Button
           key="final-submit"
           onClick={() => setApproveModalOpen(true)}
-          disabled={!allIndicatorsAccepted || isSubmitting}
+          disabled={!canFinalSubmit || isSubmitting}
           className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <CheckCircle className="w-4 h-4" />
@@ -414,8 +527,8 @@ export const UnifiedReviewPage = ({
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className={getStatusBadgeColor(submission.status)}
               >
                 {submission.status.replace(/_/g, " ")}
@@ -428,21 +541,31 @@ export const UnifiedReviewPage = ({
           <div className="bg-white rounded-lg border border-[#ddd] p-6 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm font-semibold text-[#212121]">Submitted By</p>
+                <p className="text-sm font-semibold text-[#212121]">
+                  Submitted By
+                </p>
                 <p className="text-[#727272] text-sm">
                   {submission.user.firstName} {submission.user.lastName}
                 </p>
-                <p className="text-sm text-[#727272]">{submission.user.email}</p>
+                <p className="text-sm text-[#727272]">
+                  {submission.user.email}
+                </p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#212121]">Submission Date</p>
+                <p className="text-sm font-semibold text-[#212121]">
+                  Submission Date
+                </p>
                 <p className="text-[#727272] text-sm">
                   {new Date(submission.createdAt).toLocaleDateString()}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#212121]">Current Owner</p>
-                <p className="text-[#727272] text-sm">{submission.currentOwnerRole.replace(/_/g, " ")}</p>
+                <p className="text-sm font-semibold text-[#212121]">
+                  Current Owner
+                </p>
+                <p className="text-[#727272] text-sm">
+                  {submission.currentOwnerRole.replace(/_/g, " ")}
+                </p>
               </div>
             </div>
           </div>
@@ -468,11 +591,17 @@ export const UnifiedReviewPage = ({
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className="w-full"
+        >
           <TabsList className={` w-full mb-6 `}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             {isMospiApprover && (
-              <TabsTrigger value="reviewer-comments">MoSPI Reviewer Comments</TabsTrigger>
+              <TabsTrigger value="reviewer-comments">
+                MoSPI Reviewer Comments
+              </TabsTrigger>
             )}
             <TabsTrigger value="data-review">Data Review</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -491,16 +620,24 @@ export const UnifiedReviewPage = ({
             <TabsContent value="reviewer-comments">
               <div className="space-y-4">
                 {submission.sections?.map((section: any) => (
-                  <div key={section.id} className="p-4 border rounded-lg bg-card">
+                  <div
+                    key={section.id}
+                    className="p-4 border rounded-lg bg-card"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold">{section.name}</h3>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-primary">{section.progress}%</div>
-                        <p className="text-xs text-muted-foreground">Indicator Score</p>
+                        <div className="text-2xl font-bold text-primary">
+                          {section.progress}%
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Indicator Score
+                        </p>
                       </div>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {section.points}/{section.maxPoints} points | {section.sectionsWithComments} sections with comments
+                      {section.points}/{section.maxPoints} points |{" "}
+                      {section.sectionsWithComments} sections with comments
                     </p>
                   </div>
                 ))}
@@ -510,16 +647,16 @@ export const UnifiedReviewPage = ({
 
           <TabsContent value="data-review">
             {isMospiApprover ? (
-              <MospiApproverDataReviewTab 
-                submissionId={submission.id} 
-                sections={submission.sections || []} 
+              <MospiApproverDataReviewTab
+                submissionId={submission.id}
+                sections={submission.sections || []}
                 formData={submission.formData}
               />
             ) : (
-              <DataReviewTab 
-                submissionId={submission.id} 
-                formData={submission.formData} 
-                submission={submission} 
+              <DataReviewTab
+                submissionId={submission.id}
+                formData={submission.formData}
+                submission={submission}
                 isPreview={isPreview}
                 assignedIndicators={assignedIndicators}
                 isNodalOfficer={isNodalOfficer}
@@ -528,8 +665,8 @@ export const UnifiedReviewPage = ({
           </TabsContent>
 
           <TabsContent value="documents">
-            <DocumentsTab 
-              documents={submission.attachedFiles || []} 
+            <DocumentsTab
+              documents={submission.attachedFiles || []}
               submissionId={submission.id}
               formData={submission.formData}
             />
@@ -567,6 +704,80 @@ export const UnifiedReviewPage = ({
               loadSubmission();
             }}
           />
+
+          {/* Confirmation Dialog for Send Back to State */}
+          <AlertDialog
+            open={showSendBackConfirmationDialog}
+            onOpenChange={setShowSendBackConfirmationDialog}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Send Back to State</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-3">
+                  <p>
+                    Are you sure you want to send this submission back to the
+                    State Approver?
+                  </p>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-orange-900 mb-2">
+                      ⚠️ Important:
+                    </p>
+                    <ul className="text-sm text-orange-800 space-y-1 list-disc list-inside">
+                      <li>
+                        This form will not be visible to MOSPI Reviewer and
+                        MOSPI Approver
+                      </li>
+                      <li>It will be returned back to State Approver</li>
+                      <li>
+                        It will only be visible again when State Approver
+                        submits the form again
+                      </li>
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  onClick={() => setShowSendBackConfirmationDialog(false)}
+                >
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async () => {
+                    try {
+                      setIsSendingBack(true);
+                      // Send back to state using mospiApproverSendBack API
+                      await apiService.mospiApproverSendBack(submission.id);
+
+                      notificationService.success(
+                        "Submission sent back to State Approver successfully",
+                        "Send Back Successful"
+                      );
+
+                      setShowSendBackConfirmationDialog(false);
+                      // Reload submission to reflect the new status
+                      await loadSubmission();
+                      // Navigate back to review list
+                      setTimeout(() => {
+                        navigate("/data-submission/review");
+                      }, 1000);
+                    } catch (error: any) {
+                      console.error("Failed to send back submission:", error);
+                      notificationService.error(
+                        error?.message ||
+                          "Failed to send back submission. Please try again.",
+                        "Send Back Failed"
+                      );
+                    } finally {
+                      setIsSendingBack(false);
+                    }
+                  }}
+                >
+                  {isSendingBack ? "Sending Back..." : "Confirm Send Back"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
     </div>
