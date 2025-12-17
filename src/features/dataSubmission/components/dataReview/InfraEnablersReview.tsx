@@ -22,6 +22,8 @@ import {
   X,
   Check,
   Edit3,
+  Eye,
+  Download,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -144,6 +146,161 @@ export const InfraEnablersReview = ({
     }
     
     return fileName;
+  };
+
+  // Helper functions for file access
+  function readAccessTokenFromLocalStorage(): string | undefined {
+    try {
+      const raw = localStorage.getItem("niri_app:auth_tokens");
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw);
+      return parsed?.value?.accessToken;
+    } catch (e) {
+      console.warn("Failed to read auth token from localStorage", e);
+      return undefined;
+    }
+  }
+
+  async function fetchSignedUrl(
+    filePath: string,
+    token?: string
+  ): Promise<string> {
+    if (!filePath) throw new Error("Missing filePath");
+
+    const encoded = encodeURIComponent(filePath);
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+    const url = `${base.replace(/\/$/, "")}/file/url/${encoded}`;
+
+    const accessToken = token ?? readAccessTokenFromLocalStorage();
+    if (!accessToken) throw new Error("No auth token available. Please login.");
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      const signed =
+        json?.data?.signedUrl ?? json?.signedUrl ?? json?.url ?? null;
+      if (!signed)
+        throw new Error(
+          `Signed URL not found in response: ${text.slice(0, 300)}`
+        );
+      return signed;
+    } catch (err) {
+      const trimmed = text.trim();
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      throw new Error(
+        `Unexpected response when fetching signed URL: ${text.slice(0, 300)}`
+      );
+    }
+  }
+
+  function isProbablyUrl(s: string) {
+    return typeof s === "string" && /^https?:\/\//i.test(s);
+  }
+
+  // Loading state for file operations
+  const [fileLoading, setFileLoading] = useState<Record<string, boolean>>({});
+
+  // Handler functions for viewing and downloading files
+  const handleViewFile = async (file: any, fileKey: string) => {
+    // If file has a direct fileUrl, use it
+    if (file.fileUrl) {
+      window.open(file.fileUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // If file has filePath, fetch signed URL
+    if (file.filePath || file.file) {
+      setFileLoading((s) => ({ ...s, [fileKey]: true }));
+      try {
+        const filePath = file.filePath || file.file;
+        const signed = await fetchSignedUrl(filePath);
+        if (!isProbablyUrl(signed)) {
+          console.error("Signed URL is not a valid URL:", signed);
+          alert("Received invalid file URL. Check console/network tab.");
+          return;
+        }
+        window.open(signed, "_blank", "noopener,noreferrer");
+      } catch (err: any) {
+        console.error(err);
+        alert("Failed to open file: " + (err.message || err));
+      } finally {
+        setFileLoading((s) => ({ ...s, [fileKey]: false }));
+      }
+      return;
+    }
+
+    alert("File path or URL missing.");
+  };
+
+  const handleDownloadFile = async (file: any, fileKey: string) => {
+    // If file has a direct fileUrl, download it
+    if (file.fileUrl) {
+      const a = document.createElement("a");
+      a.href = file.fileUrl;
+      a.download = file.originalName || file.fileName || "file";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
+    // If file has filePath, use backend download endpoint
+    if (file.filePath || file.file) {
+      setFileLoading((s) => ({ ...s, [fileKey]: true }));
+      let blobUrl: string | null = null;
+      try {
+        const filePath = file.filePath || file.file;
+        const encoded = encodeURIComponent(filePath);
+        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+
+        const accessToken = readAccessTokenFromLocalStorage();
+        if (!accessToken) {
+          throw new Error("No auth token available. Please login.");
+        }
+
+        const response = await fetch(downloadUrl, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Download failed: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = file.originalName || file.fileName || "file";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err: any) {
+        console.error(err);
+        alert("Download failed: " + (err.message || err));
+      } finally {
+        if (blobUrl) {
+          setTimeout(() => {
+            URL.revokeObjectURL(blobUrl!);
+          }, 100);
+        }
+        setFileLoading((s) => ({ ...s, [fileKey]: false }));
+      }
+      return;
+    }
+
+    alert("File path or URL missing.");
   };
   const [mospiSentBackSectionId, setMospiSentBackSectionId] = useState<
     string | null
@@ -2701,24 +2858,57 @@ export const InfraEnablersReview = ({
                                     </div>
                                   </div>
                                 ) : project.file ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                    title={
-                                      extractOriginalName(
-                                        project.file.fileName || "",
-                                        (project.file as any)?.originalName
-                                      ) || "Unknown file"
-                                    }
-                                  >
-                                    <Upload className="w-3 h-3" />
-                                    <span className="truncate">
-                                      {extractOriginalName(
-                                        project.file.fileName || "",
-                                        (project.file as any)?.originalName
-                                      ) || "Unknown file"}
-                                    </span>
-                                  </Badge>
+                                  <div className="flex items-center gap-1">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                      title={
+                                        extractOriginalName(
+                                          project.file.fileName || "",
+                                          (project.file as any)?.originalName
+                                        ) || "Unknown file"
+                                      }
+                                    >
+                                      <Upload className="w-3 h-3" />
+                                      <span className="truncate">
+                                        {extractOriginalName(
+                                          project.file.fileName || "",
+                                          (project.file as any)?.originalName
+                                        ) || "Unknown file"}
+                                      </span>
+                                    </Badge>
+                                    {(() => {
+                                      const fileKey = `4.3-${idx}`;
+                                      const isLoading = !!fileLoading[fileKey];
+                                      const hasFileAccess = !!(project.file.filePath || project.file.file || project.file.fileUrl);
+                                      return hasFileAccess ? (
+                                        <>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleViewFile(project.file, fileKey)}
+                                            disabled={isLoading}
+                                            className="h-7 w-7 p-0"
+                                            title="View file"
+                                          >
+                                            <Eye className="w-3 h-3" />
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleDownloadFile(project.file, fileKey)}
+                                            disabled={isLoading}
+                                            className="h-7 w-7 p-0"
+                                            title="Download file"
+                                          >
+                                            <Download className="w-3 h-3" />
+                                          </Button>
+                                        </>
+                                      ) : null;
+                                    })()}
+                                  </div>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">
                                     No file
@@ -3217,24 +3407,57 @@ export const InfraEnablersReview = ({
                                     </div>
                                   </div>
                                 ) : practice.file ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                    title={
-                                      extractOriginalName(
-                                        practice.file.fileName || "",
-                                        (practice.file as any)?.originalName
-                                      ) || "Unknown file"
-                                    }
-                                  >
-                                    <Upload className="w-3 h-3" />
-                                    <span className="truncate">
-                                      {extractOriginalName(
-                                        practice.file.fileName || "",
-                                        (practice.file as any)?.originalName
-                                      ) || "Unknown file"}
-                                    </span>
-                                  </Badge>
+                                  <div className="flex items-center gap-1">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                      title={
+                                        extractOriginalName(
+                                          practice.file.fileName || "",
+                                          (practice.file as any)?.originalName
+                                        ) || "Unknown file"
+                                      }
+                                    >
+                                      <Upload className="w-3 h-3" />
+                                      <span className="truncate">
+                                        {extractOriginalName(
+                                          practice.file.fileName || "",
+                                          (practice.file as any)?.originalName
+                                        ) || "Unknown file"}
+                                      </span>
+                                    </Badge>
+                                    {(() => {
+                                      const fileKey = `4.5-${idx}`;
+                                      const isLoading = !!fileLoading[fileKey];
+                                      const hasFileAccess = !!(practice.file.filePath || practice.file.file || practice.file.fileUrl);
+                                      return hasFileAccess ? (
+                                        <>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleViewFile(practice.file, fileKey)}
+                                            disabled={isLoading}
+                                            className="h-7 w-7 p-0"
+                                            title="View file"
+                                          >
+                                            <Eye className="w-3 h-3" />
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleDownloadFile(practice.file, fileKey)}
+                                            disabled={isLoading}
+                                            className="h-7 w-7 p-0"
+                                            title="Download file"
+                                          >
+                                            <Download className="w-3 h-3" />
+                                          </Button>
+                                        </>
+                                      ) : null;
+                                    })()}
+                                  </div>
                                 ) : (
                                   <span className="text-muted-foreground text-xs">
                                     No file
