@@ -19,6 +19,8 @@ import {
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { useReviewFormPersistence } from "../../hooks/useReviewFormPersistence";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { validateInfraDevelopment } from "@/features/submission/validation/infraDevelopmentValidation";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -42,6 +44,8 @@ const defaultData: InfraDevelopmentData = {
 
 export const EditableInfraDevelopment = ({ submissionId, submission }: EditableInfraDevelopmentProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
+  const { assignedIndicators } = useIndicatorAccess();
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
 
   // Get data from persistence hook (this will be the source of truth)
   const persistedData = (getStepData("infraDevelopment") as Partial<InfraDevelopmentData>) || {};
@@ -83,6 +87,19 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
       setFormData(newFormData);
     }
   }, [persistedData]); // Depend on persistedData from hook
+
+  // Validate form data
+  useEffect(() => {
+    const validationResult = validateInfraDevelopment(formData, {
+      allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+    });
+
+    if (!validationResult.isValid) {
+      setValidationErrors(validationResult.errors);
+    } else {
+      setValidationErrors({});
+    }
+  }, [formData, assignedIndicators]);
 
   // Auto-save to localStorage on every change
   useEffect(() => {
@@ -252,6 +269,11 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
     }));
   };
 
+  // Helper function to get error message for a field
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validationErrors[fieldPath];
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -261,6 +283,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
+            {formData.section2_1.infraActArray.length === 0 && validationErrors["section2_1.infraActArray"] && (
+              <p className="text-sm text-red-500 mb-2">{validationErrors["section2_1.infraActArray"]}</p>
+            )}
             {formData.section2_1.infraActArray.map((entry, idx) => (
               <div key={entry.id} className="border rounded-lg p-4 bg-card">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -274,7 +299,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                         updateEntry("section2_1", entry.id, "sector", value)
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={getFieldError(`section2_1.infraActArray.${idx}.sector`) ? "border-red-500" : ""}>
                         <SelectValue placeholder="Select a sector" />
                       </SelectTrigger>
                       <SelectContent>
@@ -285,6 +310,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                         ))}
                       </SelectContent>
                     </Select>
+                    {getFieldError(`section2_1.infraActArray.${idx}.sector`) && (
+                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_1.infraActArray.${idx}.sector`)}</p>
+                    )}
                   </div>
                   <div className="flex-1 w-full">
                     <FileUploadSection
@@ -300,6 +328,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                       }
                       required
                     />
+                    {getFieldError(`section2_1.infraActArray.${idx}.files`) && (
+                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_1.infraActArray.${idx}.files`)}</p>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -333,6 +364,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
           // subtitle="(10 marks per sector, min. 3 sectors)"
         >
           <div className="flex flex-col gap-4">
+            {formData.section2_2.specializedEntityArray.length === 0 && validationErrors["section2_2.specializedEntityArray"] && (
+              <p className="text-sm text-red-500 mb-2">{validationErrors["section2_2.specializedEntityArray"]}</p>
+            )}
             {formData.section2_2.specializedEntityArray.map((entry, idx) => (
               <div key={entry.id} className="border rounded-lg p-4 bg-card">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -346,7 +380,7 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                         updateEntry("section2_2", entry.id, "sector", value)
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={getFieldError(`section2_2.specializedEntityArray.${idx}.sector`) ? "border-red-500" : ""}>
                         <SelectValue placeholder="Select a sector" />
                       </SelectTrigger>
                       <SelectContent>
@@ -357,6 +391,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                         ))}
                       </SelectContent>
                     </Select>
+                    {getFieldError(`section2_2.specializedEntityArray.${idx}.sector`) && (
+                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_2.specializedEntityArray.${idx}.sector`)}</p>
+                    )}
                   </div>
                   <div className="flex-1 w-full">
                     <FileUploadSection
@@ -372,6 +409,9 @@ export const EditableInfraDevelopment = ({ submissionId, submission }: EditableI
                       }
                       required
                     />
+                    {getFieldError(`section2_2.specializedEntityArray.${idx}.files`) && (
+                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_2.specializedEntityArray.${idx}.files`)}</p>
+                    )}
                   </div>
                   <Button
                     type="button"

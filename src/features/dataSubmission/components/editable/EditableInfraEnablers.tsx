@@ -19,6 +19,8 @@ import {
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { useReviewFormPersistence } from "../../hooks/useReviewFormPersistence";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { validateInfraEnablers } from "@/features/submission/validation/infraEnablersValidation";
 import {
   IMPACT_OPTIONS,
   TRAINING_TYPE_OPTIONS,
@@ -60,6 +62,8 @@ const defaultData: InfraEnablersData = {
 
 export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfraEnablersProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
+  const { assignedIndicators } = useIndicatorAccess();
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
 
   // Get data from persistence hook (this will be the source of truth)
   const persistedData = (getStepData("infraEnablers") as Partial<InfraEnablersData>) || {};
@@ -92,6 +96,19 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
       setFormData(newFormData);
     }
   }, [persistedData]); // Depend on persistedData from hook
+
+  // Validate form data
+  useEffect(() => {
+    const validationResult = validateInfraEnablers(formData, {
+      allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+    });
+
+    if (!validationResult.isValid) {
+      setValidationErrors(validationResult.errors);
+    } else {
+      setValidationErrors({});
+    }
+  }, [formData, assignedIndicators]);
 
   // Auto-save to localStorage on every change
   useEffect(() => {
