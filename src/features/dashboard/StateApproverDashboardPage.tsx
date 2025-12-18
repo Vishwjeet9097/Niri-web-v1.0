@@ -144,7 +144,7 @@ export function StateApproverDashboardPage() {
         // Build a lightweight KPIs model for display components
         const assembledKpis = [           
           {
-            title: "Total Assigned Nodal Officers",
+            title: "Total Indicators Assigned to Nodal Officers",
             value: String(totalAssigned),
             subtitle: "Critical Attention Needed",
             icon: User,
@@ -410,7 +410,7 @@ export function StateApproverDashboardPage() {
           {/* --- Total Indicators Received Section --- */}
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
             <h2 className="text-lg font-semibold text-[#111827]">
-              Total Indicators Received:&nbsp;
+              Total Indicators Submitted:&nbsp;
               <span className="text-black">
                 {totalIndicatorsReceivedState}/{totalAssignedState || 0}
               </span>
