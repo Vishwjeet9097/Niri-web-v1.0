@@ -39,7 +39,7 @@ import { getSubmissionStatus, } from "@/utils/indicatorStatusUtils";
 // import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { computeAllStepsSummary } from "@/features/submission/utils/progress";
+import { computeAllStepsSummary, calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
 
 // Helper function to map backend status to frontend status (kept for compatibility)
@@ -216,45 +216,19 @@ export function StateApproverDashboardPage() {
           submissionsArray.map((sub: any) => {
             const fd = sub.formData || {};
             
-            // Calculate proper progress using computeAllStepsSummary
-            // Progress is now calculated based on indicators that exist in the submission
-            // Total = all indicators present in formData
-            // Progress = (filled indicators / total indicators in submission) × 100%
-            // If an indicator is sent back (REVERTED), it won't count as filled but is still in total
-            const summary = computeAllStepsSummary(fd, {});
-            
-            // Calculate overall progress from all steps
-            const totalCompleted = 
-              summary.infraFinancing.completed +
-              summary.infraDevelopment.completed +
-              summary.pppDevelopment.completed +
-              summary.infraEnablers.completed;
-            
-            const totalSections = 
-              summary.infraFinancing.total +
-              summary.infraDevelopment.total +
-              summary.pppDevelopment.total +
-              summary.infraEnablers.total;
-            
-            // Progress based on indicators in submission (for NODAL_OFFICER submissions)
-            // or available indicators (for consolidated submissions)
-            // If an indicator is sent back (REVERTED), only that one doesn't count as filled
-            const progress = totalSections > 0 
-              ? Math.round((totalCompleted / totalSections) * 100)
-              : 0;
+            // Calculate progress based on sections with ACCEPTED status
+            // Count all sections in formData and count how many have status "ACCEPTED"
+            // Progress = (sections with ACCEPTED status / total sections) × 100%
+            const progressData = calculateProgressByAcceptedStatus(fd);
+            console.log("progressData", progressData);
+            const progress = progressData.progress;
             
             // Debug logging (can be removed in production)
             if (process.env.NODE_ENV === 'development') {
               console.log(`[Progress] State Approver - Submission ${sub.id}:`, {
-                totalSections,
-                totalCompleted,
+                totalSections: progressData.total,
+                acceptedSections: progressData.accepted,
                 progress,
-                breakdown: {
-                  infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
-                  infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
-                  pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
-                  infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
-                }
               });
             }
             const submittedDate = new Date(sub.createdAt);

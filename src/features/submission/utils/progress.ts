@@ -442,4 +442,66 @@ export function computeAllStepsSummary(
   };
 }
 
+/**
+ * Calculate progress based on sections with ACCEPTED status
+ * @param allFormData - The form data object
+ * @returns Object with total sections, accepted sections, and progress percentage
+ */
+export function calculateProgressByAcceptedStatus(
+  allFormData: Record<string, unknown>
+): { total: number; accepted: number; progress: number } {
+  const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
+  let totalSections = 0;
+  let acceptedSections = 0;
+
+  for (const category of categories) {
+    const categoryData = (allFormData[category] as Record<string, unknown>) || {};
+    
+    // Iterate through all sections in this category
+    for (const sectionKey of Object.keys(categoryData)) {
+      // Only count sections that match the pattern (section1_1, section2_1, etc.)
+      if (!sectionKey.startsWith("section")) {
+        continue;
+      }
+
+      const sectionData = categoryData[sectionKey];
+      if (!sectionData) {
+        continue;
+      }
+
+      totalSections++;
+
+      // Check for ACCEPTED status
+      // Handle both object and array formats
+      let status: string | undefined;
+      let mospiStatus: string | undefined;
+
+      if (typeof sectionData === "object" && !Array.isArray(sectionData)) {
+        status = (sectionData as Record<string, unknown>)?.status as string | undefined;
+        mospiStatus = (sectionData as Record<string, unknown>)?.mospi_status as string | undefined;
+      } else if (Array.isArray(sectionData)) {
+        // For array format, check if status is on the array object itself
+        status = (sectionData as any)?.status;
+        mospiStatus = (sectionData as any)?.mospi_status;
+      }
+
+      // Check if section is ACCEPTED (either status or mospi_status)
+      const normalizedStatus = status ? String(status).trim().toUpperCase() : "";
+      const normalizedMospiStatus = mospiStatus ? String(mospiStatus).trim().toUpperCase() : "";
+
+      if (normalizedStatus === "ACCEPTED" || normalizedMospiStatus === "ACCEPTED") {
+        acceptedSections++;
+      }
+    }
+  }
+
+  const progress = totalSections > 0 ? Math.round((acceptedSections / totalSections) * 100) : 0;
+
+  return {
+    total: totalSections,
+    accepted: acceptedSections,
+    progress,
+  };
+}
+
 export { STEP_SECTIONS };
