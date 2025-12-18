@@ -414,6 +414,7 @@ export const MospiApproverDashboardPage = () => {
                       submission={submission}
                       currentUserRole="MOSPI_APPROVER"
                       submittedBy={submittedByText}
+                      stateUt={submission.stateUt || submission.state_ut}
                       onReview={() => navigate(`/data-submission/review/${submission.id}`)}
                       onViewDetails={() => navigate(`/data-submission/review/${submission.id}`)}
                     />

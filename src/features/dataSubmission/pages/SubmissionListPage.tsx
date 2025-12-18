@@ -1736,6 +1736,7 @@ export const SubmissionListPage = () => {
                     submission={submission}
                     currentUserRole={user?.role}
                     submittedBy={submittedByText}
+                    stateUt={submission.stateUt || submission.state_ut}
                     onViewDetails={() =>
                       navigate(`/data-submission/review/${submission.id}`)
                     }
@@ -1890,6 +1891,7 @@ export const SubmissionListPage = () => {
                     submission={submission}
                     currentUserRole={user?.role}
                     submittedBy={submittedByText}
+                    stateUt={submission.stateUt || submission.state_ut}
                     onViewDetails={() =>
                       navigate(`/data-submission/review/${submission.id}`)
                     }

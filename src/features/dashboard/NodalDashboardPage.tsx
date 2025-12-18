@@ -402,6 +402,7 @@ export function NodalDashboardPage() {
                           submission={submission.submission}
                           currentUserRole="NODAL_OFFICER"
                           submittedBy={submission.submittedBy}
+                          stateUt={submission.stateUt}
                           onEdit={() =>
                             handleEditSubmissionForEdit(submission.id, navigate)
                           }

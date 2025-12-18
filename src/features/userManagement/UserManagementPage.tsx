@@ -1154,7 +1154,7 @@ export function UserManagementPage() {
             <SelectContent>
               <SelectItem value="all">Select Roles</SelectItem>
 
-               {user?.role !== "ADMIN" && (
+               {user?.role !== "ADMIN" && user?.role !== "MOSPI_APPROVER" && (
               <SelectItem value="NODAL_OFFICER">
                 {getRoleDisplayName("NODAL_OFFICER")}
               </SelectItem>

@@ -288,6 +288,7 @@ export function StateApproverDashboardPage() {
               documents: sub.attachedFiles?.length || 0,
               pendingDays: pendingDays,
               completionPercent: Math.round(progress),
+              stateUt: sub.stateUt || sub.state_ut || "",
               submission: sub,
             };
           })
@@ -473,19 +474,19 @@ export function StateApproverDashboardPage() {
                     className="pl-10 w-[250px]"
                   />
                 </div>
-                <Filter className="h-4 w-4 text-muted-foreground" />
+                {/* <Filter className="h-4 w-4 text-muted-foreground" />
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Submissions</SelectItem>
-                    <SelectItem value="pending">Pending Review</SelectItem>
+                    <SelectItem value="pending">Pending Review</SelectItem> */}
                     {/* <SelectItem value="overdue">Overdue</SelectItem> */}
-                    <SelectItem value="approved">Approved</SelectItem>
+                    {/* <SelectItem value="approved">Approved</SelectItem> */}
                     {/* <SelectItem value="rejected">Rejected</SelectItem> */}
-                  </SelectContent>
-                </Select>
+                  {/* </SelectContent>
+                </Select> */}
               </div>
             </div>
 
@@ -520,6 +521,7 @@ export function StateApproverDashboardPage() {
                     submission={submission}
                     currentUserRole="STATE_APPROVER"
                     submittedBy={submission.submittedBy}
+                    stateUt={submission.stateUt}
                     onReview={() =>
                       navigate(`/data-submission/review/${submission.id}`)
                     }

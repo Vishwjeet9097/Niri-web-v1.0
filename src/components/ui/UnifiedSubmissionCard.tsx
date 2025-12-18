@@ -63,6 +63,7 @@ export interface UnifiedSubmissionCardProps {
   submission?: Record<string, unknown>;
   currentUserRole?: string;
   submittedBy?: string; // Added submitted by field
+  stateUt?: string; // State/UT name
   onEdit?: () => void;
   onViewDetails?: () => void;
   onRevise?: () => void;
@@ -183,6 +184,7 @@ export function UnifiedSubmissionCard({
   submission,
   currentUserRole,
   submittedBy,
+  stateUt,
   onEdit,
   onViewDetails,
   onRevise,
@@ -337,9 +339,9 @@ export function UnifiedSubmissionCard({
 
           {/* Submission details */}
           <div className="flex items-center gap-6 text-xs text-gray-500 mb-3">
-            <span className="font-medium">ID: {referenceId}</span>
+            <span className="font-medium">State: {stateUt || (submission as any)?.stateUt || (submission as any)?.state_ut || referenceId}</span>
             <span>Updated: {updatedDate}</span>
-            <span>Due: {dueDate}</span>
+            {/* <span>Due: {dueDate}</span> */}
             {submittedBy && <span>Submitted by: {submittedBy}</span>}
           </div>
 
