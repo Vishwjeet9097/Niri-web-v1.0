@@ -23,8 +23,6 @@ import {
   ORGANISATION_TYPE_OPTIONS,
   RATING_OPTIONS,
 } from "@/features/submission/constants/steps";
-import { validateInfraFinancing } from "@/features/submission/validation/infraFinancingValidation";
-import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import type { InfraFinancingData } from "@/features/submission/types";
 
 interface EditableInfraFinancingProps {
@@ -34,15 +32,13 @@ interface EditableInfraFinancingProps {
 
 export const EditableInfraFinancing = ({ submissionId, submission }: EditableInfraFinancingProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
-  const { assignedIndicators } = useIndicatorAccess();
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
 
   const defaultData: InfraFinancingData = {
     section1_1: {
       year: "",
       capitalAllocation: "",
       gsdpForFY: "",
-      stateCapexUtilisation: "",
+      stateCapex: "",
       allocationToGSDP: "",
       capexToCapexActuals: "",
     },
@@ -50,13 +46,12 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
       year: "",
       gsdpForFY: "",
       actualCapex: "",
-      budgetaryCapex: "",
       stateCapexUtilisation: "",
       capexActualsToGSDP: "",
     },
-    section1_3: { totalULBs: 0, ulbList: [] },
-    section1_4: { totalULBs: 0, bondList: [] },
-    section1_5: { ffiArray: [], hasIntermediary: "", comment: "" },
+    section1_3: [],
+    section1_4: [],
+    section1_5: [],
   };
 
   // Get data from persistence hook (this will be the source of truth)
@@ -64,30 +59,15 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
     // Debug logging removed for performance
 
   // Create form data by merging persisted data with defaults
-  const createFormData = (data: Partial<InfraFinancingData>): InfraFinancingData => {
-    // Handle legacy array format or new object format
-    const section1_3 = Array.isArray(data.section1_3)
-      ? { totalULBs: data.section1_3.length, ulbList: data.section1_3 }
-      : (data.section1_3 || defaultData.section1_3);
-    
-    const section1_4 = Array.isArray(data.section1_4)
-      ? { totalULBs: data.section1_4.length, bondList: data.section1_4 }
-      : (data.section1_4 || defaultData.section1_4);
-    
-    const section1_5 = Array.isArray(data.section1_5)
-      ? { ffiArray: data.section1_5, hasIntermediary: "", comment: "" }
-      : (data.section1_5 || defaultData.section1_5);
-
-    return {
-      ...defaultData,
-      ...data,
-      section1_1: { ...defaultData.section1_1, ...(data.section1_1 || {}) },
-      section1_2: { ...defaultData.section1_2, ...(data.section1_2 || {}) },
-      section1_3,
-      section1_4,
-      section1_5,
-    };
-  };
+  const createFormData = (data: Partial<InfraFinancingData>): InfraFinancingData => ({
+    ...defaultData,
+    ...data,
+    section1_1: { ...defaultData.section1_1, ...(data.section1_1 || {}) },
+    section1_2: { ...defaultData.section1_2, ...(data.section1_2 || {}) },
+    section1_3: data.section1_3 || [],
+    section1_4: data.section1_4 || [],
+    section1_5: data.section1_5 || [],
+  });
 
   const [formData, setFormData] = useState<InfraFinancingData>(() => 
     createFormData(persistedData)
@@ -105,19 +85,6 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
     }
   }, [persistedData]); // Depend on persistedData from hook
 
-  // Validate form data
-  useEffect(() => {
-    const validationResult = validateInfraFinancing(formData, {
-      allowedIndicators: assignedIndicators,
-    });
-
-    if (!validationResult.isValid) {
-      setValidationErrors(validationResult.errors);
-    } else {
-      setValidationErrors({});
-    }
-  }, [formData, assignedIndicators]);
-
   // Auto-save on change with immediate save
   useEffect(() => {
     updateFormData("infraFinancing", formData);
@@ -131,20 +98,16 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
   const addULB = () => {
     setFormData({
       ...formData,
-      section1_3: {
+      section1_3: [
         ...formData.section1_3,
-        totalULBs: formData.section1_3.ulbList.length + 1,
-        ulbList: [
-          ...formData.section1_3.ulbList,
-          {
-            id: crypto.randomUUID(),
-            cityName: "",
-            ulb: "",
-            ratingDate: "",
-            rating: "",
-          },
-        ],
-      },
+        {
+          id: crypto.randomUUID(),
+          cityName: "",
+          ulb: "",
+          ratingDate: "",
+          rating: "",
+        },
+      ],
     });
   };
 
@@ -155,6 +118,52 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
     });
   };
 
+  const addBond = () => {
+    setFormData({
+      ...formData,
+      section1_4: [
+        ...formData.section1_4,
+        {
+          id: crypto.randomUUID(),
+          bondType: "",
+          cityName: "",
+          issuingAuthority: "",
+          value: "",
+        },
+      ],
+    });
+  };
+
+  const removeBond = (id: string) => {
+    setFormData({
+      ...formData,
+      section1_4: formData.section1_4.filter((item) => item.id !== id),
+    });
+  };
+
+  const addIntermediary = () => {
+    setFormData({
+      ...formData,
+      section1_5: [
+        ...formData.section1_5,
+        {
+          id: crypto.randomUUID(),
+          organisationName: "",
+          organisationType: "",
+          yearEstablished: "",
+          totalFunding: "",
+          website: "",
+        },
+      ],
+    });
+  };
+
+  const removeIntermediary = (id: string) => {
+    setFormData({
+      ...formData,
+      section1_5: formData.section1_5.filter((item) => item.id !== id),
+    });
+  };
 
   return (
     <TooltipProvider>
@@ -188,11 +197,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                     section1_1: { ...formData.section1_1, year: e.target.value },
                   })
                 }
-                className={validationErrors["section1_1.year"] ? "border-red-500" : ""}
               />
-              {validationErrors["section1_1.year"] && (
-                <p className="text-sm text-red-500 mt-1">{validationErrors["section1_1.year"]}</p>
-              )}
             </div>
             <div>
               <Label>Capital Allocation for FY (INR)*</Label>
@@ -208,11 +213,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                     },
                   })
                 }
-                className={validationErrors["section1_1.capitalAllocation"] ? "border-red-500" : ""}
               />
-              {validationErrors["section1_1.capitalAllocation"] && (
-                <p className="text-sm text-red-500 mt-1">{validationErrors["section1_1.capitalAllocation"]}</p>
-              )}
             </div>
             <div>
               <Label>GSDP for FY (INR)*</Label>
@@ -228,11 +229,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                     },
                   })
                 }
-                className={validationErrors["section1_1.gsdpForFY"] ? "border-red-500" : ""}
               />
-              {validationErrors["section1_1.gsdpForFY"] && (
-                <p className="text-sm text-red-500 mt-1">{validationErrors["section1_1.gsdpForFY"]}</p>
-              )}
             </div>
             <div>
               <Label>% Allocation to GSDP*</Label>
@@ -273,11 +270,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                     section1_2: { ...formData.section1_2, year: e.target.value },
                   })
                 }
-                className={validationErrors["section1_2.year"] ? "border-red-500" : ""}
               />
-              {validationErrors["section1_2.year"] && (
-                <p className="text-sm text-red-500 mt-1">{validationErrors["section1_2.year"]}</p>
-              )}
             </div>
             <div>
               <Label>Actual Capex (INR)*</Label>
@@ -293,11 +286,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                     },
                   })
                 }
-                className={validationErrors["section1_2.actualCapex"] ? "border-red-500" : ""}
               />
-              {validationErrors["section1_2.actualCapex"] && (
-                <p className="text-sm text-red-500 mt-1">{validationErrors["section1_2.actualCapex"]}</p>
-              )}
             </div>
             <div>
               <Label>State Capex Utilisation (INR)*</Label>
@@ -313,11 +302,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                     },
                   })
                 }
-                className={validationErrors["section1_2.stateCapexUtilisation"] ? "border-red-500" : ""}
               />
-              {validationErrors["section1_2.stateCapexUtilisation"] && (
-                <p className="text-sm text-red-500 mt-1">{validationErrors["section1_2.stateCapexUtilisation"]}</p>
-              )}
             </div>
             <div>
               <Label>% Capex Actuals to GSDP*</Label>
@@ -347,10 +332,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
           // subtitle="Annex 3: List of ULBs with credit ratings"
         >
           <div className="space-y-4">
-            {formData.section1_3.ulbList.length === 0 && validationErrors["section1_3.ulbList"] && (
-              <p className="text-sm text-red-500 mb-2">{validationErrors["section1_3.ulbList"]}</p>
-            )}
-            {formData.section1_3.ulbList.map((ulb, index) => (
+            {formData.section1_3.map((ulb, index) => (
               <div key={ulb.id} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">ULB Entry {index + 1}</h4>
@@ -374,21 +356,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                         value = value.replace(/[^a-zA-Z\s]/g, "");
                         setFormData({
                           ...formData,
-                          section1_3: {
-                            ...formData.section1_3,
-                            ulbList: formData.section1_3.ulbList.map((item) =>
-                              item.id === ulb.id
-                                ? { ...item, cityName: value }
-                                : item
-                            ),
-                          },
+                          section1_3: formData.section1_3.map((item) =>
+                            item.id === ulb.id
+                              ? { ...item, cityName: value }
+                              : item
+                          ),
                         });
                       }}
-                      className={validationErrors[`section1_3.ulbList.${index}.cityName`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_3.ulbList.${index}.cityName`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_3.ulbList.${index}.cityName`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>ULB Name*</Label>
@@ -398,21 +373,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_3: {
-                            ...formData.section1_3,
-                            ulbList: formData.section1_3.ulbList.map((item) =>
-                              item.id === ulb.id
-                                ? { ...item, ulb: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_3: formData.section1_3.map((item) =>
+                            item.id === ulb.id
+                              ? { ...item, ulb: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_3.ulbList.${index}.ulb`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_3.ulbList.${index}.ulb`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_3.ulbList.${index}.ulb`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>Rating Date*</Label>
@@ -422,21 +390,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_3: {
-                            ...formData.section1_3,
-                            ulbList: formData.section1_3.ulbList.map((item) =>
-                              item.id === ulb.id
-                                ? { ...item, ratingDate: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_3: formData.section1_3.map((item) =>
+                            item.id === ulb.id
+                              ? { ...item, ratingDate: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_3.ulbList.${index}.ratingDate`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_3.ulbList.${index}.ratingDate`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_3.ulbList.${index}.ratingDate`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>Credit Rating*</Label>
@@ -445,16 +406,13 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onValueChange={(value) =>
                         setFormData({
                           ...formData,
-                          section1_3: {
-                            ...formData.section1_3,
-                            ulbList: formData.section1_3.ulbList.map((item) =>
-                              item.id === ulb.id ? { ...item, rating: value } : item
-                            ),
-                          },
+                          section1_3: formData.section1_3.map((item) =>
+                            item.id === ulb.id ? { ...item, rating: value } : item
+                          ),
                         })
                       }
                     >
-                      <SelectTrigger className={validationErrors[`section1_3.ulbList.${index}.rating`] ? "border-red-500" : ""}>
+                      <SelectTrigger>
                         <SelectValue placeholder="Select rating" />
                       </SelectTrigger>
                       <SelectContent>
@@ -465,9 +423,6 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                         ))}
                       </SelectContent>
                     </Select>
-                    {validationErrors[`section1_3.ulbList.${index}.rating`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_3.ulbList.${index}.rating`]}</p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -485,10 +440,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
           // subtitle="Annex 4: Details of municipal bonds issued"
         >
           <div className="space-y-4">
-            {formData.section1_4.bondList.length === 0 && validationErrors["section1_4.bondList"] && (
-              <p className="text-sm text-red-500 mb-2">{validationErrors["section1_4.bondList"]}</p>
-            )}
-            {formData.section1_4.bondList.map((bond, index) => (
+            {formData.section1_4.map((bond, index) => (
               <div key={bond.id} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Bond Entry {index + 1}</h4>
@@ -508,16 +460,13 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onValueChange={(value) =>
                         setFormData({
                           ...formData,
-                          section1_4: {
-                            ...formData.section1_4,
-                            bondList: formData.section1_4.bondList.map((item) =>
-                              item.id === bond.id ? { ...item, bondType: value } : item
-                            ),
-                          },
+                          section1_4: formData.section1_4.map((item) =>
+                            item.id === bond.id ? { ...item, bondType: value } : item
+                          ),
                         })
                       }
                     >
-                      <SelectTrigger className={validationErrors[`section1_4.bondList.${index}.bondType`] ? "border-red-500" : ""}>
+                      <SelectTrigger>
                         <SelectValue placeholder="Select bond type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -528,9 +477,6 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                         ))}
                       </SelectContent>
                     </Select>
-                    {validationErrors[`section1_4.bondList.${index}.bondType`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_4.bondList.${index}.bondType`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>City Name*</Label>
@@ -540,21 +486,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_4: {
-                            ...formData.section1_4,
-                            bondList: formData.section1_4.bondList.map((item) =>
-                              item.id === bond.id
-                                ? { ...item, cityName: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_4: formData.section1_4.map((item) =>
+                            item.id === bond.id
+                              ? { ...item, cityName: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_4.bondList.${index}.cityName`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_4.bondList.${index}.cityName`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_4.bondList.${index}.cityName`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>Issuing Authority*</Label>
@@ -564,21 +503,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_4: {
-                            ...formData.section1_4,
-                            bondList: formData.section1_4.bondList.map((item) =>
-                              item.id === bond.id
-                                ? { ...item, issuingAuthority: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_4: formData.section1_4.map((item) =>
+                            item.id === bond.id
+                              ? { ...item, issuingAuthority: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_4.bondList.${index}.issuingAuthority`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_4.bondList.${index}.issuingAuthority`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_4.bondList.${index}.issuingAuthority`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>Bond Value (INR)*</Label>
@@ -588,21 +520,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_4: {
-                            ...formData.section1_4,
-                            bondList: formData.section1_4.bondList.map((item) =>
-                              item.id === bond.id
-                                ? { ...item, value: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_4: formData.section1_4.map((item) =>
+                            item.id === bond.id
+                              ? { ...item, value: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_4.bondList.${index}.value`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_4.bondList.${index}.value`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_4.bondList.${index}.value`]}</p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -620,10 +545,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
           // subtitle="Annex 5: Details of financial intermediaries"
         >
           <div className="space-y-4">
-            {formData.section1_5.ffiArray.length === 0 && validationErrors["section1_5.ffiArray"] && (
-              <p className="text-sm text-red-500 mb-2">{validationErrors["section1_5.ffiArray"]}</p>
-            )}
-            {formData.section1_5.ffiArray.map((org, index) => (
+            {formData.section1_5.map((org, index) => (
               <div key={org.id} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Intermediary {index + 1}</h4>
@@ -644,21 +566,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_5: {
-                            ...formData.section1_5,
-                            ffiArray: formData.section1_5.ffiArray.map((item) =>
-                              item.id === org.id
-                                ? { ...item, organisationName: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_5: formData.section1_5.map((item) =>
+                            item.id === org.id
+                              ? { ...item, organisationName: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_5.ffiArray.${index}.organisationName`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_5.ffiArray.${index}.organisationName`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_5.ffiArray.${index}.organisationName`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>Organisation Type*</Label>
@@ -667,18 +582,15 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onValueChange={(value) =>
                         setFormData({
                           ...formData,
-                          section1_5: {
-                            ...formData.section1_5,
-                            ffiArray: formData.section1_5.ffiArray.map((item) =>
-                              item.id === org.id
-                                ? { ...item, organisationType: value }
-                                : item
-                            ),
-                          },
+                          section1_5: formData.section1_5.map((item) =>
+                            item.id === org.id
+                              ? { ...item, organisationType: value }
+                              : item
+                          ),
                         })
                       }
                     >
-                      <SelectTrigger className={validationErrors[`section1_5.ffiArray.${index}.organisationType`] ? "border-red-500" : ""}>
+                      <SelectTrigger>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -689,9 +601,6 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                         ))}
                       </SelectContent>
                     </Select>
-                    {validationErrors[`section1_5.ffiArray.${index}.organisationType`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_5.ffiArray.${index}.organisationType`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>Year Established*</Label>
@@ -701,21 +610,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_5: {
-                            ...formData.section1_5,
-                            ffiArray: formData.section1_5.ffiArray.map((item) =>
-                              item.id === org.id
-                                ? { ...item, yearEstablished: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_5: formData.section1_5.map((item) =>
+                            item.id === org.id
+                              ? { ...item, yearEstablished: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_5.ffiArray.${index}.yearEstablished`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_5.ffiArray.${index}.yearEstablished`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_5.ffiArray.${index}.yearEstablished`]}</p>
-                    )}
                   </div>
                   <div>
                     <Label>Total Funding (INR)*</Label>
@@ -725,21 +627,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_5: {
-                            ...formData.section1_5,
-                            ffiArray: formData.section1_5.ffiArray.map((item) =>
-                              item.id === org.id
-                                ? { ...item, totalFunding: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_5: formData.section1_5.map((item) =>
+                            item.id === org.id
+                              ? { ...item, totalFunding: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_5.ffiArray.${index}.totalFunding`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_5.ffiArray.${index}.totalFunding`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_5.ffiArray.${index}.totalFunding`]}</p>
-                    )}
                   </div>
                   <div className="col-span-2">
                     <Label>Website</Label>
@@ -749,21 +644,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          section1_5: {
-                            ...formData.section1_5,
-                            ffiArray: formData.section1_5.ffiArray.map((item) =>
-                              item.id === org.id
-                                ? { ...item, website: e.target.value }
-                                : item
-                            ),
-                          },
+                          section1_5: formData.section1_5.map((item) =>
+                            item.id === org.id
+                              ? { ...item, website: e.target.value }
+                              : item
+                          ),
                         })
                       }
-                      className={validationErrors[`section1_5.ffiArray.${index}.website`] ? "border-red-500" : ""}
                     />
-                    {validationErrors[`section1_5.ffiArray.${index}.website`] && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors[`section1_5.ffiArray.${index}.website`]}</p>
-                    )}
                   </div>
                 </div>
               </div>

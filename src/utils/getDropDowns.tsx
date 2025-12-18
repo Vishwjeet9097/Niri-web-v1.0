@@ -1,7 +1,7 @@
 import { useDropdownStore } from '@/utils/useDropDownStore';
 import React from 'react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-
+import { ORGANISATION_TYPE_OPTIONS, OWNERSHIP_OPTIONS, PROJECT_TYPE_OPTIONS, RATING_OPTIONS, SECTOR_OPTIONS } from '@/features/submission/constants/steps';
 // Dropdown values as arrays
 export const dropdownValues = {
   ulbList: [
@@ -10,13 +10,7 @@ export const dropdownValues = {
     { value: "b23c8d34-2c3d-5e4f-9a0b-abcdef123456", label: "Nagpur Municipal Corporation" }
   ],
 
-  ratingList: [
-    "AA+",
-    "AA",
-    "A+",
-    "A",
-    "BBB+"
-  ],
+  ratingList: RATING_OPTIONS,
 
   bondTypeList: [
    "Municipal",
@@ -31,33 +25,14 @@ export const dropdownValues = {
     "Nashik"
   ],
 
-  issuingAuthorityList: [
-      "Corporation",
-      "Trust",
-      "Society",
-      "Partnership",
-      "Other"
-  ],
+    issuingAuthorityList: ORGANISATION_TYPE_OPTIONS,
 
-  sector: [
-    "Roads & Bridges",
-    "Water Supply",
-    "Sanitation",
-    "Urban Transport",
-    "Energy",
-    "Health",
-    "Education",
-    "Other",
-  ],
+  sector: SECTOR_OPTIONS,
 
-  projectType: ["BOT", "BOOT", "HAM", "EPC", "Other"],
+  projectType: PROJECT_TYPE_OPTIONS,
 
-  ownership: [
-    "Asset ownership",
-    "Revenue sharing",
-    "Management contract",
-    "Other",
-  ]
+  ownership: OWNERSHIP_OPTIONS,
+   
 
 };
 

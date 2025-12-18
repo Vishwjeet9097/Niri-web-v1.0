@@ -3,16 +3,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
-import { Plus, Check, X } from "lucide-react";
+import { Plus, Check, X, Trash2 } from "lucide-react";
 
 interface Section1_4Props {
   formData: any;
   isEditable: (sectionId: string) => boolean;
   setSectionState?: (state: { totalULBs: number; bondList: any[] }) => void;
   resetKey?: number;
+  validationErrors?: { [key: string]: string };
+  getFieldError?: (fieldPath: string) => string | undefined;
 }
 
-export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }: Section1_4Props) => {
+export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, validationErrors = {}, getFieldError }: Section1_4Props) => {
+  const getError = (fieldPath: string) => {
+    return getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath];
+  };
   const bondList = formData?.section1_4?.bondList || [];
   const totalULBs = formData?.section1_4?.totalULBs || 0;
 
@@ -50,6 +55,13 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
   const handleTotalULBsChange = (value: number) => {
     if (setSectionState) {
       setSectionState({ totalULBs: value, bondList });
+    }
+  };
+
+  const handleRemoveBond = (id: string) => {
+    const updatedBondList = bondList.filter((bond) => bond.id !== id);
+    if (setSectionState) {
+      setSectionState({ totalULBs, bondList: updatedBondList });
     }
   };
 
@@ -91,12 +103,25 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
         <Label>Total Number of ULBs</Label>
         <Input
           type="number"
+          inputMode="numeric"
+          min="0"
           value={totalULBs}
           readOnly={!isEditable("1.4")}
           className={isEditable("1.4") ? "bg-white" : "bg-gray-50"}
-          onChange={(e) => handleTotalULBsChange(Number(e.target.value))}
+          onChange={(e) => {
+            const value = e.target.value;
+            // Only allow non-negative integers
+            if (value === "" || /^\d+$/.test(value)) {
+              handleTotalULBsChange(value === "" ? 0 : Number(value));
+            }
+          }}
         />
       </div>
+
+      {/* Validation error for bondList */}
+      {getError("section1_4.bondList") && (
+        <p className="text-sm text-red-500">{getError("section1_4.bondList")}</p>
+      )}
 
       {/* Bond Table */}
       <div className="overflow-x-auto rounded-xl">
@@ -106,7 +131,12 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Bond Type</th>
               <th className="py-3 px-4 text-left text-sm font-normal">City</th>
               <th className="py-3 px-4 text-left text-sm font-normal">Issuing Authority</th>
-              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Value (₹ Crores)</th>
+              <th className="py-3 px-4 text-left text-sm font-normal">Value (₹ Crores)</th>
+              {isEditable("1.4") && (
+                <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                  Action
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -115,60 +145,109 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 <tr key={item.id || index} className="border-b">
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
-                      <Dropdown
-                        options={dropdownValues.bondTypeList.map(opt => ({ label: opt, value: opt }))}
-                        value={item.bondType || ""}
-                        onChange={(value) => handleBondChange(index, "bondType", value)}
-                        placeholder="Select Bond Type"
-                        isEditable={true}
-                      />
+                      <div>
+                        <Dropdown
+                          options={dropdownValues.bondTypeList.map(opt => ({ label: opt, value: opt }))}
+                          value={item.bondType || ""}
+                          onChange={(value) => handleBondChange(index, "bondType", value)}
+                          placeholder="Select Bond Type"
+                          isEditable={true}
+                        />
+                        {getError(`section1_4.bondList.${index}.bondType`) && (
+                          <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.bondType`)}</p>
+                        )}
+                      </div>
                     ) : (
                       item.bondType || 'N/A'
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
-                      <Dropdown
-                        options={dropdownValues.cityList.map(opt => ({ label: opt, value: opt }))}
-                        value={item.cityName || ""}
-                        onChange={(value) => handleBondChange(index, "cityName", value)}
-                        placeholder="Select City"
-                        isEditable={true}
-                      />
+                      <div>
+                        <Dropdown
+                          options={dropdownValues.cityList.map(opt => ({ label: opt, value: opt }))}
+                          value={item.cityName || ""}
+                          onChange={(value) => handleBondChange(index, "cityName", value)}
+                          placeholder="Select City"
+                          isEditable={true}
+                        />
+                        {getError(`section1_4.bondList.${index}.cityName`) && (
+                          <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.cityName`)}</p>
+                        )}
+                      </div>
                     ) : (
                       item.cityName || 'N/A'
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
-                      <Input
-                        value={item.issuingAuthority || ""}
-                        onChange={(e) => handleBondChange(index, "issuingAuthority", e.target.value)}
-                        className="w-full"
-                        placeholder="Enter Issuing Authority"
-                      />
+                      <div>
+                        <Input
+                          value={item.issuingAuthority || ""}
+                          onChange={(e) => handleBondChange(index, "issuingAuthority", e.target.value)}
+                          className={
+                            getError(`section1_4.bondList.${index}.issuingAuthority`)
+                              ? "w-full border-red-500"
+                              : "w-full"
+                          }
+                          placeholder="Enter Issuing Authority"
+                        />
+                        {getError(`section1_4.bondList.${index}.issuingAuthority`) && (
+                          <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.issuingAuthority`)}</p>
+                        )}
+                      </div>
                     ) : (
                       item.issuingAuthority || 'N/A'
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
-                      <Input
-                        type="number"
-                        value={item.value || ""}
-                        onChange={(e) => handleBondChange(index, "value", e.target.value)}
-                        className="w-full"
-                        placeholder="Enter value"
-                      />
+                      <div>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          value={item.value || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Only allow numbers and decimal point
+                            if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                              handleBondChange(index, "value", value);
+                            }
+                          }}
+                          className={
+                            getError(`section1_4.bondList.${index}.value`)
+                              ? "w-full border-red-500"
+                              : "w-full"
+                          }
+                          placeholder="Enter value"
+                        />
+                        {getError(`section1_4.bondList.${index}.value`) && (
+                          <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.value`)}</p>
+                        )}
+                      </div>
                     ) : (
                       item.value || 'N/A'
                     )}
                   </td>
+                  {isEditable("1.4") && (
+                    <td className="py-3 px-4 text-sm font-normal">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleRemoveBond(item.id || index.toString())}
+                        className="text-red-500 hover:text-red-700 border-none bg-none"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                <td colSpan={isEditable("1.4") ? 5 : 4} className="py-8 text-center text-muted-foreground">
                   No bond data available
                 </td>
               </tr>
@@ -204,6 +283,9 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 placeholder="Select Bond Type"
                 isEditable={true}
               />
+              {getError("section1_4.bondList.new.bondType") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.bondType")}</p>
+              )}
             </div>
             <div>
               <Label>City</Label>
@@ -214,25 +296,51 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey }:
                 placeholder="Select City"
                 isEditable={true}
               />
+              {getError("section1_4.bondList.new.cityName") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.cityName")}</p>
+              )}
             </div>
             <div>
               <Label>Issuing Authority</Label>
               <Input
                 value={newBondEntry.issuingAuthority}
                 onChange={(e) => setNewBondEntry({ ...newBondEntry, issuingAuthority: e.target.value })}
-                className="bg-white"
+                className={
+                  getError("section1_4.bondList.new.issuingAuthority")
+                    ? "bg-white border-red-500"
+                    : "bg-white"
+                }
                 placeholder="Enter Issuing Authority"
               />
+              {getError("section1_4.bondList.new.issuingAuthority") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.issuingAuthority")}</p>
+              )}
             </div>
             <div>
               <Label>Value ( INR - values is in CRORES)</Label>
               <Input
                 type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
                 value={newBondEntry.value}
-                onChange={(e) => setNewBondEntry({...newBondEntry, value: e.target.value})}
-                className="bg-white"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Only allow numbers and decimal point
+                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                    setNewBondEntry({...newBondEntry, value: value});
+                  }
+                }}
+                className={
+                  getError("section1_4.bondList.new.value")
+                    ? "bg-white border-red-500"
+                    : "bg-white"
+                }
                 placeholder="Enter value"
               />
+              {getError("section1_4.bondList.new.value") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.value")}</p>
+              )}
             </div>
           </div>
           <div className="flex gap-2 mt-4">

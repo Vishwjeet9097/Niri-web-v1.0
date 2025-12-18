@@ -432,6 +432,18 @@ export const InfraEnablersStep = () => {
 
   // Helper functions for error display
   const getFieldError = (fieldPath: string): string | undefined => {
+    if (!showValidationErrors) return undefined;
+    
+    // If validating a specific indicator, only show errors for that indicator
+    if (validatingIndicator) {
+      const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
+      if (fieldPath.startsWith(sectionPrefix)) {
+        return indicatorValidationErrors[fieldPath];
+      }
+      return undefined; // Don't show errors for other indicators
+    }
+    
+    // Otherwise, show all errors (for form-level validation)
     return validation.errors[fieldPath];
   };
 
@@ -892,12 +904,16 @@ export const InfraEnablersStep = () => {
     indicatorCode: string,
     indicatorTitle: string
   ) => {
+    // Track which indicator is being validated
+    setValidatingIndicator(indicatorCode);
     setShowValidationErrors(true);
     // Validate only this specific indicator
     const indicatorValidation = validateInfraEnablers(formData, {
       allowedIndicators: [indicatorCode],
     });
     if (!indicatorValidation.isValid) {
+      // Store indicator-specific errors
+      setIndicatorValidationErrors(indicatorValidation.errors);
       toast({
         title: "Incomplete Indicator",
         description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
@@ -905,6 +921,10 @@ export const InfraEnablersStep = () => {
       });
       return;
     }
+    
+    // Clear indicator-specific validation state on success
+    setValidatingIndicator(null);
+    setIndicatorValidationErrors({});
 
     // Check if already submitted
     if (isIndicatorSubmitted(indicatorCode)) {
@@ -929,6 +949,9 @@ export const InfraEnablersStep = () => {
     try {
       setIsSubmitting(true);
       setShowSubmitDialog(false);
+      // Clear indicator validation state after successful submission
+      setValidatingIndicator(null);
+      setIndicatorValidationErrors({});
 
       // Remove unwanted keys (preserves File instances for upload)
       const sanitizedFormData = deepRemoveUnwantedKeys(formData);
@@ -2396,14 +2419,7 @@ export const InfraEnablersStep = () => {
                             <SelectValue placeholder="Select impact" />
                           </SelectTrigger>
                           <SelectContent>
-                            {[
-                              "Rollout",
-                              "Viability",
-                              "Tech",
-                              "Monitoring",
-                              "Capacity",
-                              "Other",
-                            ].map((impact) => (
+                            {IMPACT_OPTIONS.map((impact) => (
                               <SelectItem key={impact} value={impact}>
                                 {impact}
                               </SelectItem>

@@ -23,8 +23,6 @@ import { cn } from "@/lib/utils";
 import { SectionCard } from "@/features/submission/components/SectionCard";
 import { FileUploadSection } from "@/features/submission/components/FileUploadSection";
 import { useReviewFormPersistence } from "../../hooks/useReviewFormPersistence";
-import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { validatePPPDevelopment } from "@/features/submission/validation/pppDevelopmentValidation";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -53,8 +51,6 @@ const defaultData: PPPDevelopmentData = {
 
 export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPPDevelopmentProps) => {
   const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
-  const { assignedIndicators } = useIndicatorAccess();
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
 
   // Get data from persistence hook (this will be the source of truth)
   const persistedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
@@ -87,19 +83,6 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
       setFormData(newFormData);
     }
   }, [persistedData]); // Depend on persistedData from hook
-
-  // Validate form data
-  useEffect(() => {
-    const validationResult = validatePPPDevelopment(formData, {
-      allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
-    });
-
-    if (!validationResult.isValid) {
-      setValidationErrors(validationResult.errors);
-    } else {
-      setValidationErrors({});
-    }
-  }, [formData, assignedIndicators]);
 
   // Auto-save to localStorage on every change
   useEffect(() => {

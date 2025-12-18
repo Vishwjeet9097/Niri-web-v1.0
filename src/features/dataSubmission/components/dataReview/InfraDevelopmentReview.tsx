@@ -13,6 +13,7 @@ import {
   Edit3,
   Eye,
   Download,
+  Trash2,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +56,8 @@ import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
+import { validateInfraDevelopment } from "@/features/submission/validation/infraDevelopmentValidation";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 
 const toFileArray = (
   value: FileUpload | FileUpload[] | null | undefined
@@ -94,6 +97,13 @@ export const InfraDevelopmentReview = ({
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
+  const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+
+  // Helper function to get error message for a field
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validationErrors[fieldPath];
+  };
 
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
@@ -667,6 +677,57 @@ export const InfraDevelopmentReview = ({
     setShowAddForm2_2(false);
   };
 
+  // Handle removing entry for section 2.1
+  const handleRemoveEntry2_1 = (id: string) => {
+    const sectionKey = "section2_1";
+    const currentSection = state?.[sectionKey] || {};
+    const existingArray = Array.isArray(currentSection?.infraActArray)
+      ? currentSection.infraActArray.filter((item: any) => item.id !== id)
+      : [];
+    const updatedSection = {
+      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      infraActArray: existingArray,
+    };
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: updatedSection,
+    }));
+  };
+
+  // Handle removing entry for section 2.2
+  const handleRemoveEntry2_2 = (id: string) => {
+    const sectionKey = "section2_2";
+    const currentSection = state?.[sectionKey] || {};
+    const existingArray = Array.isArray(currentSection?.specializedEntityArray)
+      ? currentSection.specializedEntityArray.filter((item: any) => item.id !== id)
+      : [];
+    const updatedSection = {
+      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      specializedEntityArray: existingArray,
+    };
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: updatedSection,
+    }));
+  };
+
+  // Handle removing entry for section 2.3
+  const handleRemoveEntry2_3 = (id: string) => {
+    const sectionKey = "section2_3";
+    const currentSection = state?.[sectionKey] || {};
+    const existingArray = Array.isArray(currentSection?.infraDevelopmentArray)
+      ? currentSection.infraDevelopmentArray.filter((item: any) => item.id !== id)
+      : [];
+    const updatedSection = {
+      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      infraDevelopmentArray: existingArray,
+    };
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: updatedSection,
+    }));
+  };
+
   // Handle adding new entry for section 2.3
   const handleAddNewEntry2_3 = () => {
     const sectionKey = "section2_3";
@@ -749,6 +810,40 @@ export const InfraDevelopmentReview = ({
       ...(currentStatus !== undefined ? { status: currentStatus } : {}),
     };
 
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: updatedSection,
+    }));
+  };
+
+  // Handle removing entry for section 2.4
+  const handleRemoveEntry2_4 = (id: string) => {
+    const sectionKey = "section2_4";
+    const currentSection = state?.[sectionKey] || {};
+    const existingArray = Array.isArray(currentSection?.investmentReadyArray)
+      ? currentSection.investmentReadyArray.filter((item: any) => item.id !== id)
+      : [];
+    const updatedSection = {
+      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      investmentReadyArray: existingArray,
+    };
+    setFormDataState((prev: any) => ({
+      ...prev,
+      [sectionKey]: updatedSection,
+    }));
+  };
+
+  // Handle removing entry for section 2.5
+  const handleRemoveEntry2_5 = (id: string) => {
+    const sectionKey = "section2_5";
+    const currentSection = state?.[sectionKey] || {};
+    const existingArray = Array.isArray(currentSection?.assetMonetizationArray)
+      ? currentSection.assetMonetizationArray.filter((item: any) => item.id !== id)
+      : [];
+    const updatedSection = {
+      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      assetMonetizationArray: existingArray,
+    };
     setFormDataState((prev: any) => ({
       ...prev,
       [sectionKey]: updatedSection,
@@ -1601,6 +1696,51 @@ export const InfraDevelopmentReview = ({
           ...fields[0],
           status: "RESUBMITTED",
         };
+      }
+
+      // Validate form data before saving
+      const fullData = {
+        section2_1: formDataState?.section2_1 || { infraActArray: [] },
+        section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
+        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "" },
+        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "" },
+        section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
+      };
+
+      const effectiveAssignedIndicators = assignedIndicators.length > 0 
+        ? assignedIndicators 
+        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+      const validationResult = validateInfraDevelopment(fullData, {
+        allowedIndicators: effectiveAssignedIndicators,
+      });
+
+      // Filter validation errors to only include the section being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // Only block save if there are errors in the section being saved
+      if (Object.keys(sectionErrors).length > 0) {
+        setValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        console.warn("Validation failed for section", sectionId, sectionErrors);
+        // Errors are displayed inline in the UI, no need for alert
+        return;
+      } else {
+        // Clear errors for this section only
+        setValidationErrors((prev) => {
+          const filtered = { ...prev };
+          Object.keys(filtered).forEach((key) => {
+            if (key.startsWith(sectionPrefix)) {
+              delete filtered[key];
+            }
+          });
+          return filtered;
+        });
       }
 
       console.log(
@@ -3039,6 +3179,11 @@ export const InfraDevelopmentReview = ({
             </div>
           </CardHeader> */}
             <div className="space-y-4">
+              {/* Validation error for infraActArray */}
+              {getFieldError("section2_1.infraActArray") && (
+                <p className="text-sm text-red-500">{getFieldError("section2_1.infraActArray")}</p>
+              )}
+              
               {/* Table Display */}
               <div className="overflow-x-auto rounded-xl">
                 <table className="min-w-full border-separate border-spacing-0">
@@ -3050,9 +3195,14 @@ export const InfraDevelopmentReview = ({
                       <th className="py-3 px-4 text-left text-sm font-normal">
                         Uploaded File
                       </th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                      <th className="py-3 px-4 text-left text-sm font-normal">
                         File Type
                       </th>
+                      {shouldBeEditable("2.1") && (
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -3067,7 +3217,7 @@ export const InfraDevelopmentReview = ({
                         return (
                           <tr>
                             <td
-                              colSpan={3}
+                              colSpan={shouldBeEditable("2.1") ? 4 : 3}
                               className="py-8 text-center text-muted-foreground"
                             >
                               No data available
@@ -3080,24 +3230,37 @@ export const InfraDevelopmentReview = ({
                         <tr key={item.id || index} className="border-b">
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.1") ? (
-                              <Dropdown
-                                options={dropdownValues.sector.map((opt) => ({
-                                  label: opt,
-                                  value: opt,
-                                }))}
-                                value={item.sector || ""}
-                                onChange={(value) =>
-                                  handleArrayFieldUpdate(
-                                    "2.1",
-                                    index,
-                                    "sector",
-                                    value
-                                  )
-                                }
-                                placeholder="Select Sector"
-                                isEditable={true}
-                                resetKey={selectResetKey}
-                              />
+                              <div>
+                                <Dropdown
+                                  options={dropdownValues.sector.map((opt) => ({
+                                    label: opt,
+                                    value: opt,
+                                  }))}
+                                  value={item.sector || ""}
+                                  onChange={(value) => {
+                                    handleArrayFieldUpdate(
+                                      "2.1",
+                                      index,
+                                      "sector",
+                                      value
+                                    );
+                                    // Clear validation error when user selects
+                                    if (getFieldError(`section2_1.infraActArray.${index}.sector`)) {
+                                      setValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[`section2_1.infraActArray.${index}.sector`];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  placeholder="Select Sector"
+                                  isEditable={true}
+                                  resetKey={selectResetKey}
+                                />
+                                {getFieldError(`section2_1.infraActArray.${index}.sector`) && (
+                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_1.infraActArray.${index}.sector`)}</p>
+                                )}
+                              </div>
                             ) : (
                               item.sector || "N/A"
                             )}
@@ -3286,6 +3449,18 @@ export const InfraDevelopmentReview = ({
                               </span>
                             )}
                           </td>
+                          {shouldBeEditable("2.1") && (
+                            <td className="py-3 px-4 text-sm font-normal">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleRemoveEntry2_1(item.id || index.toString())}
+                                className="text-red-500 hover:text-red-700 border-none bg-none"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       ));
                     })()}
@@ -3327,6 +3502,9 @@ export const InfraDevelopmentReview = ({
                         placeholder="Select Sector"
                         isEditable={true}
                       />
+                      {getFieldError("section2_1.infraActArray.new.sector") && (
+                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_1.infraActArray.new.sector")}</p>
+                      )}
                     </div>
                     <div>
                       <Label>Upload Files</Label>
@@ -3343,6 +3521,9 @@ export const InfraDevelopmentReview = ({
                         label=""
                         multiple={true}
                       />
+                      {getFieldError("section2_1.infraActArray.new.files") && (
+                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_1.infraActArray.new.files")}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2 mt-4">
@@ -3427,9 +3608,14 @@ export const InfraDevelopmentReview = ({
                       <th className="py-3 px-4 text-left text-sm font-normal">
                         Uploaded File
                       </th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                      <th className="py-3 px-4 text-left text-sm font-normal">
                         File Type
                       </th>
+                      {shouldBeEditable("2.2") && (
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -3444,7 +3630,7 @@ export const InfraDevelopmentReview = ({
                         return (
                           <tr>
                             <td
-                              colSpan={3}
+                              colSpan={shouldBeEditable("2.2") ? 4 : 3}
                               className="py-8 text-center text-muted-foreground"
                             >
                               No data available
@@ -3458,24 +3644,29 @@ export const InfraDevelopmentReview = ({
                           <tr key={item.id || index} className="border-b">
                             <td className="py-3 px-4 text-sm font-normal">
                               {shouldBeEditable("2.2") ? (
-                                <Dropdown
-                                  options={dropdownValues.sector.map((opt) => ({
-                                    label: opt,
-                                    value: opt,
-                                  }))}
-                                  value={item.sector || ""}
-                                  onChange={(value) =>
-                                    handleArrayFieldUpdate(
-                                      "2.2",
-                                      index,
-                                      "sector",
-                                      value
-                                    )
-                                  }
-                                  placeholder="Select Sector"
-                                  isEditable={true}
-                                  resetKey={selectResetKey}
-                                />
+                                <div>
+                                  <Dropdown
+                                    options={dropdownValues.sector.map((opt) => ({
+                                      label: opt,
+                                      value: opt,
+                                    }))}
+                                    value={item.sector || ""}
+                                    onChange={(value) =>
+                                      handleArrayFieldUpdate(
+                                        "2.2",
+                                        index,
+                                        "sector",
+                                        value
+                                      )
+                                    }
+                                    placeholder="Select Sector"
+                                    isEditable={true}
+                                    resetKey={selectResetKey}
+                                  />
+                                  {getFieldError(`section2_2.specializedEntityArray.${index}.sector`) && (
+                                    <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_2.specializedEntityArray.${index}.sector`)}</p>
+                                  )}
+                                </div>
                               ) : (
                                 item.sector || "N/A"
                               )}
@@ -3667,6 +3858,18 @@ export const InfraDevelopmentReview = ({
                                 </span>
                               )}
                             </td>
+                            {shouldBeEditable("2.2") && (
+                              <td className="py-3 px-4 text-sm font-normal">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => handleRemoveEntry2_2(item.id || index.toString())}
+                                  className="text-red-500 hover:text-red-700 border-none bg-none"
+                                >
+                                  <Trash2 className="h-5 w-5" />
+                                </Button>
+                              </td>
+                            )}
                           </tr>
                         )
                       );
@@ -3709,6 +3912,9 @@ export const InfraDevelopmentReview = ({
                         placeholder="Select Sector"
                         isEditable={true}
                       />
+                      {getFieldError("section2_2.specializedEntityArray.new.sector") && (
+                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_2.specializedEntityArray.new.sector")}</p>
+                      )}
                     </div>
                     <div>
                       <Label>Upload Files</Label>
@@ -3725,6 +3931,9 @@ export const InfraDevelopmentReview = ({
                         label=""
                         multiple={true}
                       />
+                      {getFieldError("section2_2.specializedEntityArray.new.files") && (
+                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_2.specializedEntityArray.new.files")}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2 mt-4">
@@ -3804,13 +4013,21 @@ export const InfraDevelopmentReview = ({
                 {shouldBeEditable("2.3") ? (
                   <RadioGroup
                     value={state?.section2_3?.hasInfraDevelopmentPlan || ""}
-                    onValueChange={(value) =>
+                    onValueChange={(value) => {
                       handleSectionFieldUpdate(
                         "2.3",
                         "hasInfraDevelopmentPlan",
                         value
-                      )
-                    }
+                      );
+                      // Clear validation error when user selects
+                      if (getFieldError("section2_3.hasInfraDevelopmentPlan")) {
+                        setValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section2_3.hasInfraDevelopmentPlan"];
+                          return updated;
+                        });
+                      }
+                    }}
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -3841,6 +4058,9 @@ export const InfraDevelopmentReview = ({
                     </span>
                   </div>
                 )}
+                {getFieldError("section2_3.hasInfraDevelopmentPlan") && (
+                  <p className="text-sm text-red-500 mt-1">{getFieldError("section2_3.hasInfraDevelopmentPlan")}</p>
+                )}
               </div>
 
               {/* Show table and Add More button if hasInfraDevelopmentPlan is "yes" */}
@@ -3857,9 +4077,14 @@ export const InfraDevelopmentReview = ({
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             File Type
                           </th>
+                          {shouldBeEditable("2.3") && (
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -3874,7 +4099,7 @@ export const InfraDevelopmentReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={3}
+                                  colSpan={shouldBeEditable("2.3") ? 4 : 3}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No data available
@@ -3888,23 +4113,28 @@ export const InfraDevelopmentReview = ({
                               <tr key={item.id || index} className="border-b">
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.3") ? (
-                                    <Dropdown
-                                      options={dropdownValues.sector.map(
-                                        (opt) => ({ label: opt, value: opt })
+                                    <div>
+                                      <Dropdown
+                                        options={dropdownValues.sector.map(
+                                          (opt) => ({ label: opt, value: opt })
+                                        )}
+                                        value={item.sector || ""}
+                                        onChange={(value) =>
+                                          handleArrayFieldUpdate(
+                                            "2.3",
+                                            index,
+                                            "sector",
+                                            value
+                                          )
+                                        }
+                                        placeholder="Select Sector"
+                                        isEditable={true}
+                                        resetKey={selectResetKey}
+                                      />
+                                      {getFieldError(`section2_3.infraDevelopmentArray.${index}.sector`) && (
+                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_3.infraDevelopmentArray.${index}.sector`)}</p>
                                       )}
-                                      value={item.sector || ""}
-                                      onChange={(value) =>
-                                        handleArrayFieldUpdate(
-                                          "2.3",
-                                          index,
-                                          "sector",
-                                          value
-                                        )
-                                      }
-                                      placeholder="Select Sector"
-                                      isEditable={true}
-                                      resetKey={selectResetKey}
-                                    />
+                                    </div>
                                   ) : (
                                     item.sector || "N/A"
                                   )}
@@ -3912,6 +4142,9 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.3") ? (
                                     <div className="space-y-1.5">
+                                      {getFieldError(`section2_3.infraDevelopmentArray.${index}.files`) && (
+                                        <p className="text-sm text-red-500">{getFieldError(`section2_3.infraDevelopmentArray.${index}.files`)}</p>
+                                      )}
                                       {item.files && item.files.length > 0 ? (
                                         <div className="flex flex-wrap gap-1.5">
                                           {item.files.map(
@@ -4093,6 +4326,18 @@ export const InfraDevelopmentReview = ({
                                     </span>
                                   )}
                                 </td>
+                                {shouldBeEditable("2.3") && (
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => handleRemoveEntry2_3(item.id || index.toString())}
+                                      className="text-red-500 hover:text-red-700 border-none bg-none"
+                                    >
+                                      <Trash2 className="h-5 w-5" />
+                                    </Button>
+                                  </td>
+                                )}
                               </tr>
                             )
                           );
@@ -4257,13 +4502,21 @@ export const InfraDevelopmentReview = ({
                 {isEditable("2.4") ? (
                   <RadioGroup
                     value={state?.section2_4?.hasInvestmentReady || ""}
-                    onValueChange={(value) =>
+                    onValueChange={(value) => {
                       handleSectionFieldUpdate(
                         "2.4",
                         "hasInvestmentReady",
                         value
-                      )
-                    }
+                      );
+                      // Clear validation error when user selects
+                      if (getFieldError("section2_4.hasInvestmentReady")) {
+                        setValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section2_4.hasInvestmentReady"];
+                          return updated;
+                        });
+                      }
+                    }}
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -4294,6 +4547,9 @@ export const InfraDevelopmentReview = ({
                     </span>
                   </div>
                 )}
+                {getFieldError("section2_4.hasInvestmentReady") && (
+                  <p className="text-sm text-red-500 mt-1">{getFieldError("section2_4.hasInvestmentReady")}</p>
+                )}
               </div>
 
               {/* Show table and Add More button if hasInvestmentReady is "yes" */}
@@ -4305,19 +4561,36 @@ export const InfraDevelopmentReview = ({
                       Website Link <span className="text-destructive">*</span>
                     </Label>
                     {shouldBeEditable("2.4") ? (
-                      <Input
-                        type="url"
-                        placeholder="Enter website URL"
-                        value={state?.section2_4?.websiteLink || ""}
-                        onChange={(e) =>
-                          handleSectionFieldUpdate(
-                            "2.4",
-                            "websiteLink",
-                            e.target.value
-                          )
-                        }
-                        className="bg-white"
-                      />
+                      <div>
+                        <Input
+                          type="url"
+                          placeholder="Enter website URL"
+                          value={state?.section2_4?.websiteLink || ""}
+                          onChange={(e) => {
+                            handleSectionFieldUpdate(
+                              "2.4",
+                              "websiteLink",
+                              e.target.value
+                            );
+                            // Clear validation error when user starts typing
+                            if (getFieldError("section2_4.websiteLink")) {
+                              setValidationErrors((prev) => {
+                                const updated = { ...prev };
+                                delete updated["section2_4.websiteLink"];
+                                return updated;
+                              });
+                            }
+                          }}
+                          className={
+                            getFieldError("section2_4.websiteLink")
+                              ? "bg-white border-red-500"
+                              : "bg-white"
+                          }
+                        />
+                        {getFieldError("section2_4.websiteLink") && (
+                          <p className="text-sm text-red-500 mt-1">{getFieldError("section2_4.websiteLink")}</p>
+                        )}
+                      </div>
                     ) : (
                       <div className="p-3 bg-gray-50 rounded-md text-sm">
                         {state?.section2_4?.websiteLink ||
@@ -4343,9 +4616,14 @@ export const InfraDevelopmentReview = ({
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Project Size (Cr)
                           </th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Type of Investment
                           </th>
+                          {shouldBeEditable("2.4") && (
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -4360,7 +4638,7 @@ export const InfraDevelopmentReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={5}
+                                  colSpan={shouldBeEditable("2.4") ? 6 : 5}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No data available
@@ -4374,57 +4652,72 @@ export const InfraDevelopmentReview = ({
                               <tr key={item.id || index} className="border-b">
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
-                                    <Input
-                                      value={item.projectName || ""}
-                                      onChange={(e) =>
-                                        handleArrayFieldUpdate(
-                                          "2.4",
-                                          index,
-                                          "projectName",
-                                          e.target.value
-                                        )
-                                      }
-                                      className="w-full"
-                                      placeholder="Enter project name"
-                                    />
+                                    <div>
+                                      <Input
+                                        value={item.projectName || ""}
+                                        onChange={(e) =>
+                                          handleArrayFieldUpdate(
+                                            "2.4",
+                                            index,
+                                            "projectName",
+                                            e.target.value
+                                          )
+                                        }
+                                        className={
+                                          getFieldError(`section2_4.investmentReadyArray.${index}.projectName`)
+                                            ? "w-full border-red-500"
+                                            : "w-full"
+                                        }
+                                        placeholder="Enter project name"
+                                      />
+                                      {getFieldError(`section2_4.investmentReadyArray.${index}.projectName`) && (
+                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.projectName`)}</p>
+                                      )}
+                                    </div>
                                   ) : (
                                     item.projectName || "N/A"
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
-                                    <Dropdown
-                                      options={dropdownValues.sector.map(
-                                        (opt) => ({ label: opt, value: opt })
+                                    <div>
+                                      <Dropdown
+                                        options={dropdownValues.sector.map(
+                                          (opt) => ({ label: opt, value: opt })
+                                        )}
+                                        value={item.sector || ""}
+                                        onChange={(value) =>
+                                          handleArrayFieldUpdate(
+                                            "2.4",
+                                            index,
+                                            "sector",
+                                            value
+                                          )
+                                        }
+                                        placeholder="Select Sector"
+                                        isEditable={true}
+                                      />
+                                      {getFieldError(`section2_4.investmentReadyArray.${index}.sector`) && (
+                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.sector`)}</p>
                                       )}
-                                      value={item.sector || ""}
-                                      onChange={(value) =>
-                                        handleArrayFieldUpdate(
-                                          "2.4",
-                                          index,
-                                          "sector",
-                                          value
-                                        )
-                                      }
-                                      placeholder="Select Sector"
-                                      isEditable={true}
-                                    />
+                                    </div>
                                   ) : (
                                     item.sector || "N/A"
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
-                                    <Dropdown
-                                      options={[
-                                        "Tender Done",
-                                        "Bidding",
-                                        "Other",
-                                      ].map((opt) => ({
-                                        label: opt,
-                                        value: opt,
-                                      }))}
-                                      value={item.status || ""}
+                                    <div>
+                                      <Dropdown
+                                        options={[
+                                          "Tender Done",
+                                          "Bidding",
+                                          "Other",
+                                        ].map((opt) => ({
+                                          label: opt,
+                                          value: opt,
+                                        }))}
+                                        value={item.status || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
                                           "2.4",
@@ -4436,35 +4729,54 @@ export const InfraDevelopmentReview = ({
                                       placeholder="Select Status"
                                       isEditable={true}
                                     />
+                                      {getFieldError(`section2_4.investmentReadyArray.${index}.status`) && (
+                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.status`)}</p>
+                                      )}
+                                    </div>
                                   ) : (
                                     item.status || "N/A"
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      value={item.projectSize || ""}
-                                      onChange={(e) =>
-                                        handleArrayFieldUpdate(
-                                          "2.4",
-                                          index,
-                                          "projectSize",
-                                          e.target.value
-                                        )
-                                      }
-                                      className="w-full"
-                                      placeholder="Enter project size"
-                                    />
+                                    <div>
+                                      <Input
+                                        type="number"
+                                        inputMode="decimal"
+                                        min="0"
+                                        step="0.01"
+                                        value={item.projectSize || ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          // Only allow numbers and decimal point
+                                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                            handleArrayFieldUpdate(
+                                              "2.4",
+                                              index,
+                                              "projectSize",
+                                              value
+                                            );
+                                          }
+                                        }}
+                                        className={
+                                          getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`)
+                                            ? "w-full border-red-500"
+                                            : "w-full"
+                                        }
+                                        placeholder="Enter project size"
+                                      />
+                                      {getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`) && (
+                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`)}</p>
+                                      )}
+                                    </div>
                                   ) : (
                                     item.projectSize || "N/A"
                                   )}
                                 </td>
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
-                                    <Dropdown
+                                    <div>
+                                      <Dropdown
                                       options={[
                                         "Partner",
                                         "Investor",
@@ -4485,10 +4797,26 @@ export const InfraDevelopmentReview = ({
                                       placeholder="Select Type"
                                       isEditable={true}
                                     />
+                                      {getFieldError(`section2_4.investmentReadyArray.${index}.investmentType`) && (
+                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.investmentType`)}</p>
+                                      )}
+                                    </div>
                                   ) : (
                                     item.investmentType || "N/A"
                                   )}
                                 </td>
+                                {shouldBeEditable("2.4") && (
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => handleRemoveEntry2_4(item.id || index.toString())}
+                                      className="text-red-500 hover:text-red-700 border-none bg-none"
+                                    >
+                                      <Trash2 className="h-5 w-5" />
+                                    </Button>
+                                  </td>
+                                )}
                               </tr>
                             )
                           );
@@ -4744,9 +5072,14 @@ export const InfraDevelopmentReview = ({
                     <th className="py-3 px-4 text-left text-sm font-normal">
                       Asset Ownership
                     </th>
-                    <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                    <th className="py-3 px-4 text-left text-sm font-normal">
                       Estimated Monetization (INR - values is in CRORES)
                     </th>
+                    {shouldBeEditable("2.5") && (
+                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                        Action
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -4761,7 +5094,7 @@ export const InfraDevelopmentReview = ({
                       return (
                         <tr>
                           <td
-                            colSpan={5}
+                            colSpan={shouldBeEditable("2.5") ? 6 : 5}
                             className="py-8 text-center text-muted-foreground"
                           >
                             No asset monetization pipeline data available
@@ -4882,6 +5215,18 @@ export const InfraDevelopmentReview = ({
                               ""
                             )}
                           </td>
+                          {shouldBeEditable("2.5") && (
+                            <td className="py-3 px-4 text-sm font-normal">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleRemoveEntry2_5(item.id || index.toString())}
+                                className="text-red-500 hover:text-red-700 border-none bg-none"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       )
                     );

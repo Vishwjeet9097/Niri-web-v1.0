@@ -249,6 +249,9 @@ export const InfraDevelopmentStep = () => {
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
+  // Track which indicator is being validated and its specific errors
+  const [validatingIndicator, setValidatingIndicator] = useState<string | null>(null);
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
   
   // State for submissionId to enable immediate file uploads
   const [submissionId, setSubmissionId] = useState<string | undefined>();
@@ -522,6 +525,18 @@ export const InfraDevelopmentStep = () => {
 
   // Helper functions for error display
   const getFieldError = (fieldPath: string): string | undefined => {
+    if (!showValidationErrors) return undefined;
+    
+    // If validating a specific indicator, only show errors for that indicator
+    if (validatingIndicator) {
+      const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
+      if (fieldPath.startsWith(sectionPrefix)) {
+        return indicatorValidationErrors[fieldPath];
+      }
+      return undefined; // Don't show errors for other indicators
+    }
+    
+    // Otherwise, show all errors (for form-level validation)
     return validation.errors[fieldPath];
   };
 
@@ -1136,6 +1151,8 @@ export const InfraDevelopmentStep = () => {
     indicatorCode: string,
     indicatorTitle: string
   ) => {
+    // Track which indicator is being validated
+    setValidatingIndicator(indicatorCode);
     setShowValidationErrors(true);
 
     // Validate only this specific indicator
@@ -1144,6 +1161,8 @@ export const InfraDevelopmentStep = () => {
     });
 
     if (!indicatorValidation.isValid) {
+      // Store indicator-specific errors
+      setIndicatorValidationErrors(indicatorValidation.errors);
       toast({
         title: "Incomplete Indicator",
         description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
@@ -1151,6 +1170,10 @@ export const InfraDevelopmentStep = () => {
       });
       return;
     }
+    
+    // Clear indicator-specific validation state on success
+    setValidatingIndicator(null);
+    setIndicatorValidationErrors({});
 
     // Check if already submitted
     if (isIndicatorSubmitted(indicatorCode)) {
@@ -1175,6 +1198,9 @@ export const InfraDevelopmentStep = () => {
     try {
       setIsSubmitting(true);
       setShowSubmitDialog(false);
+      // Clear indicator validation state after successful submission
+      setValidatingIndicator(null);
+      setIndicatorValidationErrors({});
 
       // 🔍 DEBUG: Log raw formData before sanitization
       console.log(`🔍 [SUBMIT ${indicatorCode}] Raw formData:`, {

@@ -64,6 +64,8 @@ import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
+import { validateInfraEnablers } from "@/features/submission/validation/infraEnablersValidation";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import { Badge } from "@/components/ui/badge";
 import {
   IMPACT_OPTIONS,
@@ -92,6 +94,13 @@ export const InfraEnablersReview = ({
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
+  const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+
+  // Helper function to get error message for a field
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validationErrors[fieldPath];
+  };
 
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
@@ -1111,6 +1120,52 @@ export const InfraEnablersReview = ({
         };
       }
 
+      // Validate form data before saving
+      const fullData = {
+        section4_1: formDataState?.section4_1 || { allEligible: "", websiteLink: "" },
+        section4_2: formDataState?.section4_2 || { available: "", file: null },
+        section4_3: formDataState?.section4_3 || { adopted: "", file: null, projects: [] },
+        section4_4: formDataState?.section4_4 || { adopted: "", file: null },
+        section4_5: formDataState?.section4_5 || { implemented: "", practiceName: "", impact: "", file: null },
+        section4_6: formDataState?.section4_6 || { participated: "", capacityArray: [] },
+      };
+
+      const effectiveAssignedIndicators = assignedIndicators.length > 0 
+        ? assignedIndicators 
+        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+      const validationResult = validateInfraEnablers(fullData, {
+        allowedIndicators: effectiveAssignedIndicators,
+      });
+
+      // Filter validation errors to only include the section being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // Only block save if there are errors in the section being saved
+      if (Object.keys(sectionErrors).length > 0) {
+        setValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        console.warn("Validation failed for section", sectionId, sectionErrors);
+        // Errors are displayed inline in the UI, no need for alert
+        return;
+      } else {
+        // Clear errors for this section only
+        setValidationErrors((prev) => {
+          const filtered = { ...prev };
+          Object.keys(filtered).forEach((key) => {
+            if (key.startsWith(sectionPrefix)) {
+              delete filtered[key];
+            }
+          });
+          return filtered;
+        });
+      }
+
       console.log(
         `[InfraEnablersReview] performSave - Calling handleSaveSection API...`,
         {
@@ -1633,6 +1688,22 @@ export const InfraEnablersReview = ({
     });
   };
 
+  // Handle removing project from section 4.3
+  const handleRemoveProject = (id: string) => {
+    setFormDataState((prev: any) => {
+      const projects = (prev?.section4_3?.projects || []).filter(
+        (project: any) => project.id !== id
+      );
+      return {
+        ...prev,
+        section4_3: {
+          ...(prev?.section4_3 || {}),
+          projects,
+        },
+      };
+    });
+  };
+
   // Handle updating project file in section 4.3
   const handleProjectFileUpdate = (
     index: number,
@@ -1727,6 +1798,39 @@ export const InfraEnablersReview = ({
         section4_5: {
           ...(prev?.section4_5 || {}),
           practices,
+        },
+      };
+    });
+  };
+
+  // Handle removing practice from section 4.5
+  const handleRemovePractice = (id: string) => {
+    setFormDataState((prev: any) => {
+      const practices = (prev?.section4_5?.practices || []).filter(
+        (practice: any) => practice.id !== id
+      );
+      return {
+        ...prev,
+        section4_5: {
+          ...(prev?.section4_5 || {}),
+          practices,
+        },
+      };
+    });
+  };
+
+  // Handle removing capacity entry from section 4.6
+  const handleRemoveCapacityEntry = (id: string) => {
+    setFormDataState((prev: any) => {
+      const current = prev?.section4_6?.capacityArray;
+      const rows = Array.isArray(current) 
+        ? current.filter((item: any) => item.id !== id)
+        : [];
+      return {
+        ...prev,
+        section4_6: {
+          ...(prev?.section4_6 || {}),
+          capacityArray: rows,
         },
       };
     });
@@ -2836,9 +2940,14 @@ export const InfraEnablersReview = ({
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Sector
                           </th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
+                          {shouldBeEditable("4.3") && (
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -2853,7 +2962,7 @@ export const InfraEnablersReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={3}
+                                  colSpan={shouldBeEditable("4.3") ? 4 : 3}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No projects available
@@ -3078,6 +3187,18 @@ export const InfraEnablersReview = ({
                                   </span>
                                 )}
                               </td>
+                              {shouldBeEditable("4.3") && (
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => handleRemoveProject(project.id || idx.toString())}
+                                    className="text-red-500 hover:text-red-700 border-none bg-none"
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </Button>
+                                </td>
+                              )}
                             </tr>
                           ));
                         })()}
@@ -3389,9 +3510,14 @@ export const InfraEnablersReview = ({
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Impact
                           </th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          <th className="py-3 px-4 text-left text-sm font-normal">
                             Uploaded File
                           </th>
+                          {shouldBeEditable("4.5") && (
+                            <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                              Action
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -3406,7 +3532,7 @@ export const InfraEnablersReview = ({
                             return (
                               <tr>
                                 <td
-                                  colSpan={3}
+                                  colSpan={shouldBeEditable("4.5") ? 4 : 3}
                                   className="py-8 text-center text-muted-foreground"
                                 >
                                   No practices available
@@ -3633,6 +3759,18 @@ export const InfraEnablersReview = ({
                                   </span>
                                 )}
                               </td>
+                              {shouldBeEditable("4.5") && (
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => handleRemovePractice(practice.id || idx.toString())}
+                                    className="text-red-500 hover:text-red-700 border-none bg-none"
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </Button>
+                                </td>
+                              )}
                             </tr>
                           ));
                         })()}
@@ -3835,9 +3973,14 @@ export const InfraEnablersReview = ({
                         <th className="py-3 px-4 text-left text-sm font-normal">
                           Type
                         </th>
-                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                        <th className="py-3 px-4 text-left text-sm font-normal">
                           Organiser
                         </th>
+                        {shouldBeEditable("4.6") && (
+                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                            Action
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -3852,7 +3995,7 @@ export const InfraEnablersReview = ({
                           return (
                             <tr>
                               <td
-                                colSpan={5}
+                                colSpan={shouldBeEditable("4.6") ? 6 : 5}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No capacity building data available
@@ -3957,6 +4100,18 @@ export const InfraEnablersReview = ({
                                 item.organiser || "N/A"
                               )}
                             </td>
+                            {shouldBeEditable("4.6") && (
+                              <td className="py-3 px-4 text-sm font-normal">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => handleRemoveCapacityEntry(item.id || idx.toString())}
+                                  className="text-red-500 hover:text-red-700 border-none bg-none"
+                                >
+                                  <Trash2 className="h-5 w-5" />
+                                </Button>
+                              </td>
+                            )}
                           </tr>
                         ));
                       })()}

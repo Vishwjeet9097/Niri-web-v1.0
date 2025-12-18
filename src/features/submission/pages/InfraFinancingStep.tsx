@@ -51,6 +51,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { dropdownValues } from "@/utils/getDropDowns";
 
 export const InfraFinancingStep = () => {
   // ULB dropdown state
@@ -98,7 +99,7 @@ export const InfraFinancingStep = () => {
         }
         console.log('ULB API raw:', ulbs);
         if (!Array.isArray(ulbs) || ulbs.length === 0) {
-           toast({
+          toast({
             title: 'No ULBs found',
             description: `No ULBs are available for the state: ${user.state}. Please check the API response or contact admin.`,
             variant: 'destructive',
@@ -111,8 +112,8 @@ export const InfraFinancingStep = () => {
           new Map(
             ulbs.map((u) => [
               (u.ulb_name || u.ulbName || u.name || '') +
-                (u.city_name || u.cityName || '') +
-                (u.ulb_type || u.ulbType || ''),
+              (u.city_name || u.cityName || '') +
+              (u.ulb_type || u.ulbType || ''),
               u
             ])
           ).values()
@@ -286,6 +287,9 @@ export const InfraFinancingStep = () => {
     code: string;
     title: string;
   } | null>(null);
+  // Track which indicator is being validated and its specific errors
+  const [validatingIndicator, setValidatingIndicator] = useState<string | null>(null);
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
   // Track which indicators are in edit mode (for sent back indicators)
   const [editingIndicators, setEditingIndicators] = useState<Set<string>>(
     new Set()
@@ -309,8 +313,8 @@ export const InfraFinancingStep = () => {
       (isNodalOfficer
         ? assignedIndicators
         : isStateApprover
-        ? availableIndicators
-        : null
+          ? availableIndicators
+          : null
       )?.filter((i) => sectionIndicators.includes(i)) || undefined,
     [
       isNodalOfficer,
@@ -567,10 +571,10 @@ export const InfraFinancingStep = () => {
                 )?.ulbList
               )
                 ? getSectionFromNormalizedOrLegacy(
-                    normalized,
-                    legacy.section1_3,
-                    "1.3"
-                  ).ulbList
+                  normalized,
+                  legacy.section1_3,
+                  "1.3"
+                ).ulbList
                 : [],
               // Preserve status field from database
               status: getSectionFromNormalizedOrLegacy(
@@ -599,10 +603,10 @@ export const InfraFinancingStep = () => {
                 )?.bondList
               )
                 ? getSectionFromNormalizedOrLegacy(
-                    normalized,
-                    legacy.section1_4,
-                    "1.4"
-                  ).bondList
+                  normalized,
+                  legacy.section1_4,
+                  "1.4"
+                ).bondList
                 : [],
               // Preserve status field from database
               status: getSectionFromNormalizedOrLegacy(
@@ -625,10 +629,10 @@ export const InfraFinancingStep = () => {
                 )?.ffiArray
               )
                 ? getSectionFromNormalizedOrLegacy(
-                    normalized,
-                    legacy.section1_5,
-                    "1.5"
-                  ).ffiArray
+                  normalized,
+                  legacy.section1_5,
+                  "1.5"
+                ).ffiArray
                 : [],
               hasIntermediary:
                 getSectionFromNormalizedOrLegacy(
@@ -677,8 +681,21 @@ export const InfraFinancingStep = () => {
 
   const isNextDisabled = false; // Validation disabled - Next button always enabled
 
-  const getFieldError = (path: string) =>
-    showValidationErrors ? validation.errors[path] : undefined;
+  const getFieldError = (path: string) => {
+    if (!showValidationErrors) return undefined;
+
+    // If validating a specific indicator, only show errors for that indicator
+    if (validatingIndicator) {
+      const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
+      if (path.startsWith(sectionPrefix)) {
+        return indicatorValidationErrors[path];
+      }
+      return undefined; // Don't show errors for other indicators
+    }
+
+    // Otherwise, show all errors (for form-level validation)
+    return validation.errors[path];
+  };
 
   const getInputValidationClass = (path: string) =>
     getFieldError(path)
@@ -1050,6 +1067,8 @@ export const InfraFinancingStep = () => {
     indicatorCode: string,
     indicatorTitle: string
   ) => {
+    // Track which indicator is being validated
+    setValidatingIndicator(indicatorCode);
     setShowValidationErrors(true);
 
     // Validate only this specific indicator
@@ -1058,6 +1077,8 @@ export const InfraFinancingStep = () => {
     });
 
     if (!indicatorValidation.isValid) {
+      // Store indicator-specific errors
+      setIndicatorValidationErrors(indicatorValidation.errors);
       toast({
         title: "Incomplete Indicator",
         description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
@@ -1065,6 +1086,10 @@ export const InfraFinancingStep = () => {
       });
       return;
     }
+
+    // Clear indicator-specific validation state on success
+    setValidatingIndicator(null);
+    setIndicatorValidationErrors({});
 
     // Check if already submitted
     if (isIndicatorSubmitted(indicatorCode)) {
@@ -1089,6 +1114,9 @@ export const InfraFinancingStep = () => {
     try {
       setIsSubmitting(true);
       setShowSubmitDialog(false);
+      // Clear indicator validation state after successful submission
+      setValidatingIndicator(null);
+      setIndicatorValidationErrors({});
 
       // Sanitize files and remove unwanted keys before submission
       const sanitizedFormData = deepRemoveUnwantedKeys(
@@ -1384,8 +1412,8 @@ export const InfraFinancingStep = () => {
   const codesForVisibility = isNodalOfficer
     ? assignedIndicators
     : isStateApprover
-    ? availableIndicators
-    : null;
+      ? availableIndicators
+      : null;
 
   const showIndicator = (indicatorCode: string) => {
     if (codesForVisibility === null) return true;
@@ -1704,7 +1732,7 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_1.capitalAllocation"),
                       isIndicatorSubmitted("1.1") &&
-                        "bg-gray-50 cursor-not-allowed"
+                      "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_1.capitalAllocation")}
@@ -1736,7 +1764,7 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_1.gsdpForFY"),
                       isIndicatorSubmitted("1.1") &&
-                        "bg-gray-50 cursor-not-allowed"
+                      "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_1.gsdpForFY")}
@@ -1858,7 +1886,7 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_2.actualCapex"),
                       isIndicatorSubmitted("1.2") &&
-                        "bg-gray-50 cursor-not-allowed"
+                      "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_2.actualCapex")}
@@ -1892,7 +1920,7 @@ export const InfraFinancingStep = () => {
                         "section1_2.stateCapexUtilisation"
                       ),
                       isIndicatorSubmitted("1.2") &&
-                        "bg-gray-50 cursor-not-allowed"
+                      "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_2.stateCapexUtilisation")}
@@ -1999,7 +2027,7 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_3.totalULBs"),
                       isIndicatorSubmitted("1.3") &&
-                        "bg-gray-50 cursor-not-allowed"
+                      "bg-gray-50 cursor-not-allowed"
                     )}
                     required
                   />
@@ -2011,7 +2039,7 @@ export const InfraFinancingStep = () => {
                     <div className="col-span-4">
                       <Label>
                         ULB<span className="text-red-500">*</span>
-                      </Label>                       
+                      </Label>
                       <div className="relative">
                         <Select
                           value={ulb.ulb}
@@ -2028,11 +2056,11 @@ export const InfraFinancingStep = () => {
                                 ulbList: prev.section1_3.ulbList.map((item) =>
                                   item.id === ulb.id
                                     ? {
-                                        ...item,
-                                        ulb: value,
-                                        cityName: selectedULB?.city_name || "",
-                                        ulbType: selectedULB?.ulb_type || "",
-                                      }
+                                      ...item,
+                                      ulb: value,
+                                      cityName: selectedULB?.city_name || "",
+                                      ulbType: selectedULB?.ulb_type || "",
+                                    }
                                     : item
                                 ),
                               },
@@ -2125,9 +2153,9 @@ export const InfraFinancingStep = () => {
                                   const el = e.currentTarget;
                                   if (
                                     el.scrollTop + el.clientHeight >=
-                                      el.scrollHeight - 10 &&
+                                    el.scrollHeight - 10 &&
                                     (ulbVisibleCountMap[ulb.id] || 10) <
-                                      ulbOptions.length
+                                    ulbOptions.length
                                   ) {
                                     setUlbVisibleCountMap((prev) => ({
                                       ...prev,
@@ -2189,7 +2217,7 @@ export const InfraFinancingStep = () => {
                             `section1_3.ulbList.${index}.cityName`
                           ),
                           (isIndicatorSubmitted("1.3") || ulb.ulb) &&
-                            "bg-gray-50 cursor-not-allowed"
+                          "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
@@ -2210,7 +2238,7 @@ export const InfraFinancingStep = () => {
                                 `section1_3.ulbList.${index}.ratingDate`
                               ),
                               isIndicatorSubmitted("1.3") &&
-                                "bg-gray-50 cursor-not-allowed"
+                              "bg-gray-50 cursor-not-allowed"
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -2237,11 +2265,11 @@ export const InfraFinancingStep = () => {
                                   ulbList: prev.section1_3.ulbList.map((item) =>
                                     item.id === ulb.id
                                       ? {
-                                          ...item,
-                                          ratingDate: date
-                                            ? date.toISOString()
-                                            : "",
-                                        }
+                                        ...item,
+                                        ratingDate: date
+                                          ? date.toISOString()
+                                          : "",
+                                      }
                                       : item
                                   ),
                                 },
@@ -2459,7 +2487,7 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_4.totalULBs"),
                       isIndicatorSubmitted("1.4") &&
-                        "bg-gray-50 cursor-not-allowed"
+                      "bg-gray-50 cursor-not-allowed"
                     )}
                     required
                   />
@@ -2559,7 +2587,7 @@ export const InfraFinancingStep = () => {
                         Issuing Authority
                         <span className="text-red-500">*</span>
                       </Label>
-                      <Input
+                      {/* <Input
                         placeholder="Enter issuing authority"
                         value={bond.issuingAuthority}
                         maxLength={100}
@@ -2586,7 +2614,44 @@ export const InfraFinancingStep = () => {
                           isIndicatorSubmitted("1.4") &&
                             "bg-gray-50 cursor-not-allowed"
                         )}
-                      />
+                      /> */}
+                      <Select
+                        value={bond.issuingAuthority}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_4: {
+                              ...prev.section1_4,
+                              bondList: prev.section1_4.bondList.map((item) =>
+                                item.id === bond.id
+                                  ? { ...item, issuingAuthority: value }
+                                  : item
+                              ),
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("1.4")}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_4.bondList.${index}.issuingAuthority`
+                            ),
+                            isIndicatorSubmitted("1.4") &&
+                            "bg-gray-50 cursor-not-allowed"
+                          )}
+                        >
+                          <SelectValue placeholder="Select issuing authority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dropdownValues.issuingAuthorityList.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       {renderFieldError(
                         `section1_4.bondList.${index}.issuingAuthority`
                       )}
@@ -2623,7 +2688,7 @@ export const InfraFinancingStep = () => {
                             `section1_4.bondList.${index}.value`
                           ),
                           isIndicatorSubmitted("1.4") &&
-                            "bg-gray-50 cursor-not-allowed"
+                          "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(`section1_4.bondList.${index}.value`)}
@@ -2834,9 +2899,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                            ...item,
-                                            organisationName: value,
-                                          }
+                                          ...item,
+                                          organisationName: value,
+                                        }
                                         : item
                                   ),
                                 },
@@ -2848,7 +2913,7 @@ export const InfraFinancingStep = () => {
                                 `section1_5.ffiArray.${index}.organisationName`
                               ),
                               isIndicatorSubmitted("1.5") &&
-                                "bg-gray-50 cursor-not-allowed"
+                              "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -2873,9 +2938,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                            ...item,
-                                            organisationType: value,
-                                          }
+                                          ...item,
+                                          organisationType: value,
+                                        }
                                         : item
                                   ),
                                 },
@@ -2929,9 +2994,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                            ...item,
-                                            yearEstablished: value,
-                                          }
+                                          ...item,
+                                          yearEstablished: value,
+                                        }
                                         : item
                                   ),
                                 },
@@ -2943,7 +3008,7 @@ export const InfraFinancingStep = () => {
                                 `section1_5.ffiArray.${index}.yearEstablished`
                               ),
                               isIndicatorSubmitted("1.5") &&
-                                "bg-gray-50 cursor-not-allowed"
+                              "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -2974,9 +3039,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                            ...item,
-                                            totalFunding: value,
-                                          }
+                                          ...item,
+                                          totalFunding: value,
+                                        }
                                         : item
                                   ),
                                 },
@@ -2988,7 +3053,7 @@ export const InfraFinancingStep = () => {
                                 `section1_5.ffiArray.${index}.totalFunding`
                               ),
                               isIndicatorSubmitted("1.5") &&
-                                "bg-gray-50 cursor-not-allowed"
+                              "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -3016,9 +3081,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                            ...item,
-                                            website: value,
-                                          }
+                                          ...item,
+                                          website: value,
+                                        }
                                         : item
                                   ),
                                 },
@@ -3030,7 +3095,7 @@ export const InfraFinancingStep = () => {
                                 `section1_5.ffiArray.${index}.website`
                               ),
                               isIndicatorSubmitted("1.5") &&
-                                "bg-gray-50 cursor-not-allowed"
+                              "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -3154,7 +3219,7 @@ export const InfraFinancingStep = () => {
                         getInputValidationClass("section1_5.comment"),
                         "min-h-[100px]",
                         isIndicatorSubmitted("1.5") &&
-                          "bg-gray-50 cursor-not-allowed"
+                        "bg-gray-50 cursor-not-allowed"
                       )}
                     />
                     {renderFieldError("section1_5.comment")}

@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Eye,
   Download,
+  Trash2,
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect, useRef } from "react";
@@ -54,6 +55,8 @@ import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
+import { validatePPPDevelopment } from "@/features/submission/validation/pppDevelopmentValidation";
+import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -118,6 +121,13 @@ export const PPPDevelopmentReview = ({
 
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
+  const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+
+  // Helper function to get error message for a field
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validationErrors[fieldPath];
+  };
 
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
@@ -1048,6 +1058,40 @@ export const PPPDevelopmentReview = ({
     });
   };
 
+  // Handle removing entry from section 3.3
+  const handleRemoveVGFEntry = (id: string) => {
+    setFormDataState((prev: any) => {
+      const current = prev?.section3_3?.VGFArray;
+      const rows = Array.isArray(current) 
+        ? current.filter((item: any) => item.id !== id)
+        : [];
+      return {
+        ...prev,
+        section3_3: {
+          ...(prev?.section3_3 || {}),
+          VGFArray: rows,
+        },
+      };
+    });
+  };
+
+  // Handle removing entry from section 3.4
+  const handleRemoveProjectEntry = (id: string) => {
+    setFormDataState((prev: any) => {
+      const current = prev?.section3_4?.projects;
+      const projects = Array.isArray(current) 
+        ? current.filter((item: any) => item.id !== id)
+        : [];
+      return {
+        ...prev,
+        section3_4: {
+          ...(prev?.section3_4 || {}),
+          projects: projects,
+        },
+      };
+    });
+  };
+
   // Handle adding new project to section 3.4
   const handleAddNewProject = () => {
     setFormDataState((prev: any) => {
@@ -1322,6 +1366,50 @@ export const PPPDevelopmentReview = ({
           ...fields[0],
           status: "RESUBMITTED",
         };
+      }
+
+      // Validate form data before saving
+      const fullData = {
+        section3_1: formDataState?.section3_1 || { available: "", file: null },
+        section3_2: formDataState?.section3_2 || { available: "", file: null },
+        section3_3: formDataState?.section3_3 || [],
+        section3_4: formDataState?.section3_4 || { projects: [] },
+      };
+
+      const effectiveAssignedIndicators = assignedIndicators.length > 0 
+        ? assignedIndicators 
+        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+      const validationResult = validatePPPDevelopment(fullData, {
+        allowedIndicators: effectiveAssignedIndicators,
+      });
+
+      // Filter validation errors to only include the section being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // Only block save if there are errors in the section being saved
+      if (Object.keys(sectionErrors).length > 0) {
+        setValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        console.warn("Validation failed for section", sectionId, sectionErrors);
+        // Errors are displayed inline in the UI, no need for alert
+        return;
+      } else {
+        // Clear errors for this section only
+        setValidationErrors((prev) => {
+          const filtered = { ...prev };
+          Object.keys(filtered).forEach((key) => {
+            if (key.startsWith(sectionPrefix)) {
+              delete filtered[key];
+            }
+          });
+          return filtered;
+        });
       }
 
       console.log(
@@ -2400,9 +2488,17 @@ export const PPPDevelopmentReview = ({
                 {shouldBeEditable("3.1") ? (
                   <RadioGroup
                     value={state?.section3_1?.available || ""}
-                    onValueChange={(value) =>
-                      handleFieldUpdate("3.1", "available", value)
-                    }
+                    onValueChange={(value) => {
+                      handleFieldUpdate("3.1", "available", value);
+                      // Clear validation error when user selects
+                      if (getFieldError("section3_1.available")) {
+                        setValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section3_1.available"];
+                          return updated;
+                        });
+                      }
+                    }}
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -2427,6 +2523,9 @@ export const PPPDevelopmentReview = ({
                     </span>
                   </div>
                 )}
+                {getFieldError("section3_1.available") && (
+                  <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.available")}</p>
+                )}
               </div>
 
               {state?.section3_1?.available === "yes" && (
@@ -2435,12 +2534,23 @@ export const PPPDevelopmentReview = ({
                     files={state?.section3_1?.file ?? null}
                     isEditable={shouldBeEditable("3.1")}
                     submissionId={submissionId}
-                    onFilesChange={(updatedFile) =>
-                      handleFileUpdate("3.1", updatedFile)
-                    }
+                    onFilesChange={(updatedFile) => {
+                      handleFileUpdate("3.1", updatedFile);
+                      // Clear validation error when file is uploaded
+                      if (getFieldError("section3_1.file")) {
+                        setValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section3_1.file"];
+                          return updated;
+                        });
+                      }
+                    }}
                     label="Uploaded File"
                     multiple={false}
                   />
+                  {getFieldError("section3_1.file") && (
+                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.file")}</p>
+                  )}
                 </div>
               )}
 
@@ -2450,16 +2560,31 @@ export const PPPDevelopmentReview = ({
                   {shouldBeEditable("3.1") ? (
                     <Textarea
                       value={state?.section3_1?.comment || ""}
-                      onChange={(e) =>
-                        handleFieldUpdate("3.1", "comment", e.target.value)
-                      }
+                      onChange={(e) => {
+                        handleFieldUpdate("3.1", "comment", e.target.value);
+                        // Clear validation error when user starts typing
+                        if (getFieldError("section3_1.comment")) {
+                          setValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated["section3_1.comment"];
+                            return updated;
+                          });
+                        }
+                      }}
                       placeholder="Please provide a comment..."
-                      className="min-h-[100px]"
+                      className={
+                        getFieldError("section3_1.comment")
+                          ? "min-h-[100px] border-red-500"
+                          : "min-h-[100px]"
+                      }
                     />
                   ) : (
                     <div className="p-3 bg-gray-50 rounded-md text-sm">
                       {state?.section3_1?.comment || "No comment provided"}
                     </div>
+                  )}
+                  {getFieldError("section3_1.comment") && (
+                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.comment")}</p>
                   )}
                 </div>
               )}
@@ -2516,9 +2641,17 @@ export const PPPDevelopmentReview = ({
                 {shouldBeEditable("3.2") ? (
                   <RadioGroup
                     value={state?.section3_2?.available || ""}
-                    onValueChange={(value) =>
-                      handleFieldUpdate("3.2", "available", value)
-                    }
+                    onValueChange={(value) => {
+                      handleFieldUpdate("3.2", "available", value);
+                      // Clear validation error when user selects
+                      if (getFieldError("section3_2.available")) {
+                        setValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section3_2.available"];
+                          return updated;
+                        });
+                      }
+                    }}
                     className="flex flex-row gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -2543,6 +2676,9 @@ export const PPPDevelopmentReview = ({
                     </span>
                   </div>
                 )}
+                {getFieldError("section3_2.available") && (
+                  <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.available")}</p>
+                )}
               </div>
 
               {state?.section3_2?.available === "yes" && (
@@ -2551,12 +2687,23 @@ export const PPPDevelopmentReview = ({
                     files={state?.section3_2?.file ?? null}
                     isEditable={shouldBeEditable("3.2")}
                     submissionId={submissionId}
-                    onFilesChange={(updatedFile) =>
-                      handleFileUpdate("3.2", updatedFile)
-                    }
+                    onFilesChange={(updatedFile) => {
+                      handleFileUpdate("3.2", updatedFile);
+                      // Clear validation error when file is uploaded
+                      if (getFieldError("section3_2.file")) {
+                        setValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section3_2.file"];
+                          return updated;
+                        });
+                      }
+                    }}
                     label="Uploaded File"
                     multiple={false}
                   />
+                  {getFieldError("section3_2.file") && (
+                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.file")}</p>
+                  )}
                 </div>
               )}
 
@@ -2566,16 +2713,31 @@ export const PPPDevelopmentReview = ({
                   {shouldBeEditable("3.2") ? (
                     <Textarea
                       value={state?.section3_2?.comment || ""}
-                      onChange={(e) =>
-                        handleFieldUpdate("3.2", "comment", e.target.value)
-                      }
+                      onChange={(e) => {
+                        handleFieldUpdate("3.2", "comment", e.target.value);
+                        // Clear validation error when user starts typing
+                        if (getFieldError("section3_2.comment")) {
+                          setValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated["section3_2.comment"];
+                            return updated;
+                          });
+                        }
+                      }}
                       placeholder="Please provide a comment..."
-                      className="min-h-[100px]"
+                      className={
+                        getFieldError("section3_2.comment")
+                          ? "min-h-[100px] border-red-500"
+                          : "min-h-[100px]"
+                      }
                     />
                   ) : (
                     <div className="p-3 bg-gray-50 rounded-md text-sm">
                       {state?.section3_2?.comment || "No comment provided"}
                     </div>
+                  )}
+                  {getFieldError("section3_2.comment") && (
+                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.comment")}</p>
                   )}
                 </div>
               )}
@@ -2642,9 +2804,14 @@ export const PPPDevelopmentReview = ({
                       <th className="py-3 px-4 text-left text-sm font-normal">
                         Submission Date
                       </th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                      <th className="py-3 px-4 text-left text-sm font-normal">
                         Uploaded File
                       </th>
+                      {shouldBeEditable("3.3") && (
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody
@@ -2663,7 +2830,7 @@ export const PPPDevelopmentReview = ({
                         return (
                           <tr>
                             <td
-                              colSpan={5}
+                              colSpan={shouldBeEditable("3.3") ? 6 : 5}
                               className="py-8 text-center text-muted-foreground"
                             >
                               No VGF/IIPDF proposals data available
@@ -2676,91 +2843,127 @@ export const PPPDevelopmentReview = ({
                         <tr key={item.id || index} className="border-b">
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("3.3") ? (
-                              <Input
-                                value={item.projectName || ""}
-                                onChange={(e) =>
-                                  handleTableFieldUpdate(
-                                    index,
-                                    "projectName",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full"
-                              />
+                              <div>
+                                <Input
+                                  value={item.projectName || ""}
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      index,
+                                      "projectName",
+                                      e.target.value
+                                    )
+                                  }
+                                  className={
+                                    getFieldError(`section3_3.VGFArray.${index}.projectName`)
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
+                                />
+                                {getFieldError(`section3_3.VGFArray.${index}.projectName`) && (
+                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.projectName`)}</p>
+                                )}
+                              </div>
                             ) : (
                               item.projectName || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("3.3") ? (
-                              <Select
-                                key={`sector-${index}-${selectResetKey}`}
-                                value={item.sector || ""}
-                                onValueChange={(value) =>
-                                  handleTableFieldUpdate(index, "sector", value)
-                                }
-                              >
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Select sector" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {SECTOR_OPTIONS.map((sector) => (
-                                    <SelectItem key={sector} value={sector}>
-                                      {sector}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div>
+                                <Select
+                                  key={`sector-${index}-${selectResetKey}`}
+                                  value={item.sector || ""}
+                                  onValueChange={(value) =>
+                                    handleTableFieldUpdate(index, "sector", value)
+                                  }
+                                >
+                                  <SelectTrigger className={
+                                    getFieldError(`section3_3.VGFArray.${index}.sector`)
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }>
+                                    <SelectValue placeholder="Select sector" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {SECTOR_OPTIONS.map((sector) => (
+                                      <SelectItem key={sector} value={sector}>
+                                        {sector}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {getFieldError(`section3_3.VGFArray.${index}.sector`) && (
+                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.sector`)}</p>
+                                )}
+                              </div>
                             ) : (
                               item.sector || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("3.3") ? (
-                              <Select
-                                key={`type-${index}-${selectResetKey}`}
-                                value={item.type || ""}
-                                onValueChange={(value) =>
-                                  handleTableFieldUpdate(index, "type", value)
-                                }
-                              >
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Select type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {PROJECT_TYPE_OPTIONS.map((type) => (
-                                    <SelectItem key={type} value={type}>
-                                      {type}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div>
+                                <Select
+                                  key={`type-${index}-${selectResetKey}`}
+                                  value={item.type || ""}
+                                  onValueChange={(value) =>
+                                    handleTableFieldUpdate(index, "type", value)
+                                  }
+                                >
+                                  <SelectTrigger className={
+                                    getFieldError(`section3_3.VGFArray.${index}.type`)
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }>
+                                    <SelectValue placeholder="Select type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PROJECT_TYPE_OPTIONS.map((type) => (
+                                      <SelectItem key={type} value={type}>
+                                        {type}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {getFieldError(`section3_3.VGFArray.${index}.type`) && (
+                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.type`)}</p>
+                                )}
+                              </div>
                             ) : (
                               item.type || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("3.3") ? (
-                              <Input
-                                type="date"
-                                value={
-                                  item.submissionDate
-                                    ? new Date(item.submissionDate)
-                                        .toISOString()
-                                        .split("T")[0]
-                                    : ""
-                                }
-                                onChange={(e) =>
-                                  handleTableFieldUpdate(
-                                    index,
-                                    "submissionDate",
-                                    e.target.value
-                                      ? new Date(e.target.value).toISOString()
-                                      : null
-                                  )
-                                }
-                                className="w-full"
-                              />
+                              <div>
+                                <Input
+                                  type="date"
+                                  value={
+                                    item.submissionDate
+                                      ? new Date(item.submissionDate)
+                                          .toISOString()
+                                          .split("T")[0]
+                                      : ""
+                                  }
+                                  onChange={(e) =>
+                                    handleTableFieldUpdate(
+                                      index,
+                                      "submissionDate",
+                                      e.target.value
+                                        ? new Date(e.target.value).toISOString()
+                                        : null
+                                    )
+                                  }
+                                  className={
+                                    getFieldError(`section3_3.VGFArray.${index}.submissionDate`)
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
+                                />
+                                {getFieldError(`section3_3.VGFArray.${index}.submissionDate`) && (
+                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.submissionDate`)}</p>
+                                )}
+                              </div>
                             ) : item.submissionDate ? (
                               new Date(item.submissionDate).toLocaleDateString()
                             ) : (
@@ -2938,6 +3141,18 @@ export const PPPDevelopmentReview = ({
                               </span>
                             )}
                           </td>
+                          {shouldBeEditable("3.3") && (
+                            <td className="py-3 px-4 text-sm font-normal">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleRemoveVGFEntry(item.id || index.toString())}
+                                className="text-red-500 hover:text-red-700 border-none bg-none"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       ));
                     })()}
@@ -3124,17 +3339,33 @@ export const PPPDevelopmentReview = ({
                 <div>
                   <Label>Total Projects Awarded</Label>
                   {isEditable("3.4") ? (
-                    <Input
-                      value={state?.section3_4?.totalProjectsAwarded || ""}
-                      onChange={(e) =>
-                        handleSection3_4FieldUpdate(
-                          "totalProjectsAwarded",
-                          e.target.value
-                        )
-                      }
-                      className="bg-white"
-                      placeholder="Enter total projects awarded"
-                    />
+                    <div>
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        value={state?.section3_4?.totalProjectsAwarded || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow non-negative integers
+                          if (value === "" || /^\d+$/.test(value)) {
+                            handleSection3_4FieldUpdate(
+                              "totalProjectsAwarded",
+                              value
+                            );
+                          }
+                        }}
+                        className={
+                          getFieldError("section3_4.totalProjectsAwarded")
+                            ? "bg-white border-red-500"
+                            : "bg-white"
+                        }
+                        placeholder="Enter total projects awarded"
+                      />
+                      {getFieldError("section3_4.totalProjectsAwarded") && (
+                        <p className="text-sm text-red-500 mt-1">{getFieldError("section3_4.totalProjectsAwarded")}</p>
+                      )}
+                    </div>
                   ) : (
                     <Input
                       value={state?.section3_4?.totalProjectsAwarded || ""}
@@ -3146,17 +3377,34 @@ export const PPPDevelopmentReview = ({
                 <div>
                   <Label>Total Project Cost Awarded</Label>
                   {isEditable("3.4") ? (
-                    <Input
-                      value={state?.section3_4?.totalProjectCostAwarded || ""}
-                      onChange={(e) =>
-                        handleSection3_4FieldUpdate(
-                          "totalProjectCostAwarded",
-                          e.target.value
-                        )
-                      }
-                      className="bg-white"
-                      placeholder="Enter total project cost awarded"
-                    />
+                    <div>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        value={state?.section3_4?.totalProjectCostAwarded || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow numbers and decimal point
+                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                            handleSection3_4FieldUpdate(
+                              "totalProjectCostAwarded",
+                              value
+                            );
+                          }
+                        }}
+                        className={
+                          getFieldError("section3_4.totalProjectCostAwarded")
+                            ? "bg-white border-red-500"
+                            : "bg-white"
+                        }
+                        placeholder="Enter total project cost awarded"
+                      />
+                      {getFieldError("section3_4.totalProjectCostAwarded") && (
+                        <p className="text-sm text-red-500 mt-1">{getFieldError("section3_4.totalProjectCostAwarded")}</p>
+                      )}
+                    </div>
                   ) : (
                     <Input
                       value={state?.section3_4?.totalProjectCostAwarded || ""}
@@ -3190,9 +3438,14 @@ export const PPPDevelopmentReview = ({
                       <th className="py-3 px-4 text-left text-sm font-normal">
                         % Capex
                       </th>
-                      <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                      <th className="py-3 px-4 text-left text-sm font-normal">
                         Total Project Cost
                       </th>
+                      {shouldBeEditable("3.4") && (
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody
@@ -3211,7 +3464,7 @@ export const PPPDevelopmentReview = ({
                         return (
                           <tr>
                             <td
-                              colSpan={7}
+                              colSpan={shouldBeEditable("3.4") ? 8 : 7}
                               className="py-8 text-center text-muted-foreground"
                             >
                               No projects available
@@ -3332,15 +3585,25 @@ export const PPPDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("3.4") ? (
                               <Input
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                min="0"
+                                max="100"
                                 value={project.capexPercentage || ""}
-                                onChange={(e) =>
-                                  handleProjectFieldUpdate(
-                                    idx,
-                                    "capexPercentage",
-                                    e.target.value
-                                  )
-                                }
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  // Only allow numbers and decimal point
+                                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                    handleProjectFieldUpdate(
+                                      idx,
+                                      "capexPercentage",
+                                      value
+                                    );
+                                  }
+                                }}
                                 className="w-full"
+                                placeholder="Enter percentage"
                               />
                             ) : (
                               project.capexPercentage || "N/A"
@@ -3349,14 +3612,22 @@ export const PPPDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("3.4") ? (
                               <Input
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                min="0"
                                 value={project.totalProjectCost || ""}
-                                onChange={(e) =>
-                                  handleProjectFieldUpdate(
-                                    idx,
-                                    "totalProjectCost",
-                                    e.target.value
-                                  )
-                                }
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  // Only allow numbers and decimal point
+                                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                    handleProjectFieldUpdate(
+                                      idx,
+                                      "totalProjectCost",
+                                      value
+                                    );
+                                  }
+                                }}
                                 className="w-full"
                                 placeholder="Enter cost"
                               />
@@ -3364,6 +3635,18 @@ export const PPPDevelopmentReview = ({
                               project.totalProjectCost || "N/A"
                             )}
                           </td>
+                          {shouldBeEditable("3.4") && (
+                            <td className="py-3 px-4 text-sm font-normal">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleRemoveProjectEntry(project.id || idx.toString())}
+                                className="text-red-500 hover:text-red-700 border-none bg-none"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       ));
                     })()}
@@ -3471,27 +3754,44 @@ export const PPPDevelopmentReview = ({
                     <div>
                       <Label>% of Capex funded by non-Govt sources</Label>
                       <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        max="100"
                         value={newProject.capexPercentage}
-                        onChange={(e) =>
-                          setNewProject({
-                            ...newProject,
-                            capexPercentage: e.target.value,
-                          })
-                        }
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow numbers and decimal point
+                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                            setNewProject({
+                              ...newProject,
+                              capexPercentage: value,
+                            });
+                          }
+                        }}
                         className="bg-white"
-                        placeholder="Enter percentage"
+                        placeholder="Enter percentage (0-100)"
                       />
                     </div>
                     <div>
                       <Label>Total Project Cost</Label>
                       <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
                         value={newProject.totalProjectCost}
-                        onChange={(e) =>
-                          setNewProject({
-                            ...newProject,
-                            totalProjectCost: e.target.value,
-                          })
-                        }
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Only allow numbers and decimal point
+                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                            setNewProject({
+                              ...newProject,
+                              totalProjectCost: value,
+                            });
+                          }
+                        }}
                         className="bg-white"
                         placeholder="Enter total project cost"
                       />

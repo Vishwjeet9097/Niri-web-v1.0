@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
-import { Plus, Check, X } from "lucide-react";
+import { Plus, Check, X, Trash2 } from "lucide-react";
 import axios from "axios";
 import { API_ENDPOINTS } from "@/config/endpoints";
 
@@ -12,6 +12,8 @@ interface Section1_3Props {
   isEditable: (sectionId: string) => boolean;
   setSectionState?: (state: { totalULBs: number; ulbList: any[] }) => void;
   resetKey?: number;
+  validationErrors?: { [key: string]: string };
+  getFieldError?: (fieldPath: string) => string | undefined;
 }
 
 export const Section_1_3 = ({
@@ -19,7 +21,12 @@ export const Section_1_3 = ({
   isEditable,
   setSectionState,
   resetKey,
+  validationErrors = {},
+  getFieldError,
 }: Section1_3Props) => {
+  const getError = (fieldPath: string) => {
+    return getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath];
+  };
   const ulbList = formData?.section1_3?.ulbList || [];
   const totalULBs = formData?.section1_3?.totalULBs || 0;
   // Get state name from formData or fallback
@@ -120,6 +127,13 @@ export const Section_1_3 = ({
     }
   };
 
+  const handleRemoveULB = (id: string) => {
+    const updatedUlbList = ulbList.filter((ulb) => ulb.id !== id);
+    if (setSectionState) {
+      setSectionState({ totalULBs, ulbList: updatedUlbList });
+    }
+  };
+
   // Handle adding new ULB entry
   const handleAddNewULBEntry = () => {
     const newEntryWithId = {
@@ -158,12 +172,25 @@ export const Section_1_3 = ({
         <Label>Total Number of ULBs</Label>
         <Input
           type="number"
+          inputMode="numeric"
+          min="0"
           value={totalULBs}
-          onChange={(e) => handleTotalULBsChange(Number(e.target.value))}
+          onChange={(e) => {
+            const value = e.target.value;
+            // Only allow non-negative integers
+            if (value === "" || /^\d+$/.test(value)) {
+              handleTotalULBsChange(value === "" ? 0 : Number(value));
+            }
+          }}
           readOnly={!isEditable("1.3")}
           className={isEditable("1.3") ? "bg-white" : "bg-gray-50"}
         />
       </div>
+      
+      {/* Validation error for ulbList */}
+      {getError("section1_3.ulbList") && (
+        <p className="text-sm text-red-500">{getError("section1_3.ulbList")}</p>
+      )}
 
       {/* ULB Table */}
       <div className="overflow-x-auto rounded-xl">
@@ -177,9 +204,14 @@ export const Section_1_3 = ({
               <th className="py-3 px-4 text-left text-sm font-normal">
                 Rating Date
               </th>
-              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+              <th className="py-3 px-4 text-left text-sm font-normal">
                 Rating
               </th>
+              {isEditable("1.3") && (
+                <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                  Action
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -188,7 +220,7 @@ export const Section_1_3 = ({
                 <tr key={item.id || index} className="border-b">
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
-                      <>
+                      <div>
                         <Dropdown
                           options={ulbDropdownOptions}
                           value={item.ulb || ""}
@@ -205,6 +237,9 @@ export const Section_1_3 = ({
                           isEditable={isEditable("1.3")}
                           isSearchable={true}
                         />
+                        {getError(`section1_3.ulbList.${index}.ulb`) && (
+                          <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.ulb`)}</p>
+                        )}
                         {ulbError && (
                           <div className="text-xs text-red-500 mt-1">
                             {ulbError}
@@ -215,7 +250,7 @@ export const Section_1_3 = ({
                             Loading ULBs...
                           </div>
                         )}
-                      </>
+                      </div>
                     ) : (
                       (() => {
                         const found = ulbDropdownOptions.find(
@@ -227,12 +262,21 @@ export const Section_1_3 = ({
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
-                      <Input
-                        value={item.cityName || ""}
-                        readOnly
-                        className="w-full bg-gray-100 cursor-not-allowed"
-                        placeholder="City name auto-filled"
-                      />
+                      <div>
+                        <Input
+                          value={item.cityName || ""}
+                          readOnly
+                          className={
+                            getError(`section1_3.ulbList.${index}.cityName`)
+                              ? "w-full bg-gray-100 cursor-not-allowed border-red-500"
+                              : "w-full bg-gray-100 cursor-not-allowed"
+                          }
+                          placeholder="City name auto-filled"
+                        />
+                        {getError(`section1_3.ulbList.${index}.cityName`) && (
+                          <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.cityName`)}</p>
+                        )}
+                      </div>
                     ) : (
                       item.cityName || "N/A"
                     )}
@@ -240,14 +284,23 @@ export const Section_1_3 = ({
 
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
-                      <Input
-                        type="date"
-                        value={item.ratingDate || ""}
-                        onChange={(e) =>
-                          handleUlbChange(index, "ratingDate", e.target.value)
-                        }
-                        className="w-full"
-                      />
+                      <div>
+                        <Input
+                          type="date"
+                          value={item.ratingDate || ""}
+                          onChange={(e) =>
+                            handleUlbChange(index, "ratingDate", e.target.value)
+                          }
+                          className={
+                            getError(`section1_3.ulbList.${index}.ratingDate`)
+                              ? "w-full border-red-500"
+                              : "w-full"
+                          }
+                        />
+                        {getError(`section1_3.ulbList.${index}.ratingDate`) && (
+                          <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.ratingDate`)}</p>
+                        )}
+                      </div>
                     ) : item.ratingDate ? (
                       new Date(item.ratingDate).toLocaleDateString()
                     ) : (
@@ -256,28 +309,45 @@ export const Section_1_3 = ({
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
-                      <Dropdown
-                        options={dropdownValues.ratingList.map((opt) => ({
-                          label: opt,
-                          value: opt,
-                        }))}
-                        value={item.rating || ""}
-                        onChange={(value) =>
-                          handleUlbChange(index, "rating", value)
-                        }
-                        placeholder="Select Rating"
-                        isEditable={true}
-                      />
+                      <div>
+                        <Dropdown
+                          options={dropdownValues.ratingList.map((opt) => ({
+                            label: opt,
+                            value: opt,
+                          }))}
+                          value={item.rating || ""}
+                          onChange={(value) =>
+                            handleUlbChange(index, "rating", value)
+                          }
+                          placeholder="Select Rating"
+                          isEditable={true}
+                        />
+                        {getError(`section1_3.ulbList.${index}.rating`) && (
+                          <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.rating`)}</p>
+                        )}
+                      </div>
                     ) : (
                       item.rating || "N/A"
                     )}
                   </td>
+                  {isEditable("1.3") && (
+                    <td className="py-3 px-4 text-sm font-normal">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleRemoveULB(item.id || index.toString())}
+                        className="text-red-500 hover:text-red-700 border-none bg-none"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))
             ) : (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={isEditable("1.3") ? 5 : 4}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No ULB data available
@@ -315,9 +385,16 @@ export const Section_1_3 = ({
                   value = value.replace(/[^a-zA-Z\s]/g, "");
                   setNewULBEntry({ ...newULBEntry, cityName: value });
                 }}
-                className="bg-white"
+                className={
+                  getError("section1_3.ulbList.new.cityName")
+                    ? "bg-white border-red-500"
+                    : "bg-white"
+                }
                 placeholder="Enter city name"
               />
+              {getError("section1_3.ulbList.new.cityName") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.cityName")}</p>
+              )}
             </div>
             <div>
               <Label>ULB</Label>
@@ -330,8 +407,10 @@ export const Section_1_3 = ({
                 placeholder={ulbLoading ? "Loading..." : "Select ULB"}
                 isEditable={true}
                 isSearchable={true}
-                disabled={ulbLoading || !!ulbError}
               />
+              {getError("section1_3.ulbList.new.ulb") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.ulb")}</p>
+              )}
               {ulbError && (
                 <div className="text-xs text-red-500 mt-1">{ulbError}</div>
               )}
@@ -344,8 +423,15 @@ export const Section_1_3 = ({
                 onChange={(e) =>
                   setNewULBEntry({ ...newULBEntry, ratingDate: e.target.value })
                 }
-                className="bg-white"
+                className={
+                  getError("section1_3.ulbList.new.ratingDate")
+                    ? "bg-white border-red-500"
+                    : "bg-white"
+                }
               />
+              {getError("section1_3.ulbList.new.ratingDate") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.ratingDate")}</p>
+              )}
             </div>
             <div>
               <Label>Rating</Label>
@@ -361,6 +447,9 @@ export const Section_1_3 = ({
                 placeholder="Select Rating"
                 isEditable={true}
               />
+              {getError("section1_3.ulbList.new.rating") && (
+                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.rating")}</p>
+              )}
             </div>
           </div>
           <div className="flex gap-2 mt-4">

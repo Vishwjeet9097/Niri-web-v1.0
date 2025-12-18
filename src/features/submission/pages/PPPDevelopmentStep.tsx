@@ -215,6 +215,9 @@ export const PPPDevelopmentStep = () => {
     code: string;
     title: string;
   } | null>(null);
+  // Track which indicator is being validated and its specific errors
+  const [validatingIndicator, setValidatingIndicator] = useState<string | null>(null);
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
   
   // State for submissionId to enable immediate file uploads
   const [submissionId, setSubmissionId] = useState<string | undefined>();
@@ -451,6 +454,18 @@ export const PPPDevelopmentStep = () => {
 
   // Helper functions for error display
   const getFieldError = (fieldPath: string): string | undefined => {
+    if (!showValidationErrors) return undefined;
+    
+    // If validating a specific indicator, only show errors for that indicator
+    if (validatingIndicator) {
+      const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
+      if (fieldPath.startsWith(sectionPrefix)) {
+        return indicatorValidationErrors[fieldPath];
+      }
+      return undefined; // Don't show errors for other indicators
+    }
+    
+    // Otherwise, show all errors (for form-level validation)
     return validation.errors[fieldPath];
   };
 
@@ -851,12 +866,16 @@ export const PPPDevelopmentStep = () => {
     indicatorCode: string,
     indicatorTitle: string
   ) => {
+    // Track which indicator is being validated
+    setValidatingIndicator(indicatorCode);
     setShowValidationErrors(true);
     // Validate only this specific indicator
     const indicatorValidation = validatePPPDevelopment(formData, {
       allowedIndicators: [indicatorCode],
     });
     if (!indicatorValidation.isValid) {
+      // Store indicator-specific errors
+      setIndicatorValidationErrors(indicatorValidation.errors);
       toast({
         title: "Incomplete Indicator",
         description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
@@ -864,6 +883,10 @@ export const PPPDevelopmentStep = () => {
       });
       return;
     }
+    
+    // Clear indicator-specific validation state on success
+    setValidatingIndicator(null);
+    setIndicatorValidationErrors({});
 
     // Check if already submitted
     if (isIndicatorSubmitted(indicatorCode)) {
@@ -888,6 +911,9 @@ export const PPPDevelopmentStep = () => {
     try {
       setIsSubmitting(true);
       setShowSubmitDialog(false);
+      // Clear indicator validation state after successful submission
+      setValidatingIndicator(null);
+      setIndicatorValidationErrors({});
 
       // Remove unwanted keys (preserves File instances for upload)
       const sanitizedFormData = deepRemoveUnwantedKeys(formData);

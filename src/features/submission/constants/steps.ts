@@ -74,7 +74,9 @@ export const ORGANISATION_TYPE_OPTIONS = [
     "Trust", 
     "Society", 
     "Corporation", 
-    "Company"
+    "Company",
+     "Partnership",
+      "Other"
 ];
 
 export const PROJECT_TYPE_OPTIONS = ["BOT", "BOOT", "HAM", "EPC", "Other"];
@@ -103,15 +105,33 @@ export const RATING_OPTIONS = [
   "A-",
   "BBB+",
   "BBB",
-  "Other",
+  "BBB-",
+  "BB+",
+  "BB",
+  "BB-",
+  "B+",
+  "B",
+  "B-",
+  "CCC",
+  "CC",
+  "C",
+  "D"
 ];
 
 export const IMPACT_OPTIONS = [
-  "Capital allocation (INR)",
-  "Process efficiency",
-  "Cost reduction",
-  "Time savings",
-  "Other",
+  // "Capital allocation (INR)",
+  // "Process efficiency",
+  // "Cost reduction",
+  // "Time savings",
+  // "Other",
+  
+    "Rollout",
+    "Viability",
+    "Tech",
+    "Monitoring",
+    "Capacity",
+    "Other",
+  
 ];
 
 export const TRAINING_TYPE_OPTIONS = [
