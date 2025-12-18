@@ -359,13 +359,49 @@ export const InfraEnablersReview = ({
   const shouldBeEditable = (sectionId: string): boolean => {
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const submissionStatus = submission?.status;
+
+    console.log(`[InfraEnablersReview] shouldBeEditable(${sectionId}):`, {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      submissionStatus,
+      isCurrentlyEditable: isEditable(sectionId),
+    });
+
+    // For NODAL_OFFICER, check submission status
+    if (isNodalOfficer) {
+      // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
+      const statusAllowsEditing =
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE";
+      const result = statusAllowsEditing ? isEditable(sectionId) : false;
+      console.log(`[InfraEnablersReview] NODAL_OFFICER shouldBeEditable:`, {
+        sectionId,
+        submissionStatus,
+        statusAllowsEditing,
+        isCurrentlyEditable: isEditable(sectionId),
+        result,
+        reason: !statusAllowsEditing
+          ? `Status ${submissionStatus} does not allow editing`
+          : result
+          ? "Section is in edit mode"
+          : "Section is not in edit mode",
+      });
+      if (!statusAllowsEditing) {
+        return false;
+      }
+      // If status allows editing, check if section is in edit mode
+      return isEditable(sectionId);
+    }
 
     // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
-      const submissionStatus = submission?.status;
-      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
       if (
+        submissionStatus !== "DRAFT" &&
         submissionStatus !== "SUBMITTED_TO_STATE" &&
         submissionStatus !== "RETURNED_FROM_MOSPI"
       ) {
@@ -401,11 +437,38 @@ export const InfraEnablersReview = ({
   const canEditSection = (sectionId: string): boolean => {
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const submissionStatus = submission?.status;
+
+    console.log(`[InfraEnablersReview] canEditSection(${sectionId}):`, {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      submissionStatus,
+      submissionId: submission?.id,
+    });
+
+    // For NODAL_OFFICER, check submission status
+    if (isNodalOfficer) {
+      // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
+      const canEdit =
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE";
+      console.log(`[InfraEnablersReview] NODAL_OFFICER canEdit check:`, {
+        sectionId,
+        submissionStatus,
+        canEdit,
+        reason: canEdit
+          ? "Status allows editing"
+          : `Status ${submissionStatus} does not allow editing (needs DRAFT or RETURNED_FROM_STATE)`,
+      });
+      return canEdit;
+    }
 
     if (isStateApprover) {
-      const submissionStatus = submission?.status;
-      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       if (
+        submissionStatus !== "DRAFT" &&
         submissionStatus !== "SUBMITTED_TO_STATE" &&
         submissionStatus !== "RETURNED_FROM_MOSPI"
       ) {
@@ -434,13 +497,39 @@ export const InfraEnablersReview = ({
   };
 
   const handleEditStart = (sectionId: string) => {
+    console.log(
+      `[InfraEnablersReview] handleEditStart called for section ${sectionId}`
+    );
+    const userRole = getUserRole();
+    const submissionStatus = submission?.status;
+
     // Check if section CAN be edited (permission check)
-    if (!canEditSection(sectionId)) {
-      console.log(
-        `[InfraEnablersReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED or invalid status`
+    const canEdit = canEditSection(sectionId);
+    console.log(
+      `[InfraEnablersReview] handleEditStart - canEditSection result:`,
+      {
+        sectionId,
+        userRole,
+        submissionStatus,
+        canEdit,
+      }
+    );
+
+    if (!canEdit) {
+      console.warn(
+        `[InfraEnablersReview] ❌ Cannot edit section ${sectionId} - Permission denied`,
+        {
+          userRole,
+          submissionStatus,
+          reason: "canEditSection returned false",
+        }
       );
       return;
     }
+
+    console.log(
+      `[InfraEnablersReview] ✅ Starting edit mode for section ${sectionId}`
+    );
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
@@ -758,9 +847,18 @@ export const InfraEnablersReview = ({
   };
 
   const onSaveSection = async (sectionId: string) => {
+    console.log(
+      `[InfraEnablersReview] onSaveSection called for section ${sectionId}`
+    );
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
+
+    console.log(`[InfraEnablersReview] onSaveSection - User info:`, {
+      userRole,
+      isNodalOfficer,
+      sectionId,
+    });
 
     // Check if this is a resubmission of a sent-back indicator
     const sectionKey = `section${sectionId.replace(".", "_")}`;
@@ -773,22 +871,47 @@ export const InfraEnablersReview = ({
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
+    console.log(`[InfraEnablersReview] onSaveSection - Status check:`, {
+      sectionKey,
+      sectionData,
+      currentStatus,
+      upperStatus,
+      isReverted,
+      formDataStateKeys: formDataState ? Object.keys(formDataState) : [],
+    });
+
     // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
     if (isNodalOfficer && isReverted) {
+      console.log(
+        `[InfraEnablersReview] ✅ Showing save confirmation dialog for REVERTED indicator`
+      );
       setPendingSaveSectionId(sectionId);
       setShowSaveDialog(true);
       return;
     }
 
+    console.log(
+      `[InfraEnablersReview] ✅ Proceeding with direct save (not REVERTED or not NODAL_OFFICER)`
+    );
     // For non-NODAL_OFFICER users or non-REVERTED status, proceed with submit directly
     await performSave(sectionId);
   };
 
   // Actual save function that performs the save operation
   const performSave = async (sectionId: string) => {
+    console.log(
+      `[InfraEnablersReview] performSave called for section ${sectionId}`
+    );
     try {
       // Map visual section id to payload section key (e.g. "4.1" -> "section4_1")
       const payloadSection = `section${sectionId.replace(".", "_")}`;
+      console.log(
+        `[InfraEnablersReview] performSave - Starting save process:`,
+        {
+          sectionId,
+          payloadSection,
+        }
+      );
 
       // Use the local formData state (formDataState) to build fields for this section
       let fields: Record<string, any>[] = [];
@@ -988,12 +1111,26 @@ export const InfraEnablersReview = ({
         };
       }
 
-      await handleSaveSection({
+      console.log(
+        `[InfraEnablersReview] performSave - Calling handleSaveSection API...`,
+        {
+          submissionId,
+          category: "infraEnablers",
+          section: payloadSection,
+          fieldsCount: fields.length,
+          fieldsWithStatus: fields[0]?.status,
+        }
+      );
+      const saveResult = await handleSaveSection({
         submissionId,
         category: "infraEnablers",
         section: payloadSection,
         fields,
       });
+      console.log(
+        `[InfraEnablersReview] ✅ performSave - API call successful:`,
+        saveResult
+      );
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
@@ -1034,17 +1171,41 @@ export const InfraEnablersReview = ({
       setEditable(sectionId, false);
       // Clear the snapshot since save was successful
       setOriginalFormDataSnapshot(null);
+
+      console.log(
+        `[InfraEnablersReview] ✅ performSave - Save completed, editing disabled for section ${sectionId}`
+      );
     } catch (error) {
-      console.error("Error saving section:", error);
+      console.error(
+        `[InfraEnablersReview] ❌ performSave - Error saving section ${sectionId}:`,
+        error
+      );
+      throw error; // Re-throw so handleConfirmSave can catch it
     }
   };
 
   // Handle confirmation dialog actions
   const handleConfirmSave = async () => {
+    console.log(`[InfraEnablersReview] handleConfirmSave called:`, {
+      pendingSaveSectionId,
+    });
     if (pendingSaveSectionId) {
-      await performSave(pendingSaveSectionId);
-      setShowSaveDialog(false);
-      setPendingSaveSectionId(null);
+      console.log(
+        `[InfraEnablersReview] ✅ Confirmed - calling performSave for section ${pendingSaveSectionId}`
+      );
+      try {
+        await performSave(pendingSaveSectionId);
+        console.log(`[InfraEnablersReview] ✅ Save completed successfully`);
+        setShowSaveDialog(false);
+        setPendingSaveSectionId(null);
+      } catch (error) {
+        console.error(`[InfraEnablersReview] ❌ Save failed:`, error);
+        // Don't close dialog on error so user can try again
+      }
+    } else {
+      console.warn(
+        `[InfraEnablersReview] ⚠️ handleConfirmSave called but no pendingSaveSectionId`
+      );
     }
   };
 
@@ -2732,7 +2893,9 @@ export const InfraEnablersReview = ({
                                         value
                                       )
                                     }
-                                    options={dropdownValues.sector.map(opt => ({ label: opt, value: opt }))}
+                                    options={dropdownValues.sector.map(
+                                      (opt) => ({ label: opt, value: opt })
+                                    )}
                                     placeholder="Select sector"
                                   />
                                 ) : (
@@ -2961,7 +3124,10 @@ export const InfraEnablersReview = ({
                             onChange={(value) =>
                               setNewProject({ ...newProject, sector: value })
                             }
-                            options={dropdownValues.sector.map(opt => ({ label: opt, value: opt }))}
+                            options={dropdownValues.sector.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
                             placeholder="Select sector"
                           />
                         </div>
@@ -3281,7 +3447,10 @@ export const InfraEnablersReview = ({
                                         value
                                       )
                                     }
-                                    options={IMPACT_OPTIONS.map(opt => ({ label: opt, value: opt }))}
+                                    options={IMPACT_OPTIONS.map((opt) => ({
+                                      label: opt,
+                                      value: opt,
+                                    }))}
                                     placeholder="Select impact"
                                   />
                                 ) : (
@@ -3510,7 +3679,10 @@ export const InfraEnablersReview = ({
                             onChange={(value) =>
                               setNewPractice({ ...newPractice, impact: value })
                             }
-                            options={IMPACT_OPTIONS.map(opt => ({ label: opt, value: opt }))}
+                            options={IMPACT_OPTIONS.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
                             placeholder="Select impact"
                           />
                         </div>
@@ -3757,7 +3929,10 @@ export const InfraEnablersReview = ({
                                       value
                                     )
                                   }
-                                  options={TRAINING_TYPE_OPTIONS.map(opt => ({ label: opt, value: opt }))}
+                                  options={TRAINING_TYPE_OPTIONS.map((opt) => ({
+                                    label: opt,
+                                    value: opt,
+                                  }))}
                                   placeholder="Select training type"
                                 />
                               ) : (
@@ -3886,7 +4061,10 @@ export const InfraEnablersReview = ({
                               trainingType: value,
                             })
                           }
-                          options={TRAINING_TYPE_OPTIONS.map(opt => ({ label: opt, value: opt }))}
+                          options={TRAINING_TYPE_OPTIONS.map((opt) => ({
+                            label: opt,
+                            value: opt,
+                          }))}
                           placeholder="Select training type"
                         />
                       </div>

@@ -369,13 +369,49 @@ export const InfraDevelopmentReview = ({
   const shouldBeEditable = (sectionId: string): boolean => {
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const submissionStatus = submission?.status;
+
+    console.log(`[InfraDevelopmentReview] shouldBeEditable(${sectionId}):`, {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      submissionStatus,
+      isCurrentlyEditable: isEditable(sectionId),
+    });
+
+    // For NODAL_OFFICER, check submission status
+    if (isNodalOfficer) {
+      // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
+      const statusAllowsEditing =
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE";
+      const result = statusAllowsEditing ? isEditable(sectionId) : false;
+      console.log(`[InfraDevelopmentReview] NODAL_OFFICER shouldBeEditable:`, {
+        sectionId,
+        submissionStatus,
+        statusAllowsEditing,
+        isCurrentlyEditable: isEditable(sectionId),
+        result,
+        reason: !statusAllowsEditing
+          ? `Status ${submissionStatus} does not allow editing`
+          : result
+          ? "Section is in edit mode"
+          : "Section is not in edit mode",
+      });
+      if (!statusAllowsEditing) {
+        return false;
+      }
+      // If status allows editing, check if section is in edit mode
+      return isEditable(sectionId);
+    }
 
     // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
-      const submissionStatus = submission?.status;
-      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
       if (
+        submissionStatus !== "DRAFT" &&
         submissionStatus !== "SUBMITTED_TO_STATE" &&
         submissionStatus !== "RETURNED_FROM_MOSPI"
       ) {
@@ -411,11 +447,38 @@ export const InfraDevelopmentReview = ({
   const canEditSection = (sectionId: string): boolean => {
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const submissionStatus = submission?.status;
+
+    console.log(`[InfraDevelopmentReview] canEditSection(${sectionId}):`, {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      submissionStatus,
+      submissionId: submission?.id,
+    });
+
+    // For NODAL_OFFICER, check submission status
+    if (isNodalOfficer) {
+      // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
+      const canEdit =
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE";
+      console.log(`[InfraDevelopmentReview] NODAL_OFFICER canEdit check:`, {
+        sectionId,
+        submissionStatus,
+        canEdit,
+        reason: canEdit
+          ? "Status allows editing"
+          : `Status ${submissionStatus} does not allow editing (needs DRAFT or RETURNED_FROM_STATE)`,
+      });
+      return canEdit;
+    }
 
     if (isStateApprover) {
-      const submissionStatus = submission?.status;
-      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       if (
+        submissionStatus !== "DRAFT" &&
         submissionStatus !== "SUBMITTED_TO_STATE" &&
         submissionStatus !== "RETURNED_FROM_MOSPI"
       ) {
@@ -446,13 +509,39 @@ export const InfraDevelopmentReview = ({
 
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
+    console.log(
+      `[InfraDevelopmentReview] handleEditStart called for section ${sectionId}`
+    );
+    const userRole = getUserRole();
+    const submissionStatus = submission?.status;
+
     // Check if section CAN be edited (permission check)
-    if (!canEditSection(sectionId)) {
-      console.log(
-        `[InfraDevelopmentReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED or invalid status`
+    const canEdit = canEditSection(sectionId);
+    console.log(
+      `[InfraDevelopmentReview] handleEditStart - canEditSection result:`,
+      {
+        sectionId,
+        userRole,
+        submissionStatus,
+        canEdit,
+      }
+    );
+
+    if (!canEdit) {
+      console.warn(
+        `[InfraDevelopmentReview] ❌ Cannot edit section ${sectionId} - Permission denied`,
+        {
+          userRole,
+          submissionStatus,
+          reason: "canEditSection returned false",
+        }
       );
       return;
     }
+
+    console.log(
+      `[InfraDevelopmentReview] ✅ Starting edit mode for section ${sectionId}`
+    );
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
@@ -1402,9 +1491,18 @@ export const InfraDevelopmentReview = ({
   // ...existing code...
 
   const onSaveSection = async (sectionId: string) => {
+    console.log(
+      `[InfraDevelopmentReview] onSaveSection called for section ${sectionId}`
+    );
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
+
+    console.log(`[InfraDevelopmentReview] onSaveSection - User info:`, {
+      userRole,
+      isNodalOfficer,
+      sectionId,
+    });
 
     // Check if this is a resubmission of a sent-back indicator
     const sectionKey = `section${sectionId.replace(".", "_")}`;
@@ -1417,25 +1515,53 @@ export const InfraDevelopmentReview = ({
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
+    console.log(`[InfraDevelopmentReview] onSaveSection - Status check:`, {
+      sectionKey,
+      sectionData,
+      currentStatus,
+      upperStatus,
+      isReverted,
+    });
+
     // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
     if (isNodalOfficer && isReverted) {
+      console.log(
+        `[InfraDevelopmentReview] ✅ Showing save confirmation dialog for REVERTED indicator`
+      );
       setPendingSaveSectionId(sectionId);
       setShowSaveDialog(true);
       return;
     }
 
+    console.log(
+      `[InfraDevelopmentReview] ✅ Proceeding with direct save (not REVERTED or not NODAL_OFFICER)`
+    );
     // For non-NODAL_OFFICER users or non-REVERTED status, proceed with submit directly
     await performSave(sectionId);
   };
 
   // Actual save function that performs the save operation
   const performSave = async (sectionId: string) => {
+    console.log(
+      `[InfraDevelopmentReview] performSave called for section ${sectionId}`
+    );
     try {
       // Map visual section id to payload section key (e.g. "2.1" -> "section2_1")
       const payloadSection = `section${sectionId.replace(".", "_")}`;
+      console.log(
+        `[InfraDevelopmentReview] performSave - Starting save process:`,
+        {
+          sectionId,
+          payloadSection,
+        }
+      );
 
       // Use the local formData state (formDataState) to build fields for this section
       let fields = buildSectionFields(sectionId);
+      console.log(
+        `[InfraDevelopmentReview] performSave - Fields built:`,
+        fields
+      );
 
       // Check if user is NODAL_OFFICER or STATE_APPROVER to preserve status
       const userRole = getUserRole();
@@ -1477,12 +1603,25 @@ export const InfraDevelopmentReview = ({
         };
       }
 
-      await handleSaveSection({
+      console.log(
+        `[InfraDevelopmentReview] performSave - Calling handleSaveSection API...`,
+        {
+          submissionId,
+          category: "infraDevelopment",
+          section: payloadSection,
+          fieldsCount: fields.length,
+        }
+      );
+      const saveResult = await handleSaveSection({
         submissionId,
         category: "infraDevelopment", // updated category for this file
         section: payloadSection,
         fields,
       });
+      console.log(
+        `[InfraDevelopmentReview] ✅ performSave - API call successful:`,
+        saveResult
+      );
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
@@ -1523,17 +1662,41 @@ export const InfraDevelopmentReview = ({
       setEditable(sectionId, false);
       // Clear the snapshot since save was successful
       setOriginalFormDataSnapshot(null);
+
+      console.log(
+        `[InfraDevelopmentReview] ✅ performSave - Save completed, editing disabled for section ${sectionId}`
+      );
     } catch (error) {
-      console.error("Error saving section:", error);
+      console.error(
+        `[InfraDevelopmentReview] ❌ performSave - Error saving section ${sectionId}:`,
+        error
+      );
+      throw error; // Re-throw so handleConfirmSave can catch it
     }
   };
 
   // Handle confirmation dialog actions
   const handleConfirmSave = async () => {
+    console.log(`[InfraDevelopmentReview] handleConfirmSave called:`, {
+      pendingSaveSectionId,
+    });
     if (pendingSaveSectionId) {
-      await performSave(pendingSaveSectionId);
-      setShowSaveDialog(false);
-      setPendingSaveSectionId(null);
+      console.log(
+        `[InfraDevelopmentReview] ✅ Confirmed - calling performSave for section ${pendingSaveSectionId}`
+      );
+      try {
+        await performSave(pendingSaveSectionId);
+        console.log(`[InfraDevelopmentReview] ✅ Save completed successfully`);
+        setShowSaveDialog(false);
+        setPendingSaveSectionId(null);
+      } catch (error) {
+        console.error(`[InfraDevelopmentReview] ❌ Save failed:`, error);
+        // Don't close dialog on error so user can try again
+      }
+    } else {
+      console.warn(
+        `[InfraDevelopmentReview] ⚠️ handleConfirmSave called but no pendingSaveSectionId`
+      );
     }
   };
 
@@ -2426,39 +2589,54 @@ export const InfraDevelopmentReview = ({
       );
       return (
         <div className="flex gap-2">
-          {!shouldBeEditable(sectionId) ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleEditStart(sectionId)}
-            >
-              <Edit3 className="w-4 h-4" />
-              Edit
-            </Button>
-          ) : (
-            <>
+          {(() => {
+            const editable = shouldBeEditable(sectionId);
+            console.log(
+              `[InfraDevelopmentReview] RESUBMITTED - Edit button render for section ${sectionId}:`,
+              {
+                shouldBeEditable: editable,
+                willShowEditButton: !editable,
+              }
+            );
+            return !editable ? (
               <Button
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => onSaveSection(sectionId)}
-                disabled={false} // Enable save for editing RESUBMITTED indicators
+                onClick={() => {
+                  console.log(
+                    `[InfraDevelopmentReview] RESUBMITTED - Edit button clicked for section ${sectionId}`
+                  );
+                  handleEditStart(sectionId);
+                }}
               >
-                <Check className="w-4 h-4" />
-                Save
+                <Edit3 className="w-4 h-4" />
+                Edit
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleCancel(sectionId)}
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                  disabled={false} // Enable save for editing RESUBMITTED indicators
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            );
+          })()}
           <Button
             variant="outline"
             size="sm"
@@ -2496,28 +2674,47 @@ export const InfraDevelopmentReview = ({
     if (sectionStatus === "REVERTED") {
       // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
       if (isNodalOfficer) {
+        console.log(
+          `[InfraDevelopmentReview] REVERTED - NODAL_OFFICER block for section ${sectionId}`
+        );
+        const editable = shouldBeEditable(sectionId);
+        const disabled = (() => {
+          // For STATE_APPROVER, disable edit button if mospi_status is ACCEPTED
+          if (isStateApprover) {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (formDataState && formDataState[sectionKey]) ||
+              (formData && formData[sectionKey]);
+            const mospiStatus = Array.isArray(sectionData)
+              ? (sectionData as any)?.mospi_status
+              : sectionData?.mospi_status;
+            return mospiStatus === "ACCEPTED";
+          }
+          return false;
+        })();
+        console.log(
+          `[InfraDevelopmentReview] REVERTED - Edit button render for section ${sectionId}:`,
+          {
+            shouldBeEditable: editable,
+            willShowEditButton: !editable,
+            disabled,
+            isNodalOfficer,
+          }
+        );
         return (
           <div className="flex gap-2">
-            {!shouldBeEditable(sectionId) ? (
+            {!editable ? (
               <Button
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => handleEditStart(sectionId)}
-                disabled={(() => {
-                  // For STATE_APPROVER, disable edit button if mospi_status is ACCEPTED
-                  if (isStateApprover) {
-                    const sectionKey = `section${sectionId.replace(".", "_")}`;
-                    const sectionData =
-                      (formDataState && formDataState[sectionKey]) ||
-                      (formData && formData[sectionKey]);
-                    const mospiStatus = Array.isArray(sectionData)
-                      ? (sectionData as any)?.mospi_status
-                      : sectionData?.mospi_status;
-                    return mospiStatus === "ACCEPTED";
-                  }
-                  return false;
-                })()}
+                onClick={() => {
+                  console.log(
+                    `[InfraDevelopmentReview] REVERTED - Edit button clicked for section ${sectionId}`
+                  );
+                  handleEditStart(sectionId);
+                }}
+                disabled={disabled}
               >
                 <Edit3 className="w-4 h-4" />
                 Edit
@@ -2884,7 +3081,10 @@ export const InfraDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.1") ? (
                               <Dropdown
-                                options={dropdownValues.sector}
+                                options={dropdownValues.sector.map((opt) => ({
+                                  label: opt,
+                                  value: opt,
+                                }))}
                                 value={item.sector || ""}
                                 onChange={(value) =>
                                   handleArrayFieldUpdate(
@@ -3116,7 +3316,10 @@ export const InfraDevelopmentReview = ({
                     <div>
                       <Label>Sector</Label>
                       <Dropdown
-                        options={dropdownValues.sector}
+                        options={dropdownValues.sector.map((opt) => ({
+                          label: opt,
+                          value: opt,
+                        }))}
                         value={newEntry2_1.sector}
                         onChange={(value) =>
                           setNewEntry2_1({ ...newEntry2_1, sector: value })
@@ -3256,7 +3459,10 @@ export const InfraDevelopmentReview = ({
                             <td className="py-3 px-4 text-sm font-normal">
                               {shouldBeEditable("2.2") ? (
                                 <Dropdown
-                                  options={dropdownValues.sector}
+                                  options={dropdownValues.sector.map((opt) => ({
+                                    label: opt,
+                                    value: opt,
+                                  }))}
                                   value={item.sector || ""}
                                   onChange={(value) =>
                                     handleArrayFieldUpdate(
@@ -3492,7 +3698,10 @@ export const InfraDevelopmentReview = ({
                     <div>
                       <Label>Sector</Label>
                       <Dropdown
-                        options={dropdownValues.sector}
+                        options={dropdownValues.sector.map((opt) => ({
+                          label: opt,
+                          value: opt,
+                        }))}
                         value={newEntry2_2.sector}
                         onChange={(value) =>
                           setNewEntry2_2({ ...newEntry2_2, sector: value })
@@ -3680,7 +3889,9 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.3") ? (
                                     <Dropdown
-                                      options={dropdownValues.sector}
+                                      options={dropdownValues.sector.map(
+                                        (opt) => ({ label: opt, value: opt })
+                                      )}
                                       value={item.sector || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
@@ -3913,7 +4124,10 @@ export const InfraDevelopmentReview = ({
                         <div>
                           <Label>Sector</Label>
                           <Dropdown
-                            options={dropdownValues.sector}
+                            options={dropdownValues.sector.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
                             value={newEntry2_3.sector}
                             onChange={(value) =>
                               setNewEntry2_3({ ...newEntry2_3, sector: value })
@@ -4180,7 +4394,9 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
                                     <Dropdown
-                                      options={dropdownValues.sector}
+                                      options={dropdownValues.sector.map(
+                                        (opt) => ({ label: opt, value: opt })
+                                      )}
                                       value={item.sector || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
@@ -4204,7 +4420,10 @@ export const InfraDevelopmentReview = ({
                                         "Tender Done",
                                         "Bidding",
                                         "Other",
-                                      ]}
+                                      ].map((opt) => ({
+                                        label: opt,
+                                        value: opt,
+                                      }))}
                                       value={item.status || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
@@ -4246,7 +4465,14 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
                                     <Dropdown
-                                      options={["Partner", "Investor", "Other"]}
+                                      options={[
+                                        "Partner",
+                                        "Investor",
+                                        "Other",
+                                      ].map((opt) => ({
+                                        label: opt,
+                                        value: opt,
+                                      }))}
                                       value={item.investmentType || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
@@ -4313,7 +4539,10 @@ export const InfraDevelopmentReview = ({
                             Sector <span className="text-destructive">*</span>
                           </Label>
                           <Dropdown
-                            options={dropdownValues.sector}
+                            options={dropdownValues.sector.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
                             value={newEntry2_4.sector}
                             onChange={(value) =>
                               setNewEntry2_4({
@@ -4330,7 +4559,9 @@ export const InfraDevelopmentReview = ({
                             Status <span className="text-destructive">*</span>
                           </Label>
                           <Dropdown
-                            options={["Tender Done", "Bidding", "Other"]}
+                            options={["Tender Done", "Bidding", "Other"].map(
+                              (opt) => ({ label: opt, value: opt })
+                            )}
                             value={newEntry2_4.status}
                             onChange={(value) =>
                               setNewEntry2_4({
@@ -4368,7 +4599,9 @@ export const InfraDevelopmentReview = ({
                             <span className="text-destructive">*</span>
                           </Label>
                           <Dropdown
-                            options={["Partner", "Investor", "Other"]}
+                            options={["Partner", "Investor", "Other"].map(
+                              (opt) => ({ label: opt, value: opt })
+                            )}
                             value={newEntry2_4.investmentType}
                             onChange={(value) =>
                               setNewEntry2_4({
@@ -4561,7 +4794,10 @@ export const InfraDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
                               <Dropdown
-                                options={dropdownValues.sector}
+                                options={dropdownValues.sector.map((opt) => ({
+                                  label: opt,
+                                  value: opt,
+                                }))}
                                 value={item.sector || ""}
                                 onChange={(value) =>
                                   handleArrayFieldUpdate(
@@ -4582,7 +4818,9 @@ export const InfraDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
                               <Dropdown
-                                options={dropdownValues.projectType}
+                                options={dropdownValues.projectType.map(
+                                  (opt) => ({ label: opt, value: opt })
+                                )}
                                 value={item.type || ""}
                                 onChange={(value) =>
                                   handleArrayFieldUpdate(
@@ -4603,7 +4841,9 @@ export const InfraDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
                               <Dropdown
-                                options={dropdownValues.ownership}
+                                options={dropdownValues.ownership.map(
+                                  (opt) => ({ label: opt, value: opt })
+                                )}
                                 value={item.ownership || ""}
                                 onChange={(value) =>
                                   handleArrayFieldUpdate(
@@ -4687,7 +4927,10 @@ export const InfraDevelopmentReview = ({
                   <div>
                     <Label>Sector</Label>
                     <Dropdown
-                      options={dropdownValues.sector}
+                      options={dropdownValues.sector.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
                       value={newEntry2_5.sector}
                       onChange={(value) =>
                         setNewEntry2_5({ ...newEntry2_5, sector: value })
@@ -4699,7 +4942,10 @@ export const InfraDevelopmentReview = ({
                   <div>
                     <Label>Type</Label>
                     <Dropdown
-                      options={dropdownValues.projectType}
+                      options={dropdownValues.projectType.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
                       value={newEntry2_5.type}
                       onChange={(value) =>
                         setNewEntry2_5({ ...newEntry2_5, type: value })
@@ -4711,7 +4957,10 @@ export const InfraDevelopmentReview = ({
                   <div>
                     <Label>Asset Ownership</Label>
                     <Dropdown
-                      options={dropdownValues.ownership}
+                      options={dropdownValues.ownership.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
                       value={newEntry2_5.ownership}
                       onChange={(value) =>
                         setNewEntry2_5({ ...newEntry2_5, ownership: value })
