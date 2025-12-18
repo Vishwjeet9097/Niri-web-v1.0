@@ -64,6 +64,10 @@ import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { Badge } from "@/components/ui/badge";
 import {
+  isSubmissionFromNodalOfficer,
+  isIndicatorFromNodalOfficer,
+} from "@/utils/indicatorStatusUtils";
+import {
   IMPACT_OPTIONS,
   TRAINING_TYPE_OPTIONS,
 } from "@/features/submission/constants/steps";
@@ -1042,6 +1046,7 @@ export const InfraEnablersReview = ({
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
@@ -1054,6 +1059,26 @@ export const InfraEnablersReview = ({
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
+    }
+
+    // If STATE_APPROVER is sending back (status = false), extract nodalOfficerId from section data
+    if (isStateApprover && !status) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (state && state[sectionKey]) || (formData && formData[sectionKey]);
+
+      const nodalOfficerId = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.nodalOfficerId
+          : sectionData?.nodalOfficerId
+        : undefined;
+
+      if (nodalOfficerId) {
+        payload.nodalOfficerId = nodalOfficerId;
+        console.log(
+          `📤 [InfraEnablersReview] Sending back indicator ${sectionId} to NODAL_OFFICER: ${nodalOfficerId}`
+        );
+      }
     }
 
     try {
@@ -2292,6 +2317,75 @@ export const InfraEnablersReview = ({
             </Button>
           </>
         )}
+
+        {/* Show "Send Back" button for STATE_APPROVER when indicator is returned from MOSPI and originally from NODAL_OFFICER */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (state && state[sectionKey]) ||
+              (formData && formData[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+
+            // Check if this specific indicator was originally submitted by NODAL_OFFICER
+            const isFromNodalOfficer = isIndicatorFromNodalOfficer(
+              submission as any,
+              sectionId
+            );
+
+            // Detailed logging for debugging
+            console.group(
+              `🔍 [InfraEnablersReview] "Send Back" button check for section ${sectionId}`
+            );
+            console.log("📊 Section data:", {
+              sectionKey,
+              sectionData: sectionData
+                ? Array.isArray(sectionData)
+                  ? sectionData[0]
+                  : sectionData
+                : null,
+              mospiStatus,
+              hasState: !!state,
+              hasFormData: !!formData,
+            });
+            console.log("👤 Submission info:", {
+              submissionId: submission?.id,
+              submissionStatus: submission?.status,
+              currentOwnerRole: submission?.currentOwnerRole,
+              submittedBy: submission?.submittedBy,
+            });
+            console.log("✅ Checks:", {
+              isStateApprover,
+              mospiStatus,
+              isMospiReverted: mospiStatus === "REVERTED",
+              isFromNodalOfficer,
+              shouldShowButton:
+                mospiStatus === "REVERTED" && isFromNodalOfficer,
+            });
+            console.groupEnd();
+
+            return mospiStatus === "REVERTED" && isFromNodalOfficer;
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => {
+                // Track that this was opened from STATE_APPROVER "Send Back" button
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+                handleOpenModal(sectionId);
+              }}
+              disabled={shouldBeEditable(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+          )}
 
         {/* Hide Send Back button if STATE_APPROVER is viewing their own submission */}
         {(() => {
