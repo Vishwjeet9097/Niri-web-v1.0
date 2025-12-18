@@ -54,7 +54,7 @@ import { validateInfraFinancing } from "@/features/submission/validation/infraFi
 interface InfraFinancingReviewProps {
   submissionId: string;
   formData?: any;
-  submission?: unknown; // Complete submission object
+  submission?: any; // Complete submission object (was unknown)
   isPreview?: boolean; // Whether this is a preview mode (fresh submission)
   assignedIndicators?: string[]; // Assigned indicators for nodal officers
   isNodalOfficer?: boolean; // Whether the user is a nodal officer

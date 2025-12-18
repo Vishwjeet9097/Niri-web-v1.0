@@ -162,8 +162,8 @@ export function StateApproverDashboardPage() {
           {
             title: "Accepted By State Approver",
             value:
-              totalAssigned && totalAssigned > 0
-                ? `${acceptedFromNodal}/${totalAssigned}`
+              totalIndicators && totalIndicators > 0
+                ? `${acceptedFromNodal}/${totalIndicators}`
                 : String(acceptedFromNodal ?? 0),
             subtitle: "This fiscal year",
             icon: CheckCircle,
@@ -412,7 +412,7 @@ export function StateApproverDashboardPage() {
             <h2 className="text-lg font-semibold text-[#111827]">
               Total Indicators Submitted:&nbsp;
               <span className="text-black">
-                {totalIndicatorsReceivedState}/{totalAssignedState || 0}
+                {totalIndicatorsReceivedState}/{totalIndicators || 0}
               </span>
             </h2>
 
