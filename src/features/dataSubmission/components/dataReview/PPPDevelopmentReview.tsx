@@ -208,13 +208,49 @@ export const PPPDevelopmentReview = ({
   const shouldBeEditable = (sectionId: string): boolean => {
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const submissionStatus = submission?.status;
+
+    console.log(`[PPPDevelopmentReview] shouldBeEditable(${sectionId}):`, {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      submissionStatus,
+      isCurrentlyEditable: isEditable(sectionId),
+    });
+
+    // For NODAL_OFFICER, check submission status
+    if (isNodalOfficer) {
+      // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
+      const statusAllowsEditing =
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE";
+      const result = statusAllowsEditing ? isEditable(sectionId) : false;
+      console.log(`[PPPDevelopmentReview] NODAL_OFFICER shouldBeEditable:`, {
+        sectionId,
+        submissionStatus,
+        statusAllowsEditing,
+        isCurrentlyEditable: isEditable(sectionId),
+        result,
+        reason: !statusAllowsEditing
+          ? `Status ${submissionStatus} does not allow editing`
+          : result
+          ? "Section is in edit mode"
+          : "Section is not in edit mode",
+      });
+      if (!statusAllowsEditing) {
+        return false;
+      }
+      // If status allows editing, check if section is in edit mode
+      return isEditable(sectionId);
+    }
 
     // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
-      const submissionStatus = submission?.status;
-      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
       if (
+        submissionStatus !== "DRAFT" &&
         submissionStatus !== "SUBMITTED_TO_STATE" &&
         submissionStatus !== "RETURNED_FROM_MOSPI"
       ) {
@@ -251,11 +287,38 @@ export const PPPDevelopmentReview = ({
   const canEditSection = (sectionId: string): boolean => {
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const submissionStatus = submission?.status;
+
+    console.log(`[PPPDevelopmentReview] canEditSection(${sectionId}):`, {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      submissionStatus,
+      submissionId: submission?.id,
+    });
+
+    // For NODAL_OFFICER, check submission status
+    if (isNodalOfficer) {
+      // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
+      const canEdit =
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE";
+      console.log(`[PPPDevelopmentReview] NODAL_OFFICER canEdit check:`, {
+        sectionId,
+        submissionStatus,
+        canEdit,
+        reason: canEdit
+          ? "Status allows editing"
+          : `Status ${submissionStatus} does not allow editing (needs DRAFT or RETURNED_FROM_STATE)`,
+      });
+      return canEdit;
+    }
 
     if (isStateApprover) {
-      const submissionStatus = submission?.status;
-      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       if (
+        submissionStatus !== "DRAFT" &&
         submissionStatus !== "SUBMITTED_TO_STATE" &&
         submissionStatus !== "RETURNED_FROM_MOSPI"
       ) {
@@ -285,13 +348,39 @@ export const PPPDevelopmentReview = ({
   };
 
   const handleEditStart = (sectionId: string) => {
+    console.log(
+      `[PPPDevelopmentReview] handleEditStart called for section ${sectionId}`
+    );
+    const userRole = getUserRole();
+    const submissionStatus = submission?.status;
+
     // Check if section CAN be edited (permission check)
-    if (!canEditSection(sectionId)) {
-      console.log(
-        `[PPPDevelopmentReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED or invalid status`
+    const canEdit = canEditSection(sectionId);
+    console.log(
+      `[PPPDevelopmentReview] handleEditStart - canEditSection result:`,
+      {
+        sectionId,
+        userRole,
+        submissionStatus,
+        canEdit,
+      }
+    );
+
+    if (!canEdit) {
+      console.warn(
+        `[PPPDevelopmentReview] ❌ Cannot edit section ${sectionId} - Permission denied`,
+        {
+          userRole,
+          submissionStatus,
+          reason: "canEditSection returned false",
+        }
       );
       return;
     }
+
+    console.log(
+      `[PPPDevelopmentReview] ✅ Starting edit mode for section ${sectionId}`
+    );
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
@@ -890,9 +979,18 @@ export const PPPDevelopmentReview = ({
   };
 
   const onSaveSection = async (sectionId: string) => {
+    console.log(
+      `[PPPDevelopmentReview] onSaveSection called for section ${sectionId}`
+    );
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
+
+    console.log(`[PPPDevelopmentReview] onSaveSection - User info:`, {
+      userRole,
+      isNodalOfficer,
+      sectionId,
+    });
 
     // Check if this is a resubmission of a sent-back indicator
     const sectionKey = `section${sectionId.replace(".", "_")}`;
@@ -905,22 +1003,46 @@ export const PPPDevelopmentReview = ({
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
+    console.log(`[PPPDevelopmentReview] onSaveSection - Status check:`, {
+      sectionKey,
+      sectionData,
+      currentStatus,
+      upperStatus,
+      isReverted,
+    });
+
     // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
     if (isNodalOfficer && isReverted) {
+      console.log(
+        `[PPPDevelopmentReview] ✅ Showing save confirmation dialog for REVERTED indicator`
+      );
       setPendingSaveSectionId(sectionId);
       setShowSaveDialog(true);
       return;
     }
 
+    console.log(
+      `[PPPDevelopmentReview] ✅ Proceeding with direct save (not REVERTED or not NODAL_OFFICER)`
+    );
     // For non-NODAL_OFFICER users or non-REVERTED status, proceed with submit directly
     await performSave(sectionId);
   };
 
   // Actual save function that performs the save operation
   const performSave = async (sectionId: string) => {
+    console.log(
+      `[PPPDevelopmentReview] performSave called for section ${sectionId}`
+    );
     try {
       // Map visual section id to payload section key (e.g. "3.1" -> "section3_1")
       const payloadSection = `section${sectionId.replace(".", "_")}`;
+      console.log(
+        `[PPPDevelopmentReview] performSave - Starting save process:`,
+        {
+          sectionId,
+          payloadSection,
+        }
+      );
 
       // Use the local formData state to build fields for this section
       let fields: Record<string, any>[] = [];
@@ -1034,12 +1156,26 @@ export const PPPDevelopmentReview = ({
         };
       }
 
-      await handleSaveSection({
+      console.log(
+        `[PPPDevelopmentReview] performSave - Calling handleSaveSection API...`,
+        {
+          submissionId,
+          category: "pppDevelopment",
+          section: payloadSection,
+          fieldsCount: fields.length,
+          fieldsWithStatus: fields[0]?.status,
+        }
+      );
+      const saveResult = await handleSaveSection({
         submissionId,
         category: "pppDevelopment",
         section: payloadSection,
         fields,
       });
+      console.log(
+        `[PPPDevelopmentReview] ✅ performSave - API call successful:`,
+        saveResult
+      );
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
@@ -1080,17 +1216,41 @@ export const PPPDevelopmentReview = ({
       setEditable(sectionId, false);
       // Clear the snapshot since save was successful
       setOriginalFormDataSnapshot(null);
+
+      console.log(
+        `[PPPDevelopmentReview] ✅ performSave - Save completed, editing disabled for section ${sectionId}`
+      );
     } catch (error) {
-      console.error("Error saving section:", error);
+      console.error(
+        `[PPPDevelopmentReview] ❌ performSave - Error saving section ${sectionId}:`,
+        error
+      );
+      throw error; // Re-throw so handleConfirmSave can catch it
     }
   };
 
   // Handle confirmation dialog actions
   const handleConfirmSave = async () => {
+    console.log(`[PPPDevelopmentReview] handleConfirmSave called:`, {
+      pendingSaveSectionId,
+    });
     if (pendingSaveSectionId) {
-      await performSave(pendingSaveSectionId);
-      setShowSaveDialog(false);
-      setPendingSaveSectionId(null);
+      console.log(
+        `[PPPDevelopmentReview] ✅ Confirmed - calling performSave for section ${pendingSaveSectionId}`
+      );
+      try {
+        await performSave(pendingSaveSectionId);
+        console.log(`[PPPDevelopmentReview] ✅ Save completed successfully`);
+        setShowSaveDialog(false);
+        setPendingSaveSectionId(null);
+      } catch (error) {
+        console.error(`[PPPDevelopmentReview] ❌ Save failed:`, error);
+        // Don't close dialog on error so user can try again
+      }
+    } else {
+      console.warn(
+        `[PPPDevelopmentReview] ⚠️ handleConfirmSave called but no pendingSaveSectionId`
+      );
     }
   };
 

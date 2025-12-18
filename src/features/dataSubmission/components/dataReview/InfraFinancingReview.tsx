@@ -561,13 +561,49 @@ export const InfraFinancingReview = ({
   const shouldBeEditable = (sectionId: string): boolean => {
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const submissionStatus = submission?.status;
+
+    console.log(`[InfraFinancingReview] shouldBeEditable(${sectionId}):`, {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      submissionStatus,
+      isCurrentlyEditable: isEditable(sectionId),
+    });
+
+    // For NODAL_OFFICER, check submission status
+    if (isNodalOfficer) {
+      // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
+      const statusAllowsEditing =
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE";
+      const result = statusAllowsEditing ? isEditable(sectionId) : false;
+      console.log(`[InfraFinancingReview] NODAL_OFFICER shouldBeEditable:`, {
+        sectionId,
+        submissionStatus,
+        statusAllowsEditing,
+        isCurrentlyEditable: isEditable(sectionId),
+        result,
+        reason: !statusAllowsEditing
+          ? `Status ${submissionStatus} does not allow editing`
+          : result
+          ? "Section is in edit mode"
+          : "Section is not in edit mode",
+      });
+      if (!statusAllowsEditing) {
+        return false;
+      }
+      // If status allows editing, check if section is in edit mode
+      return isEditable(sectionId);
+    }
 
     // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
-      const submissionStatus = submission?.status;
-      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
       if (
+        submissionStatus !== "DRAFT" &&
         submissionStatus !== "SUBMITTED_TO_STATE" &&
         submissionStatus !== "RETURNED_FROM_MOSPI"
       ) {
@@ -603,11 +639,38 @@ export const InfraFinancingReview = ({
   const canEditSection = (sectionId: string): boolean => {
     const userRole = getUserRole();
     const isStateApprover = userRole === "STATE_APPROVER";
+    const isNodalOfficer = userRole === "NODAL_OFFICER";
+    const submissionStatus = submission?.status;
+
+    console.log(`[InfraFinancingReview] canEditSection(${sectionId}):`, {
+      userRole,
+      isNodalOfficer,
+      isStateApprover,
+      submissionStatus,
+      submissionId: submission?.id,
+    });
+
+    // For NODAL_OFFICER, check submission status
+    if (isNodalOfficer) {
+      // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
+      const canEdit =
+        submissionStatus === "DRAFT" ||
+        submissionStatus === "RETURNED_FROM_STATE";
+      console.log(`[InfraFinancingReview] NODAL_OFFICER canEdit check:`, {
+        sectionId,
+        submissionStatus,
+        canEdit,
+        reason: canEdit
+          ? "Status allows editing"
+          : `Status ${submissionStatus} does not allow editing (needs DRAFT or RETURNED_FROM_STATE)`,
+      });
+      return canEdit;
+    }
 
     if (isStateApprover) {
-      const submissionStatus = submission?.status;
-      // STATE_APPROVER can only edit when status is SUBMITTED_TO_STATE or RETURNED_FROM_MOSPI
+      // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       if (
+        submissionStatus !== "DRAFT" &&
         submissionStatus !== "SUBMITTED_TO_STATE" &&
         submissionStatus !== "RETURNED_FROM_MOSPI"
       ) {
@@ -638,13 +701,39 @@ export const InfraFinancingReview = ({
 
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
+    console.log(
+      `[InfraFinancingReview] handleEditStart called for section ${sectionId}`
+    );
+    const userRole = getUserRole();
+    const submissionStatus = submission?.status;
+
     // Check if section CAN be edited (permission check)
-    if (!canEditSection(sectionId)) {
-      console.log(
-        `[InfraFinancingReview] Cannot edit section ${sectionId} - mospi_status is ACCEPTED or invalid status`
+    const canEdit = canEditSection(sectionId);
+    console.log(
+      `[InfraFinancingReview] handleEditStart - canEditSection result:`,
+      {
+        sectionId,
+        userRole,
+        submissionStatus,
+        canEdit,
+      }
+    );
+
+    if (!canEdit) {
+      console.warn(
+        `[InfraFinancingReview] ❌ Cannot edit section ${sectionId} - Permission denied`,
+        {
+          userRole,
+          submissionStatus,
+          reason: "canEditSection returned false",
+        }
       );
       return;
     }
+
+    console.log(
+      `[InfraFinancingReview] ✅ Starting edit mode for section ${sectionId}`
+    );
     // Store a deep copy of all relevant state
     setOriginalStateSnapshot({
       submissionData: JSON.parse(JSON.stringify(submissionData)),
@@ -942,9 +1031,18 @@ export const InfraFinancingReview = ({
   // Handles for review edit, accept, send back
   // Add this handler after other handlers
   const onSaveSection = async (sectionId: string) => {
+    console.log(
+      `[InfraFinancingReview] onSaveSection called for section ${sectionId}`
+    );
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
+
+    console.log(`[InfraFinancingReview] onSaveSection - User info:`, {
+      userRole,
+      isNodalOfficer,
+      sectionId,
+    });
 
     // Check if this is a resubmission of a sent-back indicator
     const sectionKey = `section${sectionId.replace(".", "_")}`;
@@ -957,22 +1055,59 @@ export const InfraFinancingReview = ({
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
+    console.log(`[InfraFinancingReview] onSaveSection - Status check:`, {
+      sectionKey,
+      sectionData,
+      currentStatus,
+      upperStatus,
+      isReverted,
+      fullSectionData: JSON.stringify(sectionData, null, 2),
+      formDataKeys: formData ? Object.keys(formData) : [],
+      submissionStatus: submission?.status, // Also log submission-level status for comparison
+      sectionStatusType: sectionData
+        ? Array.isArray(sectionData)
+          ? "array"
+          : typeof sectionData
+        : "undefined",
+      sectionStatusValue: sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)[0]?.status
+          : sectionData.status
+        : undefined,
+    });
+
     // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
     if (isNodalOfficer && isReverted) {
+      console.log(
+        `[InfraFinancingReview] ✅ Showing save confirmation dialog for REVERTED indicator`
+      );
       setPendingSaveSectionId(sectionId);
       setShowSaveDialog(true);
       return;
     }
 
+    console.log(
+      `[InfraFinancingReview] ✅ Proceeding with direct save (not REVERTED or not NODAL_OFFICER)`
+    );
     // For non-NODAL_OFFICER users or non-REVERTED status, proceed with submit directly
     await performSave(sectionId);
   };
 
   // Actual save function that performs the save operation
   const performSave = async (sectionId: string) => {
+    console.log(
+      `[InfraFinancingReview] performSave called for section ${sectionId}`
+    );
     try {
       // Map visual section id to payload section key
       const payloadSection = `section${sectionId.replace(".", "_")}`;
+      console.log(
+        `[InfraFinancingReview] performSave - Starting save process:`,
+        {
+          sectionId,
+          payloadSection,
+        }
+      );
 
       // Prepare fields based on section
       let fields: Record<string, any>[] = [];
@@ -1117,9 +1252,9 @@ export const InfraFinancingReview = ({
         };
       }
 
-
       // --- VALIDATION ---
-      // Prepare the full data object for validation
+      // For individual section saves, only validate the section being saved
+      // Don't block saves due to other incomplete sections
       const fullData = {
         ...formData,
         section1_3: section13State,
@@ -1129,13 +1264,32 @@ export const InfraFinancingReview = ({
       const validationResult = validateInfraFinancing(fullData, {
         allowedIndicators: assignedIndicators,
       });
-      if (!validationResult.isValid) {
-        setValidationErrors(validationResult.errors);
-        // Optionally, scroll to first error or show a toast
-        console.warn("Validation failed", validationResult.errors);
+
+      // Filter validation errors to only include the section being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // Only block save if there are errors in the section being saved
+      if (Object.keys(sectionErrors).length > 0) {
+        setValidationErrors(sectionErrors);
+        console.warn("Validation failed for section", sectionId, sectionErrors);
         return;
       } else {
-        setValidationErrors({});
+        // Clear errors for this section only
+        setValidationErrors((prev) => {
+          const filtered = { ...prev };
+          Object.keys(filtered).forEach((key) => {
+            if (key.startsWith(sectionPrefix)) {
+              delete filtered[key];
+            }
+          });
+          return filtered;
+        });
       }
 
       // Ensure we're only sending data for the specific section being saved
@@ -1153,7 +1307,14 @@ export const InfraFinancingReview = ({
       );
       console.log("🔄 Ensuring only section", payloadSection, "is being saved");
 
-      await handleSaveSection(savePayload);
+      console.log(
+        `[InfraFinancingReview] performSave - Calling handleSaveSection API...`
+      );
+      const saveResult = await handleSaveSection(savePayload);
+      console.log(
+        `[InfraFinancingReview] ✅ performSave - API call successful:`,
+        saveResult
+      );
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
@@ -1203,22 +1364,45 @@ export const InfraFinancingReview = ({
       // Clear the snapshot since save was successful
       setOriginalStateSnapshot(null);
 
+      console.log(
+        `[InfraFinancingReview] ✅ performSave - Save completed, editing disabled for section ${sectionId}`
+      );
       // Optional: Show success message
       // toast.success(`Section ${sectionId} saved successfully`);
     } catch (error) {
-      console.error("Error saving section:", error);
+      console.error(
+        `[InfraFinancingReview] ❌ performSave - Error saving section ${sectionId}:`,
+        error
+      );
       // Keep section editable if save fails
       // Optional: Show error message
       // toast.error(`Failed to save section ${sectionId}`);
+      throw error; // Re-throw so handleConfirmSave can catch it
     }
   };
 
   // Handle confirmation dialog actions
   const handleConfirmSave = async () => {
+    console.log(`[InfraFinancingReview] handleConfirmSave called:`, {
+      pendingSaveSectionId,
+    });
     if (pendingSaveSectionId) {
-      await performSave(pendingSaveSectionId);
-      setShowSaveDialog(false);
-      setPendingSaveSectionId(null);
+      console.log(
+        `[InfraFinancingReview] ✅ Confirmed - calling performSave for section ${pendingSaveSectionId}`
+      );
+      try {
+        await performSave(pendingSaveSectionId);
+        console.log(`[InfraFinancingReview] ✅ Save completed successfully`);
+        setShowSaveDialog(false);
+        setPendingSaveSectionId(null);
+      } catch (error) {
+        console.error(`[InfraFinancingReview] ❌ Save failed:`, error);
+        // Don't close dialog on error so user can try again
+      }
+    } else {
+      console.warn(
+        `[InfraFinancingReview] ⚠️ handleConfirmSave called but no pendingSaveSectionId`
+      );
     }
   };
 
@@ -1789,39 +1973,54 @@ export const InfraFinancingReview = ({
       );
       return (
         <div className="flex gap-2">
-          {!shouldBeEditable(sectionId) ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => handleEditStart(sectionId)}
-            >
-              <Edit3 className="w-4 h-4" />
-              Edit
-            </Button>
-          ) : (
-            <>
+          {(() => {
+            const editable = shouldBeEditable(sectionId);
+            console.log(
+              `[InfraFinancingReview] Edit button render for section ${sectionId}:`,
+              {
+                shouldBeEditable: editable,
+                willShowEditButton: !editable,
+              }
+            );
+            return !editable ? (
               <Button
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => onSaveSection(sectionId)}
-                disabled={false} // Enable save for editing RESUBMITTED indicators
+                onClick={() => {
+                  console.log(
+                    `[InfraFinancingReview] Edit button clicked for section ${sectionId}`
+                  );
+                  handleEditStart(sectionId);
+                }}
               >
-                <Check className="w-4 h-4" />
-                Save
+                <Edit3 className="w-4 h-4" />
+                Edit
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => handleCancel(sectionId)}
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => onSaveSection(sectionId)}
+                  disabled={false} // Enable save for editing RESUBMITTED indicators
+                >
+                  <Check className="w-4 h-4" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleCancel(sectionId)}
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </Button>
+              </>
+            );
+          })()}
           <Button
             variant="outline"
             size="sm"
@@ -2787,7 +2986,9 @@ export const InfraFinancingReview = ({
                               <td className="py-3 px-4 text-sm font-normal">
                                 {shouldBeEditable("1.5") ? (
                                   <Dropdown
-                                    options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
+                                    options={dropdownValues.issuingAuthorityList.map(
+                                      (opt) => ({ label: opt, value: opt })
+                                    )}
                                     value={item.organisationType || ""}
                                     onChange={(value) => {
                                       const updatedArray = [...ffiArray];
@@ -2919,7 +3120,9 @@ export const InfraFinancingReview = ({
                         <div>
                           <Label>Organisation Type</Label>
                           <Dropdown
-                            options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
+                            options={dropdownValues.issuingAuthorityList.map(
+                              (opt) => ({ label: opt, value: opt })
+                            )}
                             value={newEntry1_5.organisationType}
                             onChange={(value) =>
                               setNewEntry1_5({
