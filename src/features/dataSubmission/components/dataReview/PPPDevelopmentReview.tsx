@@ -1773,6 +1773,9 @@ export const PPPDevelopmentReview = ({
           </div>
         );
       }
+
+      // If mospi_status is REVERTED, continue to show Edit button and other actions
+      // We'll add the "Returned from Mospi" button in the normal flow below
     }
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
@@ -2048,6 +2051,31 @@ export const PPPDevelopmentReview = ({
 
     return (
       <div className="flex gap-2">
+        {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (formDataState && (formDataState as any)[sectionKey]) ||
+              (formData && (formData as any)[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+            return mospiStatus === "REVERTED";
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from Mospi
+            </Button>
+          )}
+
         {!isEditable(sectionId) ? (
           <Button
             variant="outline"
