@@ -915,22 +915,41 @@ export const InfraFinancingReview = ({
     };
   }, [submissionId]);
 
-  // Initialize values from formData when availableimage.png
+  // Initialize values from formData when available
   useEffect(() => {
-    // Debug logging removed for performance
+    if (!isRestoringRef.current) {
+      // Handle different formData structures
+      const section1_1 = formData?.section1_1 || 
+                        (formData as any)?.infraFinancing?.section1_1 ||
+                        (formData as any)?.section1_1;
+      
+      if (section1_1) {
+        // Extract capitalAllocation - handle both string and number, with or without formatting
+        if (section1_1.capitalAllocation !== undefined && section1_1.capitalAllocation !== null) {
+          const value = typeof section1_1.capitalAllocation === "string"
+            ? section1_1.capitalAllocation.replace(/[₹,Crores\s]/g, "").trim()
+            : String(section1_1.capitalAllocation);
+          setCapitalAllocation(value || "");
+        } else {
+          setCapitalAllocation("");
+        }
 
-    if (formData && typeof formData === "object" && "section1_1" in formData) {
-      const data = formData as {
-        section1_1?: { capitalAllocation?: string; gsdpForFY?: string };
-      };
-      // Debug logging removed for performance
-
-      setCapitalAllocation(data.section1_1?.capitalAllocation || "");
-      setGsdpForFY(data.section1_1?.gsdpForFY || "");
-    } else {
-      // Debug logging removed for performance
+        // Extract gsdpForFY - handle both string and number, with or without formatting
+        if (section1_1.gsdpForFY !== undefined && section1_1.gsdpForFY !== null) {
+          const value = typeof section1_1.gsdpForFY === "string"
+            ? section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim()
+            : String(section1_1.gsdpForFY);
+          setGsdpForFY(value || "");
+        } else {
+          setGsdpForFY("");
+        }
+      } else {
+        // If no section1_1 data, clear the state
+        setCapitalAllocation("");
+        setGsdpForFY("");
+      }
     }
-  }, [formData]);
+  }, [formData?.section1_1, formData]);
 
   //🧑‍💻Initialize Section
   useEffect(() => {
@@ -2499,7 +2518,21 @@ export const InfraFinancingReview = ({
                   inputMode="decimal"
                   step="0.01"
                   min="0"
-                  value={capitalAllocation}
+                  value={
+                    shouldBeEditable("1.1")
+                      ? capitalAllocation
+                      : (() => {
+                          // When not editable, read directly from formData
+                          const section1_1 = formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
+                          if (section1_1?.capitalAllocation !== undefined && section1_1?.capitalAllocation !== null) {
+                            const val = typeof section1_1.capitalAllocation === "string"
+                              ? section1_1.capitalAllocation.replace(/[₹,Crores\s]/g, "").trim()
+                              : String(section1_1.capitalAllocation);
+                            return val;
+                          }
+                          return capitalAllocation; // Fallback to state
+                        })()
+                  }
                   onChange={(e) => {
                     const value = e.target.value;
                     // Only allow numbers and decimal point
@@ -2539,7 +2572,21 @@ export const InfraFinancingReview = ({
                   inputMode="decimal"
                   step="0.01"
                   min="0"
-                  value={gsdpForFY}
+                  value={
+                    shouldBeEditable("1.1")
+                      ? gsdpForFY
+                      : (() => {
+                          // When not editable, read directly from formData
+                          const section1_1 = formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
+                          if (section1_1?.gsdpForFY !== undefined && section1_1?.gsdpForFY !== null) {
+                            const val = typeof section1_1.gsdpForFY === "string"
+                              ? section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim()
+                              : String(section1_1.gsdpForFY);
+                            return val;
+                          }
+                          return gsdpForFY; // Fallback to state
+                        })()
+                  }
                   onChange={(e) => {
                     const value = e.target.value;
                     // Only allow numbers and decimal point
@@ -2651,9 +2698,17 @@ export const InfraFinancingReview = ({
                   value={
                     shouldBeEditable("1.2")
                       ? actualCapex
-                      : actualCapex
-                      ? `₹${actualCapex} Crores`
-                      : ""
+                      : (() => {
+                          // When not editable, read directly from formData
+                          const section1_2 = formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
+                          if (section1_2?.actualCapex !== undefined && section1_2?.actualCapex !== null) {
+                            const val = typeof section1_2.actualCapex === "string"
+                              ? section1_2.actualCapex.replace(/[₹,Crores\s]/g, "").trim()
+                              : String(section1_2.actualCapex);
+                            return val;
+                          }
+                          return actualCapex; // Fallback to state
+                        })()
                   }
                   onChange={(e) => {
                     const value = e.target.value;
@@ -2699,9 +2754,17 @@ export const InfraFinancingReview = ({
                   value={
                     shouldBeEditable("1.2")
                       ? stateCapexUtilisation
-                      : stateCapexUtilisation
-                      ? `₹${stateCapexUtilisation} Crores`
-                      : ""
+                      : (() => {
+                          // When not editable, read directly from formData
+                          const section1_2 = formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
+                          if (section1_2?.stateCapexUtilisation !== undefined && section1_2?.stateCapexUtilisation !== null) {
+                            const val = typeof section1_2.stateCapexUtilisation === "string"
+                              ? section1_2.stateCapexUtilisation.replace(/[₹,Crores\s]/g, "").trim()
+                              : String(section1_2.stateCapexUtilisation);
+                            return val;
+                          }
+                          return stateCapexUtilisation; // Fallback to state
+                        })()
                   }
                   onChange={(e) => {
                     const value = e.target.value;
