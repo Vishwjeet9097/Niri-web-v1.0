@@ -2774,7 +2774,8 @@ export const PPPDevelopmentReview = ({
                   )}
                 </div>
                 <div>
-                  <Label>Total Project Cost Awarded</Label>
+                  <Label>Total Project Cost Awarded (INR - values is in CRORES) </Label>
+                  {/* <p className="text-xs text-muted-foreground mt-1">INR - values is in CRORES</p> */}
                   {isEditable("3.4") ? (
                     <Input
                       value={state?.section3_4?.totalProjectCostAwarded || ""}

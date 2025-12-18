@@ -2317,9 +2317,9 @@ export const InfraEnablersReview = ({
                   <span className="text-base font-semibold ">
                     <span className="text-primary">4.2 -</span> Availability &
                     Use of State/UT PMG{" "}
-                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                    {/* <span className="font-normal text-xs text-muted-foreground ml-1">
                       (5 marks per 1%)
-                    </span>{" "}
+                    </span>{" "} */}
                   </span>
                   {renderActionButtons("4.2")}
                 </div>
@@ -2417,9 +2417,9 @@ export const InfraEnablersReview = ({
                   <span className="text-base font-semibold ">
                     <span className="text-primary">4.3 -</span> Adoption of PM
                     GatiShakti{" "}
-                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                    {/* <span className="font-normal text-xs text-muted-foreground ml-1">
                       (10 marks per 1%)
-                    </span>{" "}
+                    </span>{" "} */}
                   </span>
                   {renderActionButtons("4.3")}
                 </div>
@@ -2822,9 +2822,9 @@ export const InfraEnablersReview = ({
                 <div className="flex items-center justify-between">
                   <span className="text-base font-semibold ">
                     <span className="text-primary">4.4 -</span> Adoption of ADR{" "}
-                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                    {/* <span className="font-normal text-xs text-muted-foreground ml-1">
                       (5 marks per 1%)
-                    </span>{" "}
+                    </span>{" "} */}
                   </span>
                   {renderActionButtons("4.4")}
                 </div>
@@ -2926,9 +2926,9 @@ export const InfraEnablersReview = ({
                   <span className="text-base font-semibold ">
                     <span className="text-primary">4.5 -</span>Innovative
                     Practices{" "}
-                    <span className="font-normal text-xs text-muted-foreground ml-1">
+                    {/* <span className="font-normal text-xs text-muted-foreground ml-1">
                       (10 marks per practice)
-                    </span>{" "}
+                    </span>{" "} */}
                   </span>
                   {renderActionButtons("4.5")}
                 </div>

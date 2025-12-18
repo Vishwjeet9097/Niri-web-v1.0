@@ -357,21 +357,21 @@ export function NodalDashboardPage() {
       </TooltipProvider>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-2">
         <div className="lg:col-span-2 space-y-6">
           <div className="space-y-4">
             <div className="bg-white shadow-xl rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold">Latest Submissions</h2>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-4">
                     Your latest NIRI data submissions and their status
                   </p>
                 </div>
                 {/* <Button onClick={() => navigate('/submissions')}>+ New Submission</Button> */}
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="flex justify-start items-center gap-6 px-1">
+                {/* <TabsList className="flex justify-start items-center gap-6 px-1">
                   <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
                   <TabsTrigger value="SUBMITTED_TO_STATE">
@@ -379,9 +379,9 @@ export function NodalDashboardPage() {
                   </TabsTrigger>
                   <TabsTrigger value="APPROVED">Approved</TabsTrigger>
                   <TabsTrigger value="DRAFT">Draft</TabsTrigger>
-                </TabsList>
+                </TabsList> */}
                 <TabsContent value={activeTab} className="mt-4">
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {filteredSubmissions.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         No submissions found for this status.
@@ -424,11 +424,11 @@ export function NodalDashboardPage() {
           </div>
         </div>
 
-        <div className="space-y-6 lg:w-[300px] ">
-          <UpcomingDeadlines deadlines={deadlines} />
+        {/* <div className="space-y-6 lg:w-[300px] "> */}
+          {/* <UpcomingDeadlines deadlines={deadlines} /> */}
 
           {/* Quick Actions */}
-          <QuickActions
+          {/* <QuickActions
             actions={[
               {
                 id: "1",
@@ -459,9 +459,9 @@ export function NodalDashboardPage() {
                 onClick: () => console.log("Help center"),
               },
             ]}
-          />
+          /> */}
 
-          <QuickTips
+          {/* <QuickTips
             tips={[
               {
                 id: "1",
@@ -479,8 +479,8 @@ export function NodalDashboardPage() {
                 description: "Add relevant files to strengthen your submission",
               },
             ]}
-          />
-        </div>
+          /> */}
+        {/* </div> */}
       </div>
     </div>
   );
