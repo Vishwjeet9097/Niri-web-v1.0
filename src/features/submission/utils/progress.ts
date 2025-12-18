@@ -6,6 +6,7 @@
   considered filled. This keeps UI progress responsive without coupling to
   strict validation.
 */
+import { apiService } from "@/services/api.service";
 
 export type StepKey =
   | "infraFinancing"
@@ -447,9 +448,9 @@ export function computeAllStepsSummary(
  * @param allFormData - The form data object
  * @returns Object with total sections, accepted sections, and progress percentage
  */
-export function calculateProgressByAcceptedStatus(
+export async function calculateProgressByAcceptedStatus(
   allFormData: Record<string, unknown>
-): { total: number; accepted: number; progress: number } {
+): Promise<{ total: number; accepted: number; progress: number }> {
   const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
   let totalSections = 0;
   let acceptedSections = 0;
@@ -485,20 +486,88 @@ export function calculateProgressByAcceptedStatus(
         mospiStatus = (sectionData as any)?.mospi_status;
       }
 
-      // Check if section is ACCEPTED (either status or mospi_status)
+      // Normalize status values
       const normalizedStatus = status ? String(status).trim().toUpperCase() : "";
       const normalizedMospiStatus = mospiStatus ? String(mospiStatus).trim().toUpperCase() : "";
 
-      if (normalizedStatus === "ACCEPTED" || normalizedMospiStatus === "ACCEPTED") {
+      // Logic: If mospi_status exists, it must be ACCEPTED to count
+      // If mospi_status doesn't exist, then status must be ACCEPTED to count
+      let isAccepted = false;
+      
+      if (normalizedMospiStatus) {
+        // mospi_status exists - only count if it's ACCEPTED
+        isAccepted = normalizedMospiStatus === "ACCEPTED";
+      } else {
+        // mospi_status doesn't exist - count if status is ACCEPTED
+        isAccepted = normalizedStatus === "ACCEPTED";
+      }
+
+      if (isAccepted) {
         acceptedSections++;
       }
     }
   }
 
-  const progress = totalSections > 0 ? Math.round((acceptedSections / totalSections) * 100) : 0;
+  // Get user ID from allFormData.submittedBy and fetch total assigned indicators from API
+  let totalAssignedIndicators: number | undefined;
+  try {
+    const submittedBy = allFormData.submittedBy;
+    let userId: string | undefined;
+    
+    // Handle different submittedBy structures
+    if (typeof submittedBy === "string") {
+      // If submittedBy is a string, it's likely the user ID
+      userId = submittedBy;
+    } else if (submittedBy && typeof submittedBy === "object") {
+      // If submittedBy is an object, extract the ID
+      userId = (submittedBy as any)?.id || (submittedBy as any)?.userId || (submittedBy as any)?.user?.id;
+    }
+    
+    if (userId) {
+      // Fetch total assigned indicators count from API
+      try {
+        const response = await apiService.get(`/user-indicators/user/${userId}`);
+        const responseData = response?.data?.data || response?.data || response;
+        
+        // Handle different response structures
+        if (Array.isArray(responseData)) {
+          totalAssignedIndicators = responseData.length;
+        } else if (responseData?.indicators && Array.isArray(responseData.indicators)) {
+          totalAssignedIndicators = responseData.indicators.length;
+        } else if (typeof responseData?.count === "number") {
+          totalAssignedIndicators = responseData.count;
+        } else if (typeof responseData?.total === "number") {
+          totalAssignedIndicators = responseData.total;
+        } else if (responseData && typeof responseData === "object") {
+          const keys = Object.keys(responseData);
+          if (keys.length > 0) {
+            const firstKey = keys[0];
+            if (Array.isArray(responseData[firstKey])) {
+              totalAssignedIndicators = responseData[firstKey].length;
+            }
+          }
+        }
+        
+        console.log("📊 [Progress] Total assigned indicators from API:", totalAssignedIndicators);
+      } catch (apiError) {
+        console.warn("⚠️ Failed to fetch assigned indicators count from API:", apiError);
+        // Fallback: use totalSections from formData
+      }
+    } else {
+      console.warn("⚠️ No user ID found in allFormData.submittedBy");
+      // Fallback: use totalSections from formData
+    }
+  } catch (error) {
+    console.warn("⚠️ Failed to get user ID from allFormData.submittedBy:", error);
+    // Fallback: use totalSections from formData
+  }
+
+  // Use totalAssignedIndicators from API if available, otherwise use totalSections from formData
+  const total = totalAssignedIndicators ?? totalSections;
+  const progress = total > 0 ? Math.round((acceptedSections / total) * 100) : 0;
 
   return {
-    total: totalSections,
+    total: total,
     accepted: acceptedSections,
     progress,
   };

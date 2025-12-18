@@ -17,7 +17,7 @@ import { notificationService } from "@/services/notification.service";
 import { isWaitingForCurrentUser, getWaitingMessage } from "@/utils/auditUtils";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { MospiApproverOverviewCards } from "./components/approver/MospiApproverOverviewCards";
-import { computeAllStepsSummary } from "@/features/submission/utils/progress";
+import { computeAllStepsSummary, calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 
 export const MospiApproverDashboardPage = () => {
   const navigate = useNavigate();
@@ -63,7 +63,24 @@ export const MospiApproverDashboardPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
 
-        setSubmissions(submissionsArray);
+        // Process submissions to calculate progress based on ACCEPTED status
+        const processedSubmissions = await Promise.all(
+          submissionsArray.map(async (sub: any) => {
+            const fd = sub.formData || {};
+            // Add submittedBy (user ID) to formData for progress calculation
+            const fdWithSubmittedBy = {
+              ...fd,
+              submittedBy: sub.user?.id || sub.submittedBy || sub.user,
+            };
+            const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+            return {
+              ...sub,
+              progress: progressData.progress,
+            };
+          })
+        );
+
+        setSubmissions(processedSubmissions);
         setIsFilteredByCard(false);
       } catch (error) {
         console.error("❌ Failed to load submissions:", error);
@@ -112,7 +129,19 @@ export const MospiApproverDashboardPage = () => {
               submissionsArray = (submissionsData as any).data;
             }
 
-            setSubmissions(submissionsArray);
+            // Process submissions to calculate progress based on ACCEPTED status
+            const processedSubmissions = await Promise.all(
+              submissionsArray.map(async (sub: any) => {
+                const fd = sub.formData || {};
+                const progressData = await calculateProgressByAcceptedStatus(fd);
+                return {
+                  ...sub,
+                  progress: progressData.progress,
+                };
+              })
+            );
+
+            setSubmissions(processedSubmissions);
           } catch (error) {
             console.error("❌ Failed to reload all submissions:", error);
             notificationService.error(
@@ -164,7 +193,24 @@ export const MospiApproverDashboardPage = () => {
           submissionsArray = (submissionsData as any).data;
         }
 
-        setSubmissions(submissionsArray);
+        // Process submissions to calculate progress based on ACCEPTED status
+        const processedSubmissions = await Promise.all(
+          submissionsArray.map(async (sub: any) => {
+            const fd = sub.formData || {};
+            // Add submittedBy (user ID) to formData for progress calculation
+            const fdWithSubmittedBy = {
+              ...fd,
+              submittedBy: sub.user?.id || sub.submittedBy || sub.user,
+            };
+            const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+            return {
+              ...sub,
+              progress: progressData.progress,
+            };
+          })
+        );
+
+        setSubmissions(processedSubmissions);
 
         // Smooth scroll to table after loading filtered submissions
         setTimeout(() => {
@@ -409,6 +455,7 @@ export const MospiApproverDashboardPage = () => {
                       updatedDate={new Date(submission.updatedAt || submission.createdAt).toLocaleDateString()}
                       dueDate={submission.deadline || "TBD"}
                       progress={submission.progress ?? 0}
+                      // Note: Progress is now calculated based on ACCEPTED status sections
                       nextStep={submission.status === "APPROVED" ? "Submission approved" : submission.status === "REJECTED" ? "Address reviewer feedback" : "Waiting for final approval"}
                       reviewerNote={submission.reviewerNote}
                       submission={submission}
@@ -620,7 +667,7 @@ export const MospiApproverDashboardPage = () => {
         </div>
 
         {/* Quick Actions */}
-        <Card>
+        {/* <Card>
           <CardHeader>
             <CardTitle className="p-6">Quick Actions</CardTitle>
           </CardHeader>
@@ -652,7 +699,7 @@ export const MospiApproverDashboardPage = () => {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 import {
   FileText,
   AlertCircle,
@@ -210,14 +211,20 @@ export function NodalDashboardPage() {
         else if (Array.isArray((submissionsData as any)?.data?.submissions))
           submissionsArray = (submissionsData as any).data.submissions;
 
-        setSubmissions(
-          submissionsArray.map((sub: any) => {
+        const processedSubmissions = await Promise.all(
+          submissionsArray.map(async (sub: any) => {
             const fd = sub.form_data || sub.formData || {};
-            const formDataKeys = Object.keys(fd || {});
-            const progress =
-              formDataKeys.length > 0
-                ? Math.min(100, (formDataKeys.length / 10) * 100)
-                : 0;
+            // Add submittedBy (user ID) to formData for progress calculation
+            const fdWithSubmittedBy = {
+              ...fd,
+              submittedBy: sub.user?.id || sub.submittedBy || sub.user,
+            };
+            
+            // Calculate progress based on sections with ACCEPTED status
+            // Count all sections in formData and count how many have status "ACCEPTED"
+            // Progress = (sections with ACCEPTED status / total sections) × 100%
+            const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+            const progress = progressData.progress;
 
             let nextStep = "Complete submission";
             if (sub.status === "DRAFT")
@@ -263,6 +270,7 @@ export function NodalDashboardPage() {
             };
           })
         );
+        setSubmissions(processedSubmissions);
       } catch (error: any) {
         console.error("Failed to load nodal dashboard data:", error);
         notificationService.error(

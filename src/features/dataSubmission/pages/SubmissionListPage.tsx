@@ -6,8 +6,6 @@ import {
   FileText,
   Clock,
   CheckCircle2,
-  LayoutGrid,
-  List,
   AlertCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -47,6 +45,7 @@ import {
   calculateStateProgressFromApi,
   ProgressStats,
 } from "@/utils/progressUtils";
+import { calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 import { authService } from "@/services/auth.service";
 import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
@@ -568,6 +567,7 @@ export const SubmissionListPage = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submissionProgress, setSubmissionProgress] = useState<Record<string, number>>({});
   const selectedYear = undefined;
 
   const { stateUt: myState } = authService.getUser() ?? {};
@@ -714,6 +714,35 @@ export const SubmissionListPage = () => {
     // when navigating back from review page. We use submissionsRef.current to access
     // the latest submissions without triggering re-renders.
   }, [user?.role, user?.stateUt, user?.stateName, user?.state]);
+
+  // Calculate progress for submissions
+  useEffect(() => {
+    const calculateProgress = async () => {
+      const progressMap: Record<string, number> = {};
+      
+      for (const submission of submissions) {
+        try {
+          const fd = submission.formData || {};
+          // Add submittedBy (user ID) to formData for progress calculation
+          const fdWithSubmittedBy = {
+            ...fd,
+            submittedBy: submission.user?.id || submission.submittedBy || submission.user,
+          };
+          const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+          progressMap[submission.id] = progressData.progress;
+        } catch (error) {
+          console.error(`Failed to calculate progress for submission ${submission.id}:`, error);
+          progressMap[submission.id] = 0;
+        }
+      }
+      
+      setSubmissionProgress(progressMap);
+    };
+
+    if (submissions.length > 0) {
+      calculateProgress();
+    }
+  }, [submissions]);
 
   const handleFinalSubmit = async () => {
     console.group(
@@ -1574,22 +1603,6 @@ export const SubmissionListPage = () => {
               <SelectItem value="approved">Approved</SelectItem>
             </SelectContent>
           </Select> */}
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="icon"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "grid" ? "default" : "outline"}
-              size="icon"
-              onClick={() => setViewMode("grid")}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </Button>
-          </div>
         </div>
 
         {/* Submissions List/Grid */}
@@ -1609,15 +1622,8 @@ export const SubmissionListPage = () => {
               </Card>
             ) : (
               filteredSubmissions.map((submission) => {
-                // Calculate progress
-                const progress =
-                  submission.progress ||
-                  (submission.formData
-                    ? Math.min(
-                        100,
-                        Object.keys(submission.formData).length * 20
-                      )
-                    : 0);
+                // Get pre-calculated progress
+                const progress = submissionProgress[submission.id] ?? 0;
 
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
@@ -1764,15 +1770,8 @@ export const SubmissionListPage = () => {
               </Card>
             ) : (
               filteredSubmissions.map((submission) => {
-                // Calculate progress
-                const progress =
-                  submission.progress ||
-                  (submission.formData
-                    ? Math.min(
-                        100,
-                        Object.keys(submission.formData).length * 20
-                      )
-                    : 0);
+                // Get pre-calculated progress
+                const progress = submissionProgress[submission.id] ?? 0;
 
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";

@@ -212,14 +212,19 @@ export function StateApproverDashboardPage() {
         setKpis(assembledKpis);
 
         // Prepare submissions list for the unified cards
-        setSubmissions(
-          submissionsArray.map((sub: any) => {
+        const processedSubmissions = await Promise.all(
+          submissionsArray.map(async (sub: any) => {
             const fd = sub.formData || {};
+            // Add submittedBy (user ID) to formData for progress calculation
+            const fdWithSubmittedBy = {
+              ...fd,
+              submittedBy: sub.user?.id || sub.submittedBy || sub.user,
+            };
             
             // Calculate progress based on sections with ACCEPTED status
             // Count all sections in formData and count how many have status "ACCEPTED"
             // Progress = (sections with ACCEPTED status / total sections) × 100%
-            const progressData = calculateProgressByAcceptedStatus(fd);
+            const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
             console.log("progressData", progressData);
             const progress = progressData.progress;
             
@@ -267,6 +272,7 @@ export function StateApproverDashboardPage() {
             };
           })
         );
+        setSubmissions(processedSubmissions);
       } catch (error: any) {
         console.error("Failed to load state approver dashboard data:", error);
         notificationService.error(
