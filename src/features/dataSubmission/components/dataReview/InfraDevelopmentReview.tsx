@@ -2903,7 +2903,10 @@ export const InfraDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.1") ? (
                               <Dropdown
-                                options={dropdownValues.sector}
+                                options={dropdownValues.sector.map((opt) => ({
+                                  label: opt,
+                                  value: opt,
+                                }))}
                                 value={item.sector || ""}
                                 onChange={(value) =>
                                   handleArrayFieldUpdate(
@@ -3089,7 +3092,10 @@ export const InfraDevelopmentReview = ({
                     <div>
                       <Label>Sector</Label>
                       <Dropdown
-                        options={dropdownValues.sector}
+                        options={dropdownValues.sector.map((opt) => ({
+                          label: opt,
+                          value: opt,
+                        }))}
                         value={newEntry2_1.sector}
                         onChange={(value) =>
                           setNewEntry2_1({ ...newEntry2_1, sector: value })
@@ -3229,7 +3235,10 @@ export const InfraDevelopmentReview = ({
                             <td className="py-3 px-4 text-sm font-normal">
                               {shouldBeEditable("2.2") ? (
                                 <Dropdown
-                                  options={dropdownValues.sector}
+                                  options={dropdownValues.sector.map((opt) => ({
+                                    label: opt,
+                                    value: opt,
+                                  }))}
                                   value={item.sector || ""}
                                   onChange={(value) =>
                                     handleArrayFieldUpdate(
@@ -3419,7 +3428,10 @@ export const InfraDevelopmentReview = ({
                     <div>
                       <Label>Sector</Label>
                       <Dropdown
-                        options={dropdownValues.sector}
+                        options={dropdownValues.sector.map((opt) => ({
+                          label: opt,
+                          value: opt,
+                        }))}
                         value={newEntry2_2.sector}
                         onChange={(value) =>
                           setNewEntry2_2({ ...newEntry2_2, sector: value })
@@ -3607,7 +3619,9 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.3") ? (
                                     <Dropdown
-                                      options={dropdownValues.sector}
+                                      options={dropdownValues.sector.map(
+                                        (opt) => ({ label: opt, value: opt })
+                                      )}
                                       value={item.sector || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
@@ -3804,7 +3818,10 @@ export const InfraDevelopmentReview = ({
                         <div>
                           <Label>Sector</Label>
                           <Dropdown
-                            options={dropdownValues.sector}
+                            options={dropdownValues.sector.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
                             value={newEntry2_3.sector}
                             onChange={(value) =>
                               setNewEntry2_3({ ...newEntry2_3, sector: value })
@@ -4071,7 +4088,9 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
                                     <Dropdown
-                                      options={dropdownValues.sector}
+                                      options={dropdownValues.sector.map(
+                                        (opt) => ({ label: opt, value: opt })
+                                      )}
                                       value={item.sector || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
@@ -4095,7 +4114,10 @@ export const InfraDevelopmentReview = ({
                                         "Tender Done",
                                         "Bidding",
                                         "Other",
-                                      ]}
+                                      ].map((opt) => ({
+                                        label: opt,
+                                        value: opt,
+                                      }))}
                                       value={item.status || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
@@ -4137,7 +4159,14 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.4") ? (
                                     <Dropdown
-                                      options={["Partner", "Investor", "Other"]}
+                                      options={[
+                                        "Partner",
+                                        "Investor",
+                                        "Other",
+                                      ].map((opt) => ({
+                                        label: opt,
+                                        value: opt,
+                                      }))}
                                       value={item.investmentType || ""}
                                       onChange={(value) =>
                                         handleArrayFieldUpdate(
@@ -4204,7 +4233,10 @@ export const InfraDevelopmentReview = ({
                             Sector <span className="text-destructive">*</span>
                           </Label>
                           <Dropdown
-                            options={dropdownValues.sector}
+                            options={dropdownValues.sector.map((opt) => ({
+                              label: opt,
+                              value: opt,
+                            }))}
                             value={newEntry2_4.sector}
                             onChange={(value) =>
                               setNewEntry2_4({
@@ -4221,7 +4253,9 @@ export const InfraDevelopmentReview = ({
                             Status <span className="text-destructive">*</span>
                           </Label>
                           <Dropdown
-                            options={["Tender Done", "Bidding", "Other"]}
+                            options={["Tender Done", "Bidding", "Other"].map(
+                              (opt) => ({ label: opt, value: opt })
+                            )}
                             value={newEntry2_4.status}
                             onChange={(value) =>
                               setNewEntry2_4({
@@ -4259,7 +4293,9 @@ export const InfraDevelopmentReview = ({
                             <span className="text-destructive">*</span>
                           </Label>
                           <Dropdown
-                            options={["Partner", "Investor", "Other"]}
+                            options={["Partner", "Investor", "Other"].map(
+                              (opt) => ({ label: opt, value: opt })
+                            )}
                             value={newEntry2_4.investmentType}
                             onChange={(value) =>
                               setNewEntry2_4({
@@ -4452,7 +4488,10 @@ export const InfraDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
                               <Dropdown
-                                options={dropdownValues.sector}
+                                options={dropdownValues.sector.map((opt) => ({
+                                  label: opt,
+                                  value: opt,
+                                }))}
                                 value={item.sector || ""}
                                 onChange={(value) =>
                                   handleArrayFieldUpdate(
@@ -4473,7 +4512,9 @@ export const InfraDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
                               <Dropdown
-                                options={dropdownValues.projectType}
+                                options={dropdownValues.projectType.map(
+                                  (opt) => ({ label: opt, value: opt })
+                                )}
                                 value={item.type || ""}
                                 onChange={(value) =>
                                   handleArrayFieldUpdate(
@@ -4494,7 +4535,9 @@ export const InfraDevelopmentReview = ({
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
                               <Dropdown
-                                options={dropdownValues.ownership}
+                                options={dropdownValues.ownership.map(
+                                  (opt) => ({ label: opt, value: opt })
+                                )}
                                 value={item.ownership || ""}
                                 onChange={(value) =>
                                   handleArrayFieldUpdate(
@@ -4578,7 +4621,10 @@ export const InfraDevelopmentReview = ({
                   <div>
                     <Label>Sector</Label>
                     <Dropdown
-                      options={dropdownValues.sector}
+                      options={dropdownValues.sector.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
                       value={newEntry2_5.sector}
                       onChange={(value) =>
                         setNewEntry2_5({ ...newEntry2_5, sector: value })
@@ -4590,7 +4636,10 @@ export const InfraDevelopmentReview = ({
                   <div>
                     <Label>Type</Label>
                     <Dropdown
-                      options={dropdownValues.projectType}
+                      options={dropdownValues.projectType.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
                       value={newEntry2_5.type}
                       onChange={(value) =>
                         setNewEntry2_5({ ...newEntry2_5, type: value })
@@ -4602,7 +4651,10 @@ export const InfraDevelopmentReview = ({
                   <div>
                     <Label>Asset Ownership</Label>
                     <Dropdown
-                      options={dropdownValues.ownership}
+                      options={dropdownValues.ownership.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
                       value={newEntry2_5.ownership}
                       onChange={(value) =>
                         setNewEntry2_5({ ...newEntry2_5, ownership: value })

@@ -14,7 +14,12 @@ interface Section1_3Props {
   resetKey?: number;
 }
 
-export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }: Section1_3Props) => {
+export const Section_1_3 = ({
+  formData,
+  isEditable,
+  setSectionState,
+  resetKey,
+}: Section1_3Props) => {
   const ulbList = formData?.section1_3?.ulbList || [];
   const totalULBs = formData?.section1_3?.totalULBs || 0;
   // Get state name from formData or fallback
@@ -26,38 +31,38 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
   const [ulbError, setUlbError] = useState("");
   // Fetch ULBs for Maharashtra on mount
   useEffect(() => {
-      const fetchULBs = async () => {
-        setUlbLoading(true);
-        setUlbError("");
-        try {
-          const url = API_ENDPOINTS.ulb.byState(stateName);
-          const res = await axios.get(url);
-          console.log("ULB API response:", res.data);
-          // API returns { status, data: { total, data: [ ... ] } }
-          const ulbArray = res.data?.data?.data || [];
-          const options = ulbArray.map((ulb) => {
-            // Compose label as 'ulb_name - city_name (ulb_type)'
-            const ulbName = ulb.ulb_name || ulb.name || "";
-            const cityName = ulb.city_name || ulb.city || "";
-            const ulbType = ulb.ulb_type || ulb.type || "";
-            let label = ulbName;
-            if (cityName) label += ` - ${cityName}`;
-            if (ulbType) label += ` (${ulbType})`;
-            return {
-              label: label,
-              value: ulb.id,
-            };
-          });
-          console.log("ULB dropdown options:", options);
-          setUlbDropdownOptions(options);
-        } catch (err) {
-          setUlbError("Failed to load ULBs");
-          console.error("ULB API error:", err);
-        } finally {
-          setUlbLoading(false);
-        }
-      };
-      fetchULBs();
+    const fetchULBs = async () => {
+      setUlbLoading(true);
+      setUlbError("");
+      try {
+        const url = API_ENDPOINTS.ulb.byState(stateName);
+        const res = await axios.get(url);
+        console.log("ULB API response:", res.data);
+        // API returns { status, data: { total, data: [ ... ] } }
+        const ulbArray = res.data?.data?.data || [];
+        const options = ulbArray.map((ulb) => {
+          // Compose label as 'ulb_name - city_name (ulb_type)'
+          const ulbName = ulb.ulb_name || ulb.name || "";
+          const cityName = ulb.city_name || ulb.city || "";
+          const ulbType = ulb.ulb_type || ulb.type || "";
+          let label = ulbName;
+          if (cityName) label += ` - ${cityName}`;
+          if (ulbType) label += ` (${ulbType})`;
+          return {
+            label: label,
+            value: ulb.id,
+          };
+        });
+        console.log("ULB dropdown options:", options);
+        setUlbDropdownOptions(options);
+      } catch (err) {
+        setUlbError("Failed to load ULBs");
+        console.error("ULB API error:", err);
+      } finally {
+        setUlbLoading(false);
+      }
+    };
+    fetchULBs();
   }, [stateName]);
 
   // State for adding new ULB entry
@@ -96,7 +101,11 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
           cityName = match[1].trim();
         }
       }
-      updatedUlbList[index] = { ...updatedUlbList[index], [field]: value, cityName };
+      updatedUlbList[index] = {
+        ...updatedUlbList[index],
+        [field]: value,
+        cityName,
+      };
     } else {
       updatedUlbList[index] = { ...updatedUlbList[index], [field]: value };
     }
@@ -143,7 +152,7 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
   };
 
   return (
-    <div className="space-y-4">       
+    <div className="space-y-4">
       {/* Total ULBs Display */}
       <div className="max-w-xs">
         <Label>Total Number of ULBs</Label>
@@ -162,9 +171,15 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
           <thead>
             <tr className="bg-[#DDE3F9]">
               <th className="py-3 px-4 text-left text-sm font-normal">ULB</th>
-              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">City Name</th>
-              <th className="py-3 px-4 text-left text-sm font-normal">Rating Date</th>
-              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Rating</th>
+              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                City Name
+              </th>
+              <th className="py-3 px-4 text-left text-sm font-normal">
+                Rating Date
+              </th>
+              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                Rating
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -177,18 +192,36 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                         <Dropdown
                           options={ulbDropdownOptions}
                           value={item.ulb || ""}
-                          onChange={(value) => handleUlbChange(index, "ulb", value)}
-                          placeholder={ulbLoading ? "Loading..." : ulbError ? "Failed to load ULBs" : "Select ULB"}
+                          onChange={(value) =>
+                            handleUlbChange(index, "ulb", value)
+                          }
+                          placeholder={
+                            ulbLoading
+                              ? "Loading..."
+                              : ulbError
+                              ? "Failed to load ULBs"
+                              : "Select ULB"
+                          }
                           isEditable={isEditable("1.3")}
                           isSearchable={true}
                         />
-                        {ulbError && <div className="text-xs text-red-500 mt-1">{ulbError}</div>}
-                        {ulbLoading && <div className="text-xs text-blue-500 mt-1">Loading ULBs...</div>}
+                        {ulbError && (
+                          <div className="text-xs text-red-500 mt-1">
+                            {ulbError}
+                          </div>
+                        )}
+                        {ulbLoading && (
+                          <div className="text-xs text-blue-500 mt-1">
+                            Loading ULBs...
+                          </div>
+                        )}
                       </>
                     ) : (
                       (() => {
-                        const found = ulbDropdownOptions.find(u => u.value === item.ulb);
-                        return found ? found.label : (item.ulb || 'N/A');
+                        const found = ulbDropdownOptions.find(
+                          (u) => u.value === item.ulb
+                        );
+                        return found ? found.label : item.ulb || "N/A";
                       })()
                     )}
                   </td>
@@ -201,40 +234,52 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
                         placeholder="City name auto-filled"
                       />
                     ) : (
-                      item.cityName || 'N/A'
+                      item.cityName || "N/A"
                     )}
                   </td>
-                  
+
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
                       <Input
                         type="date"
                         value={item.ratingDate || ""}
-                        onChange={(e) => handleUlbChange(index, "ratingDate", e.target.value)}
+                        onChange={(e) =>
+                          handleUlbChange(index, "ratingDate", e.target.value)
+                        }
                         className="w-full"
                       />
+                    ) : item.ratingDate ? (
+                      new Date(item.ratingDate).toLocaleDateString()
                     ) : (
-                      item.ratingDate ? new Date(item.ratingDate).toLocaleDateString() : 'N/A'
+                      "N/A"
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
                       <Dropdown
-                        options={dropdownValues.ratingList}
+                        options={dropdownValues.ratingList.map((opt) => ({
+                          label: opt,
+                          value: opt,
+                        }))}
                         value={item.rating || ""}
-                        onChange={(value) => handleUlbChange(index, "rating", value)}
+                        onChange={(value) =>
+                          handleUlbChange(index, "rating", value)
+                        }
                         placeholder="Select Rating"
                         isEditable={true}
                       />
                     ) : (
-                      item.rating || 'N/A'
+                      item.rating || "N/A"
                     )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={4}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   No ULB data available
                 </td>
               </tr>
@@ -245,9 +290,9 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
 
       {/* Add More Button - Only visible when in edit mode */}
       {isEditable("1.3") && !showAddULBForm && (
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
           onClick={() => setShowAddULBForm(true)}
         >
@@ -263,12 +308,12 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label>City Name</Label>
-              <Input 
-                value={newULBEntry.cityName} 
+              <Input
+                value={newULBEntry.cityName}
                 onChange={(e) => {
                   let value = e.target.value;
                   value = value.replace(/[^a-zA-Z\s]/g, "");
-                  setNewULBEntry({...newULBEntry, cityName: value});
+                  setNewULBEntry({ ...newULBEntry, cityName: value });
                 }}
                 className="bg-white"
                 placeholder="Enter city name"
@@ -279,29 +324,40 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
               <Dropdown
                 options={ulbDropdownOptions}
                 value={newULBEntry.ulb}
-                onChange={(value) => setNewULBEntry({...newULBEntry, ulb: value})}
+                onChange={(value) =>
+                  setNewULBEntry({ ...newULBEntry, ulb: value })
+                }
                 placeholder={ulbLoading ? "Loading..." : "Select ULB"}
                 isEditable={true}
                 isSearchable={true}
                 disabled={ulbLoading || !!ulbError}
               />
-              {ulbError && <div className="text-xs text-red-500 mt-1">{ulbError}</div>}
+              {ulbError && (
+                <div className="text-xs text-red-500 mt-1">{ulbError}</div>
+              )}
             </div>
             <div>
               <Label>Rating Date</Label>
               <Input
                 type="date"
                 value={newULBEntry.ratingDate}
-                onChange={(e) => setNewULBEntry({...newULBEntry, ratingDate: e.target.value})}
+                onChange={(e) =>
+                  setNewULBEntry({ ...newULBEntry, ratingDate: e.target.value })
+                }
                 className="bg-white"
               />
             </div>
             <div>
               <Label>Rating</Label>
               <Dropdown
-                options={dropdownValues.ratingList}
+                options={dropdownValues.ratingList.map((opt) => ({
+                  label: opt,
+                  value: opt,
+                }))}
                 value={newULBEntry.rating}
-                onChange={(value) => setNewULBEntry({...newULBEntry, rating: value})}
+                onChange={(value) =>
+                  setNewULBEntry({ ...newULBEntry, rating: value })
+                }
                 placeholder="Select Rating"
                 isEditable={true}
               />
@@ -332,4 +388,3 @@ export const Section_1_3 = ({ formData, isEditable, setSectionState, resetKey }:
     </div>
   );
 };
-
