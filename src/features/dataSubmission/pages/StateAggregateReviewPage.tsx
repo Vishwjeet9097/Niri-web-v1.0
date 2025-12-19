@@ -46,10 +46,7 @@ import {
   ProgressStats,
 } from "@/utils/progressUtils";
 import { authService } from "@/services/auth.service";
-import {
-  transformFormDataForSubmission,
-  cleanMospiApproverActions,
-} from "@/utils/formDataTransformer";
+import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 import axios from "axios";
 import { config } from "@/config/environment";
@@ -1414,54 +1411,71 @@ export const StateAggregateReviewPage = () => {
         }
       });
 
-      // IMPORTANT: Clean MOSPI_APPROVER mospi_status fields BEFORE transformation
-      // This ensures mospi_status is removed before the prune function processes the data
+      // Check if there's an existing RETURNED_FROM_MOSPI submission to clean mospi_status via API
       console.log(
         "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
       console.log(
-        "🧹 STEP 2a: Cleaning MOSPI_APPROVER mospi_status from formData"
+        "🔍 STEP 2a: Checking for existing RETURNED_FROM_MOSPI submission to clean"
       );
       console.log(
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
-      console.log("🔍 [StateAggregate] FormData before cleaning:", {
-        keys: Object.keys(formData),
-        hasInfraFinancing: !!formData.infraFinancing,
-        hasInfraDevelopment: !!formData.infraDevelopment,
-        hasPppDevelopment: !!formData.pppDevelopment,
-        hasInfraEnablers: !!formData.infraEnablers,
-        infraFinancingSections: formData.infraFinancing
-          ? Object.keys(formData.infraFinancing).length
-          : 0,
-        infraDevelopmentSections: formData.infraDevelopment
-          ? Object.keys(formData.infraDevelopment).length
-          : 0,
-        pppDevelopmentSections: formData.pppDevelopment
-          ? Object.keys(formData.pppDevelopment).length
-          : 0,
-        infraEnablersSections: formData.infraEnablers
-          ? Object.keys(formData.infraEnablers).length
-          : 0,
-      });
 
-      const cleanedFormDataBeforeTransform =
-        cleanMospiApproverActions(formData);
+      let existingReturnedSubmissionForCleanup = null;
+      try {
+        const submissionsData = await apiService.getSubmissions(1, 100);
+        const submissionsArray = Array.isArray(submissionsData)
+          ? submissionsData
+          : submissionsData?.submissions || submissionsData?.data || [];
 
-      console.log("✅ [StateAggregate] Cleaned formData before transformation");
-      console.log("🔍 [StateAggregate] FormData after cleaning:", {
-        keys: Object.keys(cleanedFormDataBeforeTransform),
-        hasInfraFinancing: !!cleanedFormDataBeforeTransform.infraFinancing,
-        hasInfraDevelopment: !!cleanedFormDataBeforeTransform.infraDevelopment,
-        hasPppDevelopment: !!cleanedFormDataBeforeTransform.pppDevelopment,
-        hasInfraEnablers: !!cleanedFormDataBeforeTransform.infraEnablers,
-      });
+        // Find RETURNED_FROM_MOSPI submission for this state
+        existingReturnedSubmissionForCleanup = submissionsArray.find(
+          (sub: any) => {
+            const isReturnedFromMospi = sub.status === "RETURNED_FROM_MOSPI";
+            const isStateApprover =
+              sub.currentOwnerRole === "STATE_APPROVER" ||
+              sub.submittedBy === user?.id ||
+              sub.user?.id === user?.id;
+            const isSameState =
+              !effectiveState ||
+              sub.stateUt?.toUpperCase() === effectiveState.toUpperCase() ||
+              sub.user?.stateUt?.toUpperCase() === effectiveState.toUpperCase();
+
+            return isReturnedFromMospi && isStateApprover && isSameState;
+          }
+        );
+
+        if (existingReturnedSubmissionForCleanup) {
+          console.log(
+            "✅ Found existing RETURNED_FROM_MOSPI submission for cleanup:",
+            existingReturnedSubmissionForCleanup.id
+          );
+          console.log(
+            "🧹 Calling API to remove mospi_status from all categories..."
+          );
+
+          // Call API to clean mospi_status from backend
+          await apiService.cleanMospiStatusFromSubmission(
+            existingReturnedSubmissionForCleanup.id
+          );
+
+          console.log("✅ mospi_status cleaned from backend via API");
+        } else {
+          console.log(
+            "ℹ️ No existing RETURNED_FROM_MOSPI submission found - no cleanup needed"
+          );
+        }
+      } catch (error) {
+        console.warn("⚠️ Error checking/cleaning existing submission:", error);
+        // Continue with submission even if cleanup fails
+      }
 
       // Transform formData for submission
       console.log(
         "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
-      console.log("🔄 STEP 2b: Transforming cleaned formData for submission");
+      console.log("🔄 STEP 2b: Transforming formData for submission");
       console.log(
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
@@ -1472,7 +1486,7 @@ export const StateAggregateReviewPage = () => {
         : "SUBMITTED_TO_MOSPI_REVIEWER";
 
       const transformedData = transformFormDataForSubmission(
-        cleanedFormDataBeforeTransform,
+        formData,
         submissionStatus
       );
 
@@ -1554,46 +1568,55 @@ export const StateAggregateReviewPage = () => {
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
 
-      let existingReturnedSubmission = null;
-      try {
-        const submissionsData = await apiService.getSubmissions(1, 100);
-        const submissionsArray = Array.isArray(submissionsData)
-          ? submissionsData
-          : submissionsData?.submissions || submissionsData?.data || [];
+      // Use the submission found in STEP 2a if available
+      let existingReturnedSubmission = existingReturnedSubmissionForCleanup;
 
-        // Find RETURNED_FROM_MOSPI submission for this state
-        existingReturnedSubmission = submissionsArray.find((sub: any) => {
-          const isReturnedFromMospi = sub.status === "RETURNED_FROM_MOSPI";
-          const isStateApprover =
-            sub.currentOwnerRole === "STATE_APPROVER" ||
-            sub.submittedBy === user?.id ||
-            sub.user?.id === user?.id;
-          const isSameState =
-            !effectiveState ||
-            sub.stateUt?.toUpperCase() === effectiveState.toUpperCase() ||
-            sub.user?.stateUt?.toUpperCase() === effectiveState.toUpperCase();
+      if (!existingReturnedSubmission) {
+        try {
+          const submissionsData = await apiService.getSubmissions(1, 100);
+          const submissionsArray = Array.isArray(submissionsData)
+            ? submissionsData
+            : submissionsData?.submissions || submissionsData?.data || [];
 
-          return isReturnedFromMospi && isStateApprover && isSameState;
-        });
+          // Find RETURNED_FROM_MOSPI submission for this state
+          existingReturnedSubmission = submissionsArray.find((sub: any) => {
+            const isReturnedFromMospi = sub.status === "RETURNED_FROM_MOSPI";
+            const isStateApprover =
+              sub.currentOwnerRole === "STATE_APPROVER" ||
+              sub.submittedBy === user?.id ||
+              sub.user?.id === user?.id;
+            const isSameState =
+              !effectiveState ||
+              sub.stateUt?.toUpperCase() === effectiveState.toUpperCase() ||
+              sub.user?.stateUt?.toUpperCase() === effectiveState.toUpperCase();
 
-        if (existingReturnedSubmission) {
-          console.log(
-            "✅ Found existing RETURNED_FROM_MOSPI submission:",
-            existingReturnedSubmission.id
-          );
-          console.log(
-            "📝 Submission ID:",
-            existingReturnedSubmission.submissionId
-          );
-        } else {
-          console.log(
-            "ℹ️ No existing RETURNED_FROM_MOSPI submission found - will create new"
+            return isReturnedFromMospi && isStateApprover && isSameState;
+          });
+
+          if (existingReturnedSubmission) {
+            console.log(
+              "✅ Found existing RETURNED_FROM_MOSPI submission:",
+              existingReturnedSubmission.id
+            );
+            console.log(
+              "📝 Submission ID:",
+              existingReturnedSubmission.submissionId
+            );
+          } else {
+            console.log(
+              "ℹ️ No existing RETURNED_FROM_MOSPI submission found - will create new"
+            );
+          }
+        } catch (error) {
+          console.warn(
+            "⚠️ Error checking for existing submission, will create new:",
+            error
           );
         }
-      } catch (error) {
-        console.warn(
-          "⚠️ Error checking for existing submission, will create new:",
-          error
+      } else {
+        console.log(
+          "✅ Using existing RETURNED_FROM_MOSPI submission found in STEP 2a:",
+          existingReturnedSubmission.id
         );
       }
 
@@ -1612,13 +1635,9 @@ export const StateAggregateReviewPage = () => {
         console.log("📍 State/UT:", effectiveState || mockSubmission?.stateUt);
 
         // Update the existing submission - need to prepare update payload with files
-        // NOTE: formData has already been cleaned before transformation (see STEP 2a above)
-        // So transformedData.formData already has mospi_status removed
+        // NOTE: mospi_status has been cleaned via API call (see STEP 2a above)
         console.log(
-          "ℹ️ [StateAggregate] FormData already cleaned before transformation"
-        );
-        console.log(
-          "📋 [StateAggregate] mospi_status removed from all indicators"
+          "ℹ️ [StateAggregate] mospi_status cleaned from backend via API"
         );
         console.log(
           "ℹ️ [StateAggregate] Keeping all comments for timeline/history"

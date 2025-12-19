@@ -17,12 +17,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
-import { 
+import {
   validateApprovalComment,
   getCharacterCountInfo,
   formatValidationErrors,
   getValidationStatusClass,
-  type CommentValidationResult 
+  type CommentValidationResult,
 } from "@/utils/commentValidation";
 
 interface ApproveModalProps {
@@ -32,13 +32,19 @@ interface ApproveModalProps {
   submissionStatus?: string;
 }
 
-export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: ApproveModalProps) => {
+export const ApproveModal = ({
+  open,
+  onClose,
+  submissionId,
+  submissionStatus,
+}: ApproveModalProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const [comments, setComments] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validationResult, setValidationResult] = useState<CommentValidationResult | null>(null);
+  const [validationResult, setValidationResult] =
+    useState<CommentValidationResult | null>(null);
   const [showValidation, setShowValidation] = useState(false);
 
   const isMospiApprover = user?.role === "MOSPI_APPROVER";
@@ -59,7 +65,10 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
 
   const handleApprove = async () => {
     if (!comments.trim()) {
-      notificationService.warning("Please add approval comments", "Comments Required");
+      notificationService.warning(
+        "Please add approval comments",
+        "Comments Required"
+      );
       return;
     }
 
@@ -84,21 +93,84 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
       // Call backend API based on role
       if (isStateApprover) {
         // State Approver should forward to MoSPI Reviewer, not approve
-        await apiService.forwardToMospi(submissionId, comments, submissionStatus);
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📤 FORM TRANSFER: STATE_APPROVER → MOSPI_REVIEWER");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📝 Submission ID:", submissionId);
+        console.log("👤 From: STATE_APPROVER");
+        console.log("👤 To: MOSPI_REVIEWER");
+        console.log("📊 Current Status:", submissionStatus);
+        console.log(
+          "📊 Status Change: SUBMITTED_TO_STATE/RETURNED_FROM_MOSPI → SUBMITTED_TO_MOSPI_REVIEWER"
+        );
+        console.log("💬 Comments:", comments);
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        await apiService.forwardToMospi(
+          submissionId,
+          comments,
+          submissionStatus
+        );
+        console.log("✅ Transfer completed successfully");
         toast({
           title: "Sent to MoSPI Reviewer Successfully",
-          description: "Submission has been forwarded to MoSPI Reviewer for review.",
+          description:
+            "Submission has been forwarded to MoSPI Reviewer for review.",
         });
-      } else {
-        // MoSPI roles can approve
+      } else if (isMospiReviewer) {
+        // MoSPI Reviewer forwards to MoSPI Approver
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📤 FORM TRANSFER: MOSPI_REVIEWER → MOSPI_APPROVER");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📝 Submission ID:", submissionId);
+        console.log("👤 From: MOSPI_REVIEWER");
+        console.log("👤 To: MOSPI_APPROVER");
+        console.log("📊 Current Status:", submissionStatus);
+        console.log(
+          "📊 Status Change: SUBMITTED_TO_MOSPI_REVIEWER → SUBMITTED_TO_MOSPI_APPROVER"
+        );
+        console.log("💬 Comments:", comments);
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
         await apiService.approveSubmission(submissionId, comments);
+        console.log("✅ Transfer completed successfully");
         toast({
           title: "Approved & Sent to MoSPI Successfully",
-          description: isMospiReviewer 
-            ? "Submission has been approved and forwarded to MoSPI Approver for final review."
-            : isMospiApprover 
-            ? "Submission has been finally approved by MoSPI."
-            : "The submission has been successfully approved.",
+          description:
+            "Submission has been approved and forwarded to MoSPI Approver for final review.",
+        });
+      } else {
+        // MoSPI Approver approves submission
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("✅ FORM APPROVAL: MOSPI_APPROVER → APPROVED");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📝 Submission ID:", submissionId);
+        console.log("👤 Approved by: MOSPI_APPROVER");
+        console.log("📊 Current Status:", submissionStatus);
+        console.log("📊 Status Change: SUBMITTED_TO_MOSPI_APPROVER → APPROVED");
+        console.log("💬 Comments:", comments);
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        await apiService.approveSubmission(submissionId, comments);
+        console.log("✅ Approval completed successfully");
+        toast({
+          title: "Approved & Sent to MoSPI Successfully",
+          description: "Submission has been finally approved by MoSPI.",
         });
       }
 
@@ -110,7 +182,8 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
     } catch (error: unknown) {
       console.error("Failed to approve submission:", error);
       notificationService.error(
-        (error as Error)?.message || "Failed to approve submission. Please try again.",
+        (error as Error)?.message ||
+          "Failed to approve submission. Please try again.",
         "Approval Failed"
       );
     } finally {
@@ -123,21 +196,42 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle>
-            {isStateApprover ? "Send to MoSPI Reviewer" : isMospiReviewer ? "Send to MoSPI Approver" : "Confirm Final Approval"}
+            {isStateApprover
+              ? "Send to MoSPI Reviewer"
+              : isMospiReviewer
+              ? "Send to MoSPI Approver"
+              : "Confirm Final Approval"}
           </DialogTitle>
           <DialogDescription>
-            {isStateApprover 
+            {isStateApprover
               ? "You are about to forward this submission to MoSPI Reviewer for review. This action will change the submission status."
               : isMospiReviewer
               ? "You are about to forward this submission to MoSPI Approver for final approval. This action will change the submission status."
-              : "You are about to grant final approval for this submission. This action will trigger immediate score updates and is irreversible."
-            }
+              : "You are about to grant final approval for this submission. This action will trigger immediate score updates and is irreversible."}
           </DialogDescription>
         </DialogHeader>
 
-        <Alert className={isStateApprover || isMospiReviewer ? "bg-blue-50 border-blue-200" : "bg-green-50 border-green-200"}>
-          <CheckCircle2 className={`h-4 w-4 ${isStateApprover || isMospiReviewer ? "text-blue-600" : "text-green-600"}`} />
-          <AlertDescription className={`text-sm ${isStateApprover || isMospiReviewer ? "text-blue-900" : "text-green-900"}`}>
+        <Alert
+          className={
+            isStateApprover || isMospiReviewer
+              ? "bg-blue-50 border-blue-200"
+              : "bg-green-50 border-green-200"
+          }
+        >
+          <CheckCircle2
+            className={`h-4 w-4 ${
+              isStateApprover || isMospiReviewer
+                ? "text-blue-600"
+                : "text-green-600"
+            }`}
+          />
+          <AlertDescription
+            className={`text-sm ${
+              isStateApprover || isMospiReviewer
+                ? "text-blue-900"
+                : "text-green-900"
+            }`}
+          >
             <strong>Note:</strong>
             <ul className="list-disc list-inside mt-2 space-y-1">
               {isStateApprover ? (
@@ -166,17 +260,16 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="comments">
-              {isStateApprover 
+              {isStateApprover
                 ? "Comments for MoSPI Reviewer (Optional)"
                 : isMospiReviewer
                 ? "Comments for MoSPI Approver (Optional)"
-                : "Approval Comments (Optional)"
-              }
+                : "Approval Comments (Optional)"}
             </Label>
             <Textarea
               id="comments"
               placeholder={
-                isStateApprover 
+                isStateApprover
                   ? "e.g., Forwarding to MoSPI Reviewer for review. All required documents are complete and submission meets state standards."
                   : isMospiReviewer
                   ? "e.g., Forwarding to MoSPI Approver for final approval. Review completed and submission is ready for final approval."
@@ -187,36 +280,56 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
               rows={4}
               className="resize-none"
             />
-            
+
             {/* Character count and validation feedback */}
             <div className="space-y-2">
               {/* Character count */}
               {comments && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">
-                    {isStateApprover 
-                      ? 'Comments for MoSPI Reviewer'
+                    {isStateApprover
+                      ? "Comments for MoSPI Reviewer"
                       : isMospiReviewer
-                      ? 'Comments for MoSPI Approver'
-                      : 'Approval comments'
-                    } ({comments.length} characters)
+                      ? "Comments for MoSPI Approver"
+                      : "Approval comments"}{" "}
+                    ({comments.length} characters)
                   </span>
                   {(() => {
                     const countInfo = getCharacterCountInfo(comments, 300);
                     return (
-                      <span className={countInfo.isOverLimit ? 'text-red-500' : 'text-muted-foreground'}>
-                        {countInfo.remaining < 0 ? `${Math.abs(countInfo.remaining)} over` : `${countInfo.remaining} remaining`}
+                      <span
+                        className={
+                          countInfo.isOverLimit
+                            ? "text-red-500"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {countInfo.remaining < 0
+                          ? `${Math.abs(countInfo.remaining)} over`
+                          : `${countInfo.remaining} remaining`}
                       </span>
                     );
                   })()}
                 </div>
               )}
-              
+
               {/* Validation feedback */}
               {showValidation && validationResult && (
-                <Alert className={`${validationResult.isValid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-                  <AlertTriangle className={`h-4 w-4 ${getValidationStatusClass(validationResult)}`} />
-                  <AlertDescription className={getValidationStatusClass(validationResult)}>
+                <Alert
+                  className={`${
+                    validationResult.isValid
+                      ? "border-green-200 bg-green-50"
+                      : "border-red-200 bg-red-50"
+                  }`}
+                >
+                  <AlertTriangle
+                    className={`h-4 w-4 ${getValidationStatusClass(
+                      validationResult
+                    )}`}
+                  />
+                  <AlertDescription
+                    className={getValidationStatusClass(validationResult)}
+                  >
                     {validationResult.errors.length > 0 && (
                       <div className="space-y-1">
                         <strong>Errors:</strong>
@@ -237,26 +350,28 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
                         </ul>
                       </div>
                     )}
-                    {validationResult.isValid && validationResult.warnings.length === 0 && (
-                      <span>Comments look good!</span>
-                    )}
+                    {validationResult.isValid &&
+                      validationResult.warnings.length === 0 && (
+                        <span>Comments look good!</span>
+                      )}
                   </AlertDescription>
                 </Alert>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {isStateApprover 
+              {isStateApprover
                 ? "This comment will be visible to MoSPI Reviewer and will help them understand your review."
                 : isMospiReviewer
                 ? "This comment will be visible to MoSPI Approver and will help them understand your review."
-                : "This comment will be visible to all stakeholders and will help them understand the approval status."
-              }
+                : "This comment will be visible to all stakeholders and will help them understand the approval status."}
             </p>
             {isStateApprover && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
-                  <strong>⚠️ Important:</strong> You are sending this submission to <strong>MoSPI Reviewer</strong>, not MoSPI Approver. 
-                  The MoSPI Reviewer will review it first, then forward it to MoSPI Approver if approved.
+                  <strong>⚠️ Important:</strong> You are sending this submission
+                  to <strong>MoSPI Reviewer</strong>, not MoSPI Approver. The
+                  MoSPI Reviewer will review it first, then forward it to MoSPI
+                  Approver if approved.
                 </p>
               </div>
             )}
@@ -267,12 +382,22 @@ export const ApproveModal = ({ open, onClose, submissionId, submissionStatus }: 
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleApprove} 
-            disabled={isSubmitting || (validationResult && !validationResult.isValid)}
-            className={isStateApprover || isMospiReviewer ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"}
+          <Button
+            onClick={handleApprove}
+            disabled={
+              isSubmitting || (validationResult && !validationResult.isValid)
+            }
+            className={
+              isStateApprover || isMospiReviewer
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-green-600 hover:bg-green-700"
+            }
           >
-            {isStateApprover ? "Send to MoSPI Reviewer" : isMospiReviewer ? "Send to MoSPI Approver" : "Approve Submission"}
+            {isStateApprover
+              ? "Send to MoSPI Reviewer"
+              : isMospiReviewer
+              ? "Send to MoSPI Approver"
+              : "Approve Submission"}
           </Button>
         </DialogFooter>
       </DialogContent>
