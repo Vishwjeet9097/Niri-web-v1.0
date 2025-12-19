@@ -660,6 +660,7 @@ export const UnifiedReviewPage = ({
                 isPreview={isPreview}
                 assignedIndicators={assignedIndicators}
                 isNodalOfficer={isNodalOfficer}
+                onRefetch={loadSubmission}
               />
             )}
           </TabsContent>

@@ -99,7 +99,9 @@ export const InfraEnablersReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  const [validationErrors, setValidationErrors] = useState<{
+    [key: string]: string;
+  }>({});
 
   // Helper function to get error message for a field
   const getFieldError = (fieldPath: string): string | undefined => {
@@ -145,19 +147,23 @@ export const InfraEnablersReview = ({
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
 
   // Helper to extract original name from UUID-prefixed fileName for existing files
-  const extractOriginalName = (fileName: string, originalName?: string): string => {
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
     if (originalName && originalName.trim()) return originalName;
-    
+
     // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-    
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
     if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+      const extracted = fileName.replace(uuidPattern, "");
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
-    
+
     return fileName;
   };
 
@@ -270,8 +276,12 @@ export const InfraEnablersReview = ({
       try {
         const filePath = file.filePath || file.file;
         const encoded = encodeURIComponent(filePath);
-        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+        const base =
+          import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(
+          /\/$/,
+          ""
+        )}/file/download/${encoded}`;
 
         const accessToken = readAccessTokenFromLocalStorage();
         if (!accessToken) {
@@ -632,9 +642,38 @@ export const InfraEnablersReview = ({
   const state = formDataState as any;
 
   // Sync formDataState when formData prop changes (but not when restoring from cancel)
+  // This ensures we always have the latest data when navigating between categories
   useEffect(() => {
     if (formData && !isRestoringRef.current) {
-      setFormDataState((formData as any)?.infraEnablers || formData);
+      const newFormData = (formData as any)?.infraEnablers || formData;
+
+      // Deep comparison to detect if formData has actually changed
+      setFormDataState((prev: any) => {
+        const prevStr = JSON.stringify(prev);
+        const newStr = JSON.stringify(newFormData);
+
+        // If formData is different, it means parent component has refreshed with new data
+        if (prevStr !== newStr) {
+          console.log(
+            "🔄 [InfraEnablersReview] formData prop changed, syncing local state with latest data"
+          );
+          return newFormData;
+        }
+
+        // If formData hasn't changed, keep previous state (may have local edits)
+        return prev;
+      });
+
+      // Also sync submissionData
+      setSubmissionData((prev: any) => {
+        if (!prev) return newFormData;
+        const prevStr = JSON.stringify(prev);
+        const newStr = JSON.stringify(newFormData);
+        if (prevStr !== newStr) {
+          return newFormData;
+        }
+        return prev;
+      });
     }
   }, [formData]);
 
@@ -1126,17 +1165,35 @@ export const InfraEnablersReview = ({
 
       // Validate form data before saving
       const fullData = {
-        section4_1: formDataState?.section4_1 || { allEligible: "", websiteLink: "" },
+        section4_1: formDataState?.section4_1 || {
+          allEligible: "",
+          websiteLink: "",
+        },
         section4_2: formDataState?.section4_2 || { available: "", file: null },
-        section4_3: formDataState?.section4_3 || { adopted: "", file: null, projects: [] },
+        section4_3: formDataState?.section4_3 || {
+          adopted: "",
+          file: null,
+          projects: [],
+        },
         section4_4: formDataState?.section4_4 || { adopted: "", file: null },
-        section4_5: formDataState?.section4_5 || { implemented: "", practiceName: "", impact: "", file: null },
-        section4_6: formDataState?.section4_6 || { participated: "", capacityArray: [] },
+        section4_5: formDataState?.section4_5 || {
+          implemented: "",
+          practiceName: "",
+          impact: "",
+          file: null,
+        },
+        section4_6: formDataState?.section4_6 || {
+          participated: "",
+          capacityArray: [],
+        },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validateInfraEnablers(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -1848,7 +1905,7 @@ export const InfraEnablersReview = ({
   const handleRemoveCapacityEntry = (id: string) => {
     setFormDataState((prev: any) => {
       const current = prev?.section4_6?.capacityArray;
-      const rows = Array.isArray(current) 
+      const rows = Array.isArray(current)
         ? current.filter((item: any) => item.id !== id)
         : [];
       return {
@@ -3307,14 +3364,23 @@ export const InfraEnablersReview = ({
                                     {(() => {
                                       const fileKey = `4.3-${idx}`;
                                       const isLoading = !!fileLoading[fileKey];
-                                      const hasFileAccess = !!(project.file.filePath || project.file.file || project.file.fileUrl);
+                                      const hasFileAccess = !!(
+                                        project.file.filePath ||
+                                        project.file.file ||
+                                        project.file.fileUrl
+                                      );
                                       return hasFileAccess ? (
                                         <>
                                           <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleViewFile(project.file, fileKey)}
+                                            onClick={() =>
+                                              handleViewFile(
+                                                project.file,
+                                                fileKey
+                                              )
+                                            }
                                             disabled={isLoading}
                                             className="h-7 w-7 p-0"
                                             title="View file"
@@ -3325,7 +3391,12 @@ export const InfraEnablersReview = ({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleDownloadFile(project.file, fileKey)}
+                                            onClick={() =>
+                                              handleDownloadFile(
+                                                project.file,
+                                                fileKey
+                                              )
+                                            }
                                             disabled={isLoading}
                                             className="h-7 w-7 p-0"
                                             title="Download file"
@@ -3347,7 +3418,11 @@ export const InfraEnablersReview = ({
                                   <Button
                                     variant="outline"
                                     size="icon"
-                                    onClick={() => handleRemoveProject(project.id || idx.toString())}
+                                    onClick={() =>
+                                      handleRemoveProject(
+                                        project.id || idx.toString()
+                                      )
+                                    }
                                     className="text-red-500 hover:text-red-700 border-none bg-none"
                                   >
                                     <Trash2 className="h-5 w-5" />
@@ -3879,14 +3954,23 @@ export const InfraEnablersReview = ({
                                     {(() => {
                                       const fileKey = `4.5-${idx}`;
                                       const isLoading = !!fileLoading[fileKey];
-                                      const hasFileAccess = !!(practice.file.filePath || practice.file.file || practice.file.fileUrl);
+                                      const hasFileAccess = !!(
+                                        practice.file.filePath ||
+                                        practice.file.file ||
+                                        practice.file.fileUrl
+                                      );
                                       return hasFileAccess ? (
                                         <>
                                           <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleViewFile(practice.file, fileKey)}
+                                            onClick={() =>
+                                              handleViewFile(
+                                                practice.file,
+                                                fileKey
+                                              )
+                                            }
                                             disabled={isLoading}
                                             className="h-7 w-7 p-0"
                                             title="View file"
@@ -3897,7 +3981,12 @@ export const InfraEnablersReview = ({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleDownloadFile(practice.file, fileKey)}
+                                            onClick={() =>
+                                              handleDownloadFile(
+                                                practice.file,
+                                                fileKey
+                                              )
+                                            }
                                             disabled={isLoading}
                                             className="h-7 w-7 p-0"
                                             title="Download file"
@@ -3919,7 +4008,11 @@ export const InfraEnablersReview = ({
                                   <Button
                                     variant="outline"
                                     size="icon"
-                                    onClick={() => handleRemovePractice(practice.id || idx.toString())}
+                                    onClick={() =>
+                                      handleRemovePractice(
+                                        practice.id || idx.toString()
+                                      )
+                                    }
                                     className="text-red-500 hover:text-red-700 border-none bg-none"
                                   >
                                     <Trash2 className="h-5 w-5" />
@@ -4260,7 +4353,11 @@ export const InfraEnablersReview = ({
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  onClick={() => handleRemoveCapacityEntry(item.id || idx.toString())}
+                                  onClick={() =>
+                                    handleRemoveCapacityEntry(
+                                      item.id || idx.toString()
+                                    )
+                                  }
                                   className="text-red-500 hover:text-red-700 border-none bg-none"
                                 >
                                   <Trash2 className="h-5 w-5" />

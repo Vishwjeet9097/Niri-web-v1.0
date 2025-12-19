@@ -102,7 +102,9 @@ export const InfraDevelopmentReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  const [validationErrors, setValidationErrors] = useState<{
+    [key: string]: string;
+  }>({});
 
   // Helper function to get error message for a field
   const getFieldError = (fieldPath: string): string | undefined => {
@@ -148,19 +150,23 @@ export const InfraDevelopmentReview = ({
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
 
   // Helper to extract original name from UUID-prefixed fileName for existing files
-  const extractOriginalName = (fileName: string, originalName?: string): string => {
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
     if (originalName && originalName.trim()) return originalName;
-    
+
     // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-    
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
     if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+      const extracted = fileName.replace(uuidPattern, "");
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
-    
+
     return fileName;
   };
 
@@ -273,8 +279,12 @@ export const InfraDevelopmentReview = ({
       try {
         const filePath = file.filePath || file.file;
         const encoded = encodeURIComponent(filePath);
-        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+        const base =
+          import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(
+          /\/$/,
+          ""
+        )}/file/download/${encoded}`;
 
         const accessToken = readAccessTokenFromLocalStorage();
         if (!accessToken) {
@@ -689,7 +699,9 @@ export const InfraDevelopmentReview = ({
       ? currentSection.infraActArray.filter((item: any) => item.id !== id)
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       infraActArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -703,10 +715,14 @@ export const InfraDevelopmentReview = ({
     const sectionKey = "section2_2";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.specializedEntityArray)
-      ? currentSection.specializedEntityArray.filter((item: any) => item.id !== id)
+      ? currentSection.specializedEntityArray.filter(
+          (item: any) => item.id !== id
+        )
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       specializedEntityArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -720,10 +736,14 @@ export const InfraDevelopmentReview = ({
     const sectionKey = "section2_3";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.infraDevelopmentArray)
-      ? currentSection.infraDevelopmentArray.filter((item: any) => item.id !== id)
+      ? currentSection.infraDevelopmentArray.filter(
+          (item: any) => item.id !== id
+        )
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       infraDevelopmentArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -825,10 +845,14 @@ export const InfraDevelopmentReview = ({
     const sectionKey = "section2_4";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.investmentReadyArray)
-      ? currentSection.investmentReadyArray.filter((item: any) => item.id !== id)
+      ? currentSection.investmentReadyArray.filter(
+          (item: any) => item.id !== id
+        )
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       investmentReadyArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -842,10 +866,14 @@ export const InfraDevelopmentReview = ({
     const sectionKey = "section2_5";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.assetMonetizationArray)
-      ? currentSection.assetMonetizationArray.filter((item: any) => item.id !== id)
+      ? currentSection.assetMonetizationArray.filter(
+          (item: any) => item.id !== id
+        )
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       assetMonetizationArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -1060,21 +1088,39 @@ export const InfraDevelopmentReview = ({
   }, [state?.section2_4]);
 
   // Sync formDataState when formData prop changes (but not when restoring from cancel)
+  // This ensures we always have the latest data when navigating between categories
   useEffect(() => {
     if (formData && !isRestoringRef.current) {
       const rawData = (formData as any)?.infraDevelopment || formData;
-      console.log("🔍 [REVIEW NORMALIZE] Raw formData before normalize:", {
-        rawData,
-        section2_4: rawData?.section2_4,
-      });
       const normalized = normalizeInfraDevelopment(rawData);
-      console.log("🔍 [REVIEW NORMALIZE] Normalized formData:", {
-        section2_4: normalized?.section2_4,
-        hasInvestmentReady: normalized?.section2_4?.hasInvestmentReady,
-        comment: normalized?.section2_4?.comment,
-        websiteLink: normalized?.section2_4?.websiteLink,
+
+      // Deep comparison to detect if formData has actually changed
+      setFormDataState((prev: any) => {
+        const prevStr = JSON.stringify(prev);
+        const normalizedStr = JSON.stringify(normalized);
+
+        // If formData is different, it means parent component has refreshed with new data
+        if (prevStr !== normalizedStr) {
+          console.log(
+            "🔄 [InfraDevelopmentReview] formData prop changed, syncing local state with latest data"
+          );
+          return normalized;
+        }
+
+        // If formData hasn't changed, keep previous state (may have local edits)
+        return prev;
       });
-      setFormDataState(normalized);
+
+      // Also sync submissionData
+      setSubmissionData((prev: any) => {
+        if (!prev) return normalized;
+        const prevStr = JSON.stringify(prev);
+        const normalizedStr = JSON.stringify(normalized);
+        if (prevStr !== normalizedStr) {
+          return normalized;
+        }
+        return prev;
+      });
     }
   }, [formData]);
 
@@ -1706,14 +1752,23 @@ export const InfraDevelopmentReview = ({
       const fullData = {
         section2_1: formDataState?.section2_1 || { infraActArray: [] },
         section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
-        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "" },
-        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "" },
+        section2_3: formDataState?.section2_3 || {
+          infraDevelopmentArray: [],
+          hasInfraDevelopmentPlan: "",
+        },
+        section2_4: formDataState?.section2_4 || {
+          investmentReadyArray: [],
+          hasInvestmentReady: "",
+        },
         section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validateInfraDevelopment(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -2238,7 +2293,8 @@ export const InfraDevelopmentReview = ({
         id: fileData.id ?? crypto.randomUUID(),
         file: storedPath, // Store file path (string) not File object
         fileName: fileData.fileName || fileData.filename || file.name,
-        originalName: file.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name
+        originalName:
+          file.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name
         fileSize: Number(fileData.fileSize ?? fileData.size ?? file.size ?? 0),
         uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
         filePath: storedPath ?? undefined,
@@ -3308,9 +3364,11 @@ export const InfraDevelopmentReview = ({
             <div className="space-y-4">
               {/* Validation error for infraActArray */}
               {getFieldError("section2_1.infraActArray") && (
-                <p className="text-sm text-red-500">{getFieldError("section2_1.infraActArray")}</p>
+                <p className="text-sm text-red-500">
+                  {getFieldError("section2_1.infraActArray")}
+                </p>
               )}
-              
+
               {/* Table Display */}
               <div className="overflow-x-auto rounded-xl">
                 <table className="min-w-full border-separate border-spacing-0">
@@ -3372,10 +3430,16 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_1.infraActArray.${index}.sector`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_1.infraActArray.${index}.sector`
+                                      )
+                                    ) {
                                       setValidationErrors((prev) => {
                                         const updated = { ...prev };
-                                        delete updated[`section2_1.infraActArray.${index}.sector`];
+                                        delete updated[
+                                          `section2_1.infraActArray.${index}.sector`
+                                        ];
                                         return updated;
                                       });
                                     }
@@ -3384,8 +3448,14 @@ export const InfraDevelopmentReview = ({
                                   isEditable={true}
                                   resetKey={selectResetKey}
                                 />
-                                {getFieldError(`section2_1.infraActArray.${index}.sector`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_1.infraActArray.${index}.sector`)}</p>
+                                {getFieldError(
+                                  `section2_1.infraActArray.${index}.sector`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_1.infraActArray.${index}.sector`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -3494,9 +3564,16 @@ export const InfraDevelopmentReview = ({
                                   (file: any, fileIndex: number) => {
                                     const fileKey = `2.1-${index}-${fileIndex}`;
                                     const isLoading = !!fileLoading[fileKey];
-                                    const hasFileAccess = !!(file.filePath || file.file || file.fileUrl);
+                                    const hasFileAccess = !!(
+                                      file.filePath ||
+                                      file.file ||
+                                      file.fileUrl
+                                    );
                                     return (
-                                      <div key={fileIndex} className="flex items-center gap-1">
+                                      <div
+                                        key={fileIndex}
+                                        className="flex items-center gap-1"
+                                      >
                                         <Badge
                                           variant="secondary"
                                           className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
@@ -3521,7 +3598,9 @@ export const InfraDevelopmentReview = ({
                                               type="button"
                                               variant="ghost"
                                               size="sm"
-                                              onClick={() => handleViewFile(file, fileKey)}
+                                              onClick={() =>
+                                                handleViewFile(file, fileKey)
+                                              }
                                               disabled={isLoading}
                                               className="h-7 w-7 p-0"
                                               title="View file"
@@ -3532,7 +3611,12 @@ export const InfraDevelopmentReview = ({
                                               type="button"
                                               variant="ghost"
                                               size="sm"
-                                              onClick={() => handleDownloadFile(file, fileKey)}
+                                              onClick={() =>
+                                                handleDownloadFile(
+                                                  file,
+                                                  fileKey
+                                                )
+                                              }
                                               disabled={isLoading}
                                               className="h-7 w-7 p-0"
                                               title="Download file"
@@ -3581,7 +3665,11 @@ export const InfraDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => handleRemoveEntry2_1(item.id || index.toString())}
+                                onClick={() =>
+                                  handleRemoveEntry2_1(
+                                    item.id || index.toString()
+                                  )
+                                }
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
@@ -3630,7 +3718,9 @@ export const InfraDevelopmentReview = ({
                         isEditable={true}
                       />
                       {getFieldError("section2_1.infraActArray.new.sector") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_1.infraActArray.new.sector")}</p>
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError("section2_1.infraActArray.new.sector")}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -3649,7 +3739,9 @@ export const InfraDevelopmentReview = ({
                         multiple={true}
                       />
                       {getFieldError("section2_1.infraActArray.new.files") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_1.infraActArray.new.files")}</p>
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError("section2_1.infraActArray.new.files")}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -3773,10 +3865,12 @@ export const InfraDevelopmentReview = ({
                               {shouldBeEditable("2.2") ? (
                                 <div>
                                   <Dropdown
-                                    options={dropdownValues.sector.map((opt) => ({
-                                      label: opt,
-                                      value: opt,
-                                    }))}
+                                    options={dropdownValues.sector.map(
+                                      (opt) => ({
+                                        label: opt,
+                                        value: opt,
+                                      })
+                                    )}
                                     value={item.sector || ""}
                                     onChange={(value) =>
                                       handleArrayFieldUpdate(
@@ -3790,8 +3884,14 @@ export const InfraDevelopmentReview = ({
                                     isEditable={true}
                                     resetKey={selectResetKey}
                                   />
-                                  {getFieldError(`section2_2.specializedEntityArray.${index}.sector`) && (
-                                    <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_2.specializedEntityArray.${index}.sector`)}</p>
+                                  {getFieldError(
+                                    `section2_2.specializedEntityArray.${index}.sector`
+                                  ) && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getFieldError(
+                                        `section2_2.specializedEntityArray.${index}.sector`
+                                      )}
+                                    </p>
                                   )}
                                 </div>
                               ) : (
@@ -3903,9 +4003,16 @@ export const InfraDevelopmentReview = ({
                                     (file: any, fileIndex: number) => {
                                       const fileKey = `2.2-${index}-${fileIndex}`;
                                       const isLoading = !!fileLoading[fileKey];
-                                      const hasFileAccess = !!(file.filePath || file.file || file.fileUrl);
+                                      const hasFileAccess = !!(
+                                        file.filePath ||
+                                        file.file ||
+                                        file.fileUrl
+                                      );
                                       return (
-                                        <div key={fileIndex} className="flex items-center gap-1">
+                                        <div
+                                          key={fileIndex}
+                                          className="flex items-center gap-1"
+                                        >
                                           <Badge
                                             variant="secondary"
                                             className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
@@ -3930,7 +4037,9 @@ export const InfraDevelopmentReview = ({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleViewFile(file, fileKey)}
+                                                onClick={() =>
+                                                  handleViewFile(file, fileKey)
+                                                }
                                                 disabled={isLoading}
                                                 className="h-7 w-7 p-0"
                                                 title="View file"
@@ -3941,7 +4050,12 @@ export const InfraDevelopmentReview = ({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleDownloadFile(file, fileKey)}
+                                                onClick={() =>
+                                                  handleDownloadFile(
+                                                    file,
+                                                    fileKey
+                                                  )
+                                                }
                                                 disabled={isLoading}
                                                 className="h-7 w-7 p-0"
                                                 title="Download file"
@@ -3990,7 +4104,11 @@ export const InfraDevelopmentReview = ({
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  onClick={() => handleRemoveEntry2_2(item.id || index.toString())}
+                                  onClick={() =>
+                                    handleRemoveEntry2_2(
+                                      item.id || index.toString()
+                                    )
+                                  }
                                   className="text-red-500 hover:text-red-700 border-none bg-none"
                                 >
                                   <Trash2 className="h-5 w-5" />
@@ -4039,8 +4157,14 @@ export const InfraDevelopmentReview = ({
                         placeholder="Select Sector"
                         isEditable={true}
                       />
-                      {getFieldError("section2_2.specializedEntityArray.new.sector") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_2.specializedEntityArray.new.sector")}</p>
+                      {getFieldError(
+                        "section2_2.specializedEntityArray.new.sector"
+                      ) && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError(
+                            "section2_2.specializedEntityArray.new.sector"
+                          )}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -4058,8 +4182,14 @@ export const InfraDevelopmentReview = ({
                         label=""
                         multiple={true}
                       />
-                      {getFieldError("section2_2.specializedEntityArray.new.files") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_2.specializedEntityArray.new.files")}</p>
+                      {getFieldError(
+                        "section2_2.specializedEntityArray.new.files"
+                      ) && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError(
+                            "section2_2.specializedEntityArray.new.files"
+                          )}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -4186,7 +4316,9 @@ export const InfraDevelopmentReview = ({
                   </div>
                 )}
                 {getFieldError("section2_3.hasInfraDevelopmentPlan") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section2_3.hasInfraDevelopmentPlan")}</p>
+                  <p className="text-sm text-red-500 mt-1">
+                    {getFieldError("section2_3.hasInfraDevelopmentPlan")}
+                  </p>
                 )}
               </div>
 
@@ -4258,8 +4390,14 @@ export const InfraDevelopmentReview = ({
                                         isEditable={true}
                                         resetKey={selectResetKey}
                                       />
-                                      {getFieldError(`section2_3.infraDevelopmentArray.${index}.sector`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_3.infraDevelopmentArray.${index}.sector`)}</p>
+                                      {getFieldError(
+                                        `section2_3.infraDevelopmentArray.${index}.sector`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_3.infraDevelopmentArray.${index}.sector`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4269,8 +4407,14 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.3") ? (
                                     <div className="space-y-1.5">
-                                      {getFieldError(`section2_3.infraDevelopmentArray.${index}.files`) && (
-                                        <p className="text-sm text-red-500">{getFieldError(`section2_3.infraDevelopmentArray.${index}.files`)}</p>
+                                      {getFieldError(
+                                        `section2_3.infraDevelopmentArray.${index}.files`
+                                      ) && (
+                                        <p className="text-sm text-red-500">
+                                          {getFieldError(
+                                            `section2_3.infraDevelopmentArray.${index}.files`
+                                          )}
+                                        </p>
                                       )}
                                       {item.files && item.files.length > 0 ? (
                                         <div className="flex flex-wrap gap-1.5">
@@ -4376,20 +4520,32 @@ export const InfraDevelopmentReview = ({
                                       {item.files.map(
                                         (file: any, fileIndex: number) => {
                                           const fileKey = `2.3-${index}-${fileIndex}`;
-                                          const isLoading = !!fileLoading[fileKey];
-                                          const hasFileAccess = !!(file.filePath || file.file || file.fileUrl);
+                                          const isLoading =
+                                            !!fileLoading[fileKey];
+                                          const hasFileAccess = !!(
+                                            file.filePath ||
+                                            file.file ||
+                                            file.fileUrl
+                                          );
                                           return (
-                                            <div key={fileIndex} className="flex items-center gap-1">
+                                            <div
+                                              key={fileIndex}
+                                              className="flex items-center gap-1"
+                                            >
                                               <Badge
                                                 variant="secondary"
                                                 className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
                                                 title={
-                                                  (file as any).originalName || file.fileName || "Unknown file"
+                                                  (file as any).originalName ||
+                                                  file.fileName ||
+                                                  "Unknown file"
                                                 }
                                               >
                                                 <Upload className="w-3 h-3" />
                                                 <span className="truncate">
-                                                  {(file as any).originalName || file.fileName || "Unknown file"}
+                                                  {(file as any).originalName ||
+                                                    file.fileName ||
+                                                    "Unknown file"}
                                                 </span>
                                               </Badge>
                                               {hasFileAccess && (
@@ -4398,7 +4554,12 @@ export const InfraDevelopmentReview = ({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleViewFile(file, fileKey)}
+                                                    onClick={() =>
+                                                      handleViewFile(
+                                                        file,
+                                                        fileKey
+                                                      )
+                                                    }
                                                     disabled={isLoading}
                                                     className="h-7 w-7 p-0"
                                                     title="View file"
@@ -4409,7 +4570,12 @@ export const InfraDevelopmentReview = ({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleDownloadFile(file, fileKey)}
+                                                    onClick={() =>
+                                                      handleDownloadFile(
+                                                        file,
+                                                        fileKey
+                                                      )
+                                                    }
                                                     disabled={isLoading}
                                                     className="h-7 w-7 p-0"
                                                     title="Download file"
@@ -4458,7 +4624,11 @@ export const InfraDevelopmentReview = ({
                                     <Button
                                       variant="outline"
                                       size="icon"
-                                      onClick={() => handleRemoveEntry2_3(item.id || index.toString())}
+                                      onClick={() =>
+                                        handleRemoveEntry2_3(
+                                          item.id || index.toString()
+                                        )
+                                      }
                                       className="text-red-500 hover:text-red-700 border-none bg-none"
                                     >
                                       <Trash2 className="h-5 w-5" />
@@ -4675,7 +4845,9 @@ export const InfraDevelopmentReview = ({
                   </div>
                 )}
                 {getFieldError("section2_4.hasInvestmentReady") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section2_4.hasInvestmentReady")}</p>
+                  <p className="text-sm text-red-500 mt-1">
+                    {getFieldError("section2_4.hasInvestmentReady")}
+                  </p>
                 )}
               </div>
 
@@ -4715,7 +4887,9 @@ export const InfraDevelopmentReview = ({
                           }
                         />
                         {getFieldError("section2_4.websiteLink") && (
-                          <p className="text-sm text-red-500 mt-1">{getFieldError("section2_4.websiteLink")}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError("section2_4.websiteLink")}
+                          </p>
                         )}
                       </div>
                     ) : (
@@ -4791,14 +4965,22 @@ export const InfraDevelopmentReview = ({
                                           )
                                         }
                                         className={
-                                          getFieldError(`section2_4.investmentReadyArray.${index}.projectName`)
+                                          getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.projectName`
+                                          )
                                             ? "w-full border-red-500"
                                             : "w-full"
                                         }
                                         placeholder="Enter project name"
                                       />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.projectName`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.projectName`)}</p>
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.projectName`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.projectName`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4824,8 +5006,14 @@ export const InfraDevelopmentReview = ({
                                         placeholder="Select Sector"
                                         isEditable={true}
                                       />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.sector`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.sector`)}</p>
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.sector`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.sector`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4845,19 +5033,25 @@ export const InfraDevelopmentReview = ({
                                           value: opt,
                                         }))}
                                         value={item.status || ""}
-                                      onChange={(value) =>
-                                        handleArrayFieldUpdate(
-                                          "2.4",
-                                          index,
-                                          "status",
-                                          value
-                                        )
-                                      }
-                                      placeholder="Select Status"
-                                      isEditable={true}
-                                    />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.status`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.status`)}</p>
+                                        onChange={(value) =>
+                                          handleArrayFieldUpdate(
+                                            "2.4",
+                                            index,
+                                            "status",
+                                            value
+                                          )
+                                        }
+                                        placeholder="Select Status"
+                                        isEditable={true}
+                                      />
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.status`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.status`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4876,7 +5070,10 @@ export const InfraDevelopmentReview = ({
                                         onChange={(e) => {
                                           const value = e.target.value;
                                           // Only allow numbers and decimal point
-                                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                          if (
+                                            value === "" ||
+                                            /^\d*\.?\d*$/.test(value)
+                                          ) {
                                             handleArrayFieldUpdate(
                                               "2.4",
                                               index,
@@ -4886,14 +5083,22 @@ export const InfraDevelopmentReview = ({
                                           }
                                         }}
                                         className={
-                                          getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`)
+                                          getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.projectSize`
+                                          )
                                             ? "w-full border-red-500"
                                             : "w-full"
                                         }
                                         placeholder="Enter project size"
                                       />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`)}</p>
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.projectSize`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.projectSize`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4904,28 +5109,34 @@ export const InfraDevelopmentReview = ({
                                   {shouldBeEditable("2.4") ? (
                                     <div>
                                       <Dropdown
-                                      options={[
-                                        "Partner",
-                                        "Investor",
-                                        "Other",
-                                      ].map((opt) => ({
-                                        label: opt,
-                                        value: opt,
-                                      }))}
-                                      value={item.investmentType || ""}
-                                      onChange={(value) =>
-                                        handleArrayFieldUpdate(
-                                          "2.4",
-                                          index,
-                                          "investmentType",
-                                          value
-                                        )
-                                      }
-                                      placeholder="Select Type"
-                                      isEditable={true}
-                                    />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.investmentType`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.investmentType`)}</p>
+                                        options={[
+                                          "Partner",
+                                          "Investor",
+                                          "Other",
+                                        ].map((opt) => ({
+                                          label: opt,
+                                          value: opt,
+                                        }))}
+                                        value={item.investmentType || ""}
+                                        onChange={(value) =>
+                                          handleArrayFieldUpdate(
+                                            "2.4",
+                                            index,
+                                            "investmentType",
+                                            value
+                                          )
+                                        }
+                                        placeholder="Select Type"
+                                        isEditable={true}
+                                      />
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.investmentType`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.investmentType`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4937,7 +5148,11 @@ export const InfraDevelopmentReview = ({
                                     <Button
                                       variant="outline"
                                       size="icon"
-                                      onClick={() => handleRemoveEntry2_4(item.id || index.toString())}
+                                      onClick={() =>
+                                        handleRemoveEntry2_4(
+                                          item.id || index.toString()
+                                        )
+                                      }
                                       className="text-red-500 hover:text-red-700 border-none bg-none"
                                     >
                                       <Trash2 className="h-5 w-5" />
@@ -5246,18 +5461,36 @@ export const InfraDevelopmentReview = ({
                                       e.target.value
                                     );
                                     // Clear validation error when user types
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.projectName`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.projectName`
+                                      )
+                                    ) {
                                       setValidationErrors((prev) => {
                                         const updated = { ...prev };
-                                        delete updated[`section2_5.assetMonetizationArray.${index}.projectName`];
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.projectName`
+                                        ];
                                         return updated;
                                       });
                                     }
                                   }}
-                                  className={getFieldError(`section2_5.assetMonetizationArray.${index}.projectName`) ? "w-full border-red-500" : "w-full"}
+                                  className={
+                                    getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.projectName`
+                                    )
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
                                 />
-                                {getFieldError(`section2_5.assetMonetizationArray.${index}.projectName`) && (
-                                  <p className="text-xs text-red-500 mt-1">{getFieldError(`section2_5.assetMonetizationArray.${index}.projectName`)}</p>
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.projectName`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.projectName`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -5281,10 +5514,16 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.sector`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.sector`
+                                      )
+                                    ) {
                                       setValidationErrors((prev) => {
                                         const updated = { ...prev };
-                                        delete updated[`section2_5.assetMonetizationArray.${index}.sector`];
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.sector`
+                                        ];
                                         return updated;
                                       });
                                     }
@@ -5293,8 +5532,14 @@ export const InfraDevelopmentReview = ({
                                   isEditable={true}
                                   resetKey={selectResetKey}
                                 />
-                                {getFieldError(`section2_5.assetMonetizationArray.${index}.sector`) && (
-                                  <p className="text-xs text-red-500 mt-1">{getFieldError(`section2_5.assetMonetizationArray.${index}.sector`)}</p>
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.sector`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.sector`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -5317,10 +5562,16 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.type`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.type`
+                                      )
+                                    ) {
                                       setValidationErrors((prev) => {
                                         const updated = { ...prev };
-                                        delete updated[`section2_5.assetMonetizationArray.${index}.type`];
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.type`
+                                        ];
                                         return updated;
                                       });
                                     }
@@ -5329,8 +5580,14 @@ export const InfraDevelopmentReview = ({
                                   isEditable={true}
                                   resetKey={selectResetKey}
                                 />
-                                {getFieldError(`section2_5.assetMonetizationArray.${index}.type`) && (
-                                  <p className="text-xs text-red-500 mt-1">{getFieldError(`section2_5.assetMonetizationArray.${index}.type`)}</p>
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.type`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.type`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -5353,10 +5610,16 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.ownership`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.ownership`
+                                      )
+                                    ) {
                                       setValidationErrors((prev) => {
                                         const updated = { ...prev };
-                                        delete updated[`section2_5.assetMonetizationArray.${index}.ownership`];
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.ownership`
+                                        ];
                                         return updated;
                                       });
                                     }
@@ -5365,8 +5628,14 @@ export const InfraDevelopmentReview = ({
                                   isEditable={true}
                                   resetKey={selectResetKey}
                                 />
-                                {getFieldError(`section2_5.assetMonetizationArray.${index}.ownership`) && (
-                                  <p className="text-xs text-red-500 mt-1">{getFieldError(`section2_5.assetMonetizationArray.${index}.ownership`)}</p>
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.ownership`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.ownership`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -5386,19 +5655,37 @@ export const InfraDevelopmentReview = ({
                                       e.target.value
                                     );
                                     // Clear validation error when user types
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.estimatedMonetization`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                      )
+                                    ) {
                                       setValidationErrors((prev) => {
                                         const updated = { ...prev };
-                                        delete updated[`section2_5.assetMonetizationArray.${index}.estimatedMonetization`];
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                        ];
                                         return updated;
                                       });
                                     }
                                   }}
-                                  className={getFieldError(`section2_5.assetMonetizationArray.${index}.estimatedMonetization`) ? "w-full border-red-500" : "w-full"}
+                                  className={
+                                    getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                    )
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
                                   placeholder="Enter amount"
                                 />
-                                {getFieldError(`section2_5.assetMonetizationArray.${index}.estimatedMonetization`) && (
-                                  <p className="text-xs text-red-500 mt-1">{getFieldError(`section2_5.assetMonetizationArray.${index}.estimatedMonetization`)}</p>
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : item.estimatedMonetization ? (
@@ -5412,7 +5699,11 @@ export const InfraDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => handleRemoveEntry2_5(item.id || index.toString())}
+                                onClick={() =>
+                                  handleRemoveEntry2_5(
+                                    item.id || index.toString()
+                                  )
+                                }
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
@@ -5427,9 +5718,12 @@ export const InfraDevelopmentReview = ({
               </table>
             </div>
             {/* General array error message */}
-            {shouldBeEditable("2.5") && getFieldError("section2_5.assetMonetizationArray") && (
-              <p className="text-sm text-red-500 mt-2">{getFieldError("section2_5.assetMonetizationArray")}</p>
-            )}
+            {shouldBeEditable("2.5") &&
+              getFieldError("section2_5.assetMonetizationArray") && (
+                <p className="text-sm text-red-500 mt-2">
+                  {getFieldError("section2_5.assetMonetizationArray")}
+                </p>
+              )}
 
             {/* Add More Button - Only visible when in edit mode */}
             {isEditable("2.5") && !showAddForm2_5 && (
@@ -5461,19 +5755,37 @@ export const InfraDevelopmentReview = ({
                           projectName: e.target.value,
                         });
                         // Clear validation error when user types
-                        if (getFieldError("section2_5.assetMonetizationArray.new.projectName")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.projectName"
+                          )
+                        ) {
                           setValidationErrors((prev) => {
                             const updated = { ...prev };
-                            delete updated["section2_5.assetMonetizationArray.new.projectName"];
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.projectName"
+                            ];
                             return updated;
                           });
                         }
                       }}
-                      className={getFieldError("section2_5.assetMonetizationArray.new.projectName") ? "bg-white border-red-500" : "bg-white"}
+                      className={
+                        getFieldError(
+                          "section2_5.assetMonetizationArray.new.projectName"
+                        )
+                          ? "bg-white border-red-500"
+                          : "bg-white"
+                      }
                       placeholder="Enter project/asset name"
                     />
-                    {getFieldError("section2_5.assetMonetizationArray.new.projectName") && (
-                      <p className="text-sm text-red-500 mt-1">{getFieldError("section2_5.assetMonetizationArray.new.projectName")}</p>
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.projectName"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.projectName"
+                        )}
+                      </p>
                     )}
                   </div>
                   <div>
@@ -5487,10 +5799,16 @@ export const InfraDevelopmentReview = ({
                       onChange={(value) => {
                         setNewEntry2_5({ ...newEntry2_5, sector: value });
                         // Clear validation error when user selects
-                        if (getFieldError("section2_5.assetMonetizationArray.new.sector")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.sector"
+                          )
+                        ) {
                           setValidationErrors((prev) => {
                             const updated = { ...prev };
-                            delete updated["section2_5.assetMonetizationArray.new.sector"];
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.sector"
+                            ];
                             return updated;
                           });
                         }
@@ -5498,8 +5816,14 @@ export const InfraDevelopmentReview = ({
                       placeholder="Select Sector"
                       isEditable={true}
                     />
-                    {getFieldError("section2_5.assetMonetizationArray.new.sector") && (
-                      <p className="text-sm text-red-500 mt-1">{getFieldError("section2_5.assetMonetizationArray.new.sector")}</p>
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.sector"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.sector"
+                        )}
+                      </p>
                     )}
                   </div>
                   <div>
@@ -5513,10 +5837,16 @@ export const InfraDevelopmentReview = ({
                       onChange={(value) => {
                         setNewEntry2_5({ ...newEntry2_5, type: value });
                         // Clear validation error when user selects
-                        if (getFieldError("section2_5.assetMonetizationArray.new.type")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.type"
+                          )
+                        ) {
                           setValidationErrors((prev) => {
                             const updated = { ...prev };
-                            delete updated["section2_5.assetMonetizationArray.new.type"];
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.type"
+                            ];
                             return updated;
                           });
                         }
@@ -5524,8 +5854,14 @@ export const InfraDevelopmentReview = ({
                       placeholder="Select Type"
                       isEditable={true}
                     />
-                    {getFieldError("section2_5.assetMonetizationArray.new.type") && (
-                      <p className="text-sm text-red-500 mt-1">{getFieldError("section2_5.assetMonetizationArray.new.type")}</p>
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.type"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.type"
+                        )}
+                      </p>
                     )}
                   </div>
                   <div>
@@ -5539,10 +5875,16 @@ export const InfraDevelopmentReview = ({
                       onChange={(value) => {
                         setNewEntry2_5({ ...newEntry2_5, ownership: value });
                         // Clear validation error when user selects
-                        if (getFieldError("section2_5.assetMonetizationArray.new.ownership")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.ownership"
+                          )
+                        ) {
                           setValidationErrors((prev) => {
                             const updated = { ...prev };
-                            delete updated["section2_5.assetMonetizationArray.new.ownership"];
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.ownership"
+                            ];
                             return updated;
                           });
                         }
@@ -5550,8 +5892,14 @@ export const InfraDevelopmentReview = ({
                       placeholder="Select Ownership"
                       isEditable={true}
                     />
-                    {getFieldError("section2_5.assetMonetizationArray.new.ownership") && (
-                      <p className="text-sm text-red-500 mt-1">{getFieldError("section2_5.assetMonetizationArray.new.ownership")}</p>
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.ownership"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.ownership"
+                        )}
+                      </p>
                     )}
                   </div>
                   <div className="md:col-span-2">
@@ -5564,19 +5912,37 @@ export const InfraDevelopmentReview = ({
                           estimatedMonetization: e.target.value,
                         });
                         // Clear validation error when user types
-                        if (getFieldError("section2_5.assetMonetizationArray.new.estimatedMonetization")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                          )
+                        ) {
                           setValidationErrors((prev) => {
                             const updated = { ...prev };
-                            delete updated["section2_5.assetMonetizationArray.new.estimatedMonetization"];
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                            ];
                             return updated;
                           });
                         }
                       }}
-                      className={getFieldError("section2_5.assetMonetizationArray.new.estimatedMonetization") ? "bg-white border-red-500" : "bg-white"}
+                      className={
+                        getFieldError(
+                          "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                        )
+                          ? "bg-white border-red-500"
+                          : "bg-white"
+                      }
                       placeholder="Enter amount"
                     />
-                    {getFieldError("section2_5.assetMonetizationArray.new.estimatedMonetization") && (
-                      <p className="text-sm text-red-500 mt-1">{getFieldError("section2_5.assetMonetizationArray.new.estimatedMonetization")}</p>
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                        )}
+                      </p>
                     )}
                   </div>
                 </div>

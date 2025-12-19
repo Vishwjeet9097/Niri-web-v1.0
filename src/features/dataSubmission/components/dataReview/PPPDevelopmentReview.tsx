@@ -126,7 +126,9 @@ export const PPPDevelopmentReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  const [validationErrors, setValidationErrors] = useState<{
+    [key: string]: string;
+  }>({});
 
   // Helper function to get error message for a field
   const getFieldError = (fieldPath: string): string | undefined => {
@@ -145,6 +147,38 @@ export const PPPDevelopmentReview = ({
       setSubmissionState(submission);
     }
   }, [submission]);
+
+  // Sync formDataState when formData prop changes (but not when restoring from cancel)
+  // This ensures we always have the latest data when navigating between categories
+  useEffect(() => {
+    if (formData && !isRestoringRef.current) {
+      const rawData = (formData as any)?.pppDevelopment || formData;
+      const normalized = normalizePPPDevelopment(
+        rawData &&
+          typeof rawData === "object" &&
+          (rawData as any)?.section3_1 !== undefined
+          ? rawData
+          : rawData
+      );
+
+      // Deep comparison to detect if formData has actually changed
+      setFormDataState((prev: any) => {
+        const prevStr = JSON.stringify(prev);
+        const normalizedStr = JSON.stringify(normalized);
+
+        // If formData is different, it means parent component has refreshed with new data
+        if (prevStr !== normalizedStr) {
+          console.log(
+            "🔄 [PPPDevelopmentReview] formData prop changed, syncing local state with latest data"
+          );
+          return normalized;
+        }
+
+        // If formData hasn't changed, keep previous state (may have local edits)
+        return prev;
+      });
+    }
+  }, [formData]);
 
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] =
@@ -678,19 +712,23 @@ export const PPPDevelopmentReview = ({
   };
 
   // Helper to extract original name from UUID-prefixed fileName for existing files
-  const extractOriginalName = (fileName: string, originalName?: string): string => {
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
     if (originalName && originalName.trim()) return originalName;
-    
+
     // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-    
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
     if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+      const extracted = fileName.replace(uuidPattern, "");
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
-    
+
     return fileName;
   };
 
@@ -803,8 +841,12 @@ export const PPPDevelopmentReview = ({
       try {
         const filePath = file.filePath || file.file;
         const encoded = encodeURIComponent(filePath);
-        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+        const base =
+          import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(
+          /\/$/,
+          ""
+        )}/file/download/${encoded}`;
 
         const accessToken = readAccessTokenFromLocalStorage();
         if (!accessToken) {
@@ -951,9 +993,12 @@ export const PPPDevelopmentReview = ({
     const targetKey = "file"; // Section 3.1 uses 'file' (singular), same as 3.2
     const filesArray = toFileArray(updatedValue);
     // For single file sections (3.1, 3.2), use the first file or null
-    const normalizedValue = Array.isArray(updatedValue) && updatedValue.length > 0 
-      ? updatedValue[0] 
-      : (Array.isArray(updatedValue) ? null : updatedValue);
+    const normalizedValue =
+      Array.isArray(updatedValue) && updatedValue.length > 0
+        ? updatedValue[0]
+        : Array.isArray(updatedValue)
+        ? null
+        : updatedValue;
 
     const updatedSection = {
       ...previousSection,
@@ -1066,7 +1111,7 @@ export const PPPDevelopmentReview = ({
   const handleRemoveVGFEntry = (id: string) => {
     setFormDataState((prev: any) => {
       const current = prev?.section3_3?.VGFArray;
-      const rows = Array.isArray(current) 
+      const rows = Array.isArray(current)
         ? current.filter((item: any) => item.id !== id)
         : [];
       return {
@@ -1083,7 +1128,7 @@ export const PPPDevelopmentReview = ({
   const handleRemoveProjectEntry = (id: string) => {
     setFormDataState((prev: any) => {
       const current = prev?.section3_4?.projects;
-      const projects = Array.isArray(current) 
+      const projects = Array.isArray(current)
         ? current.filter((item: any) => item.id !== id)
         : [];
       return {
@@ -1380,9 +1425,12 @@ export const PPPDevelopmentReview = ({
         section3_4: formDataState?.section3_4 || { projects: [] },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validatePPPDevelopment(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -2647,7 +2695,9 @@ export const PPPDevelopmentReview = ({
                   </div>
                 )}
                 {getFieldError("section3_1.available") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.available")}</p>
+                  <p className="text-sm text-red-500 mt-1">
+                    {getFieldError("section3_1.available")}
+                  </p>
                 )}
               </div>
 
@@ -2672,7 +2722,9 @@ export const PPPDevelopmentReview = ({
                     multiple={false}
                   />
                   {getFieldError("section3_1.file") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.file")}</p>
+                    <p className="text-sm text-red-500 mt-1">
+                      {getFieldError("section3_1.file")}
+                    </p>
                   )}
                 </div>
               )}
@@ -2707,7 +2759,9 @@ export const PPPDevelopmentReview = ({
                     </div>
                   )}
                   {getFieldError("section3_1.comment") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.comment")}</p>
+                    <p className="text-sm text-red-500 mt-1">
+                      {getFieldError("section3_1.comment")}
+                    </p>
                   )}
                 </div>
               )}
@@ -2800,7 +2854,9 @@ export const PPPDevelopmentReview = ({
                   </div>
                 )}
                 {getFieldError("section3_2.available") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.available")}</p>
+                  <p className="text-sm text-red-500 mt-1">
+                    {getFieldError("section3_2.available")}
+                  </p>
                 )}
               </div>
 
@@ -2825,7 +2881,9 @@ export const PPPDevelopmentReview = ({
                     multiple={false}
                   />
                   {getFieldError("section3_2.file") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.file")}</p>
+                    <p className="text-sm text-red-500 mt-1">
+                      {getFieldError("section3_2.file")}
+                    </p>
                   )}
                 </div>
               )}
@@ -2860,7 +2918,9 @@ export const PPPDevelopmentReview = ({
                     </div>
                   )}
                   {getFieldError("section3_2.comment") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.comment")}</p>
+                    <p className="text-sm text-red-500 mt-1">
+                      {getFieldError("section3_2.comment")}
+                    </p>
                   )}
                 </div>
               )}
@@ -2977,13 +3037,21 @@ export const PPPDevelopmentReview = ({
                                     )
                                   }
                                   className={
-                                    getFieldError(`section3_3.VGFArray.${index}.projectName`)
+                                    getFieldError(
+                                      `section3_3.VGFArray.${index}.projectName`
+                                    )
                                       ? "w-full border-red-500"
                                       : "w-full"
                                   }
                                 />
-                                {getFieldError(`section3_3.VGFArray.${index}.projectName`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.projectName`)}</p>
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.projectName`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.projectName`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -2997,14 +3065,22 @@ export const PPPDevelopmentReview = ({
                                   key={`sector-${index}-${selectResetKey}`}
                                   value={item.sector || ""}
                                   onValueChange={(value) =>
-                                    handleTableFieldUpdate(index, "sector", value)
+                                    handleTableFieldUpdate(
+                                      index,
+                                      "sector",
+                                      value
+                                    )
                                   }
                                 >
-                                  <SelectTrigger className={
-                                    getFieldError(`section3_3.VGFArray.${index}.sector`)
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }>
+                                  <SelectTrigger
+                                    className={
+                                      getFieldError(
+                                        `section3_3.VGFArray.${index}.sector`
+                                      )
+                                        ? "w-full border-red-500"
+                                        : "w-full"
+                                    }
+                                  >
                                     <SelectValue placeholder="Select sector" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -3015,8 +3091,14 @@ export const PPPDevelopmentReview = ({
                                     ))}
                                   </SelectContent>
                                 </Select>
-                                {getFieldError(`section3_3.VGFArray.${index}.sector`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.sector`)}</p>
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.sector`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.sector`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -3033,11 +3115,15 @@ export const PPPDevelopmentReview = ({
                                     handleTableFieldUpdate(index, "type", value)
                                   }
                                 >
-                                  <SelectTrigger className={
-                                    getFieldError(`section3_3.VGFArray.${index}.type`)
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }>
+                                  <SelectTrigger
+                                    className={
+                                      getFieldError(
+                                        `section3_3.VGFArray.${index}.type`
+                                      )
+                                        ? "w-full border-red-500"
+                                        : "w-full"
+                                    }
+                                  >
                                     <SelectValue placeholder="Select type" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -3048,8 +3134,14 @@ export const PPPDevelopmentReview = ({
                                     ))}
                                   </SelectContent>
                                 </Select>
-                                {getFieldError(`section3_3.VGFArray.${index}.type`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.type`)}</p>
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.type`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.type`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -3078,13 +3170,21 @@ export const PPPDevelopmentReview = ({
                                     )
                                   }
                                   className={
-                                    getFieldError(`section3_3.VGFArray.${index}.submissionDate`)
+                                    getFieldError(
+                                      `section3_3.VGFArray.${index}.submissionDate`
+                                    )
                                       ? "w-full border-red-500"
                                       : "w-full"
                                   }
                                 />
-                                {getFieldError(`section3_3.VGFArray.${index}.submissionDate`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.submissionDate`)}</p>
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.submissionDate`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.submissionDate`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : item.submissionDate ? (
@@ -3159,7 +3259,10 @@ export const PPPDevelopmentReview = ({
                                               fileData.fileName ||
                                               fileData.filename ||
                                               selectedFile.name,
-                                            originalName: selectedFile.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name
+                                            originalName:
+                                              selectedFile.name ||
+                                              fileData.originalName ||
+                                              fileData.data?.originalName, // Preserve original file name
                                             fileSize: Number(
                                               fileData.fileSize ??
                                                 fileData.size ??
@@ -3219,24 +3322,36 @@ export const PPPDevelopmentReview = ({
                                 <Badge
                                   variant="secondary"
                                   className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                  title={(item.file as any).originalName || item.file.fileName || "Unknown file"}
+                                  title={
+                                    (item.file as any).originalName ||
+                                    item.file.fileName ||
+                                    "Unknown file"
+                                  }
                                 >
                                   <Upload className="w-3 h-3" />
                                   <span className="truncate">
-                                    {(item.file as any).originalName || item.file.fileName || "Unknown file"}
+                                    {(item.file as any).originalName ||
+                                      item.file.fileName ||
+                                      "Unknown file"}
                                   </span>
                                 </Badge>
                                 {(() => {
                                   const fileKey = `3.3-${index}`;
                                   const isLoading = !!fileLoading[fileKey];
-                                  const hasFileAccess = !!(item.file.filePath || item.file.file || item.file.fileUrl);
+                                  const hasFileAccess = !!(
+                                    item.file.filePath ||
+                                    item.file.file ||
+                                    item.file.fileUrl
+                                  );
                                   return hasFileAccess ? (
                                     <>
                                       <Button
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleViewFile(item.file, fileKey)}
+                                        onClick={() =>
+                                          handleViewFile(item.file, fileKey)
+                                        }
                                         disabled={isLoading}
                                         className="h-7 w-7 p-0"
                                         title="View file"
@@ -3247,7 +3362,9 @@ export const PPPDevelopmentReview = ({
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleDownloadFile(item.file, fileKey)}
+                                        onClick={() =>
+                                          handleDownloadFile(item.file, fileKey)
+                                        }
                                         disabled={isLoading}
                                         className="h-7 w-7 p-0"
                                         title="Download file"
@@ -3269,7 +3386,11 @@ export const PPPDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => handleRemoveVGFEntry(item.id || index.toString())}
+                                onClick={() =>
+                                  handleRemoveVGFEntry(
+                                    item.id || index.toString()
+                                  )
+                                }
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
@@ -3486,7 +3607,9 @@ export const PPPDevelopmentReview = ({
                         placeholder="Enter total projects awarded"
                       />
                       {getFieldError("section3_4.totalProjectsAwarded") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section3_4.totalProjectsAwarded")}</p>
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError("section3_4.totalProjectsAwarded")}
+                        </p>
                       )}
                     </div>
                   ) : (
@@ -3498,7 +3621,9 @@ export const PPPDevelopmentReview = ({
                   )}
                 </div>
                 <div>
-                  <Label>Total Project Cost Awarded (INR - values is in CRORES) </Label>
+                  <Label>
+                    Total Project Cost Awarded (INR - values is in CRORES){" "}
+                  </Label>
                   {/* <p className="text-xs text-muted-foreground mt-1">INR - values is in CRORES</p> */}
                   {isEditable("3.4") ? (
                     <div>
@@ -3526,7 +3651,9 @@ export const PPPDevelopmentReview = ({
                         placeholder="Enter total project cost awarded"
                       />
                       {getFieldError("section3_4.totalProjectCostAwarded") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section3_4.totalProjectCostAwarded")}</p>
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError("section3_4.totalProjectCostAwarded")}
+                        </p>
                       )}
                     </div>
                   ) : (
@@ -3718,7 +3845,10 @@ export const PPPDevelopmentReview = ({
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   // Only allow numbers and decimal point
-                                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                  if (
+                                    value === "" ||
+                                    /^\d*\.?\d*$/.test(value)
+                                  ) {
                                     handleProjectFieldUpdate(
                                       idx,
                                       "capexPercentage",
@@ -3744,7 +3874,10 @@ export const PPPDevelopmentReview = ({
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   // Only allow numbers and decimal point
-                                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                  if (
+                                    value === "" ||
+                                    /^\d*\.?\d*$/.test(value)
+                                  ) {
                                     handleProjectFieldUpdate(
                                       idx,
                                       "totalProjectCost",
@@ -3764,7 +3897,11 @@ export const PPPDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => handleRemoveProjectEntry(project.id || idx.toString())}
+                                onClick={() =>
+                                  handleRemoveProjectEntry(
+                                    project.id || idx.toString()
+                                  )
+                                }
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
