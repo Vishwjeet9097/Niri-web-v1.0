@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -29,9 +30,13 @@ export const Section_1_3 = ({
   };
   const ulbList = formData?.section1_3?.ulbList || [];
   const totalULBs = formData?.section1_3?.totalULBs || 0;
-  // Get state name from formData or fallback
-  const stateName = formData?.userState || formData?.stateName || "Maharashtra";
+  console.log("[Section_1_3] formData:", formData);
+  console.log("[Section_1_3] ulbList:", ulbList);
+  // Get state name from formData or fallback to logged-in user
+  const { user } = useAuth();
+  const stateName =  user?.state || user?.stateName || "";
 
+ 
   // State for fetched ULBs
   const [ulbDropdownOptions, setUlbDropdownOptions] = useState([]);
   const [ulbLoading, setUlbLoading] = useState(false);
@@ -57,7 +62,7 @@ export const Section_1_3 = ({
           if (ulbType) label += ` (${ulbType})`;
           return {
             label: label,
-            value: ulb.id,
+            value: String(ulb.id), // Ensure value is a string
           };
         });
         console.log("ULB dropdown options:", options);
@@ -99,7 +104,8 @@ export const Section_1_3 = ({
     const updatedUlbList = [...ulbList];
     // If ULB is changed, auto-fill cityName from dropdown
     if (field === "ulb") {
-      const selectedULB = ulbDropdownOptions.find((u) => u.value === value);
+      const stringValue = value ? String(value) : "";
+      const selectedULB = ulbDropdownOptions.find((u) => u.value === stringValue);
       // Try to get city name from label (format: ulb_name - city_name (ulb_type))
       let cityName = "";
       if (selectedULB && selectedULB.label) {
@@ -110,7 +116,7 @@ export const Section_1_3 = ({
       }
       updatedUlbList[index] = {
         ...updatedUlbList[index],
-        [field]: value,
+        [field]: stringValue,
         cityName,
       };
     } else {
@@ -141,6 +147,8 @@ export const Section_1_3 = ({
       id: `ulb-${Date.now()}`,
     };
     const updatedUlbList = [...ulbList, newEntryWithId];
+    console.log("[Section_1_3] Adding new ULB entry:", newEntryWithId);
+    console.log("[Section_1_3] Updated ulbList:", updatedUlbList);
     if (setSectionState) {
       setSectionState({ totalULBs, ulbList: updatedUlbList });
     }
@@ -223,7 +231,7 @@ export const Section_1_3 = ({
                       <div>
                         <Dropdown
                           options={ulbDropdownOptions}
-                          value={item.ulb || ""}
+                          value={item.ulb ? String(item.ulb) : ""}
                           onChange={(value) =>
                             handleUlbChange(index, "ulb", value)
                           }
@@ -253,10 +261,24 @@ export const Section_1_3 = ({
                       </div>
                     ) : (
                       (() => {
-                        const found = ulbDropdownOptions.find(
-                          (u) => u.value === item.ulb
-                        );
-                        return found ? found.label : item.ulb || "N/A";
+                        // Try to show best available name from item itself first
+                        let label = "";
+                        if (item.ulb && ulbDropdownOptions.length > 0) {
+                          const found = ulbDropdownOptions.find(
+                            (u) => u.value === String(item.ulb)
+                          );
+                          if (found) label = found.label;
+                        }
+                        // If not found, fallback to item fields
+                        if (!label) {
+                          const ulbName = item.ulb_name || item.name || "";
+                          const cityName = item.cityName || item.city_name || item.city || "";
+                          const ulbType = item.ulb_type || item.type || "";
+                          label = ulbName;
+                          if (cityName) label += ` - ${cityName}`;
+                          if (ulbType) label += ` (${ulbType})`;
+                        }
+                        return label && label.trim() !== "" ? label : "N/A";
                       })()
                     )}
                   </td>
@@ -284,23 +306,35 @@ export const Section_1_3 = ({
 
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.3") ? (
-                      <div>
-                        <Input
-                          type="date"
-                          value={item.ratingDate || ""}
-                          onChange={(e) =>
-                            handleUlbChange(index, "ratingDate", e.target.value)
-                          }
-                          className={
+		 <div>	
+                      <Input
+                        type="date"
+                        value={
+                          item.ratingDate
+                            ? (() => {
+                                // Ensure value is in YYYY-MM-DD format
+                                const d = new Date(item.ratingDate);
+                                if (isNaN(d.getTime())) return "";
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(2, "0");
+                                const day = String(d.getDate()).padStart(2, "0");
+                                return `${year}-${month}-${day}`;
+                              })()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          handleUlbChange(index, "ratingDate", e.target.value)
+                        }
+                        className={
                             getError(`section1_3.ulbList.${index}.ratingDate`)
                               ? "w-full border-red-500"
                               : "w-full"
                           }
-                        />
-                        {getError(`section1_3.ulbList.${index}.ratingDate`) && (
+                      />
+		 {getError(`section1_3.ulbList.${index}.ratingDate`) && (
                           <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.ratingDate`)}</p>
                         )}
-                      </div>
+                      </div>	
                     ) : item.ratingDate ? (
                       new Date(item.ratingDate).toLocaleDateString()
                     ) : (
@@ -377,6 +411,33 @@ export const Section_1_3 = ({
           <h4 className="font-medium mb-3">Add New ULB Entry</h4>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
+              <Label>ULB</Label>
+              <Dropdown
+                options={ulbDropdownOptions}
+                value={newULBEntry.ulb ? String(newULBEntry.ulb) : ""}
+                onChange={(value) => {
+                  // Auto-fill city name from selected ULB
+                  const selectedULB = ulbDropdownOptions.find((u) => u.value === String(value));
+                  let cityName = "";
+                  if (selectedULB && selectedULB.label) {
+                    // Try to extract city name from label (format: ulb_name - city_name (ulb_type))
+                    const match = selectedULB.label.match(/-\s([^()]+)(?:\(|$)/);
+                    if (match && match[1]) {
+                      cityName = match[1].trim();
+                    }
+                  }
+                  setNewULBEntry({ ...newULBEntry, ulb: value, cityName });
+                }}
+                placeholder={ulbLoading ? "Loading..." : "Select ULB"}
+                isEditable={true}
+                isSearchable={true}
+                disabled={ulbLoading || !!ulbError}
+              />
+              {ulbError && (
+                <div className="text-xs text-red-500 mt-1">{ulbError}</div>
+              )}
+            </div>
+            <div>
               <Label>City Name</Label>
               <Input
                 value={newULBEntry.cityName}
@@ -396,25 +457,7 @@ export const Section_1_3 = ({
                 <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.cityName")}</p>
               )}
             </div>
-            <div>
-              <Label>ULB</Label>
-              <Dropdown
-                options={ulbDropdownOptions}
-                value={newULBEntry.ulb}
-                onChange={(value) =>
-                  setNewULBEntry({ ...newULBEntry, ulb: value })
-                }
-                placeholder={ulbLoading ? "Loading..." : "Select ULB"}
-                isEditable={true}
-                isSearchable={true}
-              />
-              {getError("section1_3.ulbList.new.ulb") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.ulb")}</p>
-              )}
-              {ulbError && (
-                <div className="text-xs text-red-500 mt-1">{ulbError}</div>
-              )}
-            </div>
+           
             <div>
               <Label>Rating Date</Label>
               <Input

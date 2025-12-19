@@ -312,7 +312,7 @@ export function NodalDashboardPage() {
       {/* Header */}
       <div className="bg-[#fff] p-6 rounded-lg relative">
         <div>
-          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome back</h1>
+          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome</h1>
           <p className="text-[#212121]">
             Manage your NIRI data submissions and track approval status
           </p>
@@ -357,7 +357,7 @@ export function NodalDashboardPage() {
       </TooltipProvider>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-1">
         <div className="lg:col-span-2 space-y-6">
           <div className="space-y-4">
             <div className="bg-white shadow-xl rounded-xl p-6">
