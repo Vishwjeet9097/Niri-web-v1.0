@@ -161,7 +161,7 @@ export const Section_1_3 = ({
     });
     setShowAddULBForm(false);
   };
-
+  
   // Handle cancel adding new ULB entry
   const handleCancelAddULBEntry = () => {
     setNewULBEntry({

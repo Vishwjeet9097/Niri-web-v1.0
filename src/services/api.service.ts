@@ -1801,12 +1801,22 @@ class ApiService implements HttpClient {
               finalStatus = "SUBMITTED_TO_STATE";
             }
 
+            // Add nodalOfficerId if user is NODAL_OFFICER
+            const sectionDataWithNodalId = { ...sectionData[sectionKey] };
+            if (userRole === "NODAL_OFFICER" && userId) {
+              sectionDataWithNodalId.nodalOfficerId = userId;
+            }
+
             filteredSectionData[sectionKey] = {
-              ...sectionData[sectionKey],
+              ...sectionDataWithNodalId,
               status: finalStatus,
             };
             console.log(
-              `✅ Updating section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}`
+              `✅ Updating section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}${
+                userRole === "NODAL_OFFICER"
+                  ? ` (nodalOfficerId: ${userId})`
+                  : ""
+              }`
             );
             console.log(
               `🔍 [API UPDATE] Section ${sectionKey} data:`,
@@ -1981,12 +1991,22 @@ class ApiService implements HttpClient {
             const incomingStatus = sectionData[sectionKey]?.status;
             const finalStatus = incomingStatus || "SUBMITTED_TO_STATE";
 
+            // Add nodalOfficerId if user is NODAL_OFFICER
+            const sectionDataWithNodalId = { ...sectionData[sectionKey] };
+            if (userRole === "NODAL_OFFICER" && userId) {
+              sectionDataWithNodalId.nodalOfficerId = userId;
+            }
+
             filteredSectionData[sectionKey] = {
-              ...sectionData[sectionKey],
+              ...sectionDataWithNodalId,
               status: finalStatus,
             };
             console.log(
-              `✅ Including section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}`
+              `✅ Including section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}${
+                userRole === "NODAL_OFFICER"
+                  ? ` (nodalOfficerId: ${userId})`
+                  : ""
+              }`
             );
             console.log(
               `🔍 [API CREATE] Section ${sectionKey} data:`,
@@ -4569,6 +4589,7 @@ class ApiService implements HttpClient {
       section: string;
       status: boolean;
       mospi_status?: string;
+      nodalOfficerId?: string; // For sending back to specific NODAL_OFFICER
     },
     token?: string
   ) {

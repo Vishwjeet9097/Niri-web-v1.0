@@ -58,6 +58,10 @@ import type { FileUpload } from "@/types";
 import { validatePPPDevelopment } from "@/features/submission/validation/pppDevelopmentValidation";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import {
+  isSubmissionFromNodalOfficer,
+  isIndicatorFromNodalOfficer,
+} from "@/utils/indicatorStatusUtils";
+import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
 } from "@/features/submission/constants/steps";
@@ -1519,6 +1523,7 @@ export const PPPDevelopmentReview = ({
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
@@ -1531,6 +1536,27 @@ export const PPPDevelopmentReview = ({
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
+    }
+
+    // If STATE_APPROVER is sending back (status = false), extract nodalOfficerId from section data
+    if (isStateApprover && !status) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (formDataState && (formDataState as any)[sectionKey]) ||
+        (formData && (formData as any)[sectionKey]);
+
+      const nodalOfficerId = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.nodalOfficerId
+          : sectionData?.nodalOfficerId
+        : undefined;
+
+      if (nodalOfficerId) {
+        payload.nodalOfficerId = nodalOfficerId;
+        console.log(
+          `📤 [PPPDevelopmentReview] Sending back indicator ${sectionId} to NODAL_OFFICER: ${nodalOfficerId}`
+        );
+      }
     }
 
     try {
@@ -2029,6 +2055,9 @@ export const PPPDevelopmentReview = ({
           </div>
         );
       }
+
+      // If mospi_status is REVERTED, continue to show Edit button and other actions
+      // We'll add the "Returned from Mospi" button in the normal flow below
     }
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
@@ -2304,6 +2333,31 @@ export const PPPDevelopmentReview = ({
 
     return (
       <div className="flex gap-2">
+        {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (formDataState && (formDataState as any)[sectionKey]) ||
+              (formData && (formData as any)[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+            return mospiStatus === "REVERTED";
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from Mospi
+            </Button>
+          )}
+
         {!isEditable(sectionId) ? (
           <Button
             variant="outline"
@@ -2337,6 +2391,75 @@ export const PPPDevelopmentReview = ({
             </Button>
           </>
         )}
+
+        {/* Show "Send Back" button for STATE_APPROVER when indicator is returned from MOSPI and originally from NODAL_OFFICER */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (formDataState && (formDataState as any)[sectionKey]) ||
+              (formData && (formData as any)[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+
+            // Check if this specific indicator was originally submitted by NODAL_OFFICER
+            const isFromNodalOfficer = isIndicatorFromNodalOfficer(
+              submission as any,
+              sectionId
+            );
+
+            // Detailed logging for debugging
+            console.group(
+              `🔍 [PPPDevelopmentReview] "Send Back" button check for section ${sectionId}`
+            );
+            console.log("📊 Section data:", {
+              sectionKey,
+              sectionData: sectionData
+                ? Array.isArray(sectionData)
+                  ? sectionData[0]
+                  : sectionData
+                : null,
+              mospiStatus,
+              hasFormDataState: !!formDataState,
+              hasFormData: !!formData,
+            });
+            console.log("👤 Submission info:", {
+              submissionId: submission?.id,
+              submissionStatus: submission?.status,
+              currentOwnerRole: submission?.currentOwnerRole,
+              submittedBy: submission?.submittedBy,
+            });
+            console.log("✅ Checks:", {
+              isStateApprover,
+              mospiStatus,
+              isMospiReverted: mospiStatus === "REVERTED",
+              isFromNodalOfficer,
+              shouldShowButton:
+                mospiStatus === "REVERTED" && isFromNodalOfficer,
+            });
+            console.groupEnd();
+
+            return mospiStatus === "REVERTED" && isFromNodalOfficer;
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => {
+                // Track that this was opened from STATE_APPROVER "Send Back" button
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+                handleOpenModal(sectionId);
+              }}
+              disabled={shouldBeEditable(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+          )}
 
         {/* Hide Send Back button if STATE_APPROVER is viewing their own submission */}
         {(() => {
