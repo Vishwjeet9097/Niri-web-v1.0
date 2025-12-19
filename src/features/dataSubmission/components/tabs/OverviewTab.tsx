@@ -112,7 +112,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
   return (
     <div className="space-y-6">
       {/* Three Column Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Nodal Officer Information */}
         <Card>
           <CardHeader>
@@ -188,7 +188,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
         </Card>
 
         {/* Performance Metrics */}
-        <Card>
+        {/* <Card>
           <CardHeader>
             <CardTitle className="tracking-tight text-base font-semibold bg-[#E9EDFB] px-6 py-2">Performance Metrics</CardTitle>
           </CardHeader>
@@ -218,7 +218,7 @@ export const OverviewTab = ({ submission }: OverviewTabProps) => {
               </p>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Summary Cards */}

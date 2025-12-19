@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
+import { calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 import {
   FileText,
   AlertCircle,
@@ -210,14 +211,20 @@ export function NodalDashboardPage() {
         else if (Array.isArray((submissionsData as any)?.data?.submissions))
           submissionsArray = (submissionsData as any).data.submissions;
 
-        setSubmissions(
-          submissionsArray.map((sub: any) => {
+        const processedSubmissions = await Promise.all(
+          submissionsArray.map(async (sub: any) => {
             const fd = sub.form_data || sub.formData || {};
-            const formDataKeys = Object.keys(fd || {});
-            const progress =
-              formDataKeys.length > 0
-                ? Math.min(100, (formDataKeys.length / 10) * 100)
-                : 0;
+            // Add submittedBy (user ID) to formData for progress calculation
+            const fdWithSubmittedBy = {
+              ...fd,
+              submittedBy: sub.user?.id || sub.submittedBy || sub.user,
+            };
+            
+            // Calculate progress based on sections with ACCEPTED status
+            // Count all sections in formData and count how many have status "ACCEPTED"
+            // Progress = (sections with ACCEPTED status / total sections) × 100%
+            const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+            const progress = progressData.progress;
 
             let nextStep = "Complete submission";
             if (sub.status === "DRAFT")
@@ -263,6 +270,7 @@ export function NodalDashboardPage() {
             };
           })
         );
+        setSubmissions(processedSubmissions);
       } catch (error: any) {
         console.error("Failed to load nodal dashboard data:", error);
         notificationService.error(
@@ -312,7 +320,7 @@ export function NodalDashboardPage() {
       {/* Header */}
       <div className="bg-[#fff] p-6 rounded-lg relative">
         <div>
-          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome back</h1>
+          <h1 className="text-xl font-semibold text-[#1E40AF]">Welcome</h1>
           <p className="text-[#212121]">
             Manage your NIRI data submissions and track approval status
           </p>
@@ -357,21 +365,21 @@ export function NodalDashboardPage() {
       </TooltipProvider>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-2">
         <div className="lg:col-span-2 space-y-6">
           <div className="space-y-4">
             <div className="bg-white shadow-xl rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold">Latest Submissions</h2>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-4">
                     Your latest NIRI data submissions and their status
                   </p>
                 </div>
                 {/* <Button onClick={() => navigate('/submissions')}>+ New Submission</Button> */}
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="flex justify-start items-center gap-6 px-1">
+                {/* <TabsList className="flex justify-start items-center gap-6 px-1">
                   <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="REJECTED">Rejected</TabsTrigger>
                   <TabsTrigger value="SUBMITTED_TO_STATE">
@@ -379,9 +387,9 @@ export function NodalDashboardPage() {
                   </TabsTrigger>
                   <TabsTrigger value="APPROVED">Approved</TabsTrigger>
                   <TabsTrigger value="DRAFT">Draft</TabsTrigger>
-                </TabsList>
+                </TabsList> */}
                 <TabsContent value={activeTab} className="mt-4">
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {filteredSubmissions.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         No submissions found for this status.
@@ -402,6 +410,7 @@ export function NodalDashboardPage() {
                           submission={submission.submission}
                           currentUserRole="NODAL_OFFICER"
                           submittedBy={submission.submittedBy}
+                          stateUt={submission.stateUt}
                           onEdit={() =>
                             handleEditSubmissionForEdit(submission.id, navigate)
                           }
@@ -424,11 +433,11 @@ export function NodalDashboardPage() {
           </div>
         </div>
 
-        <div className="space-y-6 lg:w-[300px] ">
-          <UpcomingDeadlines deadlines={deadlines} />
+        {/* <div className="space-y-6 lg:w-[300px] "> */}
+          {/* <UpcomingDeadlines deadlines={deadlines} /> */}
 
           {/* Quick Actions */}
-          <QuickActions
+          {/* <QuickActions
             actions={[
               {
                 id: "1",
@@ -459,9 +468,9 @@ export function NodalDashboardPage() {
                 onClick: () => console.log("Help center"),
               },
             ]}
-          />
+          /> */}
 
-          <QuickTips
+          {/* <QuickTips
             tips={[
               {
                 id: "1",
@@ -479,8 +488,8 @@ export function NodalDashboardPage() {
                 description: "Add relevant files to strengthen your submission",
               },
             ]}
-          />
-        </div>
+          /> */}
+        {/* </div> */}
       </div>
     </div>
   );

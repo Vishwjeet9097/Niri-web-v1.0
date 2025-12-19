@@ -39,7 +39,7 @@ const tooltipDescriptions: Record<string, string> = {
   "Total Assigned":
     "Total number of indicators assigned to the Nodal Officer by the State Approver.",
   "Pending Submission":
-    "Indicators assigned but not yet submitted by the Nodal Officer.",
+    "Total number of Indicator pending for submissions by Nodal/State",
   "Accepted From Nodal Officer":
     "Number of assigned indicators for which the Nodal Officer has submitted data.",
   "Returned to Nodal Officer":

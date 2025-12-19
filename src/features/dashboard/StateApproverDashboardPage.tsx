@@ -39,7 +39,7 @@ import { getSubmissionStatus, } from "@/utils/indicatorStatusUtils";
 // import { SubmissionStatusBadge } from "@/components/submission/SubmissionStatusBadge";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
-import { computeAllStepsSummary } from "@/features/submission/utils/progress";
+import { computeAllStepsSummary, calculateProgressByAcceptedStatus } from "@/features/submission/utils/progress";
 import { filterSubmissionsForStateApprover } from "@/utils/submissionGroupingUtils";
 
 // Helper function to map backend status to frontend status (kept for compatibility)
@@ -144,7 +144,7 @@ export function StateApproverDashboardPage() {
         // Build a lightweight KPIs model for display components
         const assembledKpis = [           
           {
-            title: "Total Assigned to Nodal Officers",
+            title: "Total Indicators Assigned to Nodal Officers",
             value: String(totalAssigned),
             subtitle: "Critical Attention Needed",
             icon: User,
@@ -162,8 +162,8 @@ export function StateApproverDashboardPage() {
           {
             title: "Accepted By State Approver",
             value:
-              totalAssigned && totalAssigned > 0
-                ? `${acceptedFromNodal}/${totalAssigned}`
+              totalIndicators && totalIndicators > 0
+                ? `${acceptedFromNodal}/${totalIndicators}`
                 : String(acceptedFromNodal ?? 0),
             subtitle: "This fiscal year",
             icon: CheckCircle,
@@ -212,49 +212,28 @@ export function StateApproverDashboardPage() {
         setKpis(assembledKpis);
 
         // Prepare submissions list for the unified cards
-        setSubmissions(
-          submissionsArray.map((sub: any) => {
+        const processedSubmissions = await Promise.all(
+          submissionsArray.map(async (sub: any) => {
             const fd = sub.formData || {};
+            // Add submittedBy (user ID) to formData for progress calculation
+            const fdWithSubmittedBy = {
+              ...fd,
+              submittedBy: sub.user?.id || sub.submittedBy || sub.user,
+            };
             
-            // Calculate proper progress using computeAllStepsSummary
-            // Progress is now calculated based on indicators that exist in the submission
-            // Total = all indicators present in formData
-            // Progress = (filled indicators / total indicators in submission) × 100%
-            // If an indicator is sent back (REVERTED), it won't count as filled but is still in total
-            const summary = computeAllStepsSummary(fd, {});
-            
-            // Calculate overall progress from all steps
-            const totalCompleted = 
-              summary.infraFinancing.completed +
-              summary.infraDevelopment.completed +
-              summary.pppDevelopment.completed +
-              summary.infraEnablers.completed;
-            
-            const totalSections = 
-              summary.infraFinancing.total +
-              summary.infraDevelopment.total +
-              summary.pppDevelopment.total +
-              summary.infraEnablers.total;
-            
-            // Progress based on indicators in submission (for NODAL_OFFICER submissions)
-            // or available indicators (for consolidated submissions)
-            // If an indicator is sent back (REVERTED), only that one doesn't count as filled
-            const progress = totalSections > 0 
-              ? Math.round((totalCompleted / totalSections) * 100)
-              : 0;
+            // Calculate progress based on sections with ACCEPTED status
+            // Count all sections in formData and count how many have status "ACCEPTED"
+            // Progress = (sections with ACCEPTED status / total sections) × 100%
+            const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+            console.log("progressData", progressData);
+            const progress = progressData.progress;
             
             // Debug logging (can be removed in production)
             if (process.env.NODE_ENV === 'development') {
               console.log(`[Progress] State Approver - Submission ${sub.id}:`, {
-                totalSections,
-                totalCompleted,
+                totalSections: progressData.total,
+                acceptedSections: progressData.accepted,
                 progress,
-                breakdown: {
-                  infraFinancing: `${summary.infraFinancing.completed}/${summary.infraFinancing.total}`,
-                  infraDevelopment: `${summary.infraDevelopment.completed}/${summary.infraDevelopment.total}`,
-                  pppDevelopment: `${summary.pppDevelopment.completed}/${summary.pppDevelopment.total}`,
-                  infraEnablers: `${summary.infraEnablers.completed}/${summary.infraEnablers.total}`,
-                }
               });
             }
             const submittedDate = new Date(sub.createdAt);
@@ -288,10 +267,12 @@ export function StateApproverDashboardPage() {
               documents: sub.attachedFiles?.length || 0,
               pendingDays: pendingDays,
               completionPercent: Math.round(progress),
+              stateUt: sub.stateUt || sub.state_ut || "",
               submission: sub,
             };
           })
         );
+        setSubmissions(processedSubmissions);
       } catch (error: any) {
         console.error("Failed to load state approver dashboard data:", error);
         notificationService.error(
@@ -410,9 +391,9 @@ export function StateApproverDashboardPage() {
           {/* --- Total Indicators Received Section --- */}
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
             <h2 className="text-lg font-semibold text-[#111827]">
-              Total Indicators Received:&nbsp;
+              Total Indicators Submitted:&nbsp;
               <span className="text-black">
-                {totalIndicatorsReceivedState}/{totalAssignedState || 0}
+                {totalIndicatorsReceivedState}/{totalIndicators || 0}
               </span>
             </h2>
 
@@ -473,19 +454,19 @@ export function StateApproverDashboardPage() {
                     className="pl-10 w-[250px]"
                   />
                 </div>
-                <Filter className="h-4 w-4 text-muted-foreground" />
+                {/* <Filter className="h-4 w-4 text-muted-foreground" />
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Submissions</SelectItem>
-                    <SelectItem value="pending">Pending Review</SelectItem>
+                    <SelectItem value="pending">Pending Review</SelectItem> */}
                     {/* <SelectItem value="overdue">Overdue</SelectItem> */}
-                    <SelectItem value="approved">Approved</SelectItem>
+                    {/* <SelectItem value="approved">Approved</SelectItem> */}
                     {/* <SelectItem value="rejected">Rejected</SelectItem> */}
-                  </SelectContent>
-                </Select>
+                  {/* </SelectContent>
+                </Select> */}
               </div>
             </div>
 
@@ -520,6 +501,7 @@ export function StateApproverDashboardPage() {
                     submission={submission}
                     currentUserRole="STATE_APPROVER"
                     submittedBy={submission.submittedBy}
+                    stateUt={submission.stateUt}
                     onReview={() =>
                       navigate(`/data-submission/review/${submission.id}`)
                     }
