@@ -229,8 +229,14 @@ export function NodalDashboardPage() {
             let nextStep = "Complete submission";
             if (sub.status === "DRAFT")
               nextStep = "Complete all required sections";
-            else if (sub.status === "SUBMITTED_TO_STATE")
-              nextStep = "Waiting for state approval";
+            else if (sub.status === "SUBMITTED_TO_STATE") {
+              // Check if all indicators are accepted (progress is 100%)
+              if (progress === 100) {
+                nextStep = "Approved by State Approver waiting for Mospi review";
+              } else {
+                nextStep = "Waiting for state approval";
+              }
+            }
             else if (sub.status === "APPROVED")
               nextStep = "Submission approved";
             else if (sub.status === "REJECTED")

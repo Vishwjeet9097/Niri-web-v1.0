@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Upload, X, File, Trash2, Plus, Eye, Download } from "lucide-react";
+import { Upload, X, File as FileIcon, Trash2, Plus, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
@@ -258,7 +258,7 @@ export const EditableFileDisplay = ({
     }
 
     // For local File objects (before submission), create object URL
-    if (file.file instanceof File) {
+    if (file.file instanceof window.File) {
       const url = URL.createObjectURL(file.file);
       window.open(url, "_blank", "noopener,noreferrer");
       // Clean up after a delay
@@ -304,7 +304,7 @@ export const EditableFileDisplay = ({
     }
 
     // For local File objects (before submission), create object URL and download
-    if (file.file instanceof File) {
+    if (file.file instanceof window.File) {
       const url = URL.createObjectURL(file.file);
       const a = document.createElement("a");
       a.href = url;
@@ -387,14 +387,14 @@ export const EditableFileDisplay = ({
               file.filePath || 
               (typeof file.file === "string" && file.file) || 
               file.fileUrl ||
-              (file.file instanceof File) // Add this check for local File objects
+              (file.file instanceof window.File) // Add this check for local File objects
             );
             return (
               <div
                 key={fileKey}
                 className="flex items-center gap-2 p-2 bg-gray-50 rounded border"
               >
-                <File className="w-4 h-4 text-primary flex-shrink-0" />
+                <FileIcon className="w-4 h-4 text-primary flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium truncate block">
                     {file.originalName || file.fileName || "File"}

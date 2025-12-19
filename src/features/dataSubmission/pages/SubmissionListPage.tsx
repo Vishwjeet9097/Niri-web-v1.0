@@ -1624,18 +1624,24 @@ export const SubmissionListPage = () => {
               filteredSubmissions.map((submission) => {
                 // Get pre-calculated progress
                 const progress = submissionProgress[submission.id] ?? 0;
+                console.log("progresssssss", progress);
 
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
                 if (submission.status === "DRAFT") {
                   nextStep = "Complete all required sections";
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
-                  nextStep = "Waiting for state approval";
+                  // Check if all indicators are accepted (progress is 100%)
+                  if (progress === 100) {
+                    nextStep = "Approved by State Approver waiting for Mospi review";
+                  } else {
+                    nextStep = "Waiting for state approval";
+                  }
                 } else if (
                   submission.status === "SUBMITTED_TO_MOSPI_REVIEWER"
                 ) {
                   if (user?.role === "STATE_APPROVER") {
-                    nextStep = "With MOSPI Reviewer for review";
+                    nextStep = "Waiting MOSPI Reviewer for review";
                   } else {
                     nextStep = "Submitted to MoSPI Reviewer";
                   }
@@ -1772,13 +1778,18 @@ export const SubmissionListPage = () => {
               filteredSubmissions.map((submission) => {
                 // Get pre-calculated progress
                 const progress = submissionProgress[submission.id] ?? 0;
-
+                console.log("progresssssss", progress);
                 // Determine next step with role-specific messaging
                 let nextStep = "Complete submission";
                 if (submission.status === "DRAFT") {
                   nextStep = "Complete all required sections";
                 } else if (submission.status === "SUBMITTED_TO_STATE") {
-                  nextStep = "Waiting for state approval";
+                  // Check if all indicators are accepted (progress is 100%)
+                  if (progress === 100) {
+                    nextStep = "Approved by State Approver waiting for Mospi review";
+                  } else {
+                    nextStep = "Waiting for state approval";
+                  }
                 } else if (
                   submission.status === "SUBMITTED_TO_MOSPI_REVIEWER"
                 ) {
