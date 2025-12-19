@@ -48,6 +48,7 @@ import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
+import { useFieldValidation } from "../hooks/useFieldValidation";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -249,9 +250,19 @@ export const InfraDevelopmentStep = () => {
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
-  // Track which indicator is being validated and its specific errors
-  const [validatingIndicator, setValidatingIndicator] = useState<string | null>(null);
+  // Track indicator-specific validation errors
   const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  
+  // Use the shared field validation hook
+  const {
+    validatingIndicator,
+    setValidatingIndicator,
+    markFieldAsTouched,
+    getFieldError: getFieldErrorFromHook,
+    markIndicatorFieldsAsTouched,
+    clearValidatingIndicator,
+    clearValidFieldErrors,
+  } = useFieldValidation();
   
   // State for submissionId to enable immediate file uploads
   const [submissionId, setSubmissionId] = useState<string | undefined>();
@@ -468,6 +479,13 @@ export const InfraDevelopmentStep = () => {
   }, [formData, isNodalOfficer, user?.role, allowedIndicators]);
   const isNextDisabled = false; // Validation disabled - Next button always enabled
 
+  // Clear errors for fields that are now valid (when user fixes invalid fields)
+  useEffect(() => {
+    if (validatingIndicator && Object.keys(indicatorValidationErrors).length > 0) {
+      clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
+    }
+  }, [validation.errors, validatingIndicator, clearValidFieldErrors]);
+
   // Debug logging
   useEffect(() => {
     console.log("🔍 InfraDevelopmentStep Validation:", {
@@ -523,21 +541,14 @@ export const InfraDevelopmentStep = () => {
     });
   }, [validation, formData]);
 
-  // Helper functions for error display
+  // Use the hook's getFieldError function
   const getFieldError = (fieldPath: string): string | undefined => {
-    if (!showValidationErrors) return undefined;
-    
-    // If validating a specific indicator, only show errors for that indicator
-    if (validatingIndicator) {
-      const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
-      if (fieldPath.startsWith(sectionPrefix)) {
-        return indicatorValidationErrors[fieldPath];
-      }
-      return undefined; // Don't show errors for other indicators
-    }
-    
-    // Otherwise, show all errors (for form-level validation)
-    return validation.errors[fieldPath];
+    return getFieldErrorFromHook(
+      fieldPath,
+      validation.errors,
+      indicatorValidationErrors,
+      showValidationErrors
+    );
   };
 
   const renderFieldError = (fieldPath: string) => {
@@ -1161,6 +1172,9 @@ export const InfraDevelopmentStep = () => {
     });
 
     if (!indicatorValidation.isValid) {
+      // Mark all fields with errors in this indicator as touched so errors show
+      markIndicatorFieldsAsTouched(indicatorCode, indicatorValidation.errors);
+
       // Store indicator-specific errors
       setIndicatorValidationErrors(indicatorValidation.errors);
       toast({
@@ -1172,7 +1186,7 @@ export const InfraDevelopmentStep = () => {
     }
     
     // Clear indicator-specific validation state on success
-    setValidatingIndicator(null);
+    clearValidatingIndicator();
     setIndicatorValidationErrors({});
 
     // Check if already submitted

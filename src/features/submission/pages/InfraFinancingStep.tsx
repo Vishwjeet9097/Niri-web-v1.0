@@ -30,8 +30,10 @@ import { SectionCard } from "../components/SectionCard";
 import { FormActions } from "../components/FormActions";
 import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
+import { MandatoryFieldLabel } from "../components/MandatoryFieldLabel";
 import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
+import { useFieldValidation } from "../hooks/useFieldValidation";
 import { SUBMISSION_STEPS } from "../constants/steps";
 import type { InfraFinancingData } from "../types";
 import { getCurrentFinancialYear } from "@/utils/dateUtils";
@@ -287,9 +289,19 @@ export const InfraFinancingStep = () => {
     code: string;
     title: string;
   } | null>(null);
-  // Track which indicator is being validated and its specific errors
-  const [validatingIndicator, setValidatingIndicator] = useState<string | null>(null);
+  // Track indicator-specific validation errors
   const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  
+  // Use the shared field validation hook
+  const {
+    validatingIndicator,
+    setValidatingIndicator,
+    markFieldAsTouched,
+    getFieldError: getFieldErrorFromHook,
+    markIndicatorFieldsAsTouched,
+    clearValidatingIndicator,
+    clearValidFieldErrors,
+  } = useFieldValidation();
   // Track which indicators are in edit mode (for sent back indicators)
   const [editingIndicators, setEditingIndicators] = useState<Set<string>>(
     new Set()
@@ -356,6 +368,13 @@ export const InfraFinancingStep = () => {
       allowedIndicators: indicatorsToValidate,
     });
   }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
+
+  // Clear errors for fields that are now valid (when user fixes invalid fields)
+  useEffect(() => {
+    if (validatingIndicator && Object.keys(indicatorValidationErrors).length > 0) {
+      clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
+    }
+  }, [validation.errors, validatingIndicator, clearValidFieldErrors]);
 
   useEffect(() => {
     // Validation state tracking
@@ -681,20 +700,14 @@ export const InfraFinancingStep = () => {
 
   const isNextDisabled = false; // Validation disabled - Next button always enabled
 
+  // Use the hook's getFieldError function
   const getFieldError = (path: string) => {
-    if (!showValidationErrors) return undefined;
-
-    // If validating a specific indicator, only show errors for that indicator
-    if (validatingIndicator) {
-      const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
-      if (path.startsWith(sectionPrefix)) {
-        return indicatorValidationErrors[path];
-      }
-      return undefined; // Don't show errors for other indicators
-    }
-
-    // Otherwise, show all errors (for form-level validation)
-    return validation.errors[path];
+    return getFieldErrorFromHook(
+      path,
+      validation.errors,
+      indicatorValidationErrors,
+      showValidationErrors
+    );
   };
 
   const getInputValidationClass = (path: string) =>
@@ -1077,18 +1090,17 @@ export const InfraFinancingStep = () => {
     });
 
     if (!indicatorValidation.isValid) {
+      // Mark all fields with errors in this indicator as touched so errors show
+      markIndicatorFieldsAsTouched(indicatorCode, indicatorValidation.errors);
+
       // Store indicator-specific errors
       setIndicatorValidationErrors(indicatorValidation.errors);
-      toast({
-        title: "Incomplete Indicator",
-        description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
-        variant: "destructive",
-      });
+      // Don't show toast - errors will be displayed in the UI instead
       return;
     }
 
     // Clear indicator-specific validation state on success
-    setValidatingIndicator(null);
+    clearValidatingIndicator();
     setIndicatorValidationErrors({});
 
     // Check if already submitted
@@ -1705,11 +1717,10 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
                 <div>
-                  <Label>
+                  <MandatoryFieldLabel sectionKey="section1_1" fieldName="capitalAllocation">
                     Capital Allocation for FY (INR)
-                    <span className="text-red-500">*</span>
                     {/* <Info className="h-4 w-4 text-gray-500 inline-block ml-2" /> */}
-                  </Label>
+                  </MandatoryFieldLabel>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -1717,9 +1728,28 @@ export const InfraFinancingStep = () => {
                     min="0"
                     placeholder="Enter capital allocation"
                     value={formData.section1_1.capitalAllocation}
+                    onBlur={() => markFieldAsTouched("section1_1.capitalAllocation")}
                     onChange={(e) => {
+                      markFieldAsTouched("section1_1.capitalAllocation");
                       showErrorsIfNeeded();
                       const value = e.target.value;
+                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
+                      
+                      // Real-time validation for zero values
+                      if (value && numValue === 0) {
+                        setIndicatorValidationErrors((prev) => ({
+                          ...prev,
+                          "section1_1.capitalAllocation": "Capital Allocation must be greater than zero.",
+                        }));
+                      } else if (value && numValue > 0) {
+                        // Clear zero value error if user enters valid value
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_1.capitalAllocation"];
+                          return updated;
+                        });
+                      }
+                      
                       setFormData((prev) => ({
                         ...prev,
                         section1_1: {
@@ -1730,7 +1760,7 @@ export const InfraFinancingStep = () => {
                       
                       // Real-time validation for percentage limit (should not exceed 100%)
                       if (value && formData.section1_1.gsdpForFY) {
-                        const capitalAllocationNum = parseFloat(value) || 0;
+                        const capitalAllocationNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
                         const gsdpForFYNum = parseFloat(
                           (formData.section1_1.gsdpForFY || "")
                             .toString()
@@ -1747,10 +1777,19 @@ export const InfraFinancingStep = () => {
                         if (gsdpForFYNum > 0) {
                           const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
                           if (percentage > 100) {
+                            // Mark percentage field as touched so error shows
+                            markFieldAsTouched("section1_1.allocationToGSDP");
                             setIndicatorValidationErrors((prev) => ({
                               ...prev,
                               "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
                             }));
+                          } else {
+                            // Clear error if percentage is valid
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section1_1.allocationToGSDP"];
+                              return updated;
+                            });
                           }
                         }
                       } else {
@@ -1772,10 +1811,10 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_1.capitalAllocation")}
                 </div>
                 <div>
-                  <Label>
-                    GSDP for FY (INR)<span className="text-red-500">*</span>
+                  <MandatoryFieldLabel sectionKey="section1_1" fieldName="gsdpForFY">
+                    GSDP for FY (INR)
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
-                  </Label>
+                  </MandatoryFieldLabel>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -1783,9 +1822,28 @@ export const InfraFinancingStep = () => {
                     min="0"
                     placeholder="Enter GSDP for FY"
                     value={formData.section1_1.gsdpForFY}
+                    onBlur={() => markFieldAsTouched("section1_1.gsdpForFY")}
                     onChange={(e) => {
+                      markFieldAsTouched("section1_1.gsdpForFY");
                       showErrorsIfNeeded();
                       const value = e.target.value;
+                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
+                      
+                      // Real-time validation for zero values
+                      if (value && numValue === 0) {
+                        setIndicatorValidationErrors((prev) => ({
+                          ...prev,
+                          "section1_1.gsdpForFY": "GSDP for FY must be greater than zero.",
+                        }));
+                      } else if (value && numValue > 0) {
+                        // Clear zero value error if user enters valid value
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_1.gsdpForFY"];
+                          return updated;
+                        });
+                      }
+                      
                       setFormData((prev) => ({
                         ...prev,
                         section1_1: {
@@ -1801,7 +1859,7 @@ export const InfraFinancingStep = () => {
                             .toString()
                             .replace(/[₹,]/g, "")
                         ) || 0;
-                        const gsdpForFYNum = parseFloat(value) || 0;
+                        const gsdpForFYNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
                         
                         // Clear percentage error first
                         setIndicatorValidationErrors((prev) => {
@@ -1813,16 +1871,20 @@ export const InfraFinancingStep = () => {
                         if (gsdpForFYNum > 0) {
                           const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
                           if (percentage > 100) {
+                            // Mark percentage field as touched so error shows
+                            markFieldAsTouched("section1_1.allocationToGSDP");
                             setIndicatorValidationErrors((prev) => ({
                               ...prev,
                               "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
                             }));
+                          } else {
+                            // Clear error if percentage is valid
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section1_1.allocationToGSDP"];
+                              return updated;
+                            });
                           }
-                        } else if (gsdpForFYNum === 0) {
-                          setIndicatorValidationErrors((prev) => ({
-                            ...prev,
-                            "section1_1.gsdpForFY": "GSDP for FY must be greater than zero.",
-                          }));
                         }
                       } else {
                         // Clear error if one of the values is empty
@@ -1843,11 +1905,10 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_1.gsdpForFY")}
                 </div>
                 <div>
-                  <Label>
+                  <MandatoryFieldLabel sectionKey="section1_1" fieldName="allocationToGSDP" data={formData.section1_1}>
                     % Allocation to GSDP
-                    <span className="text-red-500">*</span>
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
-                  </Label>
+                  </MandatoryFieldLabel>
                   <Input
                     placeholder="Auto-calculated"
                     value={(() => {
@@ -1871,9 +1932,8 @@ export const InfraFinancingStep = () => {
                       }
 
                       const percentage = (capitalAllocation / gsdpForFY) * 100;
-                      // Cap at 100% if it exceeds (but validation will prevent saving)
-                      const cappedPercentage = Math.min(percentage, 100);
-                      return cappedPercentage.toFixed(1) + "%";
+                      // Show actual percentage even if > 100% (error will be shown via validation)
+                      return percentage.toFixed(1) + "%";
                     })()}
                     readOnly
                     className={cn(
@@ -1923,9 +1983,9 @@ export const InfraFinancingStep = () => {
             >
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>
-                    Year<span className="text-red-500">*</span>
-                  </Label>
+                  <MandatoryFieldLabel sectionKey="section1_2" fieldName="year">
+                    Year
+                  </MandatoryFieldLabel>
                   <Input
                     type="text"
                     value={formData.section1_2.year}
@@ -1935,10 +1995,9 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>
+                  <MandatoryFieldLabel sectionKey="section1_2" fieldName="actualCapex">
                     A₁ - Actual Capex (INR)
-                    <span className="text-red-500">*</span>
-                  </Label>
+                  </MandatoryFieldLabel>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -1946,9 +2005,28 @@ export const InfraFinancingStep = () => {
                     min="0"
                     placeholder="Enter actual capex"
                     value={formData.section1_2.actualCapex}
+                    onBlur={() => markFieldAsTouched("section1_2.actualCapex")}
                     onChange={(e) => {
+                      markFieldAsTouched("section1_2.actualCapex");
                       showErrorsIfNeeded();
                       const value = e.target.value;
+                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
+                      
+                      // Real-time validation for zero values
+                      if (value && numValue === 0) {
+                        setIndicatorValidationErrors((prev) => ({
+                          ...prev,
+                          "section1_2.actualCapex": "Actual Capex must be greater than zero.",
+                        }));
+                      } else if (value && numValue > 0) {
+                        // Clear zero value error if user enters valid value
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_2.actualCapex"];
+                          return updated;
+                        });
+                      }
+                      
                       setFormData((prev) => ({
                         ...prev,
                         section1_2: {
@@ -1956,6 +2034,42 @@ export const InfraFinancingStep = () => {
                           actualCapex: value,
                         },
                       }));
+                      
+                      // Real-time validation for percentage limit
+                      if (value && formData.section1_2.stateCapexUtilisation) {
+                        const actualCapexNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
+                        const stateCapexNum = parseFloat(
+                          (formData.section1_2.stateCapexUtilisation || "")
+                            .toString()
+                            .replace(/[₹,]/g, "")
+                        ) || 0;
+                        
+                        // Clear percentage error first
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_2.capexActualsToGSDP"];
+                          return updated;
+                        });
+                        
+                        if (stateCapexNum > 0) {
+                          const percentage = (actualCapexNum / stateCapexNum) * 100;
+                          if (percentage > 100) {
+                            // Mark percentage field as touched so error shows
+                            markFieldAsTouched("section1_2.capexActualsToGSDP");
+                            setIndicatorValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_2.capexActualsToGSDP": "Percentage cannot exceed 100%.",
+                            }));
+                          } else {
+                            // Clear error if percentage is valid
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section1_2.capexActualsToGSDP"];
+                              return updated;
+                            });
+                          }
+                        }
+                      }
                     }}
                     disabled={isIndicatorSubmitted("1.2")}
                     className={cn(
@@ -1967,10 +2081,9 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_2.actualCapex")}
                 </div>
                 <div className="space-y-2">
-                  <Label>
+                  <MandatoryFieldLabel sectionKey="section1_2" fieldName="stateCapexUtilisation">
                     State Capex Utilisation (INR)
-                    <span className="text-red-500">*</span>
-                  </Label>
+                  </MandatoryFieldLabel>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -1978,9 +2091,28 @@ export const InfraFinancingStep = () => {
                     min="0"
                     placeholder="Enter state capex utilisation"
                     value={formData.section1_2.stateCapexUtilisation}
+                    onBlur={() => markFieldAsTouched("section1_2.stateCapexUtilisation")}
                     onChange={(e) => {
+                      markFieldAsTouched("section1_2.stateCapexUtilisation");
                       showErrorsIfNeeded();
                       const value = e.target.value;
+                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
+                      
+                      // Real-time validation for zero values
+                      if (value && numValue === 0) {
+                        setIndicatorValidationErrors((prev) => ({
+                          ...prev,
+                          "section1_2.stateCapexUtilisation": "State capex utilisation must be greater than zero.",
+                        }));
+                      } else if (value && numValue > 0) {
+                        // Clear zero value error if user enters valid value
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_2.stateCapexUtilisation"];
+                          return updated;
+                        });
+                      }
+                      
                       setFormData((prev) => ({
                         ...prev,
                         section1_2: {
@@ -1988,6 +2120,42 @@ export const InfraFinancingStep = () => {
                           stateCapexUtilisation: value,
                         },
                       }));
+                      
+                      // Real-time validation for percentage limit
+                      if (value && formData.section1_2.actualCapex) {
+                        const actualCapexNum = parseFloat(
+                          (formData.section1_2.actualCapex || "")
+                            .toString()
+                            .replace(/[₹,]/g, "")
+                        ) || 0;
+                        const stateCapexNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
+                        
+                        // Clear percentage error first
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_2.capexActualsToGSDP"];
+                          return updated;
+                        });
+                        
+                        if (stateCapexNum > 0) {
+                          const percentage = (actualCapexNum / stateCapexNum) * 100;
+                          if (percentage > 100) {
+                            // Mark percentage field as touched so error shows
+                            markFieldAsTouched("section1_2.capexActualsToGSDP");
+                            setIndicatorValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_2.capexActualsToGSDP": "Percentage cannot exceed 100%.",
+                            }));
+                          } else {
+                            // Clear error if percentage is valid
+                            setIndicatorValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section1_2.capexActualsToGSDP"];
+                              return updated;
+                            });
+                          }
+                        }
+                      }
                     }}
                     disabled={isIndicatorSubmitted("1.2")}
                     className={cn(
@@ -2001,10 +2169,9 @@ export const InfraFinancingStep = () => {
                   {renderFieldError("section1_2.stateCapexUtilisation")}
                 </div>
                 <div className="space-y-2">
-                  <Label>
+                  <MandatoryFieldLabel sectionKey="section1_2" fieldName="capexActualsToGSDP" data={formData.section1_2}>
                     % Capex Actuals to GSDP
-                    <span className="text-red-500">*</span>
-                  </Label>
+                  </MandatoryFieldLabel>
                   <Input
                     placeholder="Auto-calculated"
                     value={(() => {
@@ -3191,16 +3358,19 @@ export const InfraFinancingStep = () => {
                       </div>
                     ))}
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={addIntermediary}
-                      disabled={isIndicatorSubmitted("1.5")}
-                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add More Financial Intermediary
-                    </Button>
+                    <div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addIntermediary}
+                        disabled={isIndicatorSubmitted("1.5")}
+                        className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add More Financial Intermediary
+                      </Button>
+                      {renderFieldError("section1_5.ffiArray")}
+                    </div>
                     {formData.section1_5.hasIntermediary === "yes" &&
                       formData.section1_5.ffiArray.length > 0 && (
                         <div className="overflow-x-auto rounded-xl mt-4">

@@ -68,6 +68,13 @@ export const InfraFinancingReview = ({
   assignedIndicators = [],
   isNodalOfficer = false,
 }: InfraFinancingReviewProps) => {
+  // Declare submissionData early so it can be used in useEffect hooks
+  const [submissionData, setSubmissionData] = useState(formData);
+  const { saveMessage, getMessage, getComments, getAllComments } =
+    useSectionMessages(submissionId, submission);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+
   // Section 1.4 state management
   const [section14State, setSection14State] = useState({
     totalULBs: formData?.section1_4?.totalULBs || 0,
@@ -76,17 +83,14 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Prefer submissionData (updated after save) over formData when initializing
+      const section1_4 = submissionData?.section1_4 || formData?.section1_4;
       setSection14State({
-        totalULBs: formData?.section1_4?.totalULBs || 0,
-        bondList: formData?.section1_4?.bondList || [],
+        totalULBs: section1_4?.totalULBs || 0,
+        bondList: section1_4?.bondList || [],
       });
     }
-  }, [formData?.section1_4]);
-  const { saveMessage, getMessage, getComments, getAllComments } =
-    useSectionMessages(submissionId, submission);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [timelineSection, setTimelineSection] = useState<string | null>(null);
-  const [submissionData, setSubmissionData] = useState(formData);
+  }, [submissionData?.section1_4, formData?.section1_4]);
   const { setFormDataForSection, updateSectionField, getSectionData } =
     useFormDataStore();
 
@@ -123,12 +127,14 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Prefer submissionData (updated after save) over formData when initializing
+      const section1_3 = submissionData?.section1_3 || formData?.section1_3;
       setSection13State({
-        totalULBs: formData?.section1_3?.totalULBs || 0,
-        ulbList: formData?.section1_3?.ulbList || [],
+        totalULBs: section1_3?.totalULBs || 0,
+        ulbList: section1_3?.ulbList || [],
       });
     }
-  }, [formData?.section1_3]);
+  }, [submissionData?.section1_3, formData?.section1_3]);
 
   // Section 1.5 state management
   const [section15State, setSection15State] = useState<{
@@ -148,14 +154,16 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Prefer submissionData (updated after save) over formData when initializing
+      const section1_5 = submissionData?.section1_5 || formData?.section1_5;
       // Handle both old format (array) and new format (object)
-      if (Array.isArray(formData?.section1_5)) {
-        setSection15State({ ffiArray: formData.section1_5 });
+      if (Array.isArray(section1_5)) {
+        setSection15State({ ffiArray: section1_5 });
       } else {
-        setSection15State(formData?.section1_5 || { ffiArray: [] });
+        setSection15State(section1_5 || { ffiArray: [] });
       }
     }
-  }, [formData?.section1_5]);
+  }, [submissionData?.section1_5, formData?.section1_5]);
 
   // Check if this section has any data
   console.log("💡 InfraFinancing formData (raw):", formData);
@@ -943,6 +951,36 @@ export const InfraFinancingReview = ({
         );
       }
       
+      // For section 1.3, ensure formData is also restored from snapshot
+      if (sectionId === "1.3" && originalStateSnapshot.submissionData?.section1_3) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.3 formData:`,
+          originalStateSnapshot.submissionData.section1_3
+        );
+      }
+      
+      // For section 1.4, ensure formData is also restored from snapshot
+      if (sectionId === "1.4" && originalStateSnapshot.submissionData?.section1_4) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.4 formData:`,
+          originalStateSnapshot.submissionData.section1_4
+        );
+      }
+      
+      // For section 1.5, ensure formData is also restored from snapshot
+      if (sectionId === "1.5" && originalStateSnapshot.submissionData?.section1_5) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.5 formData:`,
+          originalStateSnapshot.submissionData.section1_5
+        );
+      }
+      
       setOriginalStateSnapshot(null);
       setEditable(sectionId, false);
       // Reset Add More form for section 1.5
@@ -1635,6 +1673,95 @@ export const InfraFinancingReview = ({
         console.log(
           `[InfraFinancingReview] ✅ Updated local state and formData for section 1.2:`,
           { savedActualCapex, savedStateCapexUtilisation, calculatedPercentage }
+        );
+      }
+
+      // Update local state and formData immediately after successful save for section 1.3
+      if (sectionId === "1.3") {
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_3) {
+            updated.section1_3 = {};
+          }
+          updated.section1_3 = {
+            ...updated.section1_3,
+            ulbList: section13State.ulbList || [],
+            totalULBs: section13State.totalULBs || 0,
+          };
+          return updated;
+        });
+        
+        // Also update the formData store to ensure consistency
+        setFormDataForSection({
+          ulbList: section13State.ulbList || [],
+          totalULBs: section13State.totalULBs || 0,
+        }, "section1_3");
+        
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.3:`,
+          { ulbList: section13State.ulbList, totalULBs: section13State.totalULBs }
+        );
+      }
+
+      // Update local state and formData immediately after successful save for section 1.4
+      if (sectionId === "1.4") {
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_4) {
+            updated.section1_4 = {};
+          }
+          updated.section1_4 = {
+            ...updated.section1_4,
+            bondList: section14State.bondList || [],
+            totalULBs: section14State.totalULBs || 0,
+          };
+          return updated;
+        });
+        
+        // Also update the formData store to ensure consistency
+        setFormDataForSection({
+          bondList: section14State.bondList || [],
+          totalULBs: section14State.totalULBs || 0,
+        }, "section1_4");
+        
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.4:`,
+          { bondList: section14State.bondList, totalULBs: section14State.totalULBs }
+        );
+      }
+
+      // Update local state and formData immediately after successful save for section 1.5
+      if (sectionId === "1.5") {
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_5) {
+            updated.section1_5 = {};
+          }
+          updated.section1_5 = {
+            ...updated.section1_5,
+            hasIntermediary: section15State?.hasIntermediary || null,
+            comment: section15State?.comment || null,
+            ffiArray: section15State?.ffiArray || [],
+          };
+          return updated;
+        });
+        
+        // Also update the formData store to ensure consistency
+        setFormDataForSection({
+          hasIntermediary: section15State?.hasIntermediary || null,
+          comment: section15State?.comment || null,
+          ffiArray: section15State?.ffiArray || [],
+        }, "section1_5");
+        
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.5:`,
+          { hasIntermediary: section15State?.hasIntermediary, ffiArray: section15State?.ffiArray }
         );
       }
 

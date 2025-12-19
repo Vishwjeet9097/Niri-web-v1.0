@@ -63,6 +63,18 @@ const isValidUrl = (value: string): boolean => {
   }
 };
 
+/**
+ * Check if a value is greater than zero
+ * Handles cases like "0", "000", "00000", etc.
+ */
+const isGreaterThanZero = (value: string): boolean => {
+  if (value === "") return false;
+  const sanitized = sanitizeNumber(value);
+  if (sanitized === "") return false;
+  const num = parseNumber(value);
+  return !Number.isNaN(num) && num > 0;
+};
+
 export const validateInfraFinancing = (
   data: InfraFinancingData,
   options: InfraFinancingValidationOptions = {}
@@ -97,6 +109,9 @@ export const validateInfraFinancing = (
     ) {
       errors["section1_1.capitalAllocation"] =
         "Enter a non-negative amount with up to two decimal places.";
+    } else if (!isGreaterThanZero(section11.capitalAllocation)) {
+      errors["section1_1.capitalAllocation"] =
+        "Capital Allocation must be greater than zero.";
     }
 
     if (
@@ -105,6 +120,9 @@ export const validateInfraFinancing = (
     ) {
       errors["section1_1.gsdpForFY"] =
         "Enter a non-negative amount with up to two decimal places.";
+    } else if (!isGreaterThanZero(section11.gsdpForFY)) {
+      errors["section1_1.gsdpForFY"] =
+        "GSDP for FY must be greater than zero.";
     }
 
     const capitalAllocation = parseNumber(section11.capitalAllocation);
@@ -115,9 +133,10 @@ export const validateInfraFinancing = (
       gsdpForFY > 0
     ) {
       const allocationPercentage = (capitalAllocation / gsdpForFY) * 100;
-      if (!isValidPercentage(allocationPercentage)) {
+      // Show error if percentage exceeds 100% (but still allow calculation to show actual value)
+      if (allocationPercentage > 100) {
         errors["section1_1.allocationToGSDP"] =
-          "Calculated allocation to GSDP must be between 0% and 100%.";
+          "Calculated allocation to GSDP cannot exceed 100%.";
       }
     }
   }
@@ -135,6 +154,9 @@ export const validateInfraFinancing = (
     ) {
       errors["section1_2.actualCapex"] =
         "Enter a non-negative amount with up to two decimal places.";
+    } else if (!isGreaterThanZero(section12.actualCapex)) {
+      errors["section1_2.actualCapex"] =
+        "Actual Capex must be greater than zero.";
     }
 
     if (
@@ -143,7 +165,7 @@ export const validateInfraFinancing = (
     ) {
       errors["section1_2.stateCapexUtilisation"] =
         "Enter a non-negative amount with up to two decimal places.";
-    } else if (parseNumber(section12.stateCapexUtilisation) === 0) {
+    } else if (!isGreaterThanZero(section12.stateCapexUtilisation)) {
       errors["section1_2.stateCapexUtilisation"] =
         "State capex utilisation must be greater than zero.";
     }
@@ -156,9 +178,10 @@ export const validateInfraFinancing = (
       stateCapexUtilisation > 0
     ) {
       const capexPercentage = (actualCapex / stateCapexUtilisation) * 100;
-      if (!isValidPercentage(capexPercentage)) {
+      // Show error if percentage exceeds 100% (but still allow calculation to show actual value)
+      if (capexPercentage > 100) {
         errors["section1_2.capexActualsToGSDP"] =
-          "Calculated capex actuals to GSDP must be between 0% and 100%.";
+          "Calculated capex actuals to GSDP cannot exceed 100%.";
       }
     }
   }
