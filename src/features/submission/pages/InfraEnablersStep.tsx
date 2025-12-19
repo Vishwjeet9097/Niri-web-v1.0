@@ -208,6 +208,9 @@ export const InfraEnablersStep = () => {
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
+  // Track which indicator is being validated and its specific errors
+  const [validatingIndicator, setValidatingIndicator] = useState<string | null>(null);
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
   
   // State for submissionId to enable immediate file uploads
   const [submissionId, setSubmissionId] = useState<string | undefined>();

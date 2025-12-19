@@ -644,7 +644,7 @@ export const PPPDevelopmentStep = () => {
             dateOfAward: "",
             capexPercentage: "",
             totalProjectCost: "",
-            file: null,
+            // file: null,
           },
         ],
       },
@@ -672,9 +672,8 @@ export const PPPDevelopmentStep = () => {
       | "infrastructureSector"
       | "dateOfAward"
       | "capexPercentage"
-      | "totalProjectCost"
-      | "file",
-    value: string | FileUpload | null
+      | "totalProjectCost",
+    value: string
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -682,9 +681,6 @@ export const PPPDevelopmentStep = () => {
         ...prev.section3_4,
         projects: (prev.section3_4.projects || []).map((entry) => {
           if (entry.id !== id) return entry;
-          if (typeof value === "object" && value !== null && field === "file") {
-            return deepMerge(entry, { [field]: value });
-          }
           return { ...entry, [field]: value };
         }),
       },
@@ -2286,22 +2282,6 @@ export const PPPDevelopmentStep = () => {
                             (p) => p.id === project.id
                           )}.capexPercentage`
                         )}
-                      </div>
-                      {/* File Upload for each project */}
-                      <div>
-                        <FileUploadSection
-                          label="Upload File"
-                          value={project.file ?? null}
-                          onChange={(fileUpload) => {
-                            showErrorsIfNeeded();
-                            updatePPPProject(project.id, "file", fileUpload);
-                          }}
-                          submissionId={submissionId}
-                          disabled={isIndicatorSubmitted("3.4")}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Upload supporting document (if any)
-                        </p>
                       </div>
                     </div>
 
