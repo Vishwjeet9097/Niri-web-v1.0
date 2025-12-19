@@ -204,31 +204,46 @@ export const calculateStateProgressFromSubmissions = (
   };
 
   const acceptedCodes = new Set<string>();
+  const indicatorStatusMap = new Map<
+    string,
+    { status: string; fromReturnedForm: boolean }
+  >();
 
-  // Extract accepted indicators from formData
-  for (const sub of relevantSubmissions) {
+  // STEP 1: First, extract all indicators from RETURNED_FROM_MOSPI form (highest priority)
+  const returnedFromMospiSubmissions = relevantSubmissions.filter(
+    (sub) => sub.status === "RETURNED_FROM_MOSPI"
+  );
+
+  for (const sub of returnedFromMospiSubmissions) {
     const formData = sub.formData || sub.form_data || {};
 
-    // Iterate through categories (infraFinancing, infraDevelopment, etc.)
     Object.entries(formData).forEach(
       ([parentKey, parentData]: [string, any]) => {
         if (typeof parentData !== "object" || parentData === null) return;
 
-        // Iterate through sections (section1_1, section1_2, etc.)
         Object.entries(parentData).forEach(
           ([sectionKey, sectionData]: [string, any]) => {
             if (typeof sectionData !== "object" || sectionData === null) return;
 
-            // Check if this section has ACCEPTED status
             const status = String(sectionData?.status ?? "").toUpperCase();
-            if (!APPROVED.has(status)) return;
-
-            // Extract indicator code from sectionKey (e.g., "section1_1" -> "1.1")
+            const mospiStatus = String(
+              sectionData?.mospi_status ?? ""
+            ).toUpperCase();
             const code = toCodeFromSectionKey(sectionKey);
+
             if (code) {
-              acceptedCodes.add(code);
+              // Store both status and mospi_status from RETURNED_FROM_MOSPI form with priority flag
+              // If mospi_status is ACCEPTED, treat it as ACCEPTED even if status is SUBMITTED_TO_STATE
+              const effectiveStatus = APPROVED.has(mospiStatus)
+                ? mospiStatus
+                : status;
+
+              indicatorStatusMap.set(code, {
+                status: effectiveStatus,
+                fromReturnedForm: true,
+              });
               console.log(
-                `✅[calc] Found accepted indicator ${code} in ${parentKey}.${sectionKey}`
+                `🔵[calc] RETURNED_FROM_MOSPI form: indicator ${code} has status ${status}, mospi_status ${mospiStatus} → effective: ${effectiveStatus} in ${parentKey}.${sectionKey}`
               );
             }
           }
@@ -236,6 +251,68 @@ export const calculateStateProgressFromSubmissions = (
       }
     );
   }
+
+  // STEP 2: Then, extract indicators from other forms (DRAFT, SUBMITTED_TO_STATE, SUBMITTED_TO_MOSPI_REVIEWER)
+  // Only add if not already present in RETURNED_FROM_MOSPI form
+  const otherSubmissions = relevantSubmissions.filter(
+    (sub) => sub.status !== "RETURNED_FROM_MOSPI"
+  );
+
+  for (const sub of otherSubmissions) {
+    const formData = sub.formData || sub.form_data || {};
+
+    Object.entries(formData).forEach(
+      ([parentKey, parentData]: [string, any]) => {
+        if (typeof parentData !== "object" || parentData === null) return;
+
+        Object.entries(parentData).forEach(
+          ([sectionKey, sectionData]: [string, any]) => {
+            if (typeof sectionData !== "object" || sectionData === null) return;
+
+            const status = String(sectionData?.status ?? "").toUpperCase();
+            const mospiStatus = String(
+              sectionData?.mospi_status ?? ""
+            ).toUpperCase();
+            const code = toCodeFromSectionKey(sectionKey);
+
+            if (code) {
+              // Only add if not already in map (RETURNED_FROM_MOSPI takes priority)
+              if (!indicatorStatusMap.has(code)) {
+                // If mospi_status is ACCEPTED, treat it as ACCEPTED even if status is SUBMITTED_TO_STATE
+                const effectiveStatus = APPROVED.has(mospiStatus)
+                  ? mospiStatus
+                  : status;
+
+                indicatorStatusMap.set(code, {
+                  status: effectiveStatus,
+                  fromReturnedForm: false,
+                });
+                console.log(
+                  `🟢[calc] Other form (${sub.status}): indicator ${code} has status ${status}, mospi_status ${mospiStatus} → effective: ${effectiveStatus} in ${parentKey}.${sectionKey}`
+                );
+              } else {
+                console.log(
+                  `⏭️[calc] Skipping indicator ${code} from ${sub.status} - already exists in RETURNED_FROM_MOSPI form`
+                );
+              }
+            }
+          }
+        );
+      }
+    );
+  }
+
+  // STEP 3: Build acceptedCodes set from indicatorStatusMap, only including ACCEPTED indicators
+  indicatorStatusMap.forEach((indicatorInfo, code) => {
+    if (APPROVED.has(indicatorInfo.status)) {
+      acceptedCodes.add(code);
+      console.log(
+        `✅[calc] Accepted indicator ${code} (from ${
+          indicatorInfo.fromReturnedForm ? "RETURNED_FROM_MOSPI" : "other"
+        } form)`
+      );
+    }
+  });
 
   const total = 20; // Default total indicators
   const approved = acceptedCodes.size;
@@ -321,24 +398,189 @@ export const calculateStateProgressFromApi = (
   };
 
   const acceptedCodes = new Set<string>();
+  const indicatorStatusMap = new Map<
+    string,
+    { status: string; fromReturnedForm: boolean }
+  >();
 
-  for (const sub of submissions) {
-    const rows: any[] = Array.isArray(sub?.statuses) ? sub.statuses : [];
-    for (const row of rows) {
-      const st = String(row?.status ?? "").toUpperCase();
-      if (!APPROVED.has(st)) continue;
+  // STEP 1: First, extract all indicators from RETURNED_FROM_MOSPI submissions (highest priority)
+  const returnedFromMospiSubmissions = submissions.filter(
+    (sub) => sub.status === "RETURNED_FROM_MOSPI"
+  );
 
-      // try different ways to derive the canonical code
-      const code =
-        (typeof row?.code === "string" && /^\d+(\.\d+)*$/.test(row.code)
-          ? row.code
-          : null) ||
-        toCodeFromSectionKey(row?.sectionKey) ||
-        toCodeFromPath(row?.path);
+  for (const sub of returnedFromMospiSubmissions) {
+    // Try to use formData first (more accurate, includes mospi_status)
+    const formData = sub.formData || sub.form_data || {};
+    const hasFormData = Object.keys(formData).length > 0;
 
-      if (code) acceptedCodes.add(code);
+    if (hasFormData) {
+      // Use formData structure (same as calculateStateProgressFromSubmissions)
+      Object.entries(formData).forEach(
+        ([parentKey, parentData]: [string, any]) => {
+          if (typeof parentData !== "object" || parentData === null) return;
+
+          Object.entries(parentData).forEach(
+            ([sectionKey, sectionData]: [string, any]) => {
+              if (typeof sectionData !== "object" || sectionData === null)
+                return;
+
+              const status = String(sectionData?.status ?? "").toUpperCase();
+              const mospiStatus = String(
+                sectionData?.mospi_status ?? ""
+              ).toUpperCase();
+              const code = toCodeFromSectionKey(sectionKey);
+
+              if (code) {
+                // If mospi_status is ACCEPTED, treat it as ACCEPTED even if status is SUBMITTED_TO_STATE
+                const effectiveStatus = APPROVED.has(mospiStatus)
+                  ? mospiStatus
+                  : status;
+
+                indicatorStatusMap.set(code, {
+                  status: effectiveStatus,
+                  fromReturnedForm: true,
+                });
+                console.log(
+                  `🔵[calc] RETURNED_FROM_MOSPI form (formData): indicator ${code} has status ${status}, mospi_status ${mospiStatus} → effective: ${effectiveStatus}`
+                );
+              }
+            }
+          );
+        }
+      );
+    } else {
+      // Fallback to statuses array if formData not available
+      const rows: any[] = Array.isArray(sub?.statuses) ? sub.statuses : [];
+      for (const row of rows) {
+        const st = String(row?.status ?? "").toUpperCase();
+        const mospiSt = String(row?.mospi_status ?? "").toUpperCase();
+
+        // try different ways to derive the canonical code
+        const code =
+          (typeof row?.code === "string" && /^\d+(\.\d+)*$/.test(row.code)
+            ? row.code
+            : null) ||
+          toCodeFromSectionKey(row?.sectionKey) ||
+          toCodeFromPath(row?.path);
+
+        if (code) {
+          // If mospi_status is ACCEPTED, treat it as ACCEPTED even if status is SUBMITTED_TO_STATE
+          const effectiveStatus = APPROVED.has(mospiSt) ? mospiSt : st;
+
+          indicatorStatusMap.set(code, {
+            status: effectiveStatus,
+            fromReturnedForm: true,
+          });
+          console.log(
+            `🔵[calc] RETURNED_FROM_MOSPI form (statuses array): indicator ${code} has status ${st}, mospi_status ${mospiSt} → effective: ${effectiveStatus}`
+          );
+        }
+      }
     }
   }
+
+  // STEP 2: Then, extract indicators from other submissions
+  // Only add if not already present in RETURNED_FROM_MOSPI form
+  const otherSubmissions = submissions.filter(
+    (sub) => sub.status !== "RETURNED_FROM_MOSPI"
+  );
+
+  for (const sub of otherSubmissions) {
+    // Try to use formData first (more accurate, includes mospi_status)
+    const formData = sub.formData || sub.form_data || {};
+    const hasFormData = Object.keys(formData).length > 0;
+
+    if (hasFormData) {
+      // Use formData structure (same as calculateStateProgressFromSubmissions)
+      Object.entries(formData).forEach(
+        ([parentKey, parentData]: [string, any]) => {
+          if (typeof parentData !== "object" || parentData === null) return;
+
+          Object.entries(parentData).forEach(
+            ([sectionKey, sectionData]: [string, any]) => {
+              if (typeof sectionData !== "object" || sectionData === null)
+                return;
+
+              const status = String(sectionData?.status ?? "").toUpperCase();
+              const mospiStatus = String(
+                sectionData?.mospi_status ?? ""
+              ).toUpperCase();
+              const code = toCodeFromSectionKey(sectionKey);
+
+              if (code) {
+                // Only add if not already in map (RETURNED_FROM_MOSPI takes priority)
+                if (!indicatorStatusMap.has(code)) {
+                  // If mospi_status is ACCEPTED, treat it as ACCEPTED even if status is SUBMITTED_TO_STATE
+                  const effectiveStatus = APPROVED.has(mospiStatus)
+                    ? mospiStatus
+                    : status;
+
+                  indicatorStatusMap.set(code, {
+                    status: effectiveStatus,
+                    fromReturnedForm: false,
+                  });
+                  console.log(
+                    `🟢[calc] Other form (${sub.status}, formData): indicator ${code} has status ${status}, mospi_status ${mospiStatus} → effective: ${effectiveStatus}`
+                  );
+                } else {
+                  console.log(
+                    `⏭️[calc] Skipping indicator ${code} from ${sub.status} - already exists in RETURNED_FROM_MOSPI form`
+                  );
+                }
+              }
+            }
+          );
+        }
+      );
+    } else {
+      // Fallback to statuses array if formData not available
+      const rows: any[] = Array.isArray(sub?.statuses) ? sub.statuses : [];
+      for (const row of rows) {
+        const st = String(row?.status ?? "").toUpperCase();
+        const mospiSt = String(row?.mospi_status ?? "").toUpperCase();
+
+        // try different ways to derive the canonical code
+        const code =
+          (typeof row?.code === "string" && /^\d+(\.\d+)*$/.test(row.code)
+            ? row.code
+            : null) ||
+          toCodeFromSectionKey(row?.sectionKey) ||
+          toCodeFromPath(row?.path);
+
+        if (code) {
+          // Only add if not already in map (RETURNED_FROM_MOSPI takes priority)
+          if (!indicatorStatusMap.has(code)) {
+            // If mospi_status is ACCEPTED, treat it as ACCEPTED even if status is SUBMITTED_TO_STATE
+            const effectiveStatus = APPROVED.has(mospiSt) ? mospiSt : st;
+
+            indicatorStatusMap.set(code, {
+              status: effectiveStatus,
+              fromReturnedForm: false,
+            });
+            console.log(
+              `🟢[calc] Other form (${sub.status}, statuses array): indicator ${code} has status ${st}, mospi_status ${mospiSt} → effective: ${effectiveStatus}`
+            );
+          } else {
+            console.log(
+              `⏭️[calc] Skipping indicator ${code} from ${sub.status} - already exists in RETURNED_FROM_MOSPI form`
+            );
+          }
+        }
+      }
+    }
+  }
+
+  // STEP 3: Build acceptedCodes set from indicatorStatusMap, only including ACCEPTED indicators
+  indicatorStatusMap.forEach((indicatorInfo, code) => {
+    if (APPROVED.has(indicatorInfo.status)) {
+      acceptedCodes.add(code);
+      console.log(
+        `✅[calc] Accepted indicator ${code} (from ${
+          indicatorInfo.fromReturnedForm ? "RETURNED_FROM_MOSPI" : "other"
+        } form)`
+      );
+    }
+  });
 
   // 🔁 Fallback 2: If API returned empty submissions but we have fallbackSubmissions, use those
   if (
