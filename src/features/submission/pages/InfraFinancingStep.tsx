@@ -1727,6 +1727,40 @@ export const InfraFinancingStep = () => {
                           capitalAllocation: value,
                         },
                       }));
+                      
+                      // Real-time validation for percentage limit (should not exceed 100%)
+                      if (value && formData.section1_1.gsdpForFY) {
+                        const capitalAllocationNum = parseFloat(value) || 0;
+                        const gsdpForFYNum = parseFloat(
+                          (formData.section1_1.gsdpForFY || "")
+                            .toString()
+                            .replace(/[₹,]/g, "")
+                        ) || 0;
+                        
+                        // Clear percentage error first
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_1.allocationToGSDP"];
+                          return updated;
+                        });
+                        
+                        if (gsdpForFYNum > 0) {
+                          const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
+                          if (percentage > 100) {
+                            setIndicatorValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
+                            }));
+                          }
+                        }
+                      } else {
+                        // Clear error if one of the values is empty
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_1.allocationToGSDP"];
+                          return updated;
+                        });
+                      }
                     }}
                     disabled={isIndicatorSubmitted("1.1")}
                     className={cn(
@@ -1759,6 +1793,45 @@ export const InfraFinancingStep = () => {
                           gsdpForFY: value,
                         },
                       }));
+                      
+                      // Real-time validation for percentage limit (should not exceed 100%)
+                      if (value && formData.section1_1.capitalAllocation) {
+                        const capitalAllocationNum = parseFloat(
+                          (formData.section1_1.capitalAllocation || "")
+                            .toString()
+                            .replace(/[₹,]/g, "")
+                        ) || 0;
+                        const gsdpForFYNum = parseFloat(value) || 0;
+                        
+                        // Clear percentage error first
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_1.allocationToGSDP"];
+                          return updated;
+                        });
+                        
+                        if (gsdpForFYNum > 0) {
+                          const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
+                          if (percentage > 100) {
+                            setIndicatorValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
+                            }));
+                          }
+                        } else if (gsdpForFYNum === 0) {
+                          setIndicatorValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_1.gsdpForFY": "GSDP for FY must be greater than zero.",
+                          }));
+                        }
+                      } else {
+                        // Clear error if one of the values is empty
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section1_1.allocationToGSDP"];
+                          return updated;
+                        });
+                      }
                     }}
                     disabled={isIndicatorSubmitted("1.1")}
                     className={cn(
@@ -1798,7 +1871,9 @@ export const InfraFinancingStep = () => {
                       }
 
                       const percentage = (capitalAllocation / gsdpForFY) * 100;
-                      return percentage.toFixed(1) + "%";
+                      // Cap at 100% if it exceeds (but validation will prevent saving)
+                      const cappedPercentage = Math.min(percentage, 100);
+                      return cappedPercentage.toFixed(1) + "%";
                     })()}
                     readOnly
                     className={cn(

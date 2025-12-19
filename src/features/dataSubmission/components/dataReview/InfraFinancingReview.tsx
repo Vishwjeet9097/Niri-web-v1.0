@@ -90,6 +90,31 @@ export const InfraFinancingReview = ({
   const { setFormDataForSection, updateSectionField, getSectionData } =
     useFormDataStore();
 
+  // Sync submissionData with formData prop when it changes from external source
+  // Only sync if formData has meaningful changes and submissionData doesn't have newer section1_2 data
+  useEffect(() => {
+    if (formData) {
+      setSubmissionData((prev: any) => {
+        // If no previous submissionData, use formData
+        if (!prev) return formData;
+        
+        // If formData has section1_2 data and it's different from what we have, update it
+        // This handles cases where parent component refreshes after save
+        const formDataSection1_2 = formData?.section1_2;
+        const prevSection1_2 = prev?.section1_2;
+        
+        // Only update if formData has section1_2 and it's different (external update)
+        if (formDataSection1_2 && 
+            JSON.stringify(formDataSection1_2) !== JSON.stringify(prevSection1_2)) {
+          return { ...prev, section1_2: formDataSection1_2 };
+        }
+        
+        // Otherwise, merge formData with prev, keeping prev's section1_2 if it exists
+        return { ...formData, ...prev };
+      });
+    }
+  }, [formData]);
+
   // Section 1.3 state management
   const [section13State, setSection13State] = useState({
     totalULBs: formData?.section1_3?.totalULBs || 0,
@@ -522,36 +547,45 @@ export const InfraFinancingReview = ({
     return null;
   };
 
-  // Initialize section 1.2 state from formData (but not when restoring from cancel)
+  // Initialize section 1.2 state from formData/submissionData (but not when restoring from cancel)
   useEffect(() => {
     if (!isRestoringRef.current) {
-      if (formData?.section1_2?.actualCapex) {
-        // Extract numeric value if it's formatted
-        const value =
-          typeof formData.section1_2.actualCapex === "string"
-            ? formData.section1_2.actualCapex
-                .replace(/[₹,Crores\s]/g, "")
-                .trim()
-            : String(formData.section1_2.actualCapex);
+      // Prefer submissionData over formData as it's updated after saves
+      const section1_2 = submissionData?.section1_2 || formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
+      
+      if (section1_2?.actualCapex !== undefined && section1_2?.actualCapex !== null) {
+        // Preserve exact value - if string, clean it; if number, convert without adding unnecessary decimals
+        let value: string;
+        if (typeof section1_2.actualCapex === "string") {
+          value = section1_2.actualCapex.replace(/[₹,Crores\s]/g, "").trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_2.actualCapex);
+          // Remove trailing zeros and decimal point if not needed
+          value = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+        }
         setActualCapex(value);
       } else {
         setActualCapex("");
       }
 
-      if (formData?.section1_2?.stateCapexUtilisation) {
-        // Extract numeric value if it's formatted
-        const value =
-          typeof formData.section1_2.stateCapexUtilisation === "string"
-            ? formData.section1_2.stateCapexUtilisation
-                .replace(/[₹,Crores\s]/g, "")
-                .trim()
-            : String(formData.section1_2.stateCapexUtilisation);
+      if (section1_2?.stateCapexUtilisation !== undefined && section1_2?.stateCapexUtilisation !== null) {
+        // Preserve exact value - if string, clean it; if number, convert without adding unnecessary decimals
+        let value: string;
+        if (typeof section1_2.stateCapexUtilisation === "string") {
+          value = section1_2.stateCapexUtilisation.replace(/[₹,Crores\s]/g, "").trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_2.stateCapexUtilisation);
+          // Remove trailing zeros and decimal point if not needed
+          value = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+        }
         setStateCapexUtilisation(value);
       } else {
         setStateCapexUtilisation("");
       }
     }
-  }, [formData?.section1_2]);
+  }, [submissionData?.section1_2, formData?.section1_2]);
 
   // State for edit fucntionality indicator wise
   const { setEditable, isEditable, clearAllEditing } =
@@ -741,13 +775,112 @@ export const InfraFinancingReview = ({
     console.log(
       `[InfraFinancingReview] ✅ Starting edit mode for section ${sectionId}`
     );
+    
+    // For section 1.1, ensure state is initialized from submissionData/formData before storing snapshot
+    let capitalAllocationToStore = capitalAllocation;
+    let gsdpForFYToStore = gsdpForFY;
+    
+    if (sectionId === "1.1") {
+      // Prefer submissionData (updated after saves) over formData when entering edit mode
+      const section1_1 = submissionData?.section1_1 || formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
+      
+      // Always initialize capitalAllocation from submissionData/formData when entering edit mode
+      if (section1_1?.capitalAllocation !== undefined && section1_1?.capitalAllocation !== null) {
+        let capitalAllocationValue: string;
+        if (typeof section1_1.capitalAllocation === "string") {
+          capitalAllocationValue = section1_1.capitalAllocation.replace(/[₹,Crores\s]/g, "").trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_1.capitalAllocation);
+          capitalAllocationValue = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+        }
+        
+        // Always update state from submissionData/formData when entering edit mode
+        setCapitalAllocation(capitalAllocationValue);
+        capitalAllocationToStore = capitalAllocationValue;
+      } else {
+        // If no value, ensure state is empty
+        setCapitalAllocation("");
+        capitalAllocationToStore = "";
+      }
+      
+      // Always initialize gsdpForFY from submissionData/formData when entering edit mode
+      if (section1_1?.gsdpForFY !== undefined && section1_1?.gsdpForFY !== null) {
+        let gsdpForFYValue: string;
+        if (typeof section1_1.gsdpForFY === "string") {
+          gsdpForFYValue = section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_1.gsdpForFY);
+          gsdpForFYValue = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+        }
+        
+        // Always update state from submissionData/formData when entering edit mode
+        setGsdpForFY(gsdpForFYValue);
+        gsdpForFYToStore = gsdpForFYValue;
+      } else {
+        // If no value, ensure state is empty
+        setGsdpForFY("");
+        gsdpForFYToStore = "";
+      }
+    }
+    
+    // For section 1.2, ensure state is initialized from formData before storing snapshot
+    let actualCapexToStore = actualCapex;
+    let stateCapexUtilisationToStore = stateCapexUtilisation;
+    
+    if (sectionId === "1.2") {
+      // Prefer submissionData (updated after saves) over formData when entering edit mode
+      const section1_2 = submissionData?.section1_2 || formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
+      
+      // Always initialize actualCapex from submissionData/formData when entering edit mode
+      if (section1_2?.actualCapex !== undefined && section1_2?.actualCapex !== null) {
+        let actualCapexValue: string;
+        if (typeof section1_2.actualCapex === "string") {
+          actualCapexValue = section1_2.actualCapex.replace(/[₹,Crores\s]/g, "").trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_2.actualCapex);
+          actualCapexValue = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+        }
+        
+        // Always update state from submissionData/formData when entering edit mode
+        setActualCapex(actualCapexValue);
+        actualCapexToStore = actualCapexValue;
+      } else {
+        // If no value, ensure state is empty
+        setActualCapex("");
+        actualCapexToStore = "";
+      }
+      
+      // Always initialize stateCapexUtilisation from submissionData/formData when entering edit mode
+      if (section1_2?.stateCapexUtilisation !== undefined && section1_2?.stateCapexUtilisation !== null) {
+        let stateCapexValue: string;
+        if (typeof section1_2.stateCapexUtilisation === "string") {
+          stateCapexValue = section1_2.stateCapexUtilisation.replace(/[₹,Crores\s]/g, "").trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_2.stateCapexUtilisation);
+          stateCapexValue = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+        }
+        
+        // Always update state from submissionData/formData when entering edit mode
+        setStateCapexUtilisation(stateCapexValue);
+        stateCapexUtilisationToStore = stateCapexValue;
+      } else {
+        // If no value, ensure state is empty
+        setStateCapexUtilisation("");
+        stateCapexUtilisationToStore = "";
+      }
+    }
+    
     // Store a deep copy of all relevant state
     setOriginalStateSnapshot({
       submissionData: JSON.parse(JSON.stringify(submissionData)),
-      capitalAllocation,
-      gsdpForFY,
-      actualCapex,
-      stateCapexUtilisation,
+      capitalAllocation: capitalAllocationToStore,
+      gsdpForFY: gsdpForFYToStore,
+      actualCapex: actualCapexToStore,
+      stateCapexUtilisation: stateCapexUtilisationToStore,
       section13State: JSON.parse(JSON.stringify(section13State)),
       section14State: JSON.parse(JSON.stringify(section14State)),
       section15State: JSON.parse(JSON.stringify(section15State)),
@@ -789,6 +922,27 @@ export const InfraFinancingReview = ({
       setSection13State(originalStateSnapshot.section13State);
       setSection14State(originalStateSnapshot.section14State);
       setSection15State(originalStateSnapshot.section15State);
+      
+      // For section 1.1, ensure formData is also restored from snapshot
+      if (sectionId === "1.1" && originalStateSnapshot.submissionData?.section1_1) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.1 formData:`,
+          originalStateSnapshot.submissionData.section1_1
+        );
+      }
+      
+      // For section 1.2, ensure formData is also restored from snapshot
+      if (sectionId === "1.2" && originalStateSnapshot.submissionData?.section1_2) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.2 formData:`,
+          originalStateSnapshot.submissionData.section1_2
+        );
+      }
+      
       setOriginalStateSnapshot(null);
       setEditable(sectionId, false);
       // Reset Add More form for section 1.5
@@ -918,17 +1072,23 @@ export const InfraFinancingReview = ({
   // Initialize values from formData when available
   useEffect(() => {
     if (!isRestoringRef.current) {
-      // Handle different formData structures
-      const section1_1 = formData?.section1_1 || 
+      // Prefer submissionData (updated after save) over formData when initializing
+      const section1_1 = submissionData?.section1_1 || 
+                        formData?.section1_1 || 
                         (formData as any)?.infraFinancing?.section1_1 ||
                         (formData as any)?.section1_1;
       
       if (section1_1) {
         // Extract capitalAllocation - handle both string and number, with or without formatting
         if (section1_1.capitalAllocation !== undefined && section1_1.capitalAllocation !== null) {
-          const value = typeof section1_1.capitalAllocation === "string"
-            ? section1_1.capitalAllocation.replace(/[₹,Crores\s]/g, "").trim()
-            : String(section1_1.capitalAllocation);
+          let value: string;
+          if (typeof section1_1.capitalAllocation === "string") {
+            value = section1_1.capitalAllocation.replace(/[₹,Crores\s]/g, "").trim();
+          } else {
+            // If it's a number, convert to string without adding unnecessary decimals
+            const num = Number(section1_1.capitalAllocation);
+            value = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+          }
           setCapitalAllocation(value || "");
         } else {
           setCapitalAllocation("");
@@ -936,9 +1096,14 @@ export const InfraFinancingReview = ({
 
         // Extract gsdpForFY - handle both string and number, with or without formatting
         if (section1_1.gsdpForFY !== undefined && section1_1.gsdpForFY !== null) {
-          const value = typeof section1_1.gsdpForFY === "string"
-            ? section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim()
-            : String(section1_1.gsdpForFY);
+          let value: string;
+          if (typeof section1_1.gsdpForFY === "string") {
+            value = section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim();
+          } else {
+            // If it's a number, convert to string without adding unnecessary decimals
+            const num = Number(section1_1.gsdpForFY);
+            value = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+          }
           setGsdpForFY(value || "");
         } else {
           setGsdpForFY("");
@@ -949,7 +1114,7 @@ export const InfraFinancingReview = ({
         setGsdpForFY("");
       }
     }
-  }, [formData?.section1_1, formData]);
+  }, [submissionData?.section1_1, formData?.section1_1, formData]);
 
   //🧑‍💻Initialize Section
   useEffect(() => {
@@ -1153,7 +1318,7 @@ export const InfraFinancingReview = ({
           // Don't read from formData for unsaved values - only use local state values
           fields = [
             {
-              year: formData?.section1_2?.year || "2024-25",
+              year: submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25",
               actualCapex: actualCapex ? Number(actualCapex) : null,
               stateCapexUtilisation: stateCapexUtilisation
                 ? Number(stateCapexUtilisation)
@@ -1291,13 +1456,18 @@ export const InfraFinancingReview = ({
           allocationToGSDP: "",
           capexToCapexActuals: "",
         },
-        section1_2: formData?.section1_2 || {
-          year: "",
-          gsdpForFY: "",
-          actualCapex: "",
-          budgetaryCapex: "",
-          stateCapexUtilisation: "",
-          capexActualsToGSDP: "",
+        section1_2: {
+          year: submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25",
+          gsdpForFY: submissionData?.section1_2?.gsdpForFY || formData?.section1_2?.gsdpForFY || "",
+          // Use local state values when in edit mode, otherwise use submissionData (prefer over formData)
+          actualCapex: shouldBeEditable("1.2") && actualCapex !== undefined && actualCapex !== null
+            ? actualCapex
+            : (submissionData?.section1_2?.actualCapex || formData?.section1_2?.actualCapex || ""),
+          budgetaryCapex: submissionData?.section1_2?.budgetaryCapex || formData?.section1_2?.budgetaryCapex || "",
+          stateCapexUtilisation: shouldBeEditable("1.2") && stateCapexUtilisation !== undefined && stateCapexUtilisation !== null
+            ? stateCapexUtilisation
+            : (submissionData?.section1_2?.stateCapexUtilisation || formData?.section1_2?.stateCapexUtilisation || ""),
+          capexActualsToGSDP: submissionData?.section1_2?.capexActualsToGSDP || formData?.section1_2?.capexActualsToGSDP || "",
         },
         section1_3: section13State || { totalULBs: 0, ulbList: [] },
         section1_4: section14State || { totalULBs: 0, bondList: [] },
@@ -1367,6 +1537,106 @@ export const InfraFinancingReview = ({
         `[InfraFinancingReview] ✅ performSave - API call successful:`,
         saveResult
       );
+
+      // Update local state and formData immediately after successful save for section 1.1
+      if (sectionId === "1.1") {
+        // Update local state with saved values (these are the values we just saved)
+        const savedCapitalAllocation = capitalAllocation ? String(capitalAllocation) : "";
+        const savedGsdpForFY = gsdpForFY ? String(gsdpForFY) : "";
+        
+        // Calculate percentage for display
+        const capitalAllocationNum = parseFloat(savedCapitalAllocation) || 0;
+        const gsdpForFYNum = parseFloat(savedGsdpForFY) || 0;
+        const calculatedPercentage = gsdpForFYNum > 0 
+          ? (capitalAllocationNum / gsdpForFYNum) * 100 
+          : 0;
+        
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_1) {
+            updated.section1_1 = {};
+          }
+          updated.section1_1 = {
+            ...updated.section1_1,
+            // Store as string to preserve exact format user entered (no automatic decimals)
+            capitalAllocation: savedCapitalAllocation || null,
+            gsdpForFY: savedGsdpForFY || null,
+            allocationToGSDP: calculatedPercentage > 0 ? calculatedPercentage.toFixed(1) + "%" : null,
+            year: submissionData?.section1_1?.year || formData?.section1_1?.year || "2024-25",
+          };
+          return updated;
+        });
+        
+        // Update local state directly to ensure UI reflects changes immediately
+        // This ensures values are visible without page refresh
+        setCapitalAllocation(savedCapitalAllocation);
+        setGsdpForFY(savedGsdpForFY);
+        
+        // Also update the formData store to ensure consistency (store as string to preserve format)
+        setFormDataForSection({
+          capitalAllocation: savedCapitalAllocation || null,
+          gsdpForFY: savedGsdpForFY || null,
+          allocationToGSDP: calculatedPercentage > 0 ? calculatedPercentage.toFixed(1) + "%" : null,
+          year: submissionData?.section1_1?.year || formData?.section1_1?.year || "2024-25",
+        }, "section1_1");
+        
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.1:`,
+          { savedCapitalAllocation, savedGsdpForFY, calculatedPercentage }
+        );
+      }
+
+      // Update local state and formData immediately after successful save for section 1.2
+      if (sectionId === "1.2") {
+        // Update local state with saved values (these are the values we just saved)
+        const savedActualCapex = actualCapex ? String(actualCapex) : "";
+        const savedStateCapexUtilisation = stateCapexUtilisation ? String(stateCapexUtilisation) : "";
+        
+        // Calculate percentage for display
+        const actualCapexNum = parseFloat(savedActualCapex) || 0;
+        const stateCapexUtilisationNum = parseFloat(savedStateCapexUtilisation) || 0;
+        const calculatedPercentage = stateCapexUtilisationNum > 0 
+          ? (actualCapexNum / stateCapexUtilisationNum) * 100 
+          : 0;
+        
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_2) {
+            updated.section1_2 = {};
+          }
+          updated.section1_2 = {
+            ...updated.section1_2,
+            // Store as string to preserve exact format user entered (no automatic decimals)
+            actualCapex: savedActualCapex || null,
+            stateCapexUtilisation: savedStateCapexUtilisation || null,
+            capexActualsToGSDP: calculatedPercentage > 0 ? calculatedPercentage.toFixed(1) + "%" : null,
+            year: submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25",
+          };
+          return updated;
+        });
+        
+        // Update local state directly to ensure UI reflects changes immediately
+        // This ensures values are visible without page refresh
+        setActualCapex(savedActualCapex);
+        setStateCapexUtilisation(savedStateCapexUtilisation);
+        
+        // Also update the formData store to ensure consistency (store as string to preserve format)
+        setFormDataForSection({
+          actualCapex: savedActualCapex || null,
+          stateCapexUtilisation: savedStateCapexUtilisation || null,
+          capexActualsToGSDP: calculatedPercentage > 0 ? calculatedPercentage.toFixed(1) + "%" : null,
+          year: submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25",
+        }, "section1_2");
+        
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.2:`,
+          { savedActualCapex, savedStateCapexUtilisation, calculatedPercentage }
+        );
+      }
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
@@ -2522,12 +2792,17 @@ export const InfraFinancingReview = ({
                     shouldBeEditable("1.1")
                       ? capitalAllocation
                       : (() => {
-                          // When not editable, read directly from formData
-                          const section1_1 = formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
+                          // When not editable, prefer submissionData (updated after save) over formData
+                          const section1_1 = submissionData?.section1_1 || formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
                           if (section1_1?.capitalAllocation !== undefined && section1_1?.capitalAllocation !== null) {
-                            const val = typeof section1_1.capitalAllocation === "string"
-                              ? section1_1.capitalAllocation.replace(/[₹,Crores\s]/g, "").trim()
-                              : String(section1_1.capitalAllocation);
+                            let val: string;
+                            if (typeof section1_1.capitalAllocation === "string") {
+                              val = section1_1.capitalAllocation.replace(/[₹,Crores\s]/g, "").trim();
+                            } else {
+                              // If it's a number, convert to string without adding unnecessary decimals
+                              const num = Number(section1_1.capitalAllocation);
+                              val = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+                            }
                             return val;
                           }
                           return capitalAllocation; // Fallback to state
@@ -2538,13 +2813,63 @@ export const InfraFinancingReview = ({
                     // Only allow numbers and decimal point
                     if (value === "" || /^\d*\.?\d*$/.test(value)) {
                       setCapitalAllocation(value);
-                      // Clear validation error when user starts typing
-                      if (getFieldError("section1_1.capitalAllocation")) {
+                      
+                      // Real-time validation ONLY in edit mode
+                      if (shouldBeEditable("1.1")) {
+                        const capitalAllocationNum = parseFloat(value) || 0;
+                        const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                        
+                        // Clear all related errors first
                         setValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section1_1.capitalAllocation"];
+                          delete updated["section1_1.allocationToGSDP"];
                           return updated;
                         });
+                        
+                        // Validate empty value
+                        if (value === "" || value.trim() === "") {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_1.capitalAllocation": "Capital Allocation is required.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate negative value
+                        if (capitalAllocationNum < 0) {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_1.capitalAllocation": "Values cannot be negative. Please enter positive numbers only.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate percentage if both values are present
+                        if (gsdpForFY && gsdpForFY.trim() !== "") {
+                          const gsdpNum = parseFloat(gsdpForFY) || 0;
+                          
+                          if (gsdpNum <= 0) {
+                            // GSDP for FY must be > 0 for percentage calculation
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_1.gsdpForFY": "GSDP for FY must be greater than zero.",
+                            }));
+                          } else if (capitalAllocationNum > gsdpNum) {
+                            // Percentage would exceed 100%
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
+                            }));
+                          } else {
+                            // Values are valid - ensure no percentage error
+                            setValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section1_1.allocationToGSDP"];
+                              return updated;
+                            });
+                          }
+                        }
                       }
                     }
                   }}
@@ -2576,12 +2901,17 @@ export const InfraFinancingReview = ({
                     shouldBeEditable("1.1")
                       ? gsdpForFY
                       : (() => {
-                          // When not editable, read directly from formData
-                          const section1_1 = formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
+                          // When not editable, prefer submissionData (updated after save) over formData
+                          const section1_1 = submissionData?.section1_1 || formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
                           if (section1_1?.gsdpForFY !== undefined && section1_1?.gsdpForFY !== null) {
-                            const val = typeof section1_1.gsdpForFY === "string"
-                              ? section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim()
-                              : String(section1_1.gsdpForFY);
+                            let val: string;
+                            if (typeof section1_1.gsdpForFY === "string") {
+                              val = section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim();
+                            } else {
+                              // If it's a number, convert to string without adding unnecessary decimals
+                              const num = Number(section1_1.gsdpForFY);
+                              val = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+                            }
                             return val;
                           }
                           return gsdpForFY; // Fallback to state
@@ -2592,13 +2922,71 @@ export const InfraFinancingReview = ({
                     // Only allow numbers and decimal point
                     if (value === "" || /^\d*\.?\d*$/.test(value)) {
                       setGsdpForFY(value);
-                      // Clear validation error when user starts typing
-                      if (getFieldError("section1_1.gsdpForFY")) {
+                      
+                      // Real-time validation ONLY in edit mode
+                      if (shouldBeEditable("1.1")) {
+                        const capitalAllocationNum = parseFloat(capitalAllocation) || 0;
+                        const gsdpForFYNum = parseFloat(value) || 0;
+                        
+                        // Clear all related errors first
                         setValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section1_1.gsdpForFY"];
+                          delete updated["section1_1.allocationToGSDP"];
                           return updated;
                         });
+                        
+                        // Validate empty value
+                        if (value === "" || value.trim() === "") {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_1.gsdpForFY": "GSDP for FY is required.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate negative value
+                        if (gsdpForFYNum < 0) {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_1.gsdpForFY": "Values cannot be negative. Please enter positive numbers only.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate zero value
+                        if (gsdpForFYNum === 0) {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_1.gsdpForFY": "GSDP for FY must be greater than zero.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate percentage if both values are present
+                        if (capitalAllocation && capitalAllocation.trim() !== "") {
+                          const capitalAllocationNum = parseFloat(capitalAllocation) || 0;
+                          
+                          if (capitalAllocationNum < 0) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_1.capitalAllocation": "Values cannot be negative. Please enter positive numbers only.",
+                            }));
+                          } else if (capitalAllocationNum > gsdpForFYNum) {
+                            // Percentage would exceed 100%
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
+                            }));
+                          } else {
+                            // Values are valid - ensure no percentage error
+                            setValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section1_1.allocationToGSDP"];
+                              return updated;
+                            });
+                          }
+                        }
                       }
                     }
                   }}
@@ -2623,31 +3011,123 @@ export const InfraFinancingReview = ({
                 <Label>% Allocation to GSDP</Label>
                 <div className="relative">
                   <Input
-                    value={calculateAllocationPercentage()}
+                    value={(() => {
+                      // Get values from local state if in edit mode, otherwise from submissionData/formData
+                      let capitalAllocationValue = capitalAllocation;
+                      let gsdpForFYValue = gsdpForFY;
+                      
+                      if (!shouldBeEditable("1.1")) {
+                        // In review mode, prefer submissionData (updated after save) over formData
+                        const section1_1 = submissionData?.section1_1 || formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
+                        if (section1_1?.capitalAllocation !== undefined && section1_1?.capitalAllocation !== null) {
+                          if (typeof section1_1.capitalAllocation === "string") {
+                            capitalAllocationValue = section1_1.capitalAllocation.replace(/[₹,Crores\s]/g, "").trim();
+                          } else {
+                            // If it's a number, convert to string without adding unnecessary decimals
+                            const num = Number(section1_1.capitalAllocation);
+                            capitalAllocationValue = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+                          }
+                        }
+                        if (section1_1?.gsdpForFY !== undefined && section1_1?.gsdpForFY !== null) {
+                          if (typeof section1_1.gsdpForFY === "string") {
+                            gsdpForFYValue = section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim();
+                          } else {
+                            // If it's a number, convert to string without adding unnecessary decimals
+                            const num = Number(section1_1.gsdpForFY);
+                            gsdpForFYValue = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+                          }
+                        }
+                      }
+                      
+                      const capitalAllocationNum = parseFloat(capitalAllocationValue) || 0;
+                      const gsdpForFYNum = parseFloat(gsdpForFYValue) || 0;
+
+                      if (
+                        isNaN(capitalAllocationNum) ||
+                        isNaN(gsdpForFYNum) ||
+                        gsdpForFYNum === 0 ||
+                        capitalAllocationValue === "" ||
+                        gsdpForFYValue === ""
+                      ) {
+                        // If no values, check if there's a saved percentage in submissionData/formData
+                        if (!shouldBeEditable("1.1")) {
+                          const section1_1 = submissionData?.section1_1 || formData?.section1_1 || (formData as any)?.infraFinancing?.section1_1;
+                          if (section1_1?.allocationToGSDP !== undefined && section1_1?.allocationToGSDP !== null) {
+                            const savedPercentage = typeof section1_1.allocationToGSDP === "string"
+                              ? parseFloat(section1_1.allocationToGSDP.replace("%", "").trim())
+                              : Number(section1_1.allocationToGSDP);
+                            if (!isNaN(savedPercentage)) {
+                              return savedPercentage.toFixed(1) + "%";
+                            }
+                          }
+                        }
+                        return "";
+                      }
+
+                      const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
+                      
+                      // Show negative percentage if calculated (for error display)
+                      if (percentage < 0) {
+                        return percentage.toFixed(1) + "%";
+                      }
+                      // Cap at 100% if it exceeds (but validation will prevent saving)
+                      const cappedPercentage = Math.min(percentage, 100);
+                      return cappedPercentage.toFixed(1) + "%";
+                    })()}
                     readOnly
                     className={
-                      getFieldError("section1_1.allocationToGSDP")
-                        ? "bg-gray-50 cursor-not-allowed pr-8 border-red-500"
-                        : "bg-gray-50 cursor-not-allowed pr-8"
+                      (() => {
+                        // Only show error styling in edit mode
+                        if (!shouldBeEditable("1.1")) {
+                          return getFieldError("section1_1.allocationToGSDP")
+                            ? "bg-gray-50 cursor-not-allowed pr-8 border-red-500"
+                            : "bg-gray-50 cursor-not-allowed pr-8";
+                        }
+                        const hasError = getFieldError("section1_1.allocationToGSDP");
+                        const capitalAllocationNum = parseFloat(capitalAllocation) || 0;
+                        const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                        const isNegative = capitalAllocationNum < 0 || gsdpForFYNum < 0;
+                        const exceedsLimit = gsdpForFYNum > 0 && capitalAllocationNum > gsdpForFYNum;
+                        
+                        return (hasError || isNegative || exceedsLimit)
+                          ? "bg-gray-50 cursor-not-allowed pr-8 border-red-500"
+                          : "bg-gray-50 cursor-not-allowed pr-8";
+                      })()
                     }
-                    placeholder={
-                      capitalAllocation && gsdpForFY
-                        ? "Calculating..."
-                        : "Auto-calculated"
-                    }
+                    placeholder="Auto-calculated"
                   />
-                  {calculateAllocationPercentage() && (
-                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
-                      ✓
-                    </div>
-                  )}
+                  {(() => {
+                    const capitalAllocationNum = parseFloat(capitalAllocation) || 0;
+                    const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                    const isValid = !isNaN(capitalAllocationNum) && !isNaN(gsdpForFYNum) && 
+                                    capitalAllocationNum > 0 && gsdpForFYNum > 0 &&
+                                    capitalAllocationNum <= gsdpForFYNum &&
+                                    capitalAllocation !== "" && gsdpForFY !== "";
+                    return isValid ? (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
+                        ✓
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
-                {getFieldError("section1_1.allocationToGSDP") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_1.allocationToGSDP")}</p>
-                )}
-                <div className="text-xs text-gray-500 mt-1">
-                  Calculation result: "{calculateAllocationPercentage()}"
-                </div>
+                {/* Only show error message in edit mode */}
+                {shouldBeEditable("1.1") && (() => {
+                  const capitalAllocationNum = parseFloat(capitalAllocation) || 0;
+                  const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                  const isNegative = capitalAllocationNum < 0 || gsdpForFYNum < 0;
+                  const exceedsLimit = gsdpForFYNum > 0 && capitalAllocationNum > gsdpForFYNum;
+                  
+                  if (exceedsLimit || getFieldError("section1_1.allocationToGSDP")) {
+                    const errorMessage = getFieldError("section1_1.allocationToGSDP") || 
+                      "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.";
+                    return (
+                      <p className="text-sm text-red-500 mt-1">
+                        {errorMessage}
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </SectionCard>
@@ -2676,7 +3156,7 @@ export const InfraFinancingReview = ({
               <div>
                 <Label>Year</Label>
                 <Input
-                  value={formData?.section1_2?.year || "2024-25"}
+                  value={submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25"}
                   readOnly
                   className={
                     getFieldError("section1_2.year")
@@ -2699,12 +3179,17 @@ export const InfraFinancingReview = ({
                     shouldBeEditable("1.2")
                       ? actualCapex
                       : (() => {
-                          // When not editable, read directly from formData
-                          const section1_2 = formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
+                          // When not editable, prefer submissionData (updated after save) over formData
+                          const section1_2 = submissionData?.section1_2 || formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
                           if (section1_2?.actualCapex !== undefined && section1_2?.actualCapex !== null) {
-                            const val = typeof section1_2.actualCapex === "string"
-                              ? section1_2.actualCapex.replace(/[₹,Crores\s]/g, "").trim()
-                              : String(section1_2.actualCapex);
+                            let val: string;
+                            if (typeof section1_2.actualCapex === "string") {
+                              val = section1_2.actualCapex.replace(/[₹,Crores\s]/g, "").trim();
+                            } else {
+                              // If it's a number, convert to string without adding unnecessary decimals
+                              const num = Number(section1_2.actualCapex);
+                              val = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+                            }
                             return val;
                           }
                           return actualCapex; // Fallback to state
@@ -2715,13 +3200,63 @@ export const InfraFinancingReview = ({
                     // Only allow numbers and decimal point
                     if (value === "" || /^\d*\.?\d*$/.test(value)) {
                       setActualCapex(value);
-                      // Clear validation error when user starts typing
-                      if (getFieldError("section1_2.actualCapex")) {
+                      
+                      // Real-time validation ONLY in edit mode
+                      if (shouldBeEditable("1.2")) {
+                        const actualCapexNum = parseFloat(value) || 0;
+                        const stateCapexUtilisationNum = parseFloat(stateCapexUtilisation) || 0;
+                        
+                        // Clear all related errors first
                         setValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section1_2.actualCapex"];
+                          delete updated["section1_2.capexActualsToGSDP"];
                           return updated;
                         });
+                        
+                        // Validate empty value
+                        if (value === "" || value.trim() === "") {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_2.actualCapex": "Actual Capex is required.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate negative value
+                        if (actualCapexNum < 0) {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_2.actualCapex": "Values cannot be negative. Please enter positive numbers only.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate percentage if both values are present
+                        if (stateCapexUtilisation && stateCapexUtilisation.trim() !== "") {
+                          const stateCapexNum = parseFloat(stateCapexUtilisation) || 0;
+                          
+                          if (stateCapexNum <= 0) {
+                            // State Capex Utilisation must be > 0 for percentage calculation
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_2.stateCapexUtilisation": "State capex utilisation must be greater than zero.",
+                            }));
+                          } else if (actualCapexNum > stateCapexNum) {
+                            // Percentage would exceed 100%
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_2.capexActualsToGSDP": "Percentage cannot exceed 100%. Actual Capex must be less than or equal to State Capex Utilisation.",
+                            }));
+                          } else {
+                            // Values are valid - ensure no percentage error
+                            setValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section1_2.capexActualsToGSDP"];
+                              return updated;
+                            });
+                          }
+                        }
                       }
                     }
                   }}
@@ -2755,12 +3290,17 @@ export const InfraFinancingReview = ({
                     shouldBeEditable("1.2")
                       ? stateCapexUtilisation
                       : (() => {
-                          // When not editable, read directly from formData
-                          const section1_2 = formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
+                          // When not editable, prefer submissionData (updated after save) over formData
+                          const section1_2 = submissionData?.section1_2 || formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
                           if (section1_2?.stateCapexUtilisation !== undefined && section1_2?.stateCapexUtilisation !== null) {
-                            const val = typeof section1_2.stateCapexUtilisation === "string"
-                              ? section1_2.stateCapexUtilisation.replace(/[₹,Crores\s]/g, "").trim()
-                              : String(section1_2.stateCapexUtilisation);
+                            let val: string;
+                            if (typeof section1_2.stateCapexUtilisation === "string") {
+                              val = section1_2.stateCapexUtilisation.replace(/[₹,Crores\s]/g, "").trim();
+                            } else {
+                              // If it's a number, convert to string without adding unnecessary decimals
+                              const num = Number(section1_2.stateCapexUtilisation);
+                              val = num % 1 === 0 ? num.toString() : num.toString().replace(/\.?0+$/, '');
+                            }
                             return val;
                           }
                           return stateCapexUtilisation; // Fallback to state
@@ -2771,13 +3311,71 @@ export const InfraFinancingReview = ({
                     // Only allow numbers and decimal point
                     if (value === "" || /^\d*\.?\d*$/.test(value)) {
                       setStateCapexUtilisation(value);
-                      // Clear validation error when user starts typing
-                      if (getFieldError("section1_2.stateCapexUtilisation")) {
+                      
+                      // Real-time validation ONLY in edit mode
+                      if (shouldBeEditable("1.2")) {
+                        const actualCapexNum = parseFloat(actualCapex) || 0;
+                        const stateCapexUtilisationNum = parseFloat(value) || 0;
+                        
+                        // Clear all related errors first
                         setValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section1_2.stateCapexUtilisation"];
+                          delete updated["section1_2.capexActualsToGSDP"];
                           return updated;
                         });
+                        
+                        // Validate empty value
+                        if (value === "" || value.trim() === "") {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_2.stateCapexUtilisation": "State Capex Utilisation is required.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate negative value
+                        if (stateCapexUtilisationNum < 0) {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_2.stateCapexUtilisation": "Values cannot be negative. Please enter positive numbers only.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate zero value
+                        if (stateCapexUtilisationNum === 0) {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            "section1_2.stateCapexUtilisation": "State capex utilisation must be greater than zero.",
+                          }));
+                          return;
+                        }
+                        
+                        // Validate percentage if both values are present
+                        if (actualCapex && actualCapex.trim() !== "") {
+                          const actualCapexNum = parseFloat(actualCapex) || 0;
+                          
+                          if (actualCapexNum < 0) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_2.actualCapex": "Values cannot be negative. Please enter positive numbers only.",
+                            }));
+                          } else if (actualCapexNum > stateCapexUtilisationNum) {
+                            // Percentage would exceed 100%
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              "section1_2.capexActualsToGSDP": "Percentage cannot exceed 100%. Actual Capex must be less than or equal to State Capex Utilisation.",
+                            }));
+                          } else {
+                            // Values are valid - ensure no percentage error
+                            setValidationErrors((prev) => {
+                              const updated = { ...prev };
+                              delete updated["section1_2.capexActualsToGSDP"];
+                              return updated;
+                            });
+                          }
+                        }
                       }
                     }
                   }}
@@ -2804,32 +3402,86 @@ export const InfraFinancingReview = ({
                 <Label>% Capex Actuals to GSDP</Label>
                 <Input
                   value={(() => {
-                    const actualCapexNum = parseFloat(actualCapex) || 0;
-                    const stateCapexUtilisationNum =
-                      parseFloat(stateCapexUtilisation) || 0;
+                    // Get values from local state if in edit mode, otherwise from formData
+                    let actualCapexValue = actualCapex;
+                    let stateCapexUtilisationValue = stateCapexUtilisation;
+                    
+                    if (!shouldBeEditable("1.2")) {
+                      // In review mode, prefer submissionData (updated after save) over formData
+                      const section1_2 = submissionData?.section1_2 || formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
+                      if (section1_2?.actualCapex !== undefined && section1_2?.actualCapex !== null) {
+                        actualCapexValue = typeof section1_2.actualCapex === "string"
+                          ? section1_2.actualCapex.replace(/[₹,Crores\s]/g, "").trim()
+                          : String(section1_2.actualCapex);
+                      }
+                      if (section1_2?.stateCapexUtilisation !== undefined && section1_2?.stateCapexUtilisation !== null) {
+                        stateCapexUtilisationValue = typeof section1_2.stateCapexUtilisation === "string"
+                          ? section1_2.stateCapexUtilisation.replace(/[₹,Crores\s]/g, "").trim()
+                          : String(section1_2.stateCapexUtilisation);
+                      }
+                    }
+                    
+                    const actualCapexNum = parseFloat(actualCapexValue) || 0;
+                    const stateCapexUtilisationNum = parseFloat(stateCapexUtilisationValue) || 0;
 
                     if (
                       isNaN(actualCapexNum) ||
                       isNaN(stateCapexUtilisationNum) ||
-                      stateCapexUtilisationNum === 0
+                      stateCapexUtilisationNum === 0 ||
+                      actualCapexValue === "" ||
+                      stateCapexUtilisationValue === ""
                     ) {
+                      // If no values, check if there's a saved percentage in submissionData/formData
+                      if (!shouldBeEditable("1.2")) {
+                        const section1_2 = submissionData?.section1_2 || formData?.section1_2 || (formData as any)?.infraFinancing?.section1_2;
+                        if (section1_2?.capexActualsToGSDP !== undefined && section1_2?.capexActualsToGSDP !== null) {
+                          const savedPercentage = typeof section1_2.capexActualsToGSDP === "string"
+                            ? parseFloat(section1_2.capexActualsToGSDP.replace("%", "").trim())
+                            : Number(section1_2.capexActualsToGSDP);
+                          if (!isNaN(savedPercentage)) {
+                            return savedPercentage.toFixed(1) + "%";
+                          }
+                        }
+                      }
                       return "";
                     }
 
                     const percentage =
                       (actualCapexNum / stateCapexUtilisationNum) * 100;
-                    return percentage.toFixed(1) + "%";
+                    
+                    // Show negative percentage if calculated (for error display)
+                    if (percentage < 0) {
+                      return percentage.toFixed(1) + "%";
+                    }
+                    // Cap at 100% if it exceeds (but validation will prevent saving)
+                    const cappedPercentage = Math.min(percentage, 100);
+                    return cappedPercentage.toFixed(1) + "%";
                   })()}
                   readOnly
                   className={
-                    getFieldError("section1_2.capexActualsToGSDP")
-                      ? "bg-gray-50 cursor-not-allowed border-red-500"
-                      : "bg-gray-50 cursor-not-allowed"
+                    (() => {
+                      // Only show error styling in edit mode
+                      if (!shouldBeEditable("1.2")) {
+                        return "bg-gray-50 cursor-not-allowed";
+                      }
+                      const hasError = getFieldError("section1_2.capexActualsToGSDP");
+                      const actualCapexNum = parseFloat(actualCapex) || 0;
+                      const stateCapexUtilisationNum = parseFloat(stateCapexUtilisation) || 0;
+                      const isNegative = actualCapexNum < 0 || stateCapexUtilisationNum < 0;
+                      const exceedsLimit = stateCapexUtilisationNum > 0 && actualCapexNum > stateCapexUtilisationNum;
+                      
+                      return (hasError || isNegative || exceedsLimit)
+                        ? "bg-gray-50 cursor-not-allowed border-red-500"
+                        : "bg-gray-50 cursor-not-allowed";
+                    })()
                   }
                   placeholder="Auto-calculated"
                 />
-                {getFieldError("section1_2.capexActualsToGSDP") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_2.capexActualsToGSDP")}</p>
+                {/* Only show error message in edit mode */}
+                {shouldBeEditable("1.2") && getFieldError("section1_2.capexActualsToGSDP") && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {getFieldError("section1_2.capexActualsToGSDP")}
+                  </p>
                 )}
               </div>
             </div>
