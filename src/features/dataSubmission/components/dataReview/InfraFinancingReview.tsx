@@ -2493,7 +2493,7 @@ export const InfraFinancingReview = ({
                 )}
               </div>
               <div>
-                <Label>Capital Allocation for FY (INR)</Label>
+                <Label>Capital Allocation for FY <span className="text-xs text-muted-foreground">(INR - values is in CRORES)</span></Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -2525,15 +2525,12 @@ export const InfraFinancingReview = ({
                       : "bg-gray-50"
                   }
                 />
-                {getFieldError("section1_1.capitalAllocation") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_1.capitalAllocation")}</p>
-                )}
-                <div className="text-xs text-gray-500 mt-1">
+                {/* <div className="text-xs text-gray-500 mt-1">
                   Current value: "{capitalAllocation}"
-                </div>
+                </div> */}
               </div>
               <div>
-                <Label>GSDP for FY (INR)</Label>
+                <Label>GSDP for FY <span className="text-xs text-muted-foreground">(INR - values is in CRORES)</span></Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -2565,12 +2562,9 @@ export const InfraFinancingReview = ({
                       : "bg-gray-50"
                   }
                 />
-                {getFieldError("section1_1.gsdpForFY") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_1.gsdpForFY")}</p>
-                )}
-                <div className="text-xs text-gray-500 mt-1">
+                {/* <div className="text-xs text-gray-500 mt-1">
                   Current value: "{gsdpForFY}"
-                </div>
+                </div> */}
               </div>
               <div>
                 <Label>% Allocation to GSDP</Label>
@@ -2595,12 +2589,9 @@ export const InfraFinancingReview = ({
                     </div>
                   )}
                 </div>
-                {getFieldError("section1_1.allocationToGSDP") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_1.allocationToGSDP")}</p>
-                )}
-                <div className="text-xs text-gray-500 mt-1">
+                {/* <div className="text-xs text-gray-500 mt-1">
                   Calculation result: "{calculateAllocationPercentage()}"
-                </div>
+                </div> */}
               </div>
             </div>
           </SectionCard>
@@ -2642,7 +2633,7 @@ export const InfraFinancingReview = ({
                 )}
               </div>
               <div>
-                <Label>A₁ - Actual Capex (INR)</Label>
+                <Label>A₁ - Actual Capex <span className="text-xs text-muted-foreground">(INR - values is in CRORES)</span></Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -2652,7 +2643,7 @@ export const InfraFinancingReview = ({
                     shouldBeEditable("1.2")
                       ? actualCapex
                       : actualCapex
-                      ? `₹${actualCapex} Crores`
+                      ? `${actualCapex}`
                       : ""
                   }
                   onChange={(e) => {
@@ -2690,7 +2681,7 @@ export const InfraFinancingReview = ({
                 )}
               </div>
               <div>
-                <Label>State Capex Utilisation (INR)</Label>
+                <Label>State Capex Utilisation <span className="text-xs text-muted-foreground">(INR - values is in CRORES)</span></Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -2700,7 +2691,7 @@ export const InfraFinancingReview = ({
                     shouldBeEditable("1.2")
                       ? stateCapexUtilisation
                       : stateCapexUtilisation
-                      ? `₹${stateCapexUtilisation} Crores`
+                      ? `${stateCapexUtilisation}`
                       : ""
                   }
                   onChange={(e) => {
