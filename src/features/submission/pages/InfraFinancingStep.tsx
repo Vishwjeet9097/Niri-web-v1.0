@@ -59,9 +59,13 @@ export const InfraFinancingStep = () => {
   // ULB dropdown state
   const [ulbOptions, setUlbOptions] = useState<ULB[]>([]);
   // Per-row search state for ULB dropdowns
-  const [ulbSearchMap, setUlbSearchMap] = useState<{ [id: string]: string }>({});
+  const [ulbSearchMap, setUlbSearchMap] = useState<{ [id: string]: string }>(
+    {}
+  );
   // Per-row visible count for infinite scroll
-  const [ulbVisibleCountMap, setUlbVisibleCountMap] = useState<{ [id: string]: number }>({});
+  const [ulbVisibleCountMap, setUlbVisibleCountMap] = useState<{
+    [id: string]: number;
+  }>({});
 
   // Make sure user is initialized before use
   const { user } = useAuth();
@@ -70,14 +74,17 @@ export const InfraFinancingStep = () => {
   useEffect(() => {
     let mounted = true;
     if (!user) {
-      console.error("User not found in context. ULB dropdown will not populate.");
+      console.error(
+        "User not found in context. ULB dropdown will not populate."
+      );
       setUlbOptions([]);
       return;
     }
     if (!user.state || user.state.trim() === "") {
       toast({
         title: "User state missing",
-        description: "Your user profile does not have a state assigned. ULB dropdown cannot be populated.",
+        description:
+          "Your user profile does not have a state assigned. ULB dropdown cannot be populated.",
         variant: "destructive",
       });
       setUlbOptions([]);
@@ -99,12 +106,12 @@ export const InfraFinancingStep = () => {
         } else if (Array.isArray(response.data)) {
           ulbs = response.data;
         }
-        console.log('ULB API raw:', ulbs);
+        console.log("ULB API raw:", ulbs);
         if (!Array.isArray(ulbs) || ulbs.length === 0) {
           toast({
-            title: 'No ULBs found',
+            title: "No ULBs found",
             description: `No ULBs are available for the state: ${user.state}. Please check the API response or contact admin.`,
-            variant: 'destructive',
+            variant: "destructive",
           });
           if (mounted) setUlbOptions([]);
           return;
@@ -113,22 +120,22 @@ export const InfraFinancingStep = () => {
         const unique = Array.from(
           new Map(
             ulbs.map((u) => [
-              (u.ulb_name || u.ulbName || u.name || '') +
-              (u.city_name || u.cityName || '') +
-              (u.ulb_type || u.ulbType || ''),
-              u
+              (u.ulb_name || u.ulbName || u.name || "") +
+                (u.city_name || u.cityName || "") +
+                (u.ulb_type || u.ulbType || ""),
+              u,
             ])
           ).values()
         );
-        console.log('ULB options set:', unique);
+        console.log("ULB options set:", unique);
         if (mounted) setUlbOptions(unique);
       } catch (err) {
-        console.error('Failed to fetch ULBs:', err);
+        console.error("Failed to fetch ULBs:", err);
         setUlbOptions([]);
         toast({
-          title: 'ULB Fetch Error',
-          description: 'Failed to fetch ULBs for the selected state.',
-          variant: 'destructive',
+          title: "ULB Fetch Error",
+          description: "Failed to fetch ULBs for the selected state.",
+          variant: "destructive",
         });
       }
     })();
@@ -258,7 +265,10 @@ export const InfraFinancingStep = () => {
 
   // Ensure at least one row in ulbList for ULB dropdown visibility
   const ensureUlbList = (data: InfraFinancingData) => {
-    if (!Array.isArray(data.section1_3.ulbList) || data.section1_3.ulbList.length === 0) {
+    if (
+      !Array.isArray(data.section1_3.ulbList) ||
+      data.section1_3.ulbList.length === 0
+    ) {
       return {
         ...data,
         section1_3: {
@@ -279,9 +289,13 @@ export const InfraFinancingStep = () => {
     }
     return data;
   };
-  const [formData, setFormData] = useState<InfraFinancingData>(ensureUlbList(initialData));
+  const [formData, setFormData] = useState<InfraFinancingData>(
+    ensureUlbList(initialData)
+  );
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(null);
+  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(
+    null
+  );
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [, forceUpdate] = useState({});
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
@@ -290,8 +304,10 @@ export const InfraFinancingStep = () => {
     title: string;
   } | null>(null);
   // Track indicator-specific validation errors
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
-  
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
+
   // Use the shared field validation hook
   const {
     validatingIndicator,
@@ -309,6 +325,10 @@ export const InfraFinancingStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // Store snapshots of original form data when editing starts (for cancel functionality)
+  const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
+    Record<string, any>
+  >({});
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
@@ -325,8 +345,8 @@ export const InfraFinancingStep = () => {
       (isNodalOfficer
         ? assignedIndicators
         : isStateApprover
-          ? availableIndicators
-          : null
+        ? availableIndicators
+        : null
       )?.filter((i) => sectionIndicators.includes(i)) || undefined,
     [
       isNodalOfficer,
@@ -371,7 +391,10 @@ export const InfraFinancingStep = () => {
 
   // Clear errors for fields that are now valid (when user fixes invalid fields)
   useEffect(() => {
-    if (validatingIndicator && Object.keys(indicatorValidationErrors).length > 0) {
+    if (
+      validatingIndicator &&
+      Object.keys(indicatorValidationErrors).length > 0
+    ) {
       clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
     }
   }, [validation.errors, validatingIndicator, clearValidFieldErrors]);
@@ -590,10 +613,10 @@ export const InfraFinancingStep = () => {
                 )?.ulbList
               )
                 ? getSectionFromNormalizedOrLegacy(
-                  normalized,
-                  legacy.section1_3,
-                  "1.3"
-                ).ulbList
+                    normalized,
+                    legacy.section1_3,
+                    "1.3"
+                  ).ulbList
                 : [],
               // Preserve status field from database
               status: getSectionFromNormalizedOrLegacy(
@@ -622,10 +645,10 @@ export const InfraFinancingStep = () => {
                 )?.bondList
               )
                 ? getSectionFromNormalizedOrLegacy(
-                  normalized,
-                  legacy.section1_4,
-                  "1.4"
-                ).bondList
+                    normalized,
+                    legacy.section1_4,
+                    "1.4"
+                  ).bondList
                 : [],
               // Preserve status field from database
               status: getSectionFromNormalizedOrLegacy(
@@ -648,10 +671,10 @@ export const InfraFinancingStep = () => {
                 )?.ffiArray
               )
                 ? getSectionFromNormalizedOrLegacy(
-                  normalized,
-                  legacy.section1_5,
-                  "1.5"
-                ).ffiArray
+                    normalized,
+                    legacy.section1_5,
+                    "1.5"
+                  ).ffiArray
                 : [],
               hasIntermediary:
                 getSectionFromNormalizedOrLegacy(
@@ -1424,8 +1447,8 @@ export const InfraFinancingStep = () => {
   const codesForVisibility = isNodalOfficer
     ? assignedIndicators
     : isStateApprover
-      ? availableIndicators
-      : null;
+    ? availableIndicators
+    : null;
 
   const showIndicator = (indicatorCode: string) => {
     if (codesForVisibility === null) return true;
@@ -1487,6 +1510,12 @@ export const InfraFinancingStep = () => {
 
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Store a snapshot of the current form data for this section before editing
+    setOriginalFormDataSnapshots((prev) => ({
+      ...prev,
+      [indicatorCode]: JSON.parse(JSON.stringify(formData[sectionKey] || {})),
+    }));
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
   };
 
@@ -1639,13 +1668,27 @@ export const InfraFinancingStep = () => {
 
   // Handle Cancel button click for sent back indicators
   const handleCancelEdit = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Restore the original form data from snapshot
+    if (originalFormDataSnapshots[indicatorCode]) {
+      setFormData((prev: any) => ({
+        ...prev,
+        [sectionKey]: JSON.parse(
+          JSON.stringify(originalFormDataSnapshots[indicatorCode])
+        ),
+      }));
+      // Remove the snapshot after restoring
+      setOriginalFormDataSnapshots((prev) => {
+        const updated = { ...prev };
+        delete updated[indicatorCode];
+        return updated;
+      });
+    }
     setEditingIndicators((prev) => {
       const newSet = new Set(prev);
       newSet.delete(indicatorCode);
       return newSet;
     });
-    // Optionally reload the original data for this indicator
-    // For now, just exit edit mode
   };
 
   return (
@@ -1717,7 +1760,10 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
                 <div>
-                  <MandatoryFieldLabel sectionKey="section1_1" fieldName="capitalAllocation">
+                  <MandatoryFieldLabel
+                    sectionKey="section1_1"
+                    fieldName="capitalAllocation"
+                  >
                     Capital Allocation for FY (INR)
                     {/* <Info className="h-4 w-4 text-gray-500 inline-block ml-2" /> */}
                   </MandatoryFieldLabel>
@@ -1728,18 +1774,22 @@ export const InfraFinancingStep = () => {
                     min="0"
                     placeholder="Enter capital allocation"
                     value={formData.section1_1.capitalAllocation}
-                    onBlur={() => markFieldAsTouched("section1_1.capitalAllocation")}
+                    onBlur={() =>
+                      markFieldAsTouched("section1_1.capitalAllocation")
+                    }
                     onChange={(e) => {
                       markFieldAsTouched("section1_1.capitalAllocation");
                       showErrorsIfNeeded();
                       const value = e.target.value;
-                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                      
+                      const numValue =
+                        parseFloat(value.replace(/[₹,]/g, "")) || 0;
+
                       // Real-time validation for zero values
                       if (value && numValue === 0) {
                         setIndicatorValidationErrors((prev) => ({
                           ...prev,
-                          "section1_1.capitalAllocation": "Capital Allocation must be greater than zero.",
+                          "section1_1.capitalAllocation":
+                            "Capital Allocation must be greater than zero.",
                         }));
                       } else if (value && numValue > 0) {
                         // Clear zero value error if user enters valid value
@@ -1749,7 +1799,7 @@ export const InfraFinancingStep = () => {
                           return updated;
                         });
                       }
-                      
+
                       setFormData((prev) => ({
                         ...prev,
                         section1_1: {
@@ -1757,31 +1807,35 @@ export const InfraFinancingStep = () => {
                           capitalAllocation: value,
                         },
                       }));
-                      
+
                       // Real-time validation for percentage limit (should not exceed 100%)
                       if (value && formData.section1_1.gsdpForFY) {
-                        const capitalAllocationNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        const gsdpForFYNum = parseFloat(
-                          (formData.section1_1.gsdpForFY || "")
-                            .toString()
-                            .replace(/[₹,]/g, "")
-                        ) || 0;
-                        
+                        const capitalAllocationNum =
+                          parseFloat(value.replace(/[₹,]/g, "")) || 0;
+                        const gsdpForFYNum =
+                          parseFloat(
+                            (formData.section1_1.gsdpForFY || "")
+                              .toString()
+                              .replace(/[₹,]/g, "")
+                          ) || 0;
+
                         // Clear percentage error first
                         setIndicatorValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section1_1.allocationToGSDP"];
                           return updated;
                         });
-                        
+
                         if (gsdpForFYNum > 0) {
-                          const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
+                          const percentage =
+                            (capitalAllocationNum / gsdpForFYNum) * 100;
                           if (percentage > 100) {
                             // Mark percentage field as touched so error shows
                             markFieldAsTouched("section1_1.allocationToGSDP");
                             setIndicatorValidationErrors((prev) => ({
                               ...prev,
-                              "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
+                              "section1_1.allocationToGSDP":
+                                "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
                             }));
                           } else {
                             // Clear error if percentage is valid
@@ -1805,13 +1859,16 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_1.capitalAllocation"),
                       isIndicatorSubmitted("1.1") &&
-                      "bg-gray-50 cursor-not-allowed"
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_1.capitalAllocation")}
                 </div>
                 <div>
-                  <MandatoryFieldLabel sectionKey="section1_1" fieldName="gsdpForFY">
+                  <MandatoryFieldLabel
+                    sectionKey="section1_1"
+                    fieldName="gsdpForFY"
+                  >
                     GSDP for FY (INR)
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </MandatoryFieldLabel>
@@ -1827,13 +1884,15 @@ export const InfraFinancingStep = () => {
                       markFieldAsTouched("section1_1.gsdpForFY");
                       showErrorsIfNeeded();
                       const value = e.target.value;
-                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                      
+                      const numValue =
+                        parseFloat(value.replace(/[₹,]/g, "")) || 0;
+
                       // Real-time validation for zero values
                       if (value && numValue === 0) {
                         setIndicatorValidationErrors((prev) => ({
                           ...prev,
-                          "section1_1.gsdpForFY": "GSDP for FY must be greater than zero.",
+                          "section1_1.gsdpForFY":
+                            "GSDP for FY must be greater than zero.",
                         }));
                       } else if (value && numValue > 0) {
                         // Clear zero value error if user enters valid value
@@ -1843,7 +1902,7 @@ export const InfraFinancingStep = () => {
                           return updated;
                         });
                       }
-                      
+
                       setFormData((prev) => ({
                         ...prev,
                         section1_1: {
@@ -1851,31 +1910,35 @@ export const InfraFinancingStep = () => {
                           gsdpForFY: value,
                         },
                       }));
-                      
+
                       // Real-time validation for percentage limit (should not exceed 100%)
                       if (value && formData.section1_1.capitalAllocation) {
-                        const capitalAllocationNum = parseFloat(
-                          (formData.section1_1.capitalAllocation || "")
-                            .toString()
-                            .replace(/[₹,]/g, "")
-                        ) || 0;
-                        const gsdpForFYNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        
+                        const capitalAllocationNum =
+                          parseFloat(
+                            (formData.section1_1.capitalAllocation || "")
+                              .toString()
+                              .replace(/[₹,]/g, "")
+                          ) || 0;
+                        const gsdpForFYNum =
+                          parseFloat(value.replace(/[₹,]/g, "")) || 0;
+
                         // Clear percentage error first
                         setIndicatorValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section1_1.allocationToGSDP"];
                           return updated;
                         });
-                        
+
                         if (gsdpForFYNum > 0) {
-                          const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
+                          const percentage =
+                            (capitalAllocationNum / gsdpForFYNum) * 100;
                           if (percentage > 100) {
                             // Mark percentage field as touched so error shows
                             markFieldAsTouched("section1_1.allocationToGSDP");
                             setIndicatorValidationErrors((prev) => ({
                               ...prev,
-                              "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
+                              "section1_1.allocationToGSDP":
+                                "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
                             }));
                           } else {
                             // Clear error if percentage is valid
@@ -1899,13 +1962,17 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_1.gsdpForFY"),
                       isIndicatorSubmitted("1.1") &&
-                      "bg-gray-50 cursor-not-allowed"
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_1.gsdpForFY")}
                 </div>
                 <div>
-                  <MandatoryFieldLabel sectionKey="section1_1" fieldName="allocationToGSDP" data={formData.section1_1}>
+                  <MandatoryFieldLabel
+                    sectionKey="section1_1"
+                    fieldName="allocationToGSDP"
+                    data={formData.section1_1}
+                  >
                     % Allocation to GSDP
                     {/* <Info className="h-4 w-4 text-gray-500 ml-2" /> */}
                   </MandatoryFieldLabel>
@@ -1949,7 +2016,9 @@ export const InfraFinancingStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("1.1", "% Capex to GSDP")
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("1.1")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("1.1")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
@@ -1995,7 +2064,10 @@ export const InfraFinancingStep = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <MandatoryFieldLabel sectionKey="section1_2" fieldName="actualCapex">
+                  <MandatoryFieldLabel
+                    sectionKey="section1_2"
+                    fieldName="actualCapex"
+                  >
                     A₁ - Actual Capex (INR)
                   </MandatoryFieldLabel>
                   <Input
@@ -2010,13 +2082,15 @@ export const InfraFinancingStep = () => {
                       markFieldAsTouched("section1_2.actualCapex");
                       showErrorsIfNeeded();
                       const value = e.target.value;
-                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                      
+                      const numValue =
+                        parseFloat(value.replace(/[₹,]/g, "")) || 0;
+
                       // Real-time validation for zero values
                       if (value && numValue === 0) {
                         setIndicatorValidationErrors((prev) => ({
                           ...prev,
-                          "section1_2.actualCapex": "Actual Capex must be greater than zero.",
+                          "section1_2.actualCapex":
+                            "Actual Capex must be greater than zero.",
                         }));
                       } else if (value && numValue > 0) {
                         // Clear zero value error if user enters valid value
@@ -2026,7 +2100,7 @@ export const InfraFinancingStep = () => {
                           return updated;
                         });
                       }
-                      
+
                       setFormData((prev) => ({
                         ...prev,
                         section1_2: {
@@ -2034,31 +2108,35 @@ export const InfraFinancingStep = () => {
                           actualCapex: value,
                         },
                       }));
-                      
+
                       // Real-time validation for percentage limit
                       if (value && formData.section1_2.stateCapexUtilisation) {
-                        const actualCapexNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        const stateCapexNum = parseFloat(
-                          (formData.section1_2.stateCapexUtilisation || "")
-                            .toString()
-                            .replace(/[₹,]/g, "")
-                        ) || 0;
-                        
+                        const actualCapexNum =
+                          parseFloat(value.replace(/[₹,]/g, "")) || 0;
+                        const stateCapexNum =
+                          parseFloat(
+                            (formData.section1_2.stateCapexUtilisation || "")
+                              .toString()
+                              .replace(/[₹,]/g, "")
+                          ) || 0;
+
                         // Clear percentage error first
                         setIndicatorValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section1_2.capexActualsToGSDP"];
                           return updated;
                         });
-                        
+
                         if (stateCapexNum > 0) {
-                          const percentage = (actualCapexNum / stateCapexNum) * 100;
+                          const percentage =
+                            (actualCapexNum / stateCapexNum) * 100;
                           if (percentage > 100) {
                             // Mark percentage field as touched so error shows
                             markFieldAsTouched("section1_2.capexActualsToGSDP");
                             setIndicatorValidationErrors((prev) => ({
                               ...prev,
-                              "section1_2.capexActualsToGSDP": "Percentage cannot exceed 100%.",
+                              "section1_2.capexActualsToGSDP":
+                                "Percentage cannot exceed 100%.",
                             }));
                           } else {
                             // Clear error if percentage is valid
@@ -2075,13 +2153,16 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_2.actualCapex"),
                       isIndicatorSubmitted("1.2") &&
-                      "bg-gray-50 cursor-not-allowed"
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_2.actualCapex")}
                 </div>
                 <div className="space-y-2">
-                  <MandatoryFieldLabel sectionKey="section1_2" fieldName="stateCapexUtilisation">
+                  <MandatoryFieldLabel
+                    sectionKey="section1_2"
+                    fieldName="stateCapexUtilisation"
+                  >
                     State Capex Utilisation (INR)
                   </MandatoryFieldLabel>
                   <Input
@@ -2091,18 +2172,22 @@ export const InfraFinancingStep = () => {
                     min="0"
                     placeholder="Enter state capex utilisation"
                     value={formData.section1_2.stateCapexUtilisation}
-                    onBlur={() => markFieldAsTouched("section1_2.stateCapexUtilisation")}
+                    onBlur={() =>
+                      markFieldAsTouched("section1_2.stateCapexUtilisation")
+                    }
                     onChange={(e) => {
                       markFieldAsTouched("section1_2.stateCapexUtilisation");
                       showErrorsIfNeeded();
                       const value = e.target.value;
-                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                      
+                      const numValue =
+                        parseFloat(value.replace(/[₹,]/g, "")) || 0;
+
                       // Real-time validation for zero values
                       if (value && numValue === 0) {
                         setIndicatorValidationErrors((prev) => ({
                           ...prev,
-                          "section1_2.stateCapexUtilisation": "State capex utilisation must be greater than zero.",
+                          "section1_2.stateCapexUtilisation":
+                            "State capex utilisation must be greater than zero.",
                         }));
                       } else if (value && numValue > 0) {
                         // Clear zero value error if user enters valid value
@@ -2112,7 +2197,7 @@ export const InfraFinancingStep = () => {
                           return updated;
                         });
                       }
-                      
+
                       setFormData((prev) => ({
                         ...prev,
                         section1_2: {
@@ -2120,31 +2205,35 @@ export const InfraFinancingStep = () => {
                           stateCapexUtilisation: value,
                         },
                       }));
-                      
+
                       // Real-time validation for percentage limit
                       if (value && formData.section1_2.actualCapex) {
-                        const actualCapexNum = parseFloat(
-                          (formData.section1_2.actualCapex || "")
-                            .toString()
-                            .replace(/[₹,]/g, "")
-                        ) || 0;
-                        const stateCapexNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        
+                        const actualCapexNum =
+                          parseFloat(
+                            (formData.section1_2.actualCapex || "")
+                              .toString()
+                              .replace(/[₹,]/g, "")
+                          ) || 0;
+                        const stateCapexNum =
+                          parseFloat(value.replace(/[₹,]/g, "")) || 0;
+
                         // Clear percentage error first
                         setIndicatorValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section1_2.capexActualsToGSDP"];
                           return updated;
                         });
-                        
+
                         if (stateCapexNum > 0) {
-                          const percentage = (actualCapexNum / stateCapexNum) * 100;
+                          const percentage =
+                            (actualCapexNum / stateCapexNum) * 100;
                           if (percentage > 100) {
                             // Mark percentage field as touched so error shows
                             markFieldAsTouched("section1_2.capexActualsToGSDP");
                             setIndicatorValidationErrors((prev) => ({
                               ...prev,
-                              "section1_2.capexActualsToGSDP": "Percentage cannot exceed 100%.",
+                              "section1_2.capexActualsToGSDP":
+                                "Percentage cannot exceed 100%.",
                             }));
                           } else {
                             // Clear error if percentage is valid
@@ -2163,13 +2252,17 @@ export const InfraFinancingStep = () => {
                         "section1_2.stateCapexUtilisation"
                       ),
                       isIndicatorSubmitted("1.2") &&
-                      "bg-gray-50 cursor-not-allowed"
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                   />
                   {renderFieldError("section1_2.stateCapexUtilisation")}
                 </div>
                 <div className="space-y-2">
-                  <MandatoryFieldLabel sectionKey="section1_2" fieldName="capexActualsToGSDP" data={formData.section1_2}>
+                  <MandatoryFieldLabel
+                    sectionKey="section1_2"
+                    fieldName="capexActualsToGSDP"
+                    data={formData.section1_2}
+                  >
                     % Capex Actuals to GSDP
                   </MandatoryFieldLabel>
                   <Input
@@ -2212,7 +2305,9 @@ export const InfraFinancingStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("1.2", "% Capex Utilization")
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("1.2")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("1.2")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   size="sm"
                 >
@@ -2269,7 +2364,7 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_3.totalULBs"),
                       isIndicatorSubmitted("1.3") &&
-                      "bg-gray-50 cursor-not-allowed"
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                     required
                   />
@@ -2298,11 +2393,11 @@ export const InfraFinancingStep = () => {
                                 ulbList: prev.section1_3.ulbList.map((item) =>
                                   item.id === ulb.id
                                     ? {
-                                      ...item,
-                                      ulb: value,
-                                      cityName: selectedULB?.city_name || "",
-                                      ulbType: selectedULB?.ulb_type || "",
-                                    }
+                                        ...item,
+                                        ulb: value,
+                                        cityName: selectedULB?.city_name || "",
+                                        ulbType: selectedULB?.ulb_type || "",
+                                      }
                                     : item
                                 ),
                               },
@@ -2395,9 +2490,9 @@ export const InfraFinancingStep = () => {
                                   const el = e.currentTarget;
                                   if (
                                     el.scrollTop + el.clientHeight >=
-                                    el.scrollHeight - 10 &&
+                                      el.scrollHeight - 10 &&
                                     (ulbVisibleCountMap[ulb.id] || 10) <
-                                    ulbOptions.length
+                                      ulbOptions.length
                                   ) {
                                     setUlbVisibleCountMap((prev) => ({
                                       ...prev,
@@ -2459,7 +2554,7 @@ export const InfraFinancingStep = () => {
                             `section1_3.ulbList.${index}.cityName`
                           ),
                           (isIndicatorSubmitted("1.3") || ulb.ulb) &&
-                          "bg-gray-50 cursor-not-allowed"
+                            "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(`section1_3.ulbList.${index}.cityName`)}
@@ -2480,7 +2575,7 @@ export const InfraFinancingStep = () => {
                                 `section1_3.ulbList.${index}.ratingDate`
                               ),
                               isIndicatorSubmitted("1.3") &&
-                              "bg-gray-50 cursor-not-allowed"
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -2507,11 +2602,11 @@ export const InfraFinancingStep = () => {
                                   ulbList: prev.section1_3.ulbList.map((item) =>
                                     item.id === ulb.id
                                       ? {
-                                        ...item,
-                                        ratingDate: date
-                                          ? date.toISOString()
-                                          : "",
-                                      }
+                                          ...item,
+                                          ratingDate: date
+                                            ? date.toISOString()
+                                            : "",
+                                        }
                                       : item
                                   ),
                                 },
@@ -2637,7 +2732,9 @@ export const InfraFinancingStep = () => {
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {(() => {
-                                const found = ulbOptions?.find(u => u.id === ulb.ulb);
+                                const found = ulbOptions?.find(
+                                  (u) => u.id === ulb.ulb
+                                );
                                 return found ? found.ulb_name : ulb.ulb;
                               })()}
                             </td>
@@ -2671,7 +2768,10 @@ export const InfraFinancingStep = () => {
                     onClick={() =>
                       handleSubmitIndicator("1.3", "% of Credit Rated ULBs")
                     }
-                    disabled={submittingIndicator !== null || isIndicatorSubmitted("1.3")}
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("1.3")
+                    }
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
@@ -2729,7 +2829,7 @@ export const InfraFinancingStep = () => {
                     className={cn(
                       getInputValidationClass("section1_4.totalULBs"),
                       isIndicatorSubmitted("1.4") &&
-                      "bg-gray-50 cursor-not-allowed"
+                        "bg-gray-50 cursor-not-allowed"
                     )}
                     required
                   />
@@ -2881,7 +2981,7 @@ export const InfraFinancingStep = () => {
                               `section1_4.bondList.${index}.issuingAuthority`
                             ),
                             isIndicatorSubmitted("1.4") &&
-                            "bg-gray-50 cursor-not-allowed"
+                              "bg-gray-50 cursor-not-allowed"
                           )}
                         >
                           <SelectValue placeholder="Select issuing authority" />
@@ -2930,7 +3030,7 @@ export const InfraFinancingStep = () => {
                             `section1_4.bondList.${index}.value`
                           ),
                           isIndicatorSubmitted("1.4") &&
-                          "bg-gray-50 cursor-not-allowed"
+                            "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(`section1_4.bondList.${index}.value`)}
@@ -3020,7 +3120,10 @@ export const InfraFinancingStep = () => {
                     onClick={() =>
                       handleSubmitIndicator("1.4", "% of ULBs issuing Bonds")
                     }
-                    disabled={submittingIndicator !== null || isIndicatorSubmitted("1.4")}
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("1.4")
+                    }
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
@@ -3141,9 +3244,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                          ...item,
-                                          organisationName: value,
-                                        }
+                                            ...item,
+                                            organisationName: value,
+                                          }
                                         : item
                                   ),
                                 },
@@ -3155,7 +3258,7 @@ export const InfraFinancingStep = () => {
                                 `section1_5.ffiArray.${index}.organisationName`
                               ),
                               isIndicatorSubmitted("1.5") &&
-                              "bg-gray-50 cursor-not-allowed"
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -3180,9 +3283,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                          ...item,
-                                          organisationType: value,
-                                        }
+                                            ...item,
+                                            organisationType: value,
+                                          }
                                         : item
                                   ),
                                 },
@@ -3236,9 +3339,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                          ...item,
-                                          yearEstablished: value,
-                                        }
+                                            ...item,
+                                            yearEstablished: value,
+                                          }
                                         : item
                                   ),
                                 },
@@ -3250,7 +3353,7 @@ export const InfraFinancingStep = () => {
                                 `section1_5.ffiArray.${index}.yearEstablished`
                               ),
                               isIndicatorSubmitted("1.5") &&
-                              "bg-gray-50 cursor-not-allowed"
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -3281,9 +3384,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                          ...item,
-                                          totalFunding: value,
-                                        }
+                                            ...item,
+                                            totalFunding: value,
+                                          }
                                         : item
                                   ),
                                 },
@@ -3295,7 +3398,7 @@ export const InfraFinancingStep = () => {
                                 `section1_5.ffiArray.${index}.totalFunding`
                               ),
                               isIndicatorSubmitted("1.5") &&
-                              "bg-gray-50 cursor-not-allowed"
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -3323,9 +3426,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                          ...item,
-                                          website: value,
-                                        }
+                                            ...item,
+                                            website: value,
+                                          }
                                         : item
                                   ),
                                 },
@@ -3337,7 +3440,7 @@ export const InfraFinancingStep = () => {
                                 `section1_5.ffiArray.${index}.website`
                               ),
                               isIndicatorSubmitted("1.5") &&
-                              "bg-gray-50 cursor-not-allowed"
+                                "bg-gray-50 cursor-not-allowed"
                             )}
                           />
                           {renderFieldError(
@@ -3464,7 +3567,7 @@ export const InfraFinancingStep = () => {
                         getInputValidationClass("section1_5.comment"),
                         "min-h-[100px]",
                         isIndicatorSubmitted("1.5") &&
-                        "bg-gray-50 cursor-not-allowed"
+                          "bg-gray-50 cursor-not-allowed"
                       )}
                     />
                     {renderFieldError("section1_5.comment")}
@@ -3478,7 +3581,10 @@ export const InfraFinancingStep = () => {
                         "Functional Financial Intermediary"
                       )
                     }
-                    disabled={submittingIndicator !== null || isIndicatorSubmitted("1.5")}
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("1.5")
+                    }
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
@@ -3547,7 +3653,9 @@ export const InfraFinancingStep = () => {
               onClick={handleConfirmSubmit}
               disabled={submittingIndicator !== null}
             >
-              {submittingIndicator !== null ? "Submitting..." : "Confirm & Submit"}
+              {submittingIndicator !== null
+                ? "Submitting..."
+                : "Confirm & Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

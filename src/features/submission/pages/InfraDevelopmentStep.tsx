@@ -231,7 +231,9 @@ export const InfraDevelopmentStep = () => {
   const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(null);
+  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(
+    null
+  );
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [pendingIndicator, setPendingIndicator] = useState<{
@@ -245,14 +247,20 @@ export const InfraDevelopmentStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // Store snapshots of original form data when editing starts (for cancel functionality)
+  const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
+    Record<string, any>
+  >({});
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
   // Track indicator-specific validation errors
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
-  
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
+
   // Use the shared field validation hook
   const {
     validatingIndicator,
@@ -263,7 +271,7 @@ export const InfraDevelopmentStep = () => {
     clearValidatingIndicator,
     clearValidFieldErrors,
   } = useFieldValidation();
-  
+
   // State for submissionId to enable immediate file uploads
   const [submissionId, setSubmissionId] = useState<string | undefined>();
 
@@ -297,13 +305,15 @@ export const InfraDevelopmentStep = () => {
             sub.status === "RETURNED_FROM_STATE" ||
             sub.status === "PENDING_STATE_APPROVAL"
         );
-        
+
         // Set submissionId for immediate file uploads
         if (userSubmission?.id) {
           setSubmissionId(userSubmission.id);
           console.log("✅ Found existing submissionId:", userSubmission.id);
         } else {
-          console.log("ℹ️ No existing submission found, files will upload on submit");
+          console.log(
+            "ℹ️ No existing submission found, files will upload on submit"
+          );
         }
 
         let sectionStatusFromDB = undefined;
@@ -481,7 +491,10 @@ export const InfraDevelopmentStep = () => {
 
   // Clear errors for fields that are now valid (when user fixes invalid fields)
   useEffect(() => {
-    if (validatingIndicator && Object.keys(indicatorValidationErrors).length > 0) {
+    if (
+      validatingIndicator &&
+      Object.keys(indicatorValidationErrors).length > 0
+    ) {
       clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
     }
   }, [validation.errors, validatingIndicator, clearValidFieldErrors]);
@@ -998,20 +1011,20 @@ export const InfraDevelopmentStep = () => {
       "totalIndicators",
       "completedIndicators",
     ];
-    
+
     // Preserve File and Blob instances - return them as-is
     if (obj instanceof File || obj instanceof Blob) {
       return obj;
     }
-    
+
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
-    
+
     if (obj && typeof obj === "object") {
       const newObj = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
           const value = obj[key];
-          
+
           // Preserve File and Blob instances
           if (value instanceof File || value instanceof Blob) {
             newObj[key] = value; // Keep File/Blob instance as-is
@@ -1027,7 +1040,10 @@ export const InfraDevelopmentStep = () => {
             // Use Object.assign to preserve all properties including the File instance
             const fileUploadObj: any = {};
             for (const prop in value) {
-              if (prop === "file" && (value.file instanceof File || value.file instanceof Blob)) {
+              if (
+                prop === "file" &&
+                (value.file instanceof File || value.file instanceof Blob)
+              ) {
                 fileUploadObj[prop] = value.file; // Keep File/Blob instance as-is
               } else {
                 fileUploadObj[prop] = deepRemoveUnwantedKeys(value[prop]);
@@ -1184,7 +1200,7 @@ export const InfraDevelopmentStep = () => {
       });
       return;
     }
-    
+
     // Clear indicator-specific validation state on success
     clearValidatingIndicator();
     setIndicatorValidationErrors({});
@@ -1240,15 +1256,20 @@ export const InfraDevelopmentStep = () => {
       };
 
       const hasFiles = hasFileObjects(formData);
-      console.log(`🔍 [SUBMIT ${indicatorCode}] File objects detected in formData:`, hasFiles);
+      console.log(
+        `🔍 [SUBMIT ${indicatorCode}] File objects detected in formData:`,
+        hasFiles
+      );
 
       // ✅ If files exist, pass original formData (with File objects) to submitSectionToStateApprover
       // The API service will handle sanitization internally after uploading files
       // If no files, use sanitized data as before
       let dataToSubmit: any;
-      
+
       if (hasFiles) {
-        console.log(`📤 [SUBMIT ${indicatorCode}] Files detected - passing original formData with File objects`);
+        console.log(
+          `📤 [SUBMIT ${indicatorCode}] Files detected - passing original formData with File objects`
+        );
         // Only remove unwanted keys, don't sanitize files yet
         // The API service will upload files and sanitize them
         dataToSubmit = deepRemoveUnwantedKeys(formData);
@@ -1363,31 +1384,44 @@ export const InfraDevelopmentStep = () => {
           status: newStatus,
         },
       };
-      
+
       // ✅ Verify File instances are still present before sending to API
       const verifyFileInstances = (obj: any, path: string = ""): boolean => {
         if (!obj || typeof obj !== "object") return false;
         if (obj instanceof File) return true;
         if (Array.isArray(obj)) {
-          return obj.some((item, idx) => verifyFileInstances(item, `${path}[${idx}]`));
+          return obj.some((item, idx) =>
+            verifyFileInstances(item, `${path}[${idx}]`)
+          );
         }
         for (const [key, value] of Object.entries(obj)) {
           if (value instanceof File) {
             console.log(`✅ File instance found at ${path}.${key}`);
             return true;
           }
-          if (value && typeof value === "object" && "file" in value && value.file instanceof File) {
-            console.log(`✅ File instance found in FileUpload at ${path}.${key}.file`);
+          if (
+            value &&
+            typeof value === "object" &&
+            "file" in value &&
+            value.file instanceof File
+          ) {
+            console.log(
+              `✅ File instance found in FileUpload at ${path}.${key}.file`
+            );
             return true;
           }
-          if (verifyFileInstances(value, path ? `${path}.${key}` : key)) return true;
+          if (verifyFileInstances(value, path ? `${path}.${key}` : key))
+            return true;
         }
         return false;
       };
-      
+
       const stillHasFiles = verifyFileInstances(sanitizedFormDataWithStatus);
-      console.log(`🔍 [SUBMIT ${indicatorCode}] File instances verification before API call:`, stillHasFiles);
-      
+      console.log(
+        `🔍 [SUBMIT ${indicatorCode}] File instances verification before API call:`,
+        stillHasFiles
+      );
+
       console.log(`🔍 [SUBMIT ${indicatorCode}] Final payload being sent:`, {
         indicatorCode,
         category: "infraDevelopment",
@@ -1574,16 +1608,19 @@ export const InfraDevelopmentStep = () => {
         "infraDevelopment",
         allowedIndicators || ["2.1", "2.2", "2.3", "2.4", "2.5"]
       );
-      
+
       // Update submissionId if it was created/updated
       if (result?.id || result?.submissionId) {
         const newSubmissionId = result.id || result.submissionId;
         if (newSubmissionId && newSubmissionId !== submissionId) {
           setSubmissionId(newSubmissionId);
-          console.log("✅ Updated submissionId after draft save:", newSubmissionId);
+          console.log(
+            "✅ Updated submissionId after draft save:",
+            newSubmissionId
+          );
         }
       }
-      
+
       updateFormData("infraDevelopment", sanitizedFormData);
       toast({
         title: "Draft Saved",
@@ -1703,6 +1740,12 @@ export const InfraDevelopmentStep = () => {
 
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Store a snapshot of the current form data for this section before editing
+    setOriginalFormDataSnapshots((prev) => ({
+      ...prev,
+      [indicatorCode]: JSON.parse(JSON.stringify(formData[sectionKey] || {})),
+    }));
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
   };
 
@@ -1803,7 +1846,10 @@ export const InfraDevelopmentStep = () => {
         const newSubmissionId = result.id || result.submissionId;
         if (newSubmissionId && newSubmissionId !== submissionId) {
           setSubmissionId(newSubmissionId);
-          console.log("✅ Updated submissionId after resubmit:", newSubmissionId);
+          console.log(
+            "✅ Updated submissionId after resubmit:",
+            newSubmissionId
+          );
         }
       }
 
@@ -1871,13 +1917,27 @@ export const InfraDevelopmentStep = () => {
 
   // Handle Cancel button click for sent back indicators
   const handleCancelEdit = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Restore the original form data from snapshot
+    if (originalFormDataSnapshots[indicatorCode]) {
+      setFormData((prev: any) => ({
+        ...prev,
+        [sectionKey]: JSON.parse(
+          JSON.stringify(originalFormDataSnapshots[indicatorCode])
+        ),
+      }));
+      // Remove the snapshot after restoring
+      setOriginalFormDataSnapshots((prev) => {
+        const updated = { ...prev };
+        delete updated[indicatorCode];
+        return updated;
+      });
+    }
     setEditingIndicators((prev) => {
       const newSet = new Set(prev);
       newSet.delete(indicatorCode);
       return newSet;
     });
-    // Optionally reload the original data for this indicator
-    // For now, just exit edit mode
   };
 
   // --- UI ---
@@ -2128,13 +2188,21 @@ export const InfraDevelopmentStep = () => {
                           if (!file) {
                             return (
                               <tr key={entry.id} className="bg-white">
-                                <td className="py-3 px-4 text-sm font-normal">{entry.sector}</td>
-                                <td className="py-3 px-4 text-sm font-normal">No file uploaded</td>
-                                <td className="py-3 px-4 text-sm font-normal">N/A</td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  No file uploaded
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  N/A
+                                </td>
                                 <td className="py-3 px-4">
                                   <button
                                     type="button"
-                                    onClick={() => removeEntry("section2_1", entry.id)}
+                                    onClick={() =>
+                                      removeEntry("section2_1", entry.id)
+                                    }
                                     disabled={isIndicatorSubmitted("2.1")}
                                     className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                     aria-label="Delete"
@@ -2145,57 +2213,68 @@ export const InfraDevelopmentStep = () => {
                               </tr>
                             );
                           }
-                          
+
                           // Extract original name from UUID-prefixed fileName if originalName is not available
-                          const extractOriginalName = (fileName: string, originalName?: string): string => {
-                            if (originalName && originalName.trim()) return originalName;
-                            
+                          const extractOriginalName = (
+                            fileName: string,
+                            originalName?: string
+                          ): string => {
+                            if (originalName && originalName.trim())
+                              return originalName;
+
                             // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-                            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-                            
+                            const uuidPattern =
+                              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
                             if (uuidPattern.test(fileName)) {
-                              const extracted = fileName.replace(uuidPattern, '');
+                              const extracted = fileName.replace(
+                                uuidPattern,
+                                ""
+                              );
                               if (extracted && extracted.trim().length > 0) {
                                 return extracted;
                               }
                             }
-                            
+
                             return fileName;
                           };
-                          
-                          const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
-                          
+
+                          const displayName = extractOriginalName(
+                            file.fileName || "",
+                            (file as any)?.originalName
+                          );
+
                           return (
-                          <tr key={entry.id} className="bg-white">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.sector}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {displayName}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.files?.[0]?.fileSize
-                                ? `${(
-                                    entry.files[0].fileSize /
-                                    1024 /
-                                    1024
-                                  ).toFixed(1)} MB`
-                                : "N/A"}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  removeEntry("section2_1", entry.id)
-                                }
-                                disabled={isIndicatorSubmitted("2.1")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
+                            <tr key={entry.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {displayName}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.files?.[0]?.fileSize
+                                  ? `${(
+                                      entry.files[0].fileSize /
+                                      1024 /
+                                      1024
+                                    ).toFixed(1)} MB`
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeEntry("section2_1", entry.id)
+                                  }
+                                  disabled={isIndicatorSubmitted("2.1")}
+                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
                           );
                         })}
                       </tbody>
@@ -2210,7 +2289,9 @@ export const InfraDevelopmentStep = () => {
                       "Infrastructure Sector-Specific Acts"
                     )
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.1")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("2.1")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
@@ -2383,13 +2464,21 @@ export const InfraDevelopmentStep = () => {
                           if (!file) {
                             return (
                               <tr key={entry.id} className="bg-white">
-                                <td className="py-3 px-4 text-sm font-normal">{entry.sector}</td>
-                                <td className="py-3 px-4 text-sm font-normal">No file uploaded</td>
-                                <td className="py-3 px-4 text-sm font-normal">N/A</td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  No file uploaded
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  N/A
+                                </td>
                                 <td className="py-3 px-4">
                                   <button
                                     type="button"
-                                    onClick={() => removeEntry("section2_2", entry.id)}
+                                    onClick={() =>
+                                      removeEntry("section2_2", entry.id)
+                                    }
                                     disabled={isIndicatorSubmitted("2.2")}
                                     className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                     aria-label="Delete"
@@ -2400,57 +2489,68 @@ export const InfraDevelopmentStep = () => {
                               </tr>
                             );
                           }
-                          
+
                           // Extract original name from UUID-prefixed fileName if originalName is not available
-                          const extractOriginalName = (fileName: string, originalName?: string): string => {
-                            if (originalName && originalName.trim()) return originalName;
-                            
+                          const extractOriginalName = (
+                            fileName: string,
+                            originalName?: string
+                          ): string => {
+                            if (originalName && originalName.trim())
+                              return originalName;
+
                             // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-                            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-                            
+                            const uuidPattern =
+                              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
                             if (uuidPattern.test(fileName)) {
-                              const extracted = fileName.replace(uuidPattern, '');
+                              const extracted = fileName.replace(
+                                uuidPattern,
+                                ""
+                              );
                               if (extracted && extracted.trim().length > 0) {
                                 return extracted;
                               }
                             }
-                            
+
                             return fileName;
                           };
-                          
-                          const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
-                          
+
+                          const displayName = extractOriginalName(
+                            file.fileName || "",
+                            (file as any)?.originalName
+                          );
+
                           return (
-                          <tr key={entry.id} className="bg-white">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.sector}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {displayName}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.files?.[0]?.fileSize
-                                ? `${(
-                                    entry.files[0].fileSize /
-                                    1024 /
-                                    1024
-                                  ).toFixed(1)} MB`
-                                : "N/A"}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  removeEntry("section2_2", entry.id)
-                                }
-                                disabled={isIndicatorSubmitted("2.2")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
+                            <tr key={entry.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {displayName}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.files?.[0]?.fileSize
+                                  ? `${(
+                                      entry.files[0].fileSize /
+                                      1024 /
+                                      1024
+                                    ).toFixed(1)} MB`
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeEntry("section2_2", entry.id)
+                                  }
+                                  disabled={isIndicatorSubmitted("2.2")}
+                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
                           );
                         })}
                       </tbody>
@@ -2462,7 +2562,9 @@ export const InfraDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("2.2", "Specialized Entity")
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.2")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("2.2")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
@@ -2736,13 +2838,21 @@ export const InfraDevelopmentStep = () => {
                           if (!file) {
                             return (
                               <tr key={entry.id} className="bg-white">
-                                <td className="py-3 px-4 text-sm font-normal">{entry.sector}</td>
-                                <td className="py-3 px-4 text-sm font-normal">No file uploaded</td>
-                                <td className="py-3 px-4 text-sm font-normal">N/A</td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  No file uploaded
+                                </td>
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  N/A
+                                </td>
                                 <td className="py-3 px-4">
                                   <button
                                     type="button"
-                                    onClick={() => removeEntry("section2_3", entry.id)}
+                                    onClick={() =>
+                                      removeEntry("section2_3", entry.id)
+                                    }
                                     disabled={isIndicatorSubmitted("2.3")}
                                     className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                     aria-label="Delete"
@@ -2753,57 +2863,68 @@ export const InfraDevelopmentStep = () => {
                               </tr>
                             );
                           }
-                          
+
                           // Extract original name from UUID-prefixed fileName if originalName is not available
-                          const extractOriginalName = (fileName: string, originalName?: string): string => {
-                            if (originalName && originalName.trim()) return originalName;
-                            
+                          const extractOriginalName = (
+                            fileName: string,
+                            originalName?: string
+                          ): string => {
+                            if (originalName && originalName.trim())
+                              return originalName;
+
                             // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-                            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-                            
+                            const uuidPattern =
+                              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
                             if (uuidPattern.test(fileName)) {
-                              const extracted = fileName.replace(uuidPattern, '');
+                              const extracted = fileName.replace(
+                                uuidPattern,
+                                ""
+                              );
                               if (extracted && extracted.trim().length > 0) {
                                 return extracted;
                               }
                             }
-                            
+
                             return fileName;
                           };
-                          
-                          const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
-                          
+
+                          const displayName = extractOriginalName(
+                            file.fileName || "",
+                            (file as any)?.originalName
+                          );
+
                           return (
-                          <tr key={entry.id} className="bg-white">
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.sector}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {displayName}
-                            </td>
-                            <td className="py-3 px-4 text-sm font-normal">
-                              {entry.files?.[0]?.fileSize
-                                ? `${(
-                                    entry.files[0].fileSize /
-                                    1024 /
-                                    1024
-                                  ).toFixed(1)} MB`
-                                : "N/A"}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  removeEntry("section2_3", entry.id)
-                                }
-                                disabled={isIndicatorSubmitted("2.3")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
+                            <tr key={entry.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {displayName}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-normal">
+                                {entry.files?.[0]?.fileSize
+                                  ? `${(
+                                      entry.files[0].fileSize /
+                                      1024 /
+                                      1024
+                                    ).toFixed(1)} MB`
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeEntry("section2_3", entry.id)
+                                  }
+                                  disabled={isIndicatorSubmitted("2.3")}
+                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
                           );
                         })}
                       </tbody>
@@ -2818,7 +2939,9 @@ export const InfraDevelopmentStep = () => {
                       "Infrastructure Development Plan"
                     )
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.3")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("2.3")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
@@ -3278,7 +3401,9 @@ export const InfraDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("2.4", "Investment Ready Projects")
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.4")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("2.4")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
@@ -3585,7 +3710,9 @@ export const InfraDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("2.5", "Asset Monetization Pipeline")
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.5")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("2.5")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
@@ -3632,7 +3759,9 @@ export const InfraDevelopmentStep = () => {
               onClick={handleConfirmSubmit}
               disabled={submittingIndicator !== null}
             >
-              {submittingIndicator !== null ? "Submitting..." : "Confirm & Submit"}
+              {submittingIndicator !== null
+                ? "Submitting..."
+                : "Confirm & Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
