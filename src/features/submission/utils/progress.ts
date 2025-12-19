@@ -451,6 +451,20 @@ export function computeAllStepsSummary(
 export async function calculateProgressByAcceptedStatus(
   allFormData: Record<string, unknown>
 ): Promise<{ total: number; accepted: number; progress: number }> {
+  // Get user role from localStorage
+  let userRole: string | undefined;
+  try {
+    const authUserStr = localStorage.getItem("niri_app:auth_user");
+    console.log("authUserStr in calculateProgressByAcceptedStatus", authUserStr);
+    if (authUserStr) {
+      const authUser = JSON.parse(authUserStr);
+      userRole = authUser?.role || authUser?.value?.role;
+      console.log("userRole in calculateProgressByAcceptedStatus", userRole);
+    }
+  } catch (error) {
+    console.warn("⚠️ Failed to get user role from localStorage:", error);
+  }
+
   const categories = ["infraFinancing", "infraDevelopment", "pppDevelopment", "infraEnablers"];
   let totalSections = 0;
   let acceptedSections = 0;
@@ -478,27 +492,63 @@ export async function calculateProgressByAcceptedStatus(
       let mospiStatus: string | undefined;
 
       if (typeof sectionData === "object" && !Array.isArray(sectionData)) {
+        // For object format, check status and mospi_status directly
         status = (sectionData as Record<string, unknown>)?.status as string | undefined;
         mospiStatus = (sectionData as Record<string, unknown>)?.mospi_status as string | undefined;
       } else if (Array.isArray(sectionData)) {
-        // For array format, check if status is on the array object itself
+        // For array format, check status on the array object itself first
         status = (sectionData as any)?.status;
         mospiStatus = (sectionData as any)?.mospi_status;
+        
+        // If not found on array, check first item in array (common pattern)
+        if (!status && sectionData.length > 0 && typeof sectionData[0] === "object") {
+          status = (sectionData[0] as any)?.status;
+        }
+        if (!mospiStatus && sectionData.length > 0 && typeof sectionData[0] === "object") {
+          mospiStatus = (sectionData[0] as any)?.mospi_status;
+        }
+        
+        // Also check if any item in the array has the status (for nested structures)
+        if (!mospiStatus) {
+          for (const item of sectionData) {
+            if (item && typeof item === "object") {
+              const itemMospiStatus = (item as any)?.mospi_status;
+              if (itemMospiStatus) {
+                mospiStatus = itemMospiStatus;
+                break;
+              }
+            }
+          }
+        }
+        if (!status) {
+          for (const item of sectionData) {
+            if (item && typeof item === "object") {
+              const itemStatus = (item as any)?.status;
+              if (itemStatus) {
+                status = itemStatus;
+                break;
+              }
+            }
+          }
+        }
       }
 
       // Normalize status values
       const normalizedStatus = status ? String(status).trim().toUpperCase() : "";
       const normalizedMospiStatus = mospiStatus ? String(mospiStatus).trim().toUpperCase() : "";
 
-      // Logic: If mospi_status exists, it must be ACCEPTED to count
-      // If mospi_status doesn't exist, then status must be ACCEPTED to count
+      // Determine which status to check based on user role
+      const normalizedUserRole = userRole ? String(userRole).trim().toUpperCase() : "";
+      const isMospiUser = normalizedUserRole === "MOSPI_REVIEWER" || normalizedUserRole === "MOSPI_APPROVER";
+
+      // Count section based on role
       let isAccepted = false;
-      
-      if (normalizedMospiStatus) {
-        // mospi_status exists - only count if it's ACCEPTED
+      if (isMospiUser) {
+        // For MOSPI users, check mospi_status
+        console.log("normalizedMospiStatus", normalizedMospiStatus, "for section", sectionKey);
         isAccepted = normalizedMospiStatus === "ACCEPTED";
       } else {
-        // mospi_status doesn't exist - count if status is ACCEPTED
+        // For other users, check status
         isAccepted = normalizedStatus === "ACCEPTED";
       }
 
@@ -508,58 +558,72 @@ export async function calculateProgressByAcceptedStatus(
     }
   }
 
-  // Get user ID from allFormData.submittedBy and fetch total assigned indicators from API
+  // Get total assigned indicators count
+  // For MOSPI users, use default count of 20
+  // For other users, fetch from API based on submittedBy user ID
   let totalAssignedIndicators: number | undefined;
-  try {
-    const submittedBy = allFormData.submittedBy;
-    let userId: string | undefined;
-    
-    // Handle different submittedBy structures
-    if (typeof submittedBy === "string") {
-      // If submittedBy is a string, it's likely the user ID
-      userId = submittedBy;
-    } else if (submittedBy && typeof submittedBy === "object") {
-      // If submittedBy is an object, extract the ID
-      userId = (submittedBy as any)?.id || (submittedBy as any)?.userId || (submittedBy as any)?.user?.id;
-    }
-    
-    if (userId) {
-      // Fetch total assigned indicators count from API
-      try {
-        const response = await apiService.get(`/user-indicators/user/${userId}`);
-        const responseData = response?.data?.data || response?.data || response;
-        
-        // Handle different response structures
-        if (Array.isArray(responseData)) {
-          totalAssignedIndicators = responseData.length;
-        } else if (responseData?.indicators && Array.isArray(responseData.indicators)) {
-          totalAssignedIndicators = responseData.indicators.length;
-        } else if (typeof responseData?.count === "number") {
-          totalAssignedIndicators = responseData.count;
-        } else if (typeof responseData?.total === "number") {
-          totalAssignedIndicators = responseData.total;
-        } else if (responseData && typeof responseData === "object") {
-          const keys = Object.keys(responseData);
-          if (keys.length > 0) {
-            const firstKey = keys[0];
-            if (Array.isArray(responseData[firstKey])) {
-              totalAssignedIndicators = responseData[firstKey].length;
+  
+  // Check if user is MOSPI approver or reviewer
+  const normalizedUserRole = userRole ? String(userRole).trim().toUpperCase() : "";
+  const isMospiUser = normalizedUserRole === "MOSPI_REVIEWER" || normalizedUserRole === "MOSPI_APPROVER";
+  
+  if (isMospiUser) {
+    // For MOSPI users, use default total of 20
+    totalAssignedIndicators = 20;
+    console.log("📊 [Progress] Using default total of 20 for MOSPI user");
+  } else {
+    // For other users, fetch from API
+    try {
+      const submittedBy = allFormData.submittedBy;
+      let userId: string | undefined;
+      
+      // Handle different submittedBy structures
+      if (typeof submittedBy === "string") {
+        // If submittedBy is a string, it's likely the user ID
+        userId = submittedBy;
+      } else if (submittedBy && typeof submittedBy === "object") {
+        // If submittedBy is an object, extract the ID
+        userId = (submittedBy as any)?.id || (submittedBy as any)?.userId || (submittedBy as any)?.user?.id;
+      }
+      
+      if (userId) {
+        // Fetch total assigned indicators count from API
+        try {
+          const response = await apiService.get(`/user-indicators/user/${userId}`);
+          const responseData = response?.data?.data || response?.data || response;
+          
+          // Handle different response structures
+          if (Array.isArray(responseData)) {
+            totalAssignedIndicators = responseData.length;
+          } else if (responseData?.indicators && Array.isArray(responseData.indicators)) {
+            totalAssignedIndicators = responseData.indicators.length;
+          } else if (typeof responseData?.count === "number") {
+            totalAssignedIndicators = responseData.count;
+          } else if (typeof responseData?.total === "number") {
+            totalAssignedIndicators = responseData.total;
+          } else if (responseData && typeof responseData === "object") {
+            const keys = Object.keys(responseData);
+            if (keys.length > 0) {
+              const firstKey = keys[0];
+              if (Array.isArray(responseData[firstKey])) {
+                totalAssignedIndicators = responseData[firstKey].length;
+              }
             }
           }
+          
+          console.log("📊 [Progress] Total assigned indicators from API:", totalAssignedIndicators);
+        } catch (apiError) {
+          console.warn("⚠️ Failed to fetch assigned indicators count from API:", apiError);
+          // Fallback: use totalSections from formData
         }
-        
-        console.log("📊 [Progress] Total assigned indicators from API:", totalAssignedIndicators);
-      } catch (apiError) {
-        console.warn("⚠️ Failed to fetch assigned indicators count from API:", apiError);
+      } else {
+        console.warn("⚠️ No user ID found in allFormData.submittedBy");
         // Fallback: use totalSections from formData
       }
-    } else {
-      console.warn("⚠️ No user ID found in allFormData.submittedBy");
+    } catch (error) {
+      console.warn("⚠️ Failed to get user ID from allFormData.submittedBy:", error);
       // Fallback: use totalSections from formData
     }
-  } catch (error) {
-    console.warn("⚠️ Failed to get user ID from allFormData.submittedBy:", error);
-    // Fallback: use totalSections from formData
   }
 
   // Use totalAssignedIndicators from API if available, otherwise use totalSections from formData

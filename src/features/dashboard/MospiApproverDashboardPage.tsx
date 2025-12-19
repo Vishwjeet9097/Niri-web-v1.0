@@ -133,7 +133,12 @@ export const MospiApproverDashboardPage = () => {
             const processedSubmissions = await Promise.all(
               submissionsArray.map(async (sub: any) => {
                 const fd = sub.formData || {};
-                const progressData = await calculateProgressByAcceptedStatus(fd);
+                // Add submittedBy (user ID) to formData for progress calculation
+                const fdWithSubmittedBy = {
+                  ...fd,
+                  submittedBy: sub.user?.id || sub.submittedBy || sub.user,
+                };
+                const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
                 return {
                   ...sub,
                   progress: progressData.progress,
