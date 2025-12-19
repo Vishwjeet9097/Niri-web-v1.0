@@ -1141,8 +1141,6 @@ export const StateAggregateReviewPage = () => {
     if (user?.role !== "STATE_APPROVER" && user?.role !== "MOSPI_REVIEWER")
       return;
 
-    let intervalId: number | undefined;
-
     const loadProgressOnce = async () => {
       if (document?.hidden) return;
 
@@ -1165,7 +1163,8 @@ export const StateAggregateReviewPage = () => {
         setStateProgress(stats);
       } catch (e) {
         console.error("Failed to load state indicator statuses", e);
-        setStateProgress(null);
+        // Don't reset progress to null on error - keep existing progress
+        // setStateProgress(null);
       } finally {
         setProgressLoading(false);
       }
@@ -1174,12 +1173,31 @@ export const StateAggregateReviewPage = () => {
     // run immediately on mount
     loadProgressOnce();
 
+    // Refresh when page becomes visible (user navigates back)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("👁️ [StateAggregate] Page visible - refreshing progress");
+        loadProgressOnce();
+      }
+    };
+
+    // Refresh when window gains focus (user navigates back)
+    const handleFocus = () => {
+      console.log("🎯 [StateAggregate] Window focused - refreshing progress");
+      loadProgressOnce();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
     // auto-refresh every 60 seconds
-    intervalId = window.setInterval(loadProgressOnce, 60_000);
+    const intervalId = window.setInterval(loadProgressOnce, 60_000);
 
     // clean up on unmount
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
   }, [user?.role]);
 
@@ -1396,11 +1414,54 @@ export const StateAggregateReviewPage = () => {
         }
       });
 
+      // IMPORTANT: Clean MOSPI_APPROVER mospi_status fields BEFORE transformation
+      // This ensures mospi_status is removed before the prune function processes the data
+      console.log(
+        "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log(
+        "🧹 STEP 2a: Cleaning MOSPI_APPROVER mospi_status from formData"
+      );
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("🔍 [StateAggregate] FormData before cleaning:", {
+        keys: Object.keys(formData),
+        hasInfraFinancing: !!formData.infraFinancing,
+        hasInfraDevelopment: !!formData.infraDevelopment,
+        hasPppDevelopment: !!formData.pppDevelopment,
+        hasInfraEnablers: !!formData.infraEnablers,
+        infraFinancingSections: formData.infraFinancing
+          ? Object.keys(formData.infraFinancing).length
+          : 0,
+        infraDevelopmentSections: formData.infraDevelopment
+          ? Object.keys(formData.infraDevelopment).length
+          : 0,
+        pppDevelopmentSections: formData.pppDevelopment
+          ? Object.keys(formData.pppDevelopment).length
+          : 0,
+        infraEnablersSections: formData.infraEnablers
+          ? Object.keys(formData.infraEnablers).length
+          : 0,
+      });
+
+      const cleanedFormDataBeforeTransform =
+        cleanMospiApproverActions(formData);
+
+      console.log("✅ [StateAggregate] Cleaned formData before transformation");
+      console.log("🔍 [StateAggregate] FormData after cleaning:", {
+        keys: Object.keys(cleanedFormDataBeforeTransform),
+        hasInfraFinancing: !!cleanedFormDataBeforeTransform.infraFinancing,
+        hasInfraDevelopment: !!cleanedFormDataBeforeTransform.infraDevelopment,
+        hasPppDevelopment: !!cleanedFormDataBeforeTransform.pppDevelopment,
+        hasInfraEnablers: !!cleanedFormDataBeforeTransform.infraEnablers,
+      });
+
       // Transform formData for submission
       console.log(
         "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
-      console.log("🔄 STEP 2: Transforming formData for submission");
+      console.log("🔄 STEP 2b: Transforming cleaned formData for submission");
       console.log(
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
@@ -1411,7 +1472,7 @@ export const StateAggregateReviewPage = () => {
         : "SUBMITTED_TO_MOSPI_REVIEWER";
 
       const transformedData = transformFormDataForSubmission(
-        formData,
+        cleanedFormDataBeforeTransform,
         submissionStatus
       );
 
@@ -1551,25 +1612,20 @@ export const StateAggregateReviewPage = () => {
         console.log("📍 State/UT:", effectiveState || mockSubmission?.stateUt);
 
         // Update the existing submission - need to prepare update payload with files
-        // IMPORTANT: Clean MOSPI_APPROVER mospi_status fields when resubmitting
-        // This ensures MOSPI_APPROVER sees fresh form without previous status actions
-        // NOTE: Comments are kept for timeline/history tracking
-        const cleanedFormData = cleanMospiApproverActions(
-          transformedData.formData
-        );
-
+        // NOTE: formData has already been cleaned before transformation (see STEP 2a above)
+        // So transformedData.formData already has mospi_status removed
         console.log(
-          "🧹 [StateAggregate] Cleaning MOSPI_APPROVER mospi_status from formData"
+          "ℹ️ [StateAggregate] FormData already cleaned before transformation"
         );
         console.log(
-          "📋 [StateAggregate] Removed mospi_status from all indicators"
+          "📋 [StateAggregate] mospi_status removed from all indicators"
         );
         console.log(
           "ℹ️ [StateAggregate] Keeping all comments for timeline/history"
         );
 
         const updatePayload: any = {
-          formData: cleanedFormData,
+          formData: transformedData.formData,
           status: submissionStatus,
         };
 

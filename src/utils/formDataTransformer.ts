@@ -203,6 +203,14 @@ export const getFormDataSummary = (formData: unknown) => {
 export const cleanMospiApproverActions = (
   formData: Record<string, any>
 ): Record<string, any> => {
+  if (!formData || typeof formData !== "object") {
+    console.warn(
+      "⚠️ [cleanMospiApproverActions] Invalid formData provided:",
+      formData
+    );
+    return formData || {};
+  }
+
   const cleaned = JSON.parse(JSON.stringify(formData)); // Deep clone
 
   // Categories to process
@@ -213,20 +221,206 @@ export const cleanMospiApproverActions = (
     "infraEnablers",
   ];
 
-  // Remove mospi_status from all indicator sections
-  categories.forEach((category) => {
-    if (cleaned[category] && typeof cleaned[category] === "object") {
-      Object.keys(cleaned[category]).forEach((sectionKey) => {
-        const section = cleaned[category][sectionKey];
-        if (section && typeof section === "object") {
-          // Remove mospi_status field
-          if ("mospi_status" in section) {
-            delete section.mospi_status;
-          }
-        }
-      });
+  console.log("🧹 [cleanMospiApproverActions] Starting cleanup");
+  const formDataKeys = Object.keys(cleaned);
+  console.log("📋 [cleanMospiApproverActions] FormData keys:", formDataKeys);
+  console.log(
+    "📋 [cleanMospiApproverActions] FormData structure (first 1000 chars):",
+    JSON.stringify(cleaned, null, 2).substring(0, 1000)
+  );
+
+  // Check which categories actually exist in formData and log details
+  console.log(
+    `📊 [cleanMospiApproverActions] Checking categories in formData...`
+  );
+  categories.forEach((cat) => {
+    const exists = cleaned[cat];
+    const isValid =
+      exists && typeof exists === "object" && !Array.isArray(exists);
+    if (isValid) {
+      const sectionCount = Object.keys(exists).length;
+      console.log(
+        `✅ [cleanMospiApproverActions] Category ${cat}: EXISTS with ${sectionCount} sections`
+      );
+      // Log sample section keys
+      if (sectionCount > 0) {
+        const sampleKeys = Object.keys(exists).slice(0, 3);
+        console.log(
+          `   Sample sections: ${sampleKeys.join(", ")}${
+            sectionCount > 3 ? "..." : ""
+          }`
+        );
+      }
+    } else {
+      console.log(
+        `⚠️ [cleanMospiApproverActions] Category ${cat}: ${
+          exists
+            ? `EXISTS but invalid (type: ${typeof exists}, isArray: ${Array.isArray(
+                exists
+              )})`
+            : "MISSING"
+        }`
+      );
     }
   });
+
+  // Remove mospi_status from all indicator sections
+  let totalRemoved = 0;
+  let categoriesProcessed = 0;
+  let categoriesSkipped = 0;
+
+  // Process all categories - use for...of to allow proper control flow
+  for (const category of categories) {
+    console.log(
+      `🔍 [cleanMospiApproverActions] Processing category: ${category}`
+    );
+
+    // Ensure category exists
+    if (!cleaned[category]) {
+      console.log(
+        `⚠️ [cleanMospiApproverActions] Category ${category} does not exist in formData - skipping`
+      );
+      categoriesSkipped++;
+      continue; // Skip this category if it doesn't exist
+    }
+
+    if (typeof cleaned[category] !== "object") {
+      console.log(
+        `⚠️ [cleanMospiApproverActions] Category ${category} is not an object:`,
+        typeof cleaned[category]
+      );
+      categoriesSkipped++;
+      continue; // Skip this category
+    }
+
+    // Handle case where category might be null or undefined after pruning
+    if (cleaned[category] === null || cleaned[category] === undefined) {
+      console.log(
+        `⚠️ [cleanMospiApproverActions] Category ${category} is null/undefined - skipping`
+      );
+      categoriesSkipped++;
+      continue; // Skip this category
+    }
+
+    const categoryData = cleaned[category];
+
+    // Handle case where categoryData might be an array (shouldn't happen, but be safe)
+    if (Array.isArray(categoryData)) {
+      console.log(
+        `⚠️ [cleanMospiApproverActions] Category ${category} is an array, not an object - skipping`
+      );
+      categoriesSkipped++;
+      continue; // Skip this category
+    }
+
+    categoriesProcessed++;
+    const sectionKeys = Object.keys(categoryData);
+    console.log(
+      `📝 [cleanMospiApproverActions] Category ${category} has ${sectionKeys.length} sections:`,
+      sectionKeys
+    );
+
+    if (sectionKeys.length === 0) {
+      console.log(
+        `ℹ️ [cleanMospiApproverActions] Category ${category} has no sections to process`
+      );
+      continue; // Skip if no sections
+    }
+
+    let categoryRemovedCount = 0;
+    // Use for...of loop for sections as well
+    for (const sectionKey of sectionKeys) {
+      const section = categoryData[sectionKey];
+
+      if (!section) {
+        console.log(
+          `⚠️ [cleanMospiApproverActions] Section ${sectionKey} in ${category} is null/undefined`
+        );
+        continue;
+      }
+
+      if (typeof section !== "object") {
+        console.log(
+          `⚠️ [cleanMospiApproverActions] Section ${sectionKey} in ${category} is not an object:`,
+          typeof section
+        );
+        continue;
+      }
+
+      // Handle both object and array cases
+      if (Array.isArray(section)) {
+        // If section is an array, check each item
+        console.log(
+          `📋 [cleanMospiApproverActions] Section ${sectionKey} in ${category} is an array with ${section.length} items`
+        );
+        for (let index = 0; index < section.length; index++) {
+          const item = section[index];
+          if (item && typeof item === "object" && "mospi_status" in item) {
+            console.log(
+              `🗑️ [cleanMospiApproverActions] Removing mospi_status from ${category}.${sectionKey}[${index}]`
+            );
+            delete item.mospi_status;
+            categoryRemovedCount++;
+            totalRemoved++;
+          }
+        }
+      } else {
+        // If section is an object, check directly
+        if ("mospi_status" in section) {
+          console.log(
+            `🗑️ [cleanMospiApproverActions] Removing mospi_status from ${category}.${sectionKey}`
+          );
+          delete section.mospi_status;
+          categoryRemovedCount++;
+          totalRemoved++;
+        } else {
+          console.log(
+            `ℹ️ [cleanMospiApproverActions] Section ${category}.${sectionKey} does not have mospi_status`
+          );
+        }
+      }
+    }
+
+    console.log(
+      `✅ [cleanMospiApproverActions] Category ${category}: Removed ${categoryRemovedCount} mospi_status field(s)`
+    );
+  }
+
+  console.log("✅ [cleanMospiApproverActions] Cleanup completed");
+  console.log(
+    `📊 [cleanMospiApproverActions] Summary: Processed ${categoriesProcessed} categories, skipped ${categoriesSkipped}, removed ${totalRemoved} mospi_status field(s)`
+  );
+
+  // Verify cleanup by checking if any mospi_status remains
+  let remainingMospiStatus = 0;
+  for (const category of categories) {
+    if (cleaned[category] && typeof cleaned[category] === "object") {
+      const categoryData = cleaned[category];
+      for (const sectionKey of Object.keys(categoryData)) {
+        const section = categoryData[sectionKey];
+        if (
+          section &&
+          typeof section === "object" &&
+          "mospi_status" in section
+        ) {
+          remainingMospiStatus++;
+          console.warn(
+            `⚠️ [cleanMospiApproverActions] WARNING: ${category}.${sectionKey} still has mospi_status after cleanup!`
+          );
+        }
+      }
+    }
+  }
+
+  if (remainingMospiStatus > 0) {
+    console.error(
+      `❌ [cleanMospiApproverActions] ERROR: ${remainingMospiStatus} mospi_status field(s) still remain after cleanup!`
+    );
+  } else {
+    console.log(
+      `✅ [cleanMospiApproverActions] Verification: No mospi_status fields remain`
+    );
+  }
 
   return cleaned;
 };

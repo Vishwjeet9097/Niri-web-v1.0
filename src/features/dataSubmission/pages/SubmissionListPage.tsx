@@ -679,9 +679,16 @@ export const SubmissionListPage = () => {
         // Get user state for fallback calculation
         const userStateUt = user?.stateUt || user?.stateName || user?.state;
 
-        // Use ref to get latest submissions without triggering re-renders
-        // This prevents progress from resetting when navigating back from review page
-        const currentSubmissions = submissionsRef.current;
+        // Use both submissions state and ref - prefer state if available, fallback to ref
+        // This ensures we have data when navigating back from review page
+        const currentSubmissions =
+          submissions.length > 0 ? submissions : submissionsRef.current;
+
+        console.log("📋 [Progress] Using submissions:", {
+          fromState: submissions.length,
+          fromRef: submissionsRef.current.length,
+          using: currentSubmissions.length,
+        });
 
         // Pass submissions array as fallback in case API returns empty data
         const stats = calculateStateProgressFromApi(
@@ -705,18 +712,35 @@ export const SubmissionListPage = () => {
     // run immediately on mount
     loadProgressOnce();
 
+    // Refresh when page becomes visible (user navigates back)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("👁️ [Progress] Page visible - refreshing progress");
+        loadProgressOnce();
+      }
+    };
+
+    // Refresh when window gains focus (user navigates back)
+    const handleFocus = () => {
+      console.log("🎯 [Progress] Window focused - refreshing progress");
+      loadProgressOnce();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
     // auto-refresh every 60 seconds
     const intervalId = window.setInterval(loadProgressOnce, 60_000);
 
     // clean up on unmount
     return () => {
       clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Intentionally omitting 'submissions' from dependencies to prevent progress reset
-    // when navigating back from review page. We use submissionsRef.current to access
-    // the latest submissions without triggering re-renders.
-  }, [user?.role, user?.stateUt, user?.stateName, user?.state]);
+    // Include submissions in dependencies so progress updates when submissions change
+    // This ensures progress is recalculated when navigating back and submissions are reloaded
+  }, [user?.role, user?.stateUt, user?.stateName, user?.state, submissions]);
 
   const handleFinalSubmit = async () => {
     console.group(
@@ -866,6 +890,52 @@ export const SubmissionListPage = () => {
           JSON.stringify(formData, null, 2)
         );
 
+        // IMPORTANT: Clean MOSPI_APPROVER mospi_status fields BEFORE final transformation
+        // This ensures mospi_status is removed before the prune function processes the data
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "🧹 STEP 2a: Cleaning MOSPI_APPROVER mospi_status from formData"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("🔍 [FinalSubmit] FormData before cleaning:", {
+          keys: Object.keys(formData),
+          hasInfraFinancing: !!formData.infraFinancing,
+          hasInfraDevelopment: !!formData.infraDevelopment,
+          hasPppDevelopment: !!formData.pppDevelopment,
+          hasInfraEnablers: !!formData.infraEnablers,
+          infraFinancingSections: formData.infraFinancing
+            ? Object.keys(formData.infraFinancing).length
+            : 0,
+          infraDevelopmentSections: formData.infraDevelopment
+            ? Object.keys(formData.infraDevelopment).length
+            : 0,
+          pppDevelopmentSections: formData.pppDevelopment
+            ? Object.keys(formData.pppDevelopment).length
+            : 0,
+          infraEnablersSections: formData.infraEnablers
+            ? Object.keys(formData.infraEnablers).length
+            : 0,
+        });
+
+        const cleanedFormDataBeforeTransform =
+          cleanMospiApproverActions(formData);
+
+        console.log(
+          "✅ [FinalSubmit] Cleaned formData before final transformation"
+        );
+        console.log("🔍 [FinalSubmit] FormData after cleaning:", {
+          keys: Object.keys(cleanedFormDataBeforeTransform),
+          hasInfraFinancing: !!cleanedFormDataBeforeTransform.infraFinancing,
+          hasInfraDevelopment:
+            !!cleanedFormDataBeforeTransform.infraDevelopment,
+          hasPppDevelopment: !!cleanedFormDataBeforeTransform.pppDevelopment,
+          hasInfraEnablers: !!cleanedFormDataBeforeTransform.infraEnablers,
+        });
+
         // Check if formData is empty
         const hasData =
           Object.keys(formData).length > 0 &&
@@ -908,8 +978,10 @@ export const SubmissionListPage = () => {
         );
 
         const submissionStatus = "SUBMITTED_TO_MOSPI_REVIEWER";
+        // Use cleanedFormDataBeforeTransform if available (from STEP 2a), otherwise use formData
+        const formDataToTransform = cleanedFormDataBeforeTransform || formData;
         const transformedData = transformFormDataForSubmission(
-          formData,
+          formDataToTransform,
           submissionStatus
         );
 
@@ -1031,25 +1103,20 @@ export const SubmissionListPage = () => {
           console.log("📍 [FinalSubmit] State/UT:", effectiveState);
 
           // Update the existing submission
-          // IMPORTANT: Clean MOSPI_APPROVER mospi_status fields when resubmitting
-          // This ensures MOSPI_APPROVER sees fresh form without previous status actions
-          // NOTE: Comments are kept for timeline/history tracking
-          const cleanedFormData = cleanMospiApproverActions(
-            transformedData.formData
-          );
-
+          // NOTE: formData has already been cleaned before transformation (see STEP 2a above)
+          // So transformedData.formData already has mospi_status removed
           console.log(
-            "🧹 [FinalSubmit] Cleaning MOSPI_APPROVER mospi_status from formData"
+            "ℹ️ [FinalSubmit] FormData already cleaned before transformation"
           );
           console.log(
-            "📋 [FinalSubmit] Removed mospi_status from all indicators"
+            "📋 [FinalSubmit] mospi_status removed from all indicators"
           );
           console.log(
             "ℹ️ [FinalSubmit] Keeping all comments for timeline/history"
           );
 
           const updatePayload: any = {
-            formData: cleanedFormData,
+            formData: transformedData.formData,
             status: "SUBMITTED_TO_MOSPI_REVIEWER",
           };
 
