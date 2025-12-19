@@ -309,7 +309,19 @@ export const Section_1_3 = ({
                       <div>
                         <Input
                           type="date"
-                          value={item.ratingDate || ""}
+                          value={
+                            item.ratingDate
+                              ? (() => {
+                                  // Ensure value is in YYYY-MM-DD format
+                                  const d = new Date(item.ratingDate);
+                                  if (isNaN(d.getTime())) return "";
+                                  const year = d.getFullYear();
+                                  const month = String(d.getMonth() + 1).padStart(2, "0");
+                                  const day = String(d.getDate()).padStart(2, "0");
+                                  return `${year}-${month}-${day}`;
+                                })()
+                              : ""
+                          }
                           onChange={(e) =>
                             handleUlbChange(index, "ratingDate", e.target.value)
                           }
