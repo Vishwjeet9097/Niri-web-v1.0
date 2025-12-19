@@ -46,7 +46,10 @@ import {
   ProgressStats,
 } from "@/utils/progressUtils";
 import { authService } from "@/services/auth.service";
-import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
+import {
+  transformFormDataForSubmission,
+  cleanMospiApproverActions,
+} from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 import axios from "axios";
 import { config } from "@/config/environment";
@@ -1138,8 +1141,6 @@ export const StateAggregateReviewPage = () => {
     if (user?.role !== "STATE_APPROVER" && user?.role !== "MOSPI_REVIEWER")
       return;
 
-    let intervalId: number | undefined;
-
     const loadProgressOnce = async () => {
       if (document?.hidden) return;
 
@@ -1162,7 +1163,8 @@ export const StateAggregateReviewPage = () => {
         setStateProgress(stats);
       } catch (e) {
         console.error("Failed to load state indicator statuses", e);
-        setStateProgress(null);
+        // Don't reset progress to null on error - keep existing progress
+        // setStateProgress(null);
       } finally {
         setProgressLoading(false);
       }
@@ -1171,12 +1173,31 @@ export const StateAggregateReviewPage = () => {
     // run immediately on mount
     loadProgressOnce();
 
+    // Refresh when page becomes visible (user navigates back)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("👁️ [StateAggregate] Page visible - refreshing progress");
+        loadProgressOnce();
+      }
+    };
+
+    // Refresh when window gains focus (user navigates back)
+    const handleFocus = () => {
+      console.log("🎯 [StateAggregate] Window focused - refreshing progress");
+      loadProgressOnce();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
     // auto-refresh every 60 seconds
-    intervalId = window.setInterval(loadProgressOnce, 60_000);
+    const intervalId = window.setInterval(loadProgressOnce, 60_000);
 
     // clean up on unmount
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
   }, [user?.role]);
 
@@ -1393,11 +1414,54 @@ export const StateAggregateReviewPage = () => {
         }
       });
 
+      // IMPORTANT: Clean MOSPI_APPROVER mospi_status fields BEFORE transformation
+      // This ensures mospi_status is removed before the prune function processes the data
+      console.log(
+        "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log(
+        "🧹 STEP 2a: Cleaning MOSPI_APPROVER mospi_status from formData"
+      );
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("🔍 [StateAggregate] FormData before cleaning:", {
+        keys: Object.keys(formData),
+        hasInfraFinancing: !!formData.infraFinancing,
+        hasInfraDevelopment: !!formData.infraDevelopment,
+        hasPppDevelopment: !!formData.pppDevelopment,
+        hasInfraEnablers: !!formData.infraEnablers,
+        infraFinancingSections: formData.infraFinancing
+          ? Object.keys(formData.infraFinancing).length
+          : 0,
+        infraDevelopmentSections: formData.infraDevelopment
+          ? Object.keys(formData.infraDevelopment).length
+          : 0,
+        pppDevelopmentSections: formData.pppDevelopment
+          ? Object.keys(formData.pppDevelopment).length
+          : 0,
+        infraEnablersSections: formData.infraEnablers
+          ? Object.keys(formData.infraEnablers).length
+          : 0,
+      });
+
+      const cleanedFormDataBeforeTransform =
+        cleanMospiApproverActions(formData);
+
+      console.log("✅ [StateAggregate] Cleaned formData before transformation");
+      console.log("🔍 [StateAggregate] FormData after cleaning:", {
+        keys: Object.keys(cleanedFormDataBeforeTransform),
+        hasInfraFinancing: !!cleanedFormDataBeforeTransform.infraFinancing,
+        hasInfraDevelopment: !!cleanedFormDataBeforeTransform.infraDevelopment,
+        hasPppDevelopment: !!cleanedFormDataBeforeTransform.pppDevelopment,
+        hasInfraEnablers: !!cleanedFormDataBeforeTransform.infraEnablers,
+      });
+
       // Transform formData for submission
       console.log(
         "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
-      console.log("🔄 STEP 2: Transforming formData for submission");
+      console.log("🔄 STEP 2b: Transforming cleaned formData for submission");
       console.log(
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
@@ -1408,7 +1472,7 @@ export const StateAggregateReviewPage = () => {
         : "SUBMITTED_TO_MOSPI_REVIEWER";
 
       const transformedData = transformFormDataForSubmission(
-        formData,
+        cleanedFormDataBeforeTransform,
         submissionStatus
       );
 
@@ -1479,32 +1543,144 @@ export const StateAggregateReviewPage = () => {
 
       console.log("✅ Token retrieved:", token ? "Yes" : "No");
 
-      // Submit consolidated submission
+      // Check if there's an existing RETURNED_FROM_MOSPI submission to update instead of creating new
       console.log(
         "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
-      console.log("📤 STEP 5: Creating consolidated submission");
+      console.log(
+        "🔍 STEP 5: Checking for existing RETURNED_FROM_MOSPI submission"
+      );
       console.log(
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
-      console.log("📡 API Endpoint: POST /submission");
-      console.log("📝 Submission ID:", transformedData.submissionId);
-      console.log("📊 Status:", submissionStatus);
-      console.log("📍 State/UT:", effectiveState || mockSubmission?.stateUt);
 
-      const response = await axios.post(
-        `${config.apiBaseUrl}/submission`,
-        multipartData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
+      let existingReturnedSubmission = null;
+      try {
+        const submissionsData = await apiService.getSubmissions(1, 100);
+        const submissionsArray = Array.isArray(submissionsData)
+          ? submissionsData
+          : submissionsData?.submissions || submissionsData?.data || [];
+
+        // Find RETURNED_FROM_MOSPI submission for this state
+        existingReturnedSubmission = submissionsArray.find((sub: any) => {
+          const isReturnedFromMospi = sub.status === "RETURNED_FROM_MOSPI";
+          const isStateApprover =
+            sub.currentOwnerRole === "STATE_APPROVER" ||
+            sub.submittedBy === user?.id ||
+            sub.user?.id === user?.id;
+          const isSameState =
+            !effectiveState ||
+            sub.stateUt?.toUpperCase() === effectiveState.toUpperCase() ||
+            sub.user?.stateUt?.toUpperCase() === effectiveState.toUpperCase();
+
+          return isReturnedFromMospi && isStateApprover && isSameState;
+        });
+
+        if (existingReturnedSubmission) {
+          console.log(
+            "✅ Found existing RETURNED_FROM_MOSPI submission:",
+            existingReturnedSubmission.id
+          );
+          console.log(
+            "📝 Submission ID:",
+            existingReturnedSubmission.submissionId
+          );
+        } else {
+          console.log(
+            "ℹ️ No existing RETURNED_FROM_MOSPI submission found - will create new"
+          );
         }
-      );
+      } catch (error) {
+        console.warn(
+          "⚠️ Error checking for existing submission, will create new:",
+          error
+        );
+      }
 
-      console.log("✅ Submission successful!");
-      console.log("📦 Response:", response.data);
+      // Submit consolidated submission - update existing or create new
+      console.log(
+        "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      let response: any;
+      if (existingReturnedSubmission) {
+        console.log(
+          "📤 STEP 6: Updating existing RETURNED_FROM_MOSPI submission"
+        );
+        console.log("📡 API Endpoint: PATCH /submission/:id");
+        console.log("📝 Submission ID:", existingReturnedSubmission.id);
+        console.log("📊 New Status:", submissionStatus);
+        console.log("📍 State/UT:", effectiveState || mockSubmission?.stateUt);
+
+        // Update the existing submission - need to prepare update payload with files
+        // NOTE: formData has already been cleaned before transformation (see STEP 2a above)
+        // So transformedData.formData already has mospi_status removed
+        console.log(
+          "ℹ️ [StateAggregate] FormData already cleaned before transformation"
+        );
+        console.log(
+          "📋 [StateAggregate] mospi_status removed from all indicators"
+        );
+        console.log(
+          "ℹ️ [StateAggregate] Keeping all comments for timeline/history"
+        );
+
+        const updatePayload: any = {
+          formData: transformedData.formData,
+          status: submissionStatus,
+        };
+
+        // For file handling, we need to use multipart form data
+        // Check if we have files in the formData
+        const hasFiles =
+          multipartData.has("submission") ||
+          Array.from(multipartData.keys()).some((key) => key !== "submission");
+
+        if (hasFiles) {
+          // Create new FormData for update
+          const updateFormData = new FormData();
+          updateFormData.append("submission", JSON.stringify(updatePayload));
+          appendFilesRecursively(updateFormData, formData);
+
+          response = await axios.patch(
+            `${config.apiBaseUrl}/submission/${existingReturnedSubmission.id}`,
+            updateFormData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            }
+          );
+        } else {
+          response = await apiService.updateSubmission(
+            existingReturnedSubmission.id,
+            updatePayload
+          );
+        }
+
+        console.log("✅ Submission updated successfully!");
+        console.log("📦 Response:", response?.data || response);
+      } else {
+        console.log("📤 STEP 6: Creating new consolidated submission");
+        console.log("📡 API Endpoint: POST /submission");
+        console.log("📝 Submission ID:", transformedData.submissionId);
+        console.log("📊 Status:", submissionStatus);
+        console.log("📍 State/UT:", effectiveState || mockSubmission?.stateUt);
+
+        response = await axios.post(
+          `${config.apiBaseUrl}/submission`,
+          multipartData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          }
+        );
+
+        console.log("✅ Submission successful!");
+        console.log("📦 Response:", response.data);
+      }
 
       // Immediately disable submit button to prevent multiple submissions
       console.log(

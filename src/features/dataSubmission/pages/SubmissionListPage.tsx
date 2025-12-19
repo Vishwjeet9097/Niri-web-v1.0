@@ -48,7 +48,10 @@ import {
   ProgressStats,
 } from "@/utils/progressUtils";
 import { authService } from "@/services/auth.service";
-import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
+import {
+  transformFormDataForSubmission,
+  cleanMospiApproverActions,
+} from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 import axios from "axios";
 import { config } from "@/config/environment";
@@ -676,9 +679,16 @@ export const SubmissionListPage = () => {
         // Get user state for fallback calculation
         const userStateUt = user?.stateUt || user?.stateName || user?.state;
 
-        // Use ref to get latest submissions without triggering re-renders
-        // This prevents progress from resetting when navigating back from review page
-        const currentSubmissions = submissionsRef.current;
+        // Use both submissions state and ref - prefer state if available, fallback to ref
+        // This ensures we have data when navigating back from review page
+        const currentSubmissions =
+          submissions.length > 0 ? submissions : submissionsRef.current;
+
+        console.log("📋 [Progress] Using submissions:", {
+          fromState: submissions.length,
+          fromRef: submissionsRef.current.length,
+          using: currentSubmissions.length,
+        });
 
         // Pass submissions array as fallback in case API returns empty data
         const stats = calculateStateProgressFromApi(
@@ -702,18 +712,35 @@ export const SubmissionListPage = () => {
     // run immediately on mount
     loadProgressOnce();
 
+    // Refresh when page becomes visible (user navigates back)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("👁️ [Progress] Page visible - refreshing progress");
+        loadProgressOnce();
+      }
+    };
+
+    // Refresh when window gains focus (user navigates back)
+    const handleFocus = () => {
+      console.log("🎯 [Progress] Window focused - refreshing progress");
+      loadProgressOnce();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
     // auto-refresh every 60 seconds
     const intervalId = window.setInterval(loadProgressOnce, 60_000);
 
     // clean up on unmount
     return () => {
       clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Intentionally omitting 'submissions' from dependencies to prevent progress reset
-    // when navigating back from review page. We use submissionsRef.current to access
-    // the latest submissions without triggering re-renders.
-  }, [user?.role, user?.stateUt, user?.stateName, user?.state]);
+    // Include submissions in dependencies so progress updates when submissions change
+    // This ensures progress is recalculated when navigating back and submissions are reloaded
+  }, [user?.role, user?.stateUt, user?.stateName, user?.state, submissions]);
 
   const handleFinalSubmit = async () => {
     console.group(
@@ -863,6 +890,52 @@ export const SubmissionListPage = () => {
           JSON.stringify(formData, null, 2)
         );
 
+        // IMPORTANT: Clean MOSPI_APPROVER mospi_status fields BEFORE final transformation
+        // This ensures mospi_status is removed before the prune function processes the data
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "🧹 STEP 2a: Cleaning MOSPI_APPROVER mospi_status from formData"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("🔍 [FinalSubmit] FormData before cleaning:", {
+          keys: Object.keys(formData),
+          hasInfraFinancing: !!formData.infraFinancing,
+          hasInfraDevelopment: !!formData.infraDevelopment,
+          hasPppDevelopment: !!formData.pppDevelopment,
+          hasInfraEnablers: !!formData.infraEnablers,
+          infraFinancingSections: formData.infraFinancing
+            ? Object.keys(formData.infraFinancing).length
+            : 0,
+          infraDevelopmentSections: formData.infraDevelopment
+            ? Object.keys(formData.infraDevelopment).length
+            : 0,
+          pppDevelopmentSections: formData.pppDevelopment
+            ? Object.keys(formData.pppDevelopment).length
+            : 0,
+          infraEnablersSections: formData.infraEnablers
+            ? Object.keys(formData.infraEnablers).length
+            : 0,
+        });
+
+        const cleanedFormDataBeforeTransform =
+          cleanMospiApproverActions(formData);
+
+        console.log(
+          "✅ [FinalSubmit] Cleaned formData before final transformation"
+        );
+        console.log("🔍 [FinalSubmit] FormData after cleaning:", {
+          keys: Object.keys(cleanedFormDataBeforeTransform),
+          hasInfraFinancing: !!cleanedFormDataBeforeTransform.infraFinancing,
+          hasInfraDevelopment:
+            !!cleanedFormDataBeforeTransform.infraDevelopment,
+          hasPppDevelopment: !!cleanedFormDataBeforeTransform.pppDevelopment,
+          hasInfraEnablers: !!cleanedFormDataBeforeTransform.infraEnablers,
+        });
+
         // Check if formData is empty
         const hasData =
           Object.keys(formData).length > 0 &&
@@ -905,8 +978,10 @@ export const SubmissionListPage = () => {
         );
 
         const submissionStatus = "SUBMITTED_TO_MOSPI_REVIEWER";
+        // Use cleanedFormDataBeforeTransform if available (from STEP 2a), otherwise use formData
+        const formDataToTransform = cleanedFormDataBeforeTransform || formData;
         const transformedData = transformFormDataForSubmission(
-          formData,
+          formDataToTransform,
           submissionStatus
         );
 
@@ -950,27 +1025,174 @@ export const SubmissionListPage = () => {
           return;
         }
 
-        const response = await axios.post(
-          `${config.apiBaseUrl}/submission`,
-          multipartData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          }
+        // Check if there's an existing RETURNED_FROM_MOSPI submission to update instead of creating new
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "🔍 [FinalSubmit] Checking for existing RETURNED_FROM_MOSPI submission"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         );
 
-        console.log("✅ Submission successful!");
-        console.log("📦 Response:", response.data);
+        let existingReturnedSubmission = null;
+        try {
+          const submissionsData = await apiService.getSubmissions(1, 100);
+          const submissionsArray = Array.isArray(submissionsData)
+            ? submissionsData
+            : submissionsData?.submissions || submissionsData?.data || [];
 
-        // Extract submission from response
-        const createdSubmission = response.data?.data || response.data;
-        const submissionId =
-          createdSubmission?.id || createdSubmission?.submissionId;
-        const returnedStatus = createdSubmission?.status;
+          // Find RETURNED_FROM_MOSPI submission for this state
+          existingReturnedSubmission = submissionsArray.find((sub: any) => {
+            const isReturnedFromMospi = sub.status === "RETURNED_FROM_MOSPI";
+            const isStateApprover =
+              sub.currentOwnerRole === "STATE_APPROVER" ||
+              sub.submittedBy === user?.id ||
+              sub.user?.id === user?.id;
+            const isSameState =
+              !effectiveState ||
+              sub.stateUt?.toUpperCase() === effectiveState.toUpperCase() ||
+              sub.user?.stateUt?.toUpperCase() === effectiveState.toUpperCase();
 
-        console.log("📝 [FinalSubmit] Created submission ID:", submissionId);
+            return isReturnedFromMospi && isStateApprover && isSameState;
+          });
+
+          if (existingReturnedSubmission) {
+            console.log(
+              "✅ [FinalSubmit] Found existing RETURNED_FROM_MOSPI submission:",
+              existingReturnedSubmission.id
+            );
+            console.log(
+              "📝 [FinalSubmit] Submission ID:",
+              existingReturnedSubmission.submissionId
+            );
+          } else {
+            console.log(
+              "ℹ️ [FinalSubmit] No existing RETURNED_FROM_MOSPI submission found - will create new"
+            );
+          }
+        } catch (error) {
+          console.warn(
+            "⚠️ [FinalSubmit] Error checking for existing submission, will create new:",
+            error
+          );
+        }
+
+        // Submit consolidated submission - update existing or create new
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        let response: any;
+        let createdSubmission: any;
+        let submissionId: string | undefined;
+        let returnedStatus: string | undefined;
+
+        if (existingReturnedSubmission) {
+          console.log(
+            "📤 [FinalSubmit] Updating existing RETURNED_FROM_MOSPI submission"
+          );
+          console.log("📡 [FinalSubmit] API Endpoint: PATCH /submission/:id");
+          console.log(
+            "📝 [FinalSubmit] Submission ID:",
+            existingReturnedSubmission.id
+          );
+          console.log(
+            "📊 [FinalSubmit] New Status: SUBMITTED_TO_MOSPI_REVIEWER"
+          );
+          console.log("📍 [FinalSubmit] State/UT:", effectiveState);
+
+          // Update the existing submission
+          // NOTE: formData has already been cleaned before transformation (see STEP 2a above)
+          // So transformedData.formData already has mospi_status removed
+          console.log(
+            "ℹ️ [FinalSubmit] FormData already cleaned before transformation"
+          );
+          console.log(
+            "📋 [FinalSubmit] mospi_status removed from all indicators"
+          );
+          console.log(
+            "ℹ️ [FinalSubmit] Keeping all comments for timeline/history"
+          );
+
+          const updatePayload: any = {
+            formData: transformedData.formData,
+            status: "SUBMITTED_TO_MOSPI_REVIEWER",
+          };
+
+          // For file handling, check if we have files
+          const hasFiles =
+            multipartData.has("submission") ||
+            Array.from(multipartData.keys()).some(
+              (key) => key !== "submission"
+            );
+
+          if (hasFiles) {
+            // Use multipart form data for update with files
+            const updateFormData = new FormData();
+            updateFormData.append("submission", JSON.stringify(updatePayload));
+            appendFilesRecursively(updateFormData, formData);
+
+            response = await axios.patch(
+              `${config.apiBaseUrl}/submission/${existingReturnedSubmission.id}`,
+              updateFormData,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  Accept: "application/json",
+                },
+              }
+            );
+          } else {
+            response = await apiService.updateSubmission(
+              existingReturnedSubmission.id,
+              updatePayload
+            );
+          }
+
+          console.log("✅ [FinalSubmit] Submission updated successfully!");
+          console.log("📦 [FinalSubmit] Response:", response?.data || response);
+
+          createdSubmission =
+            response?.data?.data || response?.data || response;
+          submissionId = existingReturnedSubmission.id;
+          returnedStatus =
+            createdSubmission?.status || "SUBMITTED_TO_MOSPI_REVIEWER";
+        } else {
+          console.log("📤 [FinalSubmit] Creating new consolidated submission");
+          console.log("📡 [FinalSubmit] API Endpoint: POST /submission");
+          console.log(
+            "📝 [FinalSubmit] Submission ID:",
+            transformedData.submissionId
+          );
+          console.log("📊 [FinalSubmit] Status: SUBMITTED_TO_MOSPI_REVIEWER");
+          console.log("📍 [FinalSubmit] State/UT:", effectiveState);
+
+          response = await axios.post(
+            `${config.apiBaseUrl}/submission`,
+            multipartData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            }
+          );
+
+          console.log("✅ [FinalSubmit] Submission successful!");
+          console.log("📦 [FinalSubmit] Response:", response.data);
+
+          // Extract submission from response
+          createdSubmission = response.data?.data || response.data;
+          submissionId =
+            createdSubmission?.id || createdSubmission?.submissionId;
+          returnedStatus = createdSubmission?.status;
+        }
+
+        console.log(
+          "📝 [FinalSubmit] Created/Updated submission ID:",
+          submissionId
+        );
         console.log(
           "📊 [FinalSubmit] Returned status from API:",
           returnedStatus
