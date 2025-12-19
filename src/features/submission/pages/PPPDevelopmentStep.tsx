@@ -208,7 +208,7 @@ export const PPPDevelopmentStep = () => {
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [pendingIndicator, setPendingIndicator] = useState<{
@@ -816,7 +816,7 @@ export const PPPDevelopmentStep = () => {
     console.log("[DEBUG] Submitting PPPDevelopmentStep, formData:", formData);
 
     try {
-      setIsSubmitting(true);
+      setSubmittingIndicator(indicatorCode);
       // Get the indicators for this section
       const sectionIndicators = allowedIndicators || [
         "3.1",
@@ -854,7 +854,7 @@ export const PPPDevelopmentStep = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingIndicator(null);
     }
   };
 
@@ -905,7 +905,7 @@ export const PPPDevelopmentStep = () => {
     const { code: indicatorCode, title: indicatorTitle } = pendingIndicator;
 
     try {
-      setIsSubmitting(true);
+      setSubmittingIndicator(indicatorCode);
       setShowSubmitDialog(false);
       // Clear indicator validation state after successful submission
       setValidatingIndicator(null);
@@ -1046,7 +1046,7 @@ export const PPPDevelopmentStep = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingIndicator(null);
       setPendingIndicator(null);
     }
   };
@@ -1167,9 +1167,9 @@ export const PPPDevelopmentStep = () => {
   // Get button text based on indicator status
   const getSubmitButtonText = (
     indicatorCode: string,
-    isSubmitting: boolean
+    submittingIndicator: string | null
   ): string => {
-    if (isSubmitting) return "Submitting...";
+    if (submittingIndicator === indicatorCode) return "Submitting...";
 
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return "Submit";
@@ -1554,11 +1554,11 @@ export const PPPDevelopmentStep = () => {
                       "Availability of PPP Act/Policy"
                     )
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("3.1")}
+                  disabled={submittingIndicator !== null || isIndicatorSubmitted("3.1")}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("3.1", isSubmitting)}
+                  {getSubmitButtonText("3.1", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -1716,11 +1716,11 @@ export const PPPDevelopmentStep = () => {
                       "Availability of PPP Cell/Unit"
                     )
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("3.2")}
+                  disabled={submittingIndicator !== null || isIndicatorSubmitted("3.2")}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("3.2", isSubmitting)}
+                  {getSubmitButtonText("3.2", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -2080,11 +2080,11 @@ export const PPPDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("3.3", "VGF Proposals Submitted")
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("3.3")}
+                  disabled={submittingIndicator !== null || isIndicatorSubmitted("3.3")}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("3.3", isSubmitting)}
+                  {getSubmitButtonText("3.3", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -2513,11 +2513,11 @@ export const PPPDevelopmentStep = () => {
                         "Proportion of TPC of PPP Projects"
                       )
                     }
-                    disabled={isSubmitting || isIndicatorSubmitted("3.4")}
+                    disabled={submittingIndicator !== null || isIndicatorSubmitted("3.4")}
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {getSubmitButtonText("3.4", isSubmitting)}
+                    {getSubmitButtonText("3.4", submittingIndicator)}
                   </Button>
                 </div>
               </div>
@@ -2559,9 +2559,9 @@ export const PPPDevelopmentStep = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmSubmit}
-              disabled={isSubmitting}
+              disabled={submittingIndicator !== null}
             >
-              {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+              {submittingIndicator !== null ? "Submitting..." : "Confirm & Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -230,7 +230,7 @@ export const InfraDevelopmentStep = () => {
   const [formData, setFormData] = useState<InfraDevelopmentData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [pendingIndicator, setPendingIndicator] = useState<{
@@ -1084,7 +1084,7 @@ export const InfraDevelopmentStep = () => {
     }
 
     try {
-      setIsSubmitting(true);
+      setSubmittingIndicator(indicatorCode);
       // Get the indicators for this section
       const sectionIndicators = allowedIndicators || [
         "2.1",
@@ -1143,7 +1143,7 @@ export const InfraDevelopmentStep = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingIndicator(null);
     }
   };
 
@@ -1196,7 +1196,7 @@ export const InfraDevelopmentStep = () => {
     const { code: indicatorCode, title: indicatorTitle } = pendingIndicator;
 
     try {
-      setIsSubmitting(true);
+      setSubmittingIndicator(indicatorCode);
       setShowSubmitDialog(false);
       // Clear indicator validation state after successful submission
       setValidatingIndicator(null);
@@ -1520,7 +1520,7 @@ export const InfraDevelopmentStep = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingIndicator(null);
       setPendingIndicator(null);
     }
   };
@@ -1666,9 +1666,9 @@ export const InfraDevelopmentStep = () => {
   // Get button text based on indicator status
   const getSubmitButtonText = (
     indicatorCode: string,
-    isSubmitting: boolean
+    submittingIndicator: string | null
   ): string => {
-    if (isSubmitting) return "Submitting...";
+    if (submittingIndicator === indicatorCode) return "Submitting...";
 
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return "Submit";
@@ -2196,11 +2196,11 @@ export const InfraDevelopmentStep = () => {
                       "Infrastructure Sector-Specific Acts"
                     )
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("2.1")}
+                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.1")}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("2.1", isSubmitting)}
+                  {getSubmitButtonText("2.1", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -2448,11 +2448,11 @@ export const InfraDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("2.2", "Specialized Entity")
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("2.2")}
+                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.2")}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("2.2", isSubmitting)}
+                  {getSubmitButtonText("2.2", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -2804,11 +2804,11 @@ export const InfraDevelopmentStep = () => {
                       "Infrastructure Development Plan"
                     )
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("2.3")}
+                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.3")}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("2.3", isSubmitting)}
+                  {getSubmitButtonText("2.3", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -3264,11 +3264,11 @@ export const InfraDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("2.4", "Investment Ready Projects")
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("2.4")}
+                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.4")}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("2.4", isSubmitting)}
+                  {getSubmitButtonText("2.4", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -3571,11 +3571,11 @@ export const InfraDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("2.5", "Asset Monetization Pipeline")
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("2.5")}
+                  disabled={submittingIndicator !== null || isIndicatorSubmitted("2.5")}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("2.5", isSubmitting)}
+                  {getSubmitButtonText("2.5", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -3616,9 +3616,9 @@ export const InfraDevelopmentStep = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmSubmit}
-              disabled={isSubmitting}
+              disabled={submittingIndicator !== null}
             >
-              {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+              {submittingIndicator !== null ? "Submitting..." : "Confirm & Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
