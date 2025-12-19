@@ -48,7 +48,10 @@ import {
   ProgressStats,
 } from "@/utils/progressUtils";
 import { authService } from "@/services/auth.service";
-import { transformFormDataForSubmission } from "@/utils/formDataTransformer";
+import {
+  transformFormDataForSubmission,
+  cleanMospiApproverActions,
+} from "@/utils/formDataTransformer";
 import { appendFilesRecursively } from "@/utils/appendFilesRecursively";
 import axios from "axios";
 import { config } from "@/config/environment";
@@ -950,27 +953,179 @@ export const SubmissionListPage = () => {
           return;
         }
 
-        const response = await axios.post(
-          `${config.apiBaseUrl}/submission`,
-          multipartData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          }
+        // Check if there's an existing RETURNED_FROM_MOSPI submission to update instead of creating new
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "🔍 [FinalSubmit] Checking for existing RETURNED_FROM_MOSPI submission"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         );
 
-        console.log("✅ Submission successful!");
-        console.log("📦 Response:", response.data);
+        let existingReturnedSubmission = null;
+        try {
+          const submissionsData = await apiService.getSubmissions(1, 100);
+          const submissionsArray = Array.isArray(submissionsData)
+            ? submissionsData
+            : submissionsData?.submissions || submissionsData?.data || [];
 
-        // Extract submission from response
-        const createdSubmission = response.data?.data || response.data;
-        const submissionId =
-          createdSubmission?.id || createdSubmission?.submissionId;
-        const returnedStatus = createdSubmission?.status;
+          // Find RETURNED_FROM_MOSPI submission for this state
+          existingReturnedSubmission = submissionsArray.find((sub: any) => {
+            const isReturnedFromMospi = sub.status === "RETURNED_FROM_MOSPI";
+            const isStateApprover =
+              sub.currentOwnerRole === "STATE_APPROVER" ||
+              sub.submittedBy === user?.id ||
+              sub.user?.id === user?.id;
+            const isSameState =
+              !effectiveState ||
+              sub.stateUt?.toUpperCase() === effectiveState.toUpperCase() ||
+              sub.user?.stateUt?.toUpperCase() === effectiveState.toUpperCase();
 
-        console.log("📝 [FinalSubmit] Created submission ID:", submissionId);
+            return isReturnedFromMospi && isStateApprover && isSameState;
+          });
+
+          if (existingReturnedSubmission) {
+            console.log(
+              "✅ [FinalSubmit] Found existing RETURNED_FROM_MOSPI submission:",
+              existingReturnedSubmission.id
+            );
+            console.log(
+              "📝 [FinalSubmit] Submission ID:",
+              existingReturnedSubmission.submissionId
+            );
+          } else {
+            console.log(
+              "ℹ️ [FinalSubmit] No existing RETURNED_FROM_MOSPI submission found - will create new"
+            );
+          }
+        } catch (error) {
+          console.warn(
+            "⚠️ [FinalSubmit] Error checking for existing submission, will create new:",
+            error
+          );
+        }
+
+        // Submit consolidated submission - update existing or create new
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        let response: any;
+        let createdSubmission: any;
+        let submissionId: string | undefined;
+        let returnedStatus: string | undefined;
+
+        if (existingReturnedSubmission) {
+          console.log(
+            "📤 [FinalSubmit] Updating existing RETURNED_FROM_MOSPI submission"
+          );
+          console.log("📡 [FinalSubmit] API Endpoint: PATCH /submission/:id");
+          console.log(
+            "📝 [FinalSubmit] Submission ID:",
+            existingReturnedSubmission.id
+          );
+          console.log(
+            "📊 [FinalSubmit] New Status: SUBMITTED_TO_MOSPI_REVIEWER"
+          );
+          console.log("📍 [FinalSubmit] State/UT:", effectiveState);
+
+          // Update the existing submission
+          // IMPORTANT: Clean MOSPI_APPROVER mospi_status fields when resubmitting
+          // This ensures MOSPI_APPROVER sees fresh form without previous status actions
+          // NOTE: Comments are kept for timeline/history tracking
+          const cleanedFormData = cleanMospiApproverActions(
+            transformedData.formData
+          );
+
+          console.log(
+            "🧹 [FinalSubmit] Cleaning MOSPI_APPROVER mospi_status from formData"
+          );
+          console.log(
+            "📋 [FinalSubmit] Removed mospi_status from all indicators"
+          );
+          console.log(
+            "ℹ️ [FinalSubmit] Keeping all comments for timeline/history"
+          );
+
+          const updatePayload: any = {
+            formData: cleanedFormData,
+            status: "SUBMITTED_TO_MOSPI_REVIEWER",
+          };
+
+          // For file handling, check if we have files
+          const hasFiles =
+            multipartData.has("submission") ||
+            Array.from(multipartData.keys()).some(
+              (key) => key !== "submission"
+            );
+
+          if (hasFiles) {
+            // Use multipart form data for update with files
+            const updateFormData = new FormData();
+            updateFormData.append("submission", JSON.stringify(updatePayload));
+            appendFilesRecursively(updateFormData, formData);
+
+            response = await axios.patch(
+              `${config.apiBaseUrl}/submission/${existingReturnedSubmission.id}`,
+              updateFormData,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  Accept: "application/json",
+                },
+              }
+            );
+          } else {
+            response = await apiService.updateSubmission(
+              existingReturnedSubmission.id,
+              updatePayload
+            );
+          }
+
+          console.log("✅ [FinalSubmit] Submission updated successfully!");
+          console.log("📦 [FinalSubmit] Response:", response?.data || response);
+
+          createdSubmission =
+            response?.data?.data || response?.data || response;
+          submissionId = existingReturnedSubmission.id;
+          returnedStatus =
+            createdSubmission?.status || "SUBMITTED_TO_MOSPI_REVIEWER";
+        } else {
+          console.log("📤 [FinalSubmit] Creating new consolidated submission");
+          console.log("📡 [FinalSubmit] API Endpoint: POST /submission");
+          console.log(
+            "📝 [FinalSubmit] Submission ID:",
+            transformedData.submissionId
+          );
+          console.log("📊 [FinalSubmit] Status: SUBMITTED_TO_MOSPI_REVIEWER");
+          console.log("📍 [FinalSubmit] State/UT:", effectiveState);
+
+          response = await axios.post(
+            `${config.apiBaseUrl}/submission`,
+            multipartData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            }
+          );
+
+          console.log("✅ [FinalSubmit] Submission successful!");
+          console.log("📦 [FinalSubmit] Response:", response.data);
+
+          // Extract submission from response
+          createdSubmission = response.data?.data || response.data;
+          submissionId =
+            createdSubmission?.id || createdSubmission?.submissionId;
+          returnedStatus = createdSubmission?.status;
+        }
+
+        console.log(
+          "📝 [FinalSubmit] Created/Updated submission ID:",
+          submissionId
+        );
         console.log(
           "📊 [FinalSubmit] Returned status from API:",
           returnedStatus

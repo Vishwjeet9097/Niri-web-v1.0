@@ -30,12 +30,22 @@ export const transformFormDataForSubmission = (
   // Helper: deep prune empty values ("", null, undefined) and empty arrays/objects
   const prune = (value: any): any => {
     if (value === null || value === undefined) return undefined;
-    if (typeof value === "string") return value.trim() === "" ? undefined : value;
+    if (typeof value === "string")
+      return value.trim() === "" ? undefined : value;
 
     if (Array.isArray(value)) {
       const prunedArray = value
         .map((item) => prune(item))
-        .filter((item) => item !== undefined && !(Array.isArray(item) && item.length === 0) && !(typeof item === "object" && item !== null && Object.keys(item).length === 0));
+        .filter(
+          (item) =>
+            item !== undefined &&
+            !(Array.isArray(item) && item.length === 0) &&
+            !(
+              typeof item === "object" &&
+              item !== null &&
+              Object.keys(item).length === 0
+            )
+        );
       return prunedArray.length > 0 ? prunedArray : undefined;
     }
 
@@ -46,7 +56,11 @@ export const transformFormDataForSubmission = (
         if (
           prunedVal !== undefined &&
           !(Array.isArray(prunedVal) && prunedVal.length === 0) &&
-          !(typeof prunedVal === "object" && prunedVal !== null && Object.keys(prunedVal).length === 0)
+          !(
+            typeof prunedVal === "object" &&
+            prunedVal !== null &&
+            Object.keys(prunedVal).length === 0
+          )
         ) {
           prunedObj[key] = prunedVal;
         }
@@ -178,4 +192,89 @@ export const getFormDataSummary = (formData: unknown) => {
     };
     return summary;
   }, {} as Record<string, unknown>);
+};
+
+/**
+ * Clean formData by removing MOSPI_APPROVER-specific fields
+ * This is used when resubmitting a RETURNED_FROM_MOSPI form to clear previous MOSPI_APPROVER actions
+ * @param formData - Form data to clean
+ * @returns Cleaned form data without mospi_status fields
+ */
+export const cleanMospiApproverActions = (
+  formData: Record<string, any>
+): Record<string, any> => {
+  const cleaned = JSON.parse(JSON.stringify(formData)); // Deep clone
+
+  // Categories to process
+  const categories = [
+    "infraFinancing",
+    "infraDevelopment",
+    "pppDevelopment",
+    "infraEnablers",
+  ];
+
+  // Remove mospi_status from all indicator sections
+  categories.forEach((category) => {
+    if (cleaned[category] && typeof cleaned[category] === "object") {
+      Object.keys(cleaned[category]).forEach((sectionKey) => {
+        const section = cleaned[category][sectionKey];
+        if (section && typeof section === "object") {
+          // Remove mospi_status field
+          if ("mospi_status" in section) {
+            delete section.mospi_status;
+          }
+        }
+      });
+    }
+  });
+
+  return cleaned;
+};
+
+/**
+ * Clean review comments by removing MOSPI_APPROVER comments
+ * @param reviewComments - Array of review comments
+ * @returns Filtered array without MOSPI_APPROVER comments
+ */
+export const cleanMospiApproverComments = (reviewComments: any[]): any[] => {
+  if (!Array.isArray(reviewComments)) {
+    return [];
+  }
+
+  return reviewComments.filter((comment) => {
+    const role = comment?.role?.toUpperCase() || "";
+    return role !== "MOSPI_APPROVER";
+  });
+};
+
+/**
+ * Clean indicator comments by removing MOSPI_APPROVER comments
+ * @param indicatorComments - Object with indicator comments
+ * @returns Cleaned object without MOSPI_APPROVER comments
+ */
+export const cleanMospiApproverIndicatorComments = (
+  indicatorComments: Record<string, any>
+): Record<string, any> => {
+  if (!indicatorComments || typeof indicatorComments !== "object") {
+    return {};
+  }
+
+  const cleaned: Record<string, any> = {};
+
+  Object.keys(indicatorComments).forEach((indicatorKey) => {
+    const comments = indicatorComments[indicatorKey];
+    if (Array.isArray(comments)) {
+      const filtered = comments.filter((comment: any) => {
+        const role = comment?.role?.toUpperCase() || "";
+        return role !== "MOSPI_APPROVER";
+      });
+      if (filtered.length > 0) {
+        cleaned[indicatorKey] = filtered;
+      }
+    } else {
+      cleaned[indicatorKey] = comments;
+    }
+  });
+
+  return cleaned;
 };

@@ -172,12 +172,14 @@ export const calculateStateProgressFromSubmissions = (
 
   // Filter submissions relevant to STATE_APPROVER
   const relevantSubmissions = submissions.filter((sub) => {
-    // Include DRAFT, SUBMITTED_TO_STATE, and SUBMITTED_TO_MOSPI_REVIEWER submissions from the same state
+    // Include DRAFT, SUBMITTED_TO_STATE, RETURNED_FROM_MOSPI, and SUBMITTED_TO_MOSPI_REVIEWER submissions from the same state
+    // RETURNED_FROM_MOSPI is included because STATE_APPROVER should calculate progress from the corrected form
     // SUBMITTED_TO_MOSPI_REVIEWER is included because STATE_APPROVER should still see progress
     // for indicators they accepted even after submitting to MOSPI_REVIEWER
     const statusMatch =
       sub.status === "DRAFT" ||
       sub.status === "SUBMITTED_TO_STATE" ||
+      sub.status === "RETURNED_FROM_MOSPI" ||
       sub.status === "SUBMITTED_TO_MOSPI_REVIEWER";
     const stateMatch =
       !userStateUt ||
