@@ -48,6 +48,7 @@ import {
   validatePPPDevelopment,
   type PPPDevelopmentValidationResult,
 } from "../validation/pppDevelopmentValidation";
+import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -223,10 +224,10 @@ export const PPPDevelopmentStep = () => {
     title: string;
   } | null>(null);
   // Track indicator-specific validation errors
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
-    Record<string, string>
-  >({});
-
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
+  
   // Use the shared field validation hook
   const {
     validatingIndicator,
@@ -499,10 +500,10 @@ export const PPPDevelopmentStep = () => {
     return <p className="text-sm text-destructive mt-1">{error}</p>;
   };
 
+  // Use shared validation styling utility
   const getInputValidationClass = (fieldPath: string): string => {
-    const error = getFieldError(fieldPath);
-    if (!error || !showValidationErrors) return "";
-    return "border-destructive focus-visible:ring-destructive";
+    const hasError = !!getFieldError(fieldPath);
+    return getInputValidationClassUtil(hasError, showValidationErrors);
   };
 
   const showErrorsIfNeeded = () => {
@@ -1232,6 +1233,29 @@ export const PPPDevelopmentStep = () => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
   };
 
+  // Helper to render validation error message for an indicator
+  const renderSectionValidationMessage = (indicatorCode: string) => {
+    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[indicatorCode]}
+        </p>
+      </div>
+    );
+  };
+
+  // Helper to clear validation message for an indicator when fields are updated
+  const clearIndicatorValidationMessage = (indicatorCode: string) => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      delete updated[indicatorCode];
+      return updated;
+    });
+  };
+
   // Handle Save button click for sent back indicators
   const handleSaveIndicator = async (indicatorCode: string) => {
     // Check if user is NODAL_OFFICER and indicator is REVERTED
@@ -1239,14 +1263,84 @@ export const PPPDevelopmentStep = () => {
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
-      setPendingSaveIndicatorCode(indicatorCode);
-      setShowSaveDialog(true);
-      return;
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
+      // Run validation first
+      const validationResult = validatePPPDevelopment(formData, {
+        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+      });
+
+      // Filter validation errors to only include the indicator being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${indicatorCode.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this indicator as touched so ALL errors show
+        const allIndicatorFields: string[] = [];
+        
+        // Add base fields based on indicator
+        if (indicatorCode === "3.1") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        } else if (indicatorCode === "3.2") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        } else if (indicatorCode === "3.3") {
+          allIndicatorFields.push(`${sectionPrefix}.projectArray`);
+          if (formData.section3_3?.projectArray && Array.isArray(formData.section3_3.projectArray)) {
+            formData.section3_3.projectArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.projectArray.${index}.projectName`,
+                `${sectionPrefix}.projectArray.${index}.file`
+              );
+            });
+          }
+        } else if (indicatorCode === "3.4") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        }
+
+        // Mark all indicator fields as touched so ALL errors show
+        allIndicatorFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
+        }));
+        console.log(`[PPPDevelopmentStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        setPendingSaveIndicatorCode(indicatorCode);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        await performSaveIndicator(indicatorCode);
+        return;
+      }
     }
 
-    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with save directly
     await performSaveIndicator(indicatorCode);
   };
 
@@ -1486,6 +1580,7 @@ export const PPPDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("3.1")}
             isSaving={savingIndicators.has("3.1")}
           >
+            {renderSectionValidationMessage("3.1")}
             <div className="flex flex-col gap-4">
               <div>
                 <Label>
@@ -1564,7 +1659,10 @@ export const PPPDevelopmentStep = () => {
                       }));
                     }}
                     submissionId={submissionId}
+                    required
                     disabled={isIndicatorSubmitted("3.1")}
+                    deferFileDeletion={editingIndicators.has("3.1")}
+                    className={getInputValidationClass("section3_1.file")}
                   />
                   <p className="text-xs text-muted-foreground">
                     Upload copy of Act/Policy
@@ -1648,6 +1746,7 @@ export const PPPDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("3.2")}
             isSaving={savingIndicators.has("3.2")}
           >
+            {renderSectionValidationMessage("3.2")}
             <div className="flex flex-col gap-4">
               <div>
                 <Label>
@@ -1728,7 +1827,10 @@ export const PPPDevelopmentStep = () => {
                       }));
                     }}
                     submissionId={submissionId}
+                    required
                     disabled={isIndicatorSubmitted("3.2")}
+                    deferFileDeletion={editingIndicators.has("3.2")}
+                    className={getInputValidationClass("section3_2.file")}
                   />
                   <p className="text-xs text-muted-foreground">
                     Upload notification or mandate
@@ -1812,6 +1914,7 @@ export const PPPDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("3.3")}
             isSaving={savingIndicators.has("3.3")}
           >
+            {renderSectionValidationMessage("3.3")}
             <div className="flex flex-col gap-4">
               {(Array.isArray(formData.section3_3?.VGFArray)
                 ? formData.section3_3.VGFArray
@@ -1990,6 +2093,8 @@ export const PPPDevelopmentStep = () => {
                       }}
                       submissionId={submissionId}
                       disabled={isIndicatorSubmitted("3.3")}
+                      deferFileDeletion={editingIndicators.has("3.3")}
+                      // Note: Upload file is NON-mandatory in section 3.3, so no required prop
                     />
                   </div>
                   {renderFieldError(
@@ -2198,6 +2303,7 @@ export const PPPDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("3.4")}
             isSaving={savingIndicators.has("3.4")}
           >
+            {renderSectionValidationMessage("3.4")}
             <div className="flex flex-col gap-6">
               {/* ✅ Single-instance summary fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

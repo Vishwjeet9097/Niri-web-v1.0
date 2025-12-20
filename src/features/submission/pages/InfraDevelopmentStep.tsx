@@ -68,6 +68,7 @@ import {
   validateInfraDevelopment,
   type InfraDevelopmentValidationResult,
 } from "../validation/infraDevelopmentValidation";
+import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -257,10 +258,10 @@ export const InfraDevelopmentStep = () => {
     string | null
   >(null);
   // Track indicator-specific validation errors
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
-    Record<string, string>
-  >({});
-
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
+  
   // Use the shared field validation hook
   const {
     validatingIndicator,
@@ -270,6 +271,9 @@ export const InfraDevelopmentStep = () => {
     markIndicatorFieldsAsTouched,
     clearValidatingIndicator,
     clearValidFieldErrors,
+    createOnChangeHandler,
+    createOnBlurHandler,
+    createOnValueChangeHandler,
   } = useFieldValidation();
 
   // State for submissionId to enable immediate file uploads
@@ -570,10 +574,10 @@ export const InfraDevelopmentStep = () => {
     return <p className="text-sm text-destructive mt-1">{error}</p>;
   };
 
+  // Use shared validation styling utility
   const getInputValidationClass = (fieldPath: string): string => {
-    const error = getFieldError(fieldPath);
-    if (!error || !showValidationErrors) return "";
-    return "border-destructive focus-visible:ring-destructive";
+    const hasError = !!getFieldError(fieldPath);
+    return getInputValidationClassUtil(hasError, showValidationErrors);
   };
 
   const showErrorsIfNeeded = () => {
@@ -1749,6 +1753,29 @@ export const InfraDevelopmentStep = () => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
   };
 
+  // Helper to render validation error message for an indicator
+  const renderSectionValidationMessage = (indicatorCode: string) => {
+    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[indicatorCode]}
+        </p>
+      </div>
+    );
+  };
+
+  // Helper to clear validation message for an indicator when fields are updated
+  const clearIndicatorValidationMessage = (indicatorCode: string) => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      delete updated[indicatorCode];
+      return updated;
+    });
+  };
+
   // Handle Save button click for sent back indicators
   const handleSaveIndicator = async (indicatorCode: string) => {
     // Check if user is NODAL_OFFICER and indicator is REVERTED
@@ -1756,14 +1783,125 @@ export const InfraDevelopmentStep = () => {
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
-      setPendingSaveIndicatorCode(indicatorCode);
-      setShowSaveDialog(true);
-      return;
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
+      // Run validation first
+      const validationResult = validateInfraDevelopment(formData, {
+        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+      });
+
+      // Filter validation errors to only include the indicator being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${indicatorCode.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this indicator as touched so ALL errors show
+        const allIndicatorFields: string[] = [];
+        
+        // Add base fields based on indicator
+        if (indicatorCode === "2.1") {
+          allIndicatorFields.push(`${sectionPrefix}.infraActArray`);
+          if (formData.section2_1?.infraActArray && Array.isArray(formData.section2_1.infraActArray)) {
+            formData.section2_1.infraActArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.infraActArray.${index}.sector`,
+                `${sectionPrefix}.infraActArray.${index}.file`
+              );
+            });
+          }
+        } else if (indicatorCode === "2.2") {
+          allIndicatorFields.push(`${sectionPrefix}.specializedEntityArray`);
+          if (formData.section2_2?.specializedEntityArray && Array.isArray(formData.section2_2.specializedEntityArray)) {
+            formData.section2_2.specializedEntityArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.specializedEntityArray.${index}.entityName`,
+                `${sectionPrefix}.specializedEntityArray.${index}.file`
+              );
+            });
+          }
+        } else if (indicatorCode === "2.3") {
+          allIndicatorFields.push(`${sectionPrefix}.hasInfraDevelopmentPlan`, `${sectionPrefix}.infraDevelopmentArray`);
+          if (formData.section2_3?.infraDevelopmentArray && Array.isArray(formData.section2_3.infraDevelopmentArray)) {
+            formData.section2_3.infraDevelopmentArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
+                `${sectionPrefix}.infraDevelopmentArray.${index}.file`
+              );
+            });
+          }
+        } else if (indicatorCode === "2.4") {
+          allIndicatorFields.push(`${sectionPrefix}.hasInvestmentReady`);
+          if (formData.section2_4?.hasInvestmentReady === "no") {
+            allIndicatorFields.push(`${sectionPrefix}.comment`);
+          }
+          allIndicatorFields.push(`${sectionPrefix}.investmentReadyArray`);
+          if (formData.section2_4?.investmentReadyArray && Array.isArray(formData.section2_4.investmentReadyArray)) {
+            formData.section2_4.investmentReadyArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.investmentReadyArray.${index}.sector`,
+                `${sectionPrefix}.investmentReadyArray.${index}.file`
+              );
+            });
+          }
+        } else if (indicatorCode === "2.5") {
+          allIndicatorFields.push(`${sectionPrefix}.assetMonetizationArray`);
+          if (formData.section2_5?.assetMonetizationArray && Array.isArray(formData.section2_5.assetMonetizationArray)) {
+            formData.section2_5.assetMonetizationArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.assetMonetizationArray.${index}.projectName`,
+                `${sectionPrefix}.assetMonetizationArray.${index}.projectType`,
+                `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
+                `${sectionPrefix}.assetMonetizationArray.${index}.monetizationStatus`,
+                `${sectionPrefix}.assetMonetizationArray.${index}.file`
+              );
+            });
+          }
+        }
+
+        // Mark all indicator fields as touched so ALL errors show
+        allIndicatorFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
+        }));
+        console.log(`[InfraDevelopmentStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        setPendingSaveIndicatorCode(indicatorCode);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        await performSaveIndicator(indicatorCode);
+        return;
+      }
     }
 
-    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with save directly
     await performSaveIndicator(indicatorCode);
   };
 
@@ -2051,6 +2189,7 @@ export const InfraDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("2.1")}
             isSaving={savingIndicators.has("2.1")}
           >
+            {renderSectionValidationMessage("2.1")}
             <div className="flex flex-col gap-4 ">
               {(Array.isArray(formData.section2_1?.infraActArray)
                 ? formData.section2_1.infraActArray
@@ -2120,6 +2259,12 @@ export const InfraDevelopmentStep = () => {
                         submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("2.1")}
+                        deferFileDeletion={editingIndicators.has("2.1")}
+                        className={getInputValidationClass(
+                          `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                            (e) => e.id === entry.id
+                          )}.files`
+                        )}
                       />
                       {renderFieldError(
                         `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
@@ -2325,6 +2470,7 @@ export const InfraDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("2.2")}
             isSaving={savingIndicators.has("2.2")}
           >
+            {renderSectionValidationMessage("2.2")}
             <div className="flex flex-col gap-4">
               {(Array.isArray(formData.section2_2?.specializedEntityArray)
                 ? formData.section2_2.specializedEntityArray
@@ -2394,6 +2540,12 @@ export const InfraDevelopmentStep = () => {
                         submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("2.2")}
+                        deferFileDeletion={editingIndicators.has("2.2")}
+                        className={getInputValidationClass(
+                          `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
+                            (e) => e.id === entry.id
+                          )}.files`
+                        )}
                       />
                       {renderFieldError(
                         `section2_2.specializedEntityArray.${formData.section2_2.specializedEntityArray.findIndex(
@@ -2597,6 +2749,7 @@ export const InfraDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("2.3")}
             isSaving={savingIndicators.has("2.3")}
           >
+            {renderSectionValidationMessage("2.3")}
             <div className="space-y-6">
               <div>
                 <Label>
@@ -2734,6 +2887,12 @@ export const InfraDevelopmentStep = () => {
                             submissionId={submissionId}
                             required
                             disabled={isIndicatorSubmitted("2.3")}
+                            deferFileDeletion={editingIndicators.has("2.3")}
+                            className={getInputValidationClass(
+                              `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.files`
+                            )}
                           />
                           {renderFieldError(
                             `section2_3.infraDevelopmentArray.${formData.section2_3.infraDevelopmentArray.findIndex(
@@ -2974,6 +3133,7 @@ export const InfraDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("2.4")}
             isSaving={savingIndicators.has("2.4")}
           >
+            {renderSectionValidationMessage("2.4")}
             <div className="flex flex-col gap-4">
               {/* Yes/No selection */}
               <div>
@@ -3156,6 +3316,11 @@ export const InfraDevelopmentStep = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                          {renderFieldError(
+                            `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.sector`
+                          )}
                         </div>
 
                         <div>
@@ -3189,6 +3354,11 @@ export const InfraDevelopmentStep = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                          {renderFieldError(
+                            `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.status`
+                          )}
                         </div>
 
                         <div>
@@ -3202,14 +3372,24 @@ export const InfraDevelopmentStep = () => {
                             step="0.01"
                             placeholder="Enter size"
                             value={entry.projectSize || ""}
-                            onChange={(e) => {
-                              showErrorsIfNeeded();
-                              updateProject(
-                                entry.id,
-                                "projectSize",
-                                e.target.value
-                              );
-                            }}
+                            onBlur={createOnBlurHandler(
+                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.projectSize`
+                            )}
+                            onChange={createOnChangeHandler(
+                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.projectSize`,
+                              (e) => {
+                                showErrorsIfNeeded();
+                                updateProject(
+                                  entry.id,
+                                  "projectSize",
+                                  e.target.value
+                                );
+                              }
+                            )}
                             disabled={isIndicatorSubmitted("2.4")}
                             className={cn(
                               getInputValidationClass(
@@ -3265,6 +3445,11 @@ export const InfraDevelopmentStep = () => {
                                 ))}
                               </SelectContent>
                             </Select>
+                            {renderFieldError(
+                              `section2_4.investmentReadyArray.${formData.section2_4.investmentReadyArray.findIndex(
+                                (e) => e.id === entry.id
+                              )}.investmentType`
+                            )}
                           </div>
 
                           <Button
@@ -3368,10 +3553,12 @@ export const InfraDevelopmentStep = () => {
                 </>
               )}
 
-              {/* If No → Comment */}
+              {/* If No → Comment (mandatory) */}
               {formData.section2_4.hasInvestmentReady === "no" && (
                 <div>
-                  <Label>Comments (Reason)</Label>
+                  <Label>
+                    Comments (Reason) <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     type="text"
                     placeholder="Enter reason or comment"
@@ -3436,6 +3623,7 @@ export const InfraDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("2.5")}
             isSaving={savingIndicators.has("2.5")}
           >
+            {renderSectionValidationMessage("2.5")}
             <div className="flex flex-col gap-4">
               {(Array.isArray(formData.section2_5?.assetMonetizationArray)
                 ? formData.section2_5.assetMonetizationArray
@@ -3511,6 +3699,11 @@ export const InfraDevelopmentStep = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                      {renderFieldError(
+                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.sector`
+                      )}
                     </div>
                     <div>
                       <Label>
@@ -3543,6 +3736,11 @@ export const InfraDevelopmentStep = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                      {renderFieldError(
+                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.type`
+                      )}
                     </div>
                     <div>
                       <Label>
@@ -3576,6 +3774,11 @@ export const InfraDevelopmentStep = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                      {renderFieldError(
+                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.ownership`
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <div>

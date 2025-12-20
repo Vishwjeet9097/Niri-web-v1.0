@@ -26,23 +26,17 @@ export function useFieldValidation() {
     indicatorValidationErrors: Record<string, string>,
     showValidationErrors: boolean
   ): string | undefined => {
-    // Check if this is a calculated/percentage field (always show errors for these if they exist)
+    // Check if this is a calculated/percentage field
     const isCalculatedField = fieldPath.includes("allocationToGSDP") || fieldPath.includes("capexActualsToGSDP");
-    
-    // For calculated fields, always check indicatorValidationErrors first (real-time errors)
-    // These fields are read-only and errors are set programmatically, so always show if error exists
-    if (isCalculatedField && indicatorValidationErrors[fieldPath]) {
-      return indicatorValidationErrors[fieldPath];
-    }
     
     // If validating a specific indicator, show errors for that indicator's fields
     if (validatingIndicator) {
       const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
       if (fieldPath.startsWith(sectionPrefix)) {
-        // For calculated/read-only fields (like percentages), check indicatorValidationErrors first
-        // These fields might not be in validationErrors until validation runs
-        if (indicatorValidationErrors[fieldPath]) {
-          return indicatorValidationErrors[fieldPath];
+        // For calculated fields, check validationErrors first (from validation file)
+        // These are updated in real-time via useMemo when formData changes
+        if (isCalculatedField && validationErrors[fieldPath] && touchedFields.has(fieldPath)) {
+          return validationErrors[fieldPath];
         }
         // Check current validation state - if field is now valid, don't show error
         // This automatically clears errors when user enters valid values
@@ -59,10 +53,9 @@ export function useFieldValidation() {
     // For form-level validation, only show errors for touched fields
     if (!showValidationErrors) return undefined;
     
-    // For calculated/read-only fields (like percentages), check indicatorValidationErrors first
-    // These might have real-time errors that aren't in validationErrors yet
-    if (isCalculatedField && indicatorValidationErrors[fieldPath]) {
-      return indicatorValidationErrors[fieldPath];
+    // For calculated fields, show errors if field is touched (validation file handles the logic)
+    if (isCalculatedField && validationErrors[fieldPath] && touchedFields.has(fieldPath)) {
+      return validationErrors[fieldPath];
     }
     
     if (!touchedFields.has(fieldPath)) return undefined;
@@ -118,6 +111,65 @@ export function useFieldValidation() {
     });
   }, []);
 
+  /**
+   * Create an onChange handler that automatically marks the field as touched
+   * This centralizes the logic for marking fields as touched when user interacts with them
+   * 
+   * @param fieldPath - The path of the field (e.g., "section1_1.capitalAllocation")
+   * @param originalOnChange - The original onChange handler to call after marking as touched
+   * @returns A new onChange handler that marks the field as touched and calls the original handler
+   */
+  const createOnChangeHandler = useCallback((
+    fieldPath: string,
+    originalOnChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void
+  ) => {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      markFieldAsTouched(fieldPath);
+      if (originalOnChange) {
+        originalOnChange(e);
+      }
+    };
+  }, [markFieldAsTouched]);
+
+  /**
+   * Create an onBlur handler that automatically marks the field as touched
+   * This centralizes the logic for marking fields as touched when user leaves the field
+   * 
+   * @param fieldPath - The path of the field (e.g., "section1_1.capitalAllocation")
+   * @param originalOnBlur - The original onBlur handler to call after marking as touched
+   * @returns A new onBlur handler that marks the field as touched and calls the original handler
+   */
+  const createOnBlurHandler = useCallback((
+    fieldPath: string,
+    originalOnBlur?: () => void
+  ) => {
+    return () => {
+      markFieldAsTouched(fieldPath);
+      if (originalOnBlur) {
+        originalOnBlur();
+      }
+    };
+  }, [markFieldAsTouched]);
+
+  /**
+   * Create an onValueChange handler for Select components that automatically marks the field as touched
+   * 
+   * @param fieldPath - The path of the field (e.g., "section1_1.year")
+   * @param originalOnValueChange - The original onValueChange handler to call after marking as touched
+   * @returns A new onValueChange handler that marks the field as touched and calls the original handler
+   */
+  const createOnValueChangeHandler = useCallback((
+    fieldPath: string,
+    originalOnValueChange?: (value: string) => void
+  ) => {
+    return (value: string) => {
+      markFieldAsTouched(fieldPath);
+      if (originalOnValueChange) {
+        originalOnValueChange(value);
+      }
+    };
+  }, [markFieldAsTouched]);
+
   return {
     touchedFields,
     validatingIndicator,
@@ -127,6 +179,9 @@ export function useFieldValidation() {
     markIndicatorFieldsAsTouched,
     clearValidatingIndicator,
     clearValidFieldErrors,
+    createOnChangeHandler,
+    createOnBlurHandler,
+    createOnValueChangeHandler,
   };
 }
 

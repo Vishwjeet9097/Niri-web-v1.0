@@ -28,6 +28,19 @@ export const handleSaveSection = async (payload: SaveSectionPayload) => {
 
     console.log(`[handleSaveSection] ✅ API call successful:`, result);
     notificationService.success("Section updated successfully");
+    
+    // Dispatch custom event to notify components that submission was updated
+    // This allows DocumentsTab and other components to refresh without page reload
+    window.dispatchEvent(
+      new CustomEvent("niri-submission-updated", {
+        detail: {
+          submissionId: payload.submissionId,
+          category: payload.category,
+          section: payload.section,
+        },
+      })
+    );
+    
     return result;
   } catch (error: any) {
     console.error(`[handleSaveSection] ❌ API call failed:`, {
@@ -41,7 +54,15 @@ export const handleSaveSection = async (payload: SaveSectionPayload) => {
         section: payload.section,
       },
     });
-    notificationService.error("Failed to save section");
+    // Don't show notification alert for validation errors - errors should be shown on UI
+    // Check if this is a validation error from backend
+    const isValidationError = error?.response?.data?.message?.toLowerCase().includes("validation") ||
+                              error?.response?.data?.message?.toLowerCase().includes("required") ||
+                              error?.response?.data?.message?.toLowerCase().includes("mandatory") ||
+                              error?.isValidationError;
+    if (!isValidationError) {
+      notificationService.error("Failed to save section");
+    }
     throw error;
   }
 };

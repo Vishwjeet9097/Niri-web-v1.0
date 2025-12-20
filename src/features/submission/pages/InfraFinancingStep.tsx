@@ -43,6 +43,7 @@ import { apiService } from "@/services/api.service";
 import { ulbService, ULB } from "@/services/ulb.service";
 import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
+import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -304,10 +305,10 @@ export const InfraFinancingStep = () => {
     title: string;
   } | null>(null);
   // Track indicator-specific validation errors
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
-    Record<string, string>
-  >({});
-
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
+  
   // Use the shared field validation hook
   const {
     validatingIndicator,
@@ -733,10 +734,11 @@ export const InfraFinancingStep = () => {
     );
   };
 
-  const getInputValidationClass = (path: string) =>
-    getFieldError(path)
-      ? "border-destructive focus-visible:ring-destructive"
-      : undefined;
+  // Use shared validation styling utility
+  const getInputValidationClass = (path: string): string => {
+    const hasError = !!getFieldError(path);
+    return getInputValidationClassUtil(hasError, showValidationErrors);
+  };
 
   const showErrorsIfNeeded = () => {
     if (!showValidationErrors) {
@@ -1519,6 +1521,29 @@ export const InfraFinancingStep = () => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
   };
 
+  // Helper to render validation error message for an indicator
+  const renderSectionValidationMessage = (indicatorCode: string) => {
+    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[indicatorCode]}
+        </p>
+      </div>
+    );
+  };
+
+  // Helper to clear validation message for an indicator when fields are updated
+  const clearIndicatorValidationMessage = (indicatorCode: string) => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      delete updated[indicatorCode];
+      return updated;
+    });
+  };
+
   // Handle Save button click for sent back indicators
   const handleSaveIndicator = async (indicatorCode: string) => {
     // Check if user is NODAL_OFFICER and indicator is REVERTED
@@ -1526,14 +1551,109 @@ export const InfraFinancingStep = () => {
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
-      setPendingSaveIndicatorCode(indicatorCode);
-      setShowSaveDialog(true);
-      return;
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
+      // Run validation first
+      const validationResult = validateInfraFinancing(formData, {
+        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+      });
+
+      // Filter validation errors to only include the indicator being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${indicatorCode.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this indicator as touched so ALL errors show
+        const allIndicatorFields: string[] = [];
+        
+        // Add base fields based on indicator
+        if (indicatorCode === "1.1") {
+          allIndicatorFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+        } else if (indicatorCode === "1.2") {
+          allIndicatorFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+        } else if (indicatorCode === "1.3") {
+          allIndicatorFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
+          if (formData.section1_3?.ulbList && Array.isArray(formData.section1_3.ulbList)) {
+            formData.section1_3.ulbList.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.ulbList.${index}.cityName`,
+                `${sectionPrefix}.ulbList.${index}.ulb`,
+                `${sectionPrefix}.ulbList.${index}.ratingDate`,
+                `${sectionPrefix}.ulbList.${index}.rating`
+              );
+            });
+          }
+        } else if (indicatorCode === "1.4") {
+          allIndicatorFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
+          if (formData.section1_4?.bondList && Array.isArray(formData.section1_4.bondList)) {
+            formData.section1_4.bondList.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.bondList.${index}.cityName`,
+                `${sectionPrefix}.bondList.${index}.bondType`,
+                `${sectionPrefix}.bondList.${index}.issuingAuthority`,
+                `${sectionPrefix}.bondList.${index}.value`
+              );
+            });
+          }
+        } else if (indicatorCode === "1.5") {
+          allIndicatorFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
+          if (formData.section1_5?.ffiArray && Array.isArray(formData.section1_5.ffiArray)) {
+            formData.section1_5.ffiArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.ffiArray.${index}.organisationName`,
+                `${sectionPrefix}.ffiArray.${index}.organisationType`,
+                `${sectionPrefix}.ffiArray.${index}.yearEstablished`,
+                `${sectionPrefix}.ffiArray.${index}.totalFunding`,
+                `${sectionPrefix}.ffiArray.${index}.website`
+              );
+            });
+          }
+        }
+
+        // Mark all indicator fields as touched so ALL errors show
+        allIndicatorFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
+        }));
+        console.log(`[InfraFinancingStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        setPendingSaveIndicatorCode(indicatorCode);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        await performSaveIndicator(indicatorCode);
+        return;
+      }
     }
 
-    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with save directly
     await performSaveIndicator(indicatorCode);
   };
 
@@ -1746,6 +1866,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.1")}
               isSaving={savingIndicators.has("1.1")}
             >
+              {renderSectionValidationMessage("1.1")}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>
@@ -1780,26 +1901,9 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       markFieldAsTouched("section1_1.capitalAllocation");
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.1");
                       const value = e.target.value;
-                      const numValue =
-                        parseFloat(value.replace(/[₹,]/g, "")) || 0;
-
-                      // Real-time validation for zero values
-                      if (value && numValue === 0) {
-                        setIndicatorValidationErrors((prev) => ({
-                          ...prev,
-                          "section1_1.capitalAllocation":
-                            "Capital Allocation must be greater than zero.",
-                        }));
-                      } else if (value && numValue > 0) {
-                        // Clear zero value error if user enters valid value
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.capitalAllocation"];
-                          return updated;
-                        });
-                      }
-
+                      
                       setFormData((prev) => ({
                         ...prev,
                         section1_1: {
@@ -1807,52 +1911,10 @@ export const InfraFinancingStep = () => {
                           capitalAllocation: value,
                         },
                       }));
-
-                      // Real-time validation for percentage limit (should not exceed 100%)
+                      
+                      // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_1.gsdpForFY) {
-                        const capitalAllocationNum =
-                          parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        const gsdpForFYNum =
-                          parseFloat(
-                            (formData.section1_1.gsdpForFY || "")
-                              .toString()
-                              .replace(/[₹,]/g, "")
-                          ) || 0;
-
-                        // Clear percentage error first
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.allocationToGSDP"];
-                          return updated;
-                        });
-
-                        if (gsdpForFYNum > 0) {
-                          const percentage =
-                            (capitalAllocationNum / gsdpForFYNum) * 100;
-                          if (percentage > 100) {
-                            // Mark percentage field as touched so error shows
-                            markFieldAsTouched("section1_1.allocationToGSDP");
-                            setIndicatorValidationErrors((prev) => ({
-                              ...prev,
-                              "section1_1.allocationToGSDP":
-                                "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
-                            }));
-                          } else {
-                            // Clear error if percentage is valid
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section1_1.allocationToGSDP"];
-                              return updated;
-                            });
-                          }
-                        }
-                      } else {
-                        // Clear error if one of the values is empty
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.allocationToGSDP"];
-                          return updated;
-                        });
+                        markFieldAsTouched("section1_1.allocationToGSDP");
                       }
                     }}
                     disabled={isIndicatorSubmitted("1.1")}
@@ -1883,26 +1945,9 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       markFieldAsTouched("section1_1.gsdpForFY");
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.1");
                       const value = e.target.value;
-                      const numValue =
-                        parseFloat(value.replace(/[₹,]/g, "")) || 0;
-
-                      // Real-time validation for zero values
-                      if (value && numValue === 0) {
-                        setIndicatorValidationErrors((prev) => ({
-                          ...prev,
-                          "section1_1.gsdpForFY":
-                            "GSDP for FY must be greater than zero.",
-                        }));
-                      } else if (value && numValue > 0) {
-                        // Clear zero value error if user enters valid value
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.gsdpForFY"];
-                          return updated;
-                        });
-                      }
-
+                      
                       setFormData((prev) => ({
                         ...prev,
                         section1_1: {
@@ -1910,52 +1955,10 @@ export const InfraFinancingStep = () => {
                           gsdpForFY: value,
                         },
                       }));
-
-                      // Real-time validation for percentage limit (should not exceed 100%)
+                      
+                      // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_1.capitalAllocation) {
-                        const capitalAllocationNum =
-                          parseFloat(
-                            (formData.section1_1.capitalAllocation || "")
-                              .toString()
-                              .replace(/[₹,]/g, "")
-                          ) || 0;
-                        const gsdpForFYNum =
-                          parseFloat(value.replace(/[₹,]/g, "")) || 0;
-
-                        // Clear percentage error first
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.allocationToGSDP"];
-                          return updated;
-                        });
-
-                        if (gsdpForFYNum > 0) {
-                          const percentage =
-                            (capitalAllocationNum / gsdpForFYNum) * 100;
-                          if (percentage > 100) {
-                            // Mark percentage field as touched so error shows
-                            markFieldAsTouched("section1_1.allocationToGSDP");
-                            setIndicatorValidationErrors((prev) => ({
-                              ...prev,
-                              "section1_1.allocationToGSDP":
-                                "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
-                            }));
-                          } else {
-                            // Clear error if percentage is valid
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section1_1.allocationToGSDP"];
-                              return updated;
-                            });
-                          }
-                        }
-                      } else {
-                        // Clear error if one of the values is empty
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.allocationToGSDP"];
-                          return updated;
-                        });
+                        markFieldAsTouched("section1_1.allocationToGSDP");
                       }
                     }}
                     disabled={isIndicatorSubmitted("1.1")}
@@ -2050,6 +2053,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.2")}
               isSaving={savingIndicators.has("1.2")}
             >
+              {renderSectionValidationMessage("1.2")}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <MandatoryFieldLabel sectionKey="section1_2" fieldName="year">
@@ -2081,26 +2085,9 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       markFieldAsTouched("section1_2.actualCapex");
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.2");
                       const value = e.target.value;
-                      const numValue =
-                        parseFloat(value.replace(/[₹,]/g, "")) || 0;
-
-                      // Real-time validation for zero values
-                      if (value && numValue === 0) {
-                        setIndicatorValidationErrors((prev) => ({
-                          ...prev,
-                          "section1_2.actualCapex":
-                            "Actual Capex must be greater than zero.",
-                        }));
-                      } else if (value && numValue > 0) {
-                        // Clear zero value error if user enters valid value
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.actualCapex"];
-                          return updated;
-                        });
-                      }
-
+                      
                       setFormData((prev) => ({
                         ...prev,
                         section1_2: {
@@ -2108,45 +2095,10 @@ export const InfraFinancingStep = () => {
                           actualCapex: value,
                         },
                       }));
-
-                      // Real-time validation for percentage limit
+                      
+                      // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_2.stateCapexUtilisation) {
-                        const actualCapexNum =
-                          parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        const stateCapexNum =
-                          parseFloat(
-                            (formData.section1_2.stateCapexUtilisation || "")
-                              .toString()
-                              .replace(/[₹,]/g, "")
-                          ) || 0;
-
-                        // Clear percentage error first
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.capexActualsToGSDP"];
-                          return updated;
-                        });
-
-                        if (stateCapexNum > 0) {
-                          const percentage =
-                            (actualCapexNum / stateCapexNum) * 100;
-                          if (percentage > 100) {
-                            // Mark percentage field as touched so error shows
-                            markFieldAsTouched("section1_2.capexActualsToGSDP");
-                            setIndicatorValidationErrors((prev) => ({
-                              ...prev,
-                              "section1_2.capexActualsToGSDP":
-                                "Percentage cannot exceed 100%.",
-                            }));
-                          } else {
-                            // Clear error if percentage is valid
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section1_2.capexActualsToGSDP"];
-                              return updated;
-                            });
-                          }
-                        }
+                        markFieldAsTouched("section1_2.capexActualsToGSDP");
                       }
                     }}
                     disabled={isIndicatorSubmitted("1.2")}
@@ -2178,26 +2130,9 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       markFieldAsTouched("section1_2.stateCapexUtilisation");
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.2");
                       const value = e.target.value;
-                      const numValue =
-                        parseFloat(value.replace(/[₹,]/g, "")) || 0;
-
-                      // Real-time validation for zero values
-                      if (value && numValue === 0) {
-                        setIndicatorValidationErrors((prev) => ({
-                          ...prev,
-                          "section1_2.stateCapexUtilisation":
-                            "State capex utilisation must be greater than zero.",
-                        }));
-                      } else if (value && numValue > 0) {
-                        // Clear zero value error if user enters valid value
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.stateCapexUtilisation"];
-                          return updated;
-                        });
-                      }
-
+                      
                       setFormData((prev) => ({
                         ...prev,
                         section1_2: {
@@ -2205,45 +2140,10 @@ export const InfraFinancingStep = () => {
                           stateCapexUtilisation: value,
                         },
                       }));
-
-                      // Real-time validation for percentage limit
+                      
+                      // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_2.actualCapex) {
-                        const actualCapexNum =
-                          parseFloat(
-                            (formData.section1_2.actualCapex || "")
-                              .toString()
-                              .replace(/[₹,]/g, "")
-                          ) || 0;
-                        const stateCapexNum =
-                          parseFloat(value.replace(/[₹,]/g, "")) || 0;
-
-                        // Clear percentage error first
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.capexActualsToGSDP"];
-                          return updated;
-                        });
-
-                        if (stateCapexNum > 0) {
-                          const percentage =
-                            (actualCapexNum / stateCapexNum) * 100;
-                          if (percentage > 100) {
-                            // Mark percentage field as touched so error shows
-                            markFieldAsTouched("section1_2.capexActualsToGSDP");
-                            setIndicatorValidationErrors((prev) => ({
-                              ...prev,
-                              "section1_2.capexActualsToGSDP":
-                                "Percentage cannot exceed 100%.",
-                            }));
-                          } else {
-                            // Clear error if percentage is valid
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section1_2.capexActualsToGSDP"];
-                              return updated;
-                            });
-                          }
-                        }
+                        markFieldAsTouched("section1_2.capexActualsToGSDP");
                       }
                     }}
                     disabled={isIndicatorSubmitted("1.2")}
@@ -2337,6 +2237,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.3")}
               isSaving={savingIndicators.has("1.3")}
             >
+              {renderSectionValidationMessage("1.3")}
               <div className="space-y-4">
                 <div className="w-1/3">
                   <Label>
@@ -2382,6 +2283,7 @@ export const InfraFinancingStep = () => {
                           value={ulb.ulb}
                           onValueChange={(value) => {
                             showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.3");
                             // Find selected ULB object
                             const selectedULB = ulbOptions.find(
                               (u) => u.id === value
@@ -2534,6 +2436,7 @@ export const InfraFinancingStep = () => {
                         onChange={(e) => {
                           if (!ulb.ulb) {
                             showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.3");
                             const value = e.target.value;
                             setFormData((prev) => ({
                               ...prev,
@@ -2802,6 +2705,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.4")}
               isSaving={savingIndicators.has("1.4")}
             >
+              {renderSectionValidationMessage("1.4")}
               <div className="space-y-4">
                 <div className="w-1/3">
                   <Label>
@@ -2814,6 +2718,7 @@ export const InfraFinancingStep = () => {
                     value={formData.section1_4.totalULBs || ""}
                     onChange={(e) => {
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.4");
                       const { value } = e.target;
                       setFormData((prev) => ({
                         ...prev,
@@ -3013,6 +2918,7 @@ export const InfraFinancingStep = () => {
                         value={bond.value}
                         onChange={(e) => {
                           showErrorsIfNeeded();
+                          clearIndicatorValidationMessage("1.4");
                           const value = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
@@ -3154,6 +3060,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.5")}
               isSaving={savingIndicators.has("1.5")}
             >
+              {renderSectionValidationMessage("1.5")}
               <div className="space-y-6">
                 <div>
                   <Label>
@@ -3178,6 +3085,7 @@ export const InfraFinancingStep = () => {
                         onChange={() => {
                           if (isIndicatorSubmitted("1.5")) return;
                           showErrorsIfNeeded();
+                          clearIndicatorValidationMessage("1.5");
                           setFormData((prev) => ({
                             ...prev,
                             section1_5: {
@@ -3235,6 +3143,7 @@ export const InfraFinancingStep = () => {
                             value={intermediary.organisationName}
                             onChange={(e) => {
                               showErrorsIfNeeded();
+                              clearIndicatorValidationMessage("1.5");
                               const value = e.target.value;
                               setFormData((prev) => ({
                                 ...prev,
@@ -3375,6 +3284,7 @@ export const InfraFinancingStep = () => {
                             min="0"
                             onChange={(e) => {
                               showErrorsIfNeeded();
+                              clearIndicatorValidationMessage("1.5");
                               const value = e.target.value;
                               setFormData((prev) => ({
                                 ...prev,
@@ -3554,6 +3464,7 @@ export const InfraFinancingStep = () => {
                       value={formData.section1_5.comment || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
+                        clearIndicatorValidationMessage("1.5");
                         setFormData((prev) => ({
                           ...prev,
                           section1_5: {
