@@ -158,6 +158,31 @@ export const InfraDevelopmentReview = ({
     clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
   }, [validation.errors, clearValidFieldErrors]);
 
+  // Clear section validation messages in real-time when validation passes
+  useEffect(() => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      // Check each section that has a validation message
+      Object.keys(updated).forEach((sectionId) => {
+        const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+        // Check if there are any validation errors for this section
+        const hasSectionErrors = Object.keys(validation.errors).some((errorKey) =>
+          errorKey.startsWith(sectionPrefix)
+        );
+
+        // If no errors for this section, clear the message
+        if (!hasSectionErrors) {
+          delete updated[sectionId];
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+  }, [validation.errors]);
+
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
   const currentSubmission = submissionState || submission;
@@ -1597,8 +1622,8 @@ export const InfraDevelopmentReview = ({
       const fullData = {
         section2_1: formDataState?.section2_1 || { infraActArray: [] },
         section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
-        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "" },
-        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "" },
+        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "", comment: "" },
+        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "", comment: "" },
         section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
       };
 
@@ -1791,8 +1816,8 @@ export const InfraDevelopmentReview = ({
       const fullData = {
         section2_1: formDataState?.section2_1 || { infraActArray: [] },
         section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
-        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "" },
-        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "" },
+        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "", comment: "" },
+        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "", comment: "" },
         section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
       };
 

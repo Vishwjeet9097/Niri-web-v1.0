@@ -694,6 +694,31 @@ export const InfraFinancingReview = ({
     clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
   }, [validation.errors, clearValidFieldErrors]);
 
+  // Clear section validation messages in real-time when validation passes
+  useEffect(() => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      // Check each section that has a validation message
+      Object.keys(updated).forEach((sectionId) => {
+        const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+        // Check if there are any validation errors for this section
+        const hasSectionErrors = Object.keys(validation.errors).some((errorKey) =>
+          errorKey.startsWith(sectionPrefix)
+        );
+
+        // If no errors for this section, clear the message
+        if (!hasSectionErrors) {
+          delete updated[sectionId];
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+  }, [validation.errors]);
+
   // State for edit fucntionality indicator wise
   const { setEditable, isEditable, clearAllEditing } =
     useEditableSectionStore();
