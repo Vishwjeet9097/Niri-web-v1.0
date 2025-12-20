@@ -172,7 +172,12 @@ export const ReviewSubmitStep = () => {
   if (showReview) {
     // Use absolute path to avoid nested duplicate segments in edit mode
     // navigate("/submissions/preview");
-    navigate(`/data-submission/review/${submission?.id}`);
+    if (!submission?.id) {
+      console.error("Cannot navigate: submission ID is missing");
+      setShowReview(false);
+      return null;
+    }
+    navigate(`/data-submission/review/${submission.id}`);
     return null;
   }
 
@@ -379,7 +384,11 @@ export const ReviewSubmitStep = () => {
           </Button>
 
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setShowReview(true)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowReview(true)}
+              disabled={loading || !submission?.id}
+            >
               <Eye className="w-4 h-4 mr-2" />
               Review Submission
             </Button>
