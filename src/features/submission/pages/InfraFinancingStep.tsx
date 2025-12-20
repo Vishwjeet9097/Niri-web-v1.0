@@ -292,6 +292,8 @@ export const InfraFinancingStep = () => {
   } | null>(null);
   // Track indicator-specific validation errors
   const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
   
   // Use the shared field validation hook
   const {
@@ -1492,6 +1494,29 @@ export const InfraFinancingStep = () => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
   };
 
+  // Helper to render validation error message for an indicator
+  const renderSectionValidationMessage = (indicatorCode: string) => {
+    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[indicatorCode]}
+        </p>
+      </div>
+    );
+  };
+
+  // Helper to clear validation message for an indicator when fields are updated
+  const clearIndicatorValidationMessage = (indicatorCode: string) => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      delete updated[indicatorCode];
+      return updated;
+    });
+  };
+
   // Handle Save button click for sent back indicators
   const handleSaveIndicator = async (indicatorCode: string) => {
     // Check if user is NODAL_OFFICER and indicator is REVERTED
@@ -1499,14 +1524,109 @@ export const InfraFinancingStep = () => {
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
-      setPendingSaveIndicatorCode(indicatorCode);
-      setShowSaveDialog(true);
-      return;
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
+      // Run validation first
+      const validationResult = validateInfraFinancing(formData, {
+        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+      });
+
+      // Filter validation errors to only include the indicator being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${indicatorCode.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this indicator as touched so ALL errors show
+        const allIndicatorFields: string[] = [];
+        
+        // Add base fields based on indicator
+        if (indicatorCode === "1.1") {
+          allIndicatorFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+        } else if (indicatorCode === "1.2") {
+          allIndicatorFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+        } else if (indicatorCode === "1.3") {
+          allIndicatorFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
+          if (formData.section1_3?.ulbList && Array.isArray(formData.section1_3.ulbList)) {
+            formData.section1_3.ulbList.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.ulbList.${index}.cityName`,
+                `${sectionPrefix}.ulbList.${index}.ulb`,
+                `${sectionPrefix}.ulbList.${index}.ratingDate`,
+                `${sectionPrefix}.ulbList.${index}.rating`
+              );
+            });
+          }
+        } else if (indicatorCode === "1.4") {
+          allIndicatorFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
+          if (formData.section1_4?.bondList && Array.isArray(formData.section1_4.bondList)) {
+            formData.section1_4.bondList.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.bondList.${index}.cityName`,
+                `${sectionPrefix}.bondList.${index}.bondType`,
+                `${sectionPrefix}.bondList.${index}.issuingAuthority`,
+                `${sectionPrefix}.bondList.${index}.value`
+              );
+            });
+          }
+        } else if (indicatorCode === "1.5") {
+          allIndicatorFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
+          if (formData.section1_5?.ffiArray && Array.isArray(formData.section1_5.ffiArray)) {
+            formData.section1_5.ffiArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.ffiArray.${index}.organisationName`,
+                `${sectionPrefix}.ffiArray.${index}.organisationType`,
+                `${sectionPrefix}.ffiArray.${index}.yearEstablished`,
+                `${sectionPrefix}.ffiArray.${index}.totalFunding`,
+                `${sectionPrefix}.ffiArray.${index}.website`
+              );
+            });
+          }
+        }
+
+        // Mark all indicator fields as touched so ALL errors show
+        allIndicatorFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
+        }));
+        console.log(`[InfraFinancingStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        setPendingSaveIndicatorCode(indicatorCode);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        await performSaveIndicator(indicatorCode);
+        return;
+      }
     }
 
-    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with save directly
     await performSaveIndicator(indicatorCode);
   };
 
@@ -1705,6 +1825,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.1")}
               isSaving={savingIndicators.has("1.1")}
             >
+              {renderSectionValidationMessage("1.1")}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>
@@ -1734,6 +1855,7 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       markFieldAsTouched("section1_1.capitalAllocation");
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.1");
                       const value = e.target.value;
                       
                       setFormData((prev) => ({
@@ -1774,6 +1896,7 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       markFieldAsTouched("section1_1.gsdpForFY");
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.1");
                       const value = e.target.value;
                       
                       setFormData((prev) => ({
@@ -1875,6 +1998,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.2")}
               isSaving={savingIndicators.has("1.2")}
             >
+              {renderSectionValidationMessage("1.2")}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <MandatoryFieldLabel sectionKey="section1_2" fieldName="year">
@@ -1903,6 +2027,7 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       markFieldAsTouched("section1_2.actualCapex");
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.2");
                       const value = e.target.value;
                       
                       setFormData((prev) => ({
@@ -1942,6 +2067,7 @@ export const InfraFinancingStep = () => {
                     onChange={(e) => {
                       markFieldAsTouched("section1_2.stateCapexUtilisation");
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.2");
                       const value = e.target.value;
                       
                       setFormData((prev) => ({
@@ -2042,6 +2168,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.3")}
               isSaving={savingIndicators.has("1.3")}
             >
+              {renderSectionValidationMessage("1.3")}
               <div className="space-y-4">
                 <div className="w-1/3">
                   <Label>
@@ -2087,6 +2214,7 @@ export const InfraFinancingStep = () => {
                           value={ulb.ulb}
                           onValueChange={(value) => {
                             showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.3");
                             // Find selected ULB object
                             const selectedULB = ulbOptions.find(
                               (u) => u.id === value
@@ -2239,6 +2367,7 @@ export const InfraFinancingStep = () => {
                         onChange={(e) => {
                           if (!ulb.ulb) {
                             showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.3");
                             const value = e.target.value;
                             setFormData((prev) => ({
                               ...prev,
@@ -2502,6 +2631,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.4")}
               isSaving={savingIndicators.has("1.4")}
             >
+              {renderSectionValidationMessage("1.4")}
               <div className="space-y-4">
                 <div className="w-1/3">
                   <Label>
@@ -2514,6 +2644,7 @@ export const InfraFinancingStep = () => {
                     value={formData.section1_4.totalULBs || ""}
                     onChange={(e) => {
                       showErrorsIfNeeded();
+                      clearIndicatorValidationMessage("1.4");
                       const { value } = e.target;
                       setFormData((prev) => ({
                         ...prev,
@@ -2713,6 +2844,7 @@ export const InfraFinancingStep = () => {
                         value={bond.value}
                         onChange={(e) => {
                           showErrorsIfNeeded();
+                          clearIndicatorValidationMessage("1.4");
                           const value = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
@@ -2851,6 +2983,7 @@ export const InfraFinancingStep = () => {
               onCancel={() => handleCancelEdit("1.5")}
               isSaving={savingIndicators.has("1.5")}
             >
+              {renderSectionValidationMessage("1.5")}
               <div className="space-y-6">
                 <div>
                   <Label>
@@ -2875,6 +3008,7 @@ export const InfraFinancingStep = () => {
                         onChange={() => {
                           if (isIndicatorSubmitted("1.5")) return;
                           showErrorsIfNeeded();
+                          clearIndicatorValidationMessage("1.5");
                           setFormData((prev) => ({
                             ...prev,
                             section1_5: {
@@ -2932,6 +3066,7 @@ export const InfraFinancingStep = () => {
                             value={intermediary.organisationName}
                             onChange={(e) => {
                               showErrorsIfNeeded();
+                              clearIndicatorValidationMessage("1.5");
                               const value = e.target.value;
                               setFormData((prev) => ({
                                 ...prev,
@@ -2941,9 +3076,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                          ...item,
-                                          organisationName: value,
-                                        }
+                                            ...item,
+                                            organisationName: value,
+                                          }
                                         : item
                                   ),
                                 },
@@ -3072,6 +3207,7 @@ export const InfraFinancingStep = () => {
                             min="0"
                             onChange={(e) => {
                               showErrorsIfNeeded();
+                              clearIndicatorValidationMessage("1.5");
                               const value = e.target.value;
                               setFormData((prev) => ({
                                 ...prev,
@@ -3081,9 +3217,9 @@ export const InfraFinancingStep = () => {
                                     (item) =>
                                       item.id === intermediary.id
                                         ? {
-                                          ...item,
-                                          totalFunding: value,
-                                        }
+                                            ...item,
+                                            totalFunding: value,
+                                          }
                                         : item
                                   ),
                                 },
@@ -3251,6 +3387,7 @@ export const InfraFinancingStep = () => {
                       value={formData.section1_5.comment || ""}
                       onChange={(e) => {
                         showErrorsIfNeeded();
+                        clearIndicatorValidationMessage("1.5");
                         setFormData((prev) => ({
                           ...prev,
                           section1_5: {

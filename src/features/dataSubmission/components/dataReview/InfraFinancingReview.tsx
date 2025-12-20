@@ -893,8 +893,6 @@ export const InfraFinancingReview = ({
 
   // Handle edit mode start - store original state snapshot
   const handleEditStart = (sectionId: string) => {
-    console.error(`[InfraFinancingReview] 🚨🚨🚨 handleEditStart CALLED for section ${sectionId}`);
-    window.alert(`🚨🚨🚨 handleEditStart CALLED for section ${sectionId}`);
     console.log(
       `[InfraFinancingReview] handleEditStart called for section ${sectionId}`
     );
@@ -1040,7 +1038,6 @@ export const InfraFinancingReview = ({
     });
     setEditable(sectionId, true);
     console.log(`[InfraFinancingReview] ✅ setEditable(${sectionId}, true) called`);
-    alert(`Edit mode started for section ${sectionId}. shouldBeEditable should now return true.`);
 
     // Show all validation errors when entering edit mode
     // Build full form data for validation (use the same structure as fullFormDataForValidation)
@@ -1528,15 +1525,10 @@ export const InfraFinancingReview = ({
   // Handles for review edit, accept, send back
   // Add this handler after other handlers
   const onSaveSection = async (sectionId: string) => {
-    // ALERT for debugging - remove after fixing
-    alert(`onSaveSection called for ${sectionId}`);
-    console.log("🚀🚀🚀 [InfraFinancingReview] onSaveSection CALLED for section:", sectionId);
-    console.log("🚀🚀🚀 [InfraFinancingReview] Stack trace:", new Error().stack);
+    console.log(`[InfraFinancingReview] onSaveSection called for section ${sectionId}`);
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
-    console.log("🚀🚀🚀 [InfraFinancingReview] User role check:", { userRole, isNodalOfficer });
-    alert(`User role: ${userRole}, isNodalOfficer: ${isNodalOfficer}`);
 
     console.log(`[InfraFinancingReview] onSaveSection - User info:`, {
       userRole,
@@ -1592,12 +1584,9 @@ export const InfraFinancingReview = ({
 
     // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
     // This ensures validation errors are shown on UI instead of alerts
-    console.log("🚀🚀🚀 [InfraFinancingReview] Checking if NODAL_OFFICER:", { isNodalOfficer, userRole });
-    alert(`Checking NODAL_OFFICER: ${isNodalOfficer}`);
     if (isNodalOfficer) {
-      alert("Running validation for NODAL_OFFICER");
       console.log(
-        `🚀🚀🚀 [InfraFinancingReview] ✅ Running validation before showing dialog for NODAL_OFFICER`
+        `[InfraFinancingReview] Running validation before showing dialog for NODAL_OFFICER`
       );
       
       // Run validation first (same logic as in performSave)
@@ -1645,12 +1634,11 @@ export const InfraFinancingReview = ({
       });
 
       const hasErrors = Object.keys(validationResult.errors).length > 0;
-      console.log("🚀🚀🚀 [InfraFinancingReview] Validation result:", {
+      console.log("[InfraFinancingReview] Validation result:", {
         hasErrors,
         allErrors: validationResult.errors,
         sectionId,
       });
-      alert(`Validation result - hasErrors: ${hasErrors}, errorCount: ${Object.keys(validationResult.errors).length}`);
 
       // Filter validation errors to only include the section being saved
       const sectionErrors: Record<string, string> = {};
@@ -1662,17 +1650,15 @@ export const InfraFinancingReview = ({
       });
 
       const errorCount = Object.keys(sectionErrors).length;
-      console.log("🚀🚀🚀 [InfraFinancingReview] Filtered section errors:", {
+      console.log("[InfraFinancingReview] Filtered section errors:", {
         sectionPrefix,
         sectionErrors,
         errorCount,
       });
-      alert(`Filtered errors count: ${errorCount}`);
 
       // If validation fails, show errors on UI and return (don't show dialog)
       if (errorCount > 0) {
-        alert(`VALIDATION FAILED - ${errorCount} errors - NOT showing dialog`);
-        console.log("🚀🚀🚀 [InfraFinancingReview] ❌ VALIDATION FAILED - NOT showing dialog");
+        console.log("[InfraFinancingReview] Validation failed - NOT showing dialog");
         // Mark all fields in this section as touched so ALL errors show
         const allSectionFields: string[] = [];
         
@@ -1747,16 +1733,14 @@ export const InfraFinancingReview = ({
       }
 
       // Validation passed - show confirmation dialog only if status is REVERTED
-      console.log("🚀🚀🚀 [InfraFinancingReview] ✅ VALIDATION PASSED - Checking if REVERTED:", { isReverted, currentStatus, upperStatus });
-      alert(`VALIDATION PASSED - isReverted: ${isReverted}, currentStatus: ${currentStatus}`);
+      console.log("[InfraFinancingReview] Validation passed - Checking if REVERTED:", { isReverted, currentStatus, upperStatus });
       if (isReverted) {
-        alert("Showing dialog for REVERTED indicator");
         console.log(
-          `🚀🚀🚀 [InfraFinancingReview] ✅ Validation passed - showing save confirmation dialog for REVERTED indicator`
-        );
-        setPendingSaveSectionId(sectionId);
-        setShowSaveDialog(true);
-        return;
+          `[InfraFinancingReview] Validation passed - showing save confirmation dialog for REVERTED indicator`
+      );
+      setPendingSaveSectionId(sectionId);
+      setShowSaveDialog(true);
+      return;
       } else {
         // If not REVERTED, proceed with direct save
         console.log(
@@ -2982,13 +2966,7 @@ export const InfraFinancingReview = ({
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => {
-                  alert(`🚨 EDIT BUTTON CLICKED (RESUBMITTED) for section ${sectionId}`);
-                  console.log(
-                    `[InfraFinancingReview] Edit button clicked (RESUBMITTED) for section ${sectionId}`
-                  );
-                  handleEditStart(sectionId);
-                }}
+                onClick={() => handleEditStart(sectionId)}
               >
                 <Edit3 className="w-4 h-4" />
                 Edit
@@ -2999,11 +2977,7 @@ export const InfraFinancingReview = ({
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-1"
-                  onClick={() => {
-                    alert(`BUTTON CLICKED for section ${sectionId}`);
-                    console.log("🚀🚀🚀 BUTTON CLICKED - Calling onSaveSection for:", sectionId);
-                    onSaveSection(sectionId);
-                  }}
+                  onClick={() => onSaveSection(sectionId)}
                   disabled={false} // Enable save for editing RESUBMITTED indicators
                 >
                   <Check className="w-4 h-4" />
@@ -3060,19 +3034,6 @@ export const InfraFinancingReview = ({
       // REVERTED means it was sent back, so user can resubmit (not disabled)
       if (isNodalOfficer) {
         const isCurrentlyEditable = shouldBeEditable(sectionId);
-        console.log(`[InfraFinancingReview] REVERTED section ${sectionId} render check:`, {
-          sectionId,
-          sectionStatus,
-          isNodalOfficer,
-          isCurrentlyEditable,
-          willShowEditButton: !isCurrentlyEditable,
-          willShowSaveButton: isCurrentlyEditable,
-        });
-        // Add alert to verify this code path is being executed
-        if (typeof window !== 'undefined' && !(window as any).__revertedSectionAlertShown) {
-          alert(`🚨 REVERTED section ${sectionId} - Rendering buttons. isCurrentlyEditable: ${isCurrentlyEditable}`);
-          (window as any).__revertedSectionAlertShown = true;
-        }
         return (
           <div className="flex gap-2">
             {!isCurrentlyEditable ? (
@@ -3080,12 +3041,7 @@ export const InfraFinancingReview = ({
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => {
-                  console.error(`[InfraFinancingReview] 🚨🚨🚨 EDIT BUTTON CLICKED for section ${sectionId}`);
-                  window.alert(`🚨🚨🚨 EDIT BUTTON CLICKED for section ${sectionId}`);
-                  console.log(`[InfraFinancingReview] Edit button clicked for section ${sectionId}`);
-                  handleEditStart(sectionId);
-                }}
+                onClick={() => handleEditStart(sectionId)}
                 disabled={(() => {
                   // For STATE_APPROVER, disable edit button if mospi_status is ACCEPTED
                   if (isStateApprover) {
@@ -3112,12 +3068,7 @@ export const InfraFinancingReview = ({
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-1"
-                  onClick={() => {
-                    alert(`BUTTON CLICKED for section ${sectionId}`);
-                    console.log("🚀🚀🚀 BUTTON CLICKED - Calling onSaveSection for:", sectionId);
-                    console.log("🚀🚀🚀 Button onClick handler executed");
-                    onSaveSection(sectionId);
-                  }}
+                  onClick={() => onSaveSection(sectionId)}
                   disabled={false} // Can resubmit after being sent back
                 >
                   <Check className="w-4 h-4" />
@@ -3254,11 +3205,7 @@ export const InfraFinancingReview = ({
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={() => {
-              alert(`EDIT BUTTON CLICKED (other case) for section ${sectionId}`);
-              console.log(`[InfraFinancingReview] Edit button clicked (other case) for section ${sectionId}`);
-              handleEditStart(sectionId);
-            }}
+            onClick={() => handleEditStart(sectionId)}
           >
             <Edit3 className="w-4 h-4" />
             Edit
@@ -3269,12 +3216,7 @@ export const InfraFinancingReview = ({
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => {
-                console.error(`[InfraFinancingReview] 🚨🚨🚨 SAVE BUTTON CLICKED (other) for section ${sectionId}`);
-                window.alert(`🚨🚨🚨 SAVE BUTTON CLICKED (other) for section ${sectionId}`);
-                console.log("🚀🚀🚀 BUTTON CLICKED - Calling onSaveSection for:", sectionId);
-                onSaveSection(sectionId);
-              }}
+              onClick={() => onSaveSection(sectionId)}
               disabled={isSubmitted}
             >
               <Check className="w-4 h-4" />

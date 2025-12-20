@@ -19,6 +19,7 @@ interface FileUploadSectionProps {
   onUploadComplete?: (uploadedFile: FileUpload) => void;
   disabled?: boolean;
   className?: string; // Additional className for validation styling
+  deferFileDeletion?: boolean; // If true, don't call DELETE API immediately (for editing sent-back indicators)
 }
 
 export const FileUploadSection = ({
@@ -33,6 +34,7 @@ export const FileUploadSection = ({
   onUploadComplete,
   disabled = false,
   className,
+  deferFileDeletion = false, // Add this prop
 }: FileUploadSectionProps) => {
   const uniqueId = useId();
   const fileInputId = `file-${uniqueId}`;
@@ -87,6 +89,16 @@ export const FileUploadSection = ({
 
   const handleRemoveFile = async () => {
     if (disabled) return;
+    
+    // If deferFileDeletion is true (editing sent-back indicator), 
+    // just update local state without calling DELETE API
+    // The backend will handle file deletion when the form is saved
+    if (deferFileDeletion) {
+      onChange(null);
+      return;
+    }
+    
+    // Original behavior: call DELETE API for immediate deletion
     if (value?.filePath && submissionId) {
       try {
         await apiService.deleteFile(value.filePath);

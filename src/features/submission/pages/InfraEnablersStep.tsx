@@ -212,6 +212,8 @@ export const InfraEnablersStep = () => {
   >(null);
   // Track indicator-specific validation errors
   const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
   
   // Use the shared field validation hook
   const {
@@ -864,7 +866,7 @@ export const InfraEnablersStep = () => {
     console.log("[DEBUG] Submitting InfraEnablersStep, formData:", formData);
 
     try {
-      setSubmittingIndicator(indicatorCode);
+      setSubmittingIndicator(null);
       // Get the indicators for this section
       const sectionIndicators = allowedIndicators || [
         "4.1",
@@ -1236,6 +1238,29 @@ export const InfraEnablersStep = () => {
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
   };
 
+  // Helper to render validation error message for an indicator
+  const renderSectionValidationMessage = (indicatorCode: string) => {
+    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[indicatorCode]}
+        </p>
+      </div>
+    );
+  };
+
+  // Helper to clear validation message for an indicator when fields are updated
+  const clearIndicatorValidationMessage = (indicatorCode: string) => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      delete updated[indicatorCode];
+      return updated;
+    });
+  };
+
   // Handle Save button click for sent back indicators
   const handleSaveIndicator = async (indicatorCode: string) => {
     // Check if user is NODAL_OFFICER and indicator is REVERTED
@@ -1243,14 +1268,101 @@ export const InfraEnablersStep = () => {
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
-      setPendingSaveIndicatorCode(indicatorCode);
-      setShowSaveDialog(true);
-      return;
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
+      // Run validation first
+      const validationResult = validateInfraEnablers(formData, {
+        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+      });
+
+      // Filter validation errors to only include the indicator being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${indicatorCode.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this indicator as touched so ALL errors show
+        const allIndicatorFields: string[] = [];
+        
+        // Add base fields based on indicator
+        if (indicatorCode === "4.1") {
+          // 4.1 doesn't have file upload, just text fields
+          allIndicatorFields.push(`${sectionPrefix}.projects`);
+        } else if (indicatorCode === "4.2") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        } else if (indicatorCode === "4.3") {
+          allIndicatorFields.push(`${sectionPrefix}.practices`);
+        } else if (indicatorCode === "4.4") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        } else if (indicatorCode === "4.5") {
+          allIndicatorFields.push(`${sectionPrefix}.practices`);
+          if (formData.section4_5?.practices && Array.isArray(formData.section4_5.practices)) {
+            formData.section4_5.practices.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.practices.${index}.practiceName`,
+                `${sectionPrefix}.practices.${index}.impact`,
+                `${sectionPrefix}.practices.${index}.file`
+              );
+            });
+          }
+        } else if (indicatorCode === "4.6") {
+          allIndicatorFields.push(`${sectionPrefix}.capacityArray`);
+          if (formData.section4_6?.capacityArray && Array.isArray(formData.section4_6.capacityArray)) {
+            formData.section4_6.capacityArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.capacityArray.${index}.officerName`,
+                `${sectionPrefix}.capacityArray.${index}.designation`,
+                `${sectionPrefix}.capacityArray.${index}.programName`,
+                `${sectionPrefix}.capacityArray.${index}.organiser`,
+                `${sectionPrefix}.capacityArray.${index}.trainingType`
+              );
+            });
+          }
+        }
+
+        // Mark all indicator fields as touched so ALL errors show
+        allIndicatorFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
+        }));
+        console.log(`[InfraEnablersStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        setPendingSaveIndicatorCode(indicatorCode);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        await performSaveIndicator(indicatorCode);
+        return;
+      }
     }
 
-    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with save directly
     await performSaveIndicator(indicatorCode);
   };
 
@@ -1470,6 +1582,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.1")}
           isSaving={savingIndicators.has("4.1")}
         >
+          {renderSectionValidationMessage("4.1")}
           <div className="flex flex-col gap-4 w-[40%]">
             <div>
               <Label>
@@ -1632,6 +1745,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.2")}
           isSaving={savingIndicators.has("4.2")}
         >
+          {renderSectionValidationMessage("4.2")}
           <div className="flex flex-col gap-4 w-[70%]">
             <div>
               <Label>
@@ -1701,6 +1815,7 @@ export const InfraEnablersStep = () => {
                   submissionId={submissionId}
                   required
                   disabled={isIndicatorSubmitted("4.2")}
+                  deferFileDeletion={editingIndicators.has("4.2")}
                   className={getInputValidationClass("section4_2.file")}
                 />
                 <p className="text-xs text-muted-foreground">Description</p>
@@ -1774,6 +1889,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.3")}
           isSaving={savingIndicators.has("4.3")}
         >
+          {renderSectionValidationMessage("4.3")}
           <div className="flex flex-col gap-4">
             {/* --- Toggle --- */}
             <div className="w-[60%]">
@@ -1949,6 +2065,7 @@ export const InfraEnablersStep = () => {
                         submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("4.3")}
+                        deferFileDeletion={editingIndicators.has("4.3")}
                         className={getInputValidationClass(
                           `section4_3.projects.${formData.section4_3.projects.findIndex(
                             (p) => p.id === entry.id
@@ -2157,6 +2274,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.4")}
           isSaving={savingIndicators.has("4.4")}
         >
+          {renderSectionValidationMessage("4.4")}
           <div className="flex flex-col gap-4 w-[70%]">
             <div>
               <Label>
@@ -2235,6 +2353,7 @@ export const InfraEnablersStep = () => {
                   submissionId={submissionId}
                   required
                   disabled={isIndicatorSubmitted("4.4")}
+                  deferFileDeletion={editingIndicators.has("4.4")}
                   className={getInputValidationClass("section4_4.file")}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -2310,6 +2429,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.5")}
           isSaving={savingIndicators.has("4.5")}
         >
+          {renderSectionValidationMessage("4.5")}
           <div className="flex flex-col gap-4 w-[70%]">
             {/* Toggle */}
             <div>
@@ -2482,6 +2602,7 @@ export const InfraEnablersStep = () => {
                         submissionId={submissionId}
                         required
                         disabled={isIndicatorSubmitted("4.5")}
+                        deferFileDeletion={editingIndicators.has("4.5")}
                         className={getInputValidationClass(
                           `section4_5.practices.${formData.section4_5.practices.findIndex(
                             (p) => p.id === entry.id
@@ -2578,6 +2699,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.6")}
           isSaving={savingIndicators.has("4.6")}
         >
+          {renderSectionValidationMessage("4.6")}
           <div className="flex flex-col gap-4">
             {/* --- Toggle --- */}
             <div className="w-[60%]">
