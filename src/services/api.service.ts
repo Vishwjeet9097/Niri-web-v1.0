@@ -3997,7 +3997,35 @@ class ApiService implements HttpClient {
 
         // Create a sanitized payload without File objects for JSON serialization
         const sanitizedPayload = this.sanitizePayloadForJSON(payload);
-        formData.append("payload", JSON.stringify(sanitizedPayload));
+        
+        // Validate required fields before stringifying
+        if (!sanitizedPayload.submissionId) {
+          console.error("❌ [updateIndicator] submissionId is missing in sanitized payload");
+          throw new Error("submissionId is required");
+        }
+        if (!sanitizedPayload.category) {
+          console.error("❌ [updateIndicator] category is missing in sanitized payload");
+          throw new Error("category is required");
+        }
+        if (!sanitizedPayload.section) {
+          console.error("❌ [updateIndicator] section is missing in sanitized payload");
+          throw new Error("section is required");
+        }
+        if (!sanitizedPayload.fields || !Array.isArray(sanitizedPayload.fields) || sanitizedPayload.fields.length === 0) {
+          console.error("❌ [updateIndicator] fields array is missing or empty in sanitized payload");
+          throw new Error("fields array is required and must not be empty");
+        }
+        
+        const payloadString = JSON.stringify(sanitizedPayload);
+        console.log("📤 [updateIndicator] Sanitized payload:", {
+          submissionId: sanitizedPayload.submissionId,
+          category: sanitizedPayload.category,
+          section: sanitizedPayload.section,
+          fieldsCount: sanitizedPayload.fields?.length,
+          payloadString: payloadString.substring(0, 500), // First 500 chars for debugging
+        });
+        
+        formData.append("payload", payloadString);
 
         // Append files recursively with proper paths
         this.appendFilesToFormData(formData, payload, "");

@@ -43,6 +43,7 @@ import {
   validateInfraEnablers,
   type InfraEnablersValidationResult,
 } from "../validation/infraEnablersValidation";
+import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1698,7 +1699,9 @@ export const InfraEnablersStep = () => {
                     }));
                   }}
                   submissionId={submissionId}
+                  required
                   disabled={isIndicatorSubmitted("4.2")}
+                  className={getInputValidationClass("section4_2.file")}
                 />
                 <p className="text-xs text-muted-foreground">Description</p>
                 {renderFieldError("section4_2.file")}
@@ -1944,7 +1947,13 @@ export const InfraEnablersStep = () => {
                           updateGatiProject(entry.id, "file", file);
                         }}
                         submissionId={submissionId}
+                        required
                         disabled={isIndicatorSubmitted("4.3")}
+                        className={getInputValidationClass(
+                          `section4_3.projects.${formData.section4_3.projects.findIndex(
+                            (p) => p.id === entry.id
+                          )}.file`
+                        )}
                       />
                       {renderFieldError(
                         `section4_3.projects.${formData.section4_3.projects.findIndex(
@@ -2224,7 +2233,9 @@ export const InfraEnablersStep = () => {
                     }));
                   }}
                   submissionId={submissionId}
+                  required
                   disabled={isIndicatorSubmitted("4.4")}
+                  className={getInputValidationClass("section4_4.file")}
                 />
                 <p className="text-xs text-muted-foreground">
                   Upload ADR orders
@@ -2469,7 +2480,13 @@ export const InfraEnablersStep = () => {
                           updatePractice(entry.id, "file", file);
                         }}
                         submissionId={submissionId}
+                        required
                         disabled={isIndicatorSubmitted("4.5")}
+                        className={getInputValidationClass(
+                          `section4_5.practices.${formData.section4_5.practices.findIndex(
+                            (p) => p.id === entry.id
+                          )}.file`
+                        )}
                       />
                       {renderFieldError(
                         `section4_5.practices.${formData.section4_5.practices.findIndex(

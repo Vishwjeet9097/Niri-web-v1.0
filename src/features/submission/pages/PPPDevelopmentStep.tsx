@@ -48,6 +48,7 @@ import {
   validatePPPDevelopment,
   type PPPDevelopmentValidationResult,
 } from "../validation/pppDevelopmentValidation";
+import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -486,10 +487,10 @@ export const PPPDevelopmentStep = () => {
     return <p className="text-sm text-destructive mt-1">{error}</p>;
   };
 
+  // Use shared validation styling utility
   const getInputValidationClass = (fieldPath: string): string => {
-    const error = getFieldError(fieldPath);
-    if (!error || !showValidationErrors) return "";
-    return "border-destructive focus-visible:ring-destructive";
+    const hasError = !!getFieldError(fieldPath);
+    return getInputValidationClassUtil(hasError, showValidationErrors);
   };
 
   const showErrorsIfNeeded = () => {
@@ -1520,7 +1521,9 @@ export const PPPDevelopmentStep = () => {
                       }));
                     }}
                     submissionId={submissionId}
+                    required
                     disabled={isIndicatorSubmitted("3.1")}
+                    className={getInputValidationClass("section3_1.file")}
                   />
                   <p className="text-xs text-muted-foreground">
                     Upload copy of Act/Policy
@@ -1682,7 +1685,9 @@ export const PPPDevelopmentStep = () => {
                       }));
                     }}
                     submissionId={submissionId}
+                    required
                     disabled={isIndicatorSubmitted("3.2")}
+                    className={getInputValidationClass("section3_2.file")}
                   />
                   <p className="text-xs text-muted-foreground">
                     Upload notification or mandate
@@ -1942,6 +1947,7 @@ export const PPPDevelopmentStep = () => {
                       }}
                       submissionId={submissionId}
                       disabled={isIndicatorSubmitted("3.3")}
+                      // Note: Upload file is NON-mandatory in section 3.3, so no required prop
                     />
                   </div>
                   {renderFieldError(

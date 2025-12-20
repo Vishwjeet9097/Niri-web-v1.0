@@ -227,14 +227,15 @@ export const validateInfraDevelopment = (
             errors[`section2_4.investmentReadyArray.${index}.investmentType`] =
               "Type of investment is required.";
           }
-          if (entry.projectSize !== undefined && entry.projectSize !== "") {
-            if (
-              !isNonNegativeDecimal(entry.projectSize) ||
-              !hasMaxTwoDecimals(entry.projectSize)
-            ) {
-              errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
-                "Enter a non-negative amount with up to two decimal places.";
-            }
+          if (!entry.projectSize || entry.projectSize.trim() === "") {
+            errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
+              "Project size is required.";
+          } else if (
+            !isNonNegativeDecimal(entry.projectSize) ||
+            !hasMaxTwoDecimals(entry.projectSize)
+          ) {
+            errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
+              "Enter a non-negative amount with up to two decimal places.";
           }
         });
       }

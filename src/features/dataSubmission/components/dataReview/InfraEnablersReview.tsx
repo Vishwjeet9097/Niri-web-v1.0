@@ -66,6 +66,11 @@ import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { validateInfraEnablers } from "@/features/submission/validation/infraEnablersValidation";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { useFieldValidation } from "@/features/submission/hooks/useFieldValidation";
+import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorDisplay";
+import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
+import { cn } from "@/lib/utils";
+import { useMemo, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   IMPACT_OPTIONS,
@@ -95,12 +100,60 @@ export const InfraEnablersReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  
+  // Field validation hook for touch tracking
+  const {
+    touchedFields,
+    markFieldAsTouched,
+    setValidatingIndicator,
+    markIndicatorFieldsAsTouched,
+    clearValidatingIndicator,
+    clearValidFieldErrors,
+    createOnChangeHandler,
+    createOnBlurHandler,
+    createOnValueChangeHandler,
+  } = useFieldValidation();
 
-  // Helper function to get error message for a field
-  const getFieldError = (fieldPath: string): string | undefined => {
-    return validationErrors[fieldPath];
-  };
+  // Helper to check if field is touched
+  const isFieldTouched = useCallback((path: string) => {
+    return touchedFields.has(path);
+  }, [touchedFields]);
+
+  // Real-time validation state
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
+
+  // Build full form data for validation
+  const fullFormDataForValidation = useMemo(() => {
+    return formDataState || formData || {};
+  }, [formDataState, formData]);
+
+  // Real-time validation using useMemo
+  const validation = useMemo(() => {
+    const effectiveAssignedIndicators = assignedIndicators.length > 0 
+      ? assignedIndicators 
+      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+    
+    return validateInfraEnablers(fullFormDataForValidation as any, {
+      allowedIndicators: effectiveAssignedIndicators,
+    });
+  }, [fullFormDataForValidation, assignedIndicators, hookAssignedIndicators]);
+
+  // Field error display hook
+  const { getFieldError, getInputValidationClass, renderFieldError } = useFieldErrorDisplay({
+    validationErrors: validation.errors,
+    indicatorValidationErrors,
+    showValidationErrors,
+    isFieldTouched,
+    validatingIndicator: null,
+  });
+
+  // Clear valid field errors when validation passes
+  useEffect(() => {
+    clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
+  }, [validation.errors, clearValidFieldErrors]);
 
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
@@ -514,7 +567,7 @@ export const InfraEnablersReview = ({
 
     // Check if section CAN be edited (permission check)
     const canEdit = canEditSection(sectionId);
-    console.log(
+      console.log(
       `[InfraEnablersReview] handleEditStart - canEditSection result:`,
       {
         sectionId,
@@ -542,6 +595,107 @@ export const InfraEnablersReview = ({
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
+
+    // Show all validation errors when entering edit mode
+    // Build full form data for validation
+    const fullData = {
+      section4_1: formDataState?.section4_1 || { allEligible: "", websiteLink: "" },
+      section4_2: formDataState?.section4_2 || { available: "", file: null },
+      section4_3: formDataState?.section4_3 || { adopted: "", file: null, projects: [] },
+      section4_4: formDataState?.section4_4 || { adopted: "", file: null },
+      section4_5: formDataState?.section4_5 || { implemented: "", practiceName: "", impact: "", file: null },
+      section4_6: formDataState?.section4_6 || { participated: "", capacityArray: [] },
+    };
+
+    const effectiveAssignedIndicators = assignedIndicators.length > 0 
+      ? assignedIndicators 
+      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+    // Run validation for the section
+    const validationResult = validateInfraEnablers(fullData, {
+      allowedIndicators: effectiveAssignedIndicators,
+    });
+
+    // Filter validation errors to only include the section being edited
+    const sectionErrors: Record<string, string> = {};
+    const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+    Object.keys(validationResult.errors).forEach((errorKey) => {
+      if (errorKey.startsWith(sectionPrefix)) {
+        sectionErrors[errorKey] = validationResult.errors[errorKey];
+      }
+    });
+
+    // Mark all fields in this section as touched so errors show immediately
+    // This includes both fields with errors and fields that might get errors later
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+    const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
+    
+    // Get all possible field paths for this section
+    const allSectionFields: string[] = [];
+    
+    // Add base fields based on section
+    if (sectionId === "4.1") {
+      allSectionFields.push(`${sectionPrefix}.allEligible`, `${sectionPrefix}.websiteLink`, `${sectionPrefix}.comment`);
+    } else if (sectionId === "4.2") {
+      allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+    } else if (sectionId === "4.3") {
+      allSectionFields.push(`${sectionPrefix}.adopted`, `${sectionPrefix}.comment`);
+      if (sectionData && typeof sectionData === "object" && "projects" in sectionData && Array.isArray((sectionData as any).projects)) {
+        (sectionData as any).projects.forEach((_: any, index: number) => {
+          allSectionFields.push(
+            `${sectionPrefix}.projects.${index}.projectName`,
+            `${sectionPrefix}.projects.${index}.sector`,
+            `${sectionPrefix}.projects.${index}.file`
+          );
+        });
+      }
+    } else if (sectionId === "4.4") {
+      allSectionFields.push(`${sectionPrefix}.adopted`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+    } else if (sectionId === "4.5") {
+      allSectionFields.push(`${sectionPrefix}.implemented`, `${sectionPrefix}.comment`);
+      if (sectionData && typeof sectionData === "object" && "practices" in sectionData && Array.isArray((sectionData as any).practices)) {
+        (sectionData as any).practices.forEach((_: any, index: number) => {
+          allSectionFields.push(
+            `${sectionPrefix}.practices.${index}.practiceName`,
+            `${sectionPrefix}.practices.${index}.impact`,
+            `${sectionPrefix}.practices.${index}.file`
+          );
+        });
+      }
+    } else if (sectionId === "4.6") {
+      allSectionFields.push(`${sectionPrefix}.participated`, `${sectionPrefix}.comment`);
+      if (sectionData && typeof sectionData === "object" && "capacityArray" in sectionData && Array.isArray((sectionData as any).capacityArray)) {
+        (sectionData as any).capacityArray.forEach((_: any, index: number) => {
+          allSectionFields.push(
+            `${sectionPrefix}.capacityArray.${index}.officerName`,
+            `${sectionPrefix}.capacityArray.${index}.designation`,
+            `${sectionPrefix}.capacityArray.${index}.programName`,
+            `${sectionPrefix}.capacityArray.${index}.organiser`,
+            `${sectionPrefix}.capacityArray.${index}.trainingType`
+          );
+        });
+      }
+    }
+
+    // Mark all section fields as touched so errors show immediately
+    allSectionFields.forEach((field) => {
+      markFieldAsTouched(field);
+    });
+    // Also mark fields with errors from validation
+    Object.keys(validationResult.errors).forEach((errorKey) => {
+      if (errorKey.startsWith(sectionPrefix)) {
+        markFieldAsTouched(errorKey);
+      }
+    });
+
+    // Set validation errors and show them
+    setShowValidationErrors(true);
+    setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+    
+    console.log(
+      `[InfraEnablersReview] Validation errors for section ${sectionId}:`,
+      sectionErrors
+    );
   };
 
   // Handle cancel - restore original state
@@ -718,8 +872,7 @@ export const InfraEnablersReview = ({
   }
 
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Only include sections that have meaningful data - don't show empty/unsubmitted indicators
-  // This ensures state approvers only see indicators that were actually saved/submitted by nodal officers
+  // Always include all sections that exist in formData - never hide sections regardless of data content
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     state &&
@@ -733,41 +886,10 @@ export const InfraEnablersReview = ({
       "section4_5",
       "section4_6",
     ];
+    // Always include sections that exist in state, regardless of data content
     const existingSections = allPossibleSections.filter((sectionKey) => {
-      // Check if section key exists in state
-      if (!(sectionKey in state)) {
-        return false;
-      }
-
-      const section = state[sectionKey];
-
-      // Check if section has meaningful data (not just empty object, null, or empty array)
-      if (!section || typeof section !== "object") return false;
-
-      // For array-based sections, check if array has data
-      if (Array.isArray(section)) {
-        return (
-          section.length > 0 &&
-          section.some((item) => {
-            if (!item || typeof item !== "object") return false;
-            return (
-              Object.keys(item).length > 0 &&
-              Object.values(item).some(
-                (val) => val !== null && val !== undefined && val !== ""
-              )
-            );
-          })
-        );
-      }
-
-      // For object sections, check if they have any meaningful values
-      return Object.values(section).some((val) => {
-        if (val === null || val === undefined || val === "") return false;
-        if (Array.isArray(val) && val.length === 0) return false;
-        if (typeof val === "object" && Object.keys(val).length === 0)
-          return false;
-        return true;
-      });
+      // Simply check if section key exists in state - always show if it exists
+      return sectionKey in state;
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
@@ -871,12 +993,26 @@ export const InfraEnablersReview = ({
 
     // Check if this is a resubmission of a sent-back indicator
     const sectionKey = `section${sectionId.replace(".", "_")}`;
+    // Check multiple sources for status: submission.section_status, formDataState
+    let currentStatus: string | undefined;
+    
+    // Get sectionData for logging and fallback status check
     const sectionData = formDataState && formDataState[sectionKey];
-    const currentStatus = sectionData
-      ? Array.isArray(sectionData)
-        ? (sectionData as any).status
-        : sectionData.status
-      : undefined;
+    
+    // First check submission.section_status (most reliable source)
+    if (submission?.section_status && typeof submission.section_status === "object") {
+      currentStatus = (submission.section_status as any)[sectionKey];
+    }
+    
+    // Fallback to formDataState status
+    if (!currentStatus) {
+      currentStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+    }
+    
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
@@ -889,14 +1025,132 @@ export const InfraEnablersReview = ({
       formDataStateKeys: formDataState ? Object.keys(formDataState) : [],
     });
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
       console.log(
-        `[InfraEnablersReview] ✅ Showing save confirmation dialog for REVERTED indicator`
+        `[InfraEnablersReview] ✅ Running validation before showing dialog for NODAL_OFFICER`
       );
-      setPendingSaveSectionId(sectionId);
-      setShowSaveDialog(true);
-      return;
+      
+      // Run validation first (same logic as in performSave)
+      const fullData = {
+        section4_1: formDataState?.section4_1 || { allEligible: "", websiteLink: "" },
+        section4_2: formDataState?.section4_2 || { available: "", file: null },
+        section4_3: formDataState?.section4_3 || { adopted: "", file: null, projects: [] },
+        section4_4: formDataState?.section4_4 || { adopted: "", file: null },
+        section4_5: formDataState?.section4_5 || { implemented: "", practiceName: "", impact: "", file: null },
+        section4_6: formDataState?.section4_6 || { participated: "", capacityArray: [] },
+      };
+
+      const effectiveAssignedIndicators = assignedIndicators.length > 0 
+        ? assignedIndicators 
+        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+      const validationResult = validateInfraEnablers(fullData, {
+        allowedIndicators: effectiveAssignedIndicators,
+      });
+
+      // Filter validation errors to only include the section being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this section as touched so ALL errors show
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
+        
+        // Get all possible field paths for this section
+        const allSectionFields: string[] = [];
+        
+        // Add base fields based on section
+        if (sectionId === "4.1") {
+          allSectionFields.push(`${sectionPrefix}.allEligible`, `${sectionPrefix}.websiteLink`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "4.2") {
+          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "4.3") {
+          allSectionFields.push(`${sectionPrefix}.adopted`, `${sectionPrefix}.comment`);
+          if (sectionData && typeof sectionData === "object" && "projects" in sectionData && Array.isArray((sectionData as any).projects)) {
+            (sectionData as any).projects.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.projects.${index}.projectName`,
+                `${sectionPrefix}.projects.${index}.sector`,
+                `${sectionPrefix}.projects.${index}.file`
+              );
+            });
+          }
+        } else if (sectionId === "4.4") {
+          allSectionFields.push(`${sectionPrefix}.adopted`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "4.5") {
+          allSectionFields.push(`${sectionPrefix}.implemented`, `${sectionPrefix}.comment`);
+          if (sectionData && typeof sectionData === "object" && "practices" in sectionData && Array.isArray((sectionData as any).practices)) {
+            (sectionData as any).practices.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.practices.${index}.practiceName`,
+                `${sectionPrefix}.practices.${index}.impact`,
+                `${sectionPrefix}.practices.${index}.file`
+              );
+            });
+          }
+        } else if (sectionId === "4.6") {
+          allSectionFields.push(`${sectionPrefix}.participated`, `${sectionPrefix}.comment`);
+          if (sectionData && typeof sectionData === "object" && "capacityArray" in sectionData && Array.isArray((sectionData as any).capacityArray)) {
+            (sectionData as any).capacityArray.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.capacityArray.${index}.officerName`,
+                `${sectionPrefix}.capacityArray.${index}.designation`,
+                `${sectionPrefix}.capacityArray.${index}.programName`,
+                `${sectionPrefix}.capacityArray.${index}.organiser`,
+                `${sectionPrefix}.capacityArray.${index}.trainingType`
+              );
+            });
+          }
+        }
+
+        // Mark all section fields as touched so ALL errors show
+        allSectionFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message (same as STATE_APPROVER)
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [sectionId]: `Please fill all mandatory fields.`,
+        }));
+        console.warn("Validation failed for section", sectionId, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        console.log(
+          `[InfraEnablersReview] ✅ Validation passed - showing save confirmation dialog for REVERTED indicator`
+        );
+        setPendingSaveSectionId(sectionId);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        console.log(
+          `[InfraEnablersReview] ✅ Validation passed - proceeding with direct save (not REVERTED)`
+        );
+        await performSave(sectionId);
+        return;
+      }
     }
 
     console.log(
@@ -1149,13 +1403,84 @@ export const InfraEnablersReview = ({
 
       // Only block save if there are errors in the section being saved
       if (Object.keys(sectionErrors).length > 0) {
-        setValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Mark all fields in this section as touched so ALL errors show
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
+        
+        // Get all possible field paths for this section
+        const allSectionFields: string[] = [];
+        
+        // Add base fields based on section
+        if (sectionId === "4.1") {
+          allSectionFields.push(`${sectionPrefix}.allEligible`, `${sectionPrefix}.websiteLink`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "4.2") {
+          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "4.3") {
+          allSectionFields.push(`${sectionPrefix}.adopted`, `${sectionPrefix}.comment`);
+          if (sectionData && typeof sectionData === "object" && "projects" in sectionData && Array.isArray((sectionData as any).projects)) {
+            (sectionData as any).projects.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.projects.${index}.projectName`,
+                `${sectionPrefix}.projects.${index}.sector`,
+                `${sectionPrefix}.projects.${index}.file`
+              );
+            });
+          }
+        } else if (sectionId === "4.4") {
+          allSectionFields.push(`${sectionPrefix}.adopted`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "4.5") {
+          allSectionFields.push(`${sectionPrefix}.implemented`, `${sectionPrefix}.comment`);
+          if (sectionData && typeof sectionData === "object" && "practices" in sectionData && Array.isArray((sectionData as any).practices)) {
+            (sectionData as any).practices.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.practices.${index}.practiceName`,
+                `${sectionPrefix}.practices.${index}.impact`,
+                `${sectionPrefix}.practices.${index}.file`
+              );
+            });
+          }
+        } else if (sectionId === "4.6") {
+          allSectionFields.push(`${sectionPrefix}.participated`, `${sectionPrefix}.comment`);
+          if (sectionData && typeof sectionData === "object" && "capacityArray" in sectionData && Array.isArray((sectionData as any).capacityArray)) {
+            (sectionData as any).capacityArray.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.capacityArray.${index}.officerName`,
+                `${sectionPrefix}.capacityArray.${index}.designation`,
+                `${sectionPrefix}.capacityArray.${index}.programName`,
+                `${sectionPrefix}.capacityArray.${index}.organiser`,
+                `${sectionPrefix}.capacityArray.${index}.trainingType`
+              );
+            });
+          }
+        }
+
+        // Mark all section fields as touched so ALL errors show
+        allSectionFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [sectionId]: `Please fill all mandatory fields.`,
+        }));
         console.warn("Validation failed for section", sectionId, sectionErrors);
-        // Errors are displayed inline in the UI, no need for alert
-        return;
+        // Throw validation error so handleConfirmSave can catch it and close dialog
+        const validationError = new Error("VALIDATION_FAILED");
+        (validationError as any).isValidationError = true;
+        throw validationError;
       } else {
         // Clear errors for this section only
-        setValidationErrors((prev) => {
+        setIndicatorValidationErrors((prev) => {
           const filtered = { ...prev };
           Object.keys(filtered).forEach((key) => {
             if (key.startsWith(sectionPrefix)) {
@@ -1163,6 +1488,12 @@ export const InfraEnablersReview = ({
             }
           });
           return filtered;
+        });
+        // Clear section-level validation message on successful validation
+        setSectionValidationMessages((prev) => {
+          const updated = { ...prev };
+          delete updated[sectionId];
+          return updated;
         });
       }
 
@@ -1253,9 +1584,16 @@ export const InfraEnablersReview = ({
         console.log(`[InfraEnablersReview] ✅ Save completed successfully`);
         setShowSaveDialog(false);
         setPendingSaveSectionId(null);
-      } catch (error) {
+      } catch (error: any) {
         console.error(`[InfraEnablersReview] ❌ Save failed:`, error);
-        // Don't close dialog on error so user can try again
+        // If validation failed, close dialog so error messages are visible
+        if (error?.isValidationError) {
+          setShowSaveDialog(false);
+          setPendingSaveSectionId(null);
+          // Error messages are already displayed on UI, no notification needed
+        } else {
+          // For other errors, don't close dialog so user can try again
+        }
       }
     } else {
       console.warn(
@@ -1515,102 +1853,32 @@ export const InfraEnablersReview = ({
   ) => {
     const sectionKey = `section${sectionId.replace(".", "_")}`;
     const previousSection = state?.[sectionKey] || {};
-    const targetKey = ["4.2", "4.4"].includes(sectionId) ? "files" : "file";
+    
+    // All sections use 'file' (singular) for single file uploads
+    // Sections 4.2 and 4.4 are single file uploads, same as 3.1
+    const targetKey = "file";
+    
+    // Normalize to single file (take first if array, or the value itself)
+    const normalizedValue = Array.isArray(updatedValue) && updatedValue.length > 0 
+      ? updatedValue[0] 
+      : (Array.isArray(updatedValue) ? null : updatedValue);
 
-    // For sections that use 'files' array, ensure we always work with arrays
-    let filesArray: FileUpload[] = [];
-    if (targetKey === "files") {
-      // If updatedValue is null, set empty array
-      if (updatedValue === null) {
-        filesArray = [];
-      }
-      // If it's already an array, use it
-      else if (Array.isArray(updatedValue)) {
-        filesArray = updatedValue;
-      }
-      // If it's a single file, convert to array
-      else {
-        filesArray = [updatedValue];
-      }
-    }
+    const updatedSection = {
+      ...previousSection,
+      [targetKey]: normalizedValue,
+      // Keep 'files' array for backward compatibility with save logic
+      ...(normalizedValue ? { files: [normalizedValue] } : { files: [] }),
+    };
 
-    const normalizedValue = targetKey === "files" ? filesArray : updatedValue;
-
-    const updatedSection =
-      targetKey === "files"
-        ? {
-            ...previousSection,
-            files: filesArray,
-            file: toSingleFile(filesArray),
-          }
-        : {
-            ...previousSection,
-            [targetKey]: normalizedValue,
-          };
-
-    // Update local state
+    // Update local state only - save will happen when user clicks Save button
+    // Files are stored as File objects and will be uploaded to S3 on Save
     setFormDataState((prev: any) => ({
       ...prev,
       [sectionKey]: updatedSection,
     }));
 
-    // Auto-save for sections 4.2 and 4.4
-    if (["4.2", "4.4"].includes(sectionId)) {
-      try {
-        // Ensure files array is properly formatted for API
-        const filesForPayload = filesArray.map((file) => ({
-          id: file.id,
-          file: file.file, // This should be the stored path (string)
-          fileName: file.fileName,
-          originalName: (file as any)?.originalName || file.fileName,
-          fileSize: file.fileSize,
-          uploadedAt: file.uploadedAt,
-          filePath: file.filePath,
-          fileUrl: file.fileUrl,
-          mimeType: file.mimeType,
-        }));
-
-        const fields =
-          sectionId === "4.2"
-            ? [
-                {
-                  available: updatedSection?.available ?? null,
-                  files: filesForPayload, // Send array of file objects
-                },
-              ]
-            : [
-                {
-                  adopted: updatedSection?.adopted ?? null,
-                  files: filesForPayload, // Send array of file objects
-                  marksObtained: updatedSection?.marksObtained ?? null,
-                },
-              ];
-
-        console.log(
-          "📤 Saving files for section",
-          sectionId,
-          "with payload:",
-          fields
-        );
-
-        await handleSaveSection({
-          submissionId,
-          category: "infraEnablers",
-          section: sectionKey,
-          fields,
-        });
-
-        if (filesArray.length === 0) {
-          await onIndicatorStatus(sectionId, false);
-        }
-      } catch (error) {
-        console.error(
-          "Failed to auto-save files for section",
-          sectionId,
-          error
-        );
-      }
-    }
+    // Removed auto-save - files are stored as File objects and will be uploaded
+    // when user clicks Save button (via updateSubmission → uploadFilesAndReplace)
   };
 
   // Helper functions to handle field updates
@@ -1898,6 +2166,20 @@ export const InfraEnablersReview = ({
   };
 
   // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  // Helper to render validation error message for a section
+  const renderSectionValidationMessage = (sectionId: string) => {
+    if (!sectionValidationMessages[sectionId] || !shouldBeEditable(sectionId)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[sectionId]}
+        </p>
+      </div>
+    );
+  };
+
   const renderMOSPIReviewerComments = (sectionId: string) => {
     const getUserRole = () => {
       try {
@@ -2639,6 +2921,8 @@ export const InfraEnablersReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.1")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("4.1")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2772,6 +3056,8 @@ export const InfraEnablersReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.2")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("4.2")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">
@@ -2812,17 +3098,14 @@ export const InfraEnablersReview = ({
               {state?.section4_2?.available === "yes" && (
                 <div>
                   <EditableFileDisplay
-                    files={
-                      state?.section4_2?.files ??
-                      (state?.section4_2?.file ? [state.section4_2.file] : null)
-                    }
+                    files={state?.section4_2?.file ?? null}
                     isEditable={shouldBeEditable("4.2")}
                     submissionId={submissionId}
                     onFilesChange={(updatedFiles) =>
                       handleFileUpdate("4.2", updatedFiles)
                     }
                     label="Uploaded File"
-                    multiple={true}
+                    multiple={false}
                   />
                 </div>
               )}
@@ -2890,6 +3173,8 @@ export const InfraEnablersReview = ({
           </CardHeader> */}
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.3")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("4.3")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">
@@ -3131,24 +3416,24 @@ export const InfraEnablersReview = ({
                                   </div>
                                 ) : project.file ? (
                                   <div className="flex items-center gap-1">
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={
-                                        extractOriginalName(
-                                          project.file.fileName || "",
-                                          (project.file as any)?.originalName
-                                        ) || "Unknown file"
-                                      }
-                                    >
-                                      <Upload className="w-3 h-3" />
-                                      <span className="truncate">
-                                        {extractOriginalName(
-                                          project.file.fileName || "",
-                                          (project.file as any)?.originalName
-                                        ) || "Unknown file"}
-                                      </span>
-                                    </Badge>
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                    title={
+                                      extractOriginalName(
+                                        project.file.fileName || "",
+                                        (project.file as any)?.originalName
+                                      ) || "Unknown file"
+                                    }
+                                  >
+                                    <Upload className="w-3 h-3" />
+                                    <span className="truncate">
+                                      {extractOriginalName(
+                                        project.file.fileName || "",
+                                        (project.file as any)?.originalName
+                                      ) || "Unknown file"}
+                                    </span>
+                                  </Badge>
                                     {(() => {
                                       const fileKey = `4.3-${idx}`;
                                       const isLoading = !!fileLoading[fileKey];
@@ -3342,6 +3627,8 @@ export const InfraEnablersReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.4")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("4.4")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">
@@ -3382,17 +3669,14 @@ export const InfraEnablersReview = ({
               {state?.section4_4?.adopted === "yes" && (
                 <div>
                   <EditableFileDisplay
-                    files={
-                      state?.section4_4?.files ??
-                      (state?.section4_4?.file ? [state.section4_4.file] : null)
-                    }
+                    files={state?.section4_4?.file ?? null}
                     isEditable={shouldBeEditable("4.4")}
                     submissionId={submissionId}
                     onFilesChange={(updatedFiles) =>
                       handleFileUpdate("4.4", updatedFiles)
                     }
                     label="Uploaded File"
-                    multiple={true}
+                    multiple={false}
                   />
                 </div>
               )}
@@ -3446,6 +3730,8 @@ export const InfraEnablersReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.5")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("4.5")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3703,24 +3989,24 @@ export const InfraEnablersReview = ({
                                   </div>
                                 ) : practice.file ? (
                                   <div className="flex items-center gap-1">
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                      title={
-                                        extractOriginalName(
-                                          practice.file.fileName || "",
-                                          (practice.file as any)?.originalName
-                                        ) || "Unknown file"
-                                      }
-                                    >
-                                      <Upload className="w-3 h-3" />
-                                      <span className="truncate">
-                                        {extractOriginalName(
-                                          practice.file.fileName || "",
-                                          (practice.file as any)?.originalName
-                                        ) || "Unknown file"}
-                                      </span>
-                                    </Badge>
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                    title={
+                                      extractOriginalName(
+                                        practice.file.fileName || "",
+                                        (practice.file as any)?.originalName
+                                      ) || "Unknown file"
+                                    }
+                                  >
+                                    <Upload className="w-3 h-3" />
+                                    <span className="truncate">
+                                      {extractOriginalName(
+                                        practice.file.fileName || "",
+                                        (practice.file as any)?.originalName
+                                      ) || "Unknown file"}
+                                    </span>
+                                  </Badge>
                                     {(() => {
                                       const fileKey = `4.5-${idx}`;
                                       const isLoading = !!fileLoading[fileKey];
@@ -3914,6 +4200,8 @@ export const InfraEnablersReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("4.6")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("4.6")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">

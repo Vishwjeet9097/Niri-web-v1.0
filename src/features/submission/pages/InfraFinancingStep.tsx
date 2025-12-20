@@ -43,6 +43,7 @@ import { apiService } from "@/services/api.service";
 import { ulbService, ULB } from "@/services/ulb.service";
 import { computeStepProgress } from "../utils/progress";
 import { validateInfraFinancing } from "../validation/infraFinancingValidation";
+import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -710,10 +711,11 @@ export const InfraFinancingStep = () => {
     );
   };
 
-  const getInputValidationClass = (path: string) =>
-    getFieldError(path)
-      ? "border-destructive focus-visible:ring-destructive"
-      : undefined;
+  // Use shared validation styling utility
+  const getInputValidationClass = (path: string): string => {
+    const hasError = !!getFieldError(path);
+    return getInputValidationClassUtil(hasError, showValidationErrors);
+  };
 
   const showErrorsIfNeeded = () => {
     if (!showValidationErrors) {
@@ -1733,22 +1735,6 @@ export const InfraFinancingStep = () => {
                       markFieldAsTouched("section1_1.capitalAllocation");
                       showErrorsIfNeeded();
                       const value = e.target.value;
-                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                      
-                      // Real-time validation for zero values
-                      if (value && numValue === 0) {
-                        setIndicatorValidationErrors((prev) => ({
-                          ...prev,
-                          "section1_1.capitalAllocation": "Capital Allocation must be greater than zero.",
-                        }));
-                      } else if (value && numValue > 0) {
-                        // Clear zero value error if user enters valid value
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.capitalAllocation"];
-                          return updated;
-                        });
-                      }
                       
                       setFormData((prev) => ({
                         ...prev,
@@ -1758,47 +1744,9 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                       
-                      // Real-time validation for percentage limit (should not exceed 100%)
+                      // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_1.gsdpForFY) {
-                        const capitalAllocationNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        const gsdpForFYNum = parseFloat(
-                          (formData.section1_1.gsdpForFY || "")
-                            .toString()
-                            .replace(/[₹,]/g, "")
-                        ) || 0;
-                        
-                        // Clear percentage error first
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.allocationToGSDP"];
-                          return updated;
-                        });
-                        
-                        if (gsdpForFYNum > 0) {
-                          const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
-                          if (percentage > 100) {
-                            // Mark percentage field as touched so error shows
-                            markFieldAsTouched("section1_1.allocationToGSDP");
-                            setIndicatorValidationErrors((prev) => ({
-                              ...prev,
-                              "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
-                            }));
-                          } else {
-                            // Clear error if percentage is valid
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section1_1.allocationToGSDP"];
-                              return updated;
-                            });
-                          }
-                        }
-                      } else {
-                        // Clear error if one of the values is empty
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.allocationToGSDP"];
-                          return updated;
-                        });
+                        markFieldAsTouched("section1_1.allocationToGSDP");
                       }
                     }}
                     disabled={isIndicatorSubmitted("1.1")}
@@ -1827,22 +1775,6 @@ export const InfraFinancingStep = () => {
                       markFieldAsTouched("section1_1.gsdpForFY");
                       showErrorsIfNeeded();
                       const value = e.target.value;
-                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                      
-                      // Real-time validation for zero values
-                      if (value && numValue === 0) {
-                        setIndicatorValidationErrors((prev) => ({
-                          ...prev,
-                          "section1_1.gsdpForFY": "GSDP for FY must be greater than zero.",
-                        }));
-                      } else if (value && numValue > 0) {
-                        // Clear zero value error if user enters valid value
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.gsdpForFY"];
-                          return updated;
-                        });
-                      }
                       
                       setFormData((prev) => ({
                         ...prev,
@@ -1852,47 +1784,9 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                       
-                      // Real-time validation for percentage limit (should not exceed 100%)
+                      // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_1.capitalAllocation) {
-                        const capitalAllocationNum = parseFloat(
-                          (formData.section1_1.capitalAllocation || "")
-                            .toString()
-                            .replace(/[₹,]/g, "")
-                        ) || 0;
-                        const gsdpForFYNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        
-                        // Clear percentage error first
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.allocationToGSDP"];
-                          return updated;
-                        });
-                        
-                        if (gsdpForFYNum > 0) {
-                          const percentage = (capitalAllocationNum / gsdpForFYNum) * 100;
-                          if (percentage > 100) {
-                            // Mark percentage field as touched so error shows
-                            markFieldAsTouched("section1_1.allocationToGSDP");
-                            setIndicatorValidationErrors((prev) => ({
-                              ...prev,
-                              "section1_1.allocationToGSDP": "Percentage cannot exceed 100%. Capital Allocation must be less than or equal to GSDP for FY.",
-                            }));
-                          } else {
-                            // Clear error if percentage is valid
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section1_1.allocationToGSDP"];
-                              return updated;
-                            });
-                          }
-                        }
-                      } else {
-                        // Clear error if one of the values is empty
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.allocationToGSDP"];
-                          return updated;
-                        });
+                        markFieldAsTouched("section1_1.allocationToGSDP");
                       }
                     }}
                     disabled={isIndicatorSubmitted("1.1")}
@@ -2010,22 +1904,6 @@ export const InfraFinancingStep = () => {
                       markFieldAsTouched("section1_2.actualCapex");
                       showErrorsIfNeeded();
                       const value = e.target.value;
-                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                      
-                      // Real-time validation for zero values
-                      if (value && numValue === 0) {
-                        setIndicatorValidationErrors((prev) => ({
-                          ...prev,
-                          "section1_2.actualCapex": "Actual Capex must be greater than zero.",
-                        }));
-                      } else if (value && numValue > 0) {
-                        // Clear zero value error if user enters valid value
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.actualCapex"];
-                          return updated;
-                        });
-                      }
                       
                       setFormData((prev) => ({
                         ...prev,
@@ -2035,40 +1913,9 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                       
-                      // Real-time validation for percentage limit
+                      // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_2.stateCapexUtilisation) {
-                        const actualCapexNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        const stateCapexNum = parseFloat(
-                          (formData.section1_2.stateCapexUtilisation || "")
-                            .toString()
-                            .replace(/[₹,]/g, "")
-                        ) || 0;
-                        
-                        // Clear percentage error first
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.capexActualsToGSDP"];
-                          return updated;
-                        });
-                        
-                        if (stateCapexNum > 0) {
-                          const percentage = (actualCapexNum / stateCapexNum) * 100;
-                          if (percentage > 100) {
-                            // Mark percentage field as touched so error shows
-                            markFieldAsTouched("section1_2.capexActualsToGSDP");
-                            setIndicatorValidationErrors((prev) => ({
-                              ...prev,
-                              "section1_2.capexActualsToGSDP": "Percentage cannot exceed 100%.",
-                            }));
-                          } else {
-                            // Clear error if percentage is valid
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section1_2.capexActualsToGSDP"];
-                              return updated;
-                            });
-                          }
-                        }
+                        markFieldAsTouched("section1_2.capexActualsToGSDP");
                       }
                     }}
                     disabled={isIndicatorSubmitted("1.2")}
@@ -2096,22 +1943,6 @@ export const InfraFinancingStep = () => {
                       markFieldAsTouched("section1_2.stateCapexUtilisation");
                       showErrorsIfNeeded();
                       const value = e.target.value;
-                      const numValue = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                      
-                      // Real-time validation for zero values
-                      if (value && numValue === 0) {
-                        setIndicatorValidationErrors((prev) => ({
-                          ...prev,
-                          "section1_2.stateCapexUtilisation": "State capex utilisation must be greater than zero.",
-                        }));
-                      } else if (value && numValue > 0) {
-                        // Clear zero value error if user enters valid value
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.stateCapexUtilisation"];
-                          return updated;
-                        });
-                      }
                       
                       setFormData((prev) => ({
                         ...prev,
@@ -2121,40 +1952,9 @@ export const InfraFinancingStep = () => {
                         },
                       }));
                       
-                      // Real-time validation for percentage limit
+                      // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_2.actualCapex) {
-                        const actualCapexNum = parseFloat(
-                          (formData.section1_2.actualCapex || "")
-                            .toString()
-                            .replace(/[₹,]/g, "")
-                        ) || 0;
-                        const stateCapexNum = parseFloat(value.replace(/[₹,]/g, "")) || 0;
-                        
-                        // Clear percentage error first
-                        setIndicatorValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.capexActualsToGSDP"];
-                          return updated;
-                        });
-                        
-                        if (stateCapexNum > 0) {
-                          const percentage = (actualCapexNum / stateCapexNum) * 100;
-                          if (percentage > 100) {
-                            // Mark percentage field as touched so error shows
-                            markFieldAsTouched("section1_2.capexActualsToGSDP");
-                            setIndicatorValidationErrors((prev) => ({
-                              ...prev,
-                              "section1_2.capexActualsToGSDP": "Percentage cannot exceed 100%.",
-                            }));
-                          } else {
-                            // Clear error if percentage is valid
-                            setIndicatorValidationErrors((prev) => {
-                              const updated = { ...prev };
-                              delete updated["section1_2.capexActualsToGSDP"];
-                              return updated;
-                            });
-                          }
-                        }
+                        markFieldAsTouched("section1_2.capexActualsToGSDP");
                       }
                     }}
                     disabled={isIndicatorSubmitted("1.2")}
