@@ -162,9 +162,7 @@ export function StateApproverDashboardPage() {
           {
             title: "Accepted By State Approver",
             value:
-              totalIndicators && totalIndicators > 0
-                ? `${acceptedFromNodal}/${totalIndicators}`
-                : String(acceptedFromNodal ?? 0),
+              `${acceptedFromNodal}/${String(totalAssigned)}`,
             subtitle: "This fiscal year",
             icon: CheckCircle,
             variant: "green",
