@@ -51,27 +51,61 @@ function isSectionAccepted(
   try {
     const categoryData = formData[category];
     if (!categoryData || typeof categoryData !== "object") {
+      console.log(
+        `⚠️ [isSectionAccepted] ${category}.${section}: No category data or not an object`
+      );
       return false;
     }
 
     const sectionData = categoryData[section];
     if (!sectionData) {
+      console.log(
+        `⚠️ [isSectionAccepted] ${category}.${section}: Section data not found. Available sections:`,
+        Object.keys(categoryData)
+      );
       return false;
     }
 
-    // Check if section has status field
-    if (sectionData.status === "ACCEPTED") {
+    // Debug: Log section data structure
+    console.log(
+      `🔍 [isSectionAccepted] ${category}.${section}: Section data keys:`,
+      Object.keys(sectionData),
+      `status: ${sectionData.status}`,
+      `mospi_status: ${sectionData.mospi_status}`
+    );
+
+    // Check if section has status field (normalize for comparison)
+    const statusValue = sectionData.status
+      ? String(sectionData.status).trim().toUpperCase()
+      : null;
+
+    if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
+      console.log(
+        `✅ [isSectionAccepted] ${category}.${section}: Found status = "${sectionData.status}" (normalized: "${statusValue}")`
+      );
       return true;
     }
 
     // For array sections, check if status is set on the array itself
-    if (
-      Array.isArray(sectionData) &&
-      (sectionData as any).status === "ACCEPTED"
-    ) {
-      return true;
+    if (Array.isArray(sectionData)) {
+      const arrayStatus = (sectionData as any).status
+        ? String((sectionData as any).status)
+            .trim()
+            .toUpperCase()
+        : null;
+      if (arrayStatus === "ACCEPTED" || arrayStatus === "APPROVED") {
+        console.log(
+          `✅ [isSectionAccepted] ${category}.${section}: Found status = "${
+            (sectionData as any).status
+          }" (normalized: "${arrayStatus}") on array`
+        );
+        return true;
+      }
     }
 
+    console.log(
+      `❌ [isSectionAccepted] ${category}.${section}: status is not "ACCEPTED" or "APPROVED". Actual value: "${sectionData.status}" (normalized: "${statusValue}")`
+    );
     return false;
   } catch (error) {
     console.error(`Error checking section ${category}.${section}:`, error);
@@ -501,16 +535,29 @@ export function areAllIndicatorsMospiAccepted(
     // 1. Object with mospi_status directly (e.g., { mospi_status: "ACCEPTED", ... })
     // 2. Object with nested array (e.g., { infraActArray: [...], mospi_status: "ACCEPTED" })
     // 3. Array format (legacy - should have mospi_status on the object itself)
+    // 4. Object with status field (STATE_APPROVER acceptance - fallback to status if mospi_status not found)
     let mospiStatus: string | undefined;
 
     if (typeof sectionData === "object" && !Array.isArray(sectionData)) {
       // Check for mospi_status directly on the section object
       mospiStatus = sectionData.mospi_status;
 
+      // If mospi_status is not found, check status field as fallback
+      // This handles cases where STATE_APPROVER accepted but MOSPI hasn't reviewed yet
+      if (!mospiStatus && sectionData.status) {
+        const statusValue = String(sectionData.status).trim().toUpperCase();
+        if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
+          mospiStatus = sectionData.status;
+          console.log(
+            `ℹ️ Indicator ${indicatorCode}: Using status field as fallback (${sectionData.status}) since mospi_status not found`
+          );
+        }
+      }
+
       // Debug: Log the section data structure for troubleshooting
       if (!mospiStatus) {
         console.log(
-          `⚠️ Indicator ${indicatorCode}: Section data exists but no mospi_status. Keys:`,
+          `⚠️ Indicator ${indicatorCode}: Section data exists but no mospi_status or valid status. Keys:`,
           Object.keys(sectionData).slice(0, 10),
           `Type: ${typeof sectionData}, IsArray: ${Array.isArray(sectionData)}`
         );
@@ -520,16 +567,31 @@ export function areAllIndicatorsMospiAccepted(
       // (some legacy data might have it this way)
       mospiStatus = (sectionData as any).mospi_status;
 
+      // Fallback to status if mospi_status not found
+      if (!mospiStatus && (sectionData as any).status) {
+        const statusValue = String((sectionData as any).status)
+          .trim()
+          .toUpperCase();
+        if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
+          mospiStatus = (sectionData as any).status;
+          console.log(
+            `ℹ️ Indicator ${indicatorCode}: Using status field as fallback (${
+              (sectionData as any).status
+            }) since mospi_status not found`
+          );
+        }
+      }
+
       if (!mospiStatus) {
         console.log(
-          `⚠️ Indicator ${indicatorCode}: Section data is an array but no mospi_status found. Array length: ${sectionData.length}`
+          `⚠️ Indicator ${indicatorCode}: Section data is an array but no mospi_status or valid status found. Array length: ${sectionData.length}`
         );
       }
     }
 
     if (!mospiStatus) {
       console.log(
-        `❌ Indicator ${indicatorCode}: No mospi_status found. Section data structure:`,
+        `❌ Indicator ${indicatorCode}: No mospi_status or valid status found. Section data structure:`,
         Array.isArray(sectionData) ? "Array" : typeof sectionData,
         `Keys: ${Object.keys(sectionData || {})
           .slice(0, 10)
