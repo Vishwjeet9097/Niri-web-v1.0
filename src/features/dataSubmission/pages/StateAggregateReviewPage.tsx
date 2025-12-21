@@ -253,6 +253,14 @@ const transformIndicatorsToFormData = (
         delete formFields.status;
         delete formFields.percentage;
         delete formFields.marksObtained;
+        // Only remove mospi_status if it's REVERTED - preserve ACCEPTED status
+        // (Backend cleanup should have already removed REVERTED, but we check here as a safety measure)
+        if (
+          formFields.mospi_status &&
+          String(formFields.mospi_status).trim().toUpperCase() === "REVERTED"
+        ) {
+          delete formFields.mospi_status;
+        }
 
         // Log what we're keeping for debugging
         console.log(
@@ -283,6 +291,39 @@ const transformIndicatorsToFormData = (
           // Explicitly set to null so UI can distinguish between "no comment field" and "comment is null"
           formFields.comment = null;
           console.log(`[Transform] Indicator ${code} - comment is null`);
+        }
+
+        // Merge mospi_status from submission's formData if not already present in indicatorData
+        // This is important for infraFinancing sections where mospi_status might not be in indicator.data
+        if (
+          !formFields.mospi_status &&
+          submissions &&
+          Array.isArray(submissions)
+        ) {
+          for (const submission of submissions) {
+            const subFormData =
+              submission.formData || submission.form_data || {};
+            const categoryData =
+              subFormData[formDataKey] || subFormData[categoryKey] || {};
+            const sectionData = categoryData[sectionKey];
+
+            if (
+              sectionData &&
+              typeof sectionData === "object" &&
+              sectionData.mospi_status
+            ) {
+              const mospiStatus = sectionData.mospi_status;
+              const normalizedStatus = String(mospiStatus).trim().toUpperCase();
+              // Only preserve ACCEPTED mospi_status from submission
+              if (normalizedStatus === "ACCEPTED") {
+                formFields.mospi_status = mospiStatus;
+                console.log(
+                  `[Transform] Indicator ${code} - merged mospi_status (ACCEPTED) from submission ${submission.id}`
+                );
+                break; // Found ACCEPTED status, no need to check other submissions
+              }
+            }
+          }
         }
 
         // Handle status field - infer form fields from status for some indicators
@@ -1461,6 +1502,93 @@ export const StateAggregateReviewPage = () => {
           );
 
           console.log("✅ mospi_status cleaned from backend via API");
+
+          // After cleanup, refetch the cleaned submission and merge mospi_status into formData
+          // This is critical for infraFinancing sections where mospi_status might not be in indicator.data
+          try {
+            console.log(
+              "🔄 Refetching cleaned submission to merge mospi_status into formData..."
+            );
+            const cleanedSubmission = await apiService.getSubmission(
+              existingReturnedSubmissionForCleanup.id
+            );
+            const cleanedFormData =
+              cleanedSubmission.formData ||
+              (cleanedSubmission as any).form_data ||
+              {};
+
+            // Merge mospi_status from cleaned submission into formData
+            if (cleanedFormData && typeof cleanedFormData === "object") {
+              Object.keys(cleanedFormData).forEach((categoryKey) => {
+                const categoryData = cleanedFormData[categoryKey];
+                if (
+                  categoryData &&
+                  typeof categoryData === "object" &&
+                  formData[categoryKey]
+                ) {
+                  Object.keys(categoryData).forEach((sectionKey) => {
+                    const sectionData = categoryData[sectionKey];
+                    if (
+                      sectionData &&
+                      typeof sectionData === "object" &&
+                      sectionData.mospi_status
+                    ) {
+                      const mospiStatus = sectionData.mospi_status;
+                      const normalizedStatus = String(mospiStatus)
+                        .trim()
+                        .toUpperCase();
+                      // Only merge ACCEPTED mospi_status
+                      if (normalizedStatus === "ACCEPTED") {
+                        // Ensure the section exists in formData
+                        if (!formData[categoryKey][sectionKey]) {
+                          formData[categoryKey][sectionKey] = {};
+                        }
+                        formData[categoryKey][sectionKey].mospi_status =
+                          mospiStatus;
+                        console.log(
+                          `✅ Merged mospi_status (ACCEPTED) from cleaned submission into ${categoryKey}.${sectionKey}`
+                        );
+                        console.log(
+                          `   📋 Section data after merge:`,
+                          JSON.stringify(
+                            formData[categoryKey][sectionKey],
+                            null,
+                            2
+                          )
+                        );
+                      } else {
+                        console.log(
+                          `⏭️ Skipping mospi_status (${normalizedStatus}) from ${categoryKey}.${sectionKey} - not ACCEPTED`
+                        );
+                      }
+                    }
+                  });
+                } else {
+                  console.log(
+                    `⚠️ Category ${categoryKey} not found in formData or categoryData is invalid`
+                  );
+                }
+              });
+              console.log(
+                "✅ Successfully merged mospi_status from cleaned submission into formData"
+              );
+              console.log(
+                "📋 FormData after merge:",
+                JSON.stringify(formData, null, 2)
+              );
+            } else {
+              console.warn(
+                "⚠️ Cleaned formData is not a valid object:",
+                cleanedFormData
+              );
+            }
+          } catch (mergeError) {
+            console.warn(
+              "⚠️ Error merging mospi_status from cleaned submission:",
+              mergeError
+            );
+            // Continue with submission even if merge fails
+          }
         } else {
           console.log(
             "ℹ️ No existing RETURNED_FROM_MOSPI submission found - no cleanup needed"

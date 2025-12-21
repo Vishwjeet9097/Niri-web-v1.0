@@ -52,6 +52,15 @@ export const transformFormDataForSubmission = (
     if (typeof value === "object") {
       const prunedObj: Record<string, any> = {};
       Object.keys(value).forEach((key) => {
+        // Only skip mospi_status if it's REVERTED - preserve ACCEPTED status
+        // (Backend cleanup should have already removed REVERTED, but we check here as a safety measure)
+        if (key === "mospi_status") {
+          const mospiStatus = value[key];
+          if (mospiStatus && String(mospiStatus).trim().toUpperCase() === "REVERTED") {
+            return; // Skip REVERTED mospi_status
+          }
+          // Preserve ACCEPTED or other non-REVERTED mospi_status - continue to add it below
+        }
         const prunedVal = prune(value[key]);
         if (
           prunedVal !== undefined &&
