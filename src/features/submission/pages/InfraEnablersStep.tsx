@@ -2001,8 +2001,8 @@ export const InfraEnablersStep = () => {
                 {(Array.isArray(formData.section4_3?.projects)
                   ? formData.section4_3.projects
                   : []
-                ).map((entry) => (
-                  <div key={entry.id} className="mb-2">
+                ).map((entry, index) => (
+                  <div key={entry.id || `entry-${index}`} className="mb-2">
                     {/* Fields row */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                       <div>
@@ -2161,11 +2161,11 @@ export const InfraEnablersStep = () => {
                         {(Array.isArray(formData.section4_3?.projects)
                           ? formData.section4_3.projects
                           : []
-                        ).map((entry) => {
+                        ).map((entry, index) => {
                           const file = entry.file;
                           if (!file) {
                             return (
-                              <tr key={entry.id} className="bg-white">
+                              <tr key={entry.id || `entry-${index}`} className="bg-white">
                                 <td className="py-3 px-4 text-sm">
                                   {entry.projectName}
                                 </td>
@@ -2222,7 +2222,7 @@ export const InfraEnablersStep = () => {
                           );
 
                           return (
-                            <tr key={entry.id} className="bg-white">
+                            <tr key={entry.id || `entry-${index}`} className="bg-white">
                               <td className="py-3 px-4 text-sm">
                                 {entry.projectName}
                               </td>
@@ -2560,8 +2560,8 @@ export const InfraEnablersStep = () => {
             {/* ✅ If YES → show Practice list */}
             {formData.section4_5.implemented === "yes" && (
               <div className="flex flex-col gap-4">
-                {(formData.section4_5.practices || []).map((entry) => (
-                  <div key={entry.id} className="mb-2">
+                {(formData.section4_5.practices || []).map((entry, index) => (
+                  <div key={entry.id || `entry-${index}`} className="mb-2">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                       <div>
                         <Label>
@@ -2834,8 +2834,8 @@ export const InfraEnablersStep = () => {
             {/* ✅ If YES → show officer entries */}
             {formData.section4_6.participated === "yes" && (
               <div className="flex flex-col gap-4">
-                {formData.section4_6.capacityArray.map((entry) => (
-                  <div key={entry.id} className="mb-2">
+                {formData.section4_6.capacityArray.map((entry, index) => (
+                  <div key={entry.id || `entry-${index}`} className="mb-2">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                       <div>
                         <Label>
@@ -3062,8 +3062,8 @@ export const InfraEnablersStep = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {formData.section4_6.capacityArray.map((entry) => (
-                          <tr key={entry.id} className="bg-white">
+                        {formData.section4_6.capacityArray.map((entry, index) => (
+                          <tr key={entry.id || `entry-${index}`} className="bg-white">
                             <td className="py-3 px-4 text-sm">
                               {entry.officerName}
                             </td>

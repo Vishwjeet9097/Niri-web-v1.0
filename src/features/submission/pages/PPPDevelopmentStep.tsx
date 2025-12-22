@@ -1914,7 +1914,7 @@ export const PPPDevelopmentStep = () => {
                 ? formData.section3_3.VGFArray
                 : []
               ).map((entry, idx) => (
-                <div key={entry.id} className="mb-2">
+                <div key={entry.id || `entry-${idx}`} className="mb-2">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                     <div>
                       <Label>
@@ -2121,11 +2121,11 @@ export const PPPDevelopmentStep = () => {
                       {(Array.isArray(formData.section3_3?.VGFArray)
                         ? formData.section3_3.VGFArray
                         : []
-                      ).map((entry) => {
+                      ).map((entry, index) => {
                         const file = entry.file;
                         if (!file) {
                           return (
-                            <tr key={entry.id} className="bg-white">
+                            <tr key={entry.id || `entry-${index}`} className="bg-white">
                               <td className="py-3 px-4 text-sm">
                                 {entry.projectName}
                               </td>
@@ -2190,7 +2190,7 @@ export const PPPDevelopmentStep = () => {
                         );
 
                         return (
-                          <tr key={entry.id} className="bg-white">
+                          <tr key={entry.id || `entry-${index}`} className="bg-white">
                             <td className="py-3 px-4 text-sm">
                               {entry.projectName}
                             </td>
@@ -2346,8 +2346,8 @@ export const PPPDevelopmentStep = () => {
               </div>
 
               {/* Existing per-project list */}
-              {(formData.section3_4.projects || []).map((project) => (
-                <div key={project.id} className="mb-4 p-4 border rounded-lg">
+              {(formData.section3_4.projects || []).map((project, index) => (
+                <div key={project.id || `project-${index}`} className="mb-4 p-4 border rounded-lg">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     <div className="space-y-4">
                       <div>
@@ -2599,8 +2599,8 @@ export const PPPDevelopmentStep = () => {
                         {(Array.isArray(formData.section3_4?.projects)
                           ? formData.section3_4.projects
                           : []
-                        ).map((project) => (
-                          <tr key={project.id} className="bg-white">
+                        ).map((project, index) => (
+                          <tr key={project.id || `project-${index}`} className="bg-white">
                             <td className="py-3 px-4 text-sm">
                               {project.nameOfProject}
                             </td>

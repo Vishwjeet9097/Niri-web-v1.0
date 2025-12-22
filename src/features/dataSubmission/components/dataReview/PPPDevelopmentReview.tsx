@@ -156,6 +156,19 @@ export const PPPDevelopmentReview = ({
     return touchedFields.has(path);
   }, [touchedFields]);
 
+  // Helper function to format date for HTML5 date input (YYYY-MM-DD)
+  const formatDateForInput = useCallback((dateValue: string | undefined | null): string => {
+    if (!dateValue) return "";
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return "";
+      return date.toISOString().split("T")[0];
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "";
+    }
+  }, []);
+
   // Real-time validation state
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
@@ -3759,7 +3772,7 @@ export const PPPDevelopmentReview = ({
                       <Label>Submission Date</Label>
                       <Input
                         type="date"
-                        value={newVGFItem.submissionDate ? newVGFItem.submissionDate.split("T")[0] : ""}
+                        value={formatDateForInput(newVGFItem.submissionDate)}
                         onChange={(e) => {
                           setNewVGFItem({
                             ...newVGFItem,
@@ -4279,7 +4292,7 @@ export const PPPDevelopmentReview = ({
                       <Label>Date of Award</Label>
                       <Input
                         type="date"
-                        value={newProject.dateOfAward ? newProject.dateOfAward.split("T")[0] : ""}
+                        value={formatDateForInput(newProject.dateOfAward)}
                         onChange={(e) => {
                           setNewProject({
                             ...newProject,

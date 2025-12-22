@@ -30,6 +30,20 @@ export const Section_1_3 = ({
   const getError = (fieldPath: string) => {
     return getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath];
   };
+  
+  // Helper function to format date for HTML5 date input (YYYY-MM-DD)
+  const formatDateForInput = (dateValue: string | undefined): string => {
+    if (!dateValue) return "";
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return "";
+      return date.toISOString().split("T")[0];
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "";
+    }
+  };
+  
   const ulbList = formData?.section1_3?.ulbList || [];
   const totalULBs = formData?.section1_3?.totalULBs || 0;
   console.log("[Section_1_3] formData:", formData);
@@ -311,12 +325,12 @@ export const Section_1_3 = ({
                       <div>
                         <Input
                           type="date"
-                          value={item.ratingDate || ""}
+                          value={formatDateForInput(item.ratingDate)}
                           onChange={(e) => {
                             handleUlbChange(
                               index,
                               "ratingDate",
-                              e.target.value
+                              e.target.value ? new Date(e.target.value).toISOString() : ""
                             );
                           }}
                           className={cn(
@@ -422,10 +436,9 @@ export const Section_1_3 = ({
                   }
                   setNewULBEntry({ ...newULBEntry, ulb: value, cityName });
                 }}
-                placeholder={ulbLoading ? "Loading..." : "Select ULB"}
-                isEditable={true}
+                placeholder={ulbLoading ? "Loading..." : ulbError ? "Failed to load ULBs" : "Select ULB"}
+                isEditable={!ulbLoading && !ulbError}
                 isSearchable={true}
-                disabled={ulbLoading || !!ulbError}
               />
               {ulbError && (
                 <div className="text-xs text-red-500 mt-1">{ulbError}</div>
@@ -456,11 +469,11 @@ export const Section_1_3 = ({
               <Label>Rating Date</Label>
               <Input
                 type="date"
-                value={newULBEntry.ratingDate || ""}
+                value={formatDateForInput(newULBEntry.ratingDate)}
                 onChange={(e) => {
                   setNewULBEntry({
                     ...newULBEntry,
-                    ratingDate: e.target.value,
+                    ratingDate: e.target.value ? new Date(e.target.value).toISOString() : "",
                   });
                 }}
                 className={cn(
