@@ -1273,12 +1273,27 @@ export const InfraFinancingReview = ({
   const handleCancel = (sectionId: string) => {
     if (originalStateSnapshot) {
       isRestoringRef.current = true;
+      
+      // For section 1.3, restore section13State FIRST before updating submissionData
+      // This ensures the component receives the correct data immediately
+      if (sectionId === "1.3" && originalStateSnapshot.section13State) {
+        setSection13State({
+          ulbList: originalStateSnapshot.section13State.ulbList || [],
+          totalULBs: originalStateSnapshot.section13State.totalULBs || 0,
+        });
+      }
+      
       setSubmissionData(originalStateSnapshot.submissionData);
       setCapitalAllocation(originalStateSnapshot.capitalAllocation);
       setGsdpForFY(originalStateSnapshot.gsdpForFY);
       setActualCapex(originalStateSnapshot.actualCapex);
       setStateCapexUtilisation(originalStateSnapshot.stateCapexUtilisation);
-      setSection13State(originalStateSnapshot.section13State);
+      
+      // Only set section13State here if it's NOT section 1.3 (already set above)
+      if (sectionId !== "1.3") {
+        setSection13State(originalStateSnapshot.section13State);
+      }
+      
       setSection14State(originalStateSnapshot.section14State);
       setSection15State(originalStateSnapshot.section15State);
 
@@ -1308,16 +1323,28 @@ export const InfraFinancingReview = ({
         );
       }
 
-      // For section 1.3, ensure formData is also restored from snapshot
-      if (
-        sectionId === "1.3" &&
-        originalStateSnapshot.submissionData?.section1_3
-      ) {
-        // The submissionData already contains the restored formData, so local state
-        // will be updated via useEffect when formData changes
+      // For section 1.3, ensure submissionData.section1_3 is synced with restored section13State
+      if (sectionId === "1.3") {
+        // Update submissionData to match the restored section13State
+        // This ensures consistency between submissionData and section13State
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          updated.section1_3 = {
+            ...updated.section1_3,
+            ulbList: originalStateSnapshot.section13State?.ulbList || [],
+            totalULBs: originalStateSnapshot.section13State?.totalULBs || 0,
+          };
+          return updated;
+        });
+        
         console.log(
-          `[InfraFinancingReview] ✅ Cancel - Restored section 1.3 formData:`,
-          originalStateSnapshot.submissionData.section1_3
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.3:`,
+          {
+            section13State: originalStateSnapshot.section13State,
+            ulbList: originalStateSnapshot.section13State?.ulbList,
+            totalULBs: originalStateSnapshot.section13State?.totalULBs,
+          }
         );
       }
 
@@ -1349,6 +1376,7 @@ export const InfraFinancingReview = ({
 
       setOriginalStateSnapshot(null);
       setEditable(sectionId, false);
+      
       // Reset Add More form for section 1.5
       if (sectionId === "1.5") {
         setShowAddForm1_5(false);
@@ -1939,6 +1967,7 @@ export const InfraFinancingReview = ({
                 ratingDate: item.ratingDate,
                 rating: item.rating,
               })),
+              totalULBs: section13State.totalULBs || 0,
             },
           ];
           break;
@@ -2389,6 +2418,13 @@ export const InfraFinancingReview = ({
           },
           "section1_3"
         );
+
+        // ✅ CRITICAL: Update section13State directly to ensure UI reflects changes immediately
+        // This is similar to how sections 1.1 and 1.2 update their local state variables
+        setSection13State({
+          ulbList: section13State.ulbList || [],
+          totalULBs: section13State.totalULBs || 0,
+        });
 
         console.log(
           `[InfraFinancingReview] ✅ Updated local state and formData for section 1.3:`,
@@ -3469,7 +3505,7 @@ export const InfraFinancingReview = ({
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => setEditable(sectionId, false)}
+              onClick={() => handleCancel(sectionId)}
             >
               <X className="w-4 h-4" />
               Cancel
