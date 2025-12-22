@@ -171,56 +171,59 @@ export const validatePPPDevelopment = (
     if (!section34) {
       // Skip validation if section doesn't exist
     } else {
-      if (
-        !section34.totalProjectsAwarded ||
-        section34.totalProjectsAwarded.trim() === ""
+      const totalProjectsAwardedStr = section34.totalProjectsAwarded != null 
+        ? String(section34.totalProjectsAwarded) 
+        : "";
+      if (!totalProjectsAwardedStr || totalProjectsAwardedStr.trim() === "") {
+        errors["section3_4.totalProjectsAwarded"] =
+          "Total number of infrastructure projects awarded is required.";
+      } else if (!isValidInteger(totalProjectsAwardedStr)) {
+        errors["section3_4.totalProjectsAwarded"] =
+          "Enter a valid non-negative integer.";
+      }
+
+      const totalProjectCostAwardedStr = section34.totalProjectCostAwarded != null 
+        ? String(section34.totalProjectCostAwarded) 
+        : "";
+      if (!totalProjectCostAwardedStr || totalProjectCostAwardedStr.trim() === "") {
+        errors["section3_4.totalProjectCostAwarded"] =
+          "Total project cost of infrastructure projects awarded is required.";
+      } else if (
+        !isNonNegativeDecimal(totalProjectCostAwardedStr) ||
+        !hasMaxTwoDecimals(totalProjectCostAwardedStr)
       ) {
-      errors["section3_4.totalProjectsAwarded"] =
-        "Total number of infrastructure projects awarded is required.";
-    } else if (!isValidInteger(section34.totalProjectsAwarded)) {
-      errors["section3_4.totalProjectsAwarded"] =
-        "Enter a valid non-negative integer.";
-    }
+        errors["section3_4.totalProjectCostAwarded"] =
+          "Enter a valid non-negative amount with up to two decimal places.";
+      }
 
-    if (
-      !section34.totalProjectCostAwarded ||
-      section34.totalProjectCostAwarded.trim() === ""
-    ) {
-      errors["section3_4.totalProjectCostAwarded"] =
-        "Total project cost of infrastructure projects awarded is required.";
-    } else if (
-      !isNonNegativeDecimal(section34.totalProjectCostAwarded) ||
-      !hasMaxTwoDecimals(section34.totalProjectCostAwarded)
-    ) {
-      errors["section3_4.totalProjectCostAwarded"] =
-        "Enter a valid non-negative amount with up to two decimal places.";
-    }
-
-    // Note: Individual project fields in section3_4.projects are not required per the table
-    // but if projects are added, they should be validated for completeness
-    if (section34.projects && section34.projects.length > 0) {
-      section34.projects.forEach((project, index) => {
-        // Validate decimal fields if they have values
-        if (
-          project.totalProjectCost &&
-          project.totalProjectCost.trim() !== ""
-        ) {
-          if (
-            !isNonNegativeDecimal(project.totalProjectCost) ||
-            !hasMaxTwoDecimals(project.totalProjectCost)
-          ) {
-            errors[`section3_4.projects.${index}.totalProjectCost`] =
-              "Enter a valid non-negative amount with up to two decimal places.";
+      // Note: Individual project fields in section3_4.projects are not required per the table
+      // but if projects are added, they should be validated for completeness
+      if (section34.projects && section34.projects.length > 0) {
+        section34.projects.forEach((project, index) => {
+          // Validate decimal fields if they have values
+          const totalProjectCostStr = project.totalProjectCost != null 
+            ? String(project.totalProjectCost) 
+            : "";
+          if (totalProjectCostStr && totalProjectCostStr.trim() !== "") {
+            if (
+              !isNonNegativeDecimal(totalProjectCostStr) ||
+              !hasMaxTwoDecimals(totalProjectCostStr)
+            ) {
+              errors[`section3_4.projects.${index}.totalProjectCost`] =
+                "Enter a valid non-negative amount with up to two decimal places.";
+            }
           }
-        }
-        if (project.capexPercentage && project.capexPercentage.trim() !== "") {
-          if (!isNonNegativeDecimal(project.capexPercentage)) {
-            errors[`section3_4.projects.${index}.capexPercentage`] =
-              "Enter a valid non-negative percentage.";
+          const capexPercentageStr = project.capexPercentage != null 
+            ? String(project.capexPercentage) 
+            : "";
+          if (capexPercentageStr && capexPercentageStr.trim() !== "") {
+            if (!isNonNegativeDecimal(capexPercentageStr)) {
+              errors[`section3_4.projects.${index}.capexPercentage`] =
+                "Enter a valid non-negative percentage.";
+            }
           }
-        }
-      });
-    }
+        });
+      }
     }
   }
 
