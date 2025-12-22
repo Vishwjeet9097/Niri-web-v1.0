@@ -419,10 +419,12 @@ export const InfraFinancingReview = ({
       }
     }
 
-    // Final safety filter: verify each section has actual data
+    // Final safety filter: verify each section has actual submitted data
     // All sections (including 1.3, 1.4, 1.5) should be filtered based on meaningful data
-    // This ensures only saved/submitted indicators are shown to STATE_APPROVER
+    // For both nodal officers and non-nodal officers: only show indicators that have been submitted
+    // This ensures only saved/submitted indicators are shown
     const final = merged.filter((sec) => {
+      // Check if section has actual data - only show if submitted
       if (sec === "section1_1") {
         const section = infraPayload?.section1_1;
         if (!section) {

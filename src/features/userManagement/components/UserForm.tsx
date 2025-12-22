@@ -151,27 +151,49 @@ export function UserForm({
   //   assignedIndicators: [] as string[],
   // });
 
+  // Initialize formData with saved draft data if creating a new user
   const [formData, setFormData] = useState<{
-  firstName: string;
-  lastName: string;
-  contactNumber: string;
-  email: string;
-  password: string;
-  role: string;
-  stateId: string | string[]; // Allow array for multiple states
-  assignedIndicators: string[];
-  stateUt: string | string[];
-}>({
-  firstName: "",
-  lastName: "",
-  contactNumber: "",
-  email: "",
-  password: "",
-  role: "NODAL_OFFICER",
-  stateId: "",
-  assignedIndicators: [],
-  stateUt: "",
-});
+    firstName: string;
+    lastName: string;
+    contactNumber: string;
+    email: string;
+    password: string;
+    role: string;
+    stateId: string | string[]; // Allow array for multiple states
+    assignedIndicators: string[];
+    stateUt: string | string[];
+  }>(() => {
+    // Try to restore from sessionStorage if creating a new user
+    if (typeof window !== 'undefined' && !officer) {
+      const savedFormData = sessionStorage.getItem('userManagementFormDraft');
+      if (savedFormData) {
+        try {
+          const parsed = JSON.parse(savedFormData);
+          // Only restore if it's recent (within last hour)
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000) {
+            return parsed.data;
+          } else {
+            // Clear old data
+            sessionStorage.removeItem('userManagementFormDraft');
+          }
+        } catch (e) {
+          console.warn('Failed to parse saved form data:', e);
+        }
+      }
+    }
+    // Default initial state
+    return {
+      firstName: "",
+      lastName: "",
+      contactNumber: "",
+      email: "",
+      password: "",
+      role: "NODAL_OFFICER",
+      stateId: "",
+      assignedIndicators: [],
+      stateUt: "",
+    };
+  });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [states, setStates] = useState<State[]>([]);
@@ -681,33 +703,52 @@ export function UserForm({
         setNodalHasSubmission(false);
       }
     } else {
-      // Reset form when no officer (new user)
-      // Set default role based on current user's permissions - compute directly instead of calling getAvailableRoles
-      let defaultRole = "NODAL_OFFICER";
-      if (user?.role === "STATE_APPROVER") {
-        defaultRole = "NODAL_OFFICER";
-      } else if (user?.role === "MOSPI_APPROVER") {
-        defaultRole = "MOSPI_REVIEWER";
-      } else if (user?.role === "ADMIN") {
-        defaultRole = "STATE_APPROVER";
-      }
+      // For new user: Only reset if there's no saved draft data
+      // This prevents clearing user input when navigating away and back
+      const savedFormData = typeof window !== 'undefined' 
+        ? sessionStorage.getItem('userManagementFormDraft') 
+        : null;
+      
+      if (!savedFormData) {
+        // Only reset if no saved data exists
+        let defaultRole = "NODAL_OFFICER";
+        if (user?.role === "STATE_APPROVER") {
+          defaultRole = "NODAL_OFFICER";
+        } else if (user?.role === "MOSPI_APPROVER") {
+          defaultRole = "MOSPI_REVIEWER";
+        } else if (user?.role === "ADMIN") {
+          defaultRole = "STATE_APPROVER";
+        }
 
-      setFormData({
-        firstName: "",
-        lastName: "",
-        contactNumber: "",
-        email: "",
-        password: "",
-        role: defaultRole,
-        stateId: user?.role === "ADMIN" ? "" : user?.state || "", // ✅ Admin can select any state, others use current state
-        assignedIndicators: [], 
-        stateUt: "", 
-      });
+        setFormData({
+          firstName: "",
+          lastName: "",
+          contactNumber: "",
+          email: "",
+          password: "",
+          role: defaultRole,
+          stateId: user?.role === "ADMIN" ? "" : user?.state || "", // ✅ Admin can select any state, others use current state
+          assignedIndicators: [], 
+          stateUt: "", 
+        });
+      }
+      // If savedFormData exists, it will be used from the initial state
       // Reset nodal submission check for new user
       setNodalHasSubmission(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officer, user?.state, user?.role, states]);
+
+  // Save form data to sessionStorage whenever it changes (only for new users)
+  useEffect(() => {
+    if (!officer && typeof window !== 'undefined') {
+      const dataToSave = {
+        data: formData,
+        timestamp: Date.now(),
+      };
+      sessionStorage.setItem('userManagementFormDraft', JSON.stringify(dataToSave));
+    }
+  }, [formData, officer]);
 
   // Load states on component mount
   useEffect(() => {
@@ -885,6 +926,10 @@ export function UserForm({
   stateUt?: string; // ✅ string, since we're joining 
 };
 
+  // Clear saved draft before saving
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem('userManagementFormDraft');
+  }
 
   console.log("payload", formData);
 
@@ -929,6 +974,11 @@ export function UserForm({
   stateId?: string | string[];
   stateUt?: string; // string joined for backend
 };
+
+  // Clear saved draft before saving
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem('userManagementFormDraft');
+  }
 
   onSave(payload as SubmitPayload);
 
@@ -1894,7 +1944,16 @@ const handleStateChange = (values: string | string[]) => {
       </div>
 
       <div className="flex justify-end gap-3 pt-6">
-        <Button variant="outline" onClick={onCancel}>
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            // Clear saved draft on cancel
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem('userManagementFormDraft');
+            }
+            onCancel();
+          }}
+        >
           Cancel
         </Button>
         <Button onClick={handleSubmit}>Save User</Button>

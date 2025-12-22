@@ -1323,7 +1323,8 @@ export const InfraDevelopmentReview = ({
   }
 
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Always include all sections that exist in formData - never hide sections regardless of data content
+  // Only include sections that have actual submitted data
+  // For both nodal officers and non-nodal officers: only show indicators that have been submitted
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     state &&
@@ -1336,10 +1337,43 @@ export const InfraDevelopmentReview = ({
       "section2_4",
       "section2_5",
     ];
-    // Always include sections that exist in state, regardless of data content
+    
+    // Helper function to check if a section has meaningful data
+    const hasSectionData = (sectionKey: string, sectionData: any): boolean => {
+      if (!sectionData || typeof sectionData !== "object") return false;
+      
+      // Check if section has any non-empty values (excluding metadata fields)
+      return Object.entries(sectionData).some(([key, value]) => {
+        // Skip metadata fields that don't indicate actual data
+        if (["year", "percentage", "marksObtained"].includes(key)) {
+          return false;
+        }
+        
+        if (value === null || value === undefined || value === "") {
+          return false;
+        }
+        
+        // For arrays, check if they have items
+        if (Array.isArray(value)) {
+          return value.length > 0;
+        }
+        
+        // For objects, recursively check if they have any meaningful data
+        if (typeof value === "object") {
+          return Object.keys(value).length > 0 && hasSectionData(sectionKey, value);
+        }
+        
+        return true;
+      });
+    };
+    
+    // Filter sections: only include if they have actual submitted data
+    // For both nodal officers and non-nodal officers: only show indicators that have been submitted
     const existingSections = allPossibleSections.filter((sectionKey) => {
-      // Simply check if section key exists in state - always show if it exists
-      return sectionKey in state;
+      const sectionData = state[sectionKey];
+      
+      // Check if section has meaningful data - only show if submitted
+      return hasSectionData(sectionKey, sectionData);
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates

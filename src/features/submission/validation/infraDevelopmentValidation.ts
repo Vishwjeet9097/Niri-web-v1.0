@@ -90,7 +90,7 @@ export const validateInfraDevelopment = (
   // Section 2.1 - Availability of Infrastructure Act/Policy
   if (shouldValidateSection("2.1")) {
     const section21 = data.section2_1;
-    if (!section21.infraActArray || section21.infraActArray.length === 0) {
+    if (!section21 || !section21.infraActArray || section21.infraActArray.length === 0) {
       errors["section2_1.infraActArray"] =
         "Minimum 1 sector required. Add at least 1 entry.";
     } else {
@@ -121,6 +121,7 @@ export const validateInfraDevelopment = (
   if (shouldValidateSection("2.2")) {
     const section22 = data.section2_2;
     if (
+      !section22 ||
       !section22.specializedEntityArray ||
       section22.specializedEntityArray.length === 0
     ) {
@@ -149,41 +150,45 @@ export const validateInfraDevelopment = (
   // Section 2.3 - Sector Infra Development Plan
   if (shouldValidateSection("2.3")) {
     const section23 = data.section2_3;
-    const hasInfraDevelopmentPlan = section23.hasInfraDevelopmentPlan;
-
-    if (
-      !hasInfraDevelopmentPlan ||
-      (hasInfraDevelopmentPlan !== "yes" && hasInfraDevelopmentPlan !== "no")
-    ) {
+    if (!section23) {
       errors["section2_3.hasInfraDevelopmentPlan"] = "Please select Yes or No.";
-    } else if (hasInfraDevelopmentPlan === "yes") {
+    } else {
+      const hasInfraDevelopmentPlan = section23.hasInfraDevelopmentPlan;
+
       if (
-        !section23.infraDevelopmentArray ||
-        section23.infraDevelopmentArray.length === 0
+        !hasInfraDevelopmentPlan ||
+        (hasInfraDevelopmentPlan !== "yes" && hasInfraDevelopmentPlan !== "no")
       ) {
-        errors["section2_3.infraDevelopmentArray"] =
-          "At least one entry is required when plan is available.";
-      } else {
-        section23.infraDevelopmentArray.forEach((entry, index) => {
-          if (!entry.sector || entry.sector.trim() === "") {
-            errors[`section2_3.infraDevelopmentArray.${index}.sector`] =
-              "Sector is required.";
-          }
-          if (!hasRequiredFile(entry.files)) {
-            errors[`section2_3.infraDevelopmentArray.${index}.files`] =
-              "Upload plan is required.";
-          } else {
-            const file = entry.files?.[0];
-            if (file && file.file && !isValidPdfFile(file)) {
-              errors[`section2_3.infraDevelopmentArray.${index}.files`] =
-                "Only PDF files are allowed.";
+        errors["section2_3.hasInfraDevelopmentPlan"] = "Please select Yes or No.";
+      } else if (hasInfraDevelopmentPlan === "yes") {
+        if (
+          !section23.infraDevelopmentArray ||
+          section23.infraDevelopmentArray.length === 0
+        ) {
+          errors["section2_3.infraDevelopmentArray"] =
+            "At least one entry is required when plan is available.";
+        } else {
+          section23.infraDevelopmentArray.forEach((entry, index) => {
+            if (!entry.sector || entry.sector.trim() === "") {
+              errors[`section2_3.infraDevelopmentArray.${index}.sector`] =
+                "Sector is required.";
             }
-          }
-        });
-      }
-    } else if (hasInfraDevelopmentPlan === "no") {
-      if (!section23.comment || section23.comment.trim() === "") {
-        errors["section2_3.comment"] = "Comment (reason) is required.";
+            if (!hasRequiredFile(entry.files)) {
+              errors[`section2_3.infraDevelopmentArray.${index}.files`] =
+                "Upload plan is required.";
+            } else {
+              const file = entry.files?.[0];
+              if (file && file.file && !isValidPdfFile(file)) {
+                errors[`section2_3.infraDevelopmentArray.${index}.files`] =
+                  "Only PDF files are allowed.";
+              }
+            }
+          });
+        }
+      } else if (hasInfraDevelopmentPlan === "no") {
+        if (!section23.comment || section23.comment.trim() === "") {
+          errors["section2_3.comment"] = "Comment (reason) is required.";
+        }
       }
     }
   }
@@ -191,7 +196,9 @@ export const validateInfraDevelopment = (
   // Section 2.4 - Investment Ready Project Pipeline
   if (shouldValidateSection("2.4")) {
     const section24 = data.section2_4;
-    if (
+    if (!section24) {
+      errors["section2_4.hasInvestmentReady"] = "Please select Yes or No.";
+    } else if (
       !section24.hasInvestmentReady ||
       (section24.hasInvestmentReady !== "yes" &&
         section24.hasInvestmentReady !== "no")
@@ -250,6 +257,7 @@ export const validateInfraDevelopment = (
   if (shouldValidateSection("2.5")) {
     const section25 = data.section2_5;
     if (
+      !section25 ||
       !section25.assetMonetizationArray ||
       section25.assetMonetizationArray.length === 0
     ) {
