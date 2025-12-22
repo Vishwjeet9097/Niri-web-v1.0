@@ -87,7 +87,9 @@ export const validatePPPDevelopment = (
   // Section 3.1 - Availability of PPP Act/Policy
   if (shouldValidateSection("3.1")) {
     const section31 = data.section3_1;
-    if (
+    if (!section31) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section31.available ||
       (section31.available !== "yes" && section31.available !== "no")
     ) {
@@ -112,7 +114,9 @@ export const validatePPPDevelopment = (
   // Section 3.2 - Functional PPP Cell/Unit
   if (shouldValidateSection("3.2")) {
     const section32 = data.section3_2;
-    if (
+    if (!section32) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section32.available ||
       (section32.available !== "yes" && section32.available !== "no")
     ) {
@@ -137,7 +141,9 @@ export const validatePPPDevelopment = (
   // Section 3.3 - Proposals under VGF/IIPDF
   if (shouldValidateSection("3.3")) {
     const section33 = data.section3_3;
-    if (!section33.VGFArray || section33.VGFArray.length === 0) {
+    if (!section33) {
+      // Skip validation if section doesn't exist
+    } else if (!section33.VGFArray || section33.VGFArray.length === 0) {
       errors["section3_3.VGFArray"] = "At least one proposal is required.";
     } else {
       section33.VGFArray.forEach((entry, index) => {
@@ -162,55 +168,62 @@ export const validatePPPDevelopment = (
   // Section 3.4 - Proportion of TPC of PPP Projects
   if (shouldValidateSection("3.4")) {
     const section34 = data.section3_4;
-    if (
-      !section34.totalProjectsAwarded ||
-      section34.totalProjectsAwarded.trim() === ""
-    ) {
-      errors["section3_4.totalProjectsAwarded"] =
-        "Total number of infrastructure projects awarded is required.";
-    } else if (!isValidInteger(section34.totalProjectsAwarded)) {
-      errors["section3_4.totalProjectsAwarded"] =
-        "Enter a valid non-negative integer.";
-    }
+    if (!section34) {
+      // Skip validation if section doesn't exist
+    } else {
+      const totalProjectsAwardedStr = section34.totalProjectsAwarded != null 
+        ? String(section34.totalProjectsAwarded) 
+        : "";
+      if (!totalProjectsAwardedStr || totalProjectsAwardedStr.trim() === "") {
+        errors["section3_4.totalProjectsAwarded"] =
+          "Total number of infrastructure projects awarded is required.";
+      } else if (!isValidInteger(totalProjectsAwardedStr)) {
+        errors["section3_4.totalProjectsAwarded"] =
+          "Enter a valid non-negative integer.";
+      }
 
-    if (
-      !section34.totalProjectCostAwarded ||
-      section34.totalProjectCostAwarded.trim() === ""
-    ) {
-      errors["section3_4.totalProjectCostAwarded"] =
-        "Total project cost of infrastructure projects awarded is required.";
-    } else if (
-      !isNonNegativeDecimal(section34.totalProjectCostAwarded) ||
-      !hasMaxTwoDecimals(section34.totalProjectCostAwarded)
-    ) {
-      errors["section3_4.totalProjectCostAwarded"] =
-        "Enter a valid non-negative amount with up to two decimal places.";
-    }
+      const totalProjectCostAwardedStr = section34.totalProjectCostAwarded != null 
+        ? String(section34.totalProjectCostAwarded) 
+        : "";
+      if (!totalProjectCostAwardedStr || totalProjectCostAwardedStr.trim() === "") {
+        errors["section3_4.totalProjectCostAwarded"] =
+          "Total project cost of infrastructure projects awarded is required.";
+      } else if (
+        !isNonNegativeDecimal(totalProjectCostAwardedStr) ||
+        !hasMaxTwoDecimals(totalProjectCostAwardedStr)
+      ) {
+        errors["section3_4.totalProjectCostAwarded"] =
+          "Enter a valid non-negative amount with up to two decimal places.";
+      }
 
-    // Note: Individual project fields in section3_4.projects are not required per the table
-    // but if projects are added, they should be validated for completeness
-    if (section34.projects && section34.projects.length > 0) {
-      section34.projects.forEach((project, index) => {
-        // Validate decimal fields if they have values
-        if (
-          project.totalProjectCost &&
-          project.totalProjectCost.trim() !== ""
-        ) {
-          if (
-            !isNonNegativeDecimal(project.totalProjectCost) ||
-            !hasMaxTwoDecimals(project.totalProjectCost)
-          ) {
-            errors[`section3_4.projects.${index}.totalProjectCost`] =
-              "Enter a valid non-negative amount with up to two decimal places.";
+      // Note: Individual project fields in section3_4.projects are not required per the table
+      // but if projects are added, they should be validated for completeness
+      if (section34.projects && section34.projects.length > 0) {
+        section34.projects.forEach((project, index) => {
+          // Validate decimal fields if they have values
+          const totalProjectCostStr = project.totalProjectCost != null 
+            ? String(project.totalProjectCost) 
+            : "";
+          if (totalProjectCostStr && totalProjectCostStr.trim() !== "") {
+            if (
+              !isNonNegativeDecimal(totalProjectCostStr) ||
+              !hasMaxTwoDecimals(totalProjectCostStr)
+            ) {
+              errors[`section3_4.projects.${index}.totalProjectCost`] =
+                "Enter a valid non-negative amount with up to two decimal places.";
+            }
           }
-        }
-        if (project.capexPercentage && project.capexPercentage.trim() !== "") {
-          if (!isNonNegativeDecimal(project.capexPercentage)) {
-            errors[`section3_4.projects.${index}.capexPercentage`] =
-              "Enter a valid non-negative percentage.";
+          const capexPercentageStr = project.capexPercentage != null 
+            ? String(project.capexPercentage) 
+            : "";
+          if (capexPercentageStr && capexPercentageStr.trim() !== "") {
+            if (!isNonNegativeDecimal(capexPercentageStr)) {
+              errors[`section3_4.projects.${index}.capexPercentage`] =
+                "Enter a valid non-negative percentage.";
+            }
           }
-        }
-      });
+        });
+      }
     }
   }
 

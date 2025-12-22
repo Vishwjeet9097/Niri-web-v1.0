@@ -915,12 +915,30 @@ class ApiService implements HttpClient {
     currentStatus?: string
   ): Promise<NiriSubmission> {
     try {
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📡 API CALL: forwardToMospi");
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📝 Submission ID:", id);
+      console.log("📊 Current Status:", currentStatus);
+      console.log("💬 Comment:", comment);
+
       // Prepare payload based on current status
       const payload: any = { comment };
 
       // If current status is RETURNED_FROM_MOSPI, include status in payload
       if (currentStatus === "RETURNED_FROM_MOSPI") {
         payload.status = "SUBMITTED_TO_MOSPI_REVIEWER";
+        console.log(
+          "🔄 Status will change: RETURNED_FROM_MOSPI → SUBMITTED_TO_MOSPI_REVIEWER"
+        );
+      } else {
+        console.log(
+          "🔄 Status will change: SUBMITTED_TO_STATE → SUBMITTED_TO_MOSPI_REVIEWER"
+        );
       }
 
       const response = await this.axios.post(
@@ -928,11 +946,11 @@ class ApiService implements HttpClient {
         payload
       );
       console.log(
-        "🔍 API Service - Forward to MoSPI Response Status:",
+        "✅ API Service - Forward to MoSPI Response Status:",
         response.status
       );
       console.log(
-        "🔍 API Service - Forward to MoSPI Response Data:",
+        "📦 API Service - Forward to MoSPI Response Data:",
         response.data
       );
 
@@ -940,8 +958,12 @@ class ApiService implements HttpClient {
       const submissionData =
         response.data?.data !== undefined ? response.data.data : response.data;
       console.log(
-        "🔍 API Service - Processed Forward to MoSPI Data:",
+        "✅ API Service - Processed Forward to MoSPI Data:",
         submissionData
+      );
+      console.log("📊 New Status:", submissionData?.status);
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
 
       return submissionData;
@@ -962,6 +984,20 @@ class ApiService implements HttpClient {
     sectionId?: string
   ): Promise<NiriSubmission> {
     try {
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📡 API CALL: forwardToMospiApprover");
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📝 Submission ID:", id);
+      console.log(
+        "📊 Status Change: SUBMITTED_TO_MOSPI_REVIEWER → SUBMITTED_TO_MOSPI_APPROVER"
+      );
+      console.log("💬 Comment:", comment);
+      console.log("📋 Section ID:", sectionId || "overall");
+
       const response = await this.axios.post(
         `/submission/forward-to-mospi-approver/${id}`,
         {
@@ -971,11 +1007,11 @@ class ApiService implements HttpClient {
         }
       );
       console.log(
-        "🔍 API Service - Forward to MoSPI Approver Response Status:",
+        "✅ API Service - Forward to MoSPI Approver Response Status:",
         response.status
       );
       console.log(
-        "🔍 API Service - Forward to MoSPI Approver Response Data:",
+        "📦 API Service - Forward to MoSPI Approver Response Data:",
         response.data
       );
 
@@ -983,8 +1019,12 @@ class ApiService implements HttpClient {
       const submissionData =
         response.data?.data !== undefined ? response.data.data : response.data;
       console.log(
-        "🔍 API Service - Processed Forward to MoSPI Approver Data:",
+        "✅ API Service - Processed Forward to MoSPI Approver Data:",
         submissionData
+      );
+      console.log("📊 New Status:", submissionData?.status);
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
 
       return submissionData;
@@ -1004,13 +1044,32 @@ class ApiService implements HttpClient {
       // Get current user's role to determine the appropriate status
       const currentUserRole = UserService.getRole();
 
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📡 API CALL: stateReject");
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📝 Submission ID:", id);
+      console.log("👤 Current User Role:", currentUserRole);
+      console.log("💬 Comment:", comment);
+
       const payload: any = { comment };
 
       // Add status based on user role
       if (currentUserRole === "MOSPI_APPROVER") {
         payload.status = "RETURNED_FROM_MOSPI";
+        console.log("📤 FORM TRANSFER: MOSPI_APPROVER → STATE_APPROVER");
+        console.log(
+          "📊 Status Change: SUBMITTED_TO_MOSPI_APPROVER → RETURNED_FROM_MOSPI"
+        );
       } else if (currentUserRole === "STATE_APPROVER") {
         payload.status = "RETURNED_FROM_STATE";
+        console.log("📤 FORM TRANSFER: STATE_APPROVER → NODAL_OFFICER");
+        console.log(
+          "📊 Status Change: SUBMITTED_TO_STATE → RETURNED_FROM_STATE"
+        );
       }
 
       const response = await this.axios.post(
@@ -1018,11 +1077,11 @@ class ApiService implements HttpClient {
         payload
       );
       console.log(
-        "🔍 API Service - State Reject Response Status:",
+        "✅ API Service - State Reject Response Status:",
         response.status
       );
       console.log(
-        "🔍 API Service - State Reject Response Data:",
+        "📦 API Service - State Reject Response Data:",
         response.data
       );
 
@@ -1030,8 +1089,12 @@ class ApiService implements HttpClient {
       const submissionData =
         response.data?.data !== undefined ? response.data.data : response.data;
       console.log(
-        "🔍 API Service - Processed State Reject Data:",
+        "✅ API Service - Processed State Reject Data:",
         submissionData
+      );
+      console.log("📊 New Status:", submissionData?.status);
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
 
       return submissionData;
@@ -1074,6 +1137,58 @@ class ApiService implements HttpClient {
       // Handle 304 as success
       if (error.response?.status === 304) {
         console.log("📋 MOSPI Approver Send Back 304 - Using cached data");
+        const cachedData = error.response?.data || {};
+        return cachedData?.data !== undefined ? cachedData.data : cachedData;
+      }
+      throw error;
+    }
+  }
+
+  async cleanMospiStatusFromSubmission(id: string): Promise<NiriSubmission> {
+    try {
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📡 API CALL: cleanMospiStatusFromSubmission");
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📝 Submission ID:", id);
+      console.log(
+        "🧹 Removing mospi_status from all categories (infraFinancing, infraDevelopment, pppDevelopment, infraEnablers)"
+      );
+
+      const response = await this.axios.post(
+        `/submission/clean-mospi-status/${id}`,
+        {}
+      );
+      console.log(
+        "✅ API Service - Clean MOSPI Status Response Status:",
+        response.status
+      );
+      console.log(
+        "📦 API Service - Clean MOSPI Status Response Data:",
+        response.data
+      );
+
+      // Handle response.data.data pattern
+      const submissionData =
+        response.data?.data !== undefined ? response.data.data : response.data;
+      console.log(
+        "✅ API Service - Processed Clean MOSPI Status Data:",
+        submissionData
+      );
+      console.log("✅ mospi_status removed from all categories");
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+
+      return submissionData;
+    } catch (error: any) {
+      console.error("❌ API Service - Clean MOSPI Status Error:", error);
+      // Handle 304 as success
+      if (error.response?.status === 304) {
+        console.log("📋 Clean MOSPI Status 304 - Using cached data");
         const cachedData = error.response?.data || {};
         return cachedData?.data !== undefined ? cachedData.data : cachedData;
       }
@@ -1476,34 +1591,43 @@ class ApiService implements HttpClient {
         indicators,
         sectionDataKeys: Object.keys(sectionData),
       });
-      
+
       // Check if sectionData contains File objects (before sanitization)
       // Note: If sectionData was sanitized, File objects will be plain objects
       // We need to check for the structure that indicates files exist
       const hasFilesBeforeProcessing = this.hasFileObjects(sectionData);
       const fileCheckBeforeProcessing = this.manualFileCheck(sectionData);
-      
+
       console.log("🔍 File objects detected in raw sectionData:", {
         hasFiles: hasFilesBeforeProcessing,
         manualCheck: fileCheckBeforeProcessing,
       });
-      
+
       // Also check for file-like structures (plain objects that look like File objects)
       // This handles cases where File objects were serialized to plain objects
       const hasFileLikeStructures = this.hasFileLikeStructures(sectionData);
       console.log("🔍 File-like structures detected:", hasFileLikeStructures);
-      
-      const hasAnyFiles = hasFilesBeforeProcessing || fileCheckBeforeProcessing.found || hasFileLikeStructures;
-      
+
+      const hasAnyFiles =
+        hasFilesBeforeProcessing ||
+        fileCheckBeforeProcessing.found ||
+        hasFileLikeStructures;
+
       if (hasAnyFiles) {
-        console.log("📤 Files or file-like structures detected - will handle upload");
+        console.log(
+          "📤 Files or file-like structures detected - will handle upload"
+        );
         // Store this info to use later in CREATE/UPDATE flow
         // Note: If files are file-like structures (serialized), we can't upload them
         // They need to be File instances. This means the step component should pass
         // original formData with File objects, not sanitized data.
         if (hasFileLikeStructures && !hasFilesBeforeProcessing) {
-          console.error("❌ CRITICAL: File objects were serialized to plain objects before reaching submitSectionToStateApprover!");
-          console.error("❌ Cannot upload files - File instances are required. Step component should pass original formData.");
+          console.error(
+            "❌ CRITICAL: File objects were serialized to plain objects before reaching submitSectionToStateApprover!"
+          );
+          console.error(
+            "❌ Cannot upload files - File instances are required. Step component should pass original formData."
+          );
         }
       }
 
@@ -1801,12 +1925,22 @@ class ApiService implements HttpClient {
               finalStatus = "SUBMITTED_TO_STATE";
             }
 
+            // Add nodalOfficerId if user is NODAL_OFFICER
+            const sectionDataWithNodalId = { ...sectionData[sectionKey] };
+            if (userRole === "NODAL_OFFICER" && userId) {
+              sectionDataWithNodalId.nodalOfficerId = userId;
+            }
+
             filteredSectionData[sectionKey] = {
-              ...sectionData[sectionKey],
+              ...sectionDataWithNodalId,
               status: finalStatus,
             };
             console.log(
-              `✅ Updating section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}`
+              `✅ Updating section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}${
+                userRole === "NODAL_OFFICER"
+                  ? ` (nodalOfficerId: ${userId})`
+                  : ""
+              }`
             );
             console.log(
               `🔍 [API UPDATE] Section ${sectionKey} data:`,
@@ -1835,11 +1969,11 @@ class ApiService implements HttpClient {
 
         // ✅ Upload all File objects to S3 before submission
         const hasUnuploadedFiles = this.hasFileObjects(filteredSectionData);
-        
+
         // Extract submissionId field (not UUID) for file upload paths
         // existingSubmissionId is the UUID (for API routes), but file uploads need submissionId field
         const existingSubmissionIdForFiles = existingSubmission?.submissionId;
-        
+
         console.log("🔍 File detection check (UPDATE):", {
           hasUnuploadedFiles,
           category,
@@ -1847,28 +1981,43 @@ class ApiService implements HttpClient {
           existingSubmissionIdForFiles, // submissionId field for file paths
           filteredSections: Object.keys(filteredSectionData),
         });
-        
-        if (hasUnuploadedFiles && existingSubmissionId && existingSubmissionIdForFiles) {
+
+        if (
+          hasUnuploadedFiles &&
+          existingSubmissionId &&
+          existingSubmissionIdForFiles
+        ) {
           console.log("📤 Uploading File objects to S3 before submission...");
           try {
             // Upload files and replace File objects with filePath
             // Use submissionId field (not UUID) for file upload paths
             const uploadedData = await this.uploadFilesAndReplace(
               { [category]: filteredSectionData },
-              existingSubmissionIdForFiles  // Use submissionId field for file paths
+              existingSubmissionIdForFiles // Use submissionId field for file paths
             );
             // Extract the category data back
             filteredSectionData = uploadedData[category];
             console.log("✅ All files uploaded to S3 successfully");
           } catch (error: any) {
             console.error("❌ Failed to upload files to S3:", error);
-            throw new Error(`File upload failed: ${error.message || "Unknown error"}`);
+            throw new Error(
+              `File upload failed: ${error.message || "Unknown error"}`
+            );
           }
-        } else if (hasUnuploadedFiles && (!existingSubmissionId || !existingSubmissionIdForFiles)) {
-          console.error("❌ Cannot upload files: existingSubmissionId (UUID) or submissionId field is missing");
-          throw new Error("Failed to update submission - submissionId is missing");
+        } else if (
+          hasUnuploadedFiles &&
+          (!existingSubmissionId || !existingSubmissionIdForFiles)
+        ) {
+          console.error(
+            "❌ Cannot upload files: existingSubmissionId (UUID) or submissionId field is missing"
+          );
+          throw new Error(
+            "Failed to update submission - submissionId is missing"
+          );
         } else if (!hasUnuploadedFiles) {
-          console.log("ℹ️ No File objects detected (UPDATE) - files already uploaded or no files present");
+          console.log(
+            "ℹ️ No File objects detected (UPDATE) - files already uploaded or no files present"
+          );
         }
 
         // Extract file metadata from the filtered section data
@@ -1880,11 +2029,13 @@ class ApiService implements HttpClient {
         // Merge with existing attachedFiles to avoid duplicates and handle deleted files
         // Files that are no longer in formData should be removed from attachedFiles
         const existingAttachedFiles = existingSubmission?.attachedFiles || [];
-        const extractedFilePaths = new Set(extractedFiles.map(f => f.filePath));
-        
+        const extractedFilePaths = new Set(
+          extractedFiles.map((f) => f.filePath)
+        );
+
         // Keep existing files that are still referenced in formData (from other categories)
         // and add newly extracted files
-        const filesToKeep = existingAttachedFiles.filter(f => {
+        const filesToKeep = existingAttachedFiles.filter((f) => {
           // Keep if it's in the extracted files (current category)
           if (extractedFilePaths.has(f.filePath)) {
             return false; // Will be replaced by extracted version
@@ -1900,7 +2051,9 @@ class ApiService implements HttpClient {
 
         // Remove duplicates based on filePath (keep the most recent version)
         const uniqueAttachedFiles = Array.from(
-          new Map(allAttachedFiles.map((file) => [file.filePath, file])).values()
+          new Map(
+            allAttachedFiles.map((file) => [file.filePath, file])
+          ).values()
         );
 
         const updatePayload = {
@@ -1981,12 +2134,22 @@ class ApiService implements HttpClient {
             const incomingStatus = sectionData[sectionKey]?.status;
             const finalStatus = incomingStatus || "SUBMITTED_TO_STATE";
 
+            // Add nodalOfficerId if user is NODAL_OFFICER
+            const sectionDataWithNodalId = { ...sectionData[sectionKey] };
+            if (userRole === "NODAL_OFFICER" && userId) {
+              sectionDataWithNodalId.nodalOfficerId = userId;
+            }
+
             filteredSectionData[sectionKey] = {
-              ...sectionData[sectionKey],
+              ...sectionDataWithNodalId,
               status: finalStatus,
             };
             console.log(
-              `✅ Including section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}`
+              `✅ Including section ${sectionKey} for indicator ${indicatorCode} with status ${finalStatus}${
+                userRole === "NODAL_OFFICER"
+                  ? ` (nodalOfficerId: ${userId})`
+                  : ""
+              }`
             );
             console.log(
               `🔍 [API CREATE] Section ${sectionKey} data:`,
@@ -2014,21 +2177,24 @@ class ApiService implements HttpClient {
         // IMPORTANT: Check BEFORE any JSON serialization or sanitization
         // The File objects might be plain objects if they came from sanitized data
         // So we need to check the ORIGINAL sectionData, not filteredSectionData
-        
+
         // First, check the original sectionData that was passed in
         const hasFilesInOriginal = this.hasFileObjects(sectionData);
-        console.log("🔍 Checking original sectionData for files:", hasFilesInOriginal);
-        
+        console.log(
+          "🔍 Checking original sectionData for files:",
+          hasFilesInOriginal
+        );
+
         // Also check filteredSectionData (in case files are still there)
         const hasUnuploadedFiles = this.hasFileObjects(filteredSectionData);
-        
+
         console.log("🔍 File detection check:", {
           hasFilesInOriginal,
           hasUnuploadedFiles,
           category,
           filteredSections: Object.keys(filteredSectionData),
         });
-        
+
         // Additional check: manually inspect both structures
         const manualCheckOriginal = this.manualFileCheck(sectionData);
         const manualCheckFiltered = this.manualFileCheck(filteredSectionData);
@@ -2036,16 +2202,21 @@ class ApiService implements HttpClient {
           original: manualCheckOriginal,
           filtered: manualCheckFiltered,
         });
-        
+
         // Also check for file-like structures (serialized File objects)
         const hasFileLikeInOriginal = this.hasFileLikeStructures(sectionData);
-        const hasFileLikeInFiltered = this.hasFileLikeStructures(filteredSectionData);
-        
+        const hasFileLikeInFiltered =
+          this.hasFileLikeStructures(filteredSectionData);
+
         // Use the most comprehensive check - if files exist in either structure
-        const finalHasFiles = hasFilesInOriginal || hasUnuploadedFiles || 
-                              manualCheckOriginal.found || manualCheckFiltered.found ||
-                              hasFileLikeInOriginal || hasFileLikeInFiltered;
-        
+        const finalHasFiles =
+          hasFilesInOriginal ||
+          hasUnuploadedFiles ||
+          manualCheckOriginal.found ||
+          manualCheckFiltered.found ||
+          hasFileLikeInOriginal ||
+          hasFileLikeInFiltered;
+
         console.log("🔍 Comprehensive file check:", {
           hasFilesInOriginal,
           hasUnuploadedFiles,
@@ -2055,10 +2226,14 @@ class ApiService implements HttpClient {
           hasFileLikeInFiltered,
           finalHasFiles,
         });
-        
+
         if (finalHasFiles && !hasUnuploadedFiles) {
-          console.warn("⚠️ Files found in original data but not in filtered data - files may have been sanitized");
-          console.warn("⚠️ Will need to preserve File objects from original sectionData");
+          console.warn(
+            "⚠️ Files found in original data but not in filtered data - files may have been sanitized"
+          );
+          console.warn(
+            "⚠️ Will need to preserve File objects from original sectionData"
+          );
         }
 
         // ✅ If files exist, create minimal submission first (without File objects)
@@ -2066,30 +2241,38 @@ class ApiService implements HttpClient {
         let createPayload: any;
         let shouldUploadFilesAfter = false;
         let filesToUpload: any = null; // Store original data with File objects for upload
-        
+
         // IMPORTANT: Only attempt upload if we have actual File instances, not file-like structures
         // File-like structures (serialized File objects) cannot be uploaded - they're already plain objects
-        const hasActualFileInstances = hasFilesInOriginal || hasUnuploadedFiles || 
-                                       manualCheckOriginal.found || manualCheckFiltered.found;
-        
+        const hasActualFileInstances =
+          hasFilesInOriginal ||
+          hasUnuploadedFiles ||
+          manualCheckOriginal.found ||
+          manualCheckFiltered.found;
+
         // Use finalHasFiles which includes manual check result
         if (finalHasFiles) {
           if (hasActualFileInstances) {
-            console.log("📤 Actual File instances detected - will create minimal submission first, then upload files");
-            
+            console.log(
+              "📤 Actual File instances detected - will create minimal submission first, then upload files"
+            );
+
             // Preserve the original sectionData with File objects for upload
             // Use the original sectionData if it has files, otherwise use filteredSectionData
             if (hasFilesInOriginal || manualCheckOriginal.found) {
               filesToUpload = sectionData;
-              console.log("📤 Using original sectionData for file upload (has File objects)");
+              console.log(
+                "📤 Using original sectionData for file upload (has File objects)"
+              );
             } else {
               filesToUpload = { [category]: filteredSectionData };
               console.log("📤 Using filteredSectionData for file upload");
             }
-            
+
             // Create a sanitized copy without File objects for initial submission
             // This prevents File objects from being serialized to JSON
-            const sanitizedData = this.sanitizePayloadForJSON(filteredSectionData);
+            const sanitizedData =
+              this.sanitizePayloadForJSON(filteredSectionData);
             createPayload = {
               formData: {
                 [category]: sanitizedData,
@@ -2103,13 +2286,22 @@ class ApiService implements HttpClient {
           } else {
             // Only file-like structures (serialized File objects) - cannot upload
             // Extract metadata from file-like structures instead
-            console.warn("⚠️ Only file-like structures detected (serialized File objects) - cannot upload");
-            console.warn("⚠️ File objects were already serialized. Extracting metadata from file-like structures.");
-            
+            console.warn(
+              "⚠️ Only file-like structures detected (serialized File objects) - cannot upload"
+            );
+            console.warn(
+              "⚠️ File objects were already serialized. Extracting metadata from file-like structures."
+            );
+
             // Extract metadata from file-like structures
-            const extractedFiles = this.extractFileMetadataFromFileLikeStructures(filteredSectionData);
-            console.log(`📦 Extracted ${extractedFiles.length} file(s) metadata from file-like structures`);
-            
+            const extractedFiles =
+              this.extractFileMetadataFromFileLikeStructures(
+                filteredSectionData
+              );
+            console.log(
+              `📦 Extracted ${extractedFiles.length} file(s) metadata from file-like structures`
+            );
+
             createPayload = {
               formData: {
                 [category]: filteredSectionData, // Already serialized, use as-is
@@ -2155,8 +2347,9 @@ class ApiService implements HttpClient {
         // UUID is needed for API route parameters (GET, PATCH, PUT use /submission/:id where id is UUID)
         // submissionId field is needed for file upload paths (submissions/{submissionId}/...)
         const newSubmissionUuid = result?.data?.id || result?.id; // UUID for API routes
-        const newSubmissionId = result?.data?.submissionId || result?.submissionId; // submissionId field for file paths
-        
+        const newSubmissionId =
+          result?.data?.submissionId || result?.submissionId; // submissionId field for file paths
+
         console.log("✅ Submission created:", {
           uuid: newSubmissionUuid,
           submissionId: newSubmissionId,
@@ -2176,51 +2369,73 @@ class ApiService implements HttpClient {
           newSubmissionId,
           willUpload: shouldUploadFilesAfter && newSubmissionId,
         });
-        
+
         if (shouldUploadFilesAfter && newSubmissionId && newSubmissionUuid) {
-          console.log("📤 Uploading File objects to S3 after creating submission...");
+          console.log(
+            "📤 Uploading File objects to S3 after creating submission..."
+          );
           try {
             // Upload files and replace File objects with filePath
             // Use the preserved filesToUpload data (with File objects) for upload
-            console.log("📤 Starting uploadFilesAndReplace with submissionId:", newSubmissionId);
+            console.log(
+              "📤 Starting uploadFilesAndReplace with submissionId:",
+              newSubmissionId
+            );
             console.log("📤 Files to upload structure:", {
               hasCategory: !!filesToUpload[category],
               keys: Object.keys(filesToUpload),
             });
-            
+
             // ✅ CRITICAL: Verify filesToUpload still has File instances before attempting upload
             const stillHasFiles = this.hasFileObjects(filesToUpload);
             if (!stillHasFiles) {
-              console.error("❌ CRITICAL: filesToUpload no longer contains File instances!");
-              console.error("❌ File objects were lost. Checking for file-like structures...");
+              console.error(
+                "❌ CRITICAL: filesToUpload no longer contains File instances!"
+              );
+              console.error(
+                "❌ File objects were lost. Checking for file-like structures..."
+              );
               const hasFileLike = this.hasFileLikeStructures(filesToUpload);
               if (hasFileLike) {
-                console.warn("⚠️ File-like structures found but no File instances - cannot upload");
-                console.warn("⚠️ This usually means File objects were serialized (e.g., by localStorage or state updates)");
+                console.warn(
+                  "⚠️ File-like structures found but no File instances - cannot upload"
+                );
+                console.warn(
+                  "⚠️ This usually means File objects were serialized (e.g., by localStorage or state updates)"
+                );
                 // Extract metadata from file-like structures as fallback
-                const extractedFiles = this.extractFileMetadataFromFileLikeStructures(filesToUpload);
-                console.log(`📦 Extracted ${extractedFiles.length} file(s) metadata from file-like structures`);
-                
+                const extractedFiles =
+                  this.extractFileMetadataFromFileLikeStructures(filesToUpload);
+                console.log(
+                  `📦 Extracted ${extractedFiles.length} file(s) metadata from file-like structures`
+                );
+
                 // Update submission with extracted metadata (but files won't be in S3)
                 // Use UUID for API route
                 await this.updateSubmission(newSubmissionUuid, {
                   [category]: filteredSectionData,
                   attachedFiles: extractedFiles,
                 });
-                
-                console.warn("⚠️ Files were NOT uploaded to S3 - File instances were lost. Metadata extracted instead.");
-                console.warn("⚠️ User should re-select files to upload them properly.");
+
+                console.warn(
+                  "⚠️ Files were NOT uploaded to S3 - File instances were lost. Metadata extracted instead."
+                );
+                console.warn(
+                  "⚠️ User should re-select files to upload them properly."
+                );
                 return result; // Exit early - don't throw error, just warn
               }
-              throw new Error("File objects were lost and no file-like structures found - cannot proceed with upload");
+              throw new Error(
+                "File objects were lost and no file-like structures found - cannot proceed with upload"
+              );
             }
-            
+
             // Use submissionId field for file upload paths
             const uploadedData = await this.uploadFilesAndReplace(
               filesToUpload,
               newSubmissionId
             );
-            
+
             // Extract the category data
             filteredSectionData = uploadedData[category] || uploadedData;
 
@@ -2229,7 +2444,9 @@ class ApiService implements HttpClient {
               [category]: filteredSectionData,
             });
 
-            console.log(`📤 Updating submission with ${updatedExtractedFiles.length} file(s) metadata`);
+            console.log(
+              `📤 Updating submission with ${updatedExtractedFiles.length} file(s) metadata`
+            );
 
             // Update submission with filePaths - use UUID for API route
             await this.updateSubmission(newSubmissionUuid, {
@@ -2237,19 +2454,35 @@ class ApiService implements HttpClient {
               attachedFiles: updatedExtractedFiles,
             });
 
-            console.log("✅ All files uploaded to S3 and submission updated successfully");
+            console.log(
+              "✅ All files uploaded to S3 and submission updated successfully"
+            );
           } catch (error: any) {
             console.error("❌ Failed to upload files to S3:", error);
-            console.error("❌ Error details:", error.response?.data || error.message);
-            throw new Error(`File upload failed: ${error.message || "Unknown error"}`);
+            console.error(
+              "❌ Error details:",
+              error.response?.data || error.message
+            );
+            throw new Error(
+              `File upload failed: ${error.message || "Unknown error"}`
+            );
           }
-        } else if (hasUnuploadedFiles && (!newSubmissionId || !newSubmissionUuid)) {
-          console.error("❌ Cannot upload files: submissionId or UUID is missing");
+        } else if (
+          hasUnuploadedFiles &&
+          (!newSubmissionId || !newSubmissionUuid)
+        ) {
+          console.error(
+            "❌ Cannot upload files: submissionId or UUID is missing"
+          );
           throw new Error("Failed to create submission - cannot upload files");
         } else if (hasUnuploadedFiles && !shouldUploadFilesAfter) {
-          console.error("❌ MISMATCH: hasUnuploadedFiles is true but shouldUploadFilesAfter is false!");
+          console.error(
+            "❌ MISMATCH: hasUnuploadedFiles is true but shouldUploadFilesAfter is false!"
+          );
         } else if (!hasUnuploadedFiles) {
-          console.log("ℹ️ No File objects detected - files already uploaded or no files present");
+          console.log(
+            "ℹ️ No File objects detected - files already uploaded or no files present"
+          );
         }
 
         // Check if all indicators completed on first submission
@@ -2291,6 +2524,38 @@ class ApiService implements HttpClient {
     comment?: string
   ): Promise<NiriSubmission> {
     try {
+      // Get current user's role to determine the action
+      const currentUserRole = UserService.getRole();
+
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📡 API CALL: approveSubmission");
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      );
+      console.log("📝 Submission ID:", id);
+      console.log("👤 Current User Role:", currentUserRole);
+      console.log(
+        "💬 Comment:",
+        comment ||
+          "Approved by MoSPI Approver. Submission meets all requirements."
+      );
+
+      // Note: This method is used by both MOSPI_REVIEWER (to forward) and MOSPI_APPROVER (to approve)
+      // The actual behavior depends on the backend logic
+      if (currentUserRole === "MOSPI_REVIEWER") {
+        console.log(
+          "📤 FORM TRANSFER: MOSPI_REVIEWER → MOSPI_APPROVER (via approve)"
+        );
+        console.log(
+          "📊 Status Change: SUBMITTED_TO_MOSPI_REVIEWER → SUBMITTED_TO_MOSPI_APPROVER"
+        );
+      } else if (currentUserRole === "MOSPI_APPROVER") {
+        console.log("✅ FORM APPROVAL: MOSPI_APPROVER → APPROVED");
+        console.log("📊 Status Change: SUBMITTED_TO_MOSPI_APPROVER → APPROVED");
+      }
+
       const response = await this.axios.post(`/submission/approve/${id}`, {
         status: "APPROVED",
         comment:
@@ -2298,11 +2563,11 @@ class ApiService implements HttpClient {
           "Approved by MoSPI Approver. Submission meets all requirements.",
       });
       console.log(
-        "🔍 API Service - Approve Submission Response Status:",
+        "✅ API Service - Approve Submission Response Status:",
         response.status
       );
       console.log(
-        "🔍 API Service - Approve Submission Response Data:",
+        "📦 API Service - Approve Submission Response Data:",
         response.data
       );
 
@@ -2310,8 +2575,12 @@ class ApiService implements HttpClient {
       const submissionData =
         response.data?.data !== undefined ? response.data.data : response.data;
       console.log(
-        "🔍 API Service - Processed Approve Submission Data:",
+        "✅ API Service - Processed Approve Submission Data:",
         submissionData
+      );
+      console.log("📊 New Status:", submissionData?.status);
+      console.log(
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       );
 
       return submissionData;
@@ -4113,21 +4382,25 @@ class ApiService implements HttpClient {
         console.log(`🔍 Found File object at key: ${key} (depth ${depth})`);
         return true;
       }
-      
+
       if (value && typeof value === "object") {
         // Check FileUpload objects - look for file property that is a File instance
         // Structure: { file: File, fileName: string, ... }
         if ((value as any).file instanceof File) {
-          console.log(`🔍 Found File object in FileUpload at key: ${key} (depth ${depth})`);
+          console.log(
+            `🔍 Found File object in FileUpload at key: ${key} (depth ${depth})`
+          );
           return true;
         }
-        
+
         // Check deeply nested file.file (File object nested in FileUpload)
         if ((value as any).file?.file instanceof File) {
-          console.log(`🔍 Found nested File object at key: ${key} (depth ${depth})`);
+          console.log(
+            `🔍 Found nested File object at key: ${key} (depth ${depth})`
+          );
           return true;
         }
-        
+
         // Recursively check nested objects (handles arrays of objects, nested structures)
         if (this.hasFileObjects(value, depth + 1)) {
           return true;
@@ -4153,7 +4426,9 @@ class ApiService implements HttpClient {
       typeof obj.type === "string" &&
       !(obj instanceof File)
     ) {
-      console.log(`🔍 Found file-like structure (serialized File) at depth ${depth}`);
+      console.log(
+        `🔍 Found file-like structure (serialized File) at depth ${depth}`
+      );
       return true;
     }
 
@@ -4167,7 +4442,9 @@ class ApiService implements HttpClient {
         typeof fileObj.size === "number" &&
         typeof fileObj.type === "string"
       ) {
-        console.log(`🔍 Found file-like structure in FileUpload object at depth ${depth}`);
+        console.log(
+          `🔍 Found file-like structure in FileUpload object at depth ${depth}`
+        );
         return true;
       }
     }
@@ -4190,9 +4467,12 @@ class ApiService implements HttpClient {
   }
 
   // Manual file check for debugging
-  private manualFileCheck(obj: any, path: string = ''): { found: boolean; paths: string[] } {
+  private manualFileCheck(
+    obj: any,
+    path: string = ""
+  ): { found: boolean; paths: string[] } {
     const paths: string[] = [];
-    
+
     if (!obj || typeof obj !== "object") {
       return { found: false, paths };
     }
@@ -4214,7 +4494,7 @@ class ApiService implements HttpClient {
 
     for (const [key, value] of Object.entries(obj)) {
       const currentPath = path ? `${path}.${key}` : key;
-      
+
       if (value instanceof File) {
         paths.push(currentPath);
       } else if (value && typeof value === "object") {
@@ -4234,15 +4514,26 @@ class ApiService implements HttpClient {
 
   // Extract file metadata from file-like structures (serialized File objects)
   // This is used when File objects were already serialized to plain objects
-  private extractFileMetadataFromFileLikeStructures(obj: any, path: string[] = []): any[] {
+  private extractFileMetadataFromFileLikeStructures(
+    obj: any,
+    path: string[] = []
+  ): any[] {
     const files: any[] = [];
-    
+
     if (!obj || typeof obj !== "object") return files;
 
     // Check if this is a FileUpload object with a file-like structure
-    if (obj.file && typeof obj.file === "object" && !(obj.file instanceof File)) {
+    if (
+      obj.file &&
+      typeof obj.file === "object" &&
+      !(obj.file instanceof File)
+    ) {
       const fileObj = obj.file;
-      if (fileObj.name && typeof fileObj.size === "number" && typeof fileObj.type === "string") {
+      if (
+        fileObj.name &&
+        typeof fileObj.size === "number" &&
+        typeof fileObj.type === "string"
+      ) {
         // This is a file-like structure (serialized File object)
         const fileMetadata = {
           id: obj.id || `file-${Date.now()}-${Math.random()}`,
@@ -4253,13 +4544,15 @@ class ApiService implements HttpClient {
           filePath: obj.filePath || null, // May already have filePath if previously uploaded
           fileUrl: obj.fileUrl || null,
         };
-        
+
         // Only include if it doesn't already have a filePath (meaning it needs upload)
         // But if it's already serialized, it can't be uploaded, so we'll extract what we can
         if (!fileMetadata.filePath) {
-          console.warn(`⚠️ File-like structure found without filePath: ${fileMetadata.fileName} - cannot upload (already serialized)`);
+          console.warn(
+            `⚠️ File-like structure found without filePath: ${fileMetadata.fileName} - cannot upload (already serialized)`
+          );
         }
-        
+
         files.push(fileMetadata);
       }
     }
@@ -4267,13 +4560,20 @@ class ApiService implements HttpClient {
     // Handle arrays
     if (Array.isArray(obj)) {
       obj.forEach((item, index) => {
-        files.push(...this.extractFileMetadataFromFileLikeStructures(item, [...path, index.toString()]));
+        files.push(
+          ...this.extractFileMetadataFromFileLikeStructures(item, [
+            ...path,
+            index.toString(),
+          ])
+        );
       });
     } else {
       // Handle nested objects
       for (const value of Object.values(obj)) {
         if (value && typeof value === "object") {
-          files.push(...this.extractFileMetadataFromFileLikeStructures(value, path));
+          files.push(
+            ...this.extractFileMetadataFromFileLikeStructures(value, path)
+          );
         }
       }
     }
@@ -4297,27 +4597,50 @@ class ApiService implements HttpClient {
     // Structure: { id: string, file: File, fileName: string, fileSize: number, ... }
     if (data.file instanceof File && !data.filePath) {
       try {
-        const filePathStr = path.length > 0 ? ` at path: ${path.join('.')}` : '';
-        console.log(`📤 Uploading file: ${data.fileName || data.file.name}${filePathStr}`);
+        const filePathStr =
+          path.length > 0 ? ` at path: ${path.join(".")}` : "";
+        console.log(
+          `📤 Uploading file: ${data.fileName || data.file.name}${filePathStr}`
+        );
         const uploadResponse = await this.uploadFile(submissionId, data.file);
         const fileData = uploadResponse?.data || uploadResponse;
-        
+
         // Replace File object with filePath
         const uploaded = {
           ...data,
           file: null,
           filePath: fileData.filePath || fileData.data?.filePath,
-          fileName: fileData.fileName || fileData.data?.fileName || data.fileName || data.file.name,
-          originalName: data.file.name || data.originalName || fileData.originalName || fileData.data?.originalName || data.fileName, // Preserve original file name
-          fileSize: fileData.size || fileData.fileSize || fileData.data?.size || data.fileSize || data.file.size,
-          mimeType: fileData.mimeType || fileData.data?.mimeType || data.file.type,
+          fileName:
+            fileData.fileName ||
+            fileData.data?.fileName ||
+            data.fileName ||
+            data.file.name,
+          originalName:
+            data.file.name ||
+            data.originalName ||
+            fileData.originalName ||
+            fileData.data?.originalName ||
+            data.fileName, // Preserve original file name
+          fileSize:
+            fileData.size ||
+            fileData.fileSize ||
+            fileData.data?.size ||
+            data.fileSize ||
+            data.file.size,
+          mimeType:
+            fileData.mimeType || fileData.data?.mimeType || data.file.type,
           uploadedAt: Date.now(),
         };
-        
-        console.log(`✅ File uploaded successfully: ${uploaded.fileName} -> ${uploaded.filePath}`);
+
+        console.log(
+          `✅ File uploaded successfully: ${uploaded.fileName} -> ${uploaded.filePath}`
+        );
         return uploaded;
       } catch (error: any) {
-        console.error(`❌ Failed to upload file ${data.fileName || data.file.name}:`, error);
+        console.error(
+          `❌ Failed to upload file ${data.fileName || data.file.name}:`,
+          error
+        );
         throw error;
       }
     }
@@ -4326,7 +4649,10 @@ class ApiService implements HttpClient {
     if (Array.isArray(data)) {
       const uploadedArray = await Promise.all(
         data.map((item, index) =>
-          this.uploadFilesAndReplace(item, submissionId, [...path, index.toString()])
+          this.uploadFilesAndReplace(item, submissionId, [
+            ...path,
+            index.toString(),
+          ])
         )
       );
       return uploadedArray;
@@ -4335,11 +4661,10 @@ class ApiService implements HttpClient {
     // Handle nested objects (e.g., section2_1: { infraActArray: [...] })
     const result: any = {};
     for (const [key, value] of Object.entries(data)) {
-      result[key] = await this.uploadFilesAndReplace(
-        value,
-        submissionId,
-        [...path, key]
-      );
+      result[key] = await this.uploadFilesAndReplace(value, submissionId, [
+        ...path,
+        key,
+      ]);
     }
     return result;
   }
@@ -4432,7 +4757,7 @@ class ApiService implements HttpClient {
    * Recursively finds all FileUpload objects with filePath and returns their metadata
    * This is needed because files are uploaded immediately when selected,
    * so File objects are null and only metadata (filePath) is available
-   * 
+   *
    * Handles edge cases:
    * - Missing/invalid metadata
    * - Duplicate files
@@ -4446,22 +4771,26 @@ class ApiService implements HttpClient {
    * Pattern: {uuid}_{originalName} or just {originalName}
    * Returns originalName if it can be extracted, otherwise returns fileName
    */
-  private extractOriginalNameFromFileName(fileName: string, originalName?: string): string {
+  private extractOriginalNameFromFileName(
+    fileName: string,
+    originalName?: string
+  ): string {
     // If originalName is already provided, use it
     if (originalName && originalName.trim()) return originalName;
-    
+
     // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-    
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
     // If fileName starts with UUID pattern, extract everything after the UUID and underscore
     if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+      const extracted = fileName.replace(uuidPattern, "");
       // If extraction resulted in a non-empty string, use it
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
-    
+
     // Fallback to fileName if extraction failed
     return fileName;
   }
@@ -4498,7 +4827,7 @@ class ApiService implements HttpClient {
         (obj.fileName || obj.originalName)
       ) {
         // Validate filePath format (should start with 'submissions/')
-        if (!obj.filePath.startsWith('submissions/')) {
+        if (!obj.filePath.startsWith("submissions/")) {
           console.warn(`⚠️ Invalid filePath format: ${obj.filePath}, skipping`);
           return;
         }
@@ -4506,16 +4835,28 @@ class ApiService implements HttpClient {
         // Avoid duplicates
         if (!seenPaths.has(obj.filePath)) {
           seenPaths.add(obj.filePath);
-          
+
           // Validate and normalize metadata with fallbacks
-          const fileName = obj.fileName || obj.originalName || obj.filePath.split('/').pop() || 'Unknown';
-          const fileSize = typeof obj.fileSize === "number" 
-            ? obj.fileSize 
-            : Number(obj.fileSize) || 0;
-          
+          const fileName =
+            obj.fileName ||
+            obj.originalName ||
+            obj.filePath.split("/").pop() ||
+            "Unknown";
+          const fileSize =
+            typeof obj.fileSize === "number"
+              ? obj.fileSize
+              : Number(obj.fileSize) || 0;
+
           // Validate file size (warn for large files)
-          if (fileSize > 100 * 1024 * 1024) { // 100MB limit
-            console.warn(`⚠️ Large file detected: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+          if (fileSize > 100 * 1024 * 1024) {
+            // 100MB limit
+            console.warn(
+              `⚠️ Large file detected: ${fileName} (${(
+                fileSize /
+                1024 /
+                1024
+              ).toFixed(2)} MB)`
+            );
           }
 
           // Normalize uploadedAt with error handling
@@ -4541,14 +4882,20 @@ class ApiService implements HttpClient {
               uploadedAt = new Date().toISOString();
             }
           } catch (e) {
-            console.warn(`⚠️ Invalid uploadedAt for ${fileName}, using current date:`, e);
+            console.warn(
+              `⚠️ Invalid uploadedAt for ${fileName}, using current date:`,
+              e
+            );
             uploadedAt = new Date().toISOString();
           }
 
           const fileMeta = {
             id: obj.id ?? null,
             fileName,
-            originalName: this.extractOriginalNameFromFileName(fileName, obj.originalName),
+            originalName: this.extractOriginalNameFromFileName(
+              fileName,
+              obj.originalName
+            ),
             filePath: obj.filePath,
             fileUrl: obj.fileUrl || "",
             fileSize,
@@ -4557,7 +4904,9 @@ class ApiService implements HttpClient {
           };
 
           attachedFiles.push(fileMeta);
-          console.log(`📎 Extracted file: ${fileMeta.fileName} (${fileMeta.filePath})`);
+          console.log(
+            `📎 Extracted file: ${fileMeta.fileName} (${fileMeta.filePath})`
+          );
         } else {
           console.log(`📎 Skipping duplicate file: ${obj.filePath}`);
         }
@@ -4575,13 +4924,15 @@ class ApiService implements HttpClient {
     };
 
     recurse(formData);
-    
+
     console.log(`📦 Extracted ${attachedFiles.length} file(s) from formData`);
-    
+
     if (attachedFiles.length === 0) {
-      console.log(`ℹ️ No files extracted from formData (this is normal if no files are attached)`);
+      console.log(
+        `ℹ️ No files extracted from formData (this is normal if no files are attached)`
+      );
     }
-    
+
     return attachedFiles;
   }
 
@@ -4597,6 +4948,7 @@ class ApiService implements HttpClient {
       section: string;
       status: boolean;
       mospi_status?: string;
+      nodalOfficerId?: string; // For sending back to specific NODAL_OFFICER
     },
     token?: string
   ) {

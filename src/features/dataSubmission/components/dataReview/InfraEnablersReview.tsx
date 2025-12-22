@@ -73,6 +73,10 @@ import { cn } from "@/lib/utils";
 import { useMemo, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
+  isSubmissionFromNodalOfficer,
+  isIndicatorFromNodalOfficer,
+} from "@/utils/indicatorStatusUtils";
+import {
   IMPACT_OPTIONS,
   TRAINING_TYPE_OPTIONS,
 } from "@/features/submission/constants/steps";
@@ -219,19 +223,23 @@ export const InfraEnablersReview = ({
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
 
   // Helper to extract original name from UUID-prefixed fileName for existing files
-  const extractOriginalName = (fileName: string, originalName?: string): string => {
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
     if (originalName && originalName.trim()) return originalName;
-    
+
     // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-    
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
     if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+      const extracted = fileName.replace(uuidPattern, "");
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
-    
+
     return fileName;
   };
 
@@ -344,8 +352,12 @@ export const InfraEnablersReview = ({
       try {
         const filePath = file.filePath || file.file;
         const encoded = encodeURIComponent(filePath);
-        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+        const base =
+          import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(
+          /\/$/,
+          ""
+        )}/file/download/${encoded}`;
 
         const accessToken = readAccessTokenFromLocalStorage();
         if (!accessToken) {
@@ -807,9 +819,38 @@ export const InfraEnablersReview = ({
   const state = formDataState as any;
 
   // Sync formDataState when formData prop changes (but not when restoring from cancel)
+  // This ensures we always have the latest data when navigating between categories
   useEffect(() => {
     if (formData && !isRestoringRef.current) {
-      setFormDataState((formData as any)?.infraEnablers || formData);
+      const newFormData = (formData as any)?.infraEnablers || formData;
+
+      // Deep comparison to detect if formData has actually changed
+      setFormDataState((prev: any) => {
+        const prevStr = JSON.stringify(prev);
+        const newStr = JSON.stringify(newFormData);
+
+        // If formData is different, it means parent component has refreshed with new data
+        if (prevStr !== newStr) {
+          console.log(
+            "🔄 [InfraEnablersReview] formData prop changed, syncing local state with latest data"
+          );
+          return newFormData;
+        }
+
+        // If formData hasn't changed, keep previous state (may have local edits)
+        return prev;
+      });
+
+      // Also sync submissionData
+      setSubmissionData((prev: any) => {
+        if (!prev) return newFormData;
+        const prevStr = JSON.stringify(prev);
+        const newStr = JSON.stringify(newFormData);
+        if (prevStr !== newStr) {
+          return newFormData;
+        }
+        return prev;
+      });
     }
   }, [formData]);
 
@@ -896,6 +937,61 @@ export const InfraEnablersReview = ({
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
 
+  // Helper function to check if a section has meaningful data
+  const sectionHasMeaningfulData = (sectionKey: string, section: any): boolean => {
+    if (!section) return false;
+    
+    switch (sectionKey) {
+      case "section4_1": {
+        return (
+          (section.allEligible && (section.allEligible === "yes" || section.allEligible === "no")) ||
+          (section.websiteLink && section.websiteLink.trim()) ||
+          (section.comment && section.comment.trim()) ||
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath))
+        );
+      }
+      case "section4_2": {
+        return (
+          (section.available && (section.available === "yes" || section.available === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
+          (section.files && Array.isArray(section.files) && section.files.length > 0)
+        );
+      }
+      case "section4_3": {
+        return (
+          (section.adopted && (section.adopted === "yes" || section.adopted === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.projects && Array.isArray(section.projects) && section.projects.length > 0)
+        );
+      }
+      case "section4_4": {
+        return (
+          (section.adopted && (section.adopted === "yes" || section.adopted === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
+          (section.files && Array.isArray(section.files) && section.files.length > 0)
+        );
+      }
+      case "section4_5": {
+        return (
+          (section.implemented && (section.implemented === "yes" || section.implemented === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.practices && Array.isArray(section.practices) && section.practices.length > 0)
+        );
+      }
+      case "section4_6": {
+        return (
+          (section.participated && (section.participated === "yes" || section.participated === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.capacityArray && Array.isArray(section.capacityArray) && section.capacityArray.length > 0)
+        );
+      }
+      default:
+        return false;
+    }
+  };
+
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
   // Only include sections that have actual submitted data
   // For both nodal officers and non-nodal officers: only show indicators that have been submitted
@@ -944,11 +1040,9 @@ export const InfraEnablersReview = ({
     
     // Filter sections: only include if they have data OR (for nodal officers) if they're assigned
     const existingSections = allPossibleSections.filter((sectionKey) => {
-      const sectionData = state[sectionKey];
-      
-      // Check if section has meaningful data - only show if submitted
-      // For both nodal officers and non-nodal officers: only show indicators that have been submitted
-      return hasSectionData(sectionKey, sectionData);
+      const section = state[sectionKey];
+      return sectionHasMeaningfulData(sectionKey, section);
+      // return hasSectionData(sectionKey, sectionData);
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
@@ -1435,17 +1529,35 @@ export const InfraEnablersReview = ({
 
       // Validate form data before saving
       const fullData = {
-        section4_1: formDataState?.section4_1 || { allEligible: "", websiteLink: "" },
+        section4_1: formDataState?.section4_1 || {
+          allEligible: "",
+          websiteLink: "",
+        },
         section4_2: formDataState?.section4_2 || { available: "", file: null },
-        section4_3: formDataState?.section4_3 || { adopted: "", file: null, projects: [] },
+        section4_3: formDataState?.section4_3 || {
+          adopted: "",
+          file: null,
+          projects: [],
+        },
         section4_4: formDataState?.section4_4 || { adopted: "", file: null },
-        section4_5: formDataState?.section4_5 || { implemented: "", practiceName: "", impact: "", file: null },
-        section4_6: formDataState?.section4_6 || { participated: "", capacityArray: [] },
+        section4_5: formDataState?.section4_5 || {
+          implemented: "",
+          practiceName: "",
+          impact: "",
+          file: null,
+        },
+        section4_6: formDataState?.section4_6 || {
+          participated: "",
+          capacityArray: [],
+        },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validateInfraEnablers(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -1670,6 +1782,7 @@ export const InfraEnablersReview = ({
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
@@ -1682,6 +1795,26 @@ export const InfraEnablersReview = ({
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
+    }
+
+    // If STATE_APPROVER is sending back (status = false), extract nodalOfficerId from section data
+    if (isStateApprover && !status) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (state && state[sectionKey]) || (formData && formData[sectionKey]);
+
+      const nodalOfficerId = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.nodalOfficerId
+          : sectionData?.nodalOfficerId
+        : undefined;
+
+      if (nodalOfficerId) {
+        payload.nodalOfficerId = nodalOfficerId;
+        console.log(
+          `📤 [InfraEnablersReview] Sending back indicator ${sectionId} to NODAL_OFFICER: ${nodalOfficerId}`
+        );
+      }
     }
 
     try {
@@ -2150,7 +2283,7 @@ export const InfraEnablersReview = ({
   const handleRemoveCapacityEntry = (id: string) => {
     setFormDataState((prev: any) => {
       const current = prev?.section4_6?.capacityArray;
-      const rows = Array.isArray(current) 
+      const rows = Array.isArray(current)
         ? current.filter((item: any) => item.id !== id)
         : [];
       return {
@@ -2511,6 +2644,42 @@ export const InfraEnablersReview = ({
       formDataData: formData && formData[sectionKey],
     });
 
+    // For STATE_APPROVER, check mospi_status to determine if section should be editable
+    if (isStateApprover) {
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If mospi_status is ACCEPTED, show as accepted and non-editable
+      if (mospiStatus === "ACCEPTED") {
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-green-100 text-green-700 cursor-default"
+              disabled
+            >
+              <CheckCircle className="w-4 h-4" />
+              Accepted
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => handleOpenTimeline(sectionId)}
+            >
+              <Clock className="w-4 h-4" />
+              Timeline ({commentCount})
+            </Button>
+          </div>
+        );
+      }
+
+      // If mospi_status is REVERTED, continue to show Edit button and other actions
+      // We'll add the "Returned from Mospi" button in the normal flow below
+    }
+
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
     // REVERTED is excluded because user can resubmit after being sent back
     const isSubmitted =
@@ -2806,6 +2975,31 @@ export const InfraEnablersReview = ({
 
     return (
       <div className="flex gap-2">
+        {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (state && state[sectionKey]) ||
+              (formData && formData[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+            return mospiStatus === "REVERTED";
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from Mospi
+            </Button>
+          )}
+
         {!shouldBeEditable(sectionId) ? (
           <Button
             variant="outline"
@@ -2853,6 +3047,75 @@ export const InfraEnablersReview = ({
             </Button>
           </>
         )}
+
+        {/* Show "Send Back" button for STATE_APPROVER when indicator is returned from MOSPI and originally from NODAL_OFFICER */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (state && state[sectionKey]) ||
+              (formData && formData[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+
+            // Check if this specific indicator was originally submitted by NODAL_OFFICER
+            const isFromNodalOfficer = isIndicatorFromNodalOfficer(
+              submission as any,
+              sectionId
+            );
+
+            // Detailed logging for debugging
+            console.group(
+              `🔍 [InfraEnablersReview] "Send Back" button check for section ${sectionId}`
+            );
+            console.log("📊 Section data:", {
+              sectionKey,
+              sectionData: sectionData
+                ? Array.isArray(sectionData)
+                  ? sectionData[0]
+                  : sectionData
+                : null,
+              mospiStatus,
+              hasState: !!state,
+              hasFormData: !!formData,
+            });
+            console.log("👤 Submission info:", {
+              submissionId: submission?.id,
+              submissionStatus: submission?.status,
+              currentOwnerRole: submission?.currentOwnerRole,
+              submittedBy: submission?.submittedBy,
+            });
+            console.log("✅ Checks:", {
+              isStateApprover,
+              mospiStatus,
+              isMospiReverted: mospiStatus === "REVERTED",
+              isFromNodalOfficer,
+              shouldShowButton:
+                mospiStatus === "REVERTED" && isFromNodalOfficer,
+            });
+            console.groupEnd();
+
+            return mospiStatus === "REVERTED" && isFromNodalOfficer;
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => {
+                // Track that this was opened from STATE_APPROVER "Send Back" button
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+                handleOpenModal(sectionId);
+              }}
+              disabled={shouldBeEditable(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+          )}
 
         {/* Hide Send Back button if STATE_APPROVER is viewing their own submission */}
         {(() => {
@@ -3496,14 +3759,23 @@ export const InfraEnablersReview = ({
                                     {(() => {
                                       const fileKey = `4.3-${idx}`;
                                       const isLoading = !!fileLoading[fileKey];
-                                      const hasFileAccess = !!(project.file.filePath || project.file.file || project.file.fileUrl);
+                                      const hasFileAccess = !!(
+                                        project.file.filePath ||
+                                        project.file.file ||
+                                        project.file.fileUrl
+                                      );
                                       return hasFileAccess ? (
                                         <>
                                           <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleViewFile(project.file, fileKey)}
+                                            onClick={() =>
+                                              handleViewFile(
+                                                project.file,
+                                                fileKey
+                                              )
+                                            }
                                             disabled={isLoading}
                                             className="h-7 w-7 p-0"
                                             title="View file"
@@ -3514,7 +3786,12 @@ export const InfraEnablersReview = ({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleDownloadFile(project.file, fileKey)}
+                                            onClick={() =>
+                                              handleDownloadFile(
+                                                project.file,
+                                                fileKey
+                                              )
+                                            }
                                             disabled={isLoading}
                                             className="h-7 w-7 p-0"
                                             title="Download file"
@@ -3536,7 +3813,11 @@ export const InfraEnablersReview = ({
                                   <Button
                                     variant="outline"
                                     size="icon"
-                                    onClick={() => handleRemoveProject(project.id || idx.toString())}
+                                    onClick={() =>
+                                      handleRemoveProject(
+                                        project.id || idx.toString()
+                                      )
+                                    }
                                     className="text-red-500 hover:text-red-700 border-none bg-none"
                                   >
                                     <Trash2 className="h-5 w-5" />
@@ -4069,14 +4350,23 @@ export const InfraEnablersReview = ({
                                     {(() => {
                                       const fileKey = `4.5-${idx}`;
                                       const isLoading = !!fileLoading[fileKey];
-                                      const hasFileAccess = !!(practice.file.filePath || practice.file.file || practice.file.fileUrl);
+                                      const hasFileAccess = !!(
+                                        practice.file.filePath ||
+                                        practice.file.file ||
+                                        practice.file.fileUrl
+                                      );
                                       return hasFileAccess ? (
                                         <>
                                           <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleViewFile(practice.file, fileKey)}
+                                            onClick={() =>
+                                              handleViewFile(
+                                                practice.file,
+                                                fileKey
+                                              )
+                                            }
                                             disabled={isLoading}
                                             className="h-7 w-7 p-0"
                                             title="View file"
@@ -4087,7 +4377,12 @@ export const InfraEnablersReview = ({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleDownloadFile(practice.file, fileKey)}
+                                            onClick={() =>
+                                              handleDownloadFile(
+                                                practice.file,
+                                                fileKey
+                                              )
+                                            }
                                             disabled={isLoading}
                                             className="h-7 w-7 p-0"
                                             title="Download file"
@@ -4109,7 +4404,11 @@ export const InfraEnablersReview = ({
                                   <Button
                                     variant="outline"
                                     size="icon"
-                                    onClick={() => handleRemovePractice(practice.id || idx.toString())}
+                                    onClick={() =>
+                                      handleRemovePractice(
+                                        practice.id || idx.toString()
+                                      )
+                                    }
                                     className="text-red-500 hover:text-red-700 border-none bg-none"
                                   >
                                     <Trash2 className="h-5 w-5" />
@@ -4452,7 +4751,11 @@ export const InfraEnablersReview = ({
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  onClick={() => handleRemoveCapacityEntry(item.id || idx.toString())}
+                                  onClick={() =>
+                                    handleRemoveCapacityEntry(
+                                      item.id || idx.toString()
+                                    )
+                                  }
                                   className="text-red-500 hover:text-red-700 border-none bg-none"
                                 >
                                   <Trash2 className="h-5 w-5" />

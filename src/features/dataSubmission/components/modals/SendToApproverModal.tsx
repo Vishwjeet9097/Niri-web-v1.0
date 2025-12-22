@@ -43,20 +43,80 @@ export const SendToApproverModal = ({
 
       if (isStateApprover) {
         // State Approver forwards to MoSPI Reviewer
-        response = await apiService.forwardToMospi(submissionId, "Forwarding to MoSPI Reviewer for review");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📤 FORM TRANSFER: STATE_APPROVER → MOSPI_REVIEWER");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📝 Submission ID:", submissionId);
+        console.log("👤 From: STATE_APPROVER");
+        console.log("👤 To: MOSPI_REVIEWER");
+        console.log(
+          "📊 Status Change: SUBMITTED_TO_STATE → SUBMITTED_TO_MOSPI_REVIEWER"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        response = await apiService.forwardToMospi(
+          submissionId,
+          "Forwarding to MoSPI Reviewer for review"
+        );
+        console.log("✅ Transfer completed successfully");
+        console.log("📦 Response:", response);
         successMessage = "Sent to MoSPI Reviewer Successfully";
       } else if (isMospiReviewer) {
         // MoSPI Reviewer forwards to MoSPI Approver
-        response = await apiService.forwardToMospiApprover(submissionId, "Reviewed and approved, forwarding to MoSPI Approver for final approval");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📤 FORM TRANSFER: MOSPI_REVIEWER → MOSPI_APPROVER");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📝 Submission ID:", submissionId);
+        console.log("👤 From: MOSPI_REVIEWER");
+        console.log("👤 To: MOSPI_APPROVER");
+        console.log(
+          "📊 Status Change: SUBMITTED_TO_MOSPI_REVIEWER → SUBMITTED_TO_MOSPI_APPROVER"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        response = await apiService.forwardToMospiApprover(
+          submissionId,
+          "Reviewed and approved, forwarding to MoSPI Approver for final approval"
+        );
+        console.log("✅ Transfer completed successfully");
+        console.log("📦 Response:", response);
         successMessage = "Sent to MoSPI Approver Successfully";
       } else if (isMospiApprover) {
         // MoSPI Approver approves submission
-        response = await apiService.approveSubmission(submissionId, "Approved by MoSPI Approver. Submission meets all requirements.");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("✅ FORM APPROVAL: MOSPI_APPROVER → APPROVED");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log("📝 Submission ID:", submissionId);
+        console.log("👤 Approved by: MOSPI_APPROVER");
+        console.log("📊 Status Change: SUBMITTED_TO_MOSPI_APPROVER → APPROVED");
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        response = await apiService.approveSubmission(
+          submissionId,
+          "Approved by MoSPI Approver. Submission meets all requirements."
+        );
+        console.log("✅ Approval completed successfully");
+        console.log("📦 Response:", response);
         successMessage = "Submission Approved Successfully";
       } else {
         throw new Error("Invalid user role");
       }
-      
+
       setShowSuccess(true);
 
       // Auto close and navigate after 2 seconds
@@ -68,7 +128,8 @@ export const SendToApproverModal = ({
     } catch (error: unknown) {
       console.error("Failed to process submission:", error);
       notificationService.error(
-        (error as Error)?.message || "Failed to process submission. Please try again.",
+        (error as Error)?.message ||
+          "Failed to process submission. Please try again.",
         "Process Failed"
       );
     } finally {
@@ -88,16 +149,22 @@ export const SendToApproverModal = ({
                 {isMospiApprover && "Approve Submission"}
               </DialogTitle>
               <DialogDescription>
-                {isStateApprover && "Are you sure you want to send this submission to the MoSPI Reviewer for review?"}
-                {isMospiReviewer && "Are you sure you want to send this submission to the MoSPI Approver for final approval?"}
-                {isMospiApprover && "Are you sure you want to approve this submission?"}
+                {isStateApprover &&
+                  "Are you sure you want to send this submission to the MoSPI Reviewer for review?"}
+                {isMospiReviewer &&
+                  "Are you sure you want to send this submission to the MoSPI Approver for final approval?"}
+                {isMospiApprover &&
+                  "Are you sure you want to approve this submission?"}
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-muted-foreground">
-                {isStateApprover && "On clicking send to reviewer button, the submission will be forwarded for review to MoSPI Reviewer."}
-                {isMospiReviewer && "On clicking send to approver button, the submission will be forwarded for final approval to MoSPI Approver."}
-                {isMospiApprover && "On clicking approve button, the submission will be approved and finalized."}
+                {isStateApprover &&
+                  "On clicking send to reviewer button, the submission will be forwarded for review to MoSPI Reviewer."}
+                {isMospiReviewer &&
+                  "On clicking send to approver button, the submission will be forwarded for final approval to MoSPI Approver."}
+                {isMospiApprover &&
+                  "On clicking approve button, the submission will be approved and finalized."}
               </p>
             </div>
             <DialogFooter>
@@ -122,9 +189,12 @@ export const SendToApproverModal = ({
                   {isMospiApprover && "Submission Approved Successfully"}
                 </div>
                 <div className="text-sm">
-                  {isStateApprover && "The data has been successfully forwarded to MoSPI Reviewer for review. You will be notified of its status."}
-                  {isMospiReviewer && "The data has been successfully forwarded to MoSPI Approver for final approval. You will be notified of its status."}
-                  {isMospiApprover && "The submission has been successfully approved and finalized. The NIP score will be calculated."}
+                  {isStateApprover &&
+                    "The data has been successfully forwarded to MoSPI Reviewer for review. You will be notified of its status."}
+                  {isMospiReviewer &&
+                    "The data has been successfully forwarded to MoSPI Approver for final approval. You will be notified of its status."}
+                  {isMospiApprover &&
+                    "The submission has been successfully approved and finalized. The NIP score will be calculated."}
                 </div>
               </AlertDescription>
             </Alert>

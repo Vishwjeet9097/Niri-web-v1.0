@@ -205,12 +205,18 @@ export const PPPDevelopmentStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // Store snapshots of original form data when editing starts (for cancel functionality)
+  const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
+    Record<string, any>
+  >({});
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
-  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(null);
+  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(
+    null
+  );
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [pendingIndicator, setPendingIndicator] = useState<{
@@ -232,7 +238,7 @@ export const PPPDevelopmentStep = () => {
     clearValidatingIndicator,
     clearValidFieldErrors,
   } = useFieldValidation();
-  
+
   // State for submissionId to enable immediate file uploads
   const [submissionId, setSubmissionId] = useState<string | undefined>();
 
@@ -257,18 +263,20 @@ export const PPPDevelopmentStep = () => {
             sub.status === "IN_PROGRESS" ||
             sub.status === "RETURNED_FROM_STATE"
         );
-        
+
         if (userSubmission) {
           setSubmissionId(userSubmission.id);
           console.log("✅ Found existing submissionId:", userSubmission.id);
         } else {
-          console.log("ℹ️ No existing submission found, files will upload on submit");
+          console.log(
+            "ℹ️ No existing submission found, files will upload on submit"
+          );
         }
       } catch (error) {
         console.error("Failed to fetch submissionId:", error);
       }
     };
-    
+
     fetchSubmissionId();
   }, []);
 
@@ -456,7 +464,10 @@ export const PPPDevelopmentStep = () => {
 
   // Clear errors for fields that are now valid (when user fixes invalid fields)
   useEffect(() => {
-    if (validatingIndicator && Object.keys(indicatorValidationErrors).length > 0) {
+    if (
+      validatingIndicator &&
+      Object.keys(indicatorValidationErrors).length > 0
+    ) {
       clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
     }
   }, [validation.errors, validatingIndicator, clearValidFieldErrors]);
@@ -720,20 +731,20 @@ export const PPPDevelopmentStep = () => {
       "totalIndicators",
       "completedIndicators",
     ];
-    
+
     // Preserve File and Blob instances - return them as-is
     if (obj instanceof File || obj instanceof Blob) {
       return obj;
     }
-    
+
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
-    
+
     if (obj && typeof obj === "object") {
       const newObj = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
           const value = obj[key];
-          
+
           // Preserve File and Blob instances
           if (value instanceof File || value instanceof Blob) {
             newObj[key] = value; // Keep File/Blob instance as-is
@@ -748,7 +759,10 @@ export const PPPDevelopmentStep = () => {
             // Preserve the FileUpload object structure, including the File instance
             const fileUploadObj: any = {};
             for (const prop in value) {
-              if (prop === "file" && (value.file instanceof File || value.file instanceof Blob)) {
+              if (
+                prop === "file" &&
+                (value.file instanceof File || value.file instanceof Blob)
+              ) {
                 fileUploadObj[prop] = value.file; // Keep File/Blob instance as-is
               } else {
                 fileUploadObj[prop] = deepRemoveUnwantedKeys(value[prop]);
@@ -896,7 +910,7 @@ export const PPPDevelopmentStep = () => {
       });
       return;
     }
-    
+
     // Clear indicator-specific validation state on success
     clearValidatingIndicator();
     setIndicatorValidationErrors({});
@@ -1080,16 +1094,19 @@ export const PPPDevelopmentStep = () => {
         "pppDevelopment",
         allowedIndicators || ["3.1", "3.2", "3.3", "3.4"]
       );
-      
+
       // Update submissionId if it was created/updated
       if (result?.id || result?.submissionId) {
         const newSubmissionId = result.id || result.submissionId;
         if (newSubmissionId && newSubmissionId !== submissionId) {
           setSubmissionId(newSubmissionId);
-          console.log("✅ Updated submissionId after draft save:", newSubmissionId);
+          console.log(
+            "✅ Updated submissionId after draft save:",
+            newSubmissionId
+          );
         }
       }
-      
+
       updateFormData("pppDevelopment", formData);
       toast({
         title: "Draft Saved",
@@ -1207,6 +1224,12 @@ export const PPPDevelopmentStep = () => {
 
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Store a snapshot of the current form data for this section before editing
+    setOriginalFormDataSnapshots((prev) => ({
+      ...prev,
+      [indicatorCode]: JSON.parse(JSON.stringify(formData[sectionKey] || {})),
+    }));
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
   };
 
@@ -1398,7 +1421,10 @@ export const PPPDevelopmentStep = () => {
         const newSubmissionId = result.id || result.submissionId;
         if (newSubmissionId && newSubmissionId !== submissionId) {
           setSubmissionId(newSubmissionId);
-          console.log("✅ Updated submissionId after resubmit:", newSubmissionId);
+          console.log(
+            "✅ Updated submissionId after resubmit:",
+            newSubmissionId
+          );
         }
       }
 
@@ -1466,6 +1492,22 @@ export const PPPDevelopmentStep = () => {
 
   // Handle Cancel button click for sent back indicators
   const handleCancelEdit = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Restore the original form data from snapshot
+    if (originalFormDataSnapshots[indicatorCode]) {
+      setFormData((prev: any) => ({
+        ...prev,
+        [sectionKey]: JSON.parse(
+          JSON.stringify(originalFormDataSnapshots[indicatorCode])
+        ),
+      }));
+      // Remove the snapshot after restoring
+      setOriginalFormDataSnapshots((prev) => {
+        const updated = { ...prev };
+        delete updated[indicatorCode];
+        return updated;
+      });
+    }
     setEditingIndicators((prev) => {
       const newSet = new Set(prev);
       newSet.delete(indicatorCode);
@@ -1668,7 +1710,9 @@ export const PPPDevelopmentStep = () => {
                       "Availability of PPP Act/Policy"
                     )
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("3.1")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("3.1")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
@@ -1834,7 +1878,9 @@ export const PPPDevelopmentStep = () => {
                       "Availability of PPP Cell/Unit"
                     )
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("3.2")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("3.2")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
@@ -2109,15 +2155,26 @@ export const PPPDevelopmentStep = () => {
                         if (!file) {
                           return (
                             <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm">{entry.projectName}</td>
-                              <td className="py-3 px-4 text-sm">{entry.sector}</td>
-                              <td className="py-3 px-4 text-sm">{entry.type}</td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.projectName}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.type}
+                              </td>
                               <td className="py-3 px-4 text-sm">
                                 {entry.submissionDate
-                                  ? format(new Date(entry.submissionDate), "dd-MM-yyyy")
+                                  ? format(
+                                      new Date(entry.submissionDate),
+                                      "dd-MM-yyyy"
+                                    )
                                   : "-"}
                               </td>
-                              <td className="py-3 px-4 text-sm">No file uploaded</td>
+                              <td className="py-3 px-4 text-sm">
+                                No file uploaded
+                              </td>
                               <td className="py-3 px-4 text-sm">N/A</td>
                               <td className="py-3 px-4">
                                 <button
@@ -2133,63 +2190,73 @@ export const PPPDevelopmentStep = () => {
                             </tr>
                           );
                         }
-                        
+
                         // Extract original name from UUID-prefixed fileName if originalName is not available
-                        const extractOriginalName = (fileName: string, originalName?: string): string => {
-                          if (originalName && originalName.trim()) return originalName;
-                          
+                        const extractOriginalName = (
+                          fileName: string,
+                          originalName?: string
+                        ): string => {
+                          if (originalName && originalName.trim())
+                            return originalName;
+
                           // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-                          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-                          
+                          const uuidPattern =
+                            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
                           if (uuidPattern.test(fileName)) {
-                            const extracted = fileName.replace(uuidPattern, '');
+                            const extracted = fileName.replace(uuidPattern, "");
                             if (extracted && extracted.trim().length > 0) {
                               return extracted;
                             }
                           }
-                          
+
                           return fileName;
                         };
-                        
-                        const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
-                        
+
+                        const displayName = extractOriginalName(
+                          file.fileName || "",
+                          (file as any)?.originalName
+                        );
+
                         return (
-                        <tr key={entry.id} className="bg-white">
-                          <td className="py-3 px-4 text-sm">
-                            {entry.projectName}
-                          </td>
-                          <td className="py-3 px-4 text-sm">{entry.sector}</td>
-                          <td className="py-3 px-4 text-sm">{entry.type}</td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.submissionDate
-                              ? format(
-                                  new Date(entry.submissionDate),
-                                  "dd-MM-yyyy"
-                                )
-                              : "-"}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {displayName}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.file?.fileSize
-                              ? `${(entry.file.fileSize / 1024 / 1024).toFixed(
-                                  1
-                                )} MB`
-                              : "N/A"}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button
-                              type="button"
-                              onClick={() => removeProject(entry.id)}
-                              disabled={isIndicatorSubmitted("3.3")}
-                              className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                              aria-label="Delete"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </td>
-                        </tr>
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm">
+                              {entry.projectName}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm">{entry.type}</td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.submissionDate
+                                ? format(
+                                    new Date(entry.submissionDate),
+                                    "dd-MM-yyyy"
+                                  )
+                                : "-"}
+                            </td>
+                            <td className="py-3 px-4 text-sm">{displayName}</td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.file?.fileSize
+                                ? `${(
+                                    entry.file.fileSize /
+                                    1024 /
+                                    1024
+                                  ).toFixed(1)} MB`
+                                : "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeProject(entry.id)}
+                                disabled={isIndicatorSubmitted("3.3")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -2201,7 +2268,9 @@ export const PPPDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("3.3", "VGF Proposals Submitted")
                   }
-                  disabled={submittingIndicator !== null || isIndicatorSubmitted("3.3")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("3.3")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
@@ -2635,7 +2704,10 @@ export const PPPDevelopmentStep = () => {
                         "Proportion of TPC of PPP Projects"
                       )
                     }
-                    disabled={submittingIndicator !== null || isIndicatorSubmitted("3.4")}
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("3.4")
+                    }
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
@@ -2683,7 +2755,9 @@ export const PPPDevelopmentStep = () => {
               onClick={handleConfirmSubmit}
               disabled={submittingIndicator !== null}
             >
-              {submittingIndicator !== null ? "Submitting..." : "Confirm & Submit"}
+              {submittingIndicator !== null
+                ? "Submitting..."
+                : "Confirm & Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

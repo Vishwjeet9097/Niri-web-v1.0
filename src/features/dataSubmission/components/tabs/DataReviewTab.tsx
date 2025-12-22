@@ -1,4 +1,10 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +13,12 @@ import { InfraFinancingReview } from "../dataReview/InfraFinancingReview";
 import { InfraDevelopmentReview } from "../dataReview/InfraDevelopmentReview";
 import { PPPDevelopmentReview } from "../dataReview/PPPDevelopmentReview";
 import { InfraEnablersReview } from "../dataReview/InfraEnablersReview";
-import { hasInfraFinancingData, hasInfraDevelopmentData, hasPPPDevelopmentData, hasInfraEnablersData } from "@/utils/sectionDataValidator";
+import {
+  hasInfraFinancingData,
+  hasInfraDevelopmentData,
+  hasPPPDevelopmentData,
+  hasInfraEnablersData,
+} from "@/utils/sectionDataValidator";
 import { filterSectionFormDataByIndicators } from "@/utils/indicatorUtils";
 
 interface DataReviewTabProps {
@@ -37,7 +48,7 @@ interface DataReviewTabProps {
       year?: string | null;
     }>;
   }>;
-
+  onRefetch?: () => void; // Callback to refetch submission data from parent
 }
 
 const DEFAULT_SECTIONS = [
@@ -47,15 +58,25 @@ const DEFAULT_SECTIONS = [
   { id: "infra-enablers", label: "Infra Enablers", points: 250 },
 ];
 
-export const DataReviewTab = ({ submissionId, formData, submission, isPreview = false, assignedIndicators, isNodalOfficer, sections }: DataReviewTabProps) => {
+export const DataReviewTab = ({
+  submissionId,
+  formData,
+  submission,
+  isPreview = false,
+  assignedIndicators,
+  isNodalOfficer,
+  sections,
+  onRefetch,
+}: DataReviewTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Get category from URL params or default to 0
-  const categoryParam = searchParams.get('category');
+  const categoryParam = searchParams.get("category");
   const initialSection = categoryParam ? parseInt(categoryParam, 10) : 0;
   const [currentSection, setCurrentSection] = useState(initialSection);
   const isUpdatingFromUrlRef = React.useRef(false);
-  
+  const prevSectionRef = React.useRef(currentSection);
+
   // Sync from URL param when it changes externally (e.g., browser back/forward)
   // This only runs when categoryParam changes, not when currentSection changes
   useEffect(() => {
@@ -64,13 +85,13 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
       isUpdatingFromUrlRef.current = false;
       return;
     }
-    
+
     // Only sync if URL param exists and differs from current state
     if (categoryParam !== null) {
       const sectionIndex = parseInt(categoryParam, 10);
       if (!isNaN(sectionIndex)) {
         // Use a ref to get current value without adding to dependencies
-        setCurrentSection(prev => {
+        setCurrentSection((prev) => {
           if (prev !== sectionIndex) {
             return sectionIndex;
           }
@@ -80,25 +101,51 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryParam]); // Only depend on categoryParam to avoid loops
-  
+
   // Update URL when section changes (user interaction)
-  const updateUrlForSection = React.useCallback((sectionIndex: number) => {
-    isUpdatingFromUrlRef.current = true;
-    const newSearchParams = new URLSearchParams(searchParams);
-    if (sectionIndex !== 0) {
-      newSearchParams.set('category', sectionIndex.toString());
-    } else {
-      newSearchParams.delete('category');
-    }
-    setSearchParams(newSearchParams, { replace: true });
-  }, [searchParams, setSearchParams]);
-  
+  const updateUrlForSection = React.useCallback(
+    (sectionIndex: number) => {
+      isUpdatingFromUrlRef.current = true;
+      const newSearchParams = new URLSearchParams(searchParams);
+      if (sectionIndex !== 0) {
+        newSearchParams.set("category", sectionIndex.toString());
+      } else {
+        newSearchParams.delete("category");
+      }
+      setSearchParams(newSearchParams, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
+
   // Wrapper for setCurrentSection that also updates URL
-  const handleSectionChange = React.useCallback((sectionIndex: number) => {
-    setCurrentSection(sectionIndex);
-    updateUrlForSection(sectionIndex);
-  }, [updateUrlForSection]);
-  
+  const handleSectionChange = React.useCallback(
+    (sectionIndex: number) => {
+      setCurrentSection(sectionIndex);
+      updateUrlForSection(sectionIndex);
+    },
+    [updateUrlForSection]
+  );
+
+  // Refetch data when category changes (but not on initial mount)
+  useEffect(() => {
+    // Only refetch if section actually changed and we're not in preview mode
+    if (
+      prevSectionRef.current !== currentSection &&
+      prevSectionRef.current !== initialSection &&
+      !isPreview &&
+      onRefetch
+    ) {
+      console.log(
+        `🔄 [DataReviewTab] Category changed from ${prevSectionRef.current} to ${currentSection}, refetching data...`
+      );
+      // Small delay to ensure smooth navigation
+      setTimeout(() => {
+        onRefetch();
+      }, 100);
+    }
+    prevSectionRef.current = currentSection;
+  }, [currentSection, isPreview, onRefetch, initialSection]);
+
   // Map category IDs to their indicator codes
   const categoryIndicatorMap: Record<string, string[]> = {
     "infra-financing": ["1.1", "1.2", "1.3", "1.4", "1.5"],
@@ -109,31 +156,73 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
 
   // Check which sections have data
   const sectionsWithData = [
-    { id: "infra-financing", label: "Infra Financing", points: 250, hasData: hasInfraFinancingData(formData) },
-    { id: "infra-development", label: "Infra Development", points: 250, hasData: hasInfraDevelopmentData(formData) },
-    { id: "ppp-development", label: "PPP Development", points: 250, hasData: hasPPPDevelopmentData(formData) },
-    { id: "infra-enablers", label: "Infra Enablers", points: 250, hasData: hasInfraEnablersData(formData) },
+    {
+      id: "infra-financing",
+      label: "Infra Financing",
+      points: 250,
+      hasData: hasInfraFinancingData(formData),
+    },
+    {
+      id: "infra-development",
+      label: "Infra Development",
+      points: 250,
+      hasData: hasInfraDevelopmentData(formData),
+    },
+    {
+      id: "ppp-development",
+      label: "PPP Development",
+      points: 250,
+      hasData: hasPPPDevelopmentData(formData),
+    },
+    {
+      id: "infra-enablers",
+      label: "Infra Enablers",
+      points: 250,
+      hasData: hasInfraEnablersData(formData),
+    },
   ];
 
   // Filter sections based on assigned indicators for nodal officers in preview mode
   const availableSections = useMemo(() => {
     // For nodal officers in preview mode: filter categories that have assigned indicators
-    if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0) {
+    if (
+      isPreview &&
+      isNodalOfficer &&
+      assignedIndicators &&
+      assignedIndicators.length > 0
+    ) {
       const filtered = sectionsWithData.filter((section) => {
         const categoryIndicators = categoryIndicatorMap[section.id] || [];
         // Check if any indicator in this category is assigned to the nodal officer
-        const hasAssignedIndicator = categoryIndicators.some(ind => assignedIndicators.includes(ind));
-        console.log(`🔍 [DataReviewTab] Category ${section.id} has assigned indicator:`, hasAssignedIndicator, "category indicators:", categoryIndicators, "assigned:", assignedIndicators);
+        const hasAssignedIndicator = categoryIndicators.some((ind) =>
+          assignedIndicators.includes(ind)
+        );
+        console.log(
+          `🔍 [DataReviewTab] Category ${section.id} has assigned indicator:`,
+          hasAssignedIndicator,
+          "category indicators:",
+          categoryIndicators,
+          "assigned:",
+          assignedIndicators
+        );
         return hasAssignedIndicator;
       });
-      console.log("🔍 [DataReviewTab] Filtered sections for nodal officer:", filtered);
+      console.log(
+        "🔍 [DataReviewTab] Filtered sections for nodal officer:",
+        filtered
+      );
       return filtered;
     }
 
     // For preview mode but NOT nodal officer (e.g., state approver viewing aggregate):
     // Show all sections that exist in formData, even if they don't have meaningful data
     // This ensures all indicators are visible in aggregate/preview views
-    if (isPreview && !isNodalOfficer && formData && typeof formData === 'object') {
+    if (
+      isPreview &&
+      !isNodalOfficer &&
+      formData &&
+      typeof formData === "object"
+    ) {
       // Map section ID to formData category key
       const categoryMap: Record<string, string> = {
         "infra-financing": "infraFinancing",
@@ -141,46 +230,67 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
         "ppp-development": "pppDevelopment",
         "infra-enablers": "infraEnablers",
       };
-      
+
       // Check which sections exist in formData (even if empty)
       const existingSections = DEFAULT_SECTIONS.filter((section) => {
         const formDataCategory = categoryMap[section.id];
         if (!formDataCategory) return false;
-        
+
         // Check if category exists in formData (even if empty object)
-        const categoryExists = formDataCategory in formData && formData[formDataCategory] && typeof formData[formDataCategory] === 'object';
-        
+        const categoryExists =
+          formDataCategory in formData &&
+          formData[formDataCategory] &&
+          typeof formData[formDataCategory] === "object";
+
         // For each section, check if any sub-sections exist (e.g., section4_3 in infraEnablers)
         if (categoryExists) {
           const categoryData = formData[formDataCategory];
           // Check if this category has any section keys (e.g., section4_3, section4_4, etc.)
-          const hasAnySections = Object.keys(categoryData).some(key => key.startsWith('section'));
+          const hasAnySections = Object.keys(categoryData).some((key) =>
+            key.startsWith("section")
+          );
           return hasAnySections;
         }
-        
+
         return false;
       });
-      
+
       // Include sections that have data OR exist in formData
-      const sectionsToShow = DEFAULT_SECTIONS.map(section => {
-        const existsInFormData = existingSections.some(s => s.id === section.id);
-        const hasData = sectionsWithData.find(s => s.id === section.id)?.hasData || false;
+      const sectionsToShow = DEFAULT_SECTIONS.map((section) => {
+        const existsInFormData = existingSections.some(
+          (s) => s.id === section.id
+        );
+        const hasData =
+          sectionsWithData.find((s) => s.id === section.id)?.hasData || false;
         return { ...section, hasData: hasData || existsInFormData };
-      }).filter(section => section.hasData);
-      
-      console.log("🔍 [DataReviewTab] Preview mode (non-nodal): showing sections that exist in formData:", sectionsToShow);
-      return sectionsToShow.length > 0 ? sectionsToShow : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
+      }).filter((section) => section.hasData);
+
+      console.log(
+        "🔍 [DataReviewTab] Preview mode (non-nodal): showing sections that exist in formData:",
+        sectionsToShow
+      );
+      return sectionsToShow.length > 0
+        ? sectionsToShow
+        : DEFAULT_SECTIONS.map((s) => ({ ...s, hasData: false }));
     }
 
     // For aggregate view or non-preview: show sections with data, or all as fallback
     const anyHasData = sectionsWithData.some((s) => s.hasData);
-    return anyHasData ? sectionsWithData.filter((s) => s.hasData) : DEFAULT_SECTIONS.map(s => ({ ...s, hasData: false }));
-  }, [sectionsWithData, isPreview, isNodalOfficer, assignedIndicators, formData]);
-  
+    return anyHasData
+      ? sectionsWithData.filter((s) => s.hasData)
+      : DEFAULT_SECTIONS.map((s) => ({ ...s, hasData: false }));
+  }, [
+    sectionsWithData,
+    isPreview,
+    isNodalOfficer,
+    assignedIndicators,
+    formData,
+  ]);
+
   // Validate currentSection is within bounds when availableSections changes
   useEffect(() => {
     if (availableSections.length === 0) return;
-    
+
     if (currentSection >= availableSections.length) {
       // If current section is out of bounds, reset to 0
       // Use setCurrentSection directly to avoid triggering URL update in this case
@@ -188,25 +298,42 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
       updateUrlForSection(0);
     }
   }, [availableSections.length, currentSection, updateUrlForSection]);
-  
+
   const renderSectionContent = () => {
     // Filter formData based on assigned indicators for nodal officers in preview mode
     let filteredFormData = formData;
-    if (isPreview && isNodalOfficer && assignedIndicators && assignedIndicators.length > 0 && formData) {
-      filteredFormData = filterSectionFormDataByIndicators(formData, assignedIndicators);
-      console.log("🔍 [DataReviewTab] Filtered formData for nodal officer:", filteredFormData);
+    if (
+      isPreview &&
+      isNodalOfficer &&
+      assignedIndicators &&
+      assignedIndicators.length > 0 &&
+      formData
+    ) {
+      filteredFormData = filterSectionFormDataByIndicators(
+        formData,
+        assignedIndicators
+      );
+      console.log(
+        "🔍 [DataReviewTab] Filtered formData for nodal officer:",
+        filteredFormData
+      );
     }
-    
-    const sectionFormData = filteredFormData ? {
-      infraFinancing: filteredFormData.infraFinancing,
-      infraDevelopment: filteredFormData.infraDevelopment,
-      pppDevelopment: filteredFormData.pppDevelopment,
-      infraEnablers: filteredFormData.infraEnablers
-    } : {};
-    
+
+    const sectionFormData = filteredFormData
+      ? {
+          infraFinancing: filteredFormData.infraFinancing,
+          infraDevelopment: filteredFormData.infraDevelopment,
+          pppDevelopment: filteredFormData.pppDevelopment,
+          infraEnablers: filteredFormData.infraEnablers,
+        }
+      : {};
+
     console.log("🔍 [DataReviewTab] formData:", formData);
     console.log("🔍 [DataReviewTab] filteredFormData:", filteredFormData);
-    console.log("🔍 [DataReviewTab] sectionFormData.infraFinancing:", sectionFormData.infraFinancing);
+    console.log(
+      "🔍 [DataReviewTab] sectionFormData.infraFinancing:",
+      sectionFormData.infraFinancing
+    );
     console.log("🔍 [DataReviewTab] isPreview:", isPreview);
     console.log("🔍 [DataReviewTab] currentSection:", currentSection);
     console.log("🔍 [DataReviewTab] availableSections:", availableSections);
@@ -219,16 +346,64 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
       );
     }
 
+    // Use a key based on category and submission updatedAt to force remount when data changes
+    const categoryKey = availableSections[currentSection]?.id || "";
+    const submissionTimestamp = submission?.updatedAt || submission?.id || "";
+    const componentKey = `${categoryKey}-${submissionTimestamp}`;
+
     switch (availableSections[currentSection]?.id) {
       case "infra-financing":
-        console.log("🔍 [DataReviewTab] Rendering InfraFinancingReview with formData:", sectionFormData.infraFinancing);
-        return <InfraFinancingReview submissionId={submissionId} formData={sectionFormData.infraFinancing} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
+        console.log(
+          "🔍 [DataReviewTab] Rendering InfraFinancingReview with formData:",
+          sectionFormData.infraFinancing
+        );
+        return (
+          <InfraFinancingReview
+            key={componentKey}
+            submissionId={submissionId}
+            formData={sectionFormData.infraFinancing}
+            submission={submission}
+            isPreview={isPreview}
+            assignedIndicators={assignedIndicators}
+            isNodalOfficer={isNodalOfficer}
+          />
+        );
       case "infra-development":
-        return <InfraDevelopmentReview submissionId={submissionId} formData={sectionFormData.infraDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
+        return (
+          <InfraDevelopmentReview
+            key={componentKey}
+            submissionId={submissionId}
+            formData={sectionFormData.infraDevelopment}
+            submission={submission}
+            isPreview={isPreview}
+            assignedIndicators={assignedIndicators}
+            isNodalOfficer={isNodalOfficer}
+          />
+        );
       case "ppp-development":
-        return <PPPDevelopmentReview submissionId={submissionId} formData={sectionFormData.pppDevelopment} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
+        return (
+          <PPPDevelopmentReview
+            key={componentKey}
+            submissionId={submissionId}
+            formData={sectionFormData.pppDevelopment}
+            submission={submission}
+            isPreview={isPreview}
+            assignedIndicators={assignedIndicators}
+            isNodalOfficer={isNodalOfficer}
+          />
+        );
       case "infra-enablers":
-        return <InfraEnablersReview submissionId={submissionId} formData={sectionFormData.infraEnablers} submission={submission} isPreview={isPreview} assignedIndicators={assignedIndicators} isNodalOfficer={isNodalOfficer} />;
+        return (
+          <InfraEnablersReview
+            key={componentKey}
+            submissionId={submissionId}
+            formData={sectionFormData.infraEnablers}
+            submission={submission}
+            isPreview={isPreview}
+            assignedIndicators={assignedIndicators}
+            isNodalOfficer={isNodalOfficer}
+          />
+        );
       default:
         return null;
     }
@@ -254,7 +429,6 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
 
       {/* Section Header shown inside each review component now (dynamic) */}
 
-
       {/* Section Content */}
       {renderSectionContent()}
 
@@ -271,7 +445,11 @@ export const DataReviewTab = ({ submissionId, formData, submission, isPreview = 
             Previous
           </Button>
           <Button
-            onClick={() => handleSectionChange(Math.min(availableSections.length - 1, currentSection + 1))}
+            onClick={() =>
+              handleSectionChange(
+                Math.min(availableSections.length - 1, currentSection + 1)
+              )
+            }
             disabled={currentSection === availableSections.length - 1}
             className="gap-2"
           >

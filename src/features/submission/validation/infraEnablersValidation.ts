@@ -66,7 +66,9 @@ export const validateInfraEnablers = (
   // Section 4.1 - All Eligible Infra Projects on NIP Portal
   if (shouldValidateSection("4.1")) {
     const section41 = data.section4_1;
-    if (
+    if (!section41) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section41.allEligible ||
       (section41.allEligible !== "yes" && section41.allEligible !== "no")
     ) {
@@ -87,7 +89,9 @@ export const validateInfraEnablers = (
   // Section 4.2 - Availability & Use of State/UT PMG
   if (shouldValidateSection("4.2")) {
     const section42 = data.section4_2;
-    if (
+    if (!section42) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section42.available ||
       (section42.available !== "yes" && section42.available !== "no")
     ) {
@@ -109,7 +113,9 @@ export const validateInfraEnablers = (
   // Section 4.3 - Adoption of PM GatiShakti
   if (shouldValidateSection("4.3")) {
     const section43 = data.section4_3;
-    if (
+    if (!section43) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section43.adopted ||
       (section43.adopted !== "yes" && section43.adopted !== "no")
     ) {
@@ -150,7 +156,9 @@ export const validateInfraEnablers = (
   // Section 4.4 - Adoption of ADR
   if (shouldValidateSection("4.4")) {
     const section44 = data.section4_4;
-    if (
+    if (!section44) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section44.adopted ||
       (section44.adopted !== "yes" && section44.adopted !== "no")
     ) {
@@ -175,7 +183,9 @@ export const validateInfraEnablers = (
   // Section 4.5 - Innovative Practices
   if (shouldValidateSection("4.5")) {
     const section45 = data.section4_5;
-    if (
+    if (!section45) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section45.implemented ||
       (section45.implemented !== "yes" && section45.implemented !== "no")
     ) {
@@ -209,7 +219,9 @@ export const validateInfraEnablers = (
   // Section 4.6 - Capacity Building – Officer Participation
   if (shouldValidateSection("4.6")) {
     const section46 = data.section4_6;
-    if (
+    if (!section46) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section46.participated ||
       (section46.participated !== "yes" && section46.participated !== "no")
     ) {
