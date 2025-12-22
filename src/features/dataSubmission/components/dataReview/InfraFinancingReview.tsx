@@ -159,6 +159,10 @@ export const InfraFinancingReview = ({
   // Validation error state - using centralized hooks
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
   
+  // State for edit functionality indicator wise - moved here to be available before useMemo
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
+  
   // Field validation hook for touch tracking
   const {
     touchedFields,
@@ -376,12 +380,14 @@ export const InfraFinancingReview = ({
       }
 
       // For sections 1.3, 1.4, and 1.5, only include if they have meaningful data
+      // OR if they are currently in edit mode (to allow adding entries after deletion)
       // Don't include them just because they exist in formData
       const section1_3 = infraPayload.section1_3;
       if (section1_3 && typeof section1_3 === "object") {
         const hasSection1_3Data =
           Array.isArray(section1_3.ulbList) && section1_3.ulbList.length > 0;
-        if (hasSection1_3Data && !merged.includes("section1_3")) {
+        const isSection1_3Editable = isEditable("1.3");
+        if ((hasSection1_3Data || isSection1_3Editable) && !merged.includes("section1_3")) {
           merged.push("section1_3");
         }
       }
@@ -390,7 +396,8 @@ export const InfraFinancingReview = ({
       if (section1_4 && typeof section1_4 === "object") {
         const hasSection1_4Data =
           Array.isArray(section1_4.bondList) && section1_4.bondList.length > 0;
-        if (hasSection1_4Data && !merged.includes("section1_4")) {
+        const isSection1_4Editable = isEditable("1.4");
+        if ((hasSection1_4Data || isSection1_4Editable) && !merged.includes("section1_4")) {
           merged.push("section1_4");
         }
       }
@@ -419,7 +426,8 @@ export const InfraFinancingReview = ({
         else if (Array.isArray(section1_5) && section1_5.length > 0) {
           hasSection1_5Data = true;
         }
-        if (hasSection1_5Data && !merged.includes("section1_5")) {
+        const isSection1_5Editable = isEditable("1.5");
+        if ((hasSection1_5Data || isSection1_5Editable) && !merged.includes("section1_5")) {
           merged.push("section1_5");
         }
       }
@@ -492,20 +500,25 @@ export const InfraFinancingReview = ({
         return hasData;
       }
       if (sec === "section1_3") {
-        return (
+        const hasData =
           Array.isArray(infraPayload?.section1_3?.ulbList) &&
-          infraPayload.section1_3.ulbList.length > 0
-        );
+          infraPayload.section1_3.ulbList.length > 0;
+        const isSectionEditable = isEditable("1.3");
+        return hasData || isSectionEditable;
       }
       if (sec === "section1_4") {
-        return (
+        const hasData =
           Array.isArray(infraPayload?.section1_4?.bondList) &&
-          infraPayload.section1_4.bondList.length > 0
-        );
+          infraPayload.section1_4.bondList.length > 0;
+        const isSectionEditable = isEditable("1.4");
+        return hasData || isSectionEditable;
       }
       if (sec === "section1_5") {
         const section = infraPayload?.section1_5;
-        if (!section) return false;
+        if (!section) {
+          // Check if it's in edit mode even if section doesn't exist
+          return isEditable("1.5");
+        }
 
         // Check if it has the new format with hasIntermediary
         if (section.hasIntermediary === "yes") {
@@ -514,14 +527,16 @@ export const InfraFinancingReview = ({
         if (section.hasIntermediary === "no") {
           // "no" requires a comment to be considered as having data
           const comment = section.comment || "";
-          return comment.trim() !== "";
+          if (comment.trim() !== "") return true;
         }
         // Check if it has ffiArray with data (legacy format or yes with items)
         if (Array.isArray(section.ffiArray) && section.ffiArray.length > 0)
           return true;
         // Check if it's the old array format
         if (Array.isArray(section) && section.length > 0) return true;
-        return false;
+        
+        // If no data, check if it's in edit mode
+        return isEditable("1.5");
       }
       return true;
     });
@@ -741,10 +756,6 @@ export const InfraFinancingReview = ({
       return hasChanges ? updated : prev;
     });
   }, [validation.errors]);
-
-  // State for edit fucntionality indicator wise
-  const { setEditable, isEditable, clearAllEditing } =
-    useEditableSectionStore();
 
   // Store original state snapshots when edit mode starts (for cancel functionality)
   const [originalStateSnapshot, setOriginalStateSnapshot] = useState<any>(null);

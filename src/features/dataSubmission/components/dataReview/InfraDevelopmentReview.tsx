@@ -108,6 +108,10 @@ export const InfraDevelopmentReview = ({
   const [formDataState, setFormDataState] = useState(formData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
 
+  // State for edit functionality indicator wise - moved here to be available before useMemo
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
+
   // Field validation hook for touch tracking
   const {
     touchedFields,
@@ -471,10 +475,6 @@ export const InfraDevelopmentReview = ({
     }
     return null;
   };
-
-  //State for edit button
-  const { setEditable, isEditable, clearAllEditing } =
-    useEditableSectionStore();
 
   // Helper function to check if section should be editable based on mospi_status for STATE_APPROVER
   const shouldBeEditable = (sectionId: string): boolean => {
@@ -1514,6 +1514,7 @@ export const InfraDevelopmentReview = ({
 
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
   // Only include sections that have meaningful data (not just empty objects)
+  // BUT: Keep sections visible if they are currently in edit mode (user might be adding/removing entries)
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     state &&
@@ -1526,10 +1527,26 @@ export const InfraDevelopmentReview = ({
       "section2_4",
       "section2_5",
     ];
+    // Map sectionKey to sectionId for edit mode check
+    const sectionIdMap: Record<string, string> = {
+      "section2_1": "2.1",
+      "section2_2": "2.2",
+      "section2_3": "2.3",
+      "section2_4": "2.4",
+      "section2_5": "2.5",
+    };
     // Only include sections that exist AND have meaningful data
+    // OR sections that are currently in edit mode (to allow adding entries)
     const existingSections = allPossibleSections.filter((sectionKey) => {
       const section = state[sectionKey];
-      return sectionHasMeaningfulData(sectionKey, section);
+      const hasData = sectionHasMeaningfulData(sectionKey, section);
+      
+      // Check if section is currently in edit mode
+      const sectionId = sectionIdMap[sectionKey];
+      const isCurrentlyEditable = sectionId ? isEditable(sectionId) : false;
+      
+      // Keep section visible if it has data OR if it's in edit mode
+      return hasData || isCurrentlyEditable;
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates

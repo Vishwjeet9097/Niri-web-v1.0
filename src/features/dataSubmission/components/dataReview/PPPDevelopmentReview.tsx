@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { format } from "date-fns";
 import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
@@ -132,6 +133,10 @@ export const PPPDevelopmentReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
+  
+  // State for edit functionality indicator wise - moved here to be available before useMemo
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
   
   // Field validation hook for touch tracking
   const {
@@ -327,9 +332,6 @@ export const PPPDevelopmentReview = ({
     }
     return null;
   };
-
-  const { setEditable, isEditable, clearAllEditing } =
-    useEditableSectionStore();
 
   // Helper function to check if section should be editable based on mospi_status for STATE_APPROVER
   const shouldBeEditable = (sectionId: string): boolean => {
@@ -786,6 +788,7 @@ export const PPPDevelopmentReview = ({
 
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
   // Only include sections that have meaningful data (not just empty objects)
+  // BUT: Keep sections visible if they are currently in edit mode (user might be adding/removing entries)
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     formDataState &&
@@ -797,10 +800,25 @@ export const PPPDevelopmentReview = ({
       "section3_3",
       "section3_4",
     ];
+    // Map sectionKey to sectionId for edit mode check
+    const sectionIdMap: Record<string, string> = {
+      "section3_1": "3.1",
+      "section3_2": "3.2",
+      "section3_3": "3.3",
+      "section3_4": "3.4",
+    };
     // Only include sections that exist AND have meaningful data
+    // OR sections that are currently in edit mode (to allow adding entries)
     const existingSections = allPossibleSections.filter((sectionKey) => {
       const section = formDataState[sectionKey];
-      return sectionHasMeaningfulData(sectionKey, section);
+      const hasData = sectionHasMeaningfulData(sectionKey, section);
+      
+      // Check if section is currently in edit mode
+      const sectionId = sectionIdMap[sectionKey];
+      const isCurrentlyEditable = sectionId ? isEditable(sectionId) : false;
+      
+      // Keep section visible if it has data OR if it's in edit mode
+      return hasData || isCurrentlyEditable;
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
@@ -3259,7 +3277,7 @@ export const PPPDevelopmentReview = ({
                       <th className="py-3 px-4 text-left text-sm font-normal">
                         Type
                       </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
+                      <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
                         Submission Date
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3415,34 +3433,26 @@ export const PPPDevelopmentReview = ({
                               item.type || ""
                             )}
                           </td>
-                          <td className="py-3 px-4 text-sm font-normal">
+                          <td className="py-3 px-4 text-sm font-normal min-w-[180px]">
                             {shouldBeEditable("3.3") ? (
                               <div>
                                 <Input
                                   type="date"
-                                  value={
-                                    item.submissionDate
-                                      ? new Date(item.submissionDate)
-                                          .toISOString()
-                                          .split("T")[0]
-                                      : ""
-                                  }
-                                  onChange={(e) =>
+                                  value={item.submissionDate ? new Date(item.submissionDate).toISOString().split("T")[0] : ""}
+                                  onChange={(e) => {
                                     handleTableFieldUpdate(
                                       index,
                                       "submissionDate",
-                                      e.target.value
-                                        ? new Date(e.target.value).toISOString()
-                                        : null
-                                    )
-                                  }
-                                  className={
+                                      e.target.value ? new Date(e.target.value).toISOString() : null
+                                    );
+                                  }}
+                                  className={cn(
+                                    "w-full min-w-[160px] bg-[#fff] border border-[#C6C6C6]",
+                                    !item.submissionDate && "text-muted-foreground",
                                     getFieldError(
                                       `section3_3.VGFArray.${index}.submissionDate`
-                                    )
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }
+                                    ) && "border-red-500"
+                                  )}
                                 />
                                 {getFieldError(
                                   `section3_3.VGFArray.${index}.submissionDate`
@@ -3749,14 +3759,17 @@ export const PPPDevelopmentReview = ({
                       <Label>Submission Date</Label>
                       <Input
                         type="date"
-                        value={newVGFItem.submissionDate}
-                        onChange={(e) =>
+                        value={newVGFItem.submissionDate ? newVGFItem.submissionDate.split("T")[0] : ""}
+                        onChange={(e) => {
                           setNewVGFItem({
                             ...newVGFItem,
-                            submissionDate: e.target.value,
-                          })
-                        }
-                        className="bg-white"
+                            submissionDate: e.target.value ? new Date(e.target.value).toISOString() : "",
+                          });
+                        }}
+                        className={cn(
+                          "w-full bg-[#fff] border border-[#C6C6C6]",
+                          !newVGFItem.submissionDate && "text-muted-foreground"
+                        )}
                       />
                     </div>
                     <div className="md:col-span-2">
@@ -4078,28 +4091,23 @@ export const PPPDevelopmentReview = ({
                             {shouldBeEditable("3.4") ? (
                               <Input
                                 type="date"
-                                value={
-                                  project.dateOfAward
-                                    ? new Date(project.dateOfAward)
-                                        .toISOString()
-                                        .split("T")[0]
-                                    : ""
-                                }
-                                onChange={(e) =>
+                                value={project.dateOfAward ? new Date(project.dateOfAward).toISOString().split("T")[0] : ""}
+                                onChange={(e) => {
                                   handleProjectFieldUpdate(
                                     idx,
                                     "dateOfAward",
-                                    e.target.value
-                                      ? new Date(e.target.value).toISOString()
-                                      : null
-                                  )
-                                }
-                                className="w-full"
+                                    e.target.value ? new Date(e.target.value).toISOString() : null
+                                  );
+                                }}
+                                className={cn(
+                                  "w-full bg-[#fff] border border-[#C6C6C6]",
+                                  !project.dateOfAward && "text-muted-foreground"
+                                )}
                               />
                             ) : project.dateOfAward ? (
-                              new Date(project.dateOfAward).toLocaleDateString()
+                              format(new Date(project.dateOfAward), "dd-MM-yyyy")
                             ) : (
-                              "N/A"
+                              "-"
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
@@ -4271,14 +4279,17 @@ export const PPPDevelopmentReview = ({
                       <Label>Date of Award</Label>
                       <Input
                         type="date"
-                        value={newProject.dateOfAward}
-                        onChange={(e) =>
+                        value={newProject.dateOfAward ? newProject.dateOfAward.split("T")[0] : ""}
+                        onChange={(e) => {
                           setNewProject({
                             ...newProject,
-                            dateOfAward: e.target.value,
-                          })
-                        }
-                        className="bg-white"
+                            dateOfAward: e.target.value ? new Date(e.target.value).toISOString() : "",
+                          });
+                        }}
+                        className={cn(
+                          "w-full bg-[#fff] border border-[#C6C6C6]",
+                          !newProject.dateOfAward && "text-muted-foreground"
+                        )}
                       />
                     </div>
                     <div>

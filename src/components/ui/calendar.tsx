@@ -1,11 +1,84 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+import { DayPicker, CaptionProps } from "react-day-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+
+// Custom Caption component with month/year dropdowns
+function CustomCaption(props: CaptionProps) {
+  const { displayMonth, goToMonth } = props;
+  const currentYear = displayMonth.getFullYear();
+  const currentMonth = displayMonth.getMonth();
+
+  // Generate year options (from 10 years ago to 10 years ahead)
+  const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const handleMonthChange = (monthIndex: string) => {
+    const newDate = new Date(currentYear, parseInt(monthIndex), 1);
+    goToMonth(newDate);
+  };
+
+  const handleYearChange = (year: string) => {
+    const newDate = new Date(parseInt(year), currentMonth, 1);
+    goToMonth(newDate);
+  };
+
+  return (
+    <div className="flex justify-center gap-2 pt-1 relative items-center">
+      <Select
+        value={currentMonth.toString()}
+        onValueChange={handleMonthChange}
+      >
+        <SelectTrigger className="h-7 w-[140px] text-sm">
+          <SelectValue>{months[currentMonth]}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {months.map((month, index) => (
+            <SelectItem key={month} value={index.toString()}>
+              {month}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={currentYear.toString()} onValueChange={handleYearChange}>
+        <SelectTrigger className="h-7 w-[100px] text-sm">
+          <SelectValue>{currentYear}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {years.map((year) => (
+            <SelectItem key={year} value={year.toString()}>
+              {year}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
   return (
@@ -44,6 +117,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
       components={{
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+        Caption: CustomCaption,
       }}
       {...props}
     />

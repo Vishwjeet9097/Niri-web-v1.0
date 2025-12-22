@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
@@ -2016,71 +2010,48 @@ export const PPPDevelopmentStep = () => {
                       </Select>
                       {renderFieldError(`section3_3.VGFArray.${idx}.type`)}
                     </div>
-                    <div className="flex items-center gap-2 w-full">
-                      <div className="w-full">
-                        <Label>
-                          Submission Date
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              disabled={isIndicatorSubmitted("3.3")}
-                              className={cn(
-                                "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                                !entry.submissionDate &&
-                                  "text-muted-foreground",
-                                getInputValidationClass(
-                                  `section3_3.VGFArray.${idx}.submissionDate`
-                                ),
-                                isIndicatorSubmitted("3.3") &&
-                                  "bg-gray-50 cursor-not-allowed"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {entry.submissionDate
-                                ? format(
-                                    new Date(entry.submissionDate),
-                                    "dd-MM-yyyy"
-                                  )
-                                : "DD-MM-YYYY"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={
-                                entry.submissionDate
-                                  ? new Date(entry.submissionDate)
-                                  : undefined
-                              }
-                              onSelect={(date) => {
-                                if (isIndicatorSubmitted("3.3")) return;
-                                showErrorsIfNeeded();
-                                updateProject(
-                                  entry.id,
-                                  "submissionDate",
-                                  date ? date.toISOString() : ""
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("3.3")}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+                    <div className="w-full">
+                      <Label>
+                        Submission Date
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="date"
+                          disabled={isIndicatorSubmitted("3.3")}
+                          value={entry.submissionDate ? new Date(entry.submissionDate).toISOString().split("T")[0] : ""}
+                          onChange={(e) => {
+                            if (isIndicatorSubmitted("3.3")) return;
+                            showErrorsIfNeeded();
+                            updateProject(
+                              entry.id,
+                              "submissionDate",
+                              e.target.value ? new Date(e.target.value).toISOString() : ""
+                            );
+                          }}
+                          className={cn(
+                            "flex-1 min-w-[160px] bg-[#fff] border border-[#C6C6C6]",
+                            !entry.submissionDate &&
+                              "text-muted-foreground",
+                            getInputValidationClass(
+                              `section3_3.VGFArray.${idx}.submissionDate`
+                            ),
+                            isIndicatorSubmitted("3.3") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeProject(entry.id)}
+                          disabled={isIndicatorSubmitted("3.3")}
+                          aria-label="Remove"
+                          className="flex-shrink-0 h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeProject(entry.id)}
-                        disabled={isIndicatorSubmitted("3.3")}
-                        aria-label="Remove"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </Button>
                     </div>
                   </div>
                   <div className="mt-4">
@@ -2132,7 +2103,7 @@ export const PPPDevelopmentStep = () => {
                         <th className="py-3 px-4 text-left text-sm font-normal">
                           Type
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
                           Submission Date
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2164,7 +2135,7 @@ export const PPPDevelopmentStep = () => {
                               <td className="py-3 px-4 text-sm">
                                 {entry.type}
                               </td>
-                              <td className="py-3 px-4 text-sm">
+                              <td className="py-3 px-4 text-sm min-w-[180px]">
                                 {entry.submissionDate
                                   ? format(
                                       new Date(entry.submissionDate),
@@ -2227,7 +2198,7 @@ export const PPPDevelopmentStep = () => {
                               {entry.sector}
                             </td>
                             <td className="py-3 px-4 text-sm">{entry.type}</td>
-                            <td className="py-3 px-4 text-sm">
+                            <td className="py-3 px-4 text-sm min-w-[180px]">
                               {entry.submissionDate
                                 ? format(
                                     new Date(entry.submissionDate),
@@ -2479,48 +2450,25 @@ export const PPPDevelopmentStep = () => {
                     <div className="space-y-4">
                       <div>
                         <Label>Date of Award (DD-MM-YYYY)</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              disabled={isIndicatorSubmitted("3.4")}
-                              className={cn(
-                                "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                                !project.dateOfAward && "text-muted-foreground",
-                                isIndicatorSubmitted("3.4") &&
-                                  "bg-gray-50 cursor-not-allowed"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {project.dateOfAward
-                                ? format(
-                                    new Date(project.dateOfAward),
-                                    "dd-MM-yyyy"
-                                  )
-                                : "DD-MM-YYYY"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={
-                                project.dateOfAward
-                                  ? new Date(project.dateOfAward)
-                                  : undefined
-                              }
-                              onSelect={(date) => {
-                                if (isIndicatorSubmitted("3.4")) return;
-                                updatePPPProject(
-                                  project.id,
-                                  "dateOfAward",
-                                  date ? date.toISOString() : ""
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("3.4")}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <Input
+                          type="date"
+                          disabled={isIndicatorSubmitted("3.4")}
+                          value={project.dateOfAward ? new Date(project.dateOfAward).toISOString().split("T")[0] : ""}
+                          onChange={(e) => {
+                            if (isIndicatorSubmitted("3.4")) return;
+                            updatePPPProject(
+                              project.id,
+                              "dateOfAward",
+                              e.target.value ? new Date(e.target.value).toISOString() : ""
+                            );
+                          }}
+                          className={cn(
+                            "w-full min-w-[160px] bg-[#fff] border border-[#C6C6C6]",
+                            !project.dateOfAward && "text-muted-foreground",
+                            isIndicatorSubmitted("3.4") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        />
                       </div>
 
                       <div>

@@ -2687,9 +2687,13 @@ class ApiService implements HttpClient {
     }
   }
 
-  async getFileUrl(filePath: string): Promise<{ url: string }> {
+  async getFileUrl(filePath: string): Promise<{ url: string; signedUrl?: string }> {
     try {
-      const response = await this.axios.get(`/file/url/${filePath}`);
+      // Encode the entire filePath as one string to match backend API format
+      // Example: "submissions/SUB-2025-260315/file.pdf" -> "submissions%2FSUB-2025-260315%2Ffile.pdf"
+      const encodedFilePath = encodeURIComponent(filePath);
+      
+      const response = await this.axios.get(`/file/url/${encodedFilePath}`);
       console.log(
         "🔍 API Service - Get File URL Response Status:",
         response.status
@@ -2698,13 +2702,27 @@ class ApiService implements HttpClient {
         "🔍 API Service - Get File URL Response Data:",
         response.data
       );
+      console.log(
+        "🔍 API Service - Original filePath:",
+        filePath,
+        "Encoded filePath:",
+        encodedFilePath
+      );
 
-      // Handle response.data.data pattern
+      // Handle response.data.data pattern - extract signedUrl from response
       const fileUrlData =
         response.data?.data !== undefined ? response.data.data : response.data;
-      console.log("🔍 API Service - Processed Get File URL Data:", fileUrlData);
+      
+      // The backend returns { filePath, signedUrl, expiresIn }
+      // Map signedUrl to url for compatibility
+      const result = {
+        url: fileUrlData?.signedUrl || fileUrlData?.url || fileUrlData,
+        signedUrl: fileUrlData?.signedUrl,
+      };
+      
+      console.log("🔍 API Service - Processed Get File URL Data:", result);
 
-      return fileUrlData;
+      return result;
     } catch (error: any) {
       // Handle 304 as success
       if (error.response?.status === 304) {
