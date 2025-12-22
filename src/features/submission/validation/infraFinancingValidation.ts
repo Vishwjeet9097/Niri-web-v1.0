@@ -99,7 +99,10 @@ export const validateInfraFinancing = (
   // Section 1.1 validations
   if (shouldValidateSection("1.1")) {
     const section11 = data.section1_1;
-    if (!isValidYear(section11.year)) {
+    if (!section11) {
+      // Skip validation if section doesn't exist
+    } else {
+      if (!isValidYear(section11.year)) {
       errors["section1_1.year"] = "Enter a valid year (e.g., 2024 or 2024-25).";
     }
 
@@ -139,12 +142,16 @@ export const validateInfraFinancing = (
           "Calculated allocation to GSDP cannot exceed 100%.";
       }
     }
+    }
   }
 
   // Section 1.2 validations
   if (shouldValidateSection("1.2")) {
     const section12 = data.section1_2;
-    if (!isValidYear(section12.year)) {
+    if (!section12) {
+      // Skip validation if section doesn't exist
+    } else {
+      if (!isValidYear(section12.year)) {
       errors["section1_2.year"] = "Enter a valid year (e.g., 2024 or 2024-25).";
     }
 
@@ -184,16 +191,21 @@ export const validateInfraFinancing = (
           "Calculated capex actuals to GSDP cannot exceed 100%.";
       }
     }
+    }
   }
 
   // Section 1.3 validations
   if (shouldValidateSection("1.3")) {
     const section13 = data.section1_3;
-    if (!isValidInteger(section13.totalULBs)) {
-      errors["section1_3.totalULBs"] = "Enter a valid non-negative integer.";
-    }
+    if (!section13) {
+      // Skip validation if section doesn't exist
+    } else {
+      if (!isValidInteger(section13.totalULBs)) {
+        errors["section1_3.totalULBs"] = "Enter a valid non-negative integer.";
+      }
 
-    section13.ulbList.forEach((ulb, index) => {
+      if (section13.ulbList && Array.isArray(section13.ulbList)) {
+        section13.ulbList.forEach((ulb, index) => {
       const basePath = `section1_3.ulbList.${index}`;
       if (!ulb.cityName) {
         errors[`${basePath}.cityName`] = "City name is required.";
@@ -205,30 +217,37 @@ export const validateInfraFinancing = (
         errors[`${basePath}.ratingDate`] = "Select a valid rating date.";
       }
       if (!ulb.rating) {
-        errors[`${basePath}.rating`] = "Rating is required.";
+          errors[`${basePath}.rating`] = "Rating is required.";
+        }
+        });
       }
-    });
 
-    // Require at least one ULB entry when submitting
-    if (section13.ulbList.length === 0) {
-      if (section13.totalULBs > 0) {
-        errors["section1_3.ulbList"] =
-          "Add at least one ULB entry when total number of ULBs is greater than zero.";
-      } else {
-        errors["section1_3.ulbList"] =
-          "Add at least one ULB entry before submitting this indicator.";
-      }
+      // Require at least one ULB entry when submitting
+      const ulbList = section13.ulbList || [];
+      if (ulbList.length === 0) {
+        if (section13.totalULBs > 0) {
+          errors["section1_3.ulbList"] =
+            "Add at least one ULB entry when total number of ULBs is greater than zero.";
+        } else {
+          errors["section1_3.ulbList"] =
+            "Add at least one ULB entry before submitting this indicator.";
+        }
+    }
     }
   }
 
   // Section 1.4 validations
   if (shouldValidateSection("1.4")) {
     const section14 = data.section1_4;
-    if (!isValidInteger(section14.totalULBs)) {
-      errors["section1_4.totalULBs"] = "Enter a valid non-negative integer.";
-    }
+    if (!section14) {
+      // Skip validation if section doesn't exist
+    } else {
+      if (!isValidInteger(section14.totalULBs)) {
+        errors["section1_4.totalULBs"] = "Enter a valid non-negative integer.";
+      }
 
-    section14.bondList.forEach((bond, index) => {
+      if (section14.bondList && Array.isArray(section14.bondList)) {
+        section14.bondList.forEach((bond, index) => {
       const basePath = `section1_4.bondList.${index}`;
       if (!bond.bondType) {
         errors[`${basePath}.bondType`] = "Bond type is required.";
@@ -244,27 +263,33 @@ export const validateInfraFinancing = (
           "Issuing authority must be 100 characters or fewer.";
       }
       if (!isNonNegativeDecimal(bond.value) || !hasMaxTwoDecimals(bond.value)) {
-        errors[`${basePath}.value`] =
-          "Enter a non-negative amount with up to two decimal places.";
+          errors[`${basePath}.value`] =
+            "Enter a non-negative amount with up to two decimal places.";
+        }
+        });
       }
-    });
 
-    // Require at least one bond entry when submitting
-    if (section14.bondList.length === 0) {
-      if (section14.totalULBs > 0) {
-        errors["section1_4.bondList"] =
-          "Add at least one bond entry when total number of ULBs is greater than zero.";
-      } else {
-        errors["section1_4.bondList"] =
-          "Add at least one bond entry before submitting this indicator.";
-      }
+      // Require at least one bond entry when submitting
+      const bondList = section14.bondList || [];
+      if (bondList.length === 0) {
+        if (section14.totalULBs > 0) {
+          errors["section1_4.bondList"] =
+            "Add at least one bond entry when total number of ULBs is greater than zero.";
+        } else {
+          errors["section1_4.bondList"] =
+            "Add at least one bond entry before submitting this indicator.";
+        }
+    }
     }
   }
 
   // Section 1.5 validations
   if (shouldValidateSection("1.5")) {
     const section15 = data.section1_5;
-    const hasIntermediary = section15.hasIntermediary;
+    if (!section15) {
+      // Skip validation if section doesn't exist
+    } else {
+      const hasIntermediary = section15.hasIntermediary;
 
     if (
       !hasIntermediary ||
@@ -307,6 +332,7 @@ export const validateInfraFinancing = (
         errors["section1_5.comment"] =
           "Provide a comment explaining why no intermediary is available.";
       }
+    }
     }
   }
 

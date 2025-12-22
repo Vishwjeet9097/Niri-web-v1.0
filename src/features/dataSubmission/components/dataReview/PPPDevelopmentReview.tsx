@@ -747,8 +747,45 @@ export const PPPDevelopmentReview = ({
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
 
+  // Helper function to check if a section has meaningful data
+  const sectionHasMeaningfulData = (sectionKey: string, section: any): boolean => {
+    if (!section) return false;
+    
+    switch (sectionKey) {
+      case "section3_1": {
+        return (
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
+          (section.available && (section.available === "yes" || section.available === "no")) ||
+          (section.comment && section.comment.trim())
+        );
+      }
+      case "section3_2": {
+        return (
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
+          (section.available && (section.available === "yes" || section.available === "no")) ||
+          (section.comment && section.comment.trim())
+        );
+      }
+      case "section3_3": {
+        const items = Array.isArray(section?.VGFArray) ? section.VGFArray : [];
+        return items.length > 0 && items.some((item: any) => 
+          item?.projectName?.trim() || item?.sector?.trim() || item?.type?.trim()
+        );
+      }
+      case "section3_4": {
+        return (
+          (section.totalProjectsAwarded && section.totalProjectsAwarded.trim()) ||
+          (section.totalProjectCostAwarded && section.totalProjectCostAwarded.trim()) ||
+          (section.projects && Array.isArray(section.projects) && section.projects.length > 0)
+        );
+      }
+      default:
+        return false;
+    }
+  };
+
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Always include all sections that exist in formData - never hide sections regardless of data content
+  // Only include sections that have meaningful data (not just empty objects)
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     formDataState &&
@@ -760,10 +797,10 @@ export const PPPDevelopmentReview = ({
       "section3_3",
       "section3_4",
     ];
-    // Always include sections that exist in formDataState, regardless of data content
+    // Only include sections that exist AND have meaningful data
     const existingSections = allPossibleSections.filter((sectionKey) => {
-      // Simply check if section key exists in formDataState - always show if it exists
-      return sectionKey in formDataState;
+      const section = formDataState[sectionKey];
+      return sectionHasMeaningfulData(sectionKey, section);
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates

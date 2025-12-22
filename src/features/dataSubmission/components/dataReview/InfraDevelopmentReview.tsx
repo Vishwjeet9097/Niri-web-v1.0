@@ -107,7 +107,7 @@ export const InfraDevelopmentReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  
+
   // Field validation hook for touch tracking
   const {
     touchedFields,
@@ -122,15 +122,22 @@ export const InfraDevelopmentReview = ({
   } = useFieldValidation();
 
   // Helper to check if field is touched
-  const isFieldTouched = useCallback((path: string) => {
-    return touchedFields.has(path);
-  }, [touchedFields]);
+  const isFieldTouched = useCallback(
+    (path: string) => {
+      return touchedFields.has(path);
+    },
+    [touchedFields]
+  );
 
   // Real-time validation state
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
   // Section-level validation error messages (shown when save fails)
-  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<
+    Record<string, string>
+  >({});
 
   // Build full form data for validation
   const fullFormDataForValidation = useMemo(() => {
@@ -139,23 +146,27 @@ export const InfraDevelopmentReview = ({
 
   // Real-time validation using useMemo
   const validation = useMemo(() => {
-    const effectiveAssignedIndicators = assignedIndicators.length > 0 
-      ? assignedIndicators 
-      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
-    
+    const effectiveAssignedIndicators =
+      assignedIndicators.length > 0
+        ? assignedIndicators
+        : hookAssignedIndicators.length > 0
+        ? hookAssignedIndicators
+        : undefined;
+
     return validateInfraDevelopment(fullFormDataForValidation as any, {
       allowedIndicators: effectiveAssignedIndicators,
     });
   }, [fullFormDataForValidation, assignedIndicators, hookAssignedIndicators]);
 
   // Field error display hook
-  const { getFieldError, getInputValidationClass, renderFieldError } = useFieldErrorDisplay({
-    validationErrors: validation.errors,
-    indicatorValidationErrors,
-    showValidationErrors,
-    isFieldTouched,
-    validatingIndicator: null,
-  });
+  const { getFieldError, getInputValidationClass, renderFieldError } =
+    useFieldErrorDisplay({
+      validationErrors: validation.errors,
+      indicatorValidationErrors,
+      showValidationErrors,
+      isFieldTouched,
+      validatingIndicator: null,
+    });
 
   // Clear valid field errors when validation passes
   useEffect(() => {
@@ -172,8 +183,8 @@ export const InfraDevelopmentReview = ({
       Object.keys(updated).forEach((sectionId) => {
         const sectionPrefix = `section${sectionId.replace(".", "_")}`;
         // Check if there are any validation errors for this section
-        const hasSectionErrors = Object.keys(validation.errors).some((errorKey) =>
-          errorKey.startsWith(sectionPrefix)
+        const hasSectionErrors = Object.keys(validation.errors).some(
+          (errorKey) => errorKey.startsWith(sectionPrefix)
         );
 
         // If no errors for this section, clear the message
@@ -650,9 +661,12 @@ export const InfraDevelopmentReview = ({
     // Build full form data for validation
     const fullData = formDataState || formData || {};
 
-    const effectiveAssignedIndicators = assignedIndicators.length > 0 
-      ? assignedIndicators 
-      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+    const effectiveAssignedIndicators =
+      assignedIndicators.length > 0
+        ? assignedIndicators
+        : hookAssignedIndicators.length > 0
+        ? hookAssignedIndicators
+        : undefined;
 
     // Run validation for the section
     const validationResult = validateInfraDevelopment(fullData as any, {
@@ -670,15 +684,21 @@ export const InfraDevelopmentReview = ({
 
     // Mark all fields in this section as touched so errors show immediately
     const sectionKey = `section${sectionId.replace(".", "_")}`;
-    const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
-    
+    const sectionData =
+      formDataState?.[sectionKey as keyof typeof formDataState];
+
     // Get all possible field paths for this section
     const allSectionFields: string[] = [];
-    
+
     // Add base fields based on section
     if (sectionId === "2.1") {
       allSectionFields.push(`${sectionPrefix}.infraActArray`);
-      if (sectionData && typeof sectionData === "object" && "infraActArray" in sectionData && Array.isArray((sectionData as any).infraActArray)) {
+      if (
+        sectionData &&
+        typeof sectionData === "object" &&
+        "infraActArray" in sectionData &&
+        Array.isArray((sectionData as any).infraActArray)
+      ) {
         (sectionData as any).infraActArray.forEach((_: any, index: number) => {
           allSectionFields.push(
             `${sectionPrefix}.infraActArray.${index}.sector`,
@@ -688,26 +708,46 @@ export const InfraDevelopmentReview = ({
       }
     } else if (sectionId === "2.2") {
       allSectionFields.push(`${sectionPrefix}.specializedEntityArray`);
-      if (sectionData && typeof sectionData === "object" && "specializedEntityArray" in sectionData && Array.isArray((sectionData as any).specializedEntityArray)) {
-        (sectionData as any).specializedEntityArray.forEach((_: any, index: number) => {
-          allSectionFields.push(
-            `${sectionPrefix}.specializedEntityArray.${index}.sector`,
-            `${sectionPrefix}.specializedEntityArray.${index}.files`
-          );
-        });
+      if (
+        sectionData &&
+        typeof sectionData === "object" &&
+        "specializedEntityArray" in sectionData &&
+        Array.isArray((sectionData as any).specializedEntityArray)
+      ) {
+        (sectionData as any).specializedEntityArray.forEach(
+          (_: any, index: number) => {
+            allSectionFields.push(
+              `${sectionPrefix}.specializedEntityArray.${index}.sector`,
+              `${sectionPrefix}.specializedEntityArray.${index}.files`
+            );
+          }
+        );
       }
     } else if (sectionId === "2.3") {
-      allSectionFields.push(`${sectionPrefix}.hasInfraDevelopmentPlan`, `${sectionPrefix}.comment`);
-      if (sectionData && typeof sectionData === "object" && "infraDevelopmentArray" in sectionData && Array.isArray((sectionData as any).infraDevelopmentArray)) {
-        (sectionData as any).infraDevelopmentArray.forEach((_: any, index: number) => {
-          allSectionFields.push(
-            `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
-            `${sectionPrefix}.infraDevelopmentArray.${index}.files`
-          );
-        });
+      allSectionFields.push(
+        `${sectionPrefix}.hasInfraDevelopmentPlan`,
+        `${sectionPrefix}.comment`
+      );
+      if (
+        sectionData &&
+        typeof sectionData === "object" &&
+        "infraDevelopmentArray" in sectionData &&
+        Array.isArray((sectionData as any).infraDevelopmentArray)
+      ) {
+        (sectionData as any).infraDevelopmentArray.forEach(
+          (_: any, index: number) => {
+            allSectionFields.push(
+              `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
+              `${sectionPrefix}.infraDevelopmentArray.${index}.files`
+            );
+          }
+        );
       }
     } else if (sectionId === "2.4") {
-      allSectionFields.push(`${sectionPrefix}.hasInvestmentReady`, `${sectionPrefix}.comment`);
+      allSectionFields.push(
+        `${sectionPrefix}.hasInvestmentReady`,
+        `${sectionPrefix}.comment`
+      );
     }
 
     // Mark all section fields as touched so errors show immediately
@@ -724,7 +764,7 @@ export const InfraDevelopmentReview = ({
     // Set validation errors and show them
     setShowValidationErrors(true);
     setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
-    
+
     console.log(
       `[InfraDevelopmentReview] Validation errors for section ${sectionId}:`,
       sectionErrors
@@ -1142,6 +1182,11 @@ export const InfraDevelopmentReview = ({
       transformItem?: (item: any) => any
     ) => {
       const section = normalized[sectionKey];
+      // Only normalize sections that exist - don't create empty sections
+      if (!section && section !== null) {
+        return; // Skip if section doesn't exist
+      }
+
       const status =
         (section && section.status) ||
         (Array.isArray(section) ? (section as any).status : undefined);
@@ -1370,8 +1415,105 @@ export const InfraDevelopmentReview = ({
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
 
+  // Helper function to check if a section has meaningful data
+  const sectionHasMeaningfulData = (
+    sectionKey: string,
+    section: any
+  ): boolean => {
+    if (!section) return false;
+
+    switch (sectionKey) {
+      case "section2_1": {
+        const items = Array.isArray(section?.infraActArray)
+          ? section.infraActArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.sector?.trim() ||
+              (item?.files &&
+                Array.isArray(item.files) &&
+                item.files.length > 0)
+          )
+        );
+      }
+      case "section2_2": {
+        const items = Array.isArray(section?.specializedEntityArray)
+          ? section.specializedEntityArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.sector?.trim() ||
+              (item?.files &&
+                Array.isArray(item.files) &&
+                item.files.length > 0)
+          )
+        );
+      }
+      case "section2_3": {
+        // Check if hasInfraDevelopmentPlan or comment is set
+        if (section?.hasInfraDevelopmentPlan || section?.comment?.trim()) {
+          return true;
+        }
+        // Check array data
+        const items = Array.isArray(section?.infraDevelopmentArray)
+          ? section.infraDevelopmentArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.sector?.trim() ||
+              (item?.files &&
+                Array.isArray(item.files) &&
+                item.files.length > 0)
+          )
+        );
+      }
+      case "section2_4": {
+        // Check if hasInvestmentReady, comment, or websiteLink is set
+        if (
+          section?.hasInvestmentReady ||
+          section?.comment?.trim() ||
+          section?.websiteLink?.trim()
+        ) {
+          return true;
+        }
+        // Check array data
+        const items = Array.isArray(section?.investmentReadyArray)
+          ? section.investmentReadyArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) => item?.projectName?.trim() || item?.sector?.trim()
+          )
+        );
+      }
+      case "section2_5": {
+        const items = Array.isArray(section?.assetMonetizationArray)
+          ? section.assetMonetizationArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.projectName?.trim() ||
+              item?.sector?.trim() ||
+              item?.type?.trim()
+          )
+        );
+      }
+      default:
+        return false;
+    }
+  };
+
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Always include all sections that exist in formData - never hide sections regardless of data content
+  // Only include sections that have meaningful data (not just empty objects)
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     state &&
@@ -1384,10 +1526,10 @@ export const InfraDevelopmentReview = ({
       "section2_4",
       "section2_5",
     ];
-    // Always include sections that exist in state, regardless of data content
+    // Only include sections that exist AND have meaningful data
     const existingSections = allPossibleSections.filter((sectionKey) => {
-      // Simply check if section key exists in state - always show if it exists
-      return sectionKey in state;
+      const section = state[sectionKey];
+      return sectionHasMeaningfulData(sectionKey, section);
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
@@ -1630,15 +1772,18 @@ export const InfraDevelopmentReview = ({
     const sectionKey = `section${sectionId.replace(".", "_")}`;
     // Check multiple sources for status: submission.section_status, formDataState
     let currentStatus: string | undefined;
-    
+
     // Get sectionData for logging and fallback status check
     const sectionData = formDataState && formDataState[sectionKey];
-    
+
     // First check submission.section_status (most reliable source)
-    if (submission?.section_status && typeof submission.section_status === "object") {
+    if (
+      submission?.section_status &&
+      typeof submission.section_status === "object"
+    ) {
       currentStatus = (submission.section_status as any)[sectionKey];
     }
-    
+
     // Fallback to formDataState status
     if (!currentStatus) {
       currentStatus = sectionData
@@ -1647,7 +1792,7 @@ export const InfraDevelopmentReview = ({
           : sectionData.status
         : undefined;
     }
-    
+
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
@@ -1665,19 +1810,30 @@ export const InfraDevelopmentReview = ({
       console.log(
         `[InfraDevelopmentReview] ✅ Running validation before showing dialog for NODAL_OFFICER`
       );
-      
+
       // Run validation first (same logic as in performSave)
       const fullData = {
         section2_1: formDataState?.section2_1 || { infraActArray: [] },
         section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
-        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "", comment: "" },
-        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "", comment: "" },
+        section2_3: formDataState?.section2_3 || {
+          infraDevelopmentArray: [],
+          hasInfraDevelopmentPlan: "",
+          comment: "",
+        },
+        section2_4: formDataState?.section2_4 || {
+          investmentReadyArray: [],
+          hasInvestmentReady: "",
+          comment: "",
+        },
         section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validateInfraDevelopment(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -1696,56 +1852,91 @@ export const InfraDevelopmentReview = ({
       if (Object.keys(sectionErrors).length > 0) {
         // Mark all fields in this section as touched so ALL errors show
         const sectionKey = `section${sectionId.replace(".", "_")}`;
-        const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
-        
+        const sectionData =
+          formDataState?.[sectionKey as keyof typeof formDataState];
+
         // Get all possible field paths for this section
         const allSectionFields: string[] = [];
-        
+
         // Add base fields based on section
         if (sectionId === "2.1") {
           allSectionFields.push(`${sectionPrefix}.infraActArray`);
-          if (sectionData && typeof sectionData === "object" && "infraActArray" in sectionData && Array.isArray((sectionData as any).infraActArray)) {
-            (sectionData as any).infraActArray.forEach((_: any, index: number) => {
-              allSectionFields.push(
-                `${sectionPrefix}.infraActArray.${index}.sector`,
-                `${sectionPrefix}.infraActArray.${index}.files`
-              );
-            });
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "infraActArray" in sectionData &&
+            Array.isArray((sectionData as any).infraActArray)
+          ) {
+            (sectionData as any).infraActArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.infraActArray.${index}.sector`,
+                  `${sectionPrefix}.infraActArray.${index}.files`
+                );
+              }
+            );
           }
         } else if (sectionId === "2.2") {
           allSectionFields.push(`${sectionPrefix}.specializedEntityArray`);
-          if (sectionData && typeof sectionData === "object" && "specializedEntityArray" in sectionData && Array.isArray((sectionData as any).specializedEntityArray)) {
-            (sectionData as any).specializedEntityArray.forEach((_: any, index: number) => {
-              allSectionFields.push(
-                `${sectionPrefix}.specializedEntityArray.${index}.sector`,
-                `${sectionPrefix}.specializedEntityArray.${index}.files`
-              );
-            });
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "specializedEntityArray" in sectionData &&
+            Array.isArray((sectionData as any).specializedEntityArray)
+          ) {
+            (sectionData as any).specializedEntityArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.specializedEntityArray.${index}.sector`,
+                  `${sectionPrefix}.specializedEntityArray.${index}.files`
+                );
+              }
+            );
           }
         } else if (sectionId === "2.3") {
-          allSectionFields.push(`${sectionPrefix}.hasInfraDevelopmentPlan`, `${sectionPrefix}.comment`);
-          if (sectionData && typeof sectionData === "object" && "infraDevelopmentArray" in sectionData && Array.isArray((sectionData as any).infraDevelopmentArray)) {
-            (sectionData as any).infraDevelopmentArray.forEach((_: any, index: number) => {
-              allSectionFields.push(
-                `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
-                `${sectionPrefix}.infraDevelopmentArray.${index}.files`
-              );
-            });
+          allSectionFields.push(
+            `${sectionPrefix}.hasInfraDevelopmentPlan`,
+            `${sectionPrefix}.comment`
+          );
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "infraDevelopmentArray" in sectionData &&
+            Array.isArray((sectionData as any).infraDevelopmentArray)
+          ) {
+            (sectionData as any).infraDevelopmentArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.files`
+                );
+              }
+            );
           }
         } else if (sectionId === "2.4") {
-          allSectionFields.push(`${sectionPrefix}.hasInvestmentReady`, `${sectionPrefix}.comment`);
+          allSectionFields.push(
+            `${sectionPrefix}.hasInvestmentReady`,
+            `${sectionPrefix}.comment`
+          );
         } else if (sectionId === "2.5") {
           allSectionFields.push(`${sectionPrefix}.assetMonetizationArray`);
-          if (sectionData && typeof sectionData === "object" && "assetMonetizationArray" in sectionData && Array.isArray((sectionData as any).assetMonetizationArray)) {
-            (sectionData as any).assetMonetizationArray.forEach((_: any, index: number) => {
-              allSectionFields.push(
-                `${sectionPrefix}.assetMonetizationArray.${index}.projectName`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.sector`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.type`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.files`
-              );
-            });
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "assetMonetizationArray" in sectionData &&
+            Array.isArray((sectionData as any).assetMonetizationArray)
+          ) {
+            (sectionData as any).assetMonetizationArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.assetMonetizationArray.${index}.projectName`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.sector`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.type`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.files`
+                );
+              }
+            );
           }
         }
 
@@ -1759,7 +1950,7 @@ export const InfraDevelopmentReview = ({
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message (same as STATE_APPROVER)
@@ -1864,8 +2055,16 @@ export const InfraDevelopmentReview = ({
       const fullData = {
         section2_1: formDataState?.section2_1 || { infraActArray: [] },
         section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
-        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "", comment: "" },
-        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "", comment: "" },
+        section2_3: formDataState?.section2_3 || {
+          infraDevelopmentArray: [],
+          hasInfraDevelopmentPlan: "",
+          comment: "",
+        },
+        section2_4: formDataState?.section2_4 || {
+          investmentReadyArray: [],
+          hasInvestmentReady: "",
+          comment: "",
+        },
         section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
       };
 
@@ -1893,44 +2092,72 @@ export const InfraDevelopmentReview = ({
       if (Object.keys(sectionErrors).length > 0) {
         // Mark all fields in this section as touched so ALL errors show
         const sectionKey = `section${sectionId.replace(".", "_")}`;
-        const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
-        
+        const sectionData =
+          formDataState?.[sectionKey as keyof typeof formDataState];
+
         // Get all possible field paths for this section
         const allSectionFields: string[] = [];
-        
+
         // Add base fields based on section
         if (sectionId === "2.1") {
           allSectionFields.push(`${sectionPrefix}.infraActArray`);
-          if (sectionData && typeof sectionData === "object" && "infraActArray" in sectionData && Array.isArray((sectionData as any).infraActArray)) {
-            (sectionData as any).infraActArray.forEach((_: any, index: number) => {
-              allSectionFields.push(
-                `${sectionPrefix}.infraActArray.${index}.sector`,
-                `${sectionPrefix}.infraActArray.${index}.files`
-              );
-            });
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "infraActArray" in sectionData &&
+            Array.isArray((sectionData as any).infraActArray)
+          ) {
+            (sectionData as any).infraActArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.infraActArray.${index}.sector`,
+                  `${sectionPrefix}.infraActArray.${index}.files`
+                );
+              }
+            );
           }
         } else if (sectionId === "2.2") {
           allSectionFields.push(`${sectionPrefix}.specializedEntityArray`);
-          if (sectionData && typeof sectionData === "object" && "specializedEntityArray" in sectionData && Array.isArray((sectionData as any).specializedEntityArray)) {
-            (sectionData as any).specializedEntityArray.forEach((_: any, index: number) => {
-              allSectionFields.push(
-                `${sectionPrefix}.specializedEntityArray.${index}.sector`,
-                `${sectionPrefix}.specializedEntityArray.${index}.files`
-              );
-            });
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "specializedEntityArray" in sectionData &&
+            Array.isArray((sectionData as any).specializedEntityArray)
+          ) {
+            (sectionData as any).specializedEntityArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.specializedEntityArray.${index}.sector`,
+                  `${sectionPrefix}.specializedEntityArray.${index}.files`
+                );
+              }
+            );
           }
         } else if (sectionId === "2.3") {
-          allSectionFields.push(`${sectionPrefix}.hasInfraDevelopmentPlan`, `${sectionPrefix}.comment`);
-          if (sectionData && typeof sectionData === "object" && "infraDevelopmentArray" in sectionData && Array.isArray((sectionData as any).infraDevelopmentArray)) {
-            (sectionData as any).infraDevelopmentArray.forEach((_: any, index: number) => {
-              allSectionFields.push(
-                `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
-                `${sectionPrefix}.infraDevelopmentArray.${index}.files`
-              );
-            });
+          allSectionFields.push(
+            `${sectionPrefix}.hasInfraDevelopmentPlan`,
+            `${sectionPrefix}.comment`
+          );
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "infraDevelopmentArray" in sectionData &&
+            Array.isArray((sectionData as any).infraDevelopmentArray)
+          ) {
+            (sectionData as any).infraDevelopmentArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.files`
+                );
+              }
+            );
           }
         } else if (sectionId === "2.4") {
-          allSectionFields.push(`${sectionPrefix}.hasInvestmentReady`, `${sectionPrefix}.comment`);
+          allSectionFields.push(
+            `${sectionPrefix}.hasInvestmentReady`,
+            `${sectionPrefix}.comment`
+          );
         }
 
         // Mark all section fields as touched so ALL errors show
@@ -1943,7 +2170,7 @@ export const InfraDevelopmentReview = ({
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message
@@ -3502,7 +3729,7 @@ export const InfraDevelopmentReview = ({
             <div className="space-y-4">
               {/* Validation error for infraActArray */}
               {renderFieldError("section2_1.infraActArray")}
-              
+
               {/* Table Display */}
               <div className="overflow-x-auto rounded-xl">
                 <table className="min-w-full border-separate border-spacing-0">
@@ -3564,7 +3791,11 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_1.infraActArray.${index}.sector`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_1.infraActArray.${index}.sector`
+                                      )
+                                    ) {
                                       setIndicatorValidationErrors((prev) => {
                                         const updated = { ...prev };
                                         delete updated[
@@ -3578,7 +3809,9 @@ export const InfraDevelopmentReview = ({
                                   isEditable={true}
                                   resetKey={selectResetKey}
                                 />
-                                {renderFieldError(`section2_1.infraActArray.${index}.sector`)}
+                                {renderFieldError(
+                                  `section2_1.infraActArray.${index}.sector`
+                                )}
                               </div>
                             ) : (
                               item.sector || "N/A"
@@ -4000,7 +4233,9 @@ export const InfraDevelopmentReview = ({
                                     isEditable={true}
                                     resetKey={selectResetKey}
                                   />
-                                  {renderFieldError(`section2_2.specializedEntityArray.${index}.sector`)}
+                                  {renderFieldError(
+                                    `section2_2.specializedEntityArray.${index}.sector`
+                                  )}
                                 </div>
                               ) : (
                                 item.sector || "N/A"
@@ -4265,7 +4500,9 @@ export const InfraDevelopmentReview = ({
                         placeholder="Select Sector"
                         isEditable={true}
                       />
-                      {renderFieldError("section2_2.specializedEntityArray.new.sector")}
+                      {renderFieldError(
+                        "section2_2.specializedEntityArray.new.sector"
+                      )}
                     </div>
                     <div>
                       <Label>Upload Files</Label>
@@ -4282,7 +4519,9 @@ export const InfraDevelopmentReview = ({
                         label=""
                         multiple={true}
                       />
-                      {renderFieldError("section2_2.specializedEntityArray.new.files")}
+                      {renderFieldError(
+                        "section2_2.specializedEntityArray.new.files"
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2 mt-4">
@@ -5441,7 +5680,11 @@ export const InfraDevelopmentReview = ({
                     <Textarea
                       value={state?.section2_4?.comment || ""}
                       onChange={(e) =>
-                        handleSectionFieldUpdate("2.4", "comment", e.target.value)
+                        handleSectionFieldUpdate(
+                          "2.4",
+                          "comment",
+                          e.target.value
+                        )
                       }
                       placeholder="Please provide a comment..."
                       className={cn(
@@ -5567,7 +5810,11 @@ export const InfraDevelopmentReview = ({
                                       e.target.value
                                     );
                                     // Clear validation error when user types
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.projectName`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.projectName`
+                                      )
+                                    ) {
                                       setIndicatorValidationErrors((prev) => {
                                         const updated = { ...prev };
                                         delete updated[
@@ -5616,7 +5863,11 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.sector`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.sector`
+                                      )
+                                    ) {
                                       setIndicatorValidationErrors((prev) => {
                                         const updated = { ...prev };
                                         delete updated[
@@ -5660,7 +5911,11 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.type`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.type`
+                                      )
+                                    ) {
                                       setIndicatorValidationErrors((prev) => {
                                         const updated = { ...prev };
                                         delete updated[
@@ -5704,7 +5959,11 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.ownership`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.ownership`
+                                      )
+                                    ) {
                                       setIndicatorValidationErrors((prev) => {
                                         const updated = { ...prev };
                                         delete updated[
@@ -5745,7 +6004,11 @@ export const InfraDevelopmentReview = ({
                                       e.target.value
                                     );
                                     // Clear validation error when user types
-                                    if (getFieldError(`section2_5.assetMonetizationArray.${index}.estimatedMonetization`)) {
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                      )
+                                    ) {
                                       setIndicatorValidationErrors((prev) => {
                                         const updated = { ...prev };
                                         delete updated[
@@ -5841,7 +6104,11 @@ export const InfraDevelopmentReview = ({
                           projectName: e.target.value,
                         });
                         // Clear validation error when user types
-                        if (getFieldError("section2_5.assetMonetizationArray.new.projectName")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.projectName"
+                          )
+                        ) {
                           setIndicatorValidationErrors((prev) => {
                             const updated = { ...prev };
                             delete updated[
@@ -5881,7 +6148,11 @@ export const InfraDevelopmentReview = ({
                       onChange={(value) => {
                         setNewEntry2_5({ ...newEntry2_5, sector: value });
                         // Clear validation error when user selects
-                        if (getFieldError("section2_5.assetMonetizationArray.new.sector")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.sector"
+                          )
+                        ) {
                           setIndicatorValidationErrors((prev) => {
                             const updated = { ...prev };
                             delete updated[
@@ -5915,7 +6186,11 @@ export const InfraDevelopmentReview = ({
                       onChange={(value) => {
                         setNewEntry2_5({ ...newEntry2_5, type: value });
                         // Clear validation error when user selects
-                        if (getFieldError("section2_5.assetMonetizationArray.new.type")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.type"
+                          )
+                        ) {
                           setIndicatorValidationErrors((prev) => {
                             const updated = { ...prev };
                             delete updated[
@@ -5949,7 +6224,11 @@ export const InfraDevelopmentReview = ({
                       onChange={(value) => {
                         setNewEntry2_5({ ...newEntry2_5, ownership: value });
                         // Clear validation error when user selects
-                        if (getFieldError("section2_5.assetMonetizationArray.new.ownership")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.ownership"
+                          )
+                        ) {
                           setIndicatorValidationErrors((prev) => {
                             const updated = { ...prev };
                             delete updated[
@@ -5982,7 +6261,11 @@ export const InfraDevelopmentReview = ({
                           estimatedMonetization: e.target.value,
                         });
                         // Clear validation error when user types
-                        if (getFieldError("section2_5.assetMonetizationArray.new.estimatedMonetization")) {
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                          )
+                        ) {
                           setIndicatorValidationErrors((prev) => {
                             const updated = { ...prev };
                             delete updated[

@@ -90,7 +90,12 @@ export const validateInfraDevelopment = (
   // Section 2.1 - Availability of Infrastructure Act/Policy
   if (shouldValidateSection("2.1")) {
     const section21 = data.section2_1;
-    if (!section21.infraActArray || section21.infraActArray.length === 0) {
+    if (!section21) {
+      // Skip validation if section doesn't exist
+    } else if (
+      !section21.infraActArray ||
+      section21.infraActArray.length === 0
+    ) {
       errors["section2_1.infraActArray"] =
         "Minimum 1 sector required. Add at least 1 entry.";
     } else {
@@ -120,7 +125,9 @@ export const validateInfraDevelopment = (
   // Section 2.2 - Availability of Specialized Entity
   if (shouldValidateSection("2.2")) {
     const section22 = data.section2_2;
-    if (
+    if (!section22) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section22.specializedEntityArray ||
       section22.specializedEntityArray.length === 0
     ) {
@@ -149,41 +156,46 @@ export const validateInfraDevelopment = (
   // Section 2.3 - Sector Infra Development Plan
   if (shouldValidateSection("2.3")) {
     const section23 = data.section2_3;
-    const hasInfraDevelopmentPlan = section23.hasInfraDevelopmentPlan;
+    if (!section23) {
+      // Skip validation if section doesn't exist
+    } else {
+      const hasInfraDevelopmentPlan = section23.hasInfraDevelopmentPlan;
 
-    if (
-      !hasInfraDevelopmentPlan ||
-      (hasInfraDevelopmentPlan !== "yes" && hasInfraDevelopmentPlan !== "no")
-    ) {
-      errors["section2_3.hasInfraDevelopmentPlan"] = "Please select Yes or No.";
-    } else if (hasInfraDevelopmentPlan === "yes") {
       if (
-        !section23.infraDevelopmentArray ||
-        section23.infraDevelopmentArray.length === 0
+        !hasInfraDevelopmentPlan ||
+        (hasInfraDevelopmentPlan !== "yes" && hasInfraDevelopmentPlan !== "no")
       ) {
-        errors["section2_3.infraDevelopmentArray"] =
-          "At least one entry is required when plan is available.";
-      } else {
-        section23.infraDevelopmentArray.forEach((entry, index) => {
-          if (!entry.sector || entry.sector.trim() === "") {
-            errors[`section2_3.infraDevelopmentArray.${index}.sector`] =
-              "Sector is required.";
-          }
-          if (!hasRequiredFile(entry.files)) {
-            errors[`section2_3.infraDevelopmentArray.${index}.files`] =
-              "Upload plan is required.";
-          } else {
-            const file = entry.files?.[0];
-            if (file && file.file && !isValidPdfFile(file)) {
-              errors[`section2_3.infraDevelopmentArray.${index}.files`] =
-                "Only PDF files are allowed.";
+        errors["section2_3.hasInfraDevelopmentPlan"] =
+          "Please select Yes or No.";
+      } else if (hasInfraDevelopmentPlan === "yes") {
+        if (
+          !section23.infraDevelopmentArray ||
+          section23.infraDevelopmentArray.length === 0
+        ) {
+          errors["section2_3.infraDevelopmentArray"] =
+            "At least one entry is required when plan is available.";
+        } else {
+          section23.infraDevelopmentArray.forEach((entry, index) => {
+            if (!entry.sector || entry.sector.trim() === "") {
+              errors[`section2_3.infraDevelopmentArray.${index}.sector`] =
+                "Sector is required.";
             }
-          }
-        });
-      }
-    } else if (hasInfraDevelopmentPlan === "no") {
-      if (!section23.comment || section23.comment.trim() === "") {
-        errors["section2_3.comment"] = "Comment (reason) is required.";
+            if (!hasRequiredFile(entry.files)) {
+              errors[`section2_3.infraDevelopmentArray.${index}.files`] =
+                "Upload plan is required.";
+            } else {
+              const file = entry.files?.[0];
+              if (file && file.file && !isValidPdfFile(file)) {
+                errors[`section2_3.infraDevelopmentArray.${index}.files`] =
+                  "Only PDF files are allowed.";
+              }
+            }
+          });
+        }
+      } else if (hasInfraDevelopmentPlan === "no") {
+        if (!section23.comment || section23.comment.trim() === "") {
+          errors["section2_3.comment"] = "Comment (reason) is required.";
+        }
       }
     }
   }
@@ -191,57 +203,62 @@ export const validateInfraDevelopment = (
   // Section 2.4 - Investment Ready Project Pipeline
   if (shouldValidateSection("2.4")) {
     const section24 = data.section2_4;
-    if (
-      !section24.hasInvestmentReady ||
-      (section24.hasInvestmentReady !== "yes" &&
-        section24.hasInvestmentReady !== "no")
-    ) {
-      errors["section2_4.hasInvestmentReady"] = "Please select Yes or No.";
-    } else if (section24.hasInvestmentReady === "yes") {
-      if (!section24.websiteLink || section24.websiteLink.trim() === "") {
-        errors["section2_4.websiteLink"] = "Website link is required.";
-      } else if (!isValidUrl(section24.websiteLink)) {
-        errors["section2_4.websiteLink"] = "Enter a valid website URL.";
-      }
+    if (!section24) {
+      // Skip validation if section doesn't exist
+    } else {
       if (
-        !section24.investmentReadyArray ||
-        section24.investmentReadyArray.length === 0
+        !section24.hasInvestmentReady ||
+        (section24.hasInvestmentReady !== "yes" &&
+          section24.hasInvestmentReady !== "no")
       ) {
-        errors["section2_4.investmentReadyArray"] =
-          "At least one project is required.";
-      } else {
-        section24.investmentReadyArray.forEach((entry, index) => {
-          if (!entry.projectName || entry.projectName.trim() === "") {
-            errors[`section2_4.investmentReadyArray.${index}.projectName`] =
-              "Project name is required.";
-          }
-          if (!entry.sector || entry.sector.trim() === "") {
-            errors[`section2_4.investmentReadyArray.${index}.sector`] =
-              "Sector is required.";
-          }
-          if (!entry.status || entry.status.trim() === "") {
-            errors[`section2_4.investmentReadyArray.${index}.status`] =
-              "Status is required.";
-          }
-          if (!entry.investmentType || entry.investmentType.trim() === "") {
-            errors[`section2_4.investmentReadyArray.${index}.investmentType`] =
-              "Type of investment is required.";
-          }
-          if (!entry.projectSize || entry.projectSize.trim() === "") {
-            errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
-              "Project size is required.";
-          } else if (
-            !isNonNegativeDecimal(entry.projectSize) ||
-            !hasMaxTwoDecimals(entry.projectSize)
-          ) {
-            errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
-              "Enter a non-negative amount with up to two decimal places.";
-          }
-        });
-      }
-    } else if (section24.hasInvestmentReady === "no") {
-      if (!section24.comment || section24.comment.trim() === "") {
-        errors["section2_4.comment"] = "Comment (reason) is required.";
+        errors["section2_4.hasInvestmentReady"] = "Please select Yes or No.";
+      } else if (section24.hasInvestmentReady === "yes") {
+        if (!section24.websiteLink || section24.websiteLink.trim() === "") {
+          errors["section2_4.websiteLink"] = "Website link is required.";
+        } else if (!isValidUrl(section24.websiteLink)) {
+          errors["section2_4.websiteLink"] = "Enter a valid website URL.";
+        }
+        if (
+          !section24.investmentReadyArray ||
+          section24.investmentReadyArray.length === 0
+        ) {
+          errors["section2_4.investmentReadyArray"] =
+            "At least one project is required.";
+        } else {
+          section24.investmentReadyArray.forEach((entry, index) => {
+            if (!entry.projectName || entry.projectName.trim() === "") {
+              errors[`section2_4.investmentReadyArray.${index}.projectName`] =
+                "Project name is required.";
+            }
+            if (!entry.sector || entry.sector.trim() === "") {
+              errors[`section2_4.investmentReadyArray.${index}.sector`] =
+                "Sector is required.";
+            }
+            if (!entry.status || entry.status.trim() === "") {
+              errors[`section2_4.investmentReadyArray.${index}.status`] =
+                "Status is required.";
+            }
+            if (!entry.investmentType || entry.investmentType.trim() === "") {
+              errors[
+                `section2_4.investmentReadyArray.${index}.investmentType`
+              ] = "Type of investment is required.";
+            }
+            if (!entry.projectSize || entry.projectSize.trim() === "") {
+              errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
+                "Project size is required.";
+            } else if (
+              !isNonNegativeDecimal(entry.projectSize) ||
+              !hasMaxTwoDecimals(entry.projectSize)
+            ) {
+              errors[`section2_4.investmentReadyArray.${index}.projectSize`] =
+                "Enter a non-negative amount with up to two decimal places.";
+            }
+          });
+        }
+      } else if (section24.hasInvestmentReady === "no") {
+        if (!section24.comment || section24.comment.trim() === "") {
+          errors["section2_4.comment"] = "Comment (reason) is required.";
+        }
       }
     }
   }
@@ -249,7 +266,9 @@ export const validateInfraDevelopment = (
   // Section 2.5 - Asset Monetization Pipeline
   if (shouldValidateSection("2.5")) {
     const section25 = data.section2_5;
-    if (
+    if (!section25) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section25.assetMonetizationArray ||
       section25.assetMonetizationArray.length === 0
     ) {

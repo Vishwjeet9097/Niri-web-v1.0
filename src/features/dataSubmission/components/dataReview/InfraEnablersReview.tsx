@@ -937,8 +937,63 @@ export const InfraEnablersReview = ({
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
 
+  // Helper function to check if a section has meaningful data
+  const sectionHasMeaningfulData = (sectionKey: string, section: any): boolean => {
+    if (!section) return false;
+    
+    switch (sectionKey) {
+      case "section4_1": {
+        return (
+          (section.allEligible && (section.allEligible === "yes" || section.allEligible === "no")) ||
+          (section.websiteLink && section.websiteLink.trim()) ||
+          (section.comment && section.comment.trim()) ||
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath))
+        );
+      }
+      case "section4_2": {
+        return (
+          (section.available && (section.available === "yes" || section.available === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
+          (section.files && Array.isArray(section.files) && section.files.length > 0)
+        );
+      }
+      case "section4_3": {
+        return (
+          (section.adopted && (section.adopted === "yes" || section.adopted === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.projects && Array.isArray(section.projects) && section.projects.length > 0)
+        );
+      }
+      case "section4_4": {
+        return (
+          (section.adopted && (section.adopted === "yes" || section.adopted === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
+          (section.files && Array.isArray(section.files) && section.files.length > 0)
+        );
+      }
+      case "section4_5": {
+        return (
+          (section.implemented && (section.implemented === "yes" || section.implemented === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.practices && Array.isArray(section.practices) && section.practices.length > 0)
+        );
+      }
+      case "section4_6": {
+        return (
+          (section.participated && (section.participated === "yes" || section.participated === "no")) ||
+          (section.comment && section.comment.trim()) ||
+          (section.capacityArray && Array.isArray(section.capacityArray) && section.capacityArray.length > 0)
+        );
+      }
+      default:
+        return false;
+    }
+  };
+
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Always include all sections that exist in formData - never hide sections regardless of data content
+  // Only include sections that have meaningful data (not just empty objects)
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     state &&
@@ -952,10 +1007,10 @@ export const InfraEnablersReview = ({
       "section4_5",
       "section4_6",
     ];
-    // Always include sections that exist in state, regardless of data content
+    // Only include sections that exist AND have meaningful data
     const existingSections = allPossibleSections.filter((sectionKey) => {
-      // Simply check if section key exists in state - always show if it exists
-      return sectionKey in state;
+      const section = state[sectionKey];
+      return sectionHasMeaningfulData(sectionKey, section);
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates

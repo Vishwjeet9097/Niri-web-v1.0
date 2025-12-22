@@ -87,7 +87,9 @@ export const validatePPPDevelopment = (
   // Section 3.1 - Availability of PPP Act/Policy
   if (shouldValidateSection("3.1")) {
     const section31 = data.section3_1;
-    if (
+    if (!section31) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section31.available ||
       (section31.available !== "yes" && section31.available !== "no")
     ) {
@@ -112,7 +114,9 @@ export const validatePPPDevelopment = (
   // Section 3.2 - Functional PPP Cell/Unit
   if (shouldValidateSection("3.2")) {
     const section32 = data.section3_2;
-    if (
+    if (!section32) {
+      // Skip validation if section doesn't exist
+    } else if (
       !section32.available ||
       (section32.available !== "yes" && section32.available !== "no")
     ) {
@@ -137,7 +141,9 @@ export const validatePPPDevelopment = (
   // Section 3.3 - Proposals under VGF/IIPDF
   if (shouldValidateSection("3.3")) {
     const section33 = data.section3_3;
-    if (!section33.VGFArray || section33.VGFArray.length === 0) {
+    if (!section33) {
+      // Skip validation if section doesn't exist
+    } else if (!section33.VGFArray || section33.VGFArray.length === 0) {
       errors["section3_3.VGFArray"] = "At least one proposal is required.";
     } else {
       section33.VGFArray.forEach((entry, index) => {
@@ -162,10 +168,13 @@ export const validatePPPDevelopment = (
   // Section 3.4 - Proportion of TPC of PPP Projects
   if (shouldValidateSection("3.4")) {
     const section34 = data.section3_4;
-    if (
-      !section34.totalProjectsAwarded ||
-      section34.totalProjectsAwarded.trim() === ""
-    ) {
+    if (!section34) {
+      // Skip validation if section doesn't exist
+    } else {
+      if (
+        !section34.totalProjectsAwarded ||
+        section34.totalProjectsAwarded.trim() === ""
+      ) {
       errors["section3_4.totalProjectsAwarded"] =
         "Total number of infrastructure projects awarded is required.";
     } else if (!isValidInteger(section34.totalProjectsAwarded)) {
@@ -211,6 +220,7 @@ export const validatePPPDevelopment = (
           }
         }
       });
+    }
     }
   }
 
