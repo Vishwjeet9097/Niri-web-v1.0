@@ -1283,6 +1283,15 @@ export const InfraFinancingReview = ({
         });
       }
       
+      // For section 1.4, restore section14State FIRST before updating submissionData
+      // This ensures the component receives the correct data immediately
+      if (sectionId === "1.4" && originalStateSnapshot.section14State) {
+        setSection14State({
+          bondList: originalStateSnapshot.section14State.bondList || [],
+          totalULBs: originalStateSnapshot.section14State.totalULBs || 0,
+        });
+      }
+      
       setSubmissionData(originalStateSnapshot.submissionData);
       setCapitalAllocation(originalStateSnapshot.capitalAllocation);
       setGsdpForFY(originalStateSnapshot.gsdpForFY);
@@ -1294,7 +1303,11 @@ export const InfraFinancingReview = ({
         setSection13State(originalStateSnapshot.section13State);
       }
       
-      setSection14State(originalStateSnapshot.section14State);
+      // Only set section14State here if it's NOT section 1.4 (already set above)
+      if (sectionId !== "1.4") {
+        setSection14State(originalStateSnapshot.section14State);
+      }
+      
       setSection15State(originalStateSnapshot.section15State);
 
       // For section 1.1, ensure formData is also restored from snapshot
@@ -1348,16 +1361,28 @@ export const InfraFinancingReview = ({
         );
       }
 
-      // For section 1.4, ensure formData is also restored from snapshot
-      if (
-        sectionId === "1.4" &&
-        originalStateSnapshot.submissionData?.section1_4
-      ) {
-        // The submissionData already contains the restored formData, so local state
-        // will be updated via useEffect when formData changes
+      // For section 1.4, ensure submissionData.section1_4 is synced with restored section14State
+      if (sectionId === "1.4") {
+        // Update submissionData to match the restored section14State
+        // This ensures consistency between submissionData and section14State
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          updated.section1_4 = {
+            ...updated.section1_4,
+            bondList: originalStateSnapshot.section14State?.bondList || [],
+            totalULBs: originalStateSnapshot.section14State?.totalULBs || 0,
+          };
+          return updated;
+        });
+        
         console.log(
-          `[InfraFinancingReview] ✅ Cancel - Restored section 1.4 formData:`,
-          originalStateSnapshot.submissionData.section1_4
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.4:`,
+          {
+            section14State: originalStateSnapshot.section14State,
+            bondList: originalStateSnapshot.section14State?.bondList,
+            totalULBs: originalStateSnapshot.section14State?.totalULBs,
+          }
         );
       }
 
@@ -2460,6 +2485,13 @@ export const InfraFinancingReview = ({
           },
           "section1_4"
         );
+
+        // ✅ CRITICAL: Update section14State directly to ensure UI reflects changes immediately
+        // This is similar to how sections 1.1, 1.2, and 1.3 update their local state variables
+        setSection14State({
+          bondList: section14State.bondList || [],
+          totalULBs: section14State.totalULBs || 0,
+        });
 
         console.log(
           `[InfraFinancingReview] ✅ Updated local state and formData for section 1.4:`,

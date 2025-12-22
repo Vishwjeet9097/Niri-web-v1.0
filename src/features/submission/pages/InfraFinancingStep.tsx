@@ -2273,7 +2273,7 @@ export const InfraFinancingStep = () => {
                 </div>
 
                 {formData.section1_3.ulbList.map((ulb, index) => (
-                  <div key={ulb.id} className="grid grid-cols-12 gap-4">
+                  <div key={ulb.id || `ulb-${index}`} className="grid grid-cols-12 gap-4">
                     <div className="col-span-4">
                       <Label>
                         ULB<span className="text-red-500">*</span>
@@ -2628,8 +2628,8 @@ export const InfraFinancingStep = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {formData.section1_3.ulbList.map((ulb) => (
-                          <tr key={ulb.id} className="bg-white">
+                        {formData.section1_3.ulbList.map((ulb, index) => (
+                          <tr key={ulb.id || `ulb-${index}`} className="bg-white">
                             <td className="py-3 px-4 text-sm font-normal">
                               {ulb.cityName}
                             </td>
@@ -2742,7 +2742,7 @@ export const InfraFinancingStep = () => {
                 </div>
 
                 {formData.section1_4.bondList.map((bond, index) => (
-                  <div key={bond.id} className="grid grid-cols-6 gap-4">
+                  <div key={bond.id || `bond-${index}`} className="grid grid-cols-6 gap-4">
                     <div>
                       <Label>
                         Select Bond Type
@@ -2990,8 +2990,8 @@ export const InfraFinancingStep = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {formData.section1_4.bondList.map((bond) => (
-                          <tr key={bond.id} className="bg-white">
+                        {formData.section1_4.bondList.map((bond, index) => (
+                          <tr key={bond.id || `bond-${index}`} className="bg-white">
                             <td className="py-3 px-4 text-sm font-normal">
                               {bond.bondType}
                             </td>
