@@ -2466,60 +2466,50 @@ export const InfraFinancingStep = () => {
                       <Label>
                         Rating date<span className="text-red-500">*</span>
                       </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            disabled={isIndicatorSubmitted("1.3")}
-                            className={cn(
-                              "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                              !ulb.ratingDate && "text-muted-foreground",
-                              getInputValidationClass(
-                                `section1_3.ulbList.${index}.ratingDate`
+                      <Input
+                        type="date"
+                        value={
+                          ulb.ratingDate
+                            ? (() => {
+                                // Convert ISO string to YYYY-MM-DD format for date input
+                                const d = new Date(ulb.ratingDate);
+                                if (isNaN(d.getTime())) return "";
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(2, "0");
+                                const day = String(d.getDate()).padStart(2, "0");
+                                return `${year}-${month}-${day}`;
+                              })()
+                            : ""
+                        }
+                        onChange={(e) => {
+                          if (isIndicatorSubmitted("1.3")) return;
+                          showErrorsIfNeeded();
+                          setFormData((prev) => ({
+                            ...prev,
+                            section1_3: {
+                              ...prev.section1_3,
+                              ulbList: prev.section1_3.ulbList.map((item) =>
+                                item.id === ulb.id
+                                  ? {
+                                      ...item,
+                                      ratingDate: e.target.value
+                                        ? new Date(e.target.value).toISOString()
+                                        : "",
+                                    }
+                                  : item
                               ),
-                              isIndicatorSubmitted("1.3") &&
-                                "bg-gray-50 cursor-not-allowed"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {ulb.ratingDate
-                              ? format(new Date(ulb.ratingDate), "dd-MM-yyyy")
-                              : "Select date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={
-                              ulb.ratingDate
-                                ? new Date(ulb.ratingDate)
-                                : undefined
-                            }
-                            onSelect={(date) => {
-                              if (isIndicatorSubmitted("1.3")) return;
-                              showErrorsIfNeeded();
-                              setFormData((prev) => ({
-                                ...prev,
-                                section1_3: {
-                                  ...prev.section1_3,
-                                  ulbList: prev.section1_3.ulbList.map((item) =>
-                                    item.id === ulb.id
-                                      ? {
-                                          ...item,
-                                          ratingDate: date
-                                            ? date.toISOString()
-                                            : "",
-                                        }
-                                      : item
-                                  ),
-                                },
-                              }));
-                            }}
-                            disabled={isIndicatorSubmitted("1.3")}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                            },
+                          }));
+                        }}
+                        disabled={isIndicatorSubmitted("1.3")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section1_3.ulbList.${index}.ratingDate`
+                          ),
+                          isIndicatorSubmitted("1.3") &&
+                          "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
                       {renderFieldError(
                         `section1_3.ulbList.${index}.ratingDate`
                       )}

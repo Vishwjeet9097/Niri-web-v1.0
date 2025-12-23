@@ -438,11 +438,11 @@ export function UnifiedSubmissionCard({
 
       {/* Progress section */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm">
+        {/* <div className="flex items-center justify-between text-sm">
           <span className="text-gray-500 font-medium">Progress</span>
           <span className="font-semibold text-gray-700">{progress}%</span>
         </div>
-        <Progress value={progress} className="h-2" />
+        <Progress value={progress} className="h-2" /> */}
         <p className="text-sm text-gray-600">
           <span className="font-medium">Next step:</span> {nextStep}
         </p>

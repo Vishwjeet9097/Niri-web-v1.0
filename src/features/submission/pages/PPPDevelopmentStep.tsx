@@ -2022,53 +2022,41 @@ export const PPPDevelopmentStep = () => {
                           Submission Date
                           <span className="text-red-500">*</span>
                         </Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              disabled={isIndicatorSubmitted("3.3")}
-                              className={cn(
-                                "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                                !entry.submissionDate &&
-                                  "text-muted-foreground",
-                                getInputValidationClass(
-                                  `section3_3.VGFArray.${idx}.submissionDate`
-                                ),
-                                isIndicatorSubmitted("3.3") &&
-                                  "bg-gray-50 cursor-not-allowed"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {entry.submissionDate
-                                ? format(
-                                    new Date(entry.submissionDate),
-                                    "dd-MM-yyyy"
-                                  )
-                                : "DD-MM-YYYY"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={
-                                entry.submissionDate
-                                  ? new Date(entry.submissionDate)
-                                  : undefined
-                              }
-                              onSelect={(date) => {
-                                if (isIndicatorSubmitted("3.3")) return;
-                                showErrorsIfNeeded();
-                                updateProject(
-                                  entry.id,
-                                  "submissionDate",
-                                  date ? date.toISOString() : ""
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("3.3")}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <Input
+                          type="date"
+                          value={
+                            entry.submissionDate
+                              ? (() => {
+                                  // Convert ISO string to YYYY-MM-DD format for date input
+                                  const d = new Date(entry.submissionDate);
+                                  if (isNaN(d.getTime())) return "";
+                                  const year = d.getFullYear();
+                                  const month = String(d.getMonth() + 1).padStart(2, "0");
+                                  const day = String(d.getDate()).padStart(2, "0");
+                                  return `${year}-${month}-${day}`;
+                                })()
+                              : ""
+                          }
+                          onChange={(e) => {
+                            if (isIndicatorSubmitted("3.3")) return;
+                            showErrorsIfNeeded();
+                            updateProject(
+                              entry.id,
+                              "submissionDate",
+                              e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : ""
+                            );
+                          }}
+                          disabled={isIndicatorSubmitted("3.3")}
+                          className={cn(
+                            getInputValidationClass(
+                              `section3_3.VGFArray.${idx}.submissionDate`
+                            ),
+                            isIndicatorSubmitted("3.3") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        />
                       </div>
                       <Button
                         type="button"
@@ -2479,48 +2467,48 @@ export const PPPDevelopmentStep = () => {
                     <div className="space-y-4">
                       <div>
                         <Label>Date of Award (DD-MM-YYYY)</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              disabled={isIndicatorSubmitted("3.4")}
-                              className={cn(
-                                "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                                !project.dateOfAward && "text-muted-foreground",
-                                isIndicatorSubmitted("3.4") &&
-                                  "bg-gray-50 cursor-not-allowed"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {project.dateOfAward
-                                ? format(
-                                    new Date(project.dateOfAward),
-                                    "dd-MM-yyyy"
-                                  )
-                                : "DD-MM-YYYY"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={
-                                project.dateOfAward
-                                  ? new Date(project.dateOfAward)
-                                  : undefined
-                              }
-                              onSelect={(date) => {
-                                if (isIndicatorSubmitted("3.4")) return;
-                                updatePPPProject(
-                                  project.id,
-                                  "dateOfAward",
-                                  date ? date.toISOString() : ""
-                                );
-                              }}
-                              disabled={isIndicatorSubmitted("3.4")}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <Input
+                          type="date"
+                          value={
+                            project.dateOfAward
+                              ? (() => {
+                                  // Convert ISO string to YYYY-MM-DD format for date input
+                                  const d = new Date(project.dateOfAward);
+                                  if (isNaN(d.getTime())) return "";
+                                  const year = d.getFullYear();
+                                  const month = String(d.getMonth() + 1).padStart(2, "0");
+                                  const day = String(d.getDate()).padStart(2, "0");
+                                  return `${year}-${month}-${day}`;
+                                })()
+                              : ""
+                          }
+                          onChange={(e) => {
+                            if (isIndicatorSubmitted("3.4")) return;
+                            showErrorsIfNeeded();
+                            updatePPPProject(
+                              project.id,
+                              "dateOfAward",
+                              e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : ""
+                            );
+                          }}
+                          disabled={isIndicatorSubmitted("3.4")}
+                          className={cn(
+                            getInputValidationClass(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.dateOfAward`
+                            ),
+                            isIndicatorSubmitted("3.4") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        />
+                        {renderFieldError(
+                          `section3_4.projects.${formData.section3_4.projects.findIndex(
+                            (p) => p.id === project.id
+                          )}.dateOfAward`
+                        )}
                       </div>
 
                       <div>

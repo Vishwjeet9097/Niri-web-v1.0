@@ -833,20 +833,9 @@ export function UserForm({
       newErrors.contactNumber = "Contact number is required";
     } else if (!/^\d{10}$/.test(formData.contactNumber.replace(/\s/g, ""))) {
       newErrors.contactNumber = "Please enter a valid 10-digit phone number";
-    } else {
-      // Check for duplicate contact number
-      const normalizedContactNumber = formData.contactNumber.replace(/\s/g, "");
-      const duplicateContact = officers.find(
-        (o) =>
-          o.id !== officer?.id && // Exclude current officer if editing
-          o.contactNumber &&
-          o.contactNumber.replace(/\s/g, "") === normalizedContactNumber
-      );
-      if (duplicateContact) {
-        newErrors.contactNumber =
-          "This contact number is already assigned to another user";
-      }
     }
+    // Note: Duplicate check is done via API in handleSubmit, not here
+    // This prevents false positives from incomplete local officers array
 
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
@@ -938,8 +927,128 @@ export function UserForm({
    
 };
 
- const handleSubmit = () => {
+ const handleSubmit = async () => {
   if (!validate()) return;
+
+  // Always check email via API before saving (even if unchanged)
+  // This ensures we verify against the full database, not just local officers array
+  if (formData.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    try {
+      console.log("🔍 [handleSubmit] Checking email availability via API...", {
+        email: formData.email,
+        officerId: officer?.id,
+        isEditing: !!officer
+      });
+      
+      setCheckingEmail(true);
+      const isEmailAvailable = await apiService.checkEmailAvailability(
+        formData.email,
+        officer?.id // This excludes current user when editing
+      );
+
+      console.log("🔍 [handleSubmit] Email API response:", {
+        isAvailable: isEmailAvailable,
+        email: formData.email
+      });
+
+      if (!isEmailAvailable) {
+        setErrors((prev) => ({
+          ...prev,
+          email: "This email is already registered to another user",
+        }));
+        setCheckingEmail(false);
+        toast({
+          title: "Validation Error",
+          description: "This email is already registered to another user",
+          variant: "destructive",
+        });
+        return; // Stop submission
+      }
+      
+      // Clear any existing email errors if API check passes
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        if (newErrors.email === "This email is already registered to another user") {
+          delete newErrors.email;
+        }
+        return newErrors;
+      });
+    } catch (error: any) {
+      console.error("❌ [handleSubmit] Error checking email availability:", error);
+      // On error, show warning but allow submission (fail open)
+      toast({
+        title: "Warning",
+        description: "Could not verify email availability. Please verify manually.",
+        variant: "default",
+      });
+    } finally {
+      setCheckingEmail(false);
+    }
+  }
+
+  // Always check contact number via API before saving (even if unchanged)
+  // This ensures we verify against the full database, not just local officers array
+  const normalizedContact = formData.contactNumber.replace(/\s/g, "");
+  if (normalizedContact && /^\d{10}$/.test(normalizedContact)) {
+    try {
+      console.log("🔍 [handleSubmit] Checking contact availability via API...", {
+        contactNumber: normalizedContact,
+        officerId: officer?.id,
+        isEditing: !!officer
+      });
+      
+      setCheckingContact(true);
+      const isContactAvailable = await apiService.checkContactAvailability(
+        normalizedContact,
+        officer?.id // This excludes current user when editing
+      );
+
+      console.log("🔍 [handleSubmit] API response:", {
+        isAvailable: isContactAvailable,
+        contactNumber: normalizedContact
+      });
+
+      if (!isContactAvailable) {
+        setErrors((prev) => ({
+          ...prev,
+          contactNumber: "This contact number is already registered to another user",
+        }));
+        setCheckingContact(false);
+        toast({
+          title: "Validation Error",
+          description: "This contact number is already registered to another user",
+          variant: "destructive",
+        });
+        return; // Stop submission
+      }
+      
+      // Clear any existing contact number errors if API check passes
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        if (newErrors.contactNumber === "This contact number is already registered to another user" ||
+            newErrors.contactNumber === "This contact number is already assigned to another user") {
+          delete newErrors.contactNumber;
+        }
+        return newErrors;
+      });
+    } catch (error: any) {
+      console.error("❌ [handleSubmit] Error checking contact availability:", error);
+      console.error("❌ [handleSubmit] Error details:", {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        url: error?.config?.url
+      });
+      // On error, show warning but allow submission (fail open)
+      toast({
+        title: "Warning",
+        description: "Could not verify contact number availability. Please verify manually.",
+        variant: "default",
+      });
+    } finally {
+      setCheckingContact(false);
+    }
+  }
 
   const normalizedStateId =
     formData.role === "MOSPI_REVIEWER"
