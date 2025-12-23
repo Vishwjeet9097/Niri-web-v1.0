@@ -209,6 +209,43 @@ export const UnifiedReviewPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, initialSubmission]);
 
+  // Listen for submission updates (e.g., when files are saved) to reload submission
+  // This ensures DocumentsTab shows updated files without page refresh
+  useEffect(() => {
+    const handleSubmissionUpdate = (event: CustomEvent) => {
+      const { submissionId: eventSubmissionId } = event.detail || {};
+      // Only reload if the event is for this submission
+      if (id && eventSubmissionId === id && !initialSubmission) {
+        console.log("🔄 Submission updated - refreshing to show new files...");
+        // Use a small delay to ensure the backend has processed the update
+        setTimeout(() => {
+          loadSubmission();
+        }, 500);
+      } else if (initialSubmission && eventSubmissionId === id) {
+        // For preview mode, try to refresh if we have an ID
+        if (id) {
+          setTimeout(() => {
+            loadSubmission();
+          }, 500);
+        }
+      }
+    };
+
+    // Listen for custom event when submission is updated (e.g., files saved)
+    window.addEventListener(
+      "niri-submission-updated",
+      handleSubmissionUpdate as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "niri-submission-updated",
+        handleSubmissionUpdate as EventListener
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, initialSubmission]);
+
   // Memoize the indicator acceptance check to recalculate when submission changes
   // IMPORTANT: These hooks must be called BEFORE any early returns to follow Rules of Hooks
   const allIndicatorsMospiAccepted = useMemo(() => {
@@ -660,6 +697,7 @@ export const UnifiedReviewPage = ({
                 isPreview={isPreview}
                 assignedIndicators={assignedIndicators}
                 isNodalOfficer={isNodalOfficer}
+                onRefetch={loadSubmission}
               />
             )}
           </TabsContent>

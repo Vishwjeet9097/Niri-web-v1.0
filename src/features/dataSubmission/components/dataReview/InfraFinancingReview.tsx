@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,11 +46,20 @@ import { useEditableSectionStore } from "@/utils/EditableSection";
 import { handleSaveSection } from "@/utils/ReviewActionHandelers";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { useFormDataStore } from "@/utils/FormDataStore";
+import {
+  isSubmissionFromNodalOfficer,
+  isIndicatorFromNodalOfficer,
+} from "@/utils/indicatorStatusUtils";
+import { notificationService } from "@/services/notification.service";
 
 import { Section_1_3 } from "./Sections/Section_1_3";
 import { Section_1_4 } from "./Sections/Section_1_4";
 import { validateInfraFinancing } from "@/features/submission/validation/infraFinancingValidation";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { useFieldValidation } from "@/features/submission/hooks/useFieldValidation";
+import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorDisplay";
+import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
+import { cn } from "@/lib/utils";
 
 interface InfraFinancingReviewProps {
   submissionId: string;
@@ -68,6 +77,13 @@ export const InfraFinancingReview = ({
   assignedIndicators = [],
   isNodalOfficer = false,
 }: InfraFinancingReviewProps) => {
+  // Declare submissionData early so it can be used in useEffect hooks
+  const [submissionData, setSubmissionData] = useState(formData);
+  const { saveMessage, getMessage, getComments, getAllComments } =
+    useSectionMessages(submissionId, submission);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [timelineSection, setTimelineSection] = useState<string | null>(null);
+
   // Section 1.4 state management
   const [section14State, setSection14State] = useState({
     totalULBs: formData?.section1_4?.totalULBs || 0,
@@ -75,20 +91,46 @@ export const InfraFinancingReview = ({
   });
 
   useEffect(() => {
+    // Debug: Log component mount
+    console.error(`[InfraFinancingReview] Component mounted/updated. submissionId: ${submissionId}`);
     if (!isRestoringRef.current) {
+      // Prefer submissionData (updated after save) over formData when initializing
+      const section1_4 = submissionData?.section1_4 || formData?.section1_4;
       setSection14State({
-        totalULBs: formData?.section1_4?.totalULBs || 0,
-        bondList: formData?.section1_4?.bondList || [],
+        totalULBs: section1_4?.totalULBs || 0,
+        bondList: section1_4?.bondList || [],
       });
     }
-  }, [formData?.section1_4]);
-  const { saveMessage, getMessage, getComments, getAllComments } =
-    useSectionMessages(submissionId, submission);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [timelineSection, setTimelineSection] = useState<string | null>(null);
-  const [submissionData, setSubmissionData] = useState(formData);
+  }, [submissionData?.section1_4, formData?.section1_4]);
   const { setFormDataForSection, updateSectionField, getSectionData } =
     useFormDataStore();
+
+  // Sync submissionData with formData prop when it changes from external source
+  // This ensures we always have the latest data when navigating between categories
+  useEffect(() => {
+    if (formData) {
+      setSubmissionData((prev: any) => {
+        // If no previous submissionData, use formData
+        if (!prev) return formData;
+
+        // Deep comparison to detect if formData has actually changed
+        const formDataStr = JSON.stringify(formData);
+        const prevStr = JSON.stringify(prev);
+
+        // If formData is different, it means parent component has refreshed with new data
+        // In this case, we should use the new formData to ensure we show latest status
+        if (formDataStr !== prevStr) {
+          console.log(
+            "🔄 [InfraFinancingReview] formData prop changed, syncing local state with latest data"
+          );
+          return formData;
+        }
+
+        // If formData hasn't changed, keep previous state (may have local edits)
+        return prev;
+      });
+    }
+  }, [formData]);
 
   // Section 1.3 state management
   const [section13State, setSection13State] = useState({
@@ -98,12 +140,14 @@ export const InfraFinancingReview = ({
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Prefer submissionData (updated after save) over formData when initializing
+      const section1_3 = submissionData?.section1_3 || formData?.section1_3;
       setSection13State({
-        totalULBs: formData?.section1_3?.totalULBs || 0,
-        ulbList: formData?.section1_3?.ulbList || [],
+        totalULBs: section1_3?.totalULBs || 0,
+        ulbList: section1_3?.ulbList || [],
       });
     }
-  }, [formData?.section1_3]);
+  }, [submissionData?.section1_3, formData?.section1_3]);
 
   // Section 1.5 state management
   const [section15State, setSection15State] = useState<{
@@ -112,25 +156,45 @@ export const InfraFinancingReview = ({
     comment?: string;
   }>(formData?.section1_5 || { ffiArray: [] });
 
-  // Validation error state
-  const [validationErrors, setValidationErrors] = useState<any>({});
+  // Validation error state - using centralized hooks
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
+  
+  // Field validation hook for touch tracking
+  const {
+    touchedFields,
+    markFieldAsTouched,
+    setValidatingIndicator,
+    markIndicatorFieldsAsTouched,
+    clearValidatingIndicator,
+    clearValidFieldErrors,
+    createOnChangeHandler,
+    createOnBlurHandler,
+    createOnValueChangeHandler,
+  } = useFieldValidation();
 
-  // Helper function to get error message for a field
-  const getFieldError = (fieldPath: string): string | undefined => {
-    return validationErrors[fieldPath];
-  };
+  // Helper to check if field is touched
+  const isFieldTouched = useCallback((path: string) => {
+    return touchedFields.has(path);
+  }, [touchedFields]);
+
+  // Real-time validation state
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isRestoringRef.current) {
+      // Prefer submissionData (updated after save) over formData when initializing
+      const section1_5 = submissionData?.section1_5 || formData?.section1_5;
       // Handle both old format (array) and new format (object)
-      if (Array.isArray(formData?.section1_5)) {
-        setSection15State({ ffiArray: formData.section1_5 });
+      if (Array.isArray(section1_5)) {
+        setSection15State({ ffiArray: section1_5 });
       } else {
-        setSection15State(formData?.section1_5 || { ffiArray: [] });
+        setSection15State(section1_5 || { ffiArray: [] });
       }
     }
-  }, [formData?.section1_5]);
+  }, [submissionData?.section1_5, formData?.section1_5]);
 
   // Check if this section has any data
   console.log("💡 InfraFinancing formData (raw):", formData);
@@ -522,36 +586,161 @@ export const InfraFinancingReview = ({
     return null;
   };
 
-  // Initialize section 1.2 state from formData (but not when restoring from cancel)
+  // Initialize section 1.2 state from formData/submissionData (but not when restoring from cancel)
   useEffect(() => {
     if (!isRestoringRef.current) {
-      if (formData?.section1_2?.actualCapex) {
-        // Extract numeric value if it's formatted
-        const value =
-          typeof formData.section1_2.actualCapex === "string"
-            ? formData.section1_2.actualCapex
-                .replace(/[₹,Crores\s]/g, "")
-                .trim()
-            : String(formData.section1_2.actualCapex);
+      // Prefer submissionData over formData as it's updated after saves
+      const section1_2 =
+        submissionData?.section1_2 ||
+        formData?.section1_2 ||
+        (formData as any)?.infraFinancing?.section1_2;
+
+      if (
+        section1_2?.actualCapex !== undefined &&
+        section1_2?.actualCapex !== null
+      ) {
+        // Preserve exact value - if string, clean it; if number, convert without adding unnecessary decimals
+        let value: string;
+        if (typeof section1_2.actualCapex === "string") {
+          value = section1_2.actualCapex.replace(/[₹,Crores\s]/g, "").trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_2.actualCapex);
+          // Remove trailing zeros and decimal point if not needed
+          value =
+            num % 1 === 0
+              ? num.toString()
+              : num.toString().replace(/\.?0+$/, "");
+        }
         setActualCapex(value);
       } else {
         setActualCapex("");
       }
 
-      if (formData?.section1_2?.stateCapexUtilisation) {
-        // Extract numeric value if it's formatted
-        const value =
-          typeof formData.section1_2.stateCapexUtilisation === "string"
-            ? formData.section1_2.stateCapexUtilisation
-                .replace(/[₹,Crores\s]/g, "")
-                .trim()
-            : String(formData.section1_2.stateCapexUtilisation);
+      if (
+        section1_2?.stateCapexUtilisation !== undefined &&
+        section1_2?.stateCapexUtilisation !== null
+      ) {
+        // Preserve exact value - if string, clean it; if number, convert without adding unnecessary decimals
+        let value: string;
+        if (typeof section1_2.stateCapexUtilisation === "string") {
+          value = section1_2.stateCapexUtilisation
+            .replace(/[₹,Crores\s]/g, "")
+            .trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_2.stateCapexUtilisation);
+          // Remove trailing zeros and decimal point if not needed
+          value =
+            num % 1 === 0
+              ? num.toString()
+              : num.toString().replace(/\.?0+$/, "");
+        }
         setStateCapexUtilisation(value);
       } else {
         setStateCapexUtilisation("");
       }
     }
-  }, [formData?.section1_2]);
+  }, [submissionData?.section1_2, formData?.section1_2]);
+
+  // Build full form data for validation (moved after variable declarations)
+  const fullFormDataForValidation = useMemo(() => {
+    return {
+      section1_1: {
+        year: submissionData?.section1_1?.year || formData?.section1_1?.year || "",
+        capitalAllocation: capitalAllocation !== undefined && capitalAllocation !== null
+          ? capitalAllocation
+          : (submissionData?.section1_1?.capitalAllocation || formData?.section1_1?.capitalAllocation || ""),
+        gsdpForFY: gsdpForFY !== undefined && gsdpForFY !== null
+          ? gsdpForFY
+          : (submissionData?.section1_1?.gsdpForFY || formData?.section1_1?.gsdpForFY || ""),
+        stateCapexUtilisation: submissionData?.section1_1?.stateCapexUtilisation || formData?.section1_1?.stateCapexUtilisation || "",
+        allocationToGSDP: submissionData?.section1_1?.allocationToGSDP || formData?.section1_1?.allocationToGSDP || "",
+        capexToCapexActuals: submissionData?.section1_1?.capexToCapexActuals || formData?.section1_1?.capexToCapexActuals || "",
+      },
+      section1_2: {
+        year: submissionData?.section1_2?.year || formData?.section1_2?.year || "",
+        gsdpForFY: submissionData?.section1_2?.gsdpForFY || formData?.section1_2?.gsdpForFY || "",
+        actualCapex: actualCapex !== undefined && actualCapex !== null
+          ? actualCapex
+          : (submissionData?.section1_2?.actualCapex || formData?.section1_2?.actualCapex || ""),
+        budgetaryCapex: submissionData?.section1_2?.budgetaryCapex || formData?.section1_2?.budgetaryCapex || "",
+        stateCapexUtilisation: stateCapexUtilisation !== undefined && stateCapexUtilisation !== null
+          ? stateCapexUtilisation
+          : (submissionData?.section1_2?.stateCapexUtilisation || formData?.section1_2?.stateCapexUtilisation || ""),
+        capexActualsToGSDP: submissionData?.section1_2?.capexActualsToGSDP || formData?.section1_2?.capexActualsToGSDP || "",
+      },
+      section1_3: section13State || { totalULBs: 0, ulbList: [] },
+      section1_4: section14State || { totalULBs: 0, bondList: [] },
+      section1_5: {
+        ffiArray: section15State?.ffiArray || [],
+        hasIntermediary: section15State?.hasIntermediary || "",
+        comment: section15State?.comment || "",
+      },
+    };
+  }, [
+    submissionData,
+    formData,
+    capitalAllocation,
+    gsdpForFY,
+    actualCapex,
+    stateCapexUtilisation,
+    section13State,
+    section14State,
+    section15State,
+  ]);
+
+  // Real-time validation using useMemo
+  const validation = useMemo(() => {
+    const effectiveAssignedIndicators = assignedIndicators.length > 0 
+      ? assignedIndicators 
+      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+    
+    return validateInfraFinancing(fullFormDataForValidation, {
+      allowedIndicators: effectiveAssignedIndicators,
+    });
+  }, [fullFormDataForValidation, assignedIndicators, hookAssignedIndicators]);
+
+  // Field error display hook
+  const fieldErrorDisplay = useFieldErrorDisplay({
+    validationErrors: validation?.errors || {},
+    indicatorValidationErrors,
+    showValidationErrors,
+    isFieldTouched,
+    validatingIndicator: null,
+  });
+
+  const { getFieldError, getInputValidationClass, renderFieldError } = fieldErrorDisplay;
+
+  // Clear valid field errors when validation passes
+  useEffect(() => {
+    clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
+  }, [validation.errors, clearValidFieldErrors]);
+
+  // Clear section validation messages in real-time when validation passes
+  useEffect(() => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      // Check each section that has a validation message
+      Object.keys(updated).forEach((sectionId) => {
+        const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+        // Check if there are any validation errors for this section
+        const hasSectionErrors = Object.keys(validation.errors).some((errorKey) =>
+          errorKey.startsWith(sectionPrefix)
+        );
+
+        // If no errors for this section, clear the message
+        if (!hasSectionErrors) {
+          delete updated[sectionId];
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+  }, [validation.errors]);
 
   // State for edit fucntionality indicator wise
   const { setEditable, isEditable, clearAllEditing } =
@@ -581,6 +770,28 @@ export const InfraFinancingReview = ({
 
     // For NODAL_OFFICER, check submission status
     if (isNodalOfficer) {
+      // First check if section status is REVERTED - if so, allow editing regardless of overall status
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData = (formData && formData[sectionKey]) || getSectionData(sectionKey);
+      const sectionStatusValue = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+      
+      // If section status is REVERTED, allow editing if section is in edit mode
+      if (sectionStatusValue === "REVERTED") {
+        const result = isEditable(sectionId);
+        console.log(`[InfraFinancingReview] NODAL_OFFICER shouldBeEditable (REVERTED section):`, {
+          sectionId,
+          sectionStatusValue,
+          isCurrentlyEditable: isEditable(sectionId),
+          result,
+          reason: result ? "Section is in edit mode" : "Section is not in edit mode",
+        });
+        return result;
+      }
+      
       // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
       const statusAllowsEditing =
         submissionStatus === "DRAFT" ||
@@ -589,6 +800,7 @@ export const InfraFinancingReview = ({
       console.log(`[InfraFinancingReview] NODAL_OFFICER shouldBeEditable:`, {
         sectionId,
         submissionStatus,
+        sectionStatusValue,
         statusAllowsEditing,
         isCurrentlyEditable: isEditable(sectionId),
         result,
@@ -659,6 +871,26 @@ export const InfraFinancingReview = ({
 
     // For NODAL_OFFICER, check submission status
     if (isNodalOfficer) {
+      // First check if section status is REVERTED - if so, allow editing regardless of overall status
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData = (formData && formData[sectionKey]) || getSectionData(sectionKey);
+      const sectionStatusValue = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+      
+      // If section status is REVERTED, allow editing
+      if (sectionStatusValue === "REVERTED") {
+        console.log(`[InfraFinancingReview] NODAL_OFFICER canEdit check (REVERTED section):`, {
+          sectionId,
+          sectionStatusValue,
+          canEdit: true,
+          reason: "Section status is REVERTED, allowing editing",
+        });
+        return true;
+      }
+      
       // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
       const canEdit =
         submissionStatus === "DRAFT" ||
@@ -666,6 +898,7 @@ export const InfraFinancingReview = ({
       console.log(`[InfraFinancingReview] NODAL_OFFICER canEdit check:`, {
         sectionId,
         submissionStatus,
+        sectionStatusValue,
         canEdit,
         reason: canEdit
           ? "Status allows editing"
@@ -741,18 +974,277 @@ export const InfraFinancingReview = ({
     console.log(
       `[InfraFinancingReview] ✅ Starting edit mode for section ${sectionId}`
     );
+
+    // For section 1.1, ensure state is initialized from submissionData/formData before storing snapshot
+    let capitalAllocationToStore = capitalAllocation;
+    let gsdpForFYToStore = gsdpForFY;
+
+    if (sectionId === "1.1") {
+      // Prefer submissionData (updated after saves) over formData when entering edit mode
+      const section1_1 =
+        submissionData?.section1_1 ||
+        formData?.section1_1 ||
+        (formData as any)?.infraFinancing?.section1_1;
+
+      // Always initialize capitalAllocation from submissionData/formData when entering edit mode
+      if (
+        section1_1?.capitalAllocation !== undefined &&
+        section1_1?.capitalAllocation !== null
+      ) {
+        let capitalAllocationValue: string;
+        if (typeof section1_1.capitalAllocation === "string") {
+          capitalAllocationValue = section1_1.capitalAllocation
+            .replace(/[₹,Crores\s]/g, "")
+            .trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_1.capitalAllocation);
+          capitalAllocationValue =
+            num % 1 === 0
+              ? num.toString()
+              : num.toString().replace(/\.?0+$/, "");
+        }
+
+        // Always update state from submissionData/formData when entering edit mode
+        setCapitalAllocation(capitalAllocationValue);
+        capitalAllocationToStore = capitalAllocationValue;
+      } else {
+        // If no value, ensure state is empty
+        setCapitalAllocation("");
+        capitalAllocationToStore = "";
+      }
+
+      // Always initialize gsdpForFY from submissionData/formData when entering edit mode
+      if (
+        section1_1?.gsdpForFY !== undefined &&
+        section1_1?.gsdpForFY !== null
+      ) {
+        let gsdpForFYValue: string;
+        if (typeof section1_1.gsdpForFY === "string") {
+          gsdpForFYValue = section1_1.gsdpForFY
+            .replace(/[₹,Crores\s]/g, "")
+            .trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_1.gsdpForFY);
+          gsdpForFYValue =
+            num % 1 === 0
+              ? num.toString()
+              : num.toString().replace(/\.?0+$/, "");
+        }
+
+        // Always update state from submissionData/formData when entering edit mode
+        setGsdpForFY(gsdpForFYValue);
+        gsdpForFYToStore = gsdpForFYValue;
+      } else {
+        // If no value, ensure state is empty
+        setGsdpForFY("");
+        gsdpForFYToStore = "";
+      }
+    }
+
+    // For section 1.2, ensure state is initialized from formData before storing snapshot
+    let actualCapexToStore = actualCapex;
+    let stateCapexUtilisationToStore = stateCapexUtilisation;
+
+    if (sectionId === "1.2") {
+      // Prefer submissionData (updated after saves) over formData when entering edit mode
+      const section1_2 =
+        submissionData?.section1_2 ||
+        formData?.section1_2 ||
+        (formData as any)?.infraFinancing?.section1_2;
+
+      // Always initialize actualCapex from submissionData/formData when entering edit mode
+      if (
+        section1_2?.actualCapex !== undefined &&
+        section1_2?.actualCapex !== null
+      ) {
+        let actualCapexValue: string;
+        if (typeof section1_2.actualCapex === "string") {
+          actualCapexValue = section1_2.actualCapex
+            .replace(/[₹,Crores\s]/g, "")
+            .trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_2.actualCapex);
+          actualCapexValue =
+            num % 1 === 0
+              ? num.toString()
+              : num.toString().replace(/\.?0+$/, "");
+        }
+
+        // Always update state from submissionData/formData when entering edit mode
+        setActualCapex(actualCapexValue);
+        actualCapexToStore = actualCapexValue;
+      } else {
+        // If no value, ensure state is empty
+        setActualCapex("");
+        actualCapexToStore = "";
+      }
+
+      // Always initialize stateCapexUtilisation from submissionData/formData when entering edit mode
+      if (
+        section1_2?.stateCapexUtilisation !== undefined &&
+        section1_2?.stateCapexUtilisation !== null
+      ) {
+        let stateCapexValue: string;
+        if (typeof section1_2.stateCapexUtilisation === "string") {
+          stateCapexValue = section1_2.stateCapexUtilisation
+            .replace(/[₹,Crores\s]/g, "")
+            .trim();
+        } else {
+          // If it's a number, convert to string without adding unnecessary decimals
+          const num = Number(section1_2.stateCapexUtilisation);
+          stateCapexValue =
+            num % 1 === 0
+              ? num.toString()
+              : num.toString().replace(/\.?0+$/, "");
+        }
+
+        // Always update state from submissionData/formData when entering edit mode
+        setStateCapexUtilisation(stateCapexValue);
+        stateCapexUtilisationToStore = stateCapexValue;
+      } else {
+        // If no value, ensure state is empty
+        setStateCapexUtilisation("");
+        stateCapexUtilisationToStore = "";
+      }
+    }
+
     // Store a deep copy of all relevant state
     setOriginalStateSnapshot({
       submissionData: JSON.parse(JSON.stringify(submissionData)),
-      capitalAllocation,
-      gsdpForFY,
-      actualCapex,
-      stateCapexUtilisation,
+      capitalAllocation: capitalAllocationToStore,
+      gsdpForFY: gsdpForFYToStore,
+      actualCapex: actualCapexToStore,
+      stateCapexUtilisation: stateCapexUtilisationToStore,
       section13State: JSON.parse(JSON.stringify(section13State)),
       section14State: JSON.parse(JSON.stringify(section14State)),
       section15State: JSON.parse(JSON.stringify(section15State)),
     });
     setEditable(sectionId, true);
+    console.log(`[InfraFinancingReview] ✅ setEditable(${sectionId}, true) called`);
+
+    // Show all validation errors when entering edit mode
+    // Build full form data for validation (use the same structure as fullFormDataForValidation)
+    const fullData: any = {
+      section1_1: {
+        year: submissionData?.section1_1?.year || formData?.section1_1?.year || "",
+        capitalAllocation: capitalAllocationToStore !== undefined && capitalAllocationToStore !== null
+          ? capitalAllocationToStore
+          : (submissionData?.section1_1?.capitalAllocation || formData?.section1_1?.capitalAllocation || ""),
+        gsdpForFY: gsdpForFYToStore !== undefined && gsdpForFYToStore !== null
+          ? gsdpForFYToStore
+          : (submissionData?.section1_1?.gsdpForFY || formData?.section1_1?.gsdpForFY || ""),
+        stateCapexUtilisation: submissionData?.section1_1?.stateCapexUtilisation || formData?.section1_1?.stateCapexUtilisation || "",
+        allocationToGSDP: submissionData?.section1_1?.allocationToGSDP || formData?.section1_1?.allocationToGSDP || "",
+        capexToCapexActuals: submissionData?.section1_1?.capexToCapexActuals || formData?.section1_1?.capexToCapexActuals || "",
+      },
+      section1_2: {
+        year: submissionData?.section1_2?.year || formData?.section1_2?.year || "",
+        actualCapex: actualCapexToStore !== undefined && actualCapexToStore !== null
+          ? actualCapexToStore
+          : (submissionData?.section1_2?.actualCapex || formData?.section1_2?.actualCapex || ""),
+        stateCapexUtilisation: stateCapexUtilisationToStore !== undefined && stateCapexUtilisationToStore !== null
+          ? stateCapexUtilisationToStore
+          : (submissionData?.section1_2?.stateCapexUtilisation || formData?.section1_2?.stateCapexUtilisation || ""),
+        gsdpForFY: submissionData?.section1_2?.gsdpForFY || formData?.section1_2?.gsdpForFY || "",
+        budgetaryCapex: submissionData?.section1_2?.budgetaryCapex || formData?.section1_2?.budgetaryCapex || "",
+        capexActualsToGSDP: submissionData?.section1_2?.capexActualsToGSDP || formData?.section1_2?.capexActualsToGSDP || "",
+      },
+      section1_3: {
+        totalULBs: section13State.totalULBs || 0,
+        ulbList: section13State.ulbList || [],
+      },
+      section1_4: {
+        totalULBs: section14State.totalULBs || 0,
+        bondList: section14State.bondList || [],
+      },
+      section1_5: {
+        hasIntermediary: section15State?.hasIntermediary || "",
+        comment: section15State?.comment || "",
+        ffiArray: section15State?.ffiArray || [],
+      },
+    };
+
+    const effectiveAssignedIndicators = assignedIndicators.length > 0 
+      ? assignedIndicators 
+      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+    // Run validation for the section
+    const validationResult = validateInfraFinancing(fullData, {
+      allowedIndicators: effectiveAssignedIndicators,
+    });
+
+    // Filter validation errors to only include the section being edited
+    const sectionErrors: Record<string, string> = {};
+    const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+    Object.keys(validationResult.errors).forEach((errorKey) => {
+      if (errorKey.startsWith(sectionPrefix)) {
+        sectionErrors[errorKey] = validationResult.errors[errorKey];
+      }
+    });
+
+    // Mark all fields in this section as touched so errors show immediately
+    const allSectionFields: string[] = [];
+    
+    // Add base fields based on section
+    if (sectionId === "1.1") {
+      allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+    } else if (sectionId === "1.2") {
+      allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+    } else if (sectionId === "1.3") {
+      allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
+      if (section13State.ulbList && Array.isArray(section13State.ulbList)) {
+        section13State.ulbList.forEach((_: any, index: number) => {
+          allSectionFields.push(
+            `${sectionPrefix}.ulbList.${index}.cityName`,
+            `${sectionPrefix}.ulbList.${index}.bondAmount`
+          );
+        });
+      }
+    } else if (sectionId === "1.4") {
+      allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
+      if (section14State.bondList && Array.isArray(section14State.bondList)) {
+        section14State.bondList.forEach((_: any, index: number) => {
+          allSectionFields.push(
+            `${sectionPrefix}.bondList.${index}.cityName`,
+            `${sectionPrefix}.bondList.${index}.bondAmount`
+          );
+        });
+      }
+    } else if (sectionId === "1.5") {
+      allSectionFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
+      if (section15State.ffiArray && Array.isArray(section15State.ffiArray)) {
+        section15State.ffiArray.forEach((_: any, index: number) => {
+          allSectionFields.push(
+            `${sectionPrefix}.ffiArray.${index}.intermediaryName`,
+            `${sectionPrefix}.ffiArray.${index}.sector`,
+            `${sectionPrefix}.ffiArray.${index}.websiteLink`
+          );
+        });
+      }
+    }
+
+    // Mark all section fields as touched so errors show immediately
+    allSectionFields.forEach((field) => {
+      markFieldAsTouched(field);
+    });
+    // Also mark fields with errors from validation
+    Object.keys(validationResult.errors).forEach((errorKey) => {
+      if (errorKey.startsWith(sectionPrefix)) {
+        markFieldAsTouched(errorKey);
+      }
+    });
+
+    // Set validation errors and show them
+    setShowValidationErrors(true);
+    setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+    
+    console.log(
+      `[InfraFinancingReview] Validation errors for section ${sectionId}:`,
+      sectionErrors
+    );
   };
 
   // Handle adding new entry for section 1.5
@@ -789,6 +1281,72 @@ export const InfraFinancingReview = ({
       setSection13State(originalStateSnapshot.section13State);
       setSection14State(originalStateSnapshot.section14State);
       setSection15State(originalStateSnapshot.section15State);
+
+      // For section 1.1, ensure formData is also restored from snapshot
+      if (
+        sectionId === "1.1" &&
+        originalStateSnapshot.submissionData?.section1_1
+      ) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.1 formData:`,
+          originalStateSnapshot.submissionData.section1_1
+        );
+      }
+
+      // For section 1.2, ensure formData is also restored from snapshot
+      if (
+        sectionId === "1.2" &&
+        originalStateSnapshot.submissionData?.section1_2
+      ) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.2 formData:`,
+          originalStateSnapshot.submissionData.section1_2
+        );
+      }
+
+      // For section 1.3, ensure formData is also restored from snapshot
+      if (
+        sectionId === "1.3" &&
+        originalStateSnapshot.submissionData?.section1_3
+      ) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.3 formData:`,
+          originalStateSnapshot.submissionData.section1_3
+        );
+      }
+
+      // For section 1.4, ensure formData is also restored from snapshot
+      if (
+        sectionId === "1.4" &&
+        originalStateSnapshot.submissionData?.section1_4
+      ) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.4 formData:`,
+          originalStateSnapshot.submissionData.section1_4
+        );
+      }
+
+      // For section 1.5, ensure formData is also restored from snapshot
+      if (
+        sectionId === "1.5" &&
+        originalStateSnapshot.submissionData?.section1_5
+      ) {
+        // The submissionData already contains the restored formData, so local state
+        // will be updated via useEffect when formData changes
+        console.log(
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.5 formData:`,
+          originalStateSnapshot.submissionData.section1_5
+        );
+      }
+
       setOriginalStateSnapshot(null);
       setEditable(sectionId, false);
       // Reset Add More form for section 1.5
@@ -915,22 +1473,67 @@ export const InfraFinancingReview = ({
     };
   }, [submissionId]);
 
-  // Initialize values from formData when availableimage.png
+  // Initialize values from formData when available
   useEffect(() => {
-    // Debug logging removed for performance
+    if (!isRestoringRef.current) {
+      // Prefer submissionData (updated after save) over formData when initializing
+      const section1_1 =
+        submissionData?.section1_1 ||
+        formData?.section1_1 ||
+        (formData as any)?.infraFinancing?.section1_1 ||
+        (formData as any)?.section1_1;
 
-    if (formData && typeof formData === "object" && "section1_1" in formData) {
-      const data = formData as {
-        section1_1?: { capitalAllocation?: string; gsdpForFY?: string };
-      };
-      // Debug logging removed for performance
+      if (section1_1) {
+        // Extract capitalAllocation - handle both string and number, with or without formatting
+        if (
+          section1_1.capitalAllocation !== undefined &&
+          section1_1.capitalAllocation !== null
+        ) {
+          let value: string;
+          if (typeof section1_1.capitalAllocation === "string") {
+            value = section1_1.capitalAllocation
+              .replace(/[₹,Crores\s]/g, "")
+              .trim();
+          } else {
+            // If it's a number, convert to string without adding unnecessary decimals
+            const num = Number(section1_1.capitalAllocation);
+            value =
+              num % 1 === 0
+                ? num.toString()
+                : num.toString().replace(/\.?0+$/, "");
+          }
+          setCapitalAllocation(value || "");
+        } else {
+          setCapitalAllocation("");
+        }
 
-      setCapitalAllocation(data.section1_1?.capitalAllocation || "");
-      setGsdpForFY(data.section1_1?.gsdpForFY || "");
-    } else {
-      // Debug logging removed for performance
+        // Extract gsdpForFY - handle both string and number, with or without formatting
+        if (
+          section1_1.gsdpForFY !== undefined &&
+          section1_1.gsdpForFY !== null
+        ) {
+          let value: string;
+          if (typeof section1_1.gsdpForFY === "string") {
+            value = section1_1.gsdpForFY.replace(/[₹,Crores\s]/g, "").trim();
+          } else {
+            // If it's a number, convert to string without adding unnecessary decimals
+            const num = Number(section1_1.gsdpForFY);
+            value =
+              num % 1 === 0
+                ? num.toString()
+                : num.toString().replace(/\.?0+$/, "");
+          }
+          setGsdpForFY(value || "");
+        } else {
+          setGsdpForFY("");
+        }
+      } else {
+        // If no section1_1 data, clear the state
+        setCapitalAllocation("");
+        setGsdpForFY("");
+      }
     }
-  }, [formData]);
+  }, [submissionData?.section1_1, formData?.section1_1, formData]);
 
   //🧑‍💻Initialize Section
   useEffect(() => {
@@ -1038,9 +1641,7 @@ export const InfraFinancingReview = ({
   // Handles for review edit, accept, send back
   // Add this handler after other handlers
   const onSaveSection = async (sectionId: string) => {
-    console.log(
-      `[InfraFinancingReview] onSaveSection called for section ${sectionId}`
-    );
+    console.log(`[InfraFinancingReview] onSaveSection called for section ${sectionId}`);
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
@@ -1053,12 +1654,26 @@ export const InfraFinancingReview = ({
 
     // Check if this is a resubmission of a sent-back indicator
     const sectionKey = `section${sectionId.replace(".", "_")}`;
-    const sectionData = formData && formData[sectionKey];
-    const currentStatus = sectionData
+    // Check multiple sources for status: submission.section_status, submissionData, formData
+    let currentStatus: string | undefined;
+    
+    // First check submission.section_status (most reliable source)
+    if (submission?.section_status && typeof submission.section_status === "object") {
+      currentStatus = (submission.section_status as any)[sectionKey];
+    }
+    
+    // Get sectionData for logging and fallback status check
+    const sectionData = (submissionData && submissionData[sectionKey]) || (formData && formData[sectionKey]);
+    
+    // Fallback to sectionData status
+    if (!currentStatus) {
+      currentStatus = sectionData
       ? Array.isArray(sectionData)
         ? (sectionData as any).status
         : sectionData.status
       : undefined;
+    }
+    
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
@@ -1083,20 +1698,180 @@ export const InfraFinancingReview = ({
         : undefined,
     });
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
       console.log(
-        `[InfraFinancingReview] ✅ Showing save confirmation dialog for REVERTED indicator`
+        `[InfraFinancingReview] Running validation before showing dialog for NODAL_OFFICER`
+      );
+      
+      // Run validation first (same logic as in performSave)
+      // Ensure all sections have default values to prevent undefined errors
+      const fullData: any = {
+        section1_1: {
+          year: submissionData?.section1_1?.year || formData?.section1_1?.year || "",
+          capitalAllocation: shouldBeEditable("1.1") && capitalAllocation !== undefined && capitalAllocation !== null
+            ? capitalAllocation
+            : (submissionData?.section1_1?.capitalAllocation || formData?.section1_1?.capitalAllocation || ""),
+          gsdpForFY: shouldBeEditable("1.1") && gsdpForFY !== undefined && gsdpForFY !== null
+            ? gsdpForFY
+            : (submissionData?.section1_1?.gsdpForFY || formData?.section1_1?.gsdpForFY || ""),
+          stateCapexUtilisation: submissionData?.section1_1?.stateCapexUtilisation || formData?.section1_1?.stateCapexUtilisation || "",
+          allocationToGSDP: submissionData?.section1_1?.allocationToGSDP || formData?.section1_1?.allocationToGSDP || "",
+          capexToCapexActuals: submissionData?.section1_1?.capexToCapexActuals || formData?.section1_1?.capexToCapexActuals || "",
+        },
+        section1_2: {
+          year: submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25",
+          gsdpForFY: submissionData?.section1_2?.gsdpForFY || formData?.section1_2?.gsdpForFY || "",
+          actualCapex: shouldBeEditable("1.2") && actualCapex !== undefined && actualCapex !== null
+            ? actualCapex
+            : (submissionData?.section1_2?.actualCapex || formData?.section1_2?.actualCapex || ""),
+          budgetaryCapex: submissionData?.section1_2?.budgetaryCapex || formData?.section1_2?.budgetaryCapex || "",
+          stateCapexUtilisation: shouldBeEditable("1.2") && stateCapexUtilisation !== undefined && stateCapexUtilisation !== null
+            ? stateCapexUtilisation
+            : (submissionData?.section1_2?.stateCapexUtilisation || formData?.section1_2?.stateCapexUtilisation || ""),
+          capexActualsToGSDP: submissionData?.section1_2?.capexActualsToGSDP || formData?.section1_2?.capexActualsToGSDP || "",
+        },
+        section1_3: section13State || { totalULBs: 0, ulbList: [] },
+        section1_4: section14State || { totalULBs: 0, bondList: [] },
+        section1_5: {
+          ffiArray: section15State?.ffiArray || [],
+          hasIntermediary: section15State?.hasIntermediary || "",
+          comment: section15State?.comment || "",
+        },
+      };
+
+      const effectiveAssignedIndicators = assignedIndicators.length > 0 
+        ? assignedIndicators 
+        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+      const validationResult = validateInfraFinancing(fullData, {
+        allowedIndicators: effectiveAssignedIndicators,
+      });
+
+      const hasErrors = Object.keys(validationResult.errors).length > 0;
+      console.log("[InfraFinancingReview] Validation result:", {
+        hasErrors,
+        allErrors: validationResult.errors,
+        sectionId,
+      });
+
+      // Filter validation errors to only include the section being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      const errorCount = Object.keys(sectionErrors).length;
+      console.log("[InfraFinancingReview] Filtered section errors:", {
+        sectionPrefix,
+        sectionErrors,
+        errorCount,
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (errorCount > 0) {
+        console.log("[InfraFinancingReview] Validation failed - NOT showing dialog");
+        // Mark all fields in this section as touched so ALL errors show
+        const allSectionFields: string[] = [];
+        
+        // Add base fields based on section
+        if (sectionId === "1.1") {
+          allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+        } else if (sectionId === "1.2") {
+          allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+        } else if (sectionId === "1.3") {
+          allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
+          if (section13State.ulbList && Array.isArray(section13State.ulbList)) {
+            section13State.ulbList.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.ulbList.${index}.cityName`,
+                `${sectionPrefix}.ulbList.${index}.ulb`,
+                `${sectionPrefix}.ulbList.${index}.ratingDate`,
+                `${sectionPrefix}.ulbList.${index}.rating`
+              );
+            });
+          }
+        } else if (sectionId === "1.4") {
+          allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
+          if (section14State.bondList && Array.isArray(section14State.bondList)) {
+            section14State.bondList.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.bondList.${index}.cityName`,
+                `${sectionPrefix}.bondList.${index}.bondType`,
+                `${sectionPrefix}.bondList.${index}.issuingAuthority`,
+                `${sectionPrefix}.bondList.${index}.value`
+              );
+            });
+          }
+        } else if (sectionId === "1.5") {
+          allSectionFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
+          if (section15State.ffiArray && Array.isArray(section15State.ffiArray)) {
+            section15State.ffiArray.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.ffiArray.${index}.organisationName`,
+                `${sectionPrefix}.ffiArray.${index}.organisationType`,
+                `${sectionPrefix}.ffiArray.${index}.yearEstablished`,
+                `${sectionPrefix}.ffiArray.${index}.totalFunding`,
+                `${sectionPrefix}.ffiArray.${index}.website`
+              );
+            });
+          }
+        }
+
+        // Mark all section fields as touched so ALL errors show
+        allSectionFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message (same as STATE_APPROVER)
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [sectionId]: `Please fill all mandatory fields.`,
+        }));
+        console.warn(`[InfraFinancingReview] ❌ Validation failed for section ${sectionId}:`, sectionErrors);
+        console.log(`[InfraFinancingReview] Validation errors count:`, Object.keys(sectionErrors).length);
+        console.log(`[InfraFinancingReview] showValidationErrors set to: true`);
+        console.log(`[InfraFinancingReview] indicatorValidationErrors updated with:`, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      console.log("[InfraFinancingReview] Validation passed - Checking if REVERTED:", { isReverted, currentStatus, upperStatus });
+      if (isReverted) {
+        console.log(
+          `[InfraFinancingReview] Validation passed - showing save confirmation dialog for REVERTED indicator`
       );
       setPendingSaveSectionId(sectionId);
       setShowSaveDialog(true);
       return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        console.log(
+          `[InfraFinancingReview] ✅ Validation passed - proceeding with direct save (not REVERTED)`
+        );
+        await performSave(sectionId);
+        return;
+      }
     }
 
     console.log(
-      `[InfraFinancingReview] ✅ Proceeding with direct save (not REVERTED or not NODAL_OFFICER)`
+      `🚀🚀🚀 [InfraFinancingReview] ✅ Proceeding with direct save (not NODAL_OFFICER or validation not run)`
     );
-    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with submit directly
+    console.log("🚀🚀🚀 [InfraFinancingReview] User check:", { isNodalOfficer, userRole });
+    // For non-NODAL_OFFICER users, proceed with submit directly
     await performSave(sectionId);
   };
 
@@ -1134,7 +1909,10 @@ export const InfraFinancingReview = ({
           // Don't read from formData for unsaved values - only use local state values
           fields = [
             {
-              year: formData?.section1_2?.year || "2024-25",
+              year:
+                submissionData?.section1_2?.year ||
+                formData?.section1_2?.year ||
+                "2024-25",
               actualCapex: actualCapex ? Number(actualCapex) : null,
               stateCapexUtilisation: stateCapexUtilisation
                 ? Number(stateCapexUtilisation)
@@ -1264,21 +2042,53 @@ export const InfraFinancingReview = ({
       // Don't block saves due to other incomplete sections
       // Ensure all sections have default values to prevent undefined errors
       const fullData: any = {
-        section1_1: formData?.section1_1 || {
-          year: "",
-          capitalAllocation: "",
-          gsdpForFY: "",
-          stateCapexUtilisation: "",
-          allocationToGSDP: "",
-          capexToCapexActuals: "",
+        section1_1: {
+          year: submissionData?.section1_1?.year || formData?.section1_1?.year || "",
+          // Use local state values when in edit mode, otherwise use submissionData (prefer over formData)
+          capitalAllocation: shouldBeEditable("1.1") && capitalAllocation !== undefined && capitalAllocation !== null
+            ? capitalAllocation
+            : (submissionData?.section1_1?.capitalAllocation || formData?.section1_1?.capitalAllocation || ""),
+          gsdpForFY: shouldBeEditable("1.1") && gsdpForFY !== undefined && gsdpForFY !== null
+            ? gsdpForFY
+            : (submissionData?.section1_1?.gsdpForFY || formData?.section1_1?.gsdpForFY || ""),
+          stateCapexUtilisation: submissionData?.section1_1?.stateCapexUtilisation || formData?.section1_1?.stateCapexUtilisation || "",
+          allocationToGSDP: submissionData?.section1_1?.allocationToGSDP || formData?.section1_1?.allocationToGSDP || "",
+          capexToCapexActuals: submissionData?.section1_1?.capexToCapexActuals || formData?.section1_1?.capexToCapexActuals || "",
         },
-        section1_2: formData?.section1_2 || {
-          year: "",
-          gsdpForFY: "",
-          actualCapex: "",
-          budgetaryCapex: "",
-          stateCapexUtilisation: "",
-          capexActualsToGSDP: "",
+        section1_2: {
+          year:
+            submissionData?.section1_2?.year ||
+            formData?.section1_2?.year ||
+            "2024-25",
+          gsdpForFY:
+            submissionData?.section1_2?.gsdpForFY ||
+            formData?.section1_2?.gsdpForFY ||
+            "",
+          // Use local state values when in edit mode, otherwise use submissionData (prefer over formData)
+          actualCapex:
+            shouldBeEditable("1.2") &&
+            actualCapex !== undefined &&
+            actualCapex !== null
+              ? actualCapex
+              : submissionData?.section1_2?.actualCapex ||
+                formData?.section1_2?.actualCapex ||
+                "",
+          budgetaryCapex:
+            submissionData?.section1_2?.budgetaryCapex ||
+            formData?.section1_2?.budgetaryCapex ||
+            "",
+          stateCapexUtilisation:
+            shouldBeEditable("1.2") &&
+            stateCapexUtilisation !== undefined &&
+            stateCapexUtilisation !== null
+              ? stateCapexUtilisation
+              : submissionData?.section1_2?.stateCapexUtilisation ||
+                formData?.section1_2?.stateCapexUtilisation ||
+                "",
+          capexActualsToGSDP:
+            submissionData?.section1_2?.capexActualsToGSDP ||
+            formData?.section1_2?.capexActualsToGSDP ||
+            "",
         },
         section1_3: section13State || { totalULBs: 0, ulbList: [] },
         section1_4: section14State || { totalULBs: 0, bondList: [] },
@@ -1289,9 +2099,12 @@ export const InfraFinancingReview = ({
         },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validateInfraFinancing(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -1308,13 +2121,74 @@ export const InfraFinancingReview = ({
 
       // Only block save if there are errors in the section being saved
       if (Object.keys(sectionErrors).length > 0) {
-        setValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Mark all fields in this section as touched so ALL errors show
+        const allSectionFields: string[] = [];
+        
+        // Add base fields based on section
+        if (sectionId === "1.1") {
+          allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+        } else if (sectionId === "1.2") {
+          allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+        } else if (sectionId === "1.3") {
+          allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
+          if (section13State.ulbList && Array.isArray(section13State.ulbList)) {
+            section13State.ulbList.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.ulbList.${index}.cityName`,
+                `${sectionPrefix}.ulbList.${index}.bondAmount`
+              );
+            });
+          }
+        } else if (sectionId === "1.4") {
+          allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
+          if (section14State.bondList && Array.isArray(section14State.bondList)) {
+            section14State.bondList.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.bondList.${index}.cityName`,
+                `${sectionPrefix}.bondList.${index}.bondAmount`
+              );
+            });
+          }
+        } else if (sectionId === "1.5") {
+          allSectionFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
+          if (section15State.ffiArray && Array.isArray(section15State.ffiArray)) {
+            section15State.ffiArray.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.ffiArray.${index}.intermediaryName`,
+                `${sectionPrefix}.ffiArray.${index}.sector`,
+                `${sectionPrefix}.ffiArray.${index}.websiteLink`
+              );
+            });
+          }
+        }
+
+        // Mark all section fields as touched so ALL errors show
+        allSectionFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [sectionId]: `Please fill all mandatory fields.`,
+        }));
         console.warn("Validation failed for section", sectionId, sectionErrors);
-        // Errors are displayed inline in the UI, no need for alert
-        return;
+        // Throw validation error so handleConfirmSave can catch it and close dialog
+        const validationError = new Error("VALIDATION_FAILED");
+        (validationError as any).isValidationError = true;
+        throw validationError;
       } else {
         // Clear errors for this section only
-        setValidationErrors((prev) => {
+        setIndicatorValidationErrors((prev) => {
           const filtered = { ...prev };
           Object.keys(filtered).forEach((key) => {
             if (key.startsWith(sectionPrefix)) {
@@ -1322,6 +2196,12 @@ export const InfraFinancingReview = ({
             }
           });
           return filtered;
+        });
+        // Clear section-level validation message on successful validation
+        setSectionValidationMessages((prev) => {
+          const updated = { ...prev };
+          delete updated[sectionId];
+          return updated;
         });
       }
 
@@ -1348,6 +2228,248 @@ export const InfraFinancingReview = ({
         `[InfraFinancingReview] ✅ performSave - API call successful:`,
         saveResult
       );
+
+      // Update local state and formData immediately after successful save for section 1.1
+      if (sectionId === "1.1") {
+        // Update local state with saved values (these are the values we just saved)
+        const savedCapitalAllocation = capitalAllocation
+          ? String(capitalAllocation)
+          : "";
+        const savedGsdpForFY = gsdpForFY ? String(gsdpForFY) : "";
+
+        // Calculate percentage for display
+        const capitalAllocationNum = parseFloat(savedCapitalAllocation) || 0;
+        const gsdpForFYNum = parseFloat(savedGsdpForFY) || 0;
+        const calculatedPercentage =
+          gsdpForFYNum > 0 ? (capitalAllocationNum / gsdpForFYNum) * 100 : 0;
+
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_1) {
+            updated.section1_1 = {};
+          }
+          updated.section1_1 = {
+            ...updated.section1_1,
+            // Store as string to preserve exact format user entered (no automatic decimals)
+            capitalAllocation: savedCapitalAllocation || null,
+            gsdpForFY: savedGsdpForFY || null,
+            allocationToGSDP:
+              calculatedPercentage > 0
+                ? calculatedPercentage.toFixed(1) + "%"
+                : null,
+            year:
+              submissionData?.section1_1?.year ||
+              formData?.section1_1?.year ||
+              "2024-25",
+          };
+          return updated;
+        });
+
+        // Update local state directly to ensure UI reflects changes immediately
+        // This ensures values are visible without page refresh
+        setCapitalAllocation(savedCapitalAllocation);
+        setGsdpForFY(savedGsdpForFY);
+
+        // Also update the formData store to ensure consistency (store as string to preserve format)
+        setFormDataForSection(
+          {
+            capitalAllocation: savedCapitalAllocation || null,
+            gsdpForFY: savedGsdpForFY || null,
+            allocationToGSDP:
+              calculatedPercentage > 0
+                ? calculatedPercentage.toFixed(1) + "%"
+                : null,
+            year:
+              submissionData?.section1_1?.year ||
+              formData?.section1_1?.year ||
+              "2024-25",
+          },
+          "section1_1"
+        );
+
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.1:`,
+          { savedCapitalAllocation, savedGsdpForFY, calculatedPercentage }
+        );
+      }
+
+      // Update local state and formData immediately after successful save for section 1.2
+      if (sectionId === "1.2") {
+        // Update local state with saved values (these are the values we just saved)
+        const savedActualCapex = actualCapex ? String(actualCapex) : "";
+        const savedStateCapexUtilisation = stateCapexUtilisation
+          ? String(stateCapexUtilisation)
+          : "";
+
+        // Calculate percentage for display
+        const actualCapexNum = parseFloat(savedActualCapex) || 0;
+        const stateCapexUtilisationNum =
+          parseFloat(savedStateCapexUtilisation) || 0;
+        const calculatedPercentage =
+          stateCapexUtilisationNum > 0
+            ? (actualCapexNum / stateCapexUtilisationNum) * 100
+            : 0;
+
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_2) {
+            updated.section1_2 = {};
+          }
+          updated.section1_2 = {
+            ...updated.section1_2,
+            // Store as string to preserve exact format user entered (no automatic decimals)
+            actualCapex: savedActualCapex || null,
+            stateCapexUtilisation: savedStateCapexUtilisation || null,
+            capexActualsToGSDP:
+              calculatedPercentage > 0
+                ? calculatedPercentage.toFixed(1) + "%"
+                : null,
+            year:
+              submissionData?.section1_2?.year ||
+              formData?.section1_2?.year ||
+              "2024-25",
+          };
+          return updated;
+        });
+
+        // Update local state directly to ensure UI reflects changes immediately
+        // This ensures values are visible without page refresh
+        setActualCapex(savedActualCapex);
+        setStateCapexUtilisation(savedStateCapexUtilisation);
+
+        // Also update the formData store to ensure consistency (store as string to preserve format)
+        setFormDataForSection(
+          {
+            actualCapex: savedActualCapex || null,
+            stateCapexUtilisation: savedStateCapexUtilisation || null,
+            capexActualsToGSDP:
+              calculatedPercentage > 0
+                ? calculatedPercentage.toFixed(1) + "%"
+                : null,
+            year:
+              submissionData?.section1_2?.year ||
+              formData?.section1_2?.year ||
+              "2024-25",
+          },
+          "section1_2"
+        );
+
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.2:`,
+          { savedActualCapex, savedStateCapexUtilisation, calculatedPercentage }
+        );
+      }
+
+      // Update local state and formData immediately after successful save for section 1.3
+      if (sectionId === "1.3") {
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_3) {
+            updated.section1_3 = {};
+          }
+          updated.section1_3 = {
+            ...updated.section1_3,
+            ulbList: section13State.ulbList || [],
+            totalULBs: section13State.totalULBs || 0,
+          };
+          return updated;
+        });
+
+        // Also update the formData store to ensure consistency
+        setFormDataForSection(
+          {
+            ulbList: section13State.ulbList || [],
+            totalULBs: section13State.totalULBs || 0,
+          },
+          "section1_3"
+        );
+
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.3:`,
+          {
+            ulbList: section13State.ulbList,
+            totalULBs: section13State.totalULBs,
+          }
+        );
+      }
+
+      // Update local state and formData immediately after successful save for section 1.4
+      if (sectionId === "1.4") {
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_4) {
+            updated.section1_4 = {};
+          }
+          updated.section1_4 = {
+            ...updated.section1_4,
+            bondList: section14State.bondList || [],
+            totalULBs: section14State.totalULBs || 0,
+          };
+          return updated;
+        });
+
+        // Also update the formData store to ensure consistency
+        setFormDataForSection(
+          {
+            bondList: section14State.bondList || [],
+            totalULBs: section14State.totalULBs || 0,
+          },
+          "section1_4"
+        );
+
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.4:`,
+          {
+            bondList: section14State.bondList,
+            totalULBs: section14State.totalULBs,
+          }
+        );
+      }
+
+      // Update local state and formData immediately after successful save for section 1.5
+      if (sectionId === "1.5") {
+        // Update formData/submissionData to persist the saved values
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (!updated.section1_5) {
+            updated.section1_5 = {};
+          }
+          updated.section1_5 = {
+            ...updated.section1_5,
+            hasIntermediary: section15State?.hasIntermediary || null,
+            comment: section15State?.comment || null,
+            ffiArray: section15State?.ffiArray || [],
+          };
+          return updated;
+        });
+
+        // Also update the formData store to ensure consistency
+        setFormDataForSection(
+          {
+            hasIntermediary: section15State?.hasIntermediary || null,
+            comment: section15State?.comment || null,
+            ffiArray: section15State?.ffiArray || [],
+          },
+          "section1_5"
+        );
+
+        console.log(
+          `[InfraFinancingReview] ✅ Updated local state and formData for section 1.5:`,
+          {
+            hasIntermediary: section15State?.hasIntermediary,
+            ffiArray: section15State?.ffiArray,
+          }
+        );
+      }
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
@@ -1428,9 +2550,16 @@ export const InfraFinancingReview = ({
         console.log(`[InfraFinancingReview] ✅ Save completed successfully`);
         setShowSaveDialog(false);
         setPendingSaveSectionId(null);
-      } catch (error) {
+      } catch (error: any) {
         console.error(`[InfraFinancingReview] ❌ Save failed:`, error);
-        // Don't close dialog on error so user can try again
+        // If validation failed, close dialog so error messages are visible
+        if (error?.isValidationError) {
+          setShowSaveDialog(false);
+          setPendingSaveSectionId(null);
+          // Error messages are already displayed on UI, no notification needed
+        } else {
+          // For other errors, don't close dialog so user can try again
+        }
       }
     } else {
       console.warn(
@@ -1448,6 +2577,7 @@ export const InfraFinancingReview = ({
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
@@ -1460,6 +2590,25 @@ export const InfraFinancingReview = ({
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
+    }
+
+    // If STATE_APPROVER is sending back (status = false), extract nodalOfficerId from section data
+    if (isStateApprover && !status) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData = formData && formData[sectionKey];
+
+      const nodalOfficerId = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.nodalOfficerId
+          : sectionData?.nodalOfficerId
+        : undefined;
+
+      if (nodalOfficerId) {
+        payload.nodalOfficerId = nodalOfficerId;
+        console.log(
+          `📤 [InfraFinancingReview] Sending back indicator ${sectionId} to NODAL_OFFICER: ${nodalOfficerId}`
+        );
+      }
     }
 
     try {
@@ -1710,6 +2859,20 @@ export const InfraFinancingReview = ({
             </p>
           )}
         </div>
+      </div>
+    );
+  };
+
+  // Helper to render validation error message for a section
+  const renderSectionValidationMessage = (sectionId: string) => {
+    if (!sectionValidationMessages[sectionId] || !shouldBeEditable(sectionId)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[sectionId]}
+        </p>
       </div>
     );
   };
@@ -1965,6 +3128,9 @@ export const InfraFinancingReview = ({
           </div>
         );
       }
+
+      // If mospi_status is REVERTED, continue to show Edit button and other actions
+      // We'll add the "Returned from Mospi" button in the normal flow below
     }
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
@@ -2020,12 +3186,7 @@ export const InfraFinancingReview = ({
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={() => {
-                  console.log(
-                    `[InfraFinancingReview] Edit button clicked for section ${sectionId}`
-                  );
-                  handleEditStart(sectionId);
-                }}
+                onClick={() => handleEditStart(sectionId)}
               >
                 <Edit3 className="w-4 h-4" />
                 Edit
@@ -2092,9 +3253,10 @@ export const InfraFinancingReview = ({
       // If nodal officer and status is REVERTED, show Edit button + Sent Back badge
       // REVERTED means it was sent back, so user can resubmit (not disabled)
       if (isNodalOfficer) {
+        const isCurrentlyEditable = shouldBeEditable(sectionId);
         return (
           <div className="flex gap-2">
-            {!shouldBeEditable(sectionId) ? (
+            {!isCurrentlyEditable ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -2258,6 +3420,29 @@ export const InfraFinancingReview = ({
 
     return (
       <div className="flex gap-2">
+        {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData = formData && formData[sectionKey];
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+            return mospiStatus === "REVERTED";
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from Mospi
+            </Button>
+          )}
+
         {!isEditable(sectionId) ? (
           <Button
             variant="outline"
@@ -2291,6 +3476,72 @@ export const InfraFinancingReview = ({
             </Button>
           </>
         )}
+
+        {/* Show "Send Back" button for STATE_APPROVER when indicator is returned from MOSPI and originally from NODAL_OFFICER */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData = formData && formData[sectionKey];
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+
+            // Check if this specific indicator was originally submitted by NODAL_OFFICER
+            const isFromNodalOfficer = isIndicatorFromNodalOfficer(
+              submission as any,
+              sectionId
+            );
+
+            // Detailed logging for debugging
+            console.group(
+              `🔍 [InfraFinancingReview] "Send Back" button check for section ${sectionId}`
+            );
+            console.log("📊 Section data:", {
+              sectionKey,
+              sectionData: sectionData
+                ? Array.isArray(sectionData)
+                  ? sectionData[0]
+                  : sectionData
+                : null,
+              mospiStatus,
+              hasFormData: !!formData,
+            });
+            console.log("👤 Submission info:", {
+              submissionId: submission?.id,
+              submissionStatus: submission?.status,
+              currentOwnerRole: submission?.currentOwnerRole,
+              submittedBy: submission?.submittedBy,
+            });
+            console.log("✅ Checks:", {
+              isStateApprover,
+              mospiStatus,
+              isMospiReverted: mospiStatus === "REVERTED",
+              isFromNodalOfficer,
+              shouldShowButton:
+                mospiStatus === "REVERTED" && isFromNodalOfficer,
+            });
+            console.groupEnd();
+
+            return mospiStatus === "REVERTED" && isFromNodalOfficer;
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => {
+                // Track that this was opened from STATE_APPROVER "Send Back" button
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+                handleOpenModal(sectionId);
+              }}
+              disabled={shouldBeEditable(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+          )}
 
         {/* Hide Send Back button if STATE_APPROVER is viewing their own submission */}
         {(() => {
@@ -2451,6 +3702,8 @@ export const InfraFinancingReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("1.1")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("1.1")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2482,116 +3735,293 @@ export const InfraFinancingReview = ({
                       ?.year || "2024-25"
                   }
                   readOnly
-                  className={
-                    getFieldError("section1_1.year")
-                      ? "bg-gray-50 border-red-500"
-                      : "bg-gray-50"
-                  }
+                  className={cn(
+                    "bg-gray-50",
+                    getInputValidationClass("section1_1.year")
+                  )}
                 />
-                {getFieldError("section1_1.year") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_1.year")}</p>
-                )}
+                {renderFieldError("section1_1.year")}
               </div>
               <div>
-                <Label>Capital Allocation for FY <span className="text-xs text-muted-foreground">(INR - values is in CRORES)</span></Label>
+                <Label>
+                  Capital Allocation for FY{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (INR - values is in CRORES)
+                  </span>
+                </Label>
                 <Input
                   type="number"
                   inputMode="decimal"
                   step="0.01"
                   min="0"
-                  value={capitalAllocation}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Only allow numbers and decimal point
-                    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                      setCapitalAllocation(value);
-                      // Clear validation error when user starts typing
-                      if (getFieldError("section1_1.capitalAllocation")) {
-                        setValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.capitalAllocation"];
-                          return updated;
-                        });
+                  value={
+                    shouldBeEditable("1.1")
+                      ? capitalAllocation
+                      : (() => {
+                          // When not editable, prefer submissionData (updated after save) over formData
+                          const section1_1 =
+                            submissionData?.section1_1 ||
+                            formData?.section1_1 ||
+                            (formData as any)?.infraFinancing?.section1_1;
+                          if (
+                            section1_1?.capitalAllocation !== undefined &&
+                            section1_1?.capitalAllocation !== null
+                          ) {
+                            let val: string;
+                            if (
+                              typeof section1_1.capitalAllocation === "string"
+                            ) {
+                              val = section1_1.capitalAllocation
+                                .replace(/[₹,Crores\s]/g, "")
+                                .trim();
+                            } else {
+                              // If it's a number, convert to string without adding unnecessary decimals
+                              const num = Number(section1_1.capitalAllocation);
+                              val =
+                                num % 1 === 0
+                                  ? num.toString()
+                                  : num.toString().replace(/\.?0+$/, "");
+                            }
+                            return val;
+                          }
+                          return capitalAllocation; // Fallback to state
+                        })()
+                  }
+                  onChange={createOnChangeHandler(
+                    "section1_1.capitalAllocation",
+                    (e) => {
+                      const value = e.target.value;
+                      // Only allow numbers and decimal point
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        setCapitalAllocation(value);
+                        // Mark percentage field as touched to ensure error display if validation fails
+                        markFieldAsTouched("section1_1.allocationToGSDP");
+                        setShowValidationErrors(true);
                       }
                     }
-                  }}
+                  )}
                   placeholder="Enter Capital Allocation value"
                   readOnly={!shouldBeEditable("1.1")}
-                  className={
-                    shouldBeEditable("1.1") 
-                      ? getFieldError("section1_1.capitalAllocation") 
-                        ? "bg-white border-red-500" 
-                        : "bg-white"
-                      : "bg-gray-50"
-                  }
+                  className={cn(
+                    shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50",
+                    shouldBeEditable("1.1") && getInputValidationClass("section1_1.capitalAllocation")
+                  )}
                 />
-                {/* <div className="text-xs text-gray-500 mt-1">
-                  Current value: "{capitalAllocation}"
-                </div> */}
+                {shouldBeEditable("1.1") && renderFieldError("section1_1.capitalAllocation")}
               </div>
               <div>
-                <Label>GSDP for FY <span className="text-xs text-muted-foreground">(INR - values is in CRORES)</span></Label>
+                <Label>
+                  GSDP for FY{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (INR - values is in CRORES)
+                  </span>
+                </Label>
                 <Input
                   type="number"
                   inputMode="decimal"
                   step="0.01"
                   min="0"
-                  value={gsdpForFY}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Only allow numbers and decimal point
-                    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                      setGsdpForFY(value);
-                      // Clear validation error when user starts typing
-                      if (getFieldError("section1_1.gsdpForFY")) {
-                        setValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_1.gsdpForFY"];
-                          return updated;
-                        });
+                  value={
+                    shouldBeEditable("1.1")
+                      ? gsdpForFY
+                      : (() => {
+                          // When not editable, prefer submissionData (updated after save) over formData
+                          const section1_1 =
+                            submissionData?.section1_1 ||
+                            formData?.section1_1 ||
+                            (formData as any)?.infraFinancing?.section1_1;
+                          if (
+                            section1_1?.gsdpForFY !== undefined &&
+                            section1_1?.gsdpForFY !== null
+                          ) {
+                            let val: string;
+                            if (typeof section1_1.gsdpForFY === "string") {
+                              val = section1_1.gsdpForFY
+                                .replace(/[₹,Crores\s]/g, "")
+                                .trim();
+                            } else {
+                              // If it's a number, convert to string without adding unnecessary decimals
+                              const num = Number(section1_1.gsdpForFY);
+                              val =
+                                num % 1 === 0
+                                  ? num.toString()
+                                  : num.toString().replace(/\.?0+$/, "");
+                            }
+                            return val;
+                          }
+                          return gsdpForFY; // Fallback to state
+                        })()
+                  }
+                  onChange={createOnChangeHandler(
+                    "section1_1.gsdpForFY",
+                    (e) => {
+                      const value = e.target.value;
+                      // Only allow numbers and decimal point
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        setGsdpForFY(value);
+                        // Mark percentage field as touched to ensure error display if validation fails
+                        markFieldAsTouched("section1_1.allocationToGSDP");
+                        setShowValidationErrors(true);
                       }
                     }
-                  }}
+                  )}
                   placeholder="Enter GSDP value"
                   readOnly={!shouldBeEditable("1.1")}
-                  className={
-                    shouldBeEditable("1.1") 
-                      ? getFieldError("section1_1.gsdpForFY") 
-                        ? "bg-white border-red-500" 
-                        : "bg-white"
-                      : "bg-gray-50"
-                  }
+                  className={cn(
+                    shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50",
+                    shouldBeEditable("1.1") && getInputValidationClass("section1_1.gsdpForFY")
+                  )}
                 />
-                {/* <div className="text-xs text-gray-500 mt-1">
-                  Current value: "{gsdpForFY}"
-                </div> */}
+                {shouldBeEditable("1.1") && renderFieldError("section1_1.gsdpForFY")}
               </div>
               <div>
                 <Label>% Allocation to GSDP</Label>
                 <div className="relative">
                   <Input
-                    value={calculateAllocationPercentage()}
+                    value={(() => {
+                      // Get values from local state if in edit mode, otherwise from submissionData/formData
+                      let capitalAllocationValue = capitalAllocation;
+                      let gsdpForFYValue = gsdpForFY;
+
+                      if (!shouldBeEditable("1.1")) {
+                        // In review mode, prefer submissionData (updated after save) over formData
+                        const section1_1 =
+                          submissionData?.section1_1 ||
+                          formData?.section1_1 ||
+                          (formData as any)?.infraFinancing?.section1_1;
+                        if (
+                          section1_1?.capitalAllocation !== undefined &&
+                          section1_1?.capitalAllocation !== null
+                        ) {
+                          if (
+                            typeof section1_1.capitalAllocation === "string"
+                          ) {
+                            capitalAllocationValue =
+                              section1_1.capitalAllocation
+                                .replace(/[₹,Crores\s]/g, "")
+                                .trim();
+                          } else {
+                            // If it's a number, convert to string without adding unnecessary decimals
+                            const num = Number(section1_1.capitalAllocation);
+                            capitalAllocationValue =
+                              num % 1 === 0
+                                ? num.toString()
+                                : num.toString().replace(/\.?0+$/, "");
+                          }
+                        }
+                        if (
+                          section1_1?.gsdpForFY !== undefined &&
+                          section1_1?.gsdpForFY !== null
+                        ) {
+                          if (typeof section1_1.gsdpForFY === "string") {
+                            gsdpForFYValue = section1_1.gsdpForFY
+                              .replace(/[₹,Crores\s]/g, "")
+                              .trim();
+                          } else {
+                            // If it's a number, convert to string without adding unnecessary decimals
+                            const num = Number(section1_1.gsdpForFY);
+                            gsdpForFYValue =
+                              num % 1 === 0
+                                ? num.toString()
+                                : num.toString().replace(/\.?0+$/, "");
+                          }
+                        }
+                      }
+
+                      const capitalAllocationNum =
+                        parseFloat(capitalAllocationValue) || 0;
+                      const gsdpForFYNum = parseFloat(gsdpForFYValue) || 0;
+
+                      if (
+                        isNaN(capitalAllocationNum) ||
+                        isNaN(gsdpForFYNum) ||
+                        gsdpForFYNum === 0 ||
+                        capitalAllocationValue === "" ||
+                        gsdpForFYValue === ""
+                      ) {
+                        // If no values, check if there's a saved percentage in submissionData/formData
+                        if (!shouldBeEditable("1.1")) {
+                          const section1_1 =
+                            submissionData?.section1_1 ||
+                            formData?.section1_1 ||
+                            (formData as any)?.infraFinancing?.section1_1;
+                          if (
+                            section1_1?.allocationToGSDP !== undefined &&
+                            section1_1?.allocationToGSDP !== null
+                          ) {
+                            const savedPercentage =
+                              typeof section1_1.allocationToGSDP === "string"
+                                ? parseFloat(
+                                    section1_1.allocationToGSDP
+                                      .replace("%", "")
+                                      .trim()
+                                  )
+                                : Number(section1_1.allocationToGSDP);
+                            if (!isNaN(savedPercentage)) {
+                              return savedPercentage.toFixed(1) + "%";
+                            }
+                          }
+                        }
+                        return "";
+                      }
+
+                      const percentage =
+                        (capitalAllocationNum / gsdpForFYNum) * 100;
+
+                      // Show negative percentage if calculated (for error display)
+                      if (percentage < 0) {
+                        return percentage.toFixed(1) + "%";
+                      }
+                      // Cap at 100% if it exceeds (but validation will prevent saving)
+                      const cappedPercentage = Math.min(percentage, 100);
+                      return cappedPercentage.toFixed(1) + "%";
+                    })()}
                     readOnly
                     className={
-                      getFieldError("section1_1.allocationToGSDP")
-                        ? "bg-gray-50 cursor-not-allowed pr-8 border-red-500"
-                        : "bg-gray-50 cursor-not-allowed pr-8"
+                      (() => {
+                        // Only show error styling in edit mode
+                        if (!shouldBeEditable("1.1")) {
+                          return cn(
+                            "bg-gray-50 cursor-not-allowed pr-8",
+                            getInputValidationClass("section1_1.allocationToGSDP")
+                          );
+                        }
+                        return cn(
+                          "bg-gray-50 cursor-not-allowed pr-8",
+                          getInputValidationClass("section1_1.allocationToGSDP")
+                        );
+                      })()
                     }
-                    placeholder={
-                      capitalAllocation && gsdpForFY
-                        ? "Calculating..."
-                        : "Auto-calculated"
-                    }
+                    placeholder="Auto-calculated"
                   />
-                  {calculateAllocationPercentage() && (
-                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
-                      ✓
-                    </div>
-                  )}
+                  {(() => {
+                    const capitalAllocationNum =
+                      parseFloat(capitalAllocation) || 0;
+                    const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                    const isValid =
+                      !isNaN(capitalAllocationNum) &&
+                      !isNaN(gsdpForFYNum) &&
+                      capitalAllocationNum > 0 &&
+                      gsdpForFYNum > 0 &&
+                      capitalAllocationNum <= gsdpForFYNum &&
+                      capitalAllocation !== "" &&
+                      gsdpForFY !== "";
+                    return isValid ? (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 text-sm font-medium">
+                        ✓
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
-                {/* <div className="text-xs text-gray-500 mt-1">
-                  Calculation result: "{calculateAllocationPercentage()}"
-                </div> */}
+                {/* Only show error message in edit mode */}
+                {shouldBeEditable("1.1") && (() => {
+                  const capitalAllocationNum = parseFloat(capitalAllocation) || 0;
+                  const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                  const isNegative = capitalAllocationNum < 0 || gsdpForFYNum < 0;
+                  const exceedsLimit = gsdpForFYNum > 0 && capitalAllocationNum > gsdpForFYNum;
+                  
+                  return renderFieldError("section1_1.allocationToGSDP");
+                })()}
               </div>
             </div>
           </SectionCard>
@@ -2616,24 +4046,28 @@ export const InfraFinancingReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("1.2")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("1.2")}
             <div className="grid grid-cols-2 gap-4 max-w-[70%]">
               <div>
                 <Label>Year</Label>
                 <Input
-                  value={formData?.section1_2?.year || "2024-25"}
+                  value={submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25"}
                   readOnly
-                  className={
-                    getFieldError("section1_2.year")
-                      ? "bg-gray-50 border-red-500"
-                      : "bg-gray-50"
-                  }
+                  className={cn(
+                    "bg-gray-50",
+                    getInputValidationClass("section1_2.year")
+                  )}
                 />
-                {getFieldError("section1_2.year") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_2.year")}</p>
-                )}
+                {renderFieldError("section1_2.year")}
               </div>
               <div>
-                <Label>A₁ - Actual Capex <span className="text-xs text-muted-foreground">(INR - values is in CRORES)</span></Label>
+                <Label>
+                  A₁ - Actual Capex{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (INR - values is in CRORES)
+                  </span>
+                </Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -2642,38 +4076,54 @@ export const InfraFinancingReview = ({
                   value={
                     shouldBeEditable("1.2")
                       ? actualCapex
-                      : actualCapex
-                      ? `${actualCapex}`
-                      : ""
+                      : (() => {
+                          // When not editable, prefer submissionData (updated after save) over formData
+                          const section1_2 =
+                            submissionData?.section1_2 ||
+                            formData?.section1_2 ||
+                            (formData as any)?.infraFinancing?.section1_2;
+                          if (
+                            section1_2?.actualCapex !== undefined &&
+                            section1_2?.actualCapex !== null
+                          ) {
+                            let val: string;
+                            if (typeof section1_2.actualCapex === "string") {
+                              val = section1_2.actualCapex
+                                .replace(/[₹,Crores\s]/g, "")
+                                .trim();
+                            } else {
+                              // If it's a number, convert to string without adding unnecessary decimals
+                              const num = Number(section1_2.actualCapex);
+                              val =
+                                num % 1 === 0
+                                  ? num.toString()
+                                  : num.toString().replace(/\.?0+$/, "");
+                            }
+                            return val;
+                          }
+                          return actualCapex; // Fallback to state
+                        })()
                   }
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Only allow numbers and decimal point
-                    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                      setActualCapex(value);
-                      // Clear validation error when user starts typing
-                      if (getFieldError("section1_2.actualCapex")) {
-                        setValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.actualCapex"];
-                          return updated;
-                        });
+                  onChange={createOnChangeHandler(
+                    "section1_2.actualCapex",
+                    (e) => {
+                      const value = e.target.value;
+                      // Only allow numbers and decimal point
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        setActualCapex(value);
+                        markFieldAsTouched("section1_2.capexActualsToGSDP");
+                        setShowValidationErrors(true);
                       }
                     }
-                  }}
+                  )}
                   placeholder="Enter Actual Capex value"
                   readOnly={!isEditable("1.2")}
-                  className={
-                    isEditable("1.2") 
-                      ? getFieldError("section1_2.actualCapex") 
-                        ? "bg-white border-red-500" 
-                        : "bg-white"
-                      : "bg-gray-50"
-                  }
+                  className={cn(
+                    isEditable("1.2") ? "bg-white" : "bg-gray-50",
+                    isEditable("1.2") && getInputValidationClass("section1_2.actualCapex")
+                  )}
                 />
-                {getFieldError("section1_2.actualCapex") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_2.actualCapex")}</p>
-                )}
+                {isEditable("1.2") && renderFieldError("section1_2.actualCapex")}
                 {isEditable("1.2") && (
                   <div className="text-xs text-gray-500 mt-1">
                     Current value: "{actualCapex}"
@@ -2681,7 +4131,12 @@ export const InfraFinancingReview = ({
                 )}
               </div>
               <div>
-                <Label>State Capex Utilisation <span className="text-xs text-muted-foreground">(INR - values is in CRORES)</span></Label>
+                <Label>
+                  State Capex Utilisation{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (INR - values is in CRORES)
+                  </span>
+                </Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -2690,38 +4145,59 @@ export const InfraFinancingReview = ({
                   value={
                     shouldBeEditable("1.2")
                       ? stateCapexUtilisation
-                      : stateCapexUtilisation
-                      ? `${stateCapexUtilisation}`
-                      : ""
+                      : (() => {
+                          // When not editable, prefer submissionData (updated after save) over formData
+                          const section1_2 =
+                            submissionData?.section1_2 ||
+                            formData?.section1_2 ||
+                            (formData as any)?.infraFinancing?.section1_2;
+                          if (
+                            section1_2?.stateCapexUtilisation !== undefined &&
+                            section1_2?.stateCapexUtilisation !== null
+                          ) {
+                            let val: string;
+                            if (
+                              typeof section1_2.stateCapexUtilisation ===
+                              "string"
+                            ) {
+                              val = section1_2.stateCapexUtilisation
+                                .replace(/[₹,Crores\s]/g, "")
+                                .trim();
+                            } else {
+                              // If it's a number, convert to string without adding unnecessary decimals
+                              const num = Number(
+                                section1_2.stateCapexUtilisation
+                              );
+                              val =
+                                num % 1 === 0
+                                  ? num.toString()
+                                  : num.toString().replace(/\.?0+$/, "");
+                            }
+                            return val;
+                          }
+                          return stateCapexUtilisation; // Fallback to state
+                        })()
                   }
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Only allow numbers and decimal point
-                    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                      setStateCapexUtilisation(value);
-                      // Clear validation error when user starts typing
-                      if (getFieldError("section1_2.stateCapexUtilisation")) {
-                        setValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section1_2.stateCapexUtilisation"];
-                          return updated;
-                        });
+                  onChange={createOnChangeHandler(
+                    "section1_2.stateCapexUtilisation",
+                    (e) => {
+                      const value = e.target.value;
+                      // Only allow numbers and decimal point
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        setStateCapexUtilisation(value);
+                        markFieldAsTouched("section1_2.capexActualsToGSDP");
+                        setShowValidationErrors(true);
                       }
                     }
-                  }}
+                  )}
                   placeholder="Enter State Capex Utilisation value"
                   readOnly={!isEditable("1.2")}
-                  className={
-                    isEditable("1.2") 
-                      ? getFieldError("section1_2.stateCapexUtilisation") 
-                        ? "bg-white border-red-500" 
-                        : "bg-white"
-                      : "bg-gray-50"
-                  }
+                  className={cn(
+                    isEditable("1.2") ? "bg-white" : "bg-gray-50",
+                    isEditable("1.2") && getInputValidationClass("section1_2.stateCapexUtilisation")
+                  )}
                 />
-                {getFieldError("section1_2.stateCapexUtilisation") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_2.stateCapexUtilisation")}</p>
-                )}
+                {isEditable("1.2") && renderFieldError("section1_2.stateCapexUtilisation")}
                 {isEditable("1.2") && (
                   <div className="text-xs text-gray-500 mt-1">
                     Current value: "{stateCapexUtilisation}"
@@ -2732,33 +4208,96 @@ export const InfraFinancingReview = ({
                 <Label>% Capex Actuals to GSDP</Label>
                 <Input
                   value={(() => {
-                    const actualCapexNum = parseFloat(actualCapex) || 0;
+                    // Get values from local state if in edit mode, otherwise from formData
+                    let actualCapexValue = actualCapex;
+                    let stateCapexUtilisationValue = stateCapexUtilisation;
+
+                    if (!shouldBeEditable("1.2")) {
+                      // In review mode, prefer submissionData (updated after save) over formData
+                      const section1_2 =
+                        submissionData?.section1_2 ||
+                        formData?.section1_2 ||
+                        (formData as any)?.infraFinancing?.section1_2;
+                      if (
+                        section1_2?.actualCapex !== undefined &&
+                        section1_2?.actualCapex !== null
+                      ) {
+                        actualCapexValue =
+                          typeof section1_2.actualCapex === "string"
+                            ? section1_2.actualCapex
+                                .replace(/[₹,Crores\s]/g, "")
+                                .trim()
+                            : String(section1_2.actualCapex);
+                      }
+                      if (
+                        section1_2?.stateCapexUtilisation !== undefined &&
+                        section1_2?.stateCapexUtilisation !== null
+                      ) {
+                        stateCapexUtilisationValue =
+                          typeof section1_2.stateCapexUtilisation === "string"
+                            ? section1_2.stateCapexUtilisation
+                                .replace(/[₹,Crores\s]/g, "")
+                                .trim()
+                            : String(section1_2.stateCapexUtilisation);
+                      }
+                    }
+
+                    const actualCapexNum = parseFloat(actualCapexValue) || 0;
                     const stateCapexUtilisationNum =
-                      parseFloat(stateCapexUtilisation) || 0;
+                      parseFloat(stateCapexUtilisationValue) || 0;
 
                     if (
                       isNaN(actualCapexNum) ||
                       isNaN(stateCapexUtilisationNum) ||
-                      stateCapexUtilisationNum === 0
+                      stateCapexUtilisationNum === 0 ||
+                      actualCapexValue === "" ||
+                      stateCapexUtilisationValue === ""
                     ) {
+                      // If no values, check if there's a saved percentage in submissionData/formData
+                      if (!shouldBeEditable("1.2")) {
+                        const section1_2 =
+                          submissionData?.section1_2 ||
+                          formData?.section1_2 ||
+                          (formData as any)?.infraFinancing?.section1_2;
+                        if (
+                          section1_2?.capexActualsToGSDP !== undefined &&
+                          section1_2?.capexActualsToGSDP !== null
+                        ) {
+                          const savedPercentage =
+                            typeof section1_2.capexActualsToGSDP === "string"
+                              ? parseFloat(
+                                  section1_2.capexActualsToGSDP
+                                    .replace("%", "")
+                                    .trim()
+                                )
+                              : Number(section1_2.capexActualsToGSDP);
+                          if (!isNaN(savedPercentage)) {
+                            return savedPercentage.toFixed(1) + "%";
+                          }
+                        }
+                      }
                       return "";
                     }
 
                     const percentage =
                       (actualCapexNum / stateCapexUtilisationNum) * 100;
-                    return percentage.toFixed(1) + "%";
+
+                    // Show negative percentage if calculated (for error display)
+                    if (percentage < 0) {
+                      return percentage.toFixed(1) + "%";
+                    }
+                    // Cap at 100% if it exceeds (but validation will prevent saving)
+                    const cappedPercentage = Math.min(percentage, 100);
+                    return cappedPercentage.toFixed(1) + "%";
                   })()}
                   readOnly
-                  className={
-                    getFieldError("section1_2.capexActualsToGSDP")
-                      ? "bg-gray-50 cursor-not-allowed border-red-500"
-                      : "bg-gray-50 cursor-not-allowed"
-                  }
+                  className={cn(
+                    "bg-gray-50 cursor-not-allowed",
+                    shouldBeEditable("1.2") && getInputValidationClass("section1_2.capexActualsToGSDP")
+                  )}
                   placeholder="Auto-calculated"
                 />
-                {getFieldError("section1_2.capexActualsToGSDP") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_2.capexActualsToGSDP")}</p>
-                )}
+                {shouldBeEditable("1.2") && renderFieldError("section1_2.capexActualsToGSDP")}
               </div>
             </div>
           </SectionCard>
@@ -2783,6 +4322,8 @@ export const InfraFinancingReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("1.3")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("1.3")}
             {/* <div className="space-y-4">
               {/* ✅ Show Total ULBs at the top */}
             {/* {formData?.section1_3?.totalULBs !== undefined && (
@@ -2892,7 +4433,7 @@ export const InfraFinancingReview = ({
               isEditable={isEditable}
               setSectionState={setSection13State}
               resetKey={selectResetKey}
-              validationErrors={validationErrors}
+              validationErrors={validation.errors}
               getFieldError={getFieldError}
             />
           </SectionCard>
@@ -2917,6 +4458,8 @@ export const InfraFinancingReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("1.4")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("1.4")}
             <div className="space-y-4">
               {/* ✅ Show Total ULBs at top */}
               {/* {formData?.section1_4?.totalULBs !== undefined && (
@@ -2983,7 +4526,7 @@ export const InfraFinancingReview = ({
               isEditable={isEditable}
               setSectionState={setSection14State}
               resetKey={selectResetKey}
-              validationErrors={validationErrors}
+              validationErrors={validation.errors}
               getFieldError={getFieldError}
             />
           </SectionCard>
@@ -3008,6 +4551,8 @@ export const InfraFinancingReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("1.5")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("1.5")}
             <div className="space-y-4">
               {/* RadioGroup for hasIntermediary */}
               <div>
@@ -3055,18 +4600,14 @@ export const InfraFinancingReview = ({
                     </span>
                   </div>
                 )}
-                {getFieldError("section1_5.hasIntermediary") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section1_5.hasIntermediary")}</p>
-                )}
+                {renderFieldError("section1_5.hasIntermediary")}
               </div>
 
               {/* Show table and Add More button if hasIntermediary is "yes" */}
               {section15State?.hasIntermediary === "yes" && (
                 <>
                   {/* Validation error for ffiArray */}
-                  {getFieldError("section1_5.ffiArray") && (
-                    <p className="text-sm text-red-500">{getFieldError("section1_5.ffiArray")}</p>
-                  )}
+                  {renderFieldError("section1_5.ffiArray")}
                   
                   {/* Table Display */}
                   <div className="overflow-x-auto rounded-xl">
@@ -3123,27 +4664,28 @@ export const InfraFinancingReview = ({
                                   <div>
                                     <Input
                                       value={item.organisationName || ""}
-                                      onChange={(e) => {
-                                        const updatedArray = [...ffiArray];
-                                        updatedArray[index] = {
-                                          ...updatedArray[index],
-                                          organisationName: e.target.value,
-                                        };
-                                        setSection15State({
-                                          ...section15State,
-                                          ffiArray: updatedArray,
-                                        });
-                                      }}
-                                      className={
-                                        getFieldError(`section1_5.ffiArray.${index}.organisationName`)
-                                          ? "w-full border-red-500"
-                                          : "w-full"
-                                      }
+                                      onChange={createOnChangeHandler(
+                                        `section1_5.ffiArray.${index}.organisationName`,
+                                        (e) => {
+                                          const updatedArray = [...ffiArray];
+                                          updatedArray[index] = {
+                                            ...updatedArray[index],
+                                            organisationName: e.target.value,
+                                          };
+                                          setSection15State({
+                                            ...section15State,
+                                            ffiArray: updatedArray,
+                                          });
+                                          setShowValidationErrors(true);
+                                        }
+                                      )}
+                                      className={cn(
+                                        "w-full",
+                                        getInputValidationClass(`section1_5.ffiArray.${index}.organisationName`)
+                                      )}
                                       placeholder="Enter organisation name"
                                     />
-                                    {getFieldError(`section1_5.ffiArray.${index}.organisationName`) && (
-                                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section1_5.ffiArray.${index}.organisationName`)}</p>
-                                    )}
+                                    {renderFieldError(`section1_5.ffiArray.${index}.organisationName`)}
                                   </div>
                                 ) : (
                                   item.organisationName || "N/A"
@@ -3157,24 +4699,26 @@ export const InfraFinancingReview = ({
                                         (opt) => ({ label: opt, value: opt })
                                       )}
                                       value={item.organisationType || ""}
-                                      onChange={(value) => {
-                                        const updatedArray = [...ffiArray];
-                                        updatedArray[index] = {
-                                          ...updatedArray[index],
-                                          organisationType: value,
-                                        };
-                                        setSection15State({
-                                          ...section15State,
-                                          ffiArray: updatedArray,
-                                        });
-                                      }}
+                                      onChange={createOnValueChangeHandler(
+                                        `section1_5.ffiArray.${index}.organisationType`,
+                                        (value) => {
+                                          const updatedArray = [...ffiArray];
+                                          updatedArray[index] = {
+                                            ...updatedArray[index],
+                                            organisationType: value,
+                                          };
+                                          setSection15State({
+                                            ...section15State,
+                                            ffiArray: updatedArray,
+                                          });
+                                          setShowValidationErrors(true);
+                                        }
+                                      )}
                                       placeholder="Select Type"
                                       isEditable={true}
                                       resetKey={selectResetKey}
                                     />
-                                    {getFieldError(`section1_5.ffiArray.${index}.organisationType`) && (
-                                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section1_5.ffiArray.${index}.organisationType`)}</p>
-                                    )}
+                                    {renderFieldError(`section1_5.ffiArray.${index}.organisationType`)}
                                   </div>
                                 ) : (
                                   item.organisationType || "N/A"
@@ -3189,39 +4733,32 @@ export const InfraFinancingReview = ({
                                       min="1900"
                                       max="2100"
                                       value={item.yearEstablished || ""}
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        // Only allow 4-digit years
-                                        if (value === "" || /^\d{0,4}$/.test(value)) {
-                                          const updatedArray = [...ffiArray];
-                                          updatedArray[index] = {
-                                            ...updatedArray[index],
-                                            yearEstablished: value,
-                                          };
-                                          setSection15State({
-                                            ...section15State,
-                                            ffiArray: updatedArray,
-                                          });
-                                          // Clear validation error when user starts typing
-                                          if (getFieldError(`section1_5.ffiArray.${index}.yearEstablished`)) {
-                                            setValidationErrors((prev) => {
-                                              const updated = { ...prev };
-                                              delete updated[`section1_5.ffiArray.${index}.yearEstablished`];
-                                              return updated;
+                                      onChange={createOnChangeHandler(
+                                        `section1_5.ffiArray.${index}.yearEstablished`,
+                                        (e) => {
+                                          const value = e.target.value;
+                                          // Only allow 4-digit years
+                                          if (value === "" || /^\d{0,4}$/.test(value)) {
+                                            const updatedArray = [...ffiArray];
+                                            updatedArray[index] = {
+                                              ...updatedArray[index],
+                                              yearEstablished: value,
+                                            };
+                                            setSection15State({
+                                              ...section15State,
+                                              ffiArray: updatedArray,
                                             });
+                                            setShowValidationErrors(true);
                                           }
                                         }
-                                      }}
-                                      className={
-                                        getFieldError(`section1_5.ffiArray.${index}.yearEstablished`)
-                                          ? "w-full border-red-500"
-                                          : "w-full"
-                                      }
+                                      )}
+                                      className={cn(
+                                        "w-full",
+                                        getInputValidationClass(`section1_5.ffiArray.${index}.yearEstablished`)
+                                      )}
                                       placeholder="Enter year (YYYY)"
                                     />
-                                    {getFieldError(`section1_5.ffiArray.${index}.yearEstablished`) && (
-                                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section1_5.ffiArray.${index}.yearEstablished`)}</p>
-                                    )}
+                                    {renderFieldError(`section1_5.ffiArray.${index}.yearEstablished`)}
                                   </div>
                                 ) : (
                                   item.yearEstablished || "N/A"
@@ -3236,39 +4773,32 @@ export const InfraFinancingReview = ({
                                       step="0.01"
                                       min="0"
                                       value={item.totalFunding || ""}
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        // Only allow numbers and decimal point
-                                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                                          const updatedArray = [...ffiArray];
-                                          updatedArray[index] = {
-                                            ...updatedArray[index],
-                                            totalFunding: value,
-                                          };
-                                          setSection15State({
-                                            ...section15State,
-                                            ffiArray: updatedArray,
-                                          });
-                                          // Clear validation error when user starts typing
-                                          if (getFieldError(`section1_5.ffiArray.${index}.totalFunding`)) {
-                                            setValidationErrors((prev) => {
-                                              const updated = { ...prev };
-                                              delete updated[`section1_5.ffiArray.${index}.totalFunding`];
-                                              return updated;
+                                      onChange={createOnChangeHandler(
+                                        `section1_5.ffiArray.${index}.totalFunding`,
+                                        (e) => {
+                                          const value = e.target.value;
+                                          // Only allow numbers and decimal point
+                                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                            const updatedArray = [...ffiArray];
+                                            updatedArray[index] = {
+                                              ...updatedArray[index],
+                                              totalFunding: value,
+                                            };
+                                            setSection15State({
+                                              ...section15State,
+                                              ffiArray: updatedArray,
                                             });
+                                            setShowValidationErrors(true);
                                           }
                                         }
-                                      }}
-                                      className={
-                                        getFieldError(`section1_5.ffiArray.${index}.totalFunding`)
-                                          ? "w-full border-red-500"
-                                          : "w-full"
-                                      }
+                                      )}
+                                      className={cn(
+                                        "w-full",
+                                        getInputValidationClass(`section1_5.ffiArray.${index}.totalFunding`)
+                                      )}
                                       placeholder="Enter funding"
                                     />
-                                    {getFieldError(`section1_5.ffiArray.${index}.totalFunding`) && (
-                                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section1_5.ffiArray.${index}.totalFunding`)}</p>
-                                    )}
+                                    {renderFieldError(`section1_5.ffiArray.${index}.totalFunding`)}
                                   </div>
                                 ) : (
                                   item.totalFunding || "N/A"
@@ -3280,35 +4810,28 @@ export const InfraFinancingReview = ({
                                     <Input
                                       type="url"
                                       value={item.website || ""}
-                                      onChange={(e) => {
-                                        const updatedArray = [...ffiArray];
-                                        updatedArray[index] = {
-                                          ...updatedArray[index],
-                                          website: e.target.value,
-                                        };
-                                        setSection15State({
-                                          ...section15State,
-                                          ffiArray: updatedArray,
-                                        });
-                                        // Clear validation error when user starts typing
-                                        if (getFieldError(`section1_5.ffiArray.${index}.website`)) {
-                                          setValidationErrors((prev) => {
-                                            const updated = { ...prev };
-                                            delete updated[`section1_5.ffiArray.${index}.website`];
-                                            return updated;
+                                      onChange={createOnChangeHandler(
+                                        `section1_5.ffiArray.${index}.website`,
+                                        (e) => {
+                                          const updatedArray = [...ffiArray];
+                                          updatedArray[index] = {
+                                            ...updatedArray[index],
+                                            website: e.target.value,
+                                          };
+                                          setSection15State({
+                                            ...section15State,
+                                            ffiArray: updatedArray,
                                           });
+                                          setShowValidationErrors(true);
                                         }
-                                      }}
-                                      className={
-                                        getFieldError(`section1_5.ffiArray.${index}.website`)
-                                          ? "w-full border-red-500"
-                                          : "w-full"
-                                      }
+                                      )}
+                                      className={cn(
+                                        "w-full",
+                                        getInputValidationClass(`section1_5.ffiArray.${index}.website`)
+                                      )}
                                       placeholder="Enter website"
                                     />
-                                    {getFieldError(`section1_5.ffiArray.${index}.website`) && (
-                                      <p className="text-sm text-red-500 mt-1">{getFieldError(`section1_5.ffiArray.${index}.website`)}</p>
-                                    )}
+                                    {renderFieldError(`section1_5.ffiArray.${index}.website`)}
                                   </div>
                                 ) : (
                                   item.website || "N/A"
@@ -3363,22 +4886,23 @@ export const InfraFinancingReview = ({
                           <Label>Organisation Name</Label>
                           <Input
                             value={newEntry1_5.organisationName}
-                            onChange={(e) =>
-                              setNewEntry1_5({
-                                ...newEntry1_5,
-                                organisationName: e.target.value,
-                              })
-                            }
-                            className={
-                              getFieldError("section1_5.ffiArray.new.organisationName")
-                                ? "bg-white border-red-500"
-                                : "bg-white"
-                            }
+                            onChange={createOnChangeHandler(
+                              "section1_5.ffiArray.new.organisationName",
+                              (e) => {
+                                setNewEntry1_5({
+                                  ...newEntry1_5,
+                                  organisationName: e.target.value,
+                                });
+                                setShowValidationErrors(true);
+                              }
+                            )}
+                            className={cn(
+                              "bg-white",
+                              getInputValidationClass("section1_5.ffiArray.new.organisationName")
+                            )}
                             placeholder="Enter organisation name"
                           />
-                          {getFieldError("section1_5.ffiArray.new.organisationName") && (
-                            <p className="text-sm text-red-500 mt-1">{getFieldError("section1_5.ffiArray.new.organisationName")}</p>
-                          )}
+                          {renderFieldError("section1_5.ffiArray.new.organisationName")}
                         </div>
                         <div>
                           <Label>Organisation Type</Label>
@@ -3387,18 +4911,20 @@ export const InfraFinancingReview = ({
                               (opt) => ({ label: opt, value: opt })
                             )}
                             value={newEntry1_5.organisationType}
-                            onChange={(value) =>
-                              setNewEntry1_5({
-                                ...newEntry1_5,
-                                organisationType: value,
-                              })
-                            }
+                            onChange={createOnValueChangeHandler(
+                              "section1_5.ffiArray.new.organisationType",
+                              (value) => {
+                                setNewEntry1_5({
+                                  ...newEntry1_5,
+                                  organisationType: value,
+                                });
+                                setShowValidationErrors(true);
+                              }
+                            )}
                             placeholder="Select Type"
                             isEditable={true}
                           />
-                          {getFieldError("section1_5.ffiArray.new.organisationType") && (
-                            <p className="text-sm text-red-500 mt-1">{getFieldError("section1_5.ffiArray.new.organisationType")}</p>
-                          )}
+                          {renderFieldError("section1_5.ffiArray.new.organisationType")}
                         </div>
                         <div>
                           <Label>Year of Establishment</Label>
@@ -3408,16 +4934,20 @@ export const InfraFinancingReview = ({
                             min="1900"
                             max="2100"
                             value={newEntry1_5.yearEstablished}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              // Only allow 4-digit years
-                              if (value === "" || /^\d{0,4}$/.test(value)) {
-                                setNewEntry1_5({
-                                  ...newEntry1_5,
-                                  yearEstablished: value,
-                                });
+                            onChange={createOnChangeHandler(
+                              "section1_5.ffiArray.new.yearEstablished",
+                              (e) => {
+                                const value = e.target.value;
+                                // Only allow 4-digit years
+                                if (value === "" || /^\d{0,4}$/.test(value)) {
+                                  setNewEntry1_5({
+                                    ...newEntry1_5,
+                                    yearEstablished: value,
+                                  });
+                                  setShowValidationErrors(true);
+                                }
                               }
-                            }}
+                            )}
                             className="bg-white"
                             placeholder="Enter year (YYYY)"
                           />
@@ -3430,64 +4960,50 @@ export const InfraFinancingReview = ({
                             step="0.01"
                             min="0"
                             value={newEntry1_5.totalFunding}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              // Only allow numbers and decimal point
-                              if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                                setNewEntry1_5({
-                                  ...newEntry1_5,
-                                  totalFunding: value,
-                                });
-                                // Clear validation error when user starts typing
-                                if (getFieldError("section1_5.ffiArray.new.totalFunding")) {
-                                  setValidationErrors((prev) => {
-                                    const updated = { ...prev };
-                                    delete updated["section1_5.ffiArray.new.totalFunding"];
-                                    return updated;
+                            onChange={createOnChangeHandler(
+                              "section1_5.ffiArray.new.totalFunding",
+                              (e) => {
+                                const value = e.target.value;
+                                // Only allow numbers and decimal point
+                                if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                  setNewEntry1_5({
+                                    ...newEntry1_5,
+                                    totalFunding: value,
                                   });
+                                  setShowValidationErrors(true);
                                 }
                               }
-                            }}
-                            className={
-                              getFieldError("section1_5.ffiArray.new.totalFunding")
-                                ? "bg-white border-red-500"
-                                : "bg-white"
-                            }
+                            )}
+                            className={cn(
+                              "bg-white",
+                              getInputValidationClass("section1_5.ffiArray.new.totalFunding")
+                            )}
                             placeholder="Enter funding"
                           />
-                          {getFieldError("section1_5.ffiArray.new.totalFunding") && (
-                            <p className="text-sm text-red-500 mt-1">{getFieldError("section1_5.ffiArray.new.totalFunding")}</p>
-                          )}
+                          {renderFieldError("section1_5.ffiArray.new.totalFunding")}
                         </div>
                         <div>
                           <Label>Website</Label>
                           <Input
                             type="url"
                             value={newEntry1_5.website}
-                            onChange={(e) => {
-                              setNewEntry1_5({
-                                ...newEntry1_5,
-                                website: e.target.value,
-                              });
-                              // Clear validation error when user starts typing
-                              if (getFieldError("section1_5.ffiArray.new.website")) {
-                                setValidationErrors((prev) => {
-                                  const updated = { ...prev };
-                                  delete updated["section1_5.ffiArray.new.website"];
-                                  return updated;
+                            onChange={createOnChangeHandler(
+                              "section1_5.ffiArray.new.website",
+                              (e) => {
+                                setNewEntry1_5({
+                                  ...newEntry1_5,
+                                  website: e.target.value,
                                 });
+                                setShowValidationErrors(true);
                               }
-                            }}
-                            className={
-                              getFieldError("section1_5.ffiArray.new.website")
-                                ? "bg-white border-red-500"
-                                : "bg-white"
-                            }
+                            )}
+                            className={cn(
+                              "bg-white",
+                              getInputValidationClass("section1_5.ffiArray.new.website")
+                            )}
                             placeholder="Enter website"
                           />
-                          {getFieldError("section1_5.ffiArray.new.website") && (
-                            <p className="text-sm text-red-500 mt-1">{getFieldError("section1_5.ffiArray.new.website")}</p>
-                          )}
+                          {renderFieldError("section1_5.ffiArray.new.website")}
                         </div>
                       </div>
                       <div className="flex gap-2 mt-4">
@@ -3531,25 +5047,20 @@ export const InfraFinancingReview = ({
                   {shouldBeEditable("1.5") ? (
                     <Textarea
                       value={section15State?.comment || ""}
-                      onChange={(e) => {
-                        setSection15State({
-                          ...section15State,
-                          comment: e.target.value,
-                        });
-                        // Clear validation error when user starts typing
-                        if (getFieldError("section1_5.comment")) {
-                          setValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated["section1_5.comment"];
-                            return updated;
+                      onChange={createOnChangeHandler(
+                        "section1_5.comment",
+                        (e) => {
+                          setSection15State({
+                            ...section15State,
+                            comment: e.target.value,
                           });
+                          setShowValidationErrors(true);
                         }
-                      }}
-                      className={
-                        getFieldError("section1_5.comment") 
-                          ? "bg-white mt-2 border-red-500" 
-                          : "bg-white mt-2"
-                      }
+                      )}
+                      className={cn(
+                        "bg-white mt-2",
+                        getInputValidationClass("section1_5.comment")
+                      )}
                       placeholder="Enter comment"
                       rows={4}
                     />
@@ -3558,9 +5069,7 @@ export const InfraFinancingReview = ({
                       {section15State?.comment || "No comment provided"}
                     </div>
                   )}
-                  {getFieldError("section1_5.comment") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section1_5.comment")}</p>
-                  )}
+                  {renderFieldError("section1_5.comment")}
                 </div>
               )}
             </div>
@@ -3742,3 +5251,6 @@ export const InfraFinancingReview = ({
     </>
   );
 };
+
+
+

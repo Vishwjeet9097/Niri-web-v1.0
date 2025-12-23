@@ -32,6 +32,8 @@ export const API_ENDPOINTS = {
     finalReject: (id: string) => `${BASE}/submission/final-reject/${id}`,
     resubmit: (id: string) => `${BASE}/submission/resubmit/${id}`,
     approve: (id: string) => `${BASE}/submission/approve/${id}`,
+    cleanMospiStatus: (id: string) =>
+      `${BASE}/submission/clean-mospi-status/${id}`,
     delete: (id: string) => `${BASE}/submission/${id}`,
   },
   file: {
@@ -68,7 +70,8 @@ export const API_ENDPOINTS = {
   },
   ulb: {
     root: `${BASE}/ulb`,
-    byState: (stateName: string) => `${BASE}/ulb?state_name=${encodeURIComponent(stateName)}`,
+    byState: (stateName: string) =>
+      `${BASE}/ulb?state_name=${encodeURIComponent(stateName)}`,
     byId: (ulbId: string) => `${BASE}/ulb/${ulbId}`,
   },
 };

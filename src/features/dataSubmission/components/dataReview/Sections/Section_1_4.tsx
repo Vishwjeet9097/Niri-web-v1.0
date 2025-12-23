@@ -177,15 +177,12 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
                       <div>
-                        <Input
+                        <Dropdown
+                          options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
                           value={item.issuingAuthority || ""}
-                          onChange={(e) => handleBondChange(index, "issuingAuthority", e.target.value)}
-                          className={
-                            getError(`section1_4.bondList.${index}.issuingAuthority`)
-                              ? "w-full border-red-500"
-                              : "w-full"
-                          }
-                          placeholder="Enter Issuing Authority"
+                          onChange={(value) => handleBondChange(index, "issuingAuthority", value)}
+                          placeholder="Select Issuing Authority"
+                          isEditable={true}
                         />
                         {getError(`section1_4.bondList.${index}.issuingAuthority`) && (
                           <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.issuingAuthority`)}</p>
@@ -297,15 +294,12 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
             </div>
             <div>
               <Label>Issuing Authority</Label>
-              <Input
+              <Dropdown
+                options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
                 value={newBondEntry.issuingAuthority}
-                onChange={(e) => setNewBondEntry({ ...newBondEntry, issuingAuthority: e.target.value })}
-                className={
-                  getError("section1_4.bondList.new.issuingAuthority")
-                    ? "bg-white border-red-500"
-                    : "bg-white"
-                }
-                placeholder="Enter Issuing Authority"
+                onChange={(value) => setNewBondEntry({...newBondEntry, issuingAuthority: value})}
+                placeholder="Select Issuing Authority"
+                isEditable={true}
               />
               {getError("section1_4.bondList.new.issuingAuthority") && (
                 <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.issuingAuthority")}</p>

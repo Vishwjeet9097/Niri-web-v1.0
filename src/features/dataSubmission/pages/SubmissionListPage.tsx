@@ -304,6 +304,26 @@ const transformIndicatorsToFormData = (
         delete formFields.status;
         delete formFields.percentage;
         delete formFields.marksObtained;
+        // Only remove mospi_status if it's REVERTED - preserve ACCEPTED status
+        // (Backend cleanup should have already removed REVERTED, but we check here as a safety measure)
+        if (formFields.mospi_status) {
+          const mospiStatusValue = String(formFields.mospi_status)
+            .trim()
+            .toUpperCase();
+          console.log(
+            `[Transform] Indicator ${code} - found mospi_status: ${mospiStatusValue}`
+          );
+          if (mospiStatusValue === "REVERTED") {
+            delete formFields.mospi_status;
+            console.log(
+              `[Transform] Indicator ${code} - removed REVERTED mospi_status`
+            );
+          } else {
+            console.log(
+              `[Transform] Indicator ${code} - preserving mospi_status: ${mospiStatusValue}`
+            );
+          }
+        }
 
         if (indicator.year) {
           formFields.year = indicator.year;
@@ -567,7 +587,9 @@ export const SubmissionListPage = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submissionProgress, setSubmissionProgress] = useState<Record<string, number>>({});
+  const [submissionProgress, setSubmissionProgress] = useState<
+    Record<string, number>
+  >({});
   const selectedYear = undefined;
 
   const { stateUt: myState } = authService.getUser() ?? {};
@@ -676,9 +698,16 @@ export const SubmissionListPage = () => {
         // Get user state for fallback calculation
         const userStateUt = user?.stateUt || user?.stateName || user?.state;
 
-        // Use ref to get latest submissions without triggering re-renders
-        // This prevents progress from resetting when navigating back from review page
-        const currentSubmissions = submissionsRef.current;
+        // Use both submissions state and ref - prefer state if available, fallback to ref
+        // This ensures we have data when navigating back from review page
+        const currentSubmissions =
+          submissions.length > 0 ? submissions : submissionsRef.current;
+
+        console.log("📋 [Progress] Using submissions:", {
+          fromState: submissions.length,
+          fromRef: submissionsRef.current.length,
+          using: currentSubmissions.length,
+        });
 
         // Pass submissions array as fallback in case API returns empty data
         const stats = calculateStateProgressFromApi(
@@ -702,40 +731,63 @@ export const SubmissionListPage = () => {
     // run immediately on mount
     loadProgressOnce();
 
+    // Refresh when page becomes visible (user navigates back)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("👁️ [Progress] Page visible - refreshing progress");
+        loadProgressOnce();
+      }
+    };
+
+    // Refresh when window gains focus (user navigates back)
+    const handleFocus = () => {
+      console.log("🎯 [Progress] Window focused - refreshing progress");
+      loadProgressOnce();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
     // auto-refresh every 60 seconds
     const intervalId = window.setInterval(loadProgressOnce, 60_000);
 
     // clean up on unmount
     return () => {
       clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Intentionally omitting 'submissions' from dependencies to prevent progress reset
-    // when navigating back from review page. We use submissionsRef.current to access
-    // the latest submissions without triggering re-renders.
-  }, [user?.role, user?.stateUt, user?.stateName, user?.state]);
+    // Include submissions in dependencies so progress updates when submissions change
+    // This ensures progress is recalculated when navigating back and submissions are reloaded
+  }, [user?.role, user?.stateUt, user?.stateName, user?.state, submissions]);
 
   // Calculate progress for submissions
   useEffect(() => {
     const calculateProgress = async () => {
       const progressMap: Record<string, number> = {};
-      
+
       for (const submission of submissions) {
         try {
           const fd = submission.formData || {};
           // Add submittedBy (user ID) to formData for progress calculation
           const fdWithSubmittedBy = {
             ...fd,
-            submittedBy: submission.user?.id || submission.submittedBy || submission.user,
+            submittedBy:
+              submission.user?.id || submission.submittedBy || submission.user,
           };
-          const progressData = await calculateProgressByAcceptedStatus(fdWithSubmittedBy);
+          const progressData = await calculateProgressByAcceptedStatus(
+            fdWithSubmittedBy
+          );
           progressMap[submission.id] = progressData.progress;
         } catch (error) {
-          console.error(`Failed to calculate progress for submission ${submission.id}:`, error);
+          console.error(
+            `Failed to calculate progress for submission ${submission.id}:`,
+            error
+          );
           progressMap[submission.id] = 0;
         }
       }
-      
+
       setSubmissionProgress(progressMap);
     };
 
@@ -892,6 +944,151 @@ export const SubmissionListPage = () => {
           JSON.stringify(formData, null, 2)
         );
 
+        // Check if there's an existing RETURNED_FROM_MOSPI submission to clean mospi_status via API
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "🔍 STEP 2a: Checking for existing RETURNED_FROM_MOSPI submission to clean"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+
+        let existingReturnedSubmissionForCleanup = null;
+        try {
+          const submissionsData = await apiService.getSubmissions(1, 100);
+          const submissionsArray = Array.isArray(submissionsData)
+            ? submissionsData
+            : submissionsData?.submissions || submissionsData?.data || [];
+
+          // Find RETURNED_FROM_MOSPI submission for this state
+          existingReturnedSubmissionForCleanup = submissionsArray.find(
+            (sub: any) => {
+              const isReturnedFromMospi = sub.status === "RETURNED_FROM_MOSPI";
+              const isStateApprover =
+                sub.currentOwnerRole === "STATE_APPROVER" ||
+                sub.submittedBy === user?.id ||
+                sub.user?.id === user?.id;
+              const isSameState =
+                !effectiveState ||
+                sub.stateUt?.toUpperCase() === effectiveState.toUpperCase() ||
+                sub.user?.stateUt?.toUpperCase() ===
+                  effectiveState.toUpperCase();
+
+              return isReturnedFromMospi && isStateApprover && isSameState;
+            }
+          );
+
+          if (existingReturnedSubmissionForCleanup) {
+            console.log(
+              "✅ [FinalSubmit] Found existing RETURNED_FROM_MOSPI submission for cleanup:",
+              existingReturnedSubmissionForCleanup.id
+            );
+            console.log(
+              "🧹 [FinalSubmit] Calling API to remove mospi_status from all categories..."
+            );
+
+            // Call API to clean mospi_status from backend
+            await apiService.cleanMospiStatusFromSubmission(
+              existingReturnedSubmissionForCleanup.id
+            );
+
+            console.log(
+              "✅ [FinalSubmit] mospi_status cleaned from backend via API"
+            );
+
+            // After cleanup, refetch the cleaned submission and merge mospi_status into formData
+            // This is critical for infraFinancing sections where mospi_status might not be in indicator.data
+            try {
+              console.log(
+                "🔄 [FinalSubmit] Refetching cleaned submission to merge mospi_status into formData..."
+              );
+              const cleanedSubmission = await apiService.getSubmission(
+                existingReturnedSubmissionForCleanup.id
+              );
+              const cleanedFormData =
+                cleanedSubmission.formData ||
+                (cleanedSubmission as any).form_data ||
+                {};
+
+              // Merge mospi_status from cleaned submission into formData
+              if (cleanedFormData && typeof cleanedFormData === "object") {
+                Object.keys(cleanedFormData).forEach((categoryKey) => {
+                  const categoryData = cleanedFormData[categoryKey];
+                  if (
+                    categoryData &&
+                    typeof categoryData === "object" &&
+                    formData[categoryKey]
+                  ) {
+                    Object.keys(categoryData).forEach((sectionKey) => {
+                      const sectionData = categoryData[sectionKey];
+                      if (
+                        sectionData &&
+                        typeof sectionData === "object" &&
+                        sectionData.mospi_status
+                      ) {
+                        const mospiStatus = sectionData.mospi_status;
+                        const normalizedStatus = String(mospiStatus)
+                          .trim()
+                          .toUpperCase();
+                        // Only merge ACCEPTED mospi_status
+                        if (normalizedStatus === "ACCEPTED") {
+                          // Ensure the section exists in formData
+                          if (!formData[categoryKey][sectionKey]) {
+                            formData[categoryKey][sectionKey] = {};
+                          }
+                          formData[categoryKey][sectionKey].mospi_status =
+                            mospiStatus;
+                          console.log(
+                            `✅ [FinalSubmit] Merged mospi_status (ACCEPTED) from cleaned submission into ${categoryKey}.${sectionKey}`
+                          );
+                        } else {
+                          console.log(
+                            `⏭️ [FinalSubmit] Skipping mospi_status (${normalizedStatus}) from ${categoryKey}.${sectionKey} - not ACCEPTED`
+                          );
+                        }
+                      }
+                    });
+                  } else {
+                    console.log(
+                      `⚠️ [FinalSubmit] Category ${categoryKey} not found in formData or categoryData is invalid`
+                    );
+                  }
+                });
+                console.log(
+                  "✅ [FinalSubmit] Successfully merged mospi_status from cleaned submission into formData"
+                );
+                console.log(
+                  "📋 [FinalSubmit] FormData after merge:",
+                  JSON.stringify(formData, null, 2)
+                );
+              } else {
+                console.warn(
+                  "⚠️ [FinalSubmit] Cleaned formData is not a valid object:",
+                  cleanedFormData
+                );
+              }
+            } catch (mergeError) {
+              console.warn(
+                "⚠️ [FinalSubmit] Error merging mospi_status from cleaned submission:",
+                mergeError
+              );
+              // Continue with submission even if merge fails
+            }
+          } else {
+            console.log(
+              "ℹ️ [FinalSubmit] No existing RETURNED_FROM_MOSPI submission found - no cleanup needed"
+            );
+          }
+        } catch (error) {
+          console.warn(
+            "⚠️ [FinalSubmit] Error checking/cleaning existing submission:",
+            error
+          );
+          // Continue with submission even if cleanup fails
+        }
+
         // Check if formData is empty
         const hasData =
           Object.keys(formData).length > 0 &&
@@ -934,6 +1131,7 @@ export const SubmissionListPage = () => {
         );
 
         const submissionStatus = "SUBMITTED_TO_MOSPI_REVIEWER";
+        // Transform formData (mospi_status has been cleaned via API if needed)
         const transformedData = transformFormDataForSubmission(
           formData,
           submissionStatus
@@ -979,27 +1177,180 @@ export const SubmissionListPage = () => {
           return;
         }
 
-        const response = await axios.post(
-          `${config.apiBaseUrl}/submission`,
-          multipartData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          }
+        // Check if there's an existing RETURNED_FROM_MOSPI submission to update instead of creating new
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        console.log(
+          "🔍 [FinalSubmit] Checking for existing RETURNED_FROM_MOSPI submission"
+        );
+        console.log(
+          "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         );
 
-        console.log("✅ Submission successful!");
-        console.log("📦 Response:", response.data);
+        // Use the submission found in STEP 2a if available
+        let existingReturnedSubmission = existingReturnedSubmissionForCleanup;
 
-        // Extract submission from response
-        const createdSubmission = response.data?.data || response.data;
-        const submissionId =
-          createdSubmission?.id || createdSubmission?.submissionId;
-        const returnedStatus = createdSubmission?.status;
+        if (!existingReturnedSubmission) {
+          try {
+            const submissionsData = await apiService.getSubmissions(1, 100);
+            const submissionsArray = Array.isArray(submissionsData)
+              ? submissionsData
+              : submissionsData?.submissions || submissionsData?.data || [];
 
-        console.log("📝 [FinalSubmit] Created submission ID:", submissionId);
+            // Find RETURNED_FROM_MOSPI submission for this state
+            existingReturnedSubmission = submissionsArray.find((sub: any) => {
+              const isReturnedFromMospi = sub.status === "RETURNED_FROM_MOSPI";
+              const isStateApprover =
+                sub.currentOwnerRole === "STATE_APPROVER" ||
+                sub.submittedBy === user?.id ||
+                sub.user?.id === user?.id;
+              const isSameState =
+                !effectiveState ||
+                sub.stateUt?.toUpperCase() === effectiveState.toUpperCase() ||
+                sub.user?.stateUt?.toUpperCase() ===
+                  effectiveState.toUpperCase();
+
+              return isReturnedFromMospi && isStateApprover && isSameState;
+            });
+
+            if (existingReturnedSubmission) {
+              console.log(
+                "✅ [FinalSubmit] Found existing RETURNED_FROM_MOSPI submission:",
+                existingReturnedSubmission.id
+              );
+              console.log(
+                "📝 [FinalSubmit] Submission ID:",
+                existingReturnedSubmission.submissionId
+              );
+            } else {
+              console.log(
+                "ℹ️ [FinalSubmit] No existing RETURNED_FROM_MOSPI submission found - will create new"
+              );
+            }
+          } catch (error) {
+            console.warn(
+              "⚠️ [FinalSubmit] Error checking for existing submission, will create new:",
+              error
+            );
+          }
+        } else {
+          console.log(
+            "✅ [FinalSubmit] Using existing RETURNED_FROM_MOSPI submission found in STEP 2a:",
+            existingReturnedSubmission.id
+          );
+        }
+
+        // Submit consolidated submission - update existing or create new
+        console.log(
+          "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        );
+        let response: any;
+        let createdSubmission: any;
+        let submissionId: string | undefined;
+        let returnedStatus: string | undefined;
+
+        if (existingReturnedSubmission) {
+          console.log(
+            "📤 [FinalSubmit] Updating existing RETURNED_FROM_MOSPI submission"
+          );
+          console.log("📡 [FinalSubmit] API Endpoint: PATCH /submission/:id");
+          console.log(
+            "📝 [FinalSubmit] Submission ID:",
+            existingReturnedSubmission.id
+          );
+          console.log(
+            "📊 [FinalSubmit] New Status: SUBMITTED_TO_MOSPI_REVIEWER"
+          );
+          console.log("📍 [FinalSubmit] State/UT:", effectiveState);
+
+          // Update the existing submission
+          // NOTE: mospi_status has been cleaned via API call (see STEP 2a above)
+          console.log(
+            "ℹ️ [FinalSubmit] mospi_status cleaned from backend via API"
+          );
+          console.log(
+            "ℹ️ [FinalSubmit] Keeping all comments for timeline/history"
+          );
+
+          const updatePayload: any = {
+            formData: transformedData.formData,
+            status: "SUBMITTED_TO_MOSPI_REVIEWER",
+          };
+
+          // For file handling, check if we have files
+          const hasFiles =
+            multipartData.has("submission") ||
+            Array.from(multipartData.keys()).some(
+              (key) => key !== "submission"
+            );
+
+          if (hasFiles) {
+            // Use multipart form data for update with files
+            const updateFormData = new FormData();
+            updateFormData.append("submission", JSON.stringify(updatePayload));
+            appendFilesRecursively(updateFormData, formData);
+
+            response = await axios.patch(
+              `${config.apiBaseUrl}/submission/${existingReturnedSubmission.id}`,
+              updateFormData,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  Accept: "application/json",
+                },
+              }
+            );
+          } else {
+            response = await apiService.updateSubmission(
+              existingReturnedSubmission.id,
+              updatePayload
+            );
+          }
+
+          console.log("✅ [FinalSubmit] Submission updated successfully!");
+          console.log("📦 [FinalSubmit] Response:", response?.data || response);
+
+          createdSubmission =
+            response?.data?.data || response?.data || response;
+          submissionId = existingReturnedSubmission.id;
+          returnedStatus =
+            createdSubmission?.status || "SUBMITTED_TO_MOSPI_REVIEWER";
+        } else {
+          console.log("📤 [FinalSubmit] Creating new consolidated submission");
+          console.log("📡 [FinalSubmit] API Endpoint: POST /submission");
+          console.log(
+            "📝 [FinalSubmit] Submission ID:",
+            transformedData.submissionId
+          );
+          console.log("📊 [FinalSubmit] Status: SUBMITTED_TO_MOSPI_REVIEWER");
+          console.log("📍 [FinalSubmit] State/UT:", effectiveState);
+
+          response = await axios.post(
+            `${config.apiBaseUrl}/submission`,
+            multipartData,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            }
+          );
+
+          console.log("✅ [FinalSubmit] Submission successful!");
+          console.log("📦 [FinalSubmit] Response:", response.data);
+
+          // Extract submission from response
+          createdSubmission = response.data?.data || response.data;
+          submissionId =
+            createdSubmission?.id || createdSubmission?.submissionId;
+          returnedStatus = createdSubmission?.status;
+        }
+
+        console.log(
+          "📝 [FinalSubmit] Created/Updated submission ID:",
+          submissionId
+        );
         console.log(
           "📊 [FinalSubmit] Returned status from API:",
           returnedStatus

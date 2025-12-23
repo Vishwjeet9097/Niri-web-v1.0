@@ -22,6 +22,7 @@ import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
+import { useFieldValidation } from "../hooks/useFieldValidation";
 import {
   IMPACT_OPTIONS,
   TRAINING_TYPE_OPTIONS,
@@ -42,6 +43,7 @@ import {
   validateInfraEnablers,
   type InfraEnablersValidationResult,
 } from "../validation/infraEnablersValidation";
+import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -189,7 +191,9 @@ export const InfraEnablersStep = () => {
   const [formData, setFormData] = useState<InfraEnablersData>(initialData);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(
+    null
+  );
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [pendingIndicator, setPendingIndicator] = useState<{
@@ -203,15 +207,34 @@ export const InfraEnablersStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // Store snapshots of original form data when editing starts (for cancel functionality)
+  const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
+    Record<string, any>
+  >({});
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
+  // Track indicator-specific validation errors
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
   
+  // Use the shared field validation hook
+  const {
+    validatingIndicator,
+    setValidatingIndicator,
+    markFieldAsTouched,
+    getFieldError: getFieldErrorFromHook,
+    markIndicatorFieldsAsTouched,
+    clearValidatingIndicator,
+    clearValidFieldErrors,
+  } = useFieldValidation();
+
   // State for submissionId to enable immediate file uploads
   const [submissionId, setSubmissionId] = useState<string | undefined>();
-  
+
   const { toast } = useToast();
 
   // On mount, fetch submission from DB and populate form
@@ -244,13 +267,15 @@ export const InfraEnablersStep = () => {
             sub.status === "RETURNED_FROM_STATE" ||
             sub.status === "PENDING_STATE_APPROVAL"
         );
-        
+
         // Set submissionId for immediate file uploads
         if (userSubmission?.id) {
           setSubmissionId(userSubmission.id);
           console.log("✅ Found existing submissionId:", userSubmission.id);
         } else {
-          console.log("ℹ️ No existing submission found, files will upload on submit");
+          console.log(
+            "ℹ️ No existing submission found, files will upload on submit"
+          );
         }
 
         let sectionStatusFromDB = undefined;
@@ -430,21 +455,14 @@ export const InfraEnablersStep = () => {
     isStateApprover,
   ]);
 
-  // Helper functions for error display
+  // Use the hook's getFieldError function
   const getFieldError = (fieldPath: string): string | undefined => {
-    if (!showValidationErrors) return undefined;
-    
-    // If validating a specific indicator, only show errors for that indicator
-    if (validatingIndicator) {
-      const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
-      if (fieldPath.startsWith(sectionPrefix)) {
-        return indicatorValidationErrors[fieldPath];
-      }
-      return undefined; // Don't show errors for other indicators
-    }
-    
-    // Otherwise, show all errors (for form-level validation)
-    return validation.errors[fieldPath];
+    return getFieldErrorFromHook(
+      fieldPath,
+      validation.errors,
+      indicatorValidationErrors,
+      showValidationErrors
+    );
   };
 
   const renderFieldError = (fieldPath: string) => {
@@ -756,20 +774,20 @@ export const InfraEnablersStep = () => {
       "totalIndicators",
       "completedIndicators",
     ];
-    
+
     // Preserve File and Blob instances - return them as-is
     if (obj instanceof File || obj instanceof Blob) {
       return obj;
     }
-    
+
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
-    
+
     if (obj && typeof obj === "object") {
       const newObj = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
           const value = obj[key];
-          
+
           // Preserve File and Blob instances
           if (value instanceof File || value instanceof Blob) {
             newObj[key] = value; // Keep File/Blob instance as-is
@@ -784,7 +802,10 @@ export const InfraEnablersStep = () => {
             // Preserve the FileUpload object structure, including the File instance
             const fileUploadObj: any = {};
             for (const prop in value) {
-              if (prop === "file" && (value.file instanceof File || value.file instanceof Blob)) {
+              if (
+                prop === "file" &&
+                (value.file instanceof File || value.file instanceof Blob)
+              ) {
                 fileUploadObj[prop] = value.file; // Keep File/Blob instance as-is
               } else {
                 fileUploadObj[prop] = deepRemoveUnwantedKeys(value[prop]);
@@ -856,7 +877,7 @@ export const InfraEnablersStep = () => {
     console.log("[DEBUG] Submitting InfraEnablersStep, formData:", formData);
 
     try {
-      setIsSubmitting(true);
+      setSubmittingIndicator(null);
       // Get the indicators for this section
       const sectionIndicators = allowedIndicators || [
         "4.1",
@@ -896,7 +917,7 @@ export const InfraEnablersStep = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingIndicator(null);
     }
   };
 
@@ -912,6 +933,9 @@ export const InfraEnablersStep = () => {
       allowedIndicators: [indicatorCode],
     });
     if (!indicatorValidation.isValid) {
+      // Mark all fields with errors in this indicator as touched so errors show
+      markIndicatorFieldsAsTouched(indicatorCode, indicatorValidation.errors);
+
       // Store indicator-specific errors
       setIndicatorValidationErrors(indicatorValidation.errors);
       toast({
@@ -921,9 +945,9 @@ export const InfraEnablersStep = () => {
       });
       return;
     }
-    
+
     // Clear indicator-specific validation state on success
-    setValidatingIndicator(null);
+    clearValidatingIndicator();
     setIndicatorValidationErrors({});
 
     // Check if already submitted
@@ -947,7 +971,7 @@ export const InfraEnablersStep = () => {
     const { code: indicatorCode, title: indicatorTitle } = pendingIndicator;
 
     try {
-      setIsSubmitting(true);
+      setSubmittingIndicator(indicatorCode);
       setShowSubmitDialog(false);
       // Clear indicator validation state after successful submission
       setValidatingIndicator(null);
@@ -1087,7 +1111,7 @@ export const InfraEnablersStep = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingIndicator(null);
       setPendingIndicator(null);
     }
   };
@@ -1104,16 +1128,19 @@ export const InfraEnablersStep = () => {
         "infraEnablers",
         allowedIndicators || ["4.1", "4.2", "4.3", "4.4", "4.5"]
       );
-      
+
       // Update submissionId if it was created/updated
       if (result?.id || result?.submissionId) {
         const newSubmissionId = result.id || result.submissionId;
         if (newSubmissionId && newSubmissionId !== submissionId) {
           setSubmissionId(newSubmissionId);
-          console.log("✅ Updated submissionId after draft save:", newSubmissionId);
+          console.log(
+            "✅ Updated submissionId after draft save:",
+            newSubmissionId
+          );
         }
       }
-      
+
       updateFormData("infraEnablers", formData);
       toast({
         title: "Draft Saved",
@@ -1199,9 +1226,9 @@ export const InfraEnablersStep = () => {
   // Get button text based on indicator status
   const getSubmitButtonText = (
     indicatorCode: string,
-    isSubmitting: boolean
+    submittingIndicator: string | null
   ): string => {
-    if (isSubmitting) return "Submitting...";
+    if (submittingIndicator === indicatorCode) return "Submitting...";
 
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return "Submit";
@@ -1222,7 +1249,36 @@ export const InfraEnablersStep = () => {
 
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Store a snapshot of the current form data for this section before editing
+    setOriginalFormDataSnapshots((prev) => ({
+      ...prev,
+      [indicatorCode]: JSON.parse(JSON.stringify(formData[sectionKey] || {})),
+    }));
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
+  };
+
+  // Helper to render validation error message for an indicator
+  const renderSectionValidationMessage = (indicatorCode: string) => {
+    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[indicatorCode]}
+        </p>
+      </div>
+    );
+  };
+
+  // Helper to clear validation message for an indicator when fields are updated
+  const clearIndicatorValidationMessage = (indicatorCode: string) => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      delete updated[indicatorCode];
+      return updated;
+    });
   };
 
   // Handle Save button click for sent back indicators
@@ -1232,14 +1288,101 @@ export const InfraEnablersStep = () => {
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
-      setPendingSaveIndicatorCode(indicatorCode);
-      setShowSaveDialog(true);
-      return;
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
+      // Run validation first
+      const validationResult = validateInfraEnablers(formData, {
+        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+      });
+
+      // Filter validation errors to only include the indicator being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${indicatorCode.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this indicator as touched so ALL errors show
+        const allIndicatorFields: string[] = [];
+        
+        // Add base fields based on indicator
+        if (indicatorCode === "4.1") {
+          // 4.1 doesn't have file upload, just text fields
+          allIndicatorFields.push(`${sectionPrefix}.projects`);
+        } else if (indicatorCode === "4.2") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        } else if (indicatorCode === "4.3") {
+          allIndicatorFields.push(`${sectionPrefix}.practices`);
+        } else if (indicatorCode === "4.4") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        } else if (indicatorCode === "4.5") {
+          allIndicatorFields.push(`${sectionPrefix}.practices`);
+          if (formData.section4_5?.practices && Array.isArray(formData.section4_5.practices)) {
+            formData.section4_5.practices.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.practices.${index}.practiceName`,
+                `${sectionPrefix}.practices.${index}.impact`,
+                `${sectionPrefix}.practices.${index}.file`
+              );
+            });
+          }
+        } else if (indicatorCode === "4.6") {
+          allIndicatorFields.push(`${sectionPrefix}.capacityArray`);
+          if (formData.section4_6?.capacityArray && Array.isArray(formData.section4_6.capacityArray)) {
+            formData.section4_6.capacityArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.capacityArray.${index}.officerName`,
+                `${sectionPrefix}.capacityArray.${index}.designation`,
+                `${sectionPrefix}.capacityArray.${index}.programName`,
+                `${sectionPrefix}.capacityArray.${index}.organiser`,
+                `${sectionPrefix}.capacityArray.${index}.trainingType`
+              );
+            });
+          }
+        }
+
+        // Mark all indicator fields as touched so ALL errors show
+        allIndicatorFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
+        }));
+        console.log(`[InfraEnablersStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        setPendingSaveIndicatorCode(indicatorCode);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        await performSaveIndicator(indicatorCode);
+        return;
+      }
     }
 
-    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with save directly
     await performSaveIndicator(indicatorCode);
   };
 
@@ -1320,7 +1463,10 @@ export const InfraEnablersStep = () => {
         const newSubmissionId = result.id || result.submissionId;
         if (newSubmissionId && newSubmissionId !== submissionId) {
           setSubmissionId(newSubmissionId);
-          console.log("✅ Updated submissionId after resubmit:", newSubmissionId);
+          console.log(
+            "✅ Updated submissionId after resubmit:",
+            newSubmissionId
+          );
         }
       }
 
@@ -1388,13 +1534,27 @@ export const InfraEnablersStep = () => {
 
   // Handle Cancel button click for sent back indicators
   const handleCancelEdit = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Restore the original form data from snapshot
+    if (originalFormDataSnapshots[indicatorCode]) {
+      setFormData((prev: any) => ({
+        ...prev,
+        [sectionKey]: JSON.parse(
+          JSON.stringify(originalFormDataSnapshots[indicatorCode])
+        ),
+      }));
+      // Remove the snapshot after restoring
+      setOriginalFormDataSnapshots((prev) => {
+        const updated = { ...prev };
+        delete updated[indicatorCode];
+        return updated;
+      });
+    }
     setEditingIndicators((prev) => {
       const newSet = new Set(prev);
       newSet.delete(indicatorCode);
       return newSet;
     });
-    // Optionally reload the original data for this indicator
-    // For now, just exit edit mode
   };
 
   return (
@@ -1459,6 +1619,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.1")}
           isSaving={savingIndicators.has("4.1")}
         >
+          {renderSectionValidationMessage("4.1")}
           <div className="flex flex-col gap-4 w-[40%]">
             <div>
               <Label>
@@ -1587,11 +1748,13 @@ export const InfraEnablersStep = () => {
                 onClick={() =>
                   handleSubmitIndicator("4.1", "Ease of Participation")
                 }
-                disabled={isSubmitting || isIndicatorSubmitted("4.1")}
+                disabled={
+                  submittingIndicator !== null || isIndicatorSubmitted("4.1")
+                }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
-                {getSubmitButtonText("4.1", isSubmitting)}
+                {getSubmitButtonText("4.1", submittingIndicator)}
               </Button>
             </div>
           </div>
@@ -1621,6 +1784,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.2")}
           isSaving={savingIndicators.has("4.2")}
         >
+          {renderSectionValidationMessage("4.2")}
           <div className="flex flex-col gap-4 w-[70%]">
             <div>
               <Label>
@@ -1688,7 +1852,10 @@ export const InfraEnablersStep = () => {
                     }));
                   }}
                   submissionId={submissionId}
+                  required
                   disabled={isIndicatorSubmitted("4.2")}
+                  deferFileDeletion={editingIndicators.has("4.2")}
+                  className={getInputValidationClass("section4_2.file")}
                 />
                 <p className="text-xs text-muted-foreground">Description</p>
                 {renderFieldError("section4_2.file")}
@@ -1728,11 +1895,13 @@ export const InfraEnablersStep = () => {
                 onClick={() =>
                   handleSubmitIndicator("4.2", "PM GatiShakti Master Plan")
                 }
-                disabled={isSubmitting || isIndicatorSubmitted("4.2")}
+                disabled={
+                  submittingIndicator !== null || isIndicatorSubmitted("4.2")
+                }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
-                {getSubmitButtonText("4.2", isSubmitting)}
+                {getSubmitButtonText("4.2", submittingIndicator)}
               </Button>
             </div>
           </div>
@@ -1761,6 +1930,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.3")}
           isSaving={savingIndicators.has("4.3")}
         >
+          {renderSectionValidationMessage("4.3")}
           <div className="flex flex-col gap-4">
             {/* --- Toggle --- */}
             <div className="w-[60%]">
@@ -1934,7 +2104,14 @@ export const InfraEnablersStep = () => {
                           updateGatiProject(entry.id, "file", file);
                         }}
                         submissionId={submissionId}
+                        required
                         disabled={isIndicatorSubmitted("4.3")}
+                        deferFileDeletion={editingIndicators.has("4.3")}
+                        className={getInputValidationClass(
+                          `section4_3.projects.${formData.section4_3.projects.findIndex(
+                            (p) => p.id === entry.id
+                          )}.file`
+                        )}
                       />
                       {renderFieldError(
                         `section4_3.projects.${formData.section4_3.projects.findIndex(
@@ -1989,9 +2166,15 @@ export const InfraEnablersStep = () => {
                           if (!file) {
                             return (
                               <tr key={entry.id} className="bg-white">
-                                <td className="py-3 px-4 text-sm">{entry.projectName}</td>
-                                <td className="py-3 px-4 text-sm">{entry.sector}</td>
-                                <td className="py-3 px-4 text-sm">No file uploaded</td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.projectName}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  {entry.sector}
+                                </td>
+                                <td className="py-3 px-4 text-sm">
+                                  No file uploaded
+                                </td>
                                 <td className="py-3 px-4 text-sm">N/A</td>
                                 <td className="py-3 px-4">
                                   <button
@@ -2007,58 +2190,69 @@ export const InfraEnablersStep = () => {
                               </tr>
                             );
                           }
-                          
+
                           // Extract original name from UUID-prefixed fileName if originalName is not available
-                          const extractOriginalName = (fileName: string, originalName?: string): string => {
-                            if (originalName && originalName.trim()) return originalName;
-                            
+                          const extractOriginalName = (
+                            fileName: string,
+                            originalName?: string
+                          ): string => {
+                            if (originalName && originalName.trim())
+                              return originalName;
+
                             // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-                            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-                            
+                            const uuidPattern =
+                              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
                             if (uuidPattern.test(fileName)) {
-                              const extracted = fileName.replace(uuidPattern, '');
+                              const extracted = fileName.replace(
+                                uuidPattern,
+                                ""
+                              );
                               if (extracted && extracted.trim().length > 0) {
                                 return extracted;
                               }
                             }
-                            
+
                             return fileName;
                           };
-                          
-                          const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
-                          
+
+                          const displayName = extractOriginalName(
+                            file.fileName || "",
+                            (file as any)?.originalName
+                          );
+
                           return (
-                          <tr key={entry.id} className="bg-white">
-                            <td className="py-3 px-4 text-sm">
-                              {entry.projectName}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.sector}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {displayName}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {entry.file?.fileSize
-                                ? `${(
-                                    entry.file.fileSize /
-                                    1024 /
-                                    1024
-                                  ).toFixed(1)} MB`
-                                : "N/A"}
-                            </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                onClick={() => removeGatiProject(entry.id)}
-                                disabled={isIndicatorSubmitted("4.3")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
+                            <tr key={entry.id} className="bg-white">
+                              <td className="py-3 px-4 text-sm">
+                                {entry.projectName}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {displayName}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.file?.fileSize
+                                  ? `${(
+                                      entry.file.fileSize /
+                                      1024 /
+                                      1024
+                                    ).toFixed(1)} MB`
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 px-4">
+                                <button
+                                  type="button"
+                                  onClick={() => removeGatiProject(entry.id)}
+                                  disabled={isIndicatorSubmitted("4.3")}
+                                  className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  aria-label="Delete"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
                           );
                         })}
                       </tbody>
@@ -2103,11 +2297,13 @@ export const InfraEnablersStep = () => {
                 onClick={() =>
                   handleSubmitIndicator("4.3", "PM GatiShakti NMP Projects")
                 }
-                disabled={isSubmitting || isIndicatorSubmitted("4.3")}
+                disabled={
+                  submittingIndicator !== null || isIndicatorSubmitted("4.3")
+                }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
-                {getSubmitButtonText("4.3", isSubmitting)}
+                {getSubmitButtonText("4.3", submittingIndicator)}
               </Button>
             </div>
           </div>
@@ -2138,6 +2334,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.4")}
           isSaving={savingIndicators.has("4.4")}
         >
+          {renderSectionValidationMessage("4.4")}
           <div className="flex flex-col gap-4 w-[70%]">
             <div>
               <Label>
@@ -2214,7 +2411,10 @@ export const InfraEnablersStep = () => {
                     }));
                   }}
                   submissionId={submissionId}
+                  required
                   disabled={isIndicatorSubmitted("4.4")}
+                  deferFileDeletion={editingIndicators.has("4.4")}
+                  className={getInputValidationClass("section4_4.file")}
                 />
                 <p className="text-xs text-muted-foreground">
                   Upload ADR orders
@@ -2256,11 +2456,13 @@ export const InfraEnablersStep = () => {
             <div className="mt-4">
               <Button
                 onClick={() => handleSubmitIndicator("4.4", "Adoption of ADR")}
-                disabled={isSubmitting || isIndicatorSubmitted("4.4")}
+                disabled={
+                  submittingIndicator !== null || isIndicatorSubmitted("4.4")
+                }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
-                {getSubmitButtonText("4.4", isSubmitting)}
+                {getSubmitButtonText("4.4", submittingIndicator)}
               </Button>
             </div>
           </div>
@@ -2289,6 +2491,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.5")}
           isSaving={savingIndicators.has("4.5")}
         >
+          {renderSectionValidationMessage("4.5")}
           <div className="flex flex-col gap-4 w-[70%]">
             {/* Toggle */}
             <div>
@@ -2459,7 +2662,14 @@ export const InfraEnablersStep = () => {
                           updatePractice(entry.id, "file", file);
                         }}
                         submissionId={submissionId}
+                        required
                         disabled={isIndicatorSubmitted("4.5")}
+                        deferFileDeletion={editingIndicators.has("4.5")}
+                        className={getInputValidationClass(
+                          `section4_5.practices.${formData.section4_5.practices.findIndex(
+                            (p) => p.id === entry.id
+                          )}.file`
+                        )}
                       />
                       {renderFieldError(
                         `section4_5.practices.${formData.section4_5.practices.findIndex(
@@ -2518,11 +2728,13 @@ export const InfraEnablersStep = () => {
             <div className="mt-4">
               <Button
                 onClick={() => handleSubmitIndicator("4.5", "Best Practices")}
-                disabled={isSubmitting || isIndicatorSubmitted("4.5")}
+                disabled={
+                  submittingIndicator !== null || isIndicatorSubmitted("4.5")
+                }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
-                {getSubmitButtonText("4.5", isSubmitting)}
+                {getSubmitButtonText("4.5", submittingIndicator)}
               </Button>
             </div>
           </div>
@@ -2551,6 +2763,7 @@ export const InfraEnablersStep = () => {
           onCancel={() => handleCancelEdit("4.6")}
           isSaving={savingIndicators.has("4.6")}
         >
+          {renderSectionValidationMessage("4.6")}
           <div className="flex flex-col gap-4">
             {/* --- Toggle --- */}
             <div className="w-[60%]">
@@ -2921,11 +3134,13 @@ export const InfraEnablersStep = () => {
                 onClick={() =>
                   handleSubmitIndicator("4.6", "Capacity Building")
                 }
-                disabled={isSubmitting || isIndicatorSubmitted("4.6")}
+                disabled={
+                  submittingIndicator !== null || isIndicatorSubmitted("4.6")
+                }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 size="sm"
               >
-                {getSubmitButtonText("4.6", isSubmitting)}
+                {getSubmitButtonText("4.6", submittingIndicator)}
               </Button>
             </div>
           </div>
@@ -2965,9 +3180,11 @@ export const InfraEnablersStep = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmSubmit}
-              disabled={isSubmitting}
+              disabled={submittingIndicator !== null}
             >
-              {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+              {submittingIndicator !== null
+                ? "Submitting..."
+                : "Confirm & Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

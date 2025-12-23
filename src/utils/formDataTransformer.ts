@@ -30,23 +30,46 @@ export const transformFormDataForSubmission = (
   // Helper: deep prune empty values ("", null, undefined) and empty arrays/objects
   const prune = (value: any): any => {
     if (value === null || value === undefined) return undefined;
-    if (typeof value === "string") return value.trim() === "" ? undefined : value;
+    if (typeof value === "string")
+      return value.trim() === "" ? undefined : value;
 
     if (Array.isArray(value)) {
       const prunedArray = value
         .map((item) => prune(item))
-        .filter((item) => item !== undefined && !(Array.isArray(item) && item.length === 0) && !(typeof item === "object" && item !== null && Object.keys(item).length === 0));
+        .filter(
+          (item) =>
+            item !== undefined &&
+            !(Array.isArray(item) && item.length === 0) &&
+            !(
+              typeof item === "object" &&
+              item !== null &&
+              Object.keys(item).length === 0
+            )
+        );
       return prunedArray.length > 0 ? prunedArray : undefined;
     }
 
     if (typeof value === "object") {
       const prunedObj: Record<string, any> = {};
       Object.keys(value).forEach((key) => {
+        // Only skip mospi_status if it's REVERTED - preserve ACCEPTED status
+        // (Backend cleanup should have already removed REVERTED, but we check here as a safety measure)
+        if (key === "mospi_status") {
+          const mospiStatus = value[key];
+          if (mospiStatus && String(mospiStatus).trim().toUpperCase() === "REVERTED") {
+            return; // Skip REVERTED mospi_status
+          }
+          // Preserve ACCEPTED or other non-REVERTED mospi_status - continue to add it below
+        }
         const prunedVal = prune(value[key]);
         if (
           prunedVal !== undefined &&
           !(Array.isArray(prunedVal) && prunedVal.length === 0) &&
-          !(typeof prunedVal === "object" && prunedVal !== null && Object.keys(prunedVal).length === 0)
+          !(
+            typeof prunedVal === "object" &&
+            prunedVal !== null &&
+            Object.keys(prunedVal).length === 0
+          )
         ) {
           prunedObj[key] = prunedVal;
         }
@@ -178,4 +201,70 @@ export const getFormDataSummary = (formData: unknown) => {
     };
     return summary;
   }, {} as Record<string, unknown>);
+};
+
+/**
+ * Clean formData by removing MOSPI_APPROVER-specific fields
+ * NOTE: This function is deprecated. Use API call cleanMospiStatusFromSubmission instead.
+ * @param formData - Form data to clean
+ * @returns Cleaned form data without mospi_status fields (returns as-is, cleanup done via API)
+ * @deprecated Use apiService.cleanMospiStatusFromSubmission() instead
+ */
+export const cleanMospiApproverActions = (
+  formData: Record<string, any>
+): Record<string, any> => {
+  // This function is kept for backward compatibility but does nothing
+  // The actual cleanup is now done via API call
+  console.warn(
+    "⚠️ [cleanMospiApproverActions] This function is deprecated. Use API call instead."
+  );
+  return formData;
+};
+
+/**
+ * Clean review comments by removing MOSPI_APPROVER comments
+ * @param reviewComments - Array of review comments
+ * @returns Filtered array without MOSPI_APPROVER comments
+ */
+export const cleanMospiApproverComments = (reviewComments: any[]): any[] => {
+  if (!Array.isArray(reviewComments)) {
+    return [];
+  }
+
+  return reviewComments.filter((comment) => {
+    const role = comment?.role?.toUpperCase() || "";
+    return role !== "MOSPI_APPROVER";
+  });
+};
+
+/**
+ * Clean indicator comments by removing MOSPI_APPROVER comments
+ * @param indicatorComments - Object with indicator comments
+ * @returns Cleaned object without MOSPI_APPROVER comments
+ */
+export const cleanMospiApproverIndicatorComments = (
+  indicatorComments: Record<string, any>
+): Record<string, any> => {
+  if (!indicatorComments || typeof indicatorComments !== "object") {
+    return {};
+  }
+
+  const cleaned: Record<string, any> = {};
+
+  Object.keys(indicatorComments).forEach((indicatorKey) => {
+    const comments = indicatorComments[indicatorKey];
+    if (Array.isArray(comments)) {
+      const filtered = comments.filter((comment: any) => {
+        const role = comment?.role?.toUpperCase() || "";
+        return role !== "MOSPI_APPROVER";
+      });
+      if (filtered.length > 0) {
+        cleaned[indicatorKey] = filtered;
+      }
+    } else {
+      cleaned[indicatorKey] = comments;
+    }
+  });
+
+  return cleaned;
 };

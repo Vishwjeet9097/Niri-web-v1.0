@@ -46,6 +46,7 @@ import {
   getSectionsWithData,
 } from "@/utils/sectionDataValidator";
 import { apiService } from "@/services/api.service";
+import { notificationService } from "@/services/notification.service";
 import { ProgressHeader } from "@/features/submission/components/ProgressHeader";
 import {
   computeStepProgress,
@@ -57,6 +58,15 @@ import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 import { validatePPPDevelopment } from "@/features/submission/validation/pppDevelopmentValidation";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import {
+  isSubmissionFromNodalOfficer,
+  isIndicatorFromNodalOfficer,
+} from "@/utils/indicatorStatusUtils";
+import { useFieldValidation } from "@/features/submission/hooks/useFieldValidation";
+import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorDisplay";
+import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
+import { cn } from "@/lib/utils";
+import { useMemo, useCallback } from "react";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -122,12 +132,85 @@ export const PPPDevelopmentReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  
+  // Field validation hook for touch tracking
+  const {
+    touchedFields,
+    markFieldAsTouched,
+    setValidatingIndicator,
+    markIndicatorFieldsAsTouched,
+    clearValidatingIndicator,
+    clearValidFieldErrors,
+    createOnChangeHandler,
+    createOnBlurHandler,
+    createOnValueChangeHandler,
+  } = useFieldValidation();
 
-  // Helper function to get error message for a field
-  const getFieldError = (fieldPath: string): string | undefined => {
-    return validationErrors[fieldPath];
-  };
+  // Helper to check if field is touched
+  const isFieldTouched = useCallback((path: string) => {
+    return touchedFields.has(path);
+  }, [touchedFields]);
+
+  // Real-time validation state
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
+
+  // Build full form data for validation
+  const fullFormDataForValidation = useMemo(() => {
+    return formDataState || formData || {};
+  }, [formDataState, formData]);
+
+  // Real-time validation using useMemo
+  const validation = useMemo(() => {
+    const effectiveAssignedIndicators = assignedIndicators.length > 0 
+      ? assignedIndicators 
+      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+    
+    return validatePPPDevelopment(fullFormDataForValidation as any, {
+      allowedIndicators: effectiveAssignedIndicators,
+    });
+  }, [fullFormDataForValidation, assignedIndicators, hookAssignedIndicators]);
+
+  // Field error display hook
+  const { getFieldError, getInputValidationClass, renderFieldError } = useFieldErrorDisplay({
+    validationErrors: validation.errors,
+    indicatorValidationErrors,
+    showValidationErrors,
+    isFieldTouched,
+    validatingIndicator: null,
+  });
+
+  // Clear valid field errors when validation passes
+  useEffect(() => {
+    clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
+  }, [validation.errors, clearValidFieldErrors]);
+
+  // Clear section validation messages in real-time when validation passes
+  useEffect(() => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      // Check each section that has a validation message
+      Object.keys(updated).forEach((sectionId) => {
+        const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+        // Check if there are any validation errors for this section
+        const hasSectionErrors = Object.keys(validation.errors).some((errorKey) =>
+          errorKey.startsWith(sectionPrefix)
+        );
+
+        // If no errors for this section, clear the message
+        if (!hasSectionErrors) {
+          delete updated[sectionId];
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+  }, [validation.errors]);
 
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
@@ -141,6 +224,38 @@ export const PPPDevelopmentReview = ({
       setSubmissionState(submission);
     }
   }, [submission]);
+
+  // Sync formDataState when formData prop changes (but not when restoring from cancel)
+  // This ensures we always have the latest data when navigating between categories
+  useEffect(() => {
+    if (formData && !isRestoringRef.current) {
+      const rawData = (formData as any)?.pppDevelopment || formData;
+      const normalized = normalizePPPDevelopment(
+        rawData &&
+          typeof rawData === "object" &&
+          (rawData as any)?.section3_1 !== undefined
+          ? rawData
+          : rawData
+      );
+
+      // Deep comparison to detect if formData has actually changed
+      setFormDataState((prev: any) => {
+        const prevStr = JSON.stringify(prev);
+        const normalizedStr = JSON.stringify(normalized);
+
+        // If formData is different, it means parent component has refreshed with new data
+        if (prevStr !== normalizedStr) {
+          console.log(
+            "🔄 [PPPDevelopmentReview] formData prop changed, syncing local state with latest data"
+          );
+          return normalized;
+        }
+
+        // If formData hasn't changed, keep previous state (may have local edits)
+        return prev;
+      });
+    }
+  }, [formData]);
 
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] =
@@ -396,6 +511,73 @@ export const PPPDevelopmentReview = ({
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
+
+    // Show all validation errors when entering edit mode
+    // Build full form data for validation
+    const fullData = formDataState || formData || {};
+
+    const effectiveAssignedIndicators = assignedIndicators.length > 0 
+      ? assignedIndicators 
+      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+    // Run validation for the section
+    const validationResult = validatePPPDevelopment(fullData as any, {
+      allowedIndicators: effectiveAssignedIndicators,
+    });
+
+    // Filter validation errors to only include the section being edited
+    const sectionErrors: Record<string, string> = {};
+    const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+    Object.keys(validationResult.errors).forEach((errorKey) => {
+      if (errorKey.startsWith(sectionPrefix)) {
+        sectionErrors[errorKey] = validationResult.errors[errorKey];
+      }
+    });
+
+    // Mark all fields in this section as touched so errors show immediately
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+    const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
+    
+    // Get all possible field paths for this section
+    const allSectionFields: string[] = [];
+    
+    // Add base fields based on section
+    if (sectionId === "3.1") {
+      allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+    } else if (sectionId === "3.2") {
+      allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+    } else if (sectionId === "3.3") {
+      allSectionFields.push(`${sectionPrefix}.VGFArray`);
+      if (sectionData && typeof sectionData === "object" && "VGFArray" in sectionData && Array.isArray((sectionData as any).VGFArray)) {
+        (sectionData as any).VGFArray.forEach((_: any, index: number) => {
+          allSectionFields.push(
+            `${sectionPrefix}.VGFArray.${index}.projectName`,
+            `${sectionPrefix}.VGFArray.${index}.sector`,
+            `${sectionPrefix}.VGFArray.${index}.file`
+          );
+        });
+      }
+    }
+
+    // Mark all section fields as touched so errors show immediately
+    allSectionFields.forEach((field) => {
+      markFieldAsTouched(field);
+    });
+    // Also mark fields with errors from validation
+    Object.keys(validationResult.errors).forEach((errorKey) => {
+      if (errorKey.startsWith(sectionPrefix)) {
+        markFieldAsTouched(errorKey);
+      }
+    });
+
+    // Set validation errors and show them
+    setShowValidationErrors(true);
+    setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+    
+    console.log(
+      `[PPPDevelopmentReview] Validation errors for section ${sectionId}:`,
+      sectionErrors
+    );
   };
 
   // Handle cancel - restore original state
@@ -565,9 +747,45 @@ export const PPPDevelopmentReview = ({
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
 
+  // Helper function to check if a section has meaningful data
+  const sectionHasMeaningfulData = (sectionKey: string, section: any): boolean => {
+    if (!section) return false;
+    
+    switch (sectionKey) {
+      case "section3_1": {
+        return (
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
+          (section.available && (section.available === "yes" || section.available === "no")) ||
+          (section.comment && section.comment.trim())
+        );
+      }
+      case "section3_2": {
+        return (
+          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
+          (section.available && (section.available === "yes" || section.available === "no")) ||
+          (section.comment && section.comment.trim())
+        );
+      }
+      case "section3_3": {
+        const items = Array.isArray(section?.VGFArray) ? section.VGFArray : [];
+        return items.length > 0 && items.some((item: any) => 
+          item?.projectName?.trim() || item?.sector?.trim() || item?.type?.trim()
+        );
+      }
+      case "section3_4": {
+        return (
+          (section.totalProjectsAwarded && section.totalProjectsAwarded.trim()) ||
+          (section.totalProjectCostAwarded && section.totalProjectCostAwarded.trim()) ||
+          (section.projects && Array.isArray(section.projects) && section.projects.length > 0)
+        );
+      }
+      default:
+        return false;
+    }
+  };
+
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Only include sections that have meaningful data - don't show empty/unsubmitted indicators
-  // This ensures state approvers only see indicators that were actually saved/submitted by nodal officers
+  // Only include sections that have meaningful data (not just empty objects)
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     formDataState &&
@@ -579,69 +797,10 @@ export const PPPDevelopmentReview = ({
       "section3_3",
       "section3_4",
     ];
+    // Only include sections that exist AND have meaningful data
     const existingSections = allPossibleSections.filter((sectionKey) => {
-      // Check if section key exists in formDataState
-      if (!(sectionKey in formDataState)) {
-        return false;
-      }
-
       const section = formDataState[sectionKey];
-
-      // Check if section has meaningful data (not just empty object, null, or empty array)
-      if (!section || typeof section !== "object") return false;
-
-      // For section 3.1 and 3.2, check if they have files, available field, or comment
-      if (sectionKey === "section3_1" || sectionKey === "section3_2") {
-        const hasAvailable = section.available && section.available !== "";
-        const hasFiles =
-          (Array.isArray(section.files) && section.files.length > 0) ||
-          (section.file && section.file !== null);
-        const hasComment = section.comment && section.comment !== "";
-        return hasAvailable || hasFiles || hasComment;
-      }
-
-      // For section 3.3, check if VGFArray has data
-      if (sectionKey === "section3_3") {
-        return (
-          Array.isArray(section.VGFArray) &&
-          section.VGFArray.length > 0 &&
-          section.VGFArray.some((item) => {
-            if (!item || typeof item !== "object") return false;
-            return (
-              Object.keys(item).length > 0 &&
-              Object.values(item).some(
-                (val) => val !== null && val !== undefined && val !== ""
-              )
-            );
-          })
-        );
-      }
-
-      // For section 3.4, check if projects array has data
-      if (sectionKey === "section3_4") {
-        return (
-          Array.isArray(section.projects) &&
-          section.projects.length > 0 &&
-          section.projects.some((item) => {
-            if (!item || typeof item !== "object") return false;
-            return (
-              Object.keys(item).length > 0 &&
-              Object.values(item).some(
-                (val) => val !== null && val !== undefined && val !== ""
-              )
-            );
-          })
-        );
-      }
-
-      // For other sections, check if they have any meaningful values
-      return Object.values(section).some((val) => {
-        if (val === null || val === undefined || val === "") return false;
-        if (Array.isArray(val) && val.length === 0) return false;
-        if (typeof val === "object" && Object.keys(val).length === 0)
-          return false;
-        return true;
-      });
+      return sectionHasMeaningfulData(sectionKey, section);
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
@@ -674,19 +833,23 @@ export const PPPDevelopmentReview = ({
   };
 
   // Helper to extract original name from UUID-prefixed fileName for existing files
-  const extractOriginalName = (fileName: string, originalName?: string): string => {
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
     if (originalName && originalName.trim()) return originalName;
-    
+
     // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-    
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
     if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+      const extracted = fileName.replace(uuidPattern, "");
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
-    
+
     return fileName;
   };
 
@@ -799,8 +962,12 @@ export const PPPDevelopmentReview = ({
       try {
         const filePath = file.filePath || file.file;
         const encoded = encodeURIComponent(filePath);
-        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+        const base =
+          import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(
+          /\/$/,
+          ""
+        )}/file/download/${encoded}`;
 
         const accessToken = readAccessTokenFromLocalStorage();
         if (!accessToken) {
@@ -935,6 +1102,14 @@ export const PPPDevelopmentReview = ({
         },
       };
     });
+    // Clear section validation message when user starts filling fields
+    if (sectionValidationMessages[sectionId]) {
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
+    }
   };
 
   // Helper function to handle file updates
@@ -947,70 +1122,35 @@ export const PPPDevelopmentReview = ({
     const targetKey = "file"; // Section 3.1 uses 'file' (singular), same as 3.2
     const filesArray = toFileArray(updatedValue);
     // For single file sections (3.1, 3.2), use the first file or null
-    const normalizedValue = Array.isArray(updatedValue) && updatedValue.length > 0 
-      ? updatedValue[0] 
-      : (Array.isArray(updatedValue) ? null : updatedValue);
+    const normalizedValue =
+      Array.isArray(updatedValue) && updatedValue.length > 0
+        ? updatedValue[0]
+        : Array.isArray(updatedValue)
+        ? null
+        : updatedValue;
 
     const updatedSection = {
       ...previousSection,
       [targetKey]: normalizedValue,
     };
 
+    // Update local state only - save will happen when user clicks Save button
+    // Files are stored as File objects and will be uploaded to S3 on Save
     setFormDataState((prev: any) => ({
       ...prev,
       [sectionKey]: updatedSection,
     }));
 
-    // Auto-save for file changes
-    if (sectionId === "3.1") {
-      try {
-        const fields = [
-          {
-            available: updatedSection?.available ?? null,
-            file: normalizedValue,
-            comment: updatedSection?.comment ?? null,
-          },
-        ];
-
-        await handleSaveSection({
-          submissionId,
-          category: "pppDevelopment",
-          section: sectionKey,
-          fields,
-        });
-
-        if (!normalizedValue) {
-          await onIndicatorStatus(sectionId, false);
-        }
-      } catch (error) {
-        console.error(
-          "Failed to auto-save files for section",
-          sectionId,
-          error
-        );
-      }
-    } else if (sectionId === "3.2") {
-      try {
-        const fields = [
-          {
-            available: updatedSection?.available ?? null,
-            file: normalizedValue,
-          },
-        ];
-
-        await handleSaveSection({
-          submissionId,
-          category: "pppDevelopment",
-          section: sectionKey,
-          fields,
-        });
-      } catch (error) {
-        console.error(
-          "Failed to auto-save files for section",
-          sectionId,
-          error
-        );
-      }
+    // Removed auto-save - files are stored as File objects and will be uploaded
+    // when user clicks Save button (via updateSubmission → uploadFilesAndReplace)
+    
+    // Clear section validation message when user uploads files
+    if (sectionValidationMessages[sectionId]) {
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
     }
   };
 
@@ -1034,6 +1174,14 @@ export const PPPDevelopmentReview = ({
         },
       };
     });
+    // Clear section validation message when user updates table fields
+    if (sectionValidationMessages["3.3"]) {
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated["3.3"];
+        return updated;
+      });
+    }
   };
 
   // Helper to update section 3.4 project fields
@@ -1062,7 +1210,7 @@ export const PPPDevelopmentReview = ({
   const handleRemoveVGFEntry = (id: string) => {
     setFormDataState((prev: any) => {
       const current = prev?.section3_3?.VGFArray;
-      const rows = Array.isArray(current) 
+      const rows = Array.isArray(current)
         ? current.filter((item: any) => item.id !== id)
         : [];
       return {
@@ -1079,7 +1227,7 @@ export const PPPDevelopmentReview = ({
   const handleRemoveProjectEntry = (id: string) => {
     setFormDataState((prev: any) => {
       const current = prev?.section3_4?.projects;
-      const projects = Array.isArray(current) 
+      const projects = Array.isArray(current)
         ? current.filter((item: any) => item.id !== id)
         : [];
       return {
@@ -1210,12 +1358,26 @@ export const PPPDevelopmentReview = ({
 
     // Check if this is a resubmission of a sent-back indicator
     const sectionKey = `section${sectionId.replace(".", "_")}`;
+    // Check multiple sources for status: submission.section_status, formDataState
+    let currentStatus: string | undefined;
+    
+    // Get sectionData for logging and fallback status check
     const sectionData = formDataState && formDataState[sectionKey];
-    const currentStatus = sectionData
-      ? Array.isArray(sectionData)
-        ? (sectionData as any).status
-        : sectionData.status
-      : undefined;
+    
+    // First check submission.section_status (most reliable source)
+    if (submission?.section_status && typeof submission.section_status === "object") {
+      currentStatus = (submission.section_status as any)[sectionKey];
+    }
+    
+    // Fallback to formDataState status
+    if (!currentStatus) {
+      currentStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+    }
+    
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
@@ -1227,14 +1389,120 @@ export const PPPDevelopmentReview = ({
       isReverted,
     });
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
       console.log(
-        `[PPPDevelopmentReview] ✅ Showing save confirmation dialog for REVERTED indicator`
+        `[PPPDevelopmentReview] ✅ Running validation before showing dialog for NODAL_OFFICER`
       );
-      setPendingSaveSectionId(sectionId);
-      setShowSaveDialog(true);
-      return;
+      
+      // Run validation first (same logic as in performSave)
+      const fullData = {
+        section3_1: formDataState?.section3_1 || { available: "", file: null },
+        section3_2: formDataState?.section3_2 || { available: "", file: null },
+        section3_3: formDataState?.section3_3 || [],
+        section3_4: formDataState?.section3_4 || { projects: [] },
+      };
+
+      const effectiveAssignedIndicators = assignedIndicators.length > 0 
+        ? assignedIndicators 
+        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+
+      const validationResult = validatePPPDevelopment(fullData, {
+        allowedIndicators: effectiveAssignedIndicators,
+      });
+
+      // Filter validation errors to only include the section being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this section as touched so ALL errors show
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
+        
+        // Get all possible field paths for this section
+        const allSectionFields: string[] = [];
+        
+        // Add base fields based on section
+        if (sectionId === "3.1") {
+          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "3.2") {
+          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "3.3") {
+          allSectionFields.push(`${sectionPrefix}.VGFArray`);
+          if (sectionData && typeof sectionData === "object" && "VGFArray" in sectionData && Array.isArray((sectionData as any).VGFArray)) {
+            (sectionData as any).VGFArray.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.VGFArray.${index}.projectName`,
+                `${sectionPrefix}.VGFArray.${index}.sector`,
+                `${sectionPrefix}.VGFArray.${index}.type`,
+                `${sectionPrefix}.VGFArray.${index}.submissionDate`,
+                `${sectionPrefix}.VGFArray.${index}.file`
+              );
+            });
+          }
+        } else if (sectionId === "3.4") {
+          allSectionFields.push(`${sectionPrefix}.totalProjectsAwarded`, `${sectionPrefix}.totalProjectCostAwarded`, `${sectionPrefix}.projects`);
+          if (sectionData && typeof sectionData === "object" && "projects" in sectionData && Array.isArray((sectionData as any).projects)) {
+            (sectionData as any).projects.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.projects.${index}.nameOfProject`,
+                `${sectionPrefix}.projects.${index}.nipId`,
+                `${sectionPrefix}.projects.${index}.fundingSource`,
+                `${sectionPrefix}.projects.${index}.infrastructureSector`,
+                `${sectionPrefix}.projects.${index}.dateOfAward`,
+                `${sectionPrefix}.projects.${index}.totalProjectCost`
+              );
+            });
+          }
+        }
+
+        // Mark all section fields as touched so ALL errors show
+        allSectionFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message (same as STATE_APPROVER)
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [sectionId]: `Please fill all mandatory fields.`,
+        }));
+        console.warn("Validation failed for section", sectionId, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        console.log(
+          `[PPPDevelopmentReview] ✅ Validation passed - showing save confirmation dialog for REVERTED indicator`
+        );
+        setPendingSaveSectionId(sectionId);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        console.log(
+          `[PPPDevelopmentReview] ✅ Validation passed - proceeding with direct save (not REVERTED)`
+        );
+        await performSave(sectionId);
+        return;
+      }
     }
 
     console.log(
@@ -1376,9 +1644,12 @@ export const PPPDevelopmentReview = ({
         section3_4: formDataState?.section3_4 || { projects: [] },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validatePPPDevelopment(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -1395,13 +1666,58 @@ export const PPPDevelopmentReview = ({
 
       // Only block save if there are errors in the section being saved
       if (Object.keys(sectionErrors).length > 0) {
-        setValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Mark all fields in this section as touched so ALL errors show
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
+        
+        // Get all possible field paths for this section
+        const allSectionFields: string[] = [];
+        
+        // Add base fields based on section
+        if (sectionId === "3.1") {
+          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "3.2") {
+          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+        } else if (sectionId === "3.3") {
+          allSectionFields.push(`${sectionPrefix}.VGFArray`);
+          if (sectionData && typeof sectionData === "object" && "VGFArray" in sectionData && Array.isArray((sectionData as any).VGFArray)) {
+            (sectionData as any).VGFArray.forEach((_: any, index: number) => {
+              allSectionFields.push(
+                `${sectionPrefix}.VGFArray.${index}.projectName`,
+                `${sectionPrefix}.VGFArray.${index}.sector`,
+                `${sectionPrefix}.VGFArray.${index}.file`
+              );
+            });
+          }
+        }
+
+        // Mark all section fields as touched so ALL errors show
+        allSectionFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [sectionId]: `Please fill all mandatory fields.`,
+        }));
         console.warn("Validation failed for section", sectionId, sectionErrors);
-        // Errors are displayed inline in the UI, no need for alert
-        return;
+        // Throw validation error so handleConfirmSave can catch it and close dialog
+        const validationError = new Error("VALIDATION_FAILED");
+        (validationError as any).isValidationError = true;
+        throw validationError;
       } else {
         // Clear errors for this section only
-        setValidationErrors((prev) => {
+        setIndicatorValidationErrors((prev) => {
           const filtered = { ...prev };
           Object.keys(filtered).forEach((key) => {
             if (key.startsWith(sectionPrefix)) {
@@ -1410,6 +1726,31 @@ export const PPPDevelopmentReview = ({
           });
           return filtered;
         });
+        // Clear section-level validation message on successful validation
+        setSectionValidationMessages((prev) => {
+          const updated = { ...prev };
+          delete updated[sectionId];
+          return updated;
+        });
+      }
+
+      // Validate required fields before calling API
+      if (!submissionId) {
+        console.error("[PPPDevelopmentReview] ❌ submissionId is missing");
+        // Don't show notification, throw error instead
+        throw new Error("Submission ID is missing");
+      }
+
+      if (!fields || fields.length === 0) {
+        console.error("[PPPDevelopmentReview] ❌ fields array is empty");
+        // Don't show notification, throw error instead
+        throw new Error("Fields array is empty");
+      }
+
+      if (!payloadSection) {
+        console.error("[PPPDevelopmentReview] ❌ section is missing");
+        // Don't show notification, throw error instead
+        throw new Error("Section is missing");
       }
 
       console.log(
@@ -1420,6 +1761,7 @@ export const PPPDevelopmentReview = ({
           section: payloadSection,
           fieldsCount: fields.length,
           fieldsWithStatus: fields[0]?.status,
+          fields: fields,
         }
       );
       const saveResult = await handleSaveSection({
@@ -1499,9 +1841,16 @@ export const PPPDevelopmentReview = ({
         console.log(`[PPPDevelopmentReview] ✅ Save completed successfully`);
         setShowSaveDialog(false);
         setPendingSaveSectionId(null);
-      } catch (error) {
+      } catch (error: any) {
         console.error(`[PPPDevelopmentReview] ❌ Save failed:`, error);
-        // Don't close dialog on error so user can try again
+        // If validation failed, close dialog so error messages are visible
+        if (error?.isValidationError) {
+          setShowSaveDialog(false);
+          setPendingSaveSectionId(null);
+          // Error messages are already displayed on UI, no notification needed
+        } else {
+          // For other errors, don't close dialog so user can try again
+        }
       }
     } else {
       console.warn(
@@ -1519,6 +1868,7 @@ export const PPPDevelopmentReview = ({
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
@@ -1531,6 +1881,27 @@ export const PPPDevelopmentReview = ({
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
+    }
+
+    // If STATE_APPROVER is sending back (status = false), extract nodalOfficerId from section data
+    if (isStateApprover && !status) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (formDataState && (formDataState as any)[sectionKey]) ||
+        (formData && (formData as any)[sectionKey]);
+
+      const nodalOfficerId = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.nodalOfficerId
+          : sectionData?.nodalOfficerId
+        : undefined;
+
+      if (nodalOfficerId) {
+        payload.nodalOfficerId = nodalOfficerId;
+        console.log(
+          `📤 [PPPDevelopmentReview] Sending back indicator ${sectionId} to NODAL_OFFICER: ${nodalOfficerId}`
+        );
+      }
     }
 
     try {
@@ -1723,6 +2094,20 @@ export const PPPDevelopmentReview = ({
   };
 
   // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  // Helper to render validation error message for a section
+  const renderSectionValidationMessage = (sectionId: string) => {
+    if (!sectionValidationMessages[sectionId] || !shouldBeEditable(sectionId)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[sectionId]}
+        </p>
+      </div>
+    );
+  };
+
   const renderMOSPIReviewerComments = (sectionId: string) => {
     const getUserRole = () => {
       try {
@@ -2029,6 +2414,9 @@ export const PPPDevelopmentReview = ({
           </div>
         );
       }
+
+      // If mospi_status is REVERTED, continue to show Edit button and other actions
+      // We'll add the "Returned from Mospi" button in the normal flow below
     }
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
@@ -2304,6 +2692,31 @@ export const PPPDevelopmentReview = ({
 
     return (
       <div className="flex gap-2">
+        {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (formDataState && (formDataState as any)[sectionKey]) ||
+              (formData && (formData as any)[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+            return mospiStatus === "REVERTED";
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from Mospi
+            </Button>
+          )}
+
         {!isEditable(sectionId) ? (
           <Button
             variant="outline"
@@ -2337,6 +2750,75 @@ export const PPPDevelopmentReview = ({
             </Button>
           </>
         )}
+
+        {/* Show "Send Back" button for STATE_APPROVER when indicator is returned from MOSPI and originally from NODAL_OFFICER */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (formDataState && (formDataState as any)[sectionKey]) ||
+              (formData && (formData as any)[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+
+            // Check if this specific indicator was originally submitted by NODAL_OFFICER
+            const isFromNodalOfficer = isIndicatorFromNodalOfficer(
+              submission as any,
+              sectionId
+            );
+
+            // Detailed logging for debugging
+            console.group(
+              `🔍 [PPPDevelopmentReview] "Send Back" button check for section ${sectionId}`
+            );
+            console.log("📊 Section data:", {
+              sectionKey,
+              sectionData: sectionData
+                ? Array.isArray(sectionData)
+                  ? sectionData[0]
+                  : sectionData
+                : null,
+              mospiStatus,
+              hasFormDataState: !!formDataState,
+              hasFormData: !!formData,
+            });
+            console.log("👤 Submission info:", {
+              submissionId: submission?.id,
+              submissionStatus: submission?.status,
+              currentOwnerRole: submission?.currentOwnerRole,
+              submittedBy: submission?.submittedBy,
+            });
+            console.log("✅ Checks:", {
+              isStateApprover,
+              mospiStatus,
+              isMospiReverted: mospiStatus === "REVERTED",
+              isFromNodalOfficer,
+              shouldShowButton:
+                mospiStatus === "REVERTED" && isFromNodalOfficer,
+            });
+            console.groupEnd();
+
+            return mospiStatus === "REVERTED" && isFromNodalOfficer;
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => {
+                // Track that this was opened from STATE_APPROVER "Send Back" button
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+                handleOpenModal(sectionId);
+              }}
+              disabled={shouldBeEditable(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+          )}
 
         {/* Hide Send Back button if STATE_APPROVER is viewing their own submission */}
         {(() => {
@@ -2482,6 +2964,8 @@ export const PPPDevelopmentReview = ({
           </CardHeader> */}
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("3.1")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("3.1")}
             <div className="space-y-4">
               <div>
                 <Label className="mb-3 block">PPP Act/Policy Available?*</Label>
@@ -2490,14 +2974,8 @@ export const PPPDevelopmentReview = ({
                     value={state?.section3_1?.available || ""}
                     onValueChange={(value) => {
                       handleFieldUpdate("3.1", "available", value);
-                      // Clear validation error when user selects
-                      if (getFieldError("section3_1.available")) {
-                        setValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section3_1.available"];
-                          return updated;
-                        });
-                      }
+                      markFieldAsTouched("section3_1.available");
+                      setShowValidationErrors(true);
                     }}
                     className="flex flex-row gap-6"
                   >
@@ -2523,9 +3001,7 @@ export const PPPDevelopmentReview = ({
                     </span>
                   </div>
                 )}
-                {getFieldError("section3_1.available") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.available")}</p>
-                )}
+                {renderFieldError("section3_1.available")}
               </div>
 
               {state?.section3_1?.available === "yes" && (
@@ -2536,21 +3012,13 @@ export const PPPDevelopmentReview = ({
                     submissionId={submissionId}
                     onFilesChange={(updatedFile) => {
                       handleFileUpdate("3.1", updatedFile);
-                      // Clear validation error when file is uploaded
-                      if (getFieldError("section3_1.file")) {
-                        setValidationErrors((prev) => {
-                          const updated = { ...prev };
-                          delete updated["section3_1.file"];
-                          return updated;
-                        });
-                      }
+                      markFieldAsTouched("section3_1.file");
+                      setShowValidationErrors(true);
                     }}
                     label="Uploaded File"
                     multiple={false}
                   />
-                  {getFieldError("section3_1.file") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.file")}</p>
-                  )}
+                  {renderFieldError("section3_1.file")}
                 </div>
               )}
 
@@ -2562,14 +3030,8 @@ export const PPPDevelopmentReview = ({
                       value={state?.section3_1?.comment || ""}
                       onChange={(e) => {
                         handleFieldUpdate("3.1", "comment", e.target.value);
-                        // Clear validation error when user starts typing
-                        if (getFieldError("section3_1.comment")) {
-                          setValidationErrors((prev) => {
-                            const updated = { ...prev };
-                            delete updated["section3_1.comment"];
-                            return updated;
-                          });
-                        }
+                        markFieldAsTouched("section3_1.comment");
+                        setShowValidationErrors(true);
                       }}
                       placeholder="Please provide a comment..."
                       className={
@@ -2583,9 +3045,7 @@ export const PPPDevelopmentReview = ({
                       {state?.section3_1?.comment || "No comment provided"}
                     </div>
                   )}
-                  {getFieldError("section3_1.comment") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_1.comment")}</p>
-                  )}
+                  {renderFieldError("section3_1.comment")}
                 </div>
               )}
 
@@ -2615,6 +3075,8 @@ export const PPPDevelopmentReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("3.2")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("3.2")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2645,7 +3107,7 @@ export const PPPDevelopmentReview = ({
                       handleFieldUpdate("3.2", "available", value);
                       // Clear validation error when user selects
                       if (getFieldError("section3_2.available")) {
-                        setValidationErrors((prev) => {
+                        setIndicatorValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section3_2.available"];
                           return updated;
@@ -2676,9 +3138,7 @@ export const PPPDevelopmentReview = ({
                     </span>
                   </div>
                 )}
-                {getFieldError("section3_2.available") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.available")}</p>
-                )}
+                {renderFieldError("section3_2.available")}
               </div>
 
               {state?.section3_2?.available === "yes" && (
@@ -2691,7 +3151,7 @@ export const PPPDevelopmentReview = ({
                       handleFileUpdate("3.2", updatedFile);
                       // Clear validation error when file is uploaded
                       if (getFieldError("section3_2.file")) {
-                        setValidationErrors((prev) => {
+                        setIndicatorValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section3_2.file"];
                           return updated;
@@ -2701,9 +3161,7 @@ export const PPPDevelopmentReview = ({
                     label="Uploaded File"
                     multiple={false}
                   />
-                  {getFieldError("section3_2.file") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.file")}</p>
-                  )}
+                  {renderFieldError("section3_2.file")}
                 </div>
               )}
 
@@ -2717,7 +3175,7 @@ export const PPPDevelopmentReview = ({
                         handleFieldUpdate("3.2", "comment", e.target.value);
                         // Clear validation error when user starts typing
                         if (getFieldError("section3_2.comment")) {
-                          setValidationErrors((prev) => {
+                          setIndicatorValidationErrors((prev) => {
                             const updated = { ...prev };
                             delete updated["section3_2.comment"];
                             return updated;
@@ -2736,9 +3194,7 @@ export const PPPDevelopmentReview = ({
                       {state?.section3_2?.comment || "No comment provided"}
                     </div>
                   )}
-                  {getFieldError("section3_2.comment") && (
-                    <p className="text-sm text-red-500 mt-1">{getFieldError("section3_2.comment")}</p>
-                  )}
+                  {renderFieldError("section3_2.comment")}
                 </div>
               )}
 
@@ -2769,6 +3225,8 @@ export const PPPDevelopmentReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("3.3")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("3.3")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -2854,14 +3312,14 @@ export const PPPDevelopmentReview = ({
                                     )
                                   }
                                   className={
-                                    getFieldError(`section3_3.VGFArray.${index}.projectName`)
+                                    getFieldError(
+                                      `section3_3.VGFArray.${index}.projectName`
+                                    )
                                       ? "w-full border-red-500"
                                       : "w-full"
                                   }
                                 />
-                                {getFieldError(`section3_3.VGFArray.${index}.projectName`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.projectName`)}</p>
-                                )}
+                                {renderFieldError(`section3_3.VGFArray.${index}.projectName`)}
                               </div>
                             ) : (
                               item.projectName || ""
@@ -2874,14 +3332,22 @@ export const PPPDevelopmentReview = ({
                                   key={`sector-${index}-${selectResetKey}`}
                                   value={item.sector || ""}
                                   onValueChange={(value) =>
-                                    handleTableFieldUpdate(index, "sector", value)
+                                    handleTableFieldUpdate(
+                                      index,
+                                      "sector",
+                                      value
+                                    )
                                   }
                                 >
-                                  <SelectTrigger className={
-                                    getFieldError(`section3_3.VGFArray.${index}.sector`)
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }>
+                                  <SelectTrigger
+                                    className={
+                                      getFieldError(
+                                        `section3_3.VGFArray.${index}.sector`
+                                      )
+                                        ? "w-full border-red-500"
+                                        : "w-full"
+                                    }
+                                  >
                                     <SelectValue placeholder="Select sector" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -2892,8 +3358,14 @@ export const PPPDevelopmentReview = ({
                                     ))}
                                   </SelectContent>
                                 </Select>
-                                {getFieldError(`section3_3.VGFArray.${index}.sector`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.sector`)}</p>
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.sector`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.sector`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -2910,11 +3382,15 @@ export const PPPDevelopmentReview = ({
                                     handleTableFieldUpdate(index, "type", value)
                                   }
                                 >
-                                  <SelectTrigger className={
-                                    getFieldError(`section3_3.VGFArray.${index}.type`)
-                                      ? "w-full border-red-500"
-                                      : "w-full"
-                                  }>
+                                  <SelectTrigger
+                                    className={
+                                      getFieldError(
+                                        `section3_3.VGFArray.${index}.type`
+                                      )
+                                        ? "w-full border-red-500"
+                                        : "w-full"
+                                    }
+                                  >
                                     <SelectValue placeholder="Select type" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -2925,8 +3401,14 @@ export const PPPDevelopmentReview = ({
                                     ))}
                                   </SelectContent>
                                 </Select>
-                                {getFieldError(`section3_3.VGFArray.${index}.type`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.type`)}</p>
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.type`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.type`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -2955,13 +3437,21 @@ export const PPPDevelopmentReview = ({
                                     )
                                   }
                                   className={
-                                    getFieldError(`section3_3.VGFArray.${index}.submissionDate`)
+                                    getFieldError(
+                                      `section3_3.VGFArray.${index}.submissionDate`
+                                    )
                                       ? "w-full border-red-500"
                                       : "w-full"
                                   }
                                 />
-                                {getFieldError(`section3_3.VGFArray.${index}.submissionDate`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section3_3.VGFArray.${index}.submissionDate`)}</p>
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.submissionDate`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.submissionDate`
+                                    )}
+                                  </p>
                                 )}
                               </div>
                             ) : item.submissionDate ? (
@@ -3036,7 +3526,10 @@ export const PPPDevelopmentReview = ({
                                               fileData.fileName ||
                                               fileData.filename ||
                                               selectedFile.name,
-                                            originalName: selectedFile.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name
+                                            originalName:
+                                              selectedFile.name ||
+                                              fileData.originalName ||
+                                              fileData.data?.originalName, // Preserve original file name
                                             fileSize: Number(
                                               fileData.fileSize ??
                                                 fileData.size ??
@@ -3096,24 +3589,36 @@ export const PPPDevelopmentReview = ({
                                 <Badge
                                   variant="secondary"
                                   className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
-                                  title={(item.file as any).originalName || item.file.fileName || "Unknown file"}
+                                  title={
+                                    (item.file as any).originalName ||
+                                    item.file.fileName ||
+                                    "Unknown file"
+                                  }
                                 >
                                   <Upload className="w-3 h-3" />
                                   <span className="truncate">
-                                    {(item.file as any).originalName || item.file.fileName || "Unknown file"}
+                                    {(item.file as any).originalName ||
+                                      item.file.fileName ||
+                                      "Unknown file"}
                                   </span>
                                 </Badge>
                                 {(() => {
                                   const fileKey = `3.3-${index}`;
                                   const isLoading = !!fileLoading[fileKey];
-                                  const hasFileAccess = !!(item.file.filePath || item.file.file || item.file.fileUrl);
+                                  const hasFileAccess = !!(
+                                    item.file.filePath ||
+                                    item.file.file ||
+                                    item.file.fileUrl
+                                  );
                                   return hasFileAccess ? (
                                     <>
                                       <Button
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleViewFile(item.file, fileKey)}
+                                        onClick={() =>
+                                          handleViewFile(item.file, fileKey)
+                                        }
                                         disabled={isLoading}
                                         className="h-7 w-7 p-0"
                                         title="View file"
@@ -3124,7 +3629,9 @@ export const PPPDevelopmentReview = ({
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleDownloadFile(item.file, fileKey)}
+                                        onClick={() =>
+                                          handleDownloadFile(item.file, fileKey)
+                                        }
                                         disabled={isLoading}
                                         className="h-7 w-7 p-0"
                                         title="Download file"
@@ -3146,7 +3653,11 @@ export const PPPDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => handleRemoveVGFEntry(item.id || index.toString())}
+                                onClick={() =>
+                                  handleRemoveVGFEntry(
+                                    item.id || index.toString()
+                                  )
+                                }
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
@@ -3315,6 +3826,8 @@ export const PPPDevelopmentReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("3.4")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("3.4")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3363,7 +3876,9 @@ export const PPPDevelopmentReview = ({
                         placeholder="Enter total projects awarded"
                       />
                       {getFieldError("section3_4.totalProjectsAwarded") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section3_4.totalProjectsAwarded")}</p>
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError("section3_4.totalProjectsAwarded")}
+                        </p>
                       )}
                     </div>
                   ) : (
@@ -3375,7 +3890,9 @@ export const PPPDevelopmentReview = ({
                   )}
                 </div>
                 <div>
-                  <Label>Total Project Cost Awarded (INR - values is in CRORES) </Label>
+                  <Label>
+                    Total Project Cost Awarded (INR - values is in CRORES){" "}
+                  </Label>
                   {/* <p className="text-xs text-muted-foreground mt-1">INR - values is in CRORES</p> */}
                   {isEditable("3.4") ? (
                     <div>
@@ -3403,7 +3920,9 @@ export const PPPDevelopmentReview = ({
                         placeholder="Enter total project cost awarded"
                       />
                       {getFieldError("section3_4.totalProjectCostAwarded") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section3_4.totalProjectCostAwarded")}</p>
+                        <p className="text-sm text-red-500 mt-1">
+                          {getFieldError("section3_4.totalProjectCostAwarded")}
+                        </p>
                       )}
                     </div>
                   ) : (
@@ -3595,7 +4114,10 @@ export const PPPDevelopmentReview = ({
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   // Only allow numbers and decimal point
-                                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                  if (
+                                    value === "" ||
+                                    /^\d*\.?\d*$/.test(value)
+                                  ) {
                                     handleProjectFieldUpdate(
                                       idx,
                                       "capexPercentage",
@@ -3621,7 +4143,10 @@ export const PPPDevelopmentReview = ({
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   // Only allow numbers and decimal point
-                                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                  if (
+                                    value === "" ||
+                                    /^\d*\.?\d*$/.test(value)
+                                  ) {
                                     handleProjectFieldUpdate(
                                       idx,
                                       "totalProjectCost",
@@ -3641,7 +4166,11 @@ export const PPPDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => handleRemoveProjectEntry(project.id || idx.toString())}
+                                onClick={() =>
+                                  handleRemoveProjectEntry(
+                                    project.id || idx.toString()
+                                  )
+                                }
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />

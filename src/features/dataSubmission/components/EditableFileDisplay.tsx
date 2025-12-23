@@ -122,51 +122,42 @@ export const EditableFileDisplay = ({
       return;
     }
 
-    setUploading(true);
-    try {
-      const response = await apiService.uploadFile(submissionId, file);
-      
-      // Handle different response structures
-      // API returns { url: string; filename: string; size: number }
-      // But might also have nested data property
-      const fileData = (response as any)?.data || response;
+    // ✅ Store File object directly - upload will happen when user clicks Save button
+    // This matches submission-time behavior (FileUploadSection.tsx line 68-77)
+    const newFile: FileUpload = {
+      id: crypto.randomUUID(),
+      file: file, // Store File object, not uploaded path
+      fileName: file.name,
+      originalName: file.name, // Preserve original file name
+      fileSize: file.size,
+      uploadedAt: Date.now(),
+      mimeType: file.type,
+      // No filePath or fileUrl yet - will be set after upload on Save
+    };
 
-      const storedPath =
-        fileData.file ?? fileData.filePath ?? fileData.url ?? fileData.path ?? null;
-      const uploadedAt = Number(fileData.uploadedAt ?? Date.now());
+    // Verify File instance is preserved
+    const globalFileCtor =
+      typeof globalThis !== "undefined" && typeof (globalThis as any).File === "function"
+        ? (globalThis as any).File
+        : undefined;
+    if (!newFile.file || (globalFileCtor && !(newFile.file instanceof globalFileCtor))) {
+      console.error("❌ CRITICAL: File instance lost when creating FileUpload object!");
+    }
 
-      const newFile = {
-        id: fileData.id ?? crypto.randomUUID(),
-        file: storedPath,
-        fileName: fileData.fileName || fileData.filename || file.name,
-        originalName: file.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name from File object
-        fileSize: Number(fileData.fileSize ?? fileData.size ?? file.size ?? 0),
-        uploadedAt,
-        filePath: storedPath ?? undefined,
-        fileUrl: fileData.fileUrl || fileData.url,
-        mimeType: fileData.mimeType,
-      } as FileUpload;
+    // Update files based on multiple prop
+    if (multiple) {
+      const currentFiles = getNormalizedFiles();
+      const updatedFiles = [...currentFiles, newFile] as FileUpload[];
+      onFilesChange(updatedFiles);
+    } else {
+      onFilesChange(newFile);
+    }
 
-      // Update files based on multiple prop
-      if (multiple) {
-        const currentFiles = getNormalizedFiles();
-        const updatedFiles = [...currentFiles, newFile] as FileUpload[];
-        onFilesChange(updatedFiles);
-      } else {
-        onFilesChange(newFile);
-      }
-
-      notificationService.success("File uploaded successfully", "Upload Complete");
-    } catch (error: any) {
-      notificationService.error(
-        error.message || "Failed to upload file. Please try again.",
-        "Upload Failed"
-      );
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+    notificationService.success("File added successfully", "File Added");
+    
+    // Clear file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -257,8 +248,14 @@ export const EditableFileDisplay = ({
       return;
     }
 
+    // Get File constructor safely
+    const globalFileCtor =
+      typeof globalThis !== "undefined" && typeof (globalThis as any).File === "function"
+        ? (globalThis as any).File
+        : undefined;
+
     // For local File objects (before submission), create object URL
-    if (file.file instanceof window.File) {
+    if (globalFileCtor && file.file instanceof globalFileCtor) {
       const url = URL.createObjectURL(file.file);
       window.open(url, "_blank", "noopener,noreferrer");
       // Clean up after a delay
@@ -303,8 +300,14 @@ export const EditableFileDisplay = ({
       return;
     }
 
+    // Get File constructor safely
+    const globalFileCtor =
+      typeof globalThis !== "undefined" && typeof (globalThis as any).File === "function"
+        ? (globalThis as any).File
+        : undefined;
+
     // For local File objects (before submission), create object URL and download
-    if (file.file instanceof window.File) {
+    if (globalFileCtor && file.file instanceof globalFileCtor) {
       const url = URL.createObjectURL(file.file);
       const a = document.createElement("a");
       a.href = url;
@@ -383,12 +386,34 @@ export const EditableFileDisplay = ({
           {normalizedFiles.map((file, index) => {
             const fileKey = file.id || `file-${index}`;
             const isLoading = !!loading[fileKey];
-            const hasFileAccess = !!(
-              file.filePath || 
-              (typeof file.file === "string" && file.file) || 
-              file.fileUrl ||
-              (file.file instanceof window.File) // Add this check for local File objects
-            );
+            // Get File constructor safely for hasFileAccess check
+            const globalFileCtor =
+              typeof globalThis !== "undefined" && typeof (globalThis as any).File === "function"
+                ? (globalThis as any).File
+                : undefined;
+            
+            // More robust check for file access - ensures local File objects are always detected
+            const hasFileAccess = (() => {
+              // Check for filePath or fileUrl (uploaded files)
+              if (file.filePath || file.fileUrl) return true;
+              
+              // Check for string file path
+              if (typeof file.file === "string" && file.file) return true;
+              
+              // Check for local File object - multiple ways to detect it for reliability
+              if (file.file) {
+                // Method 1: instanceof check (most reliable when it works)
+                if (globalFileCtor && file.file instanceof globalFileCtor) return true;
+                
+                // Method 2: Check constructor name (fallback for cross-frame issues)
+                if (typeof file.file === "object" && file.file.constructor && file.file.constructor.name === "File") return true;
+                
+                // Method 3: Check for File-like properties (size, name, type) - most reliable fallback
+                if (typeof (file.file as any).size === "number" && typeof (file.file as any).name === "string") return true;
+              }
+              
+              return false;
+            })();
             return (
               <div
                 key={fileKey}

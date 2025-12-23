@@ -18,6 +18,8 @@ interface FileUploadSectionProps {
   submissionId?: string; // For backend integration
   onUploadComplete?: (uploadedFile: FileUpload) => void;
   disabled?: boolean;
+  className?: string; // Additional className for validation styling
+  deferFileDeletion?: boolean; // If true, don't call DELETE API immediately (for editing sent-back indicators)
 }
 
 export const FileUploadSection = ({
@@ -31,6 +33,8 @@ export const FileUploadSection = ({
   submissionId,
   onUploadComplete,
   disabled = false,
+  className,
+  deferFileDeletion = false, // Add this prop
 }: FileUploadSectionProps) => {
   const uniqueId = useId();
   const fileInputId = `file-${uniqueId}`;
@@ -85,6 +89,16 @@ export const FileUploadSection = ({
 
   const handleRemoveFile = async () => {
     if (disabled) return;
+    
+    // If deferFileDeletion is true (editing sent-back indicator), 
+    // just update local state without calling DELETE API
+    // The backend will handle file deletion when the form is saved
+    if (deferFileDeletion) {
+      onChange(null);
+      return;
+    }
+    
+    // Original behavior: call DELETE API for immediate deletion
     if (value?.filePath && submissionId) {
       try {
         await apiService.deleteFile(value.filePath);
@@ -226,13 +240,19 @@ export const FileUploadSection = ({
       {!value ? (
         <div className="flex items-center gap-3">
           {disabled ? (
-            <div className="px-4 py-2 rounded-md font-medium text-sm transition bg-gray-100 text-gray-400 cursor-not-allowed">
+            <div className={cn(
+              "px-4 py-2 rounded-md font-medium text-sm transition bg-gray-100 text-gray-400 cursor-not-allowed",
+              className
+            )}>
               Upload File
             </div>
           ) : (
             <label
               htmlFor={fileInputId}
-              className="px-4 py-2 rounded-md font-medium text-sm transition bg-indigo-100 text-indigo-800 cursor-pointer hover:bg-indigo-200"
+              className={cn(
+                "px-4 py-2 rounded-md font-medium text-sm transition bg-indigo-100 text-indigo-800 cursor-pointer hover:bg-indigo-200",
+                className
+              )}
             >
               Upload File
             </label>
@@ -252,7 +272,10 @@ export const FileUploadSection = ({
           </span>
         </div>
       ) : (
-        <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/30">
+        <div className={cn(
+          "flex items-center gap-3 p-4 border rounded-lg bg-muted/30",
+          className
+        )}>
           <FileIcon className="w-8 h-8 text-primary flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
@@ -297,6 +320,7 @@ export const FileUploadSection = ({
           </div>
         </div>
       )}
+      {/* Error messages are handled centrally by parent components via renderFieldError */}
     </div>
   );
 };

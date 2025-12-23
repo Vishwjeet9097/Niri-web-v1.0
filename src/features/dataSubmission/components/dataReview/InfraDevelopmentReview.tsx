@@ -58,6 +58,15 @@ import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { validateInfraDevelopment } from "@/features/submission/validation/infraDevelopmentValidation";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import {
+  isSubmissionFromNodalOfficer,
+  isIndicatorFromNodalOfficer,
+} from "@/utils/indicatorStatusUtils";
+import { useFieldValidation } from "@/features/submission/hooks/useFieldValidation";
+import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorDisplay";
+import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
+import { cn } from "@/lib/utils";
+import { useMemo, useCallback } from "react";
 
 const toFileArray = (
   value: FileUpload | FileUpload[] | null | undefined
@@ -98,12 +107,96 @@ export const InfraDevelopmentReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(formData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
 
-  // Helper function to get error message for a field
-  const getFieldError = (fieldPath: string): string | undefined => {
-    return validationErrors[fieldPath];
-  };
+  // Field validation hook for touch tracking
+  const {
+    touchedFields,
+    markFieldAsTouched,
+    setValidatingIndicator,
+    markIndicatorFieldsAsTouched,
+    clearValidatingIndicator,
+    clearValidFieldErrors,
+    createOnChangeHandler,
+    createOnBlurHandler,
+    createOnValueChangeHandler,
+  } = useFieldValidation();
+
+  // Helper to check if field is touched
+  const isFieldTouched = useCallback(
+    (path: string) => {
+      return touchedFields.has(path);
+    },
+    [touchedFields]
+  );
+
+  // Real-time validation state
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<
+    Record<string, string>
+  >({});
+
+  // Build full form data for validation
+  const fullFormDataForValidation = useMemo(() => {
+    return formDataState || formData || {};
+  }, [formDataState, formData]);
+
+  // Real-time validation using useMemo
+  const validation = useMemo(() => {
+    const effectiveAssignedIndicators =
+      assignedIndicators.length > 0
+        ? assignedIndicators
+        : hookAssignedIndicators.length > 0
+        ? hookAssignedIndicators
+        : undefined;
+
+    return validateInfraDevelopment(fullFormDataForValidation as any, {
+      allowedIndicators: effectiveAssignedIndicators,
+    });
+  }, [fullFormDataForValidation, assignedIndicators, hookAssignedIndicators]);
+
+  // Field error display hook
+  const { getFieldError, getInputValidationClass, renderFieldError } =
+    useFieldErrorDisplay({
+      validationErrors: validation.errors,
+      indicatorValidationErrors,
+      showValidationErrors,
+      isFieldTouched,
+      validatingIndicator: null,
+    });
+
+  // Clear valid field errors when validation passes
+  useEffect(() => {
+    clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
+  }, [validation.errors, clearValidFieldErrors]);
+
+  // Clear section validation messages in real-time when validation passes
+  useEffect(() => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      // Check each section that has a validation message
+      Object.keys(updated).forEach((sectionId) => {
+        const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+        // Check if there are any validation errors for this section
+        const hasSectionErrors = Object.keys(validation.errors).some(
+          (errorKey) => errorKey.startsWith(sectionPrefix)
+        );
+
+        // If no errors for this section, clear the message
+        if (!hasSectionErrors) {
+          delete updated[sectionId];
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+  }, [validation.errors]);
 
   // Use submissionState for the hook so it gets updated comments
   // Merge submission prop updates with local submissionState
@@ -144,19 +237,23 @@ export const InfraDevelopmentReview = ({
   const [isMospiApproverSentBack, setIsMospiApproverSentBack] = useState(false);
 
   // Helper to extract original name from UUID-prefixed fileName for existing files
-  const extractOriginalName = (fileName: string, originalName?: string): string => {
+  const extractOriginalName = (
+    fileName: string,
+    originalName?: string
+  ): string => {
     if (originalName && originalName.trim()) return originalName;
-    
+
     // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-    
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
     if (uuidPattern.test(fileName)) {
-      const extracted = fileName.replace(uuidPattern, '');
+      const extracted = fileName.replace(uuidPattern, "");
       if (extracted && extracted.trim().length > 0) {
         return extracted;
       }
     }
-    
+
     return fileName;
   };
 
@@ -269,8 +366,12 @@ export const InfraDevelopmentReview = ({
       try {
         const filePath = file.filePath || file.file;
         const encoded = encodeURIComponent(filePath);
-        const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-        const downloadUrl = `${base.replace(/\/$/, "")}/file/download/${encoded}`;
+        const base =
+          import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const downloadUrl = `${base.replace(
+          /\/$/,
+          ""
+        )}/file/download/${encoded}`;
 
         const accessToken = readAccessTokenFromLocalStorage();
         if (!accessToken) {
@@ -555,6 +656,119 @@ export const InfraDevelopmentReview = ({
     // Store a deep copy of current formDataState
     setOriginalFormDataSnapshot(JSON.parse(JSON.stringify(formDataState)));
     setEditable(sectionId, true);
+
+    // Show all validation errors when entering edit mode
+    // Build full form data for validation
+    const fullData = formDataState || formData || {};
+
+    const effectiveAssignedIndicators =
+      assignedIndicators.length > 0
+        ? assignedIndicators
+        : hookAssignedIndicators.length > 0
+        ? hookAssignedIndicators
+        : undefined;
+
+    // Run validation for the section
+    const validationResult = validateInfraDevelopment(fullData as any, {
+      allowedIndicators: effectiveAssignedIndicators,
+    });
+
+    // Filter validation errors to only include the section being edited
+    const sectionErrors: Record<string, string> = {};
+    const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+    Object.keys(validationResult.errors).forEach((errorKey) => {
+      if (errorKey.startsWith(sectionPrefix)) {
+        sectionErrors[errorKey] = validationResult.errors[errorKey];
+      }
+    });
+
+    // Mark all fields in this section as touched so errors show immediately
+    const sectionKey = `section${sectionId.replace(".", "_")}`;
+    const sectionData =
+      formDataState?.[sectionKey as keyof typeof formDataState];
+
+    // Get all possible field paths for this section
+    const allSectionFields: string[] = [];
+
+    // Add base fields based on section
+    if (sectionId === "2.1") {
+      allSectionFields.push(`${sectionPrefix}.infraActArray`);
+      if (
+        sectionData &&
+        typeof sectionData === "object" &&
+        "infraActArray" in sectionData &&
+        Array.isArray((sectionData as any).infraActArray)
+      ) {
+        (sectionData as any).infraActArray.forEach((_: any, index: number) => {
+          allSectionFields.push(
+            `${sectionPrefix}.infraActArray.${index}.sector`,
+            `${sectionPrefix}.infraActArray.${index}.files`
+          );
+        });
+      }
+    } else if (sectionId === "2.2") {
+      allSectionFields.push(`${sectionPrefix}.specializedEntityArray`);
+      if (
+        sectionData &&
+        typeof sectionData === "object" &&
+        "specializedEntityArray" in sectionData &&
+        Array.isArray((sectionData as any).specializedEntityArray)
+      ) {
+        (sectionData as any).specializedEntityArray.forEach(
+          (_: any, index: number) => {
+            allSectionFields.push(
+              `${sectionPrefix}.specializedEntityArray.${index}.sector`,
+              `${sectionPrefix}.specializedEntityArray.${index}.files`
+            );
+          }
+        );
+      }
+    } else if (sectionId === "2.3") {
+      allSectionFields.push(
+        `${sectionPrefix}.hasInfraDevelopmentPlan`,
+        `${sectionPrefix}.comment`
+      );
+      if (
+        sectionData &&
+        typeof sectionData === "object" &&
+        "infraDevelopmentArray" in sectionData &&
+        Array.isArray((sectionData as any).infraDevelopmentArray)
+      ) {
+        (sectionData as any).infraDevelopmentArray.forEach(
+          (_: any, index: number) => {
+            allSectionFields.push(
+              `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
+              `${sectionPrefix}.infraDevelopmentArray.${index}.files`
+            );
+          }
+        );
+      }
+    } else if (sectionId === "2.4") {
+      allSectionFields.push(
+        `${sectionPrefix}.hasInvestmentReady`,
+        `${sectionPrefix}.comment`
+      );
+    }
+
+    // Mark all section fields as touched so errors show immediately
+    allSectionFields.forEach((field) => {
+      markFieldAsTouched(field);
+    });
+    // Also mark fields with errors from validation
+    Object.keys(validationResult.errors).forEach((errorKey) => {
+      if (errorKey.startsWith(sectionPrefix)) {
+        markFieldAsTouched(errorKey);
+      }
+    });
+
+    // Set validation errors and show them
+    setShowValidationErrors(true);
+    setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+
+    console.log(
+      `[InfraDevelopmentReview] Validation errors for section ${sectionId}:`,
+      sectionErrors
+    );
   };
 
   // Handle cancel - restore original state
@@ -685,7 +899,9 @@ export const InfraDevelopmentReview = ({
       ? currentSection.infraActArray.filter((item: any) => item.id !== id)
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       infraActArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -699,10 +915,14 @@ export const InfraDevelopmentReview = ({
     const sectionKey = "section2_2";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.specializedEntityArray)
-      ? currentSection.specializedEntityArray.filter((item: any) => item.id !== id)
+      ? currentSection.specializedEntityArray.filter(
+          (item: any) => item.id !== id
+        )
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       specializedEntityArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -716,10 +936,14 @@ export const InfraDevelopmentReview = ({
     const sectionKey = "section2_3";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.infraDevelopmentArray)
-      ? currentSection.infraDevelopmentArray.filter((item: any) => item.id !== id)
+      ? currentSection.infraDevelopmentArray.filter(
+          (item: any) => item.id !== id
+        )
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       infraDevelopmentArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -821,10 +1045,14 @@ export const InfraDevelopmentReview = ({
     const sectionKey = "section2_4";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.investmentReadyArray)
-      ? currentSection.investmentReadyArray.filter((item: any) => item.id !== id)
+      ? currentSection.investmentReadyArray.filter(
+          (item: any) => item.id !== id
+        )
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       investmentReadyArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -838,10 +1066,14 @@ export const InfraDevelopmentReview = ({
     const sectionKey = "section2_5";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.assetMonetizationArray)
-      ? currentSection.assetMonetizationArray.filter((item: any) => item.id !== id)
+      ? currentSection.assetMonetizationArray.filter(
+          (item: any) => item.id !== id
+        )
       : [];
     const updatedSection = {
-      ...(currentSection && !Array.isArray(currentSection) ? currentSection : {}),
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
       assetMonetizationArray: existingArray,
     };
     setFormDataState((prev: any) => ({
@@ -950,6 +1182,11 @@ export const InfraDevelopmentReview = ({
       transformItem?: (item: any) => any
     ) => {
       const section = normalized[sectionKey];
+      // Only normalize sections that exist - don't create empty sections
+      if (!section && section !== null) {
+        return; // Skip if section doesn't exist
+      }
+
       const status =
         (section && section.status) ||
         (Array.isArray(section) ? (section as any).status : undefined);
@@ -1056,21 +1293,39 @@ export const InfraDevelopmentReview = ({
   }, [state?.section2_4]);
 
   // Sync formDataState when formData prop changes (but not when restoring from cancel)
+  // This ensures we always have the latest data when navigating between categories
   useEffect(() => {
     if (formData && !isRestoringRef.current) {
       const rawData = (formData as any)?.infraDevelopment || formData;
-      console.log("🔍 [REVIEW NORMALIZE] Raw formData before normalize:", {
-        rawData,
-        section2_4: rawData?.section2_4,
-      });
       const normalized = normalizeInfraDevelopment(rawData);
-      console.log("🔍 [REVIEW NORMALIZE] Normalized formData:", {
-        section2_4: normalized?.section2_4,
-        hasInvestmentReady: normalized?.section2_4?.hasInvestmentReady,
-        comment: normalized?.section2_4?.comment,
-        websiteLink: normalized?.section2_4?.websiteLink,
+
+      // Deep comparison to detect if formData has actually changed
+      setFormDataState((prev: any) => {
+        const prevStr = JSON.stringify(prev);
+        const normalizedStr = JSON.stringify(normalized);
+
+        // If formData is different, it means parent component has refreshed with new data
+        if (prevStr !== normalizedStr) {
+          console.log(
+            "🔄 [InfraDevelopmentReview] formData prop changed, syncing local state with latest data"
+          );
+          return normalized;
+        }
+
+        // If formData hasn't changed, keep previous state (may have local edits)
+        return prev;
       });
-      setFormDataState(normalized);
+
+      // Also sync submissionData
+      setSubmissionData((prev: any) => {
+        if (!prev) return normalized;
+        const prevStr = JSON.stringify(prev);
+        const normalizedStr = JSON.stringify(normalized);
+        if (prevStr !== normalizedStr) {
+          return normalized;
+        }
+        return prev;
+      });
     }
   }, [formData]);
 
@@ -1160,10 +1415,105 @@ export const InfraDevelopmentReview = ({
     sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
   }
 
+  // Helper function to check if a section has meaningful data
+  const sectionHasMeaningfulData = (
+    sectionKey: string,
+    section: any
+  ): boolean => {
+    if (!section) return false;
+
+    switch (sectionKey) {
+      case "section2_1": {
+        const items = Array.isArray(section?.infraActArray)
+          ? section.infraActArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.sector?.trim() ||
+              (item?.files &&
+                Array.isArray(item.files) &&
+                item.files.length > 0)
+          )
+        );
+      }
+      case "section2_2": {
+        const items = Array.isArray(section?.specializedEntityArray)
+          ? section.specializedEntityArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.sector?.trim() ||
+              (item?.files &&
+                Array.isArray(item.files) &&
+                item.files.length > 0)
+          )
+        );
+      }
+      case "section2_3": {
+        // Check if hasInfraDevelopmentPlan or comment is set
+        if (section?.hasInfraDevelopmentPlan || section?.comment?.trim()) {
+          return true;
+        }
+        // Check array data
+        const items = Array.isArray(section?.infraDevelopmentArray)
+          ? section.infraDevelopmentArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.sector?.trim() ||
+              (item?.files &&
+                Array.isArray(item.files) &&
+                item.files.length > 0)
+          )
+        );
+      }
+      case "section2_4": {
+        // Check if hasInvestmentReady, comment, or websiteLink is set
+        if (
+          section?.hasInvestmentReady ||
+          section?.comment?.trim() ||
+          section?.websiteLink?.trim()
+        ) {
+          return true;
+        }
+        // Check array data
+        const items = Array.isArray(section?.investmentReadyArray)
+          ? section.investmentReadyArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) => item?.projectName?.trim() || item?.sector?.trim()
+          )
+        );
+      }
+      case "section2_5": {
+        const items = Array.isArray(section?.assetMonetizationArray)
+          ? section.assetMonetizationArray
+          : [];
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.projectName?.trim() ||
+              item?.sector?.trim() ||
+              item?.type?.trim()
+          )
+        );
+      }
+      default:
+        return false;
+    }
+  };
+
   // For review mode (not preview) OR preview mode for non-nodal officers (e.g., state approver viewing aggregate):
-  // Include all sections that exist in formData AND have meaningful data
-  // Array-based sections (2.1, 2.2, 2.3, 2.4, 2.5) should only be included if their arrays have actual data
-  // This prevents empty/unassigned indicators from appearing
+  // Only include sections that have meaningful data (not just empty objects)
   if (
     (!isPreview || (isPreview && !isNodalOfficer)) &&
     state &&
@@ -1176,191 +1526,10 @@ export const InfraDevelopmentReview = ({
       "section2_4",
       "section2_5",
     ];
+    // Only include sections that exist AND have meaningful data
     const existingSections = allPossibleSections.filter((sectionKey) => {
-      // 🔍 DEBUG: Log filtering for sections 2.3 and 2.4
-      if (sectionKey === "section2_3" || sectionKey === "section2_4") {
-        console.log(`🔍 [REVIEW FILTER] Checking ${sectionKey}:`, {
-          existsInState: sectionKey in state,
-          section: state[sectionKey],
-          stateKeys: Object.keys(state),
-        });
-      }
-
-      // Check if section key exists in state
-      if (!(sectionKey in state)) {
-        if (sectionKey === "section2_3" || sectionKey === "section2_4") {
-          console.log(`🔍 [REVIEW FILTER] ${sectionKey} NOT found in state`);
-        }
-        return false;
-      }
-
       const section = state[sectionKey];
-
-      // For array-based sections (2.1, 2.2, 2.3, 2.4, 2.5), check if array has data
-      if (sectionKey === "section2_1") {
-        const array = Array.isArray(section?.infraActArray)
-          ? section.infraActArray
-          : [];
-        if (array.length === 0) return false;
-        // Check if array has valid data (not just empty objects)
-        return array.some((item) => {
-          if (!item || typeof item !== "object") return false;
-          return (
-            Object.keys(item).length > 0 &&
-            Object.values(item).some(
-              (val) => val !== null && val !== undefined && val !== ""
-            )
-          );
-        });
-      }
-      if (sectionKey === "section2_2") {
-        const array = Array.isArray(section?.specializedEntityArray)
-          ? section.specializedEntityArray
-          : [];
-        if (array.length === 0) return false;
-        return array.some((item) => {
-          if (!item || typeof item !== "object") return false;
-          return (
-            Object.keys(item).length > 0 &&
-            Object.values(item).some(
-              (val) => val !== null && val !== undefined && val !== ""
-            )
-          );
-        });
-      }
-      if (sectionKey === "section2_3") {
-        const array = Array.isArray(section?.infraDevelopmentArray)
-          ? section.infraDevelopmentArray
-          : [];
-        // Section 2.3 also has a boolean field and comment field, so check those too
-        const hasBoolean =
-          section?.hasInfraDevelopmentPlan !== null &&
-          section?.hasInfraDevelopmentPlan !== undefined &&
-          section?.hasInfraDevelopmentPlan !== "";
-        const hasComment =
-          section?.comment !== null &&
-          section?.comment !== undefined &&
-          section?.comment !== "";
-
-        console.log(`🔍 [REVIEW FILTER 2.3] Checking section2_3:`, {
-          hasBoolean,
-          hasComment,
-          arrayLength: array.length,
-          section,
-        });
-
-        // If boolean is set, always show (even if array is empty, because comment might be filled)
-        if (hasBoolean) {
-          console.log(
-            `✅ [REVIEW FILTER 2.3] Showing because hasBoolean is true`
-          );
-          return true;
-        }
-        // If comment is filled, show it
-        if (hasComment) {
-          console.log(
-            `✅ [REVIEW FILTER 2.3] Showing because hasComment is true`
-          );
-          return true;
-        }
-        // Otherwise, check if array has meaningful data
-        if (array.length === 0) {
-          console.log(
-            `❌ [REVIEW FILTER 2.3] Not showing - array is empty and no boolean/comment`
-          );
-          return false;
-        }
-        const hasArrayData = array.some((item) => {
-          if (!item || typeof item !== "object") return false;
-          return (
-            Object.keys(item).length > 0 &&
-            Object.values(item).some(
-              (val) => val !== null && val !== undefined && val !== ""
-            )
-          );
-        });
-        console.log(`🔍 [REVIEW FILTER 2.3] Array has data:`, hasArrayData);
-        return hasArrayData;
-      }
-      if (sectionKey === "section2_4") {
-        const array = Array.isArray(section?.investmentReadyArray)
-          ? section.investmentReadyArray
-          : [];
-        // Section 2.4 also has a boolean field (hasInvestmentReady) and comment field, so check those too
-        const hasBoolean =
-          section?.hasInvestmentReady !== null &&
-          section?.hasInvestmentReady !== undefined &&
-          section?.hasInvestmentReady !== "";
-        const hasComment =
-          section?.comment !== null &&
-          section?.comment !== undefined &&
-          section?.comment !== "";
-
-        console.log(`🔍 [REVIEW FILTER 2.4] Checking section2_4:`, {
-          hasBoolean,
-          hasComment,
-          arrayLength: array.length,
-          section,
-        });
-
-        // If boolean is set, always show (even if array is empty, because comment might be filled)
-        if (hasBoolean) {
-          console.log(
-            `✅ [REVIEW FILTER 2.4] Showing because hasBoolean is true`
-          );
-          return true;
-        }
-        // If comment is filled, show it
-        if (hasComment) {
-          console.log(
-            `✅ [REVIEW FILTER 2.4] Showing because hasComment is true`
-          );
-          return true;
-        }
-        // Otherwise, check if array has meaningful data
-        if (array.length === 0) {
-          console.log(
-            `❌ [REVIEW FILTER 2.4] Not showing - array is empty and no boolean/comment`
-          );
-          return false;
-        }
-        const hasArrayData = array.some((item) => {
-          if (!item || typeof item !== "object") return false;
-          return (
-            Object.keys(item).length > 0 &&
-            Object.values(item).some(
-              (val) => val !== null && val !== undefined && val !== ""
-            )
-          );
-        });
-        console.log(`🔍 [REVIEW FILTER 2.4] Array has data:`, hasArrayData);
-        return hasArrayData;
-      }
-      if (sectionKey === "section2_5") {
-        const array = Array.isArray(section?.assetMonetizationArray)
-          ? section.assetMonetizationArray
-          : [];
-        if (array.length === 0) return false;
-        return array.some((item) => {
-          if (!item || typeof item !== "object") return false;
-          return (
-            Object.keys(item).length > 0 &&
-            Object.values(item).some(
-              (val) => val !== null && val !== undefined && val !== ""
-            )
-          );
-        });
-      }
-
-      // For non-array sections, check if they have any meaningful data
-      if (!section || typeof section !== "object") return false;
-      return Object.values(section).some((val) => {
-        if (val === null || val === undefined || val === "") return false;
-        if (Array.isArray(val) && val.length === 0) return false;
-        if (typeof val === "object" && Object.keys(val).length === 0)
-          return false;
-        return true;
-      });
+      return sectionHasMeaningfulData(sectionKey, section);
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
@@ -1601,12 +1770,29 @@ export const InfraDevelopmentReview = ({
 
     // Check if this is a resubmission of a sent-back indicator
     const sectionKey = `section${sectionId.replace(".", "_")}`;
+    // Check multiple sources for status: submission.section_status, formDataState
+    let currentStatus: string | undefined;
+
+    // Get sectionData for logging and fallback status check
     const sectionData = formDataState && formDataState[sectionKey];
-    const currentStatus = sectionData
-      ? Array.isArray(sectionData)
-        ? (sectionData as any).status
-        : sectionData.status
-      : undefined;
+
+    // First check submission.section_status (most reliable source)
+    if (
+      submission?.section_status &&
+      typeof submission.section_status === "object"
+    ) {
+      currentStatus = (submission.section_status as any)[sectionKey];
+    }
+
+    // Fallback to formDataState status
+    if (!currentStatus) {
+      currentStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+    }
+
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
@@ -1618,14 +1804,181 @@ export const InfraDevelopmentReview = ({
       isReverted,
     });
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
       console.log(
-        `[InfraDevelopmentReview] ✅ Showing save confirmation dialog for REVERTED indicator`
+        `[InfraDevelopmentReview] ✅ Running validation before showing dialog for NODAL_OFFICER`
       );
-      setPendingSaveSectionId(sectionId);
-      setShowSaveDialog(true);
-      return;
+
+      // Run validation first (same logic as in performSave)
+      const fullData = {
+        section2_1: formDataState?.section2_1 || { infraActArray: [] },
+        section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
+        section2_3: formDataState?.section2_3 || {
+          infraDevelopmentArray: [],
+          hasInfraDevelopmentPlan: "",
+          comment: "",
+        },
+        section2_4: formDataState?.section2_4 || {
+          investmentReadyArray: [],
+          hasInvestmentReady: "",
+          comment: "",
+        },
+        section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
+      };
+
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
+
+      const validationResult = validateInfraDevelopment(fullData, {
+        allowedIndicators: effectiveAssignedIndicators,
+      });
+
+      // Filter validation errors to only include the section being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this section as touched so ALL errors show
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData =
+          formDataState?.[sectionKey as keyof typeof formDataState];
+
+        // Get all possible field paths for this section
+        const allSectionFields: string[] = [];
+
+        // Add base fields based on section
+        if (sectionId === "2.1") {
+          allSectionFields.push(`${sectionPrefix}.infraActArray`);
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "infraActArray" in sectionData &&
+            Array.isArray((sectionData as any).infraActArray)
+          ) {
+            (sectionData as any).infraActArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.infraActArray.${index}.sector`,
+                  `${sectionPrefix}.infraActArray.${index}.files`
+                );
+              }
+            );
+          }
+        } else if (sectionId === "2.2") {
+          allSectionFields.push(`${sectionPrefix}.specializedEntityArray`);
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "specializedEntityArray" in sectionData &&
+            Array.isArray((sectionData as any).specializedEntityArray)
+          ) {
+            (sectionData as any).specializedEntityArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.specializedEntityArray.${index}.sector`,
+                  `${sectionPrefix}.specializedEntityArray.${index}.files`
+                );
+              }
+            );
+          }
+        } else if (sectionId === "2.3") {
+          allSectionFields.push(
+            `${sectionPrefix}.hasInfraDevelopmentPlan`,
+            `${sectionPrefix}.comment`
+          );
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "infraDevelopmentArray" in sectionData &&
+            Array.isArray((sectionData as any).infraDevelopmentArray)
+          ) {
+            (sectionData as any).infraDevelopmentArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.files`
+                );
+              }
+            );
+          }
+        } else if (sectionId === "2.4") {
+          allSectionFields.push(
+            `${sectionPrefix}.hasInvestmentReady`,
+            `${sectionPrefix}.comment`
+          );
+        } else if (sectionId === "2.5") {
+          allSectionFields.push(`${sectionPrefix}.assetMonetizationArray`);
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "assetMonetizationArray" in sectionData &&
+            Array.isArray((sectionData as any).assetMonetizationArray)
+          ) {
+            (sectionData as any).assetMonetizationArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.assetMonetizationArray.${index}.projectName`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.sector`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.type`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
+                  `${sectionPrefix}.assetMonetizationArray.${index}.files`
+                );
+              }
+            );
+          }
+        }
+
+        // Mark all section fields as touched so ALL errors show
+        allSectionFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message (same as STATE_APPROVER)
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [sectionId]: `Please fill all mandatory fields.`,
+        }));
+        console.warn("Validation failed for section", sectionId, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        console.log(
+          `[InfraDevelopmentReview] ✅ Validation passed - showing save confirmation dialog for REVERTED indicator`
+        );
+        setPendingSaveSectionId(sectionId);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        console.log(
+          `[InfraDevelopmentReview] ✅ Validation passed - proceeding with direct save (not REVERTED)`
+        );
+        await performSave(sectionId);
+        return;
+      }
     }
 
     console.log(
@@ -1702,14 +2055,25 @@ export const InfraDevelopmentReview = ({
       const fullData = {
         section2_1: formDataState?.section2_1 || { infraActArray: [] },
         section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
-        section2_3: formDataState?.section2_3 || { infraDevelopmentArray: [], hasInfraDevelopmentPlan: "" },
-        section2_4: formDataState?.section2_4 || { investmentReadyArray: [], hasInvestmentReady: "" },
+        section2_3: formDataState?.section2_3 || {
+          infraDevelopmentArray: [],
+          hasInfraDevelopmentPlan: "",
+          comment: "",
+        },
+        section2_4: formDataState?.section2_4 || {
+          investmentReadyArray: [],
+          hasInvestmentReady: "",
+          comment: "",
+        },
         section2_5: formDataState?.section2_5 || { assetMonetizationArray: [] },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validateInfraDevelopment(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -1726,13 +2090,103 @@ export const InfraDevelopmentReview = ({
 
       // Only block save if there are errors in the section being saved
       if (Object.keys(sectionErrors).length > 0) {
-        setValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Mark all fields in this section as touched so ALL errors show
+        const sectionKey = `section${sectionId.replace(".", "_")}`;
+        const sectionData =
+          formDataState?.[sectionKey as keyof typeof formDataState];
+
+        // Get all possible field paths for this section
+        const allSectionFields: string[] = [];
+
+        // Add base fields based on section
+        if (sectionId === "2.1") {
+          allSectionFields.push(`${sectionPrefix}.infraActArray`);
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "infraActArray" in sectionData &&
+            Array.isArray((sectionData as any).infraActArray)
+          ) {
+            (sectionData as any).infraActArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.infraActArray.${index}.sector`,
+                  `${sectionPrefix}.infraActArray.${index}.files`
+                );
+              }
+            );
+          }
+        } else if (sectionId === "2.2") {
+          allSectionFields.push(`${sectionPrefix}.specializedEntityArray`);
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "specializedEntityArray" in sectionData &&
+            Array.isArray((sectionData as any).specializedEntityArray)
+          ) {
+            (sectionData as any).specializedEntityArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.specializedEntityArray.${index}.sector`,
+                  `${sectionPrefix}.specializedEntityArray.${index}.files`
+                );
+              }
+            );
+          }
+        } else if (sectionId === "2.3") {
+          allSectionFields.push(
+            `${sectionPrefix}.hasInfraDevelopmentPlan`,
+            `${sectionPrefix}.comment`
+          );
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "infraDevelopmentArray" in sectionData &&
+            Array.isArray((sectionData as any).infraDevelopmentArray)
+          ) {
+            (sectionData as any).infraDevelopmentArray.forEach(
+              (_: any, index: number) => {
+                allSectionFields.push(
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.sector`,
+                  `${sectionPrefix}.infraDevelopmentArray.${index}.files`
+                );
+              }
+            );
+          }
+        } else if (sectionId === "2.4") {
+          allSectionFields.push(
+            `${sectionPrefix}.hasInvestmentReady`,
+            `${sectionPrefix}.comment`
+          );
+        }
+
+        // Mark all section fields as touched so ALL errors show
+        allSectionFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [sectionId]: `Please fill all mandatory fields.`,
+        }));
         console.warn("Validation failed for section", sectionId, sectionErrors);
-        // Errors are displayed inline in the UI, no need for alert
-        return;
+        // Throw validation error so handleConfirmSave can catch it and close dialog
+        const validationError = new Error("VALIDATION_FAILED");
+        (validationError as any).isValidationError = true;
+        throw validationError;
       } else {
         // Clear errors for this section only
-        setValidationErrors((prev) => {
+        setIndicatorValidationErrors((prev) => {
           const filtered = { ...prev };
           Object.keys(filtered).forEach((key) => {
             if (key.startsWith(sectionPrefix)) {
@@ -1740,6 +2194,12 @@ export const InfraDevelopmentReview = ({
             }
           });
           return filtered;
+        });
+        // Clear section-level validation message on successful validation
+        setSectionValidationMessages((prev) => {
+          const updated = { ...prev };
+          delete updated[sectionId];
+          return updated;
         });
       }
 
@@ -1829,9 +2289,16 @@ export const InfraDevelopmentReview = ({
         console.log(`[InfraDevelopmentReview] ✅ Save completed successfully`);
         setShowSaveDialog(false);
         setPendingSaveSectionId(null);
-      } catch (error) {
+      } catch (error: any) {
         console.error(`[InfraDevelopmentReview] ❌ Save failed:`, error);
-        // Don't close dialog on error so user can try again
+        // If validation failed, close dialog so error messages are visible
+        if (error?.isValidationError) {
+          setShowSaveDialog(false);
+          setPendingSaveSectionId(null);
+          // Error messages are already displayed on UI, no notification needed
+        } else {
+          // For other errors, don't close dialog so user can try again
+        }
       }
     } else {
       console.warn(
@@ -1849,6 +2316,7 @@ export const InfraDevelopmentReview = ({
   const performIndicatorStatus = async (sectionId: string, status: boolean) => {
     const userRole = getUserRole();
     const isMospiApprover = userRole === "MOSPI_APPROVER";
+    const isStateApprover = userRole === "STATE_APPROVER";
 
     // For MOSPI_APPROVER, use mospi_status field instead of status
     const payload: any = {
@@ -1861,6 +2329,28 @@ export const InfraDevelopmentReview = ({
     // If MOSPI_APPROVER, add mospi_status field
     if (isMospiApprover) {
       payload.mospi_status = status ? "ACCEPTED" : "REVERTED";
+    }
+
+    // If STATE_APPROVER is sending back (status = false), extract nodalOfficerId from section data
+    if (isStateApprover && !status) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (formDataState && (formDataState as any)[sectionKey]) ||
+        (formData && (formData as any)[sectionKey]) ||
+        (state && (state as any)[sectionKey]);
+
+      const nodalOfficerId = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.nodalOfficerId
+          : sectionData?.nodalOfficerId
+        : undefined;
+
+      if (nodalOfficerId) {
+        payload.nodalOfficerId = nodalOfficerId;
+        console.log(
+          `📤 [InfraDevelopmentReview] Sending back indicator ${sectionId} to NODAL_OFFICER: ${nodalOfficerId}`
+        );
+      }
     }
 
     try {
@@ -2211,7 +2701,8 @@ export const InfraDevelopmentReview = ({
         id: fileData.id ?? crypto.randomUUID(),
         file: storedPath, // Store file path (string) not File object
         fileName: fileData.fileName || fileData.filename || file.name,
-        originalName: file.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name
+        originalName:
+          file.name || fileData.originalName || fileData.data?.originalName, // Preserve original file name
         fileSize: Number(fileData.fileSize ?? fileData.size ?? file.size ?? 0),
         uploadedAt: Number(fileData.uploadedAt ?? Date.now()),
         filePath: storedPath ?? undefined,
@@ -2314,77 +2805,32 @@ export const InfraDevelopmentReview = ({
       return;
     }
 
+    // Update local state only - save will happen when user clicks Save button
+    // Files are stored as File objects and will be uploaded to S3 on Save
     setFormDataState((prev: any) => ({
       ...prev,
       [sectionKey]: nextSection,
     }));
 
-    const nextState = {
-      ...state,
-      [sectionKey]: nextSection,
-    };
-
-    try {
-      const fields = buildSectionFields(sectionId, nextState);
-
-      console.log("📤 Saving section with fields:", {
-        sectionId,
-        sectionKey,
-        fields,
-        nextSection,
-        itemFiles:
-          nextSection?.infraActArray?.[itemIndex]?.files ||
-          nextSection?.specializedEntityArray?.[itemIndex]?.files ||
-          nextSection?.infraDevelopmentArray?.[itemIndex]?.files,
-        nextState: nextState?.[sectionKey],
-      });
-
-      await handleSaveSection({
-        submissionId,
-        category: "infraDevelopment",
-        section: sectionKey,
-        fields,
-      });
-
-      let shouldRevert = false;
-
-      switch (sectionId) {
-        case "2.1":
-          shouldRevert = nextSection.infraActArray.every(
-            (item: any) =>
-              !Array.isArray(item?.files) || item.files.length === 0
-          );
-          break;
-        case "2.2":
-          shouldRevert = nextSection.specializedEntityArray.every(
-            (item: any) =>
-              !Array.isArray(item?.files) || item.files.length === 0
-          );
-          break;
-        case "2.3":
-          shouldRevert = nextSection.infraDevelopmentArray.every(
-            (item: any) =>
-              !Array.isArray(item?.files) || item.files.length === 0
-          );
-          break;
-        case "2.4":
-          shouldRevert = nextSection.investmentReadyArray.every(
-            (item: any) => !item?.dprFile
-          );
-          break;
-        default:
-          break;
-      }
-
-      if (shouldRevert) {
-        await onIndicatorStatus(sectionId, false);
-      }
-    } catch (error) {
-      console.error("Failed to auto-save files for section", sectionId, error);
-    }
+    // Removed auto-save - files are stored as File objects and will be uploaded
+    // when user clicks Save button (via updateSubmission → uploadFilesAndReplace)
   };
 
   // Helper function to render MOSPI_REVIEWER comments for MOSPI_APPROVER
+  // Helper to render validation error message for a section
+  const renderSectionValidationMessage = (sectionId: string) => {
+    if (!sectionValidationMessages[sectionId] || !shouldBeEditable(sectionId)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[sectionId]}
+        </p>
+      </div>
+    );
+  };
+
   const renderMOSPIReviewerComments = (sectionId: string) => {
     const getUserRole = () => {
       try {
@@ -2688,6 +3134,9 @@ export const InfraDevelopmentReview = ({
           </div>
         );
       }
+
+      // If mospi_status is REVERTED, continue to show Edit button and other actions
+      // We'll add the "Returned from Mospi" button in the normal flow below
     }
 
     // Check if indicator has been submitted (SUBMITTED, RESUBMITTED, or ACCEPTED)
@@ -2999,6 +3448,32 @@ export const InfraDevelopmentReview = ({
 
     return (
       <div className="flex gap-2">
+        {/* Show "Returned from Mospi" button for STATE_APPROVER when mospi_status is REVERTED */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (formDataState && (formDataState as any)[sectionKey]) ||
+              (formData && (formData as any)[sectionKey]) ||
+              (state && (state as any)[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+            return mospiStatus === "REVERTED";
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1 bg-orange-100 text-orange-700 cursor-default"
+              disabled
+            >
+              <RotateCcw className="w-4 h-4" />
+              Returned from Mospi
+            </Button>
+          )}
+
         {!isEditable(sectionId) ? (
           <Button
             variant="outline"
@@ -3032,6 +3507,77 @@ export const InfraDevelopmentReview = ({
             </Button>
           </>
         )}
+
+        {/* Show "Send Back" button for STATE_APPROVER when indicator is returned from MOSPI and originally from NODAL_OFFICER */}
+        {isStateApprover &&
+          (() => {
+            const sectionKey = `section${sectionId.replace(".", "_")}`;
+            const sectionData =
+              (formDataState && (formDataState as any)[sectionKey]) ||
+              (formData && (formData as any)[sectionKey]) ||
+              (state && (state as any)[sectionKey]);
+            const mospiStatus = sectionData
+              ? Array.isArray(sectionData)
+                ? (sectionData as any)?.mospi_status
+                : sectionData?.mospi_status
+              : undefined;
+
+            // Check if this specific indicator was originally submitted by NODAL_OFFICER
+            const isFromNodalOfficer = isIndicatorFromNodalOfficer(
+              submission as any,
+              sectionId
+            );
+
+            // Detailed logging for debugging
+            console.group(
+              `🔍 [InfraDevelopmentReview] "Send Back" button check for section ${sectionId}`
+            );
+            console.log("📊 Section data:", {
+              sectionKey,
+              sectionData: sectionData
+                ? Array.isArray(sectionData)
+                  ? sectionData[0]
+                  : sectionData
+                : null,
+              mospiStatus,
+              hasFormDataState: !!formDataState,
+              hasFormData: !!formData,
+              hasState: !!state,
+            });
+            console.log("👤 Submission info:", {
+              submissionId: submission?.id,
+              submissionStatus: submission?.status,
+              currentOwnerRole: submission?.currentOwnerRole,
+              submittedBy: submission?.submittedBy,
+            });
+            console.log("✅ Checks:", {
+              isStateApprover,
+              mospiStatus,
+              isMospiReverted: mospiStatus === "REVERTED",
+              isFromNodalOfficer,
+              shouldShowButton:
+                mospiStatus === "REVERTED" && isFromNodalOfficer,
+            });
+            console.groupEnd();
+
+            return mospiStatus === "REVERTED" && isFromNodalOfficer;
+          })() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => {
+                // Track that this was opened from STATE_APPROVER "Send Back" button
+                setIsStateApproverSentBack(true);
+                setStateApproverSentBackSectionId(sectionId);
+                handleOpenModal(sectionId);
+              }}
+              disabled={shouldBeEditable(sectionId)}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Send Back
+            </Button>
+          )}
 
         {/* Hide Send Back button if STATE_APPROVER is viewing their own submission */}
         {(() => {
@@ -3160,6 +3706,8 @@ export const InfraDevelopmentReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.1")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("2.1")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3180,10 +3728,8 @@ export const InfraDevelopmentReview = ({
           </CardHeader> */}
             <div className="space-y-4">
               {/* Validation error for infraActArray */}
-              {getFieldError("section2_1.infraActArray") && (
-                <p className="text-sm text-red-500">{getFieldError("section2_1.infraActArray")}</p>
-              )}
-              
+              {renderFieldError("section2_1.infraActArray")}
+
               {/* Table Display */}
               <div className="overflow-x-auto rounded-xl">
                 <table className="min-w-full border-separate border-spacing-0">
@@ -3245,10 +3791,16 @@ export const InfraDevelopmentReview = ({
                                       value
                                     );
                                     // Clear validation error when user selects
-                                    if (getFieldError(`section2_1.infraActArray.${index}.sector`)) {
-                                      setValidationErrors((prev) => {
+                                    if (
+                                      getFieldError(
+                                        `section2_1.infraActArray.${index}.sector`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
                                         const updated = { ...prev };
-                                        delete updated[`section2_1.infraActArray.${index}.sector`];
+                                        delete updated[
+                                          `section2_1.infraActArray.${index}.sector`
+                                        ];
                                         return updated;
                                       });
                                     }
@@ -3257,8 +3809,8 @@ export const InfraDevelopmentReview = ({
                                   isEditable={true}
                                   resetKey={selectResetKey}
                                 />
-                                {getFieldError(`section2_1.infraActArray.${index}.sector`) && (
-                                  <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_1.infraActArray.${index}.sector`)}</p>
+                                {renderFieldError(
+                                  `section2_1.infraActArray.${index}.sector`
                                 )}
                               </div>
                             ) : (
@@ -3367,9 +3919,16 @@ export const InfraDevelopmentReview = ({
                                   (file: any, fileIndex: number) => {
                                     const fileKey = `2.1-${index}-${fileIndex}`;
                                     const isLoading = !!fileLoading[fileKey];
-                                    const hasFileAccess = !!(file.filePath || file.file || file.fileUrl);
+                                    const hasFileAccess = !!(
+                                      file.filePath ||
+                                      file.file ||
+                                      file.fileUrl
+                                    );
                                     return (
-                                      <div key={fileIndex} className="flex items-center gap-1">
+                                      <div
+                                        key={fileIndex}
+                                        className="flex items-center gap-1"
+                                      >
                                         <Badge
                                           variant="secondary"
                                           className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
@@ -3394,7 +3953,9 @@ export const InfraDevelopmentReview = ({
                                               type="button"
                                               variant="ghost"
                                               size="sm"
-                                              onClick={() => handleViewFile(file, fileKey)}
+                                              onClick={() =>
+                                                handleViewFile(file, fileKey)
+                                              }
                                               disabled={isLoading}
                                               className="h-7 w-7 p-0"
                                               title="View file"
@@ -3405,7 +3966,12 @@ export const InfraDevelopmentReview = ({
                                               type="button"
                                               variant="ghost"
                                               size="sm"
-                                              onClick={() => handleDownloadFile(file, fileKey)}
+                                              onClick={() =>
+                                                handleDownloadFile(
+                                                  file,
+                                                  fileKey
+                                                )
+                                              }
                                               disabled={isLoading}
                                               className="h-7 w-7 p-0"
                                               title="Download file"
@@ -3454,7 +4020,11 @@ export const InfraDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => handleRemoveEntry2_1(item.id || index.toString())}
+                                onClick={() =>
+                                  handleRemoveEntry2_1(
+                                    item.id || index.toString()
+                                  )
+                                }
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
@@ -3502,9 +4072,7 @@ export const InfraDevelopmentReview = ({
                         placeholder="Select Sector"
                         isEditable={true}
                       />
-                      {getFieldError("section2_1.infraActArray.new.sector") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_1.infraActArray.new.sector")}</p>
-                      )}
+                      {renderFieldError("section2_1.infraActArray.new.sector")}
                     </div>
                     <div>
                       <Label>Upload Files</Label>
@@ -3521,9 +4089,7 @@ export const InfraDevelopmentReview = ({
                         label=""
                         multiple={true}
                       />
-                      {getFieldError("section2_1.infraActArray.new.files") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_1.infraActArray.new.files")}</p>
-                      )}
+                      {renderFieldError("section2_1.infraActArray.new.files")}
                     </div>
                   </div>
                   <div className="flex gap-2 mt-4">
@@ -3578,6 +4144,8 @@ export const InfraDevelopmentReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.2")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("2.2")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -3646,10 +4214,12 @@ export const InfraDevelopmentReview = ({
                               {shouldBeEditable("2.2") ? (
                                 <div>
                                   <Dropdown
-                                    options={dropdownValues.sector.map((opt) => ({
-                                      label: opt,
-                                      value: opt,
-                                    }))}
+                                    options={dropdownValues.sector.map(
+                                      (opt) => ({
+                                        label: opt,
+                                        value: opt,
+                                      })
+                                    )}
                                     value={item.sector || ""}
                                     onChange={(value) =>
                                       handleArrayFieldUpdate(
@@ -3663,8 +4233,8 @@ export const InfraDevelopmentReview = ({
                                     isEditable={true}
                                     resetKey={selectResetKey}
                                   />
-                                  {getFieldError(`section2_2.specializedEntityArray.${index}.sector`) && (
-                                    <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_2.specializedEntityArray.${index}.sector`)}</p>
+                                  {renderFieldError(
+                                    `section2_2.specializedEntityArray.${index}.sector`
                                   )}
                                 </div>
                               ) : (
@@ -3776,9 +4346,16 @@ export const InfraDevelopmentReview = ({
                                     (file: any, fileIndex: number) => {
                                       const fileKey = `2.2-${index}-${fileIndex}`;
                                       const isLoading = !!fileLoading[fileKey];
-                                      const hasFileAccess = !!(file.filePath || file.file || file.fileUrl);
+                                      const hasFileAccess = !!(
+                                        file.filePath ||
+                                        file.file ||
+                                        file.fileUrl
+                                      );
                                       return (
-                                        <div key={fileIndex} className="flex items-center gap-1">
+                                        <div
+                                          key={fileIndex}
+                                          className="flex items-center gap-1"
+                                        >
                                           <Badge
                                             variant="secondary"
                                             className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
@@ -3803,7 +4380,9 @@ export const InfraDevelopmentReview = ({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleViewFile(file, fileKey)}
+                                                onClick={() =>
+                                                  handleViewFile(file, fileKey)
+                                                }
                                                 disabled={isLoading}
                                                 className="h-7 w-7 p-0"
                                                 title="View file"
@@ -3814,7 +4393,12 @@ export const InfraDevelopmentReview = ({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleDownloadFile(file, fileKey)}
+                                                onClick={() =>
+                                                  handleDownloadFile(
+                                                    file,
+                                                    fileKey
+                                                  )
+                                                }
                                                 disabled={isLoading}
                                                 className="h-7 w-7 p-0"
                                                 title="Download file"
@@ -3863,7 +4447,11 @@ export const InfraDevelopmentReview = ({
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  onClick={() => handleRemoveEntry2_2(item.id || index.toString())}
+                                  onClick={() =>
+                                    handleRemoveEntry2_2(
+                                      item.id || index.toString()
+                                    )
+                                  }
                                   className="text-red-500 hover:text-red-700 border-none bg-none"
                                 >
                                   <Trash2 className="h-5 w-5" />
@@ -3912,8 +4500,8 @@ export const InfraDevelopmentReview = ({
                         placeholder="Select Sector"
                         isEditable={true}
                       />
-                      {getFieldError("section2_2.specializedEntityArray.new.sector") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_2.specializedEntityArray.new.sector")}</p>
+                      {renderFieldError(
+                        "section2_2.specializedEntityArray.new.sector"
                       )}
                     </div>
                     <div>
@@ -3931,8 +4519,8 @@ export const InfraDevelopmentReview = ({
                         label=""
                         multiple={true}
                       />
-                      {getFieldError("section2_2.specializedEntityArray.new.files") && (
-                        <p className="text-sm text-red-500 mt-1">{getFieldError("section2_2.specializedEntityArray.new.files")}</p>
+                      {renderFieldError(
+                        "section2_2.specializedEntityArray.new.files"
                       )}
                     </div>
                   </div>
@@ -3986,6 +4574,8 @@ export const InfraDevelopmentReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.3")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("2.3")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -4021,7 +4611,7 @@ export const InfraDevelopmentReview = ({
                       );
                       // Clear validation error when user selects
                       if (getFieldError("section2_3.hasInfraDevelopmentPlan")) {
-                        setValidationErrors((prev) => {
+                        setIndicatorValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section2_3.hasInfraDevelopmentPlan"];
                           return updated;
@@ -4058,9 +4648,7 @@ export const InfraDevelopmentReview = ({
                     </span>
                   </div>
                 )}
-                {getFieldError("section2_3.hasInfraDevelopmentPlan") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section2_3.hasInfraDevelopmentPlan")}</p>
-                )}
+                {renderFieldError("section2_3.hasInfraDevelopmentPlan")}
               </div>
 
               {/* Show table and Add More button if hasInfraDevelopmentPlan is "yes" */}
@@ -4131,8 +4719,14 @@ export const InfraDevelopmentReview = ({
                                         isEditable={true}
                                         resetKey={selectResetKey}
                                       />
-                                      {getFieldError(`section2_3.infraDevelopmentArray.${index}.sector`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_3.infraDevelopmentArray.${index}.sector`)}</p>
+                                      {getFieldError(
+                                        `section2_3.infraDevelopmentArray.${index}.sector`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_3.infraDevelopmentArray.${index}.sector`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4142,8 +4736,14 @@ export const InfraDevelopmentReview = ({
                                 <td className="py-3 px-4 text-sm font-normal">
                                   {shouldBeEditable("2.3") ? (
                                     <div className="space-y-1.5">
-                                      {getFieldError(`section2_3.infraDevelopmentArray.${index}.files`) && (
-                                        <p className="text-sm text-red-500">{getFieldError(`section2_3.infraDevelopmentArray.${index}.files`)}</p>
+                                      {getFieldError(
+                                        `section2_3.infraDevelopmentArray.${index}.files`
+                                      ) && (
+                                        <p className="text-sm text-red-500">
+                                          {getFieldError(
+                                            `section2_3.infraDevelopmentArray.${index}.files`
+                                          )}
+                                        </p>
                                       )}
                                       {item.files && item.files.length > 0 ? (
                                         <div className="flex flex-wrap gap-1.5">
@@ -4249,20 +4849,32 @@ export const InfraDevelopmentReview = ({
                                       {item.files.map(
                                         (file: any, fileIndex: number) => {
                                           const fileKey = `2.3-${index}-${fileIndex}`;
-                                          const isLoading = !!fileLoading[fileKey];
-                                          const hasFileAccess = !!(file.filePath || file.file || file.fileUrl);
+                                          const isLoading =
+                                            !!fileLoading[fileKey];
+                                          const hasFileAccess = !!(
+                                            file.filePath ||
+                                            file.file ||
+                                            file.fileUrl
+                                          );
                                           return (
-                                            <div key={fileIndex} className="flex items-center gap-1">
+                                            <div
+                                              key={fileIndex}
+                                              className="flex items-center gap-1"
+                                            >
                                               <Badge
                                                 variant="secondary"
                                                 className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
                                                 title={
-                                                  (file as any).originalName || file.fileName || "Unknown file"
+                                                  (file as any).originalName ||
+                                                  file.fileName ||
+                                                  "Unknown file"
                                                 }
                                               >
                                                 <Upload className="w-3 h-3" />
                                                 <span className="truncate">
-                                                  {(file as any).originalName || file.fileName || "Unknown file"}
+                                                  {(file as any).originalName ||
+                                                    file.fileName ||
+                                                    "Unknown file"}
                                                 </span>
                                               </Badge>
                                               {hasFileAccess && (
@@ -4271,7 +4883,12 @@ export const InfraDevelopmentReview = ({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleViewFile(file, fileKey)}
+                                                    onClick={() =>
+                                                      handleViewFile(
+                                                        file,
+                                                        fileKey
+                                                      )
+                                                    }
                                                     disabled={isLoading}
                                                     className="h-7 w-7 p-0"
                                                     title="View file"
@@ -4282,7 +4899,12 @@ export const InfraDevelopmentReview = ({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleDownloadFile(file, fileKey)}
+                                                    onClick={() =>
+                                                      handleDownloadFile(
+                                                        file,
+                                                        fileKey
+                                                      )
+                                                    }
                                                     disabled={isLoading}
                                                     className="h-7 w-7 p-0"
                                                     title="Download file"
@@ -4331,7 +4953,11 @@ export const InfraDevelopmentReview = ({
                                     <Button
                                       variant="outline"
                                       size="icon"
-                                      onClick={() => handleRemoveEntry2_3(item.id || index.toString())}
+                                      onClick={() =>
+                                        handleRemoveEntry2_3(
+                                          item.id || index.toString()
+                                        )
+                                      }
                                       className="text-red-500 hover:text-red-700 border-none bg-none"
                                     >
                                       <Trash2 className="h-5 w-5" />
@@ -4475,6 +5101,8 @@ export const InfraDevelopmentReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.4")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("2.4")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -4510,7 +5138,7 @@ export const InfraDevelopmentReview = ({
                       );
                       // Clear validation error when user selects
                       if (getFieldError("section2_4.hasInvestmentReady")) {
-                        setValidationErrors((prev) => {
+                        setIndicatorValidationErrors((prev) => {
                           const updated = { ...prev };
                           delete updated["section2_4.hasInvestmentReady"];
                           return updated;
@@ -4548,7 +5176,9 @@ export const InfraDevelopmentReview = ({
                   </div>
                 )}
                 {getFieldError("section2_4.hasInvestmentReady") && (
-                  <p className="text-sm text-red-500 mt-1">{getFieldError("section2_4.hasInvestmentReady")}</p>
+                  <p className="text-sm text-red-500 mt-1">
+                    {getFieldError("section2_4.hasInvestmentReady")}
+                  </p>
                 )}
               </div>
 
@@ -4574,7 +5204,7 @@ export const InfraDevelopmentReview = ({
                             );
                             // Clear validation error when user starts typing
                             if (getFieldError("section2_4.websiteLink")) {
-                              setValidationErrors((prev) => {
+                              setIndicatorValidationErrors((prev) => {
                                 const updated = { ...prev };
                                 delete updated["section2_4.websiteLink"];
                                 return updated;
@@ -4588,7 +5218,9 @@ export const InfraDevelopmentReview = ({
                           }
                         />
                         {getFieldError("section2_4.websiteLink") && (
-                          <p className="text-sm text-red-500 mt-1">{getFieldError("section2_4.websiteLink")}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getFieldError("section2_4.websiteLink")}
+                          </p>
                         )}
                       </div>
                     ) : (
@@ -4664,14 +5296,22 @@ export const InfraDevelopmentReview = ({
                                           )
                                         }
                                         className={
-                                          getFieldError(`section2_4.investmentReadyArray.${index}.projectName`)
+                                          getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.projectName`
+                                          )
                                             ? "w-full border-red-500"
                                             : "w-full"
                                         }
                                         placeholder="Enter project name"
                                       />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.projectName`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.projectName`)}</p>
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.projectName`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.projectName`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4697,8 +5337,14 @@ export const InfraDevelopmentReview = ({
                                         placeholder="Select Sector"
                                         isEditable={true}
                                       />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.sector`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.sector`)}</p>
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.sector`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.sector`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4718,19 +5364,25 @@ export const InfraDevelopmentReview = ({
                                           value: opt,
                                         }))}
                                         value={item.status || ""}
-                                      onChange={(value) =>
-                                        handleArrayFieldUpdate(
-                                          "2.4",
-                                          index,
-                                          "status",
-                                          value
-                                        )
-                                      }
-                                      placeholder="Select Status"
-                                      isEditable={true}
-                                    />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.status`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.status`)}</p>
+                                        onChange={(value) =>
+                                          handleArrayFieldUpdate(
+                                            "2.4",
+                                            index,
+                                            "status",
+                                            value
+                                          )
+                                        }
+                                        placeholder="Select Status"
+                                        isEditable={true}
+                                      />
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.status`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.status`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4749,7 +5401,10 @@ export const InfraDevelopmentReview = ({
                                         onChange={(e) => {
                                           const value = e.target.value;
                                           // Only allow numbers and decimal point
-                                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                          if (
+                                            value === "" ||
+                                            /^\d*\.?\d*$/.test(value)
+                                          ) {
                                             handleArrayFieldUpdate(
                                               "2.4",
                                               index,
@@ -4759,14 +5414,22 @@ export const InfraDevelopmentReview = ({
                                           }
                                         }}
                                         className={
-                                          getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`)
+                                          getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.projectSize`
+                                          )
                                             ? "w-full border-red-500"
                                             : "w-full"
                                         }
                                         placeholder="Enter project size"
                                       />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.projectSize`)}</p>
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.projectSize`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.projectSize`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4777,28 +5440,34 @@ export const InfraDevelopmentReview = ({
                                   {shouldBeEditable("2.4") ? (
                                     <div>
                                       <Dropdown
-                                      options={[
-                                        "Partner",
-                                        "Investor",
-                                        "Other",
-                                      ].map((opt) => ({
-                                        label: opt,
-                                        value: opt,
-                                      }))}
-                                      value={item.investmentType || ""}
-                                      onChange={(value) =>
-                                        handleArrayFieldUpdate(
-                                          "2.4",
-                                          index,
-                                          "investmentType",
-                                          value
-                                        )
-                                      }
-                                      placeholder="Select Type"
-                                      isEditable={true}
-                                    />
-                                      {getFieldError(`section2_4.investmentReadyArray.${index}.investmentType`) && (
-                                        <p className="text-sm text-red-500 mt-1">{getFieldError(`section2_4.investmentReadyArray.${index}.investmentType`)}</p>
+                                        options={[
+                                          "Partner",
+                                          "Investor",
+                                          "Other",
+                                        ].map((opt) => ({
+                                          label: opt,
+                                          value: opt,
+                                        }))}
+                                        value={item.investmentType || ""}
+                                        onChange={(value) =>
+                                          handleArrayFieldUpdate(
+                                            "2.4",
+                                            index,
+                                            "investmentType",
+                                            value
+                                          )
+                                        }
+                                        placeholder="Select Type"
+                                        isEditable={true}
+                                      />
+                                      {getFieldError(
+                                        `section2_4.investmentReadyArray.${index}.investmentType`
+                                      ) && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                          {getFieldError(
+                                            `section2_4.investmentReadyArray.${index}.investmentType`
+                                          )}
+                                        </p>
                                       )}
                                     </div>
                                   ) : (
@@ -4810,7 +5479,11 @@ export const InfraDevelopmentReview = ({
                                     <Button
                                       variant="outline"
                                       size="icon"
-                                      onClick={() => handleRemoveEntry2_4(item.id || index.toString())}
+                                      onClick={() =>
+                                        handleRemoveEntry2_4(
+                                          item.id || index.toString()
+                                        )
+                                      }
                                       className="text-red-500 hover:text-red-700 border-none bg-none"
                                     >
                                       <Trash2 className="h-5 w-5" />
@@ -4997,24 +5670,40 @@ export const InfraDevelopmentReview = ({
                 </>
               )}
 
-              {/* Show comment field - for both "yes" and "no" */}
-              <div>
-                <Label className="mb-2 block">Comment</Label>
-                {isEditable("2.4") ? (
-                  <Textarea
-                    value={state?.section2_4?.comment || ""}
-                    onChange={(e) =>
-                      handleSectionFieldUpdate("2.4", "comment", e.target.value)
-                    }
-                    placeholder="Please provide a comment..."
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-md text-sm">
-                    {state?.section2_4?.comment || "No comment provided"}
-                  </div>
-                )}
-              </div>
+              {/* Show comment field - only when "no" is selected and it's mandatory */}
+              {state?.section2_4?.hasInvestmentReady === "no" && (
+                <div>
+                  <Label className="mb-2 block">
+                    Comment <span className="text-destructive">*</span>
+                  </Label>
+                  {shouldBeEditable("2.4") ? (
+                    <Textarea
+                      value={state?.section2_4?.comment || ""}
+                      onChange={(e) =>
+                        handleSectionFieldUpdate(
+                          "2.4",
+                          "comment",
+                          e.target.value
+                        )
+                      }
+                      placeholder="Please provide a comment..."
+                      className={cn(
+                        "min-h-[100px]",
+                        getFieldError("section2_4.comment") && "border-red-500"
+                      )}
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm">
+                      {state?.section2_4?.comment || "No comment provided"}
+                    </div>
+                  )}
+                  {getFieldError("section2_4.comment") && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {getFieldError("section2_4.comment")}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </SectionCard>
         )}
@@ -5038,6 +5727,8 @@ export const InfraDevelopmentReview = ({
           >
             {/* Show MOSPI_REVIEWER comments for MOSPI_APPROVER */}
             {renderMOSPIReviewerComments("2.5")}
+            {/* Show validation error message if save failed */}
+            {renderSectionValidationMessage("2.5")}
             {/* <CardHeader className="bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
@@ -5108,107 +5799,244 @@ export const InfraDevelopmentReview = ({
                         <tr key={item.id || index} className="border-b">
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
-                              <Input
-                                value={item.projectName || ""}
-                                onChange={(e) =>
-                                  handleArrayFieldUpdate(
-                                    "2.5",
-                                    index,
-                                    "projectName",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full"
-                              />
+                              <div>
+                                <Input
+                                  value={item.projectName || ""}
+                                  onChange={(e) => {
+                                    handleArrayFieldUpdate(
+                                      "2.5",
+                                      index,
+                                      "projectName",
+                                      e.target.value
+                                    );
+                                    // Clear validation error when user types
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.projectName`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.projectName`
+                                        ];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  className={
+                                    getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.projectName`
+                                    )
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
+                                />
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.projectName`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.projectName`
+                                    )}
+                                  </p>
+                                )}
+                              </div>
                             ) : (
                               item.projectName || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
-                              <Dropdown
-                                options={dropdownValues.sector.map((opt) => ({
-                                  label: opt,
-                                  value: opt,
-                                }))}
-                                value={item.sector || ""}
-                                onChange={(value) =>
-                                  handleArrayFieldUpdate(
-                                    "2.5",
-                                    index,
-                                    "sector",
-                                    value
-                                  )
-                                }
-                                placeholder="Select Sector"
-                                isEditable={true}
-                                resetKey={selectResetKey}
-                              />
+                              <div>
+                                <Dropdown
+                                  options={dropdownValues.sector.map((opt) => ({
+                                    label: opt,
+                                    value: opt,
+                                  }))}
+                                  value={item.sector || ""}
+                                  onChange={(value) => {
+                                    handleArrayFieldUpdate(
+                                      "2.5",
+                                      index,
+                                      "sector",
+                                      value
+                                    );
+                                    // Clear validation error when user selects
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.sector`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.sector`
+                                        ];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  placeholder="Select Sector"
+                                  isEditable={true}
+                                  resetKey={selectResetKey}
+                                />
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.sector`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.sector`
+                                    )}
+                                  </p>
+                                )}
+                              </div>
                             ) : (
                               item.sector || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
-                              <Dropdown
-                                options={dropdownValues.projectType.map(
-                                  (opt) => ({ label: opt, value: opt })
+                              <div>
+                                <Dropdown
+                                  options={dropdownValues.projectType.map(
+                                    (opt) => ({ label: opt, value: opt })
+                                  )}
+                                  value={item.type || ""}
+                                  onChange={(value) => {
+                                    handleArrayFieldUpdate(
+                                      "2.5",
+                                      index,
+                                      "type",
+                                      value
+                                    );
+                                    // Clear validation error when user selects
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.type`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.type`
+                                        ];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  placeholder="Select Type"
+                                  isEditable={true}
+                                  resetKey={selectResetKey}
+                                />
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.type`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.type`
+                                    )}
+                                  </p>
                                 )}
-                                value={item.type || ""}
-                                onChange={(value) =>
-                                  handleArrayFieldUpdate(
-                                    "2.5",
-                                    index,
-                                    "type",
-                                    value
-                                  )
-                                }
-                                placeholder="Select Type"
-                                isEditable={true}
-                                resetKey={selectResetKey}
-                              />
+                              </div>
                             ) : (
                               item.type || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
-                              <Dropdown
-                                options={dropdownValues.ownership.map(
-                                  (opt) => ({ label: opt, value: opt })
+                              <div>
+                                <Dropdown
+                                  options={dropdownValues.ownership.map(
+                                    (opt) => ({ label: opt, value: opt })
+                                  )}
+                                  value={item.ownership || ""}
+                                  onChange={(value) => {
+                                    handleArrayFieldUpdate(
+                                      "2.5",
+                                      index,
+                                      "ownership",
+                                      value
+                                    );
+                                    // Clear validation error when user selects
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.ownership`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.ownership`
+                                        ];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  placeholder="Select Ownership"
+                                  isEditable={true}
+                                  resetKey={selectResetKey}
+                                />
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.ownership`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.ownership`
+                                    )}
+                                  </p>
                                 )}
-                                value={item.ownership || ""}
-                                onChange={(value) =>
-                                  handleArrayFieldUpdate(
-                                    "2.5",
-                                    index,
-                                    "ownership",
-                                    value
-                                  )
-                                }
-                                placeholder="Select Ownership"
-                                isEditable={true}
-                                resetKey={selectResetKey}
-                              />
+                              </div>
                             ) : (
                               item.ownership || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.5") ? (
-                              <Input
-                                value={item.estimatedMonetization || ""}
-                                onChange={(e) =>
-                                  handleArrayFieldUpdate(
-                                    "2.5",
-                                    index,
-                                    "estimatedMonetization",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full"
-                                placeholder="Enter amount"
-                              />
+                              <div>
+                                <Input
+                                  value={item.estimatedMonetization || ""}
+                                  onChange={(e) => {
+                                    handleArrayFieldUpdate(
+                                      "2.5",
+                                      index,
+                                      "estimatedMonetization",
+                                      e.target.value
+                                    );
+                                    // Clear validation error when user types
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                        ];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  className={
+                                    getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                    )
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
+                                  placeholder="Enter amount"
+                                />
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.estimatedMonetization`
+                                    )}
+                                  </p>
+                                )}
+                              </div>
                             ) : item.estimatedMonetization ? (
                               `₹ ${item.estimatedMonetization} Crores`
                             ) : (
@@ -5220,7 +6048,11 @@ export const InfraDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => handleRemoveEntry2_5(item.id || index.toString())}
+                                onClick={() =>
+                                  handleRemoveEntry2_5(
+                                    item.id || index.toString()
+                                  )
+                                }
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
@@ -5234,6 +6066,13 @@ export const InfraDevelopmentReview = ({
                 </tbody>
               </table>
             </div>
+            {/* General array error message */}
+            {shouldBeEditable("2.5") &&
+              getFieldError("section2_5.assetMonetizationArray") && (
+                <p className="text-sm text-red-500 mt-2">
+                  {getFieldError("section2_5.assetMonetizationArray")}
+                </p>
+              )}
 
             {/* Add More Button - Only visible when in edit mode */}
             {isEditable("2.5") && !showAddForm2_5 && (
@@ -5259,15 +6098,44 @@ export const InfraDevelopmentReview = ({
                     <Label>Project/Asset Name</Label>
                     <Input
                       value={newEntry2_5.projectName}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setNewEntry2_5({
                           ...newEntry2_5,
                           projectName: e.target.value,
-                        })
+                        });
+                        // Clear validation error when user types
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.projectName"
+                          )
+                        ) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.projectName"
+                            ];
+                            return updated;
+                          });
+                        }
+                      }}
+                      className={
+                        getFieldError(
+                          "section2_5.assetMonetizationArray.new.projectName"
+                        )
+                          ? "bg-white border-red-500"
+                          : "bg-white"
                       }
-                      className="bg-white"
                       placeholder="Enter project/asset name"
                     />
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.projectName"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.projectName"
+                        )}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label>Sector</Label>
@@ -5277,12 +6145,35 @@ export const InfraDevelopmentReview = ({
                         value: opt,
                       }))}
                       value={newEntry2_5.sector}
-                      onChange={(value) =>
-                        setNewEntry2_5({ ...newEntry2_5, sector: value })
-                      }
+                      onChange={(value) => {
+                        setNewEntry2_5({ ...newEntry2_5, sector: value });
+                        // Clear validation error when user selects
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.sector"
+                          )
+                        ) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.sector"
+                            ];
+                            return updated;
+                          });
+                        }
+                      }}
                       placeholder="Select Sector"
                       isEditable={true}
                     />
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.sector"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.sector"
+                        )}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label>Type</Label>
@@ -5292,12 +6183,35 @@ export const InfraDevelopmentReview = ({
                         value: opt,
                       }))}
                       value={newEntry2_5.type}
-                      onChange={(value) =>
-                        setNewEntry2_5({ ...newEntry2_5, type: value })
-                      }
+                      onChange={(value) => {
+                        setNewEntry2_5({ ...newEntry2_5, type: value });
+                        // Clear validation error when user selects
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.type"
+                          )
+                        ) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.type"
+                            ];
+                            return updated;
+                          });
+                        }
+                      }}
                       placeholder="Select Type"
                       isEditable={true}
                     />
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.type"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.type"
+                        )}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label>Asset Ownership</Label>
@@ -5307,26 +6221,78 @@ export const InfraDevelopmentReview = ({
                         value: opt,
                       }))}
                       value={newEntry2_5.ownership}
-                      onChange={(value) =>
-                        setNewEntry2_5({ ...newEntry2_5, ownership: value })
-                      }
+                      onChange={(value) => {
+                        setNewEntry2_5({ ...newEntry2_5, ownership: value });
+                        // Clear validation error when user selects
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.ownership"
+                          )
+                        ) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.ownership"
+                            ];
+                            return updated;
+                          });
+                        }
+                      }}
                       placeholder="Select Ownership"
                       isEditable={true}
                     />
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.ownership"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.ownership"
+                        )}
+                      </p>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <Label>Estimated Monetization</Label>
                     <Input
                       value={newEntry2_5.estimatedMonetization}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setNewEntry2_5({
                           ...newEntry2_5,
                           estimatedMonetization: e.target.value,
-                        })
+                        });
+                        // Clear validation error when user types
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                          )
+                        ) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                            ];
+                            return updated;
+                          });
+                        }
+                      }}
+                      className={
+                        getFieldError(
+                          "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                        )
+                          ? "bg-white border-red-500"
+                          : "bg-white"
                       }
-                      className="bg-white"
                       placeholder="Enter amount"
                     />
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.estimatedMonetization"
+                        )}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">

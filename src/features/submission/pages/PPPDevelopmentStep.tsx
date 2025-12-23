@@ -30,6 +30,7 @@ import { ProgressHeader } from "../components/ProgressHeader";
 import { Stepper } from "../components/Stepper";
 import { useStepNavigation } from "../hooks/useStepNavigation";
 import { useFormPersistence } from "../hooks/useFormPersistence";
+import { useFieldValidation } from "../hooks/useFieldValidation";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
@@ -47,6 +48,7 @@ import {
   validatePPPDevelopment,
   type PPPDevelopmentValidationResult,
 } from "../validation/pppDevelopmentValidation";
+import { getInputValidationClass as getInputValidationClassUtil } from "../utils/validationStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -203,22 +205,40 @@ export const PPPDevelopmentStep = () => {
   const [savingIndicators, setSavingIndicators] = useState<Set<string>>(
     new Set()
   );
+  // Store snapshots of original form data when editing starts (for cancel functionality)
+  const [originalFormDataSnapshots, setOriginalFormDataSnapshots] = useState<
+    Record<string, any>
+  >({});
   // State for save confirmation dialog
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pendingSaveIndicatorCode, setPendingSaveIndicatorCode] = useState<
     string | null
   >(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingIndicator, setSubmittingIndicator] = useState<string | null>(
+    null
+  );
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [pendingIndicator, setPendingIndicator] = useState<{
     code: string;
     title: string;
   } | null>(null);
-  // Track which indicator is being validated and its specific errors
-  const [validatingIndicator, setValidatingIndicator] = useState<string | null>(null);
+  // Track indicator-specific validation errors
   const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  // Section-level validation error messages (shown when save fails)
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
   
+  // Use the shared field validation hook
+  const {
+    validatingIndicator,
+    setValidatingIndicator,
+    markFieldAsTouched,
+    getFieldError: getFieldErrorFromHook,
+    markIndicatorFieldsAsTouched,
+    clearValidatingIndicator,
+    clearValidFieldErrors,
+  } = useFieldValidation();
+
   // State for submissionId to enable immediate file uploads
   const [submissionId, setSubmissionId] = useState<string | undefined>();
 
@@ -243,18 +263,20 @@ export const PPPDevelopmentStep = () => {
             sub.status === "IN_PROGRESS" ||
             sub.status === "RETURNED_FROM_STATE"
         );
-        
+
         if (userSubmission) {
           setSubmissionId(userSubmission.id);
           console.log("✅ Found existing submissionId:", userSubmission.id);
         } else {
-          console.log("ℹ️ No existing submission found, files will upload on submit");
+          console.log(
+            "ℹ️ No existing submission found, files will upload on submit"
+          );
         }
       } catch (error) {
         console.error("Failed to fetch submissionId:", error);
       }
     };
-    
+
     fetchSubmissionId();
   }, []);
 
@@ -440,6 +462,16 @@ export const PPPDevelopmentStep = () => {
   }, [formData, isNodalOfficer, isStateApprover, allowedIndicators]);
   const isNextDisabled = false; // Validation disabled - Next button always enabled
 
+  // Clear errors for fields that are now valid (when user fixes invalid fields)
+  useEffect(() => {
+    if (
+      validatingIndicator &&
+      Object.keys(indicatorValidationErrors).length > 0
+    ) {
+      clearValidFieldErrors(validation.errors, setIndicatorValidationErrors);
+    }
+  }, [validation.errors, validatingIndicator, clearValidFieldErrors]);
+
   // Debug logging
   useEffect(() => {
     console.log("🔍 PPPDevelopmentStep Validation:", {
@@ -452,21 +484,14 @@ export const PPPDevelopmentStep = () => {
     });
   }, [validation, formData]);
 
-  // Helper functions for error display
+  // Use the hook's getFieldError function
   const getFieldError = (fieldPath: string): string | undefined => {
-    if (!showValidationErrors) return undefined;
-    
-    // If validating a specific indicator, only show errors for that indicator
-    if (validatingIndicator) {
-      const sectionPrefix = `section${validatingIndicator.replace(".", "_")}`;
-      if (fieldPath.startsWith(sectionPrefix)) {
-        return indicatorValidationErrors[fieldPath];
-      }
-      return undefined; // Don't show errors for other indicators
-    }
-    
-    // Otherwise, show all errors (for form-level validation)
-    return validation.errors[fieldPath];
+    return getFieldErrorFromHook(
+      fieldPath,
+      validation.errors,
+      indicatorValidationErrors,
+      showValidationErrors
+    );
   };
 
   const renderFieldError = (fieldPath: string) => {
@@ -475,10 +500,10 @@ export const PPPDevelopmentStep = () => {
     return <p className="text-sm text-destructive mt-1">{error}</p>;
   };
 
+  // Use shared validation styling utility
   const getInputValidationClass = (fieldPath: string): string => {
-    const error = getFieldError(fieldPath);
-    if (!error || !showValidationErrors) return "";
-    return "border-destructive focus-visible:ring-destructive";
+    const hasError = !!getFieldError(fieldPath);
+    return getInputValidationClassUtil(hasError, showValidationErrors);
   };
 
   const showErrorsIfNeeded = () => {
@@ -644,7 +669,7 @@ export const PPPDevelopmentStep = () => {
             dateOfAward: "",
             capexPercentage: "",
             totalProjectCost: "",
-            file: null,
+            // file: null,
           },
         ],
       },
@@ -672,9 +697,8 @@ export const PPPDevelopmentStep = () => {
       | "infrastructureSector"
       | "dateOfAward"
       | "capexPercentage"
-      | "totalProjectCost"
-      | "file",
-    value: string | FileUpload | null
+      | "totalProjectCost",
+    value: string
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -682,9 +706,6 @@ export const PPPDevelopmentStep = () => {
         ...prev.section3_4,
         projects: (prev.section3_4.projects || []).map((entry) => {
           if (entry.id !== id) return entry;
-          if (typeof value === "object" && value !== null && field === "file") {
-            return deepMerge(entry, { [field]: value });
-          }
           return { ...entry, [field]: value };
         }),
       },
@@ -710,20 +731,20 @@ export const PPPDevelopmentStep = () => {
       "totalIndicators",
       "completedIndicators",
     ];
-    
+
     // Preserve File and Blob instances - return them as-is
     if (obj instanceof File || obj instanceof Blob) {
       return obj;
     }
-    
+
     if (Array.isArray(obj)) return obj.map(deepRemoveUnwantedKeys);
-    
+
     if (obj && typeof obj === "object") {
       const newObj = {};
       for (const key in obj) {
         if (!keysToRemove.includes(key)) {
           const value = obj[key];
-          
+
           // Preserve File and Blob instances
           if (value instanceof File || value instanceof Blob) {
             newObj[key] = value; // Keep File/Blob instance as-is
@@ -738,7 +759,10 @@ export const PPPDevelopmentStep = () => {
             // Preserve the FileUpload object structure, including the File instance
             const fileUploadObj: any = {};
             for (const prop in value) {
-              if (prop === "file" && (value.file instanceof File || value.file instanceof Blob)) {
+              if (
+                prop === "file" &&
+                (value.file instanceof File || value.file instanceof Blob)
+              ) {
                 fileUploadObj[prop] = value.file; // Keep File/Blob instance as-is
               } else {
                 fileUploadObj[prop] = deepRemoveUnwantedKeys(value[prop]);
@@ -820,7 +844,7 @@ export const PPPDevelopmentStep = () => {
     console.log("[DEBUG] Submitting PPPDevelopmentStep, formData:", formData);
 
     try {
-      setIsSubmitting(true);
+      setSubmittingIndicator(indicatorCode);
       // Get the indicators for this section
       const sectionIndicators = allowedIndicators || [
         "3.1",
@@ -858,7 +882,7 @@ export const PPPDevelopmentStep = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingIndicator(null);
     }
   };
 
@@ -874,6 +898,9 @@ export const PPPDevelopmentStep = () => {
       allowedIndicators: [indicatorCode],
     });
     if (!indicatorValidation.isValid) {
+      // Mark all fields with errors in this indicator as touched so errors show
+      markIndicatorFieldsAsTouched(indicatorCode, indicatorValidation.errors);
+
       // Store indicator-specific errors
       setIndicatorValidationErrors(indicatorValidation.errors);
       toast({
@@ -883,9 +910,9 @@ export const PPPDevelopmentStep = () => {
       });
       return;
     }
-    
+
     // Clear indicator-specific validation state on success
-    setValidatingIndicator(null);
+    clearValidatingIndicator();
     setIndicatorValidationErrors({});
 
     // Check if already submitted
@@ -909,7 +936,7 @@ export const PPPDevelopmentStep = () => {
     const { code: indicatorCode, title: indicatorTitle } = pendingIndicator;
 
     try {
-      setIsSubmitting(true);
+      setSubmittingIndicator(indicatorCode);
       setShowSubmitDialog(false);
       // Clear indicator validation state after successful submission
       setValidatingIndicator(null);
@@ -1050,7 +1077,7 @@ export const PPPDevelopmentStep = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingIndicator(null);
       setPendingIndicator(null);
     }
   };
@@ -1067,16 +1094,19 @@ export const PPPDevelopmentStep = () => {
         "pppDevelopment",
         allowedIndicators || ["3.1", "3.2", "3.3", "3.4"]
       );
-      
+
       // Update submissionId if it was created/updated
       if (result?.id || result?.submissionId) {
         const newSubmissionId = result.id || result.submissionId;
         if (newSubmissionId && newSubmissionId !== submissionId) {
           setSubmissionId(newSubmissionId);
-          console.log("✅ Updated submissionId after draft save:", newSubmissionId);
+          console.log(
+            "✅ Updated submissionId after draft save:",
+            newSubmissionId
+          );
         }
       }
-      
+
       updateFormData("pppDevelopment", formData);
       toast({
         title: "Draft Saved",
@@ -1171,9 +1201,9 @@ export const PPPDevelopmentStep = () => {
   // Get button text based on indicator status
   const getSubmitButtonText = (
     indicatorCode: string,
-    isSubmitting: boolean
+    submittingIndicator: string | null
   ): string => {
-    if (isSubmitting) return "Submitting...";
+    if (submittingIndicator === indicatorCode) return "Submitting...";
 
     const status = getIndicatorStatus(indicatorCode);
     if (!status) return "Submit";
@@ -1194,7 +1224,36 @@ export const PPPDevelopmentStep = () => {
 
   // Handle Edit button click for sent back indicators
   const handleEditIndicator = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Store a snapshot of the current form data for this section before editing
+    setOriginalFormDataSnapshots((prev) => ({
+      ...prev,
+      [indicatorCode]: JSON.parse(JSON.stringify(formData[sectionKey] || {})),
+    }));
     setEditingIndicators((prev) => new Set(prev).add(indicatorCode));
+  };
+
+  // Helper to render validation error message for an indicator
+  const renderSectionValidationMessage = (indicatorCode: string) => {
+    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+      return null;
+    }
+    return (
+      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+        <p className="text-sm text-destructive font-medium">
+          {sectionValidationMessages[indicatorCode]}
+        </p>
+      </div>
+    );
+  };
+
+  // Helper to clear validation message for an indicator when fields are updated
+  const clearIndicatorValidationMessage = (indicatorCode: string) => {
+    setSectionValidationMessages((prev) => {
+      const updated = { ...prev };
+      delete updated[indicatorCode];
+      return updated;
+    });
   };
 
   // Handle Save button click for sent back indicators
@@ -1204,14 +1263,84 @@ export const PPPDevelopmentStep = () => {
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
-    // If NODAL_OFFICER and status is REVERTED (sent back), show confirmation dialog first
-    if (isNodalOfficer && isReverted) {
-      setPendingSaveIndicatorCode(indicatorCode);
-      setShowSaveDialog(true);
-      return;
+    // If NODAL_OFFICER, ALWAYS run validation FIRST before showing dialog
+    // This ensures validation errors are shown on UI instead of alerts
+    if (isNodalOfficer) {
+      // Run validation first
+      const validationResult = validatePPPDevelopment(formData, {
+        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+      });
+
+      // Filter validation errors to only include the indicator being saved
+      const sectionErrors: Record<string, string> = {};
+      const sectionPrefix = `section${indicatorCode.replace(".", "_")}`;
+      Object.keys(validationResult.errors).forEach((errorKey) => {
+        if (errorKey.startsWith(sectionPrefix)) {
+          sectionErrors[errorKey] = validationResult.errors[errorKey];
+        }
+      });
+
+      // If validation fails, show errors on UI and return (don't show dialog)
+      if (Object.keys(sectionErrors).length > 0) {
+        // Mark all fields in this indicator as touched so ALL errors show
+        const allIndicatorFields: string[] = [];
+        
+        // Add base fields based on indicator
+        if (indicatorCode === "3.1") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        } else if (indicatorCode === "3.2") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        } else if (indicatorCode === "3.3") {
+          allIndicatorFields.push(`${sectionPrefix}.projectArray`);
+          if (formData.section3_3?.projectArray && Array.isArray(formData.section3_3.projectArray)) {
+            formData.section3_3.projectArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.projectArray.${index}.projectName`,
+                `${sectionPrefix}.projectArray.${index}.file`
+              );
+            });
+          }
+        } else if (indicatorCode === "3.4") {
+          allIndicatorFields.push(`${sectionPrefix}.file`);
+        }
+
+        // Mark all indicator fields as touched so ALL errors show
+        allIndicatorFields.forEach((field) => {
+          markFieldAsTouched(field);
+        });
+        // Also mark fields with errors from validation
+        Object.keys(validationResult.errors).forEach((errorKey) => {
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
+        });
+        
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
+        // Set section-level validation message
+        const errorCount = Object.keys(sectionErrors).length;
+        setSectionValidationMessages((prev) => ({
+          ...prev,
+          [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
+        }));
+        console.log(`[PPPDevelopmentStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        // Errors are displayed inline in the UI, don't show dialog
+        return;
+      }
+
+      // Validation passed - show confirmation dialog only if status is REVERTED
+      if (isReverted) {
+        setPendingSaveIndicatorCode(indicatorCode);
+        setShowSaveDialog(true);
+        return;
+      } else {
+        // If not REVERTED, proceed with direct save
+        await performSaveIndicator(indicatorCode);
+        return;
+      }
     }
 
-    // For non-NODAL_OFFICER users or non-REVERTED status, proceed with save directly
+    // For non-NODAL_OFFICER users, proceed with save directly
     await performSaveIndicator(indicatorCode);
   };
 
@@ -1292,7 +1421,10 @@ export const PPPDevelopmentStep = () => {
         const newSubmissionId = result.id || result.submissionId;
         if (newSubmissionId && newSubmissionId !== submissionId) {
           setSubmissionId(newSubmissionId);
-          console.log("✅ Updated submissionId after resubmit:", newSubmissionId);
+          console.log(
+            "✅ Updated submissionId after resubmit:",
+            newSubmissionId
+          );
         }
       }
 
@@ -1360,6 +1492,22 @@ export const PPPDevelopmentStep = () => {
 
   // Handle Cancel button click for sent back indicators
   const handleCancelEdit = (indicatorCode: string) => {
+    const sectionKey = `section${indicatorCode.replace(".", "_")}`;
+    // Restore the original form data from snapshot
+    if (originalFormDataSnapshots[indicatorCode]) {
+      setFormData((prev: any) => ({
+        ...prev,
+        [sectionKey]: JSON.parse(
+          JSON.stringify(originalFormDataSnapshots[indicatorCode])
+        ),
+      }));
+      // Remove the snapshot after restoring
+      setOriginalFormDataSnapshots((prev) => {
+        const updated = { ...prev };
+        delete updated[indicatorCode];
+        return updated;
+      });
+    }
     setEditingIndicators((prev) => {
       const newSet = new Set(prev);
       newSet.delete(indicatorCode);
@@ -1432,6 +1580,7 @@ export const PPPDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("3.1")}
             isSaving={savingIndicators.has("3.1")}
           >
+            {renderSectionValidationMessage("3.1")}
             <div className="flex flex-col gap-4">
               <div>
                 <Label>
@@ -1510,7 +1659,10 @@ export const PPPDevelopmentStep = () => {
                       }));
                     }}
                     submissionId={submissionId}
+                    required
                     disabled={isIndicatorSubmitted("3.1")}
+                    deferFileDeletion={editingIndicators.has("3.1")}
+                    className={getInputValidationClass("section3_1.file")}
                   />
                   <p className="text-xs text-muted-foreground">
                     Upload copy of Act/Policy
@@ -1558,11 +1710,13 @@ export const PPPDevelopmentStep = () => {
                       "Availability of PPP Act/Policy"
                     )
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("3.1")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("3.1")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("3.1", isSubmitting)}
+                  {getSubmitButtonText("3.1", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -1592,6 +1746,7 @@ export const PPPDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("3.2")}
             isSaving={savingIndicators.has("3.2")}
           >
+            {renderSectionValidationMessage("3.2")}
             <div className="flex flex-col gap-4">
               <div>
                 <Label>
@@ -1672,7 +1827,10 @@ export const PPPDevelopmentStep = () => {
                       }));
                     }}
                     submissionId={submissionId}
+                    required
                     disabled={isIndicatorSubmitted("3.2")}
+                    deferFileDeletion={editingIndicators.has("3.2")}
+                    className={getInputValidationClass("section3_2.file")}
                   />
                   <p className="text-xs text-muted-foreground">
                     Upload notification or mandate
@@ -1720,11 +1878,13 @@ export const PPPDevelopmentStep = () => {
                       "Availability of PPP Cell/Unit"
                     )
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("3.2")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("3.2")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("3.2", isSubmitting)}
+                  {getSubmitButtonText("3.2", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -1754,6 +1914,7 @@ export const PPPDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("3.3")}
             isSaving={savingIndicators.has("3.3")}
           >
+            {renderSectionValidationMessage("3.3")}
             <div className="flex flex-col gap-4">
               {(Array.isArray(formData.section3_3?.VGFArray)
                 ? formData.section3_3.VGFArray
@@ -1920,6 +2081,8 @@ export const PPPDevelopmentStep = () => {
                       }}
                       submissionId={submissionId}
                       disabled={isIndicatorSubmitted("3.3")}
+                      deferFileDeletion={editingIndicators.has("3.3")}
+                      // Note: Upload file is NON-mandatory in section 3.3, so no required prop
                     />
                   </div>
                   {renderFieldError(
@@ -1980,15 +2143,26 @@ export const PPPDevelopmentStep = () => {
                         if (!file) {
                           return (
                             <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm">{entry.projectName}</td>
-                              <td className="py-3 px-4 text-sm">{entry.sector}</td>
-                              <td className="py-3 px-4 text-sm">{entry.type}</td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.projectName}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.sector}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.type}
+                              </td>
                               <td className="py-3 px-4 text-sm">
                                 {entry.submissionDate
-                                  ? format(new Date(entry.submissionDate), "dd-MM-yyyy")
+                                  ? format(
+                                      new Date(entry.submissionDate),
+                                      "dd-MM-yyyy"
+                                    )
                                   : "-"}
                               </td>
-                              <td className="py-3 px-4 text-sm">No file uploaded</td>
+                              <td className="py-3 px-4 text-sm">
+                                No file uploaded
+                              </td>
                               <td className="py-3 px-4 text-sm">N/A</td>
                               <td className="py-3 px-4">
                                 <button
@@ -2004,63 +2178,73 @@ export const PPPDevelopmentStep = () => {
                             </tr>
                           );
                         }
-                        
+
                         // Extract original name from UUID-prefixed fileName if originalName is not available
-                        const extractOriginalName = (fileName: string, originalName?: string): string => {
-                          if (originalName && originalName.trim()) return originalName;
-                          
+                        const extractOriginalName = (
+                          fileName: string,
+                          originalName?: string
+                        ): string => {
+                          if (originalName && originalName.trim())
+                            return originalName;
+
                           // UUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-                          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
-                          
+                          const uuidPattern =
+                            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/i;
+
                           if (uuidPattern.test(fileName)) {
-                            const extracted = fileName.replace(uuidPattern, '');
+                            const extracted = fileName.replace(uuidPattern, "");
                             if (extracted && extracted.trim().length > 0) {
                               return extracted;
                             }
                           }
-                          
+
                           return fileName;
                         };
-                        
-                        const displayName = extractOriginalName(file.fileName || "", (file as any)?.originalName);
-                        
+
+                        const displayName = extractOriginalName(
+                          file.fileName || "",
+                          (file as any)?.originalName
+                        );
+
                         return (
-                        <tr key={entry.id} className="bg-white">
-                          <td className="py-3 px-4 text-sm">
-                            {entry.projectName}
-                          </td>
-                          <td className="py-3 px-4 text-sm">{entry.sector}</td>
-                          <td className="py-3 px-4 text-sm">{entry.type}</td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.submissionDate
-                              ? format(
-                                  new Date(entry.submissionDate),
-                                  "dd-MM-yyyy"
-                                )
-                              : "-"}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {displayName}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {entry.file?.fileSize
-                              ? `${(entry.file.fileSize / 1024 / 1024).toFixed(
-                                  1
-                                )} MB`
-                              : "N/A"}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button
-                              type="button"
-                              onClick={() => removeProject(entry.id)}
-                              disabled={isIndicatorSubmitted("3.3")}
-                              className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                              aria-label="Delete"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </td>
-                        </tr>
+                          <tr key={entry.id} className="bg-white">
+                            <td className="py-3 px-4 text-sm">
+                              {entry.projectName}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.sector}
+                            </td>
+                            <td className="py-3 px-4 text-sm">{entry.type}</td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.submissionDate
+                                ? format(
+                                    new Date(entry.submissionDate),
+                                    "dd-MM-yyyy"
+                                  )
+                                : "-"}
+                            </td>
+                            <td className="py-3 px-4 text-sm">{displayName}</td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.file?.fileSize
+                                ? `${(
+                                    entry.file.fileSize /
+                                    1024 /
+                                    1024
+                                  ).toFixed(1)} MB`
+                                : "N/A"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => removeProject(entry.id)}
+                                disabled={isIndicatorSubmitted("3.3")}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -2072,11 +2256,13 @@ export const PPPDevelopmentStep = () => {
                   onClick={() =>
                     handleSubmitIndicator("3.3", "VGF Proposals Submitted")
                   }
-                  disabled={isSubmitting || isIndicatorSubmitted("3.3")}
+                  disabled={
+                    submittingIndicator !== null || isIndicatorSubmitted("3.3")
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   size="sm"
                 >
-                  {getSubmitButtonText("3.3", isSubmitting)}
+                  {getSubmitButtonText("3.3", submittingIndicator)}
                 </Button>
               </div>
             </div>
@@ -2105,6 +2291,7 @@ export const PPPDevelopmentStep = () => {
             onCancel={() => handleCancelEdit("3.4")}
             isSaving={savingIndicators.has("3.4")}
           >
+            {renderSectionValidationMessage("3.4")}
             <div className="flex flex-col gap-6">
               {/* ✅ Single-instance summary fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2274,22 +2461,6 @@ export const PPPDevelopmentStep = () => {
                             (p) => p.id === project.id
                           )}.capexPercentage`
                         )}
-                      </div>
-                      {/* File Upload for each project */}
-                      <div>
-                        <FileUploadSection
-                          label="Upload File"
-                          value={project.file ?? null}
-                          onChange={(fileUpload) => {
-                            showErrorsIfNeeded();
-                            updatePPPProject(project.id, "file", fileUpload);
-                          }}
-                          submissionId={submissionId}
-                          disabled={isIndicatorSubmitted("3.4")}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Upload supporting document (if any)
-                        </p>
                       </div>
                     </div>
 
@@ -2521,11 +2692,14 @@ export const PPPDevelopmentStep = () => {
                         "Proportion of TPC of PPP Projects"
                       )
                     }
-                    disabled={isSubmitting || isIndicatorSubmitted("3.4")}
+                    disabled={
+                      submittingIndicator !== null ||
+                      isIndicatorSubmitted("3.4")
+                    }
                     className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
-                    {getSubmitButtonText("3.4", isSubmitting)}
+                    {getSubmitButtonText("3.4", submittingIndicator)}
                   </Button>
                 </div>
               </div>
@@ -2567,9 +2741,11 @@ export const PPPDevelopmentStep = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmSubmit}
-              disabled={isSubmitting}
+              disabled={submittingIndicator !== null}
             >
-              {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+              {submittingIndicator !== null
+                ? "Submitting..."
+                : "Confirm & Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
