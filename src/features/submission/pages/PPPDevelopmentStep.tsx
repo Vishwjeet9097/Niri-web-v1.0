@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Info, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "../components/SectionCard";
@@ -2231,7 +2225,7 @@ export const PPPDevelopmentStep = () => {
                         <th className="py-3 px-4 text-left text-sm font-normal">
                           Status of Project
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
                           Submission Date
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2249,11 +2243,11 @@ export const PPPDevelopmentStep = () => {
                       {(Array.isArray(formData.section3_3?.VGFArray)
                         ? formData.section3_3.VGFArray
                         : []
-                      ).map((entry) => {
+                      ).map((entry, index) => {
                         const file = entry.file;
                         if (!file) {
                           return (
-                            <tr key={entry.id} className="bg-white">
+                            <tr key={entry.id || `entry-${index}`} className="bg-white">
                               <td className="py-3 px-4 text-sm">
                                 {entry.projectName}
                               </td>
@@ -2269,7 +2263,7 @@ export const PPPDevelopmentStep = () => {
                               <td className="py-3 px-4 text-sm">
                                 {entry.statusOfProject || "-"}
                               </td>
-                              <td className="py-3 px-4 text-sm">
+                              <td className="py-3 px-4 text-sm min-w-[180px]">
                                 {entry.submissionDate
                                   ? format(
                                       new Date(entry.submissionDate),
@@ -2324,7 +2318,7 @@ export const PPPDevelopmentStep = () => {
                         );
 
                         return (
-                          <tr key={entry.id} className="bg-white">
+                          <tr key={entry.id || `entry-${index}`} className="bg-white">
                             <td className="py-3 px-4 text-sm">
                               {entry.projectName}
                             </td>
@@ -2488,8 +2482,8 @@ export const PPPDevelopmentStep = () => {
               </div>
 
               {/* Existing per-project list */}
-              {(formData.section3_4.projects || []).map((project) => (
-                <div key={project.id} className="mb-4 p-4 border rounded-lg">
+              {(formData.section3_4.projects || []).map((project, index) => (
+                <div key={project.id || `project-${index}`} className="mb-4 p-4 border rounded-lg">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     <div className="space-y-4">
                       <div>
@@ -2769,8 +2763,8 @@ export const PPPDevelopmentStep = () => {
                         {(Array.isArray(formData.section3_4?.projects)
                           ? formData.section3_4.projects
                           : []
-                        ).map((project) => (
-                          <tr key={project.id} className="bg-white">
+                        ).map((project, index) => (
+                          <tr key={project.id || `project-${index}`} className="bg-white">
                             <td className="py-3 px-4 text-sm">
                               {project.nameOfProject}
                             </td>

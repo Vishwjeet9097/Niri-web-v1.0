@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { Plus, Check, X, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import axios from "axios";
 import { API_ENDPOINTS } from "@/config/endpoints";
 
@@ -28,6 +30,20 @@ export const Section_1_3 = ({
   const getError = (fieldPath: string) => {
     return getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath];
   };
+  
+  // Helper function to format date for HTML5 date input (YYYY-MM-DD)
+  const formatDateForInput = (dateValue: string | undefined): string => {
+    if (!dateValue) return "";
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return "";
+      return date.toISOString().split("T")[0];
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "";
+    }
+  };
+  
   const ulbList = formData?.section1_3?.ulbList || [];
   const totalULBs = formData?.section1_3?.totalULBs || 0;
   console.log("[Section_1_3] formData:", formData);
@@ -209,7 +225,7 @@ export const Section_1_3 = ({
               <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
                 City Name
               </th>
-              <th className="py-3 px-4 text-left text-sm font-normal">
+              <th className="py-3 px-4 text-left text-sm font-normal min-w-[180px]">
                 Rating Date
               </th>
               <th className="py-3 px-4 text-left text-sm font-normal">
@@ -304,41 +320,33 @@ export const Section_1_3 = ({
                     )}
                   </td>
 
-                  <td className="py-3 px-4 text-sm font-normal">
+                  <td className="py-3 px-4 text-sm font-normal min-w-[180px]">
                     {isEditable("1.3") ? (
-		 <div>	
-                      <Input
-                        type="date"
-                        value={
-                          item.ratingDate
-                            ? (() => {
-                                // Ensure value is in YYYY-MM-DD format
-                                const d = new Date(item.ratingDate);
-                                if (isNaN(d.getTime())) return "";
-                                const year = d.getFullYear();
-                                const month = String(d.getMonth() + 1).padStart(2, "0");
-                                const day = String(d.getDate()).padStart(2, "0");
-                                return `${year}-${month}-${day}`;
-                              })()
-                            : ""
-                        }
-                        onChange={(e) =>
-                          handleUlbChange(index, "ratingDate", e.target.value)
-                        }
-                        className={
-                            getError(`section1_3.ulbList.${index}.ratingDate`)
-                              ? "w-full border-red-500"
-                              : "w-full"
-                          }
-                      />
-		 {getError(`section1_3.ulbList.${index}.ratingDate`) && (
+                      <div>
+                        <Input
+                          type="date"
+                          value={formatDateForInput(item.ratingDate)}
+                          onChange={(e) => {
+                            handleUlbChange(
+                              index,
+                              "ratingDate",
+                              e.target.value ? new Date(e.target.value).toISOString() : ""
+                            );
+                          }}
+                          className={cn(
+                            "w-full min-w-[160px] bg-[#fff] border border-[#C6C6C6]",
+                            !item.ratingDate && "text-muted-foreground",
+                            getError(`section1_3.ulbList.${index}.ratingDate`) && "border-red-500"
+                          )}
+                        />
+                        {getError(`section1_3.ulbList.${index}.ratingDate`) && (
                           <p className="text-sm text-red-500 mt-1">{getError(`section1_3.ulbList.${index}.ratingDate`)}</p>
                         )}
-                      </div>	
+                      </div>
                     ) : item.ratingDate ? (
-                      new Date(item.ratingDate).toLocaleDateString()
+                      format(new Date(item.ratingDate), "dd-MM-yyyy")
                     ) : (
-                      "N/A"
+                      "-"
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
@@ -428,10 +436,9 @@ export const Section_1_3 = ({
                   }
                   setNewULBEntry({ ...newULBEntry, ulb: value, cityName });
                 }}
-                placeholder={ulbLoading ? "Loading..." : "Select ULB"}
-                isEditable={true}
+                placeholder={ulbLoading ? "Loading..." : ulbError ? "Failed to load ULBs" : "Select ULB"}
+                isEditable={!ulbLoading && !ulbError}
                 isSearchable={true}
-                disabled={ulbLoading || !!ulbError}
               />
               {ulbError && (
                 <div className="text-xs text-red-500 mt-1">{ulbError}</div>
@@ -462,15 +469,18 @@ export const Section_1_3 = ({
               <Label>Rating Date</Label>
               <Input
                 type="date"
-                value={newULBEntry.ratingDate}
-                onChange={(e) =>
-                  setNewULBEntry({ ...newULBEntry, ratingDate: e.target.value })
-                }
-                className={
-                  getError("section1_3.ulbList.new.ratingDate")
-                    ? "bg-white border-red-500"
-                    : "bg-white"
-                }
+                value={formatDateForInput(newULBEntry.ratingDate)}
+                onChange={(e) => {
+                  setNewULBEntry({
+                    ...newULBEntry,
+                    ratingDate: e.target.value ? new Date(e.target.value).toISOString() : "",
+                  });
+                }}
+                className={cn(
+                  "w-full bg-[#fff] border border-[#C6C6C6]",
+                  !newULBEntry.ratingDate && "text-muted-foreground",
+                  getError("section1_3.ulbList.new.ratingDate") && "border-red-500"
+                )}
               />
               {getError("section1_3.ulbList.new.ratingDate") && (
                 <p className="text-sm text-red-500 mt-1">{getError("section1_3.ulbList.new.ratingDate")}</p>

@@ -174,7 +174,11 @@ export const InfraFinancingReview = ({
 
   // Validation error state - using centralized hooks
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-
+  
+  // State for edit functionality indicator wise - moved here to be available before useMemo
+  const { setEditable, isEditable, clearAllEditing } =
+    useEditableSectionStore();
+  
   // Field validation hook for touch tracking
   const {
     touchedFields,
@@ -399,12 +403,14 @@ export const InfraFinancingReview = ({
       }
 
       // For sections 1.3, 1.4, and 1.5, only include if they have meaningful data
+      // OR if they are currently in edit mode (to allow adding entries after deletion)
       // Don't include them just because they exist in formData
       const section1_3 = infraPayload.section1_3;
       if (section1_3 && typeof section1_3 === "object") {
         const hasSection1_3Data =
           Array.isArray(section1_3.ulbList) && section1_3.ulbList.length > 0;
-        if (hasSection1_3Data && !merged.includes("section1_3")) {
+        const isSection1_3Editable = isEditable("1.3");
+        if ((hasSection1_3Data || isSection1_3Editable) && !merged.includes("section1_3")) {
           merged.push("section1_3");
         }
       }
@@ -413,7 +419,8 @@ export const InfraFinancingReview = ({
       if (section1_4 && typeof section1_4 === "object") {
         const hasSection1_4Data =
           Array.isArray(section1_4.bondList) && section1_4.bondList.length > 0;
-        if (hasSection1_4Data && !merged.includes("section1_4")) {
+        const isSection1_4Editable = isEditable("1.4");
+        if ((hasSection1_4Data || isSection1_4Editable) && !merged.includes("section1_4")) {
           merged.push("section1_4");
         }
       }
@@ -442,7 +449,8 @@ export const InfraFinancingReview = ({
         else if (Array.isArray(section1_5) && section1_5.length > 0) {
           hasSection1_5Data = true;
         }
-        if (hasSection1_5Data && !merged.includes("section1_5")) {
+        const isSection1_5Editable = isEditable("1.5");
+        if ((hasSection1_5Data || isSection1_5Editable) && !merged.includes("section1_5")) {
           merged.push("section1_5");
         }
       }
@@ -517,20 +525,25 @@ export const InfraFinancingReview = ({
         return hasData;
       }
       if (sec === "section1_3") {
-        return (
+        const hasData =
           Array.isArray(infraPayload?.section1_3?.ulbList) &&
-          infraPayload.section1_3.ulbList.length > 0
-        );
+          infraPayload.section1_3.ulbList.length > 0;
+        const isSectionEditable = isEditable("1.3");
+        return hasData || isSectionEditable;
       }
       if (sec === "section1_4") {
-        return (
+        const hasData =
           Array.isArray(infraPayload?.section1_4?.bondList) &&
-          infraPayload.section1_4.bondList.length > 0
-        );
+          infraPayload.section1_4.bondList.length > 0;
+        const isSectionEditable = isEditable("1.4");
+        return hasData || isSectionEditable;
       }
       if (sec === "section1_5") {
         const section = infraPayload?.section1_5;
-        if (!section) return false;
+        if (!section) {
+          // Check if it's in edit mode even if section doesn't exist
+          return isEditable("1.5");
+        }
 
         // Check if it has the new format with hasIntermediary
         if (section.hasIntermediary === "yes") {
@@ -539,14 +552,16 @@ export const InfraFinancingReview = ({
         if (section.hasIntermediary === "no") {
           // "no" requires a comment to be considered as having data
           const comment = section.comment || "";
-          return comment.trim() !== "";
+          if (comment.trim() !== "") return true;
         }
         // Check if it has ffiArray with data (legacy format or yes with items)
         if (Array.isArray(section.ffiArray) && section.ffiArray.length > 0)
           return true;
         // Check if it's the old array format
         if (Array.isArray(section) && section.length > 0) return true;
-        return false;
+        
+        // If no data, check if it's in edit mode
+        return isEditable("1.5");
       }
       return true;
     });
@@ -802,10 +817,6 @@ export const InfraFinancingReview = ({
       return hasChanges ? updated : prev;
     });
   }, [validation.errors]);
-
-  // State for edit fucntionality indicator wise
-  const { setEditable, isEditable, clearAllEditing } =
-    useEditableSectionStore();
 
   // Store original state snapshots when edit mode starts (for cancel functionality)
   const [originalStateSnapshot, setOriginalStateSnapshot] = useState<any>(null);
@@ -1404,13 +1415,41 @@ export const InfraFinancingReview = ({
   const handleCancel = (sectionId: string) => {
     if (originalStateSnapshot) {
       isRestoringRef.current = true;
+      
+      // For section 1.3, restore section13State FIRST before updating submissionData
+      // This ensures the component receives the correct data immediately
+      if (sectionId === "1.3" && originalStateSnapshot.section13State) {
+        setSection13State({
+          ulbList: originalStateSnapshot.section13State.ulbList || [],
+          totalULBs: originalStateSnapshot.section13State.totalULBs || 0,
+        });
+      }
+      
+      // For section 1.4, restore section14State FIRST before updating submissionData
+      // This ensures the component receives the correct data immediately
+      if (sectionId === "1.4" && originalStateSnapshot.section14State) {
+        setSection14State({
+          bondList: originalStateSnapshot.section14State.bondList || [],
+          totalULBs: originalStateSnapshot.section14State.totalULBs || 0,
+        });
+      }
+      
       setSubmissionData(originalStateSnapshot.submissionData);
       setCapitalAllocation(originalStateSnapshot.capitalAllocation);
       setGsdpForFY(originalStateSnapshot.gsdpForFY);
       setActualCapex(originalStateSnapshot.actualCapex);
       setStateCapexUtilisation(originalStateSnapshot.stateCapexUtilisation);
-      setSection13State(originalStateSnapshot.section13State);
-      setSection14State(originalStateSnapshot.section14State);
+      
+      // Only set section13State here if it's NOT section 1.3 (already set above)
+      if (sectionId !== "1.3") {
+        setSection13State(originalStateSnapshot.section13State);
+      }
+      
+      // Only set section14State here if it's NOT section 1.4 (already set above)
+      if (sectionId !== "1.4") {
+        setSection14State(originalStateSnapshot.section14State);
+      }
+      
       setSection15State(originalStateSnapshot.section15State);
 
       // For section 1.1, ensure formData is also restored from snapshot
@@ -1439,29 +1478,53 @@ export const InfraFinancingReview = ({
         );
       }
 
-      // For section 1.3, ensure formData is also restored from snapshot
-      if (
-        sectionId === "1.3" &&
-        originalStateSnapshot.submissionData?.section1_3
-      ) {
-        // The submissionData already contains the restored formData, so local state
-        // will be updated via useEffect when formData changes
+      // For section 1.3, ensure submissionData.section1_3 is synced with restored section13State
+      if (sectionId === "1.3") {
+        // Update submissionData to match the restored section13State
+        // This ensures consistency between submissionData and section13State
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          updated.section1_3 = {
+            ...updated.section1_3,
+            ulbList: originalStateSnapshot.section13State?.ulbList || [],
+            totalULBs: originalStateSnapshot.section13State?.totalULBs || 0,
+          };
+          return updated;
+        });
+        
         console.log(
-          `[InfraFinancingReview] ✅ Cancel - Restored section 1.3 formData:`,
-          originalStateSnapshot.submissionData.section1_3
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.3:`,
+          {
+            section13State: originalStateSnapshot.section13State,
+            ulbList: originalStateSnapshot.section13State?.ulbList,
+            totalULBs: originalStateSnapshot.section13State?.totalULBs,
+          }
         );
       }
 
-      // For section 1.4, ensure formData is also restored from snapshot
-      if (
-        sectionId === "1.4" &&
-        originalStateSnapshot.submissionData?.section1_4
-      ) {
-        // The submissionData already contains the restored formData, so local state
-        // will be updated via useEffect when formData changes
+      // For section 1.4, ensure submissionData.section1_4 is synced with restored section14State
+      if (sectionId === "1.4") {
+        // Update submissionData to match the restored section14State
+        // This ensures consistency between submissionData and section14State
+        setSubmissionData((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          updated.section1_4 = {
+            ...updated.section1_4,
+            bondList: originalStateSnapshot.section14State?.bondList || [],
+            totalULBs: originalStateSnapshot.section14State?.totalULBs || 0,
+          };
+          return updated;
+        });
+        
         console.log(
-          `[InfraFinancingReview] ✅ Cancel - Restored section 1.4 formData:`,
-          originalStateSnapshot.submissionData.section1_4
+          `[InfraFinancingReview] ✅ Cancel - Restored section 1.4:`,
+          {
+            section14State: originalStateSnapshot.section14State,
+            bondList: originalStateSnapshot.section14State?.bondList,
+            totalULBs: originalStateSnapshot.section14State?.totalULBs,
+          }
         );
       }
 
@@ -1480,6 +1543,7 @@ export const InfraFinancingReview = ({
 
       setOriginalStateSnapshot(null);
       setEditable(sectionId, false);
+      
       // Reset Add More form for section 1.5
       if (sectionId === "1.5") {
         setShowAddForm1_5(false);
@@ -2166,6 +2230,7 @@ export const InfraFinancingReview = ({
                 ratingDate: item.ratingDate,
                 rating: item.rating,
               })),
+              totalULBs: section13State.totalULBs || 0,
             },
           ];
           break;
@@ -2667,6 +2732,13 @@ export const InfraFinancingReview = ({
           "section1_3"
         );
 
+        // ✅ CRITICAL: Update section13State directly to ensure UI reflects changes immediately
+        // This is similar to how sections 1.1 and 1.2 update their local state variables
+        setSection13State({
+          ulbList: section13State.ulbList || [],
+          totalULBs: section13State.totalULBs || 0,
+        });
+
         console.log(
           `[InfraFinancingReview] ✅ Updated local state and formData for section 1.3:`,
           {
@@ -2701,6 +2773,13 @@ export const InfraFinancingReview = ({
           },
           "section1_4"
         );
+
+        // ✅ CRITICAL: Update section14State directly to ensure UI reflects changes immediately
+        // This is similar to how sections 1.1, 1.2, and 1.3 update their local state variables
+        setSection14State({
+          bondList: section14State.bondList || [],
+          totalULBs: section14State.totalULBs || 0,
+        });
 
         console.log(
           `[InfraFinancingReview] ✅ Updated local state and formData for section 1.4:`,
@@ -3746,7 +3825,7 @@ export const InfraFinancingReview = ({
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => setEditable(sectionId, false)}
+              onClick={() => handleCancel(sectionId)}
             >
               <X className="w-4 h-4" />
               Cancel
@@ -5162,6 +5241,7 @@ export const InfraFinancingReview = ({
                                     variant="outline"
                                     size="icon"
                                     onClick={() => {
+                                      // Use index for deletion (already index-based)
                                       const updatedArray = ffiArray.filter(
                                         (_, idx) => idx !== index
                                       );

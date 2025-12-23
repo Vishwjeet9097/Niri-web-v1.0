@@ -153,7 +153,7 @@ export const FileUploadSection = ({
     return fileName;
   };
 
-  const handleView = () => {
+  const handleView = async () => {
     if (!value) return;
 
     // If file has fileUrl, use it
@@ -175,17 +175,38 @@ export const FileUploadSection = ({
       return;
     }
 
-    // If file has filePath, it's already uploaded - could fetch signed URL if needed
-    // For now, we'll just show an alert
-    if (value.filePath) {
-      alert("File viewing for uploaded files is handled by the backend. Please use the review page.");
-      return;
+    // If file has filePath but no fileUrl, fetch the URL from backend
+    if (value.filePath && !value.fileUrl) {
+      try {
+        const response = await apiService.getFileUrl(value.filePath);
+        // Backend returns signedUrl in the response
+        const url = response.signedUrl || response.url;
+        
+        if (!url) {
+          throw new Error("No URL returned from server");
+        }
+        
+        // Update the value with the fetched URL for future use
+        onChange({
+          ...value,
+          fileUrl: url,
+        });
+        
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      } catch (error: any) {
+        notificationService.error(
+          error.message || "Failed to load file URL.",
+          "View Failed"
+        );
+        return;
+      }
     }
 
     alert("File not available for viewing.");
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!value) return;
 
     // If file has fileUrl, download it
@@ -219,10 +240,38 @@ export const FileUploadSection = ({
       return;
     }
 
-    // If file has filePath, it's already uploaded - could use backend download if needed
-    if (value.filePath) {
-      alert("File download for uploaded files is handled by the backend. Please use the review page.");
-      return;
+    // If file has filePath but no fileUrl, fetch the URL from backend
+    if (value.filePath && !value.fileUrl) {
+      try {
+        const response = await apiService.getFileUrl(value.filePath);
+        // Backend returns signedUrl in the response
+        const url = response.signedUrl || response.url;
+        
+        if (!url) {
+          throw new Error("No URL returned from server");
+        }
+        
+        // Update the value with the fetched URL for future use
+        onChange({
+          ...value,
+          fileUrl: url,
+        });
+        
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = value.originalName || value.fileName || "file";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      } catch (error: any) {
+        notificationService.error(
+          error.message || "Failed to load file URL.",
+          "Download Failed"
+        );
+        return;
+      }
     }
 
     alert("File not available for download.");
