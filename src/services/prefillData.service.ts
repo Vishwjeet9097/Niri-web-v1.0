@@ -67,6 +67,7 @@ export class PrefillDataService {
             cityName: "Mumbai",
             issuingAuthority: "BMC",
             value: "500",
+            tenorOfBond: "5",
           },
           {
             id: crypto.randomUUID(),
@@ -74,6 +75,7 @@ export class PrefillDataService {
             cityName: "Pune",
             issuingAuthority: "PMC",
             value: "300",
+            tenorOfBond: "10",
           },
         ],
       },
@@ -293,7 +295,7 @@ export class PrefillDataService {
       updateFormData("infraDevelopment", allData.infraDevelopment);
       updateFormData("pppDevelopment", allData.pppDevelopment);
       updateFormData("infraEnablers", allData.infraEnablers);
-    // Debug logging removed for performance
+      // Debug logging removed for performance
 
       return true;
     } catch (error) {

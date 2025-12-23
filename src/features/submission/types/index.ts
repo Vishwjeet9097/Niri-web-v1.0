@@ -64,6 +64,7 @@ export interface InfraFinancingData {
       cityName: string;
       issuingAuthority: string;
       value: string;
+      tenorOfBond: string;
     }>;
   };
   section1_5: {
@@ -71,7 +72,7 @@ export interface InfraFinancingData {
       id: string;
 
       organisationName: string;
-        organisationType: string;
+      organisationType: string;
       yearEstablished: string;
       totalFunding: string;
       website: string;
@@ -164,7 +165,7 @@ export interface PPPDevelopmentData {
       capexPercentage: string; // % of Capex funded by non-Govt sources
       totalProjectCost: string; // Total Project Cost (in crore)
     }>;
-    
+
     // Calculation fields
     tpcOfPPPProjects?: string; // A₁ - Calculated total from projects
     proportion?: number;
@@ -203,7 +204,7 @@ export interface InfraEnablersData {
   section4_4: {
     adopted: "yes" | "no" | "";
     file: FileUpload | null;
-    
+
     // Calculation fields
     marksObtained?: number;
     comment?: string;

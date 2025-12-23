@@ -14,9 +14,18 @@ interface Section1_4Props {
   getFieldError?: (fieldPath: string) => string | undefined;
 }
 
-export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, validationErrors = {}, getFieldError }: Section1_4Props) => {
+export const Section_1_4 = ({
+  formData,
+  isEditable,
+  setSectionState,
+  resetKey,
+  validationErrors = {},
+  getFieldError,
+}: Section1_4Props) => {
   const getError = (fieldPath: string) => {
-    return getFieldError ? getFieldError(fieldPath) : validationErrors[fieldPath];
+    return getFieldError
+      ? getFieldError(fieldPath)
+      : validationErrors[fieldPath];
   };
   const bondList = formData?.section1_4?.bondList || [];
   const totalULBs = formData?.section1_4?.totalULBs || 0;
@@ -28,6 +37,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
     cityName: "",
     issuingAuthority: "",
     value: "",
+    tenorOfBond: "",
   });
 
   // Reset form when resetKey changes (on cancel)
@@ -39,6 +49,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
         cityName: "",
         issuingAuthority: "",
         value: "",
+        tenorOfBond: "",
       });
     }
   }, [resetKey]);
@@ -81,6 +92,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
       cityName: "",
       issuingAuthority: "",
       value: "",
+      tenorOfBond: "",
     });
     setShowAddBondForm(false);
   };
@@ -92,6 +104,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
       cityName: "",
       issuingAuthority: "",
       value: "",
+      tenorOfBond: "",
     });
     setShowAddBondForm(false);
   };
@@ -120,7 +133,9 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
 
       {/* Validation error for bondList */}
       {getError("section1_4.bondList") && (
-        <p className="text-sm text-red-500">{getError("section1_4.bondList")}</p>
+        <p className="text-sm text-red-500">
+          {getError("section1_4.bondList")}
+        </p>
       )}
 
       {/* Bond Table */}
@@ -128,10 +143,19 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
         <table className="min-w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-[#DDE3F9]">
-              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">Bond Type</th>
+              <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                Bond Type
+              </th>
               <th className="py-3 px-4 text-left text-sm font-normal">City</th>
-              <th className="py-3 px-4 text-left text-sm font-normal">Issuing Authority</th>
-              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">Value (INR - values is in CRORES)</th>
+              <th className="py-3 px-4 text-left text-sm font-normal">
+                Issuing Authority
+              </th>
+              <th className="py-3 px-4 text-left text-sm font-normal">
+                Value (INR - values is in CRORES)
+              </th>
+              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                Tenor of Bond (in years)
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -142,54 +166,78 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
                     {isEditable("1.4") ? (
                       <div>
                         <Dropdown
-                          options={dropdownValues.bondTypeList.map(opt => ({ label: opt, value: opt }))}
+                          options={dropdownValues.bondTypeList.map((opt) => ({
+                            label: opt,
+                            value: opt,
+                          }))}
                           value={item.bondType || ""}
-                          onChange={(value) => handleBondChange(index, "bondType", value)}
+                          onChange={(value) =>
+                            handleBondChange(index, "bondType", value)
+                          }
                           placeholder="Select Bond Type"
                           isEditable={true}
                         />
                         {getError(`section1_4.bondList.${index}.bondType`) && (
-                          <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.bondType`)}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_4.bondList.${index}.bondType`)}
+                          </p>
                         )}
                       </div>
                     ) : (
-                      item.bondType || 'N/A'
+                      item.bondType || "N/A"
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
                       <div>
                         <Dropdown
-                          options={dropdownValues.cityList.map(opt => ({ label: opt, value: opt }))}
+                          options={dropdownValues.cityList.map((opt) => ({
+                            label: opt,
+                            value: opt,
+                          }))}
                           value={item.cityName || ""}
-                          onChange={(value) => handleBondChange(index, "cityName", value)}
+                          onChange={(value) =>
+                            handleBondChange(index, "cityName", value)
+                          }
                           placeholder="Select City"
                           isEditable={true}
                         />
                         {getError(`section1_4.bondList.${index}.cityName`) && (
-                          <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.cityName`)}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_4.bondList.${index}.cityName`)}
+                          </p>
                         )}
                       </div>
                     ) : (
-                      item.cityName || 'N/A'
+                      item.cityName || "N/A"
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
                     {isEditable("1.4") ? (
                       <div>
                         <Dropdown
-                          options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
+                          options={dropdownValues.issuingAuthorityList.map(
+                            (opt) => ({ label: opt, value: opt })
+                          )}
                           value={item.issuingAuthority || ""}
-                          onChange={(value) => handleBondChange(index, "issuingAuthority", value)}
+                          onChange={(value) =>
+                            handleBondChange(index, "issuingAuthority", value)
+                          }
                           placeholder="Select Issuing Authority"
                           isEditable={true}
                         />
-                        {getError(`section1_4.bondList.${index}.issuingAuthority`) && (
-                          <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.issuingAuthority`)}</p>
+                        {getError(
+                          `section1_4.bondList.${index}.issuingAuthority`
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(
+                              `section1_4.bondList.${index}.issuingAuthority`
+                            )}
+                          </p>
                         )}
                       </div>
                     ) : (
-                      item.issuingAuthority || 'N/A'
+                      item.issuingAuthority || "N/A"
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-normal">
@@ -216,11 +264,50 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
                           placeholder="Enter value"
                         />
                         {getError(`section1_4.bondList.${index}.value`) && (
-                          <p className="text-sm text-red-500 mt-1">{getError(`section1_4.bondList.${index}.value`)}</p>
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(`section1_4.bondList.${index}.value`)}
+                          </p>
                         )}
                       </div>
                     ) : (
-                      item.value || 'N/A'
+                      item.value || "N/A"
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-sm font-normal">
+                    {isEditable("1.4") ? (
+                      <div>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          value={item.tenorOfBond || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Only allow numbers and decimal point
+                            if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                              handleBondChange(index, "tenorOfBond", value);
+                            }
+                          }}
+                          className={
+                            getError(`section1_4.bondList.${index}.tenorOfBond`)
+                              ? "w-full border-red-500"
+                              : "w-full"
+                          }
+                          placeholder="Enter tenor in years"
+                        />
+                        {getError(
+                          `section1_4.bondList.${index}.tenorOfBond`
+                        ) && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {getError(
+                              `section1_4.bondList.${index}.tenorOfBond`
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      item.tenorOfBond || "N/A"
                     )}
                   </td>
                   {isEditable("1.4") && (
@@ -228,7 +315,9 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => handleRemoveBond(item.id || index.toString())}
+                        onClick={() =>
+                          handleRemoveBond(item.id || index.toString())
+                        }
                         className="text-red-500 hover:text-red-700 border-none bg-none"
                       >
                         <Trash2 className="h-5 w-5" />
@@ -239,7 +328,10 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
               ))
             ) : (
               <tr>
-                <td colSpan={isEditable("1.4") ? 5 : 4} className="py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={isEditable("1.4") ? 6 : 5}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   No bond data available
                 </td>
               </tr>
@@ -250,9 +342,9 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
 
       {/* Add More Button - Only visible when in edit mode */}
       {isEditable("1.4") && !showAddBondForm && (
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
           onClick={() => setShowAddBondForm(true)}
         >
@@ -265,44 +357,65 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
       {showAddBondForm && isEditable("1.4") && (
         <div className="border rounded-lg p-4 bg-gray-50">
           <h4 className="font-medium mb-3">Add New Bond Entry</h4>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <Label>Bond Type</Label>
               <Dropdown
-                options={dropdownValues.bondTypeList.map(opt => ({ label: opt, value: opt }))}
+                options={dropdownValues.bondTypeList.map((opt) => ({
+                  label: opt,
+                  value: opt,
+                }))}
                 value={newBondEntry.bondType}
-                onChange={(value) => setNewBondEntry({...newBondEntry, bondType: value})}
+                onChange={(value) =>
+                  setNewBondEntry({ ...newBondEntry, bondType: value })
+                }
                 placeholder="Select Bond Type"
                 isEditable={true}
               />
               {getError("section1_4.bondList.new.bondType") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.bondType")}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_4.bondList.new.bondType")}
+                </p>
               )}
             </div>
             <div>
               <Label>City</Label>
               <Dropdown
-                options={dropdownValues.cityList.map(opt => ({ label: opt, value: opt }))}
+                options={dropdownValues.cityList.map((opt) => ({
+                  label: opt,
+                  value: opt,
+                }))}
                 value={newBondEntry.cityName}
-                onChange={(value) => setNewBondEntry({...newBondEntry, cityName: value})}
+                onChange={(value) =>
+                  setNewBondEntry({ ...newBondEntry, cityName: value })
+                }
                 placeholder="Select City"
                 isEditable={true}
               />
               {getError("section1_4.bondList.new.cityName") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.cityName")}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_4.bondList.new.cityName")}
+                </p>
               )}
             </div>
             <div>
               <Label>Issuing Authority</Label>
               <Dropdown
-                options={dropdownValues.issuingAuthorityList.map(opt => ({ label: opt, value: opt }))}
+                options={dropdownValues.issuingAuthorityList.map((opt) => ({
+                  label: opt,
+                  value: opt,
+                }))}
                 value={newBondEntry.issuingAuthority}
-                onChange={(value) => setNewBondEntry({...newBondEntry, issuingAuthority: value})}
+                onChange={(value) =>
+                  setNewBondEntry({ ...newBondEntry, issuingAuthority: value })
+                }
                 placeholder="Select Issuing Authority"
                 isEditable={true}
               />
               {getError("section1_4.bondList.new.issuingAuthority") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.issuingAuthority")}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_4.bondList.new.issuingAuthority")}
+                </p>
               )}
             </div>
             <div>
@@ -317,7 +430,7 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
                   const value = e.target.value;
                   // Only allow numbers and decimal point
                   if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                    setNewBondEntry({...newBondEntry, value: value});
+                    setNewBondEntry({ ...newBondEntry, value: value });
                   }
                 }}
                 className={
@@ -328,7 +441,39 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
                 placeholder="Enter value"
               />
               {getError("section1_4.bondList.new.value") && (
-                <p className="text-sm text-red-500 mt-1">{getError("section1_4.bondList.new.value")}</p>
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_4.bondList.new.value")}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label>
+                Tenor of Bond (in years)<span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={newBondEntry.tenorOfBond}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Only allow numbers and decimal point
+                  if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                    setNewBondEntry({ ...newBondEntry, tenorOfBond: value });
+                  }
+                }}
+                className={
+                  getError("section1_4.bondList.new.tenorOfBond")
+                    ? "bg-white border-red-500"
+                    : "bg-white"
+                }
+                placeholder="Enter tenor in years"
+              />
+              {getError("section1_4.bondList.new.tenorOfBond") && (
+                <p className="text-sm text-red-500 mt-1">
+                  {getError("section1_4.bondList.new.tenorOfBond")}
+                </p>
               )}
             </div>
           </div>
@@ -357,5 +502,3 @@ export const Section_1_4 = ({ formData, isEditable, setSectionState, resetKey, v
     </div>
   );
 };
-
-

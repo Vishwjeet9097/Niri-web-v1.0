@@ -30,8 +30,12 @@ interface EditableInfraFinancingProps {
   submission?: any;
 }
 
-export const EditableInfraFinancing = ({ submissionId, submission }: EditableInfraFinancingProps) => {
-  const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
+export const EditableInfraFinancing = ({
+  submissionId,
+  submission,
+}: EditableInfraFinancingProps) => {
+  const { getStepData, updateFormData } =
+    useReviewFormPersistence(submissionId);
 
   const defaultData: InfraFinancingData = {
     section1_1: {
@@ -55,11 +59,14 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
   };
 
   // Get data from persistence hook (this will be the source of truth)
-  const persistedData = (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
-    // Debug logging removed for performance
+  const persistedData =
+    (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
+  // Debug logging removed for performance
 
   // Create form data by merging persisted data with defaults
-  const createFormData = (data: Partial<InfraFinancingData>): InfraFinancingData => ({
+  const createFormData = (
+    data: Partial<InfraFinancingData>
+  ): InfraFinancingData => ({
     ...defaultData,
     ...data,
     section1_1: { ...defaultData.section1_1, ...(data.section1_1 || {}) },
@@ -69,15 +76,16 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
     section1_5: data.section1_5 || [],
   });
 
-  const [formData, setFormData] = useState<InfraFinancingData>(() => 
+  const [formData, setFormData] = useState<InfraFinancingData>(() =>
     createFormData(persistedData)
   );
 
   // Sync with persisted data when it changes
   useEffect(() => {
-    const currentPersistedData = (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
+    const currentPersistedData =
+      (getStepData("infraFinancing") as Partial<InfraFinancingData>) || {};
     const newFormData = createFormData(currentPersistedData);
-    
+
     // Only update if data has actually changed
     if (JSON.stringify(formData) !== JSON.stringify(newFormData)) {
       console.log("🔄 Syncing form data with persisted data:", newFormData);
@@ -129,6 +137,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
           cityName: "",
           issuingAuthority: "",
           value: "",
+          tenorOfBond: "",
         },
       ],
     });
@@ -174,9 +183,7 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
             <div className="flex flex-col">
               <span className="text-base font-semibold text-primary">
                 1.1 - % Capex to GSDP{" "}
-                <span className="font-normal text-xs text-muted-foreground">
-                  
-                </span>
+                <span className="font-normal text-xs text-muted-foreground"></span>
               </span>
               {/* <span className="text-xs text-muted-foreground font-normal">
                 Annex 1: Verified with RBI/CAG data (* Budgeted Estimates for Capital Expenditure)
@@ -194,7 +201,10 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    section1_1: { ...formData.section1_1, year: e.target.value },
+                    section1_1: {
+                      ...formData.section1_1,
+                      year: e.target.value,
+                    },
                   })
                 }
               />
@@ -236,15 +246,23 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
               <Input
                 placeholder="Auto-calculated"
                 value={(() => {
-                  const capitalAllocation = parseFloat(formData.section1_1.capitalAllocation.replace(/[₹,]/g, ''));
-                  const gsdpForFY = parseFloat(formData.section1_1.gsdpForFY.replace(/[₹,]/g, ''));
-                  
-                  if (isNaN(capitalAllocation) || isNaN(gsdpForFY) || gsdpForFY === 0) {
-                    return '';
+                  const capitalAllocation = parseFloat(
+                    formData.section1_1.capitalAllocation.replace(/[₹,]/g, "")
+                  );
+                  const gsdpForFY = parseFloat(
+                    formData.section1_1.gsdpForFY.replace(/[₹,]/g, "")
+                  );
+
+                  if (
+                    isNaN(capitalAllocation) ||
+                    isNaN(gsdpForFY) ||
+                    gsdpForFY === 0
+                  ) {
+                    return "";
                   }
-                  
+
                   const percentage = (capitalAllocation / gsdpForFY) * 100;
-                  return percentage.toFixed(1) + '%';
+                  return percentage.toFixed(1) + "%";
                 })()}
                 readOnly
                 className="bg-gray-50 cursor-not-allowed"
@@ -267,7 +285,10 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    section1_2: { ...formData.section1_2, year: e.target.value },
+                    section1_2: {
+                      ...formData.section1_2,
+                      year: e.target.value,
+                    },
                   })
                 }
               />
@@ -309,15 +330,27 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
               <Input
                 placeholder="Auto-calculated"
                 value={(() => {
-                  const actualCapex = parseFloat(formData.section1_2.actualCapex.replace(/[₹,]/g, ''));
-                  const stateCapexUtilisation = parseFloat(formData.section1_2.stateCapexUtilisation.replace(/[₹,]/g, ''));
-                  
-                  if (isNaN(actualCapex) || isNaN(stateCapexUtilisation) || stateCapexUtilisation === 0) {
-                    return '';
+                  const actualCapex = parseFloat(
+                    formData.section1_2.actualCapex.replace(/[₹,]/g, "")
+                  );
+                  const stateCapexUtilisation = parseFloat(
+                    formData.section1_2.stateCapexUtilisation.replace(
+                      /[₹,]/g,
+                      ""
+                    )
+                  );
+
+                  if (
+                    isNaN(actualCapex) ||
+                    isNaN(stateCapexUtilisation) ||
+                    stateCapexUtilisation === 0
+                  ) {
+                    return "";
                   }
-                  
-                  const percentage = (actualCapex / stateCapexUtilisation) * 100;
-                  return percentage.toFixed(1) + '%';
+
+                  const percentage =
+                    (actualCapex / stateCapexUtilisation) * 100;
+                  return percentage.toFixed(1) + "%";
                 })()}
                 readOnly
                 className="bg-gray-50 cursor-not-allowed"
@@ -407,7 +440,9 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                         setFormData({
                           ...formData,
                           section1_3: formData.section1_3.map((item) =>
-                            item.id === ulb.id ? { ...item, rating: value } : item
+                            item.id === ulb.id
+                              ? { ...item, rating: value }
+                              : item
                           ),
                         })
                       }
@@ -461,7 +496,9 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                         setFormData({
                           ...formData,
                           section1_4: formData.section1_4.map((item) =>
-                            item.id === bond.id ? { ...item, bondType: value } : item
+                            item.id === bond.id
+                              ? { ...item, bondType: value }
+                              : item
                           ),
                         })
                       }
@@ -529,10 +566,39 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                       }
                     />
                   </div>
+                  <div>
+                    <Label>Tenor of Bond (in years)*</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      placeholder="Enter tenor in years"
+                      value={bond.tenorOfBond}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Only allow numbers and decimal point
+                        if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                          setFormData({
+                            ...formData,
+                            section1_4: formData.section1_4.map((item) =>
+                              item.id === bond.id
+                                ? { ...item, tenorOfBond: value }
+                                : item
+                            ),
+                          });
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
-            <Button onClick={addBond} variant="outline" className="w-full gap-2">
+            <Button
+              onClick={addBond}
+              variant="outline"
+              className="w-full gap-2"
+            >
               <Plus className="w-4 h-4" />
               Add Municipal Bond
             </Button>
@@ -656,7 +722,11 @@ export const EditableInfraFinancing = ({ submissionId, submission }: EditableInf
                 </div>
               </div>
             ))}
-            <Button onClick={addIntermediary} variant="outline" className="w-full gap-2">
+            <Button
+              onClick={addIntermediary}
+              variant="outline"
+              className="w-full gap-2"
+            >
               <Plus className="w-4 h-4" />
               Add Financial Intermediary
             </Button>

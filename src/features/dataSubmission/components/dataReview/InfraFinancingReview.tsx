@@ -85,20 +85,36 @@ export const InfraFinancingReview = ({
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
 
   // Section 1.4 state management
+  // Normalize bondList to ensure all fields including tenorOfBond are present
+  const initialBondList = (formData?.section1_4?.bondList || []).map(
+    (bond: any) => ({
+      ...bond,
+      tenorOfBond: bond.tenorOfBond || "",
+    })
+  );
   const [section14State, setSection14State] = useState({
     totalULBs: formData?.section1_4?.totalULBs || 0,
-    bondList: formData?.section1_4?.bondList || [],
+    bondList: initialBondList,
   });
 
   useEffect(() => {
     // Debug: Log component mount
-    console.error(`[InfraFinancingReview] Component mounted/updated. submissionId: ${submissionId}`);
+    console.error(
+      `[InfraFinancingReview] Component mounted/updated. submissionId: ${submissionId}`
+    );
     if (!isRestoringRef.current) {
       // Prefer submissionData (updated after save) over formData when initializing
       const section1_4 = submissionData?.section1_4 || formData?.section1_4;
+      // Normalize bondList to ensure all fields including tenorOfBond are present
+      const normalizedBondList = (section1_4?.bondList || []).map(
+        (bond: any) => ({
+          ...bond,
+          tenorOfBond: bond.tenorOfBond || "",
+        })
+      );
       setSection14State({
         totalULBs: section1_4?.totalULBs || 0,
-        bondList: section1_4?.bondList || [],
+        bondList: normalizedBondList,
       });
     }
   }, [submissionData?.section1_4, formData?.section1_4]);
@@ -158,7 +174,7 @@ export const InfraFinancingReview = ({
 
   // Validation error state - using centralized hooks
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  
+
   // Field validation hook for touch tracking
   const {
     touchedFields,
@@ -173,15 +189,22 @@ export const InfraFinancingReview = ({
   } = useFieldValidation();
 
   // Helper to check if field is touched
-  const isFieldTouched = useCallback((path: string) => {
-    return touchedFields.has(path);
-  }, [touchedFields]);
+  const isFieldTouched = useCallback(
+    (path: string) => {
+      return touchedFields.has(path);
+    },
+    [touchedFields]
+  );
 
   // Real-time validation state
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
   // Section-level validation error messages (shown when save fails)
-  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<
+    Record<string, string>
+  >({});
 
   useEffect(() => {
     if (!isRestoringRef.current) {
@@ -649,28 +672,60 @@ export const InfraFinancingReview = ({
   const fullFormDataForValidation = useMemo(() => {
     return {
       section1_1: {
-        year: submissionData?.section1_1?.year || formData?.section1_1?.year || "",
-        capitalAllocation: capitalAllocation !== undefined && capitalAllocation !== null
-          ? capitalAllocation
-          : (submissionData?.section1_1?.capitalAllocation || formData?.section1_1?.capitalAllocation || ""),
-        gsdpForFY: gsdpForFY !== undefined && gsdpForFY !== null
-          ? gsdpForFY
-          : (submissionData?.section1_1?.gsdpForFY || formData?.section1_1?.gsdpForFY || ""),
-        stateCapexUtilisation: submissionData?.section1_1?.stateCapexUtilisation || formData?.section1_1?.stateCapexUtilisation || "",
-        allocationToGSDP: submissionData?.section1_1?.allocationToGSDP || formData?.section1_1?.allocationToGSDP || "",
-        capexToCapexActuals: submissionData?.section1_1?.capexToCapexActuals || formData?.section1_1?.capexToCapexActuals || "",
+        year:
+          submissionData?.section1_1?.year || formData?.section1_1?.year || "",
+        capitalAllocation:
+          capitalAllocation !== undefined && capitalAllocation !== null
+            ? capitalAllocation
+            : submissionData?.section1_1?.capitalAllocation ||
+              formData?.section1_1?.capitalAllocation ||
+              "",
+        gsdpForFY:
+          gsdpForFY !== undefined && gsdpForFY !== null
+            ? gsdpForFY
+            : submissionData?.section1_1?.gsdpForFY ||
+              formData?.section1_1?.gsdpForFY ||
+              "",
+        stateCapexUtilisation:
+          submissionData?.section1_1?.stateCapexUtilisation ||
+          formData?.section1_1?.stateCapexUtilisation ||
+          "",
+        allocationToGSDP:
+          submissionData?.section1_1?.allocationToGSDP ||
+          formData?.section1_1?.allocationToGSDP ||
+          "",
+        capexToCapexActuals:
+          submissionData?.section1_1?.capexToCapexActuals ||
+          formData?.section1_1?.capexToCapexActuals ||
+          "",
       },
       section1_2: {
-        year: submissionData?.section1_2?.year || formData?.section1_2?.year || "",
-        gsdpForFY: submissionData?.section1_2?.gsdpForFY || formData?.section1_2?.gsdpForFY || "",
-        actualCapex: actualCapex !== undefined && actualCapex !== null
-          ? actualCapex
-          : (submissionData?.section1_2?.actualCapex || formData?.section1_2?.actualCapex || ""),
-        budgetaryCapex: submissionData?.section1_2?.budgetaryCapex || formData?.section1_2?.budgetaryCapex || "",
-        stateCapexUtilisation: stateCapexUtilisation !== undefined && stateCapexUtilisation !== null
-          ? stateCapexUtilisation
-          : (submissionData?.section1_2?.stateCapexUtilisation || formData?.section1_2?.stateCapexUtilisation || ""),
-        capexActualsToGSDP: submissionData?.section1_2?.capexActualsToGSDP || formData?.section1_2?.capexActualsToGSDP || "",
+        year:
+          submissionData?.section1_2?.year || formData?.section1_2?.year || "",
+        gsdpForFY:
+          submissionData?.section1_2?.gsdpForFY ||
+          formData?.section1_2?.gsdpForFY ||
+          "",
+        actualCapex:
+          actualCapex !== undefined && actualCapex !== null
+            ? actualCapex
+            : submissionData?.section1_2?.actualCapex ||
+              formData?.section1_2?.actualCapex ||
+              "",
+        budgetaryCapex:
+          submissionData?.section1_2?.budgetaryCapex ||
+          formData?.section1_2?.budgetaryCapex ||
+          "",
+        stateCapexUtilisation:
+          stateCapexUtilisation !== undefined && stateCapexUtilisation !== null
+            ? stateCapexUtilisation
+            : submissionData?.section1_2?.stateCapexUtilisation ||
+              formData?.section1_2?.stateCapexUtilisation ||
+              "",
+        capexActualsToGSDP:
+          submissionData?.section1_2?.capexActualsToGSDP ||
+          formData?.section1_2?.capexActualsToGSDP ||
+          "",
       },
       section1_3: section13State || { totalULBs: 0, ulbList: [] },
       section1_4: section14State || { totalULBs: 0, bondList: [] },
@@ -694,10 +749,13 @@ export const InfraFinancingReview = ({
 
   // Real-time validation using useMemo
   const validation = useMemo(() => {
-    const effectiveAssignedIndicators = assignedIndicators.length > 0 
-      ? assignedIndicators 
-      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
-    
+    const effectiveAssignedIndicators =
+      assignedIndicators.length > 0
+        ? assignedIndicators
+        : hookAssignedIndicators.length > 0
+        ? hookAssignedIndicators
+        : undefined;
+
     return validateInfraFinancing(fullFormDataForValidation, {
       allowedIndicators: effectiveAssignedIndicators,
     });
@@ -712,7 +770,8 @@ export const InfraFinancingReview = ({
     validatingIndicator: null,
   });
 
-  const { getFieldError, getInputValidationClass, renderFieldError } = fieldErrorDisplay;
+  const { getFieldError, getInputValidationClass, renderFieldError } =
+    fieldErrorDisplay;
 
   // Clear valid field errors when validation passes
   useEffect(() => {
@@ -729,8 +788,8 @@ export const InfraFinancingReview = ({
       Object.keys(updated).forEach((sectionId) => {
         const sectionPrefix = `section${sectionId.replace(".", "_")}`;
         // Check if there are any validation errors for this section
-        const hasSectionErrors = Object.keys(validation.errors).some((errorKey) =>
-          errorKey.startsWith(sectionPrefix)
+        const hasSectionErrors = Object.keys(validation.errors).some(
+          (errorKey) => errorKey.startsWith(sectionPrefix)
         );
 
         // If no errors for this section, clear the message
@@ -774,26 +833,32 @@ export const InfraFinancingReview = ({
     if (isNodalOfficer) {
       // First check if section status is REVERTED - if so, allow editing regardless of overall status
       const sectionKey = `section${sectionId.replace(".", "_")}`;
-      const sectionData = (formData && formData[sectionKey]) || getSectionData(sectionKey);
+      const sectionData =
+        (formData && formData[sectionKey]) || getSectionData(sectionKey);
       const sectionStatusValue = sectionData
         ? Array.isArray(sectionData)
           ? (sectionData as any).status
           : sectionData.status
         : undefined;
-      
+
       // If section status is REVERTED, allow editing if section is in edit mode
       if (sectionStatusValue === "REVERTED") {
         const result = isEditable(sectionId);
-        console.log(`[InfraFinancingReview] NODAL_OFFICER shouldBeEditable (REVERTED section):`, {
-          sectionId,
-          sectionStatusValue,
-          isCurrentlyEditable: isEditable(sectionId),
-          result,
-          reason: result ? "Section is in edit mode" : "Section is not in edit mode",
-        });
+        console.log(
+          `[InfraFinancingReview] NODAL_OFFICER shouldBeEditable (REVERTED section):`,
+          {
+            sectionId,
+            sectionStatusValue,
+            isCurrentlyEditable: isEditable(sectionId),
+            result,
+            reason: result
+              ? "Section is in edit mode"
+              : "Section is not in edit mode",
+          }
+        );
         return result;
       }
-      
+
       // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
       const statusAllowsEditing =
         submissionStatus === "DRAFT" ||
@@ -875,24 +940,28 @@ export const InfraFinancingReview = ({
     if (isNodalOfficer) {
       // First check if section status is REVERTED - if so, allow editing regardless of overall status
       const sectionKey = `section${sectionId.replace(".", "_")}`;
-      const sectionData = (formData && formData[sectionKey]) || getSectionData(sectionKey);
+      const sectionData =
+        (formData && formData[sectionKey]) || getSectionData(sectionKey);
       const sectionStatusValue = sectionData
         ? Array.isArray(sectionData)
           ? (sectionData as any).status
           : sectionData.status
         : undefined;
-      
+
       // If section status is REVERTED, allow editing
       if (sectionStatusValue === "REVERTED") {
-        console.log(`[InfraFinancingReview] NODAL_OFFICER canEdit check (REVERTED section):`, {
-          sectionId,
-          sectionStatusValue,
-          canEdit: true,
-          reason: "Section status is REVERTED, allowing editing",
-        });
+        console.log(
+          `[InfraFinancingReview] NODAL_OFFICER canEdit check (REVERTED section):`,
+          {
+            sectionId,
+            sectionStatusValue,
+            canEdit: true,
+            reason: "Section status is REVERTED, allowing editing",
+          }
+        );
         return true;
       }
-      
+
       // NODAL_OFFICER can only edit when status is DRAFT or RETURNED_FROM_STATE
       const canEdit =
         submissionStatus === "DRAFT" ||
@@ -1125,34 +1194,70 @@ export const InfraFinancingReview = ({
       section15State: JSON.parse(JSON.stringify(section15State)),
     });
     setEditable(sectionId, true);
-    console.log(`[InfraFinancingReview] ✅ setEditable(${sectionId}, true) called`);
+    console.log(
+      `[InfraFinancingReview] ✅ setEditable(${sectionId}, true) called`
+    );
 
     // Show all validation errors when entering edit mode
     // Build full form data for validation (use the same structure as fullFormDataForValidation)
     const fullData: any = {
       section1_1: {
-        year: submissionData?.section1_1?.year || formData?.section1_1?.year || "",
-        capitalAllocation: capitalAllocationToStore !== undefined && capitalAllocationToStore !== null
-          ? capitalAllocationToStore
-          : (submissionData?.section1_1?.capitalAllocation || formData?.section1_1?.capitalAllocation || ""),
-        gsdpForFY: gsdpForFYToStore !== undefined && gsdpForFYToStore !== null
-          ? gsdpForFYToStore
-          : (submissionData?.section1_1?.gsdpForFY || formData?.section1_1?.gsdpForFY || ""),
-        stateCapexUtilisation: submissionData?.section1_1?.stateCapexUtilisation || formData?.section1_1?.stateCapexUtilisation || "",
-        allocationToGSDP: submissionData?.section1_1?.allocationToGSDP || formData?.section1_1?.allocationToGSDP || "",
-        capexToCapexActuals: submissionData?.section1_1?.capexToCapexActuals || formData?.section1_1?.capexToCapexActuals || "",
+        year:
+          submissionData?.section1_1?.year || formData?.section1_1?.year || "",
+        capitalAllocation:
+          capitalAllocationToStore !== undefined &&
+          capitalAllocationToStore !== null
+            ? capitalAllocationToStore
+            : submissionData?.section1_1?.capitalAllocation ||
+              formData?.section1_1?.capitalAllocation ||
+              "",
+        gsdpForFY:
+          gsdpForFYToStore !== undefined && gsdpForFYToStore !== null
+            ? gsdpForFYToStore
+            : submissionData?.section1_1?.gsdpForFY ||
+              formData?.section1_1?.gsdpForFY ||
+              "",
+        stateCapexUtilisation:
+          submissionData?.section1_1?.stateCapexUtilisation ||
+          formData?.section1_1?.stateCapexUtilisation ||
+          "",
+        allocationToGSDP:
+          submissionData?.section1_1?.allocationToGSDP ||
+          formData?.section1_1?.allocationToGSDP ||
+          "",
+        capexToCapexActuals:
+          submissionData?.section1_1?.capexToCapexActuals ||
+          formData?.section1_1?.capexToCapexActuals ||
+          "",
       },
       section1_2: {
-        year: submissionData?.section1_2?.year || formData?.section1_2?.year || "",
-        actualCapex: actualCapexToStore !== undefined && actualCapexToStore !== null
-          ? actualCapexToStore
-          : (submissionData?.section1_2?.actualCapex || formData?.section1_2?.actualCapex || ""),
-        stateCapexUtilisation: stateCapexUtilisationToStore !== undefined && stateCapexUtilisationToStore !== null
-          ? stateCapexUtilisationToStore
-          : (submissionData?.section1_2?.stateCapexUtilisation || formData?.section1_2?.stateCapexUtilisation || ""),
-        gsdpForFY: submissionData?.section1_2?.gsdpForFY || formData?.section1_2?.gsdpForFY || "",
-        budgetaryCapex: submissionData?.section1_2?.budgetaryCapex || formData?.section1_2?.budgetaryCapex || "",
-        capexActualsToGSDP: submissionData?.section1_2?.capexActualsToGSDP || formData?.section1_2?.capexActualsToGSDP || "",
+        year:
+          submissionData?.section1_2?.year || formData?.section1_2?.year || "",
+        actualCapex:
+          actualCapexToStore !== undefined && actualCapexToStore !== null
+            ? actualCapexToStore
+            : submissionData?.section1_2?.actualCapex ||
+              formData?.section1_2?.actualCapex ||
+              "",
+        stateCapexUtilisation:
+          stateCapexUtilisationToStore !== undefined &&
+          stateCapexUtilisationToStore !== null
+            ? stateCapexUtilisationToStore
+            : submissionData?.section1_2?.stateCapexUtilisation ||
+              formData?.section1_2?.stateCapexUtilisation ||
+              "",
+        gsdpForFY:
+          submissionData?.section1_2?.gsdpForFY ||
+          formData?.section1_2?.gsdpForFY ||
+          "",
+        budgetaryCapex:
+          submissionData?.section1_2?.budgetaryCapex ||
+          formData?.section1_2?.budgetaryCapex ||
+          "",
+        capexActualsToGSDP:
+          submissionData?.section1_2?.capexActualsToGSDP ||
+          formData?.section1_2?.capexActualsToGSDP ||
+          "",
       },
       section1_3: {
         totalULBs: section13State.totalULBs || 0,
@@ -1169,9 +1274,12 @@ export const InfraFinancingReview = ({
       },
     };
 
-    const effectiveAssignedIndicators = assignedIndicators.length > 0 
-      ? assignedIndicators 
-      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+    const effectiveAssignedIndicators =
+      assignedIndicators.length > 0
+        ? assignedIndicators
+        : hookAssignedIndicators.length > 0
+        ? hookAssignedIndicators
+        : undefined;
 
     // Run validation for the section
     const validationResult = validateInfraFinancing(fullData, {
@@ -1189,14 +1297,25 @@ export const InfraFinancingReview = ({
 
     // Mark all fields in this section as touched so errors show immediately
     const allSectionFields: string[] = [];
-    
+
     // Add base fields based on section
     if (sectionId === "1.1") {
-      allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+      allSectionFields.push(
+        `${sectionPrefix}.year`,
+        `${sectionPrefix}.capitalAllocation`,
+        `${sectionPrefix}.gsdpForFY`
+      );
     } else if (sectionId === "1.2") {
-      allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+      allSectionFields.push(
+        `${sectionPrefix}.year`,
+        `${sectionPrefix}.actualCapex`,
+        `${sectionPrefix}.stateCapexUtilisation`
+      );
     } else if (sectionId === "1.3") {
-      allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
+      allSectionFields.push(
+        `${sectionPrefix}.totalULBs`,
+        `${sectionPrefix}.ulbList`
+      );
       if (section13State.ulbList && Array.isArray(section13State.ulbList)) {
         section13State.ulbList.forEach((_: any, index: number) => {
           allSectionFields.push(
@@ -1206,17 +1325,27 @@ export const InfraFinancingReview = ({
         });
       }
     } else if (sectionId === "1.4") {
-      allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
+      allSectionFields.push(
+        `${sectionPrefix}.totalULBs`,
+        `${sectionPrefix}.bondList`
+      );
       if (section14State.bondList && Array.isArray(section14State.bondList)) {
         section14State.bondList.forEach((_: any, index: number) => {
           allSectionFields.push(
             `${sectionPrefix}.bondList.${index}.cityName`,
-            `${sectionPrefix}.bondList.${index}.bondAmount`
+            `${sectionPrefix}.bondList.${index}.bondType`,
+            `${sectionPrefix}.bondList.${index}.issuingAuthority`,
+            `${sectionPrefix}.bondList.${index}.value`,
+            `${sectionPrefix}.bondList.${index}.tenorOfBond`
           );
         });
       }
     } else if (sectionId === "1.5") {
-      allSectionFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
+      allSectionFields.push(
+        `${sectionPrefix}.hasIntermediary`,
+        `${sectionPrefix}.comment`,
+        `${sectionPrefix}.ffiArray`
+      );
       if (section15State.ffiArray && Array.isArray(section15State.ffiArray)) {
         section15State.ffiArray.forEach((_: any, index: number) => {
           allSectionFields.push(
@@ -1242,7 +1371,7 @@ export const InfraFinancingReview = ({
     // Set validation errors and show them
     setShowValidationErrors(true);
     setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
-    
+
     console.log(
       `[InfraFinancingReview] Validation errors for section ${sectionId}:`,
       sectionErrors
@@ -1643,7 +1772,9 @@ export const InfraFinancingReview = ({
   // Handles for review edit, accept, send back
   // Add this handler after other handlers
   const onSaveSection = async (sectionId: string) => {
-    console.log(`[InfraFinancingReview] onSaveSection called for section ${sectionId}`);
+    console.log(
+      `[InfraFinancingReview] onSaveSection called for section ${sectionId}`
+    );
     // Check if user is NODAL_OFFICER
     const userRole = getUserRole();
     const isNodalOfficer = userRole === "NODAL_OFFICER";
@@ -1658,24 +1789,29 @@ export const InfraFinancingReview = ({
     const sectionKey = `section${sectionId.replace(".", "_")}`;
     // Check multiple sources for status: submission.section_status, submissionData, formData
     let currentStatus: string | undefined;
-    
+
     // First check submission.section_status (most reliable source)
-    if (submission?.section_status && typeof submission.section_status === "object") {
+    if (
+      submission?.section_status &&
+      typeof submission.section_status === "object"
+    ) {
       currentStatus = (submission.section_status as any)[sectionKey];
     }
-    
+
     // Get sectionData for logging and fallback status check
-    const sectionData = (submissionData && submissionData[sectionKey]) || (formData && formData[sectionKey]);
-    
+    const sectionData =
+      (submissionData && submissionData[sectionKey]) ||
+      (formData && formData[sectionKey]);
+
     // Fallback to sectionData status
     if (!currentStatus) {
       currentStatus = sectionData
-      ? Array.isArray(sectionData)
-        ? (sectionData as any).status
-        : sectionData.status
-      : undefined;
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
     }
-    
+
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
@@ -1706,33 +1842,77 @@ export const InfraFinancingReview = ({
       console.log(
         `[InfraFinancingReview] Running validation before showing dialog for NODAL_OFFICER`
       );
-      
+
       // Run validation first (same logic as in performSave)
       // Ensure all sections have default values to prevent undefined errors
       const fullData: any = {
         section1_1: {
-          year: submissionData?.section1_1?.year || formData?.section1_1?.year || "",
-          capitalAllocation: shouldBeEditable("1.1") && capitalAllocation !== undefined && capitalAllocation !== null
-            ? capitalAllocation
-            : (submissionData?.section1_1?.capitalAllocation || formData?.section1_1?.capitalAllocation || ""),
-          gsdpForFY: shouldBeEditable("1.1") && gsdpForFY !== undefined && gsdpForFY !== null
-            ? gsdpForFY
-            : (submissionData?.section1_1?.gsdpForFY || formData?.section1_1?.gsdpForFY || ""),
-          stateCapexUtilisation: submissionData?.section1_1?.stateCapexUtilisation || formData?.section1_1?.stateCapexUtilisation || "",
-          allocationToGSDP: submissionData?.section1_1?.allocationToGSDP || formData?.section1_1?.allocationToGSDP || "",
-          capexToCapexActuals: submissionData?.section1_1?.capexToCapexActuals || formData?.section1_1?.capexToCapexActuals || "",
+          year:
+            submissionData?.section1_1?.year ||
+            formData?.section1_1?.year ||
+            "",
+          capitalAllocation:
+            shouldBeEditable("1.1") &&
+            capitalAllocation !== undefined &&
+            capitalAllocation !== null
+              ? capitalAllocation
+              : submissionData?.section1_1?.capitalAllocation ||
+                formData?.section1_1?.capitalAllocation ||
+                "",
+          gsdpForFY:
+            shouldBeEditable("1.1") &&
+            gsdpForFY !== undefined &&
+            gsdpForFY !== null
+              ? gsdpForFY
+              : submissionData?.section1_1?.gsdpForFY ||
+                formData?.section1_1?.gsdpForFY ||
+                "",
+          stateCapexUtilisation:
+            submissionData?.section1_1?.stateCapexUtilisation ||
+            formData?.section1_1?.stateCapexUtilisation ||
+            "",
+          allocationToGSDP:
+            submissionData?.section1_1?.allocationToGSDP ||
+            formData?.section1_1?.allocationToGSDP ||
+            "",
+          capexToCapexActuals:
+            submissionData?.section1_1?.capexToCapexActuals ||
+            formData?.section1_1?.capexToCapexActuals ||
+            "",
         },
         section1_2: {
-          year: submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25",
-          gsdpForFY: submissionData?.section1_2?.gsdpForFY || formData?.section1_2?.gsdpForFY || "",
-          actualCapex: shouldBeEditable("1.2") && actualCapex !== undefined && actualCapex !== null
-            ? actualCapex
-            : (submissionData?.section1_2?.actualCapex || formData?.section1_2?.actualCapex || ""),
-          budgetaryCapex: submissionData?.section1_2?.budgetaryCapex || formData?.section1_2?.budgetaryCapex || "",
-          stateCapexUtilisation: shouldBeEditable("1.2") && stateCapexUtilisation !== undefined && stateCapexUtilisation !== null
-            ? stateCapexUtilisation
-            : (submissionData?.section1_2?.stateCapexUtilisation || formData?.section1_2?.stateCapexUtilisation || ""),
-          capexActualsToGSDP: submissionData?.section1_2?.capexActualsToGSDP || formData?.section1_2?.capexActualsToGSDP || "",
+          year:
+            submissionData?.section1_2?.year ||
+            formData?.section1_2?.year ||
+            "2024-25",
+          gsdpForFY:
+            submissionData?.section1_2?.gsdpForFY ||
+            formData?.section1_2?.gsdpForFY ||
+            "",
+          actualCapex:
+            shouldBeEditable("1.2") &&
+            actualCapex !== undefined &&
+            actualCapex !== null
+              ? actualCapex
+              : submissionData?.section1_2?.actualCapex ||
+                formData?.section1_2?.actualCapex ||
+                "",
+          budgetaryCapex:
+            submissionData?.section1_2?.budgetaryCapex ||
+            formData?.section1_2?.budgetaryCapex ||
+            "",
+          stateCapexUtilisation:
+            shouldBeEditable("1.2") &&
+            stateCapexUtilisation !== undefined &&
+            stateCapexUtilisation !== null
+              ? stateCapexUtilisation
+              : submissionData?.section1_2?.stateCapexUtilisation ||
+                formData?.section1_2?.stateCapexUtilisation ||
+                "",
+          capexActualsToGSDP:
+            submissionData?.section1_2?.capexActualsToGSDP ||
+            formData?.section1_2?.capexActualsToGSDP ||
+            "",
         },
         section1_3: section13State || { totalULBs: 0, ulbList: [] },
         section1_4: section14State || { totalULBs: 0, bondList: [] },
@@ -1743,9 +1923,12 @@ export const InfraFinancingReview = ({
         },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validateInfraFinancing(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -1776,17 +1959,30 @@ export const InfraFinancingReview = ({
 
       // If validation fails, show errors on UI and return (don't show dialog)
       if (errorCount > 0) {
-        console.log("[InfraFinancingReview] Validation failed - NOT showing dialog");
+        console.log(
+          "[InfraFinancingReview] Validation failed - NOT showing dialog"
+        );
         // Mark all fields in this section as touched so ALL errors show
         const allSectionFields: string[] = [];
-        
+
         // Add base fields based on section
         if (sectionId === "1.1") {
-          allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+          allSectionFields.push(
+            `${sectionPrefix}.year`,
+            `${sectionPrefix}.capitalAllocation`,
+            `${sectionPrefix}.gsdpForFY`
+          );
         } else if (sectionId === "1.2") {
-          allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+          allSectionFields.push(
+            `${sectionPrefix}.year`,
+            `${sectionPrefix}.actualCapex`,
+            `${sectionPrefix}.stateCapexUtilisation`
+          );
         } else if (sectionId === "1.3") {
-          allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
+          allSectionFields.push(
+            `${sectionPrefix}.totalULBs`,
+            `${sectionPrefix}.ulbList`
+          );
           if (section13State.ulbList && Array.isArray(section13State.ulbList)) {
             section13State.ulbList.forEach((_: any, index: number) => {
               allSectionFields.push(
@@ -1798,20 +1994,34 @@ export const InfraFinancingReview = ({
             });
           }
         } else if (sectionId === "1.4") {
-          allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
-          if (section14State.bondList && Array.isArray(section14State.bondList)) {
+          allSectionFields.push(
+            `${sectionPrefix}.totalULBs`,
+            `${sectionPrefix}.bondList`
+          );
+          if (
+            section14State.bondList &&
+            Array.isArray(section14State.bondList)
+          ) {
             section14State.bondList.forEach((_: any, index: number) => {
               allSectionFields.push(
                 `${sectionPrefix}.bondList.${index}.cityName`,
                 `${sectionPrefix}.bondList.${index}.bondType`,
                 `${sectionPrefix}.bondList.${index}.issuingAuthority`,
-                `${sectionPrefix}.bondList.${index}.value`
+                `${sectionPrefix}.bondList.${index}.value`,
+                `${sectionPrefix}.bondList.${index}.tenorOfBond`
               );
             });
           }
         } else if (sectionId === "1.5") {
-          allSectionFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
-          if (section15State.ffiArray && Array.isArray(section15State.ffiArray)) {
+          allSectionFields.push(
+            `${sectionPrefix}.hasIntermediary`,
+            `${sectionPrefix}.comment`,
+            `${sectionPrefix}.ffiArray`
+          );
+          if (
+            section15State.ffiArray &&
+            Array.isArray(section15State.ffiArray)
+          ) {
             section15State.ffiArray.forEach((_: any, index: number) => {
               allSectionFields.push(
                 `${sectionPrefix}.ffiArray.${index}.organisationName`,
@@ -1834,7 +2044,7 @@ export const InfraFinancingReview = ({
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message (same as STATE_APPROVER)
@@ -1842,23 +2052,35 @@ export const InfraFinancingReview = ({
           ...prev,
           [sectionId]: `Please fill all mandatory fields.`,
         }));
-        console.warn(`[InfraFinancingReview] ❌ Validation failed for section ${sectionId}:`, sectionErrors);
-        console.log(`[InfraFinancingReview] Validation errors count:`, Object.keys(sectionErrors).length);
+        console.warn(
+          `[InfraFinancingReview] ❌ Validation failed for section ${sectionId}:`,
+          sectionErrors
+        );
+        console.log(
+          `[InfraFinancingReview] Validation errors count:`,
+          Object.keys(sectionErrors).length
+        );
         console.log(`[InfraFinancingReview] showValidationErrors set to: true`);
-        console.log(`[InfraFinancingReview] indicatorValidationErrors updated with:`, sectionErrors);
+        console.log(
+          `[InfraFinancingReview] indicatorValidationErrors updated with:`,
+          sectionErrors
+        );
         // Errors are displayed inline in the UI, don't show dialog
         return;
       }
 
       // Validation passed - show confirmation dialog only if status is REVERTED
-      console.log("[InfraFinancingReview] Validation passed - Checking if REVERTED:", { isReverted, currentStatus, upperStatus });
+      console.log(
+        "[InfraFinancingReview] Validation passed - Checking if REVERTED:",
+        { isReverted, currentStatus, upperStatus }
+      );
       if (isReverted) {
         console.log(
           `[InfraFinancingReview] Validation passed - showing save confirmation dialog for REVERTED indicator`
-      );
-      setPendingSaveSectionId(sectionId);
-      setShowSaveDialog(true);
-      return;
+        );
+        setPendingSaveSectionId(sectionId);
+        setShowSaveDialog(true);
+        return;
       } else {
         // If not REVERTED, proceed with direct save
         console.log(
@@ -1872,7 +2094,10 @@ export const InfraFinancingReview = ({
     console.log(
       `🚀🚀🚀 [InfraFinancingReview] ✅ Proceeding with direct save (not NODAL_OFFICER or validation not run)`
     );
-    console.log("🚀🚀🚀 [InfraFinancingReview] User check:", { isNodalOfficer, userRole });
+    console.log("🚀🚀🚀 [InfraFinancingReview] User check:", {
+      isNodalOfficer,
+      userRole,
+    });
     // For non-NODAL_OFFICER users, proceed with submit directly
     await performSave(sectionId);
   };
@@ -1961,6 +2186,7 @@ export const InfraFinancingReview = ({
                 cityName: item.cityName,
                 issuingAuthority: item.issuingAuthority,
                 value: item.value,
+                tenorOfBond: item.tenorOfBond || "",
               })),
               totalULBs: section14State.totalULBs,
             },
@@ -2045,17 +2271,39 @@ export const InfraFinancingReview = ({
       // Ensure all sections have default values to prevent undefined errors
       const fullData: any = {
         section1_1: {
-          year: submissionData?.section1_1?.year || formData?.section1_1?.year || "",
+          year:
+            submissionData?.section1_1?.year ||
+            formData?.section1_1?.year ||
+            "",
           // Use local state values when in edit mode, otherwise use submissionData (prefer over formData)
-          capitalAllocation: shouldBeEditable("1.1") && capitalAllocation !== undefined && capitalAllocation !== null
-            ? capitalAllocation
-            : (submissionData?.section1_1?.capitalAllocation || formData?.section1_1?.capitalAllocation || ""),
-          gsdpForFY: shouldBeEditable("1.1") && gsdpForFY !== undefined && gsdpForFY !== null
-            ? gsdpForFY
-            : (submissionData?.section1_1?.gsdpForFY || formData?.section1_1?.gsdpForFY || ""),
-          stateCapexUtilisation: submissionData?.section1_1?.stateCapexUtilisation || formData?.section1_1?.stateCapexUtilisation || "",
-          allocationToGSDP: submissionData?.section1_1?.allocationToGSDP || formData?.section1_1?.allocationToGSDP || "",
-          capexToCapexActuals: submissionData?.section1_1?.capexToCapexActuals || formData?.section1_1?.capexToCapexActuals || "",
+          capitalAllocation:
+            shouldBeEditable("1.1") &&
+            capitalAllocation !== undefined &&
+            capitalAllocation !== null
+              ? capitalAllocation
+              : submissionData?.section1_1?.capitalAllocation ||
+                formData?.section1_1?.capitalAllocation ||
+                "",
+          gsdpForFY:
+            shouldBeEditable("1.1") &&
+            gsdpForFY !== undefined &&
+            gsdpForFY !== null
+              ? gsdpForFY
+              : submissionData?.section1_1?.gsdpForFY ||
+                formData?.section1_1?.gsdpForFY ||
+                "",
+          stateCapexUtilisation:
+            submissionData?.section1_1?.stateCapexUtilisation ||
+            formData?.section1_1?.stateCapexUtilisation ||
+            "",
+          allocationToGSDP:
+            submissionData?.section1_1?.allocationToGSDP ||
+            formData?.section1_1?.allocationToGSDP ||
+            "",
+          capexToCapexActuals:
+            submissionData?.section1_1?.capexToCapexActuals ||
+            formData?.section1_1?.capexToCapexActuals ||
+            "",
         },
         section1_2: {
           year:
@@ -2125,14 +2373,25 @@ export const InfraFinancingReview = ({
       if (Object.keys(sectionErrors).length > 0) {
         // Mark all fields in this section as touched so ALL errors show
         const allSectionFields: string[] = [];
-        
+
         // Add base fields based on section
         if (sectionId === "1.1") {
-          allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+          allSectionFields.push(
+            `${sectionPrefix}.year`,
+            `${sectionPrefix}.capitalAllocation`,
+            `${sectionPrefix}.gsdpForFY`
+          );
         } else if (sectionId === "1.2") {
-          allSectionFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+          allSectionFields.push(
+            `${sectionPrefix}.year`,
+            `${sectionPrefix}.actualCapex`,
+            `${sectionPrefix}.stateCapexUtilisation`
+          );
         } else if (sectionId === "1.3") {
-          allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
+          allSectionFields.push(
+            `${sectionPrefix}.totalULBs`,
+            `${sectionPrefix}.ulbList`
+          );
           if (section13State.ulbList && Array.isArray(section13State.ulbList)) {
             section13State.ulbList.forEach((_: any, index: number) => {
               allSectionFields.push(
@@ -2142,18 +2401,34 @@ export const InfraFinancingReview = ({
             });
           }
         } else if (sectionId === "1.4") {
-          allSectionFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
-          if (section14State.bondList && Array.isArray(section14State.bondList)) {
+          allSectionFields.push(
+            `${sectionPrefix}.totalULBs`,
+            `${sectionPrefix}.bondList`
+          );
+          if (
+            section14State.bondList &&
+            Array.isArray(section14State.bondList)
+          ) {
             section14State.bondList.forEach((_: any, index: number) => {
               allSectionFields.push(
                 `${sectionPrefix}.bondList.${index}.cityName`,
-                `${sectionPrefix}.bondList.${index}.bondAmount`
+                `${sectionPrefix}.bondList.${index}.bondType`,
+                `${sectionPrefix}.bondList.${index}.issuingAuthority`,
+                `${sectionPrefix}.bondList.${index}.value`,
+                `${sectionPrefix}.bondList.${index}.tenorOfBond`
               );
             });
           }
         } else if (sectionId === "1.5") {
-          allSectionFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
-          if (section15State.ffiArray && Array.isArray(section15State.ffiArray)) {
+          allSectionFields.push(
+            `${sectionPrefix}.hasIntermediary`,
+            `${sectionPrefix}.comment`,
+            `${sectionPrefix}.ffiArray`
+          );
+          if (
+            section15State.ffiArray &&
+            Array.isArray(section15State.ffiArray)
+          ) {
             section15State.ffiArray.forEach((_: any, index: number) => {
               allSectionFields.push(
                 `${sectionPrefix}.ffiArray.${index}.intermediaryName`,
@@ -2174,7 +2449,7 @@ export const InfraFinancingReview = ({
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message
@@ -3806,10 +4081,12 @@ export const InfraFinancingReview = ({
                   readOnly={!shouldBeEditable("1.1")}
                   className={cn(
                     shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50",
-                    shouldBeEditable("1.1") && getInputValidationClass("section1_1.capitalAllocation")
+                    shouldBeEditable("1.1") &&
+                      getInputValidationClass("section1_1.capitalAllocation")
                   )}
                 />
-                {shouldBeEditable("1.1") && renderFieldError("section1_1.capitalAllocation")}
+                {shouldBeEditable("1.1") &&
+                  renderFieldError("section1_1.capitalAllocation")}
               </div>
               <div>
                 <Label>
@@ -3871,10 +4148,12 @@ export const InfraFinancingReview = ({
                   readOnly={!shouldBeEditable("1.1")}
                   className={cn(
                     shouldBeEditable("1.1") ? "bg-white" : "bg-gray-50",
-                    shouldBeEditable("1.1") && getInputValidationClass("section1_1.gsdpForFY")
+                    shouldBeEditable("1.1") &&
+                      getInputValidationClass("section1_1.gsdpForFY")
                   )}
                 />
-                {shouldBeEditable("1.1") && renderFieldError("section1_1.gsdpForFY")}
+                {shouldBeEditable("1.1") &&
+                  renderFieldError("section1_1.gsdpForFY")}
               </div>
               <div>
                 <Label>% Allocation to GSDP</Label>
@@ -3979,21 +4258,19 @@ export const InfraFinancingReview = ({
                       return cappedPercentage.toFixed(1) + "%";
                     })()}
                     readOnly
-                    className={
-                      (() => {
-                        // Only show error styling in edit mode
-                        if (!shouldBeEditable("1.1")) {
-                          return cn(
-                            "bg-gray-50 cursor-not-allowed pr-8",
-                            getInputValidationClass("section1_1.allocationToGSDP")
-                          );
-                        }
+                    className={(() => {
+                      // Only show error styling in edit mode
+                      if (!shouldBeEditable("1.1")) {
                         return cn(
                           "bg-gray-50 cursor-not-allowed pr-8",
                           getInputValidationClass("section1_1.allocationToGSDP")
                         );
-                      })()
-                    }
+                      }
+                      return cn(
+                        "bg-gray-50 cursor-not-allowed pr-8",
+                        getInputValidationClass("section1_1.allocationToGSDP")
+                      );
+                    })()}
                     placeholder="Auto-calculated"
                   />
                   {(() => {
@@ -4016,14 +4293,18 @@ export const InfraFinancingReview = ({
                   })()}
                 </div>
                 {/* Only show error message in edit mode */}
-                {shouldBeEditable("1.1") && (() => {
-                  const capitalAllocationNum = parseFloat(capitalAllocation) || 0;
-                  const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
-                  const isNegative = capitalAllocationNum < 0 || gsdpForFYNum < 0;
-                  const exceedsLimit = gsdpForFYNum > 0 && capitalAllocationNum > gsdpForFYNum;
-                  
-                  return renderFieldError("section1_1.allocationToGSDP");
-                })()}
+                {shouldBeEditable("1.1") &&
+                  (() => {
+                    const capitalAllocationNum =
+                      parseFloat(capitalAllocation) || 0;
+                    const gsdpForFYNum = parseFloat(gsdpForFY) || 0;
+                    const isNegative =
+                      capitalAllocationNum < 0 || gsdpForFYNum < 0;
+                    const exceedsLimit =
+                      gsdpForFYNum > 0 && capitalAllocationNum > gsdpForFYNum;
+
+                    return renderFieldError("section1_1.allocationToGSDP");
+                  })()}
               </div>
             </div>
           </SectionCard>
@@ -4054,7 +4335,11 @@ export const InfraFinancingReview = ({
               <div>
                 <Label>Year</Label>
                 <Input
-                  value={submissionData?.section1_2?.year || formData?.section1_2?.year || "2024-25"}
+                  value={
+                    submissionData?.section1_2?.year ||
+                    formData?.section1_2?.year ||
+                    "2024-25"
+                  }
                   readOnly
                   className={cn(
                     "bg-gray-50",
@@ -4122,10 +4407,12 @@ export const InfraFinancingReview = ({
                   readOnly={!isEditable("1.2")}
                   className={cn(
                     isEditable("1.2") ? "bg-white" : "bg-gray-50",
-                    isEditable("1.2") && getInputValidationClass("section1_2.actualCapex")
+                    isEditable("1.2") &&
+                      getInputValidationClass("section1_2.actualCapex")
                   )}
                 />
-                {isEditable("1.2") && renderFieldError("section1_2.actualCapex")}
+                {isEditable("1.2") &&
+                  renderFieldError("section1_2.actualCapex")}
                 {isEditable("1.2") && (
                   <div className="text-xs text-gray-500 mt-1">
                     Current value: "{actualCapex}"
@@ -4196,10 +4483,14 @@ export const InfraFinancingReview = ({
                   readOnly={!isEditable("1.2")}
                   className={cn(
                     isEditable("1.2") ? "bg-white" : "bg-gray-50",
-                    isEditable("1.2") && getInputValidationClass("section1_2.stateCapexUtilisation")
+                    isEditable("1.2") &&
+                      getInputValidationClass(
+                        "section1_2.stateCapexUtilisation"
+                      )
                   )}
                 />
-                {isEditable("1.2") && renderFieldError("section1_2.stateCapexUtilisation")}
+                {isEditable("1.2") &&
+                  renderFieldError("section1_2.stateCapexUtilisation")}
                 {isEditable("1.2") && (
                   <div className="text-xs text-gray-500 mt-1">
                     Current value: "{stateCapexUtilisation}"
@@ -4295,11 +4586,13 @@ export const InfraFinancingReview = ({
                   readOnly
                   className={cn(
                     "bg-gray-50 cursor-not-allowed",
-                    shouldBeEditable("1.2") && getInputValidationClass("section1_2.capexActualsToGSDP")
+                    shouldBeEditable("1.2") &&
+                      getInputValidationClass("section1_2.capexActualsToGSDP")
                   )}
                   placeholder="Auto-calculated"
                 />
-                {shouldBeEditable("1.2") && renderFieldError("section1_2.capexActualsToGSDP")}
+                {shouldBeEditable("1.2") &&
+                  renderFieldError("section1_2.capexActualsToGSDP")}
               </div>
             </div>
           </SectionCard>
@@ -4610,7 +4903,7 @@ export const InfraFinancingReview = ({
                 <>
                   {/* Validation error for ffiArray */}
                   {renderFieldError("section1_5.ffiArray")}
-                  
+
                   {/* Table Display */}
                   <div className="overflow-x-auto rounded-xl">
                     <table className="w-full text-sm">
@@ -4683,11 +4976,15 @@ export const InfraFinancingReview = ({
                                       )}
                                       className={cn(
                                         "w-full",
-                                        getInputValidationClass(`section1_5.ffiArray.${index}.organisationName`)
+                                        getInputValidationClass(
+                                          `section1_5.ffiArray.${index}.organisationName`
+                                        )
                                       )}
                                       placeholder="Enter organisation name"
                                     />
-                                    {renderFieldError(`section1_5.ffiArray.${index}.organisationName`)}
+                                    {renderFieldError(
+                                      `section1_5.ffiArray.${index}.organisationName`
+                                    )}
                                   </div>
                                 ) : (
                                   item.organisationName || "N/A"
@@ -4720,7 +5017,9 @@ export const InfraFinancingReview = ({
                                       isEditable={true}
                                       resetKey={selectResetKey}
                                     />
-                                    {renderFieldError(`section1_5.ffiArray.${index}.organisationType`)}
+                                    {renderFieldError(
+                                      `section1_5.ffiArray.${index}.organisationType`
+                                    )}
                                   </div>
                                 ) : (
                                   item.organisationType || "N/A"
@@ -4740,7 +5039,10 @@ export const InfraFinancingReview = ({
                                         (e) => {
                                           const value = e.target.value;
                                           // Only allow 4-digit years
-                                          if (value === "" || /^\d{0,4}$/.test(value)) {
+                                          if (
+                                            value === "" ||
+                                            /^\d{0,4}$/.test(value)
+                                          ) {
                                             const updatedArray = [...ffiArray];
                                             updatedArray[index] = {
                                               ...updatedArray[index],
@@ -4756,11 +5058,15 @@ export const InfraFinancingReview = ({
                                       )}
                                       className={cn(
                                         "w-full",
-                                        getInputValidationClass(`section1_5.ffiArray.${index}.yearEstablished`)
+                                        getInputValidationClass(
+                                          `section1_5.ffiArray.${index}.yearEstablished`
+                                        )
                                       )}
                                       placeholder="Enter year (YYYY)"
                                     />
-                                    {renderFieldError(`section1_5.ffiArray.${index}.yearEstablished`)}
+                                    {renderFieldError(
+                                      `section1_5.ffiArray.${index}.yearEstablished`
+                                    )}
                                   </div>
                                 ) : (
                                   item.yearEstablished || "N/A"
@@ -4780,7 +5086,10 @@ export const InfraFinancingReview = ({
                                         (e) => {
                                           const value = e.target.value;
                                           // Only allow numbers and decimal point
-                                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                          if (
+                                            value === "" ||
+                                            /^\d*\.?\d*$/.test(value)
+                                          ) {
                                             const updatedArray = [...ffiArray];
                                             updatedArray[index] = {
                                               ...updatedArray[index],
@@ -4796,11 +5105,15 @@ export const InfraFinancingReview = ({
                                       )}
                                       className={cn(
                                         "w-full",
-                                        getInputValidationClass(`section1_5.ffiArray.${index}.totalFunding`)
+                                        getInputValidationClass(
+                                          `section1_5.ffiArray.${index}.totalFunding`
+                                        )
                                       )}
                                       placeholder="Enter funding"
                                     />
-                                    {renderFieldError(`section1_5.ffiArray.${index}.totalFunding`)}
+                                    {renderFieldError(
+                                      `section1_5.ffiArray.${index}.totalFunding`
+                                    )}
                                   </div>
                                 ) : (
                                   item.totalFunding || "N/A"
@@ -4829,11 +5142,15 @@ export const InfraFinancingReview = ({
                                       )}
                                       className={cn(
                                         "w-full",
-                                        getInputValidationClass(`section1_5.ffiArray.${index}.website`)
+                                        getInputValidationClass(
+                                          `section1_5.ffiArray.${index}.website`
+                                        )
                                       )}
                                       placeholder="Enter website"
                                     />
-                                    {renderFieldError(`section1_5.ffiArray.${index}.website`)}
+                                    {renderFieldError(
+                                      `section1_5.ffiArray.${index}.website`
+                                    )}
                                   </div>
                                 ) : (
                                   item.website || "N/A"
@@ -4900,11 +5217,15 @@ export const InfraFinancingReview = ({
                             )}
                             className={cn(
                               "bg-white",
-                              getInputValidationClass("section1_5.ffiArray.new.organisationName")
+                              getInputValidationClass(
+                                "section1_5.ffiArray.new.organisationName"
+                              )
                             )}
                             placeholder="Enter organisation name"
                           />
-                          {renderFieldError("section1_5.ffiArray.new.organisationName")}
+                          {renderFieldError(
+                            "section1_5.ffiArray.new.organisationName"
+                          )}
                         </div>
                         <div>
                           <Label>Organisation Type</Label>
@@ -4926,7 +5247,9 @@ export const InfraFinancingReview = ({
                             placeholder="Select Type"
                             isEditable={true}
                           />
-                          {renderFieldError("section1_5.ffiArray.new.organisationType")}
+                          {renderFieldError(
+                            "section1_5.ffiArray.new.organisationType"
+                          )}
                         </div>
                         <div>
                           <Label>Year of Establishment</Label>
@@ -4978,11 +5301,15 @@ export const InfraFinancingReview = ({
                             )}
                             className={cn(
                               "bg-white",
-                              getInputValidationClass("section1_5.ffiArray.new.totalFunding")
+                              getInputValidationClass(
+                                "section1_5.ffiArray.new.totalFunding"
+                              )
                             )}
                             placeholder="Enter funding"
                           />
-                          {renderFieldError("section1_5.ffiArray.new.totalFunding")}
+                          {renderFieldError(
+                            "section1_5.ffiArray.new.totalFunding"
+                          )}
                         </div>
                         <div>
                           <Label>Website</Label>
@@ -5001,7 +5328,9 @@ export const InfraFinancingReview = ({
                             )}
                             className={cn(
                               "bg-white",
-                              getInputValidationClass("section1_5.ffiArray.new.website")
+                              getInputValidationClass(
+                                "section1_5.ffiArray.new.website"
+                              )
                             )}
                             placeholder="Enter website"
                           />
@@ -5253,6 +5582,3 @@ export const InfraFinancingReview = ({
     </>
   );
 };
-
-
-

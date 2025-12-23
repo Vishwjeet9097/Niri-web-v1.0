@@ -103,45 +103,46 @@ export const validateInfraFinancing = (
       // Skip validation if section doesn't exist
     } else {
       if (!isValidYear(section11.year)) {
-      errors["section1_1.year"] = "Enter a valid year (e.g., 2024 or 2024-25).";
-    }
-
-    if (
-      !isNonNegativeDecimal(section11.capitalAllocation) ||
-      !hasMaxTwoDecimals(section11.capitalAllocation)
-    ) {
-      errors["section1_1.capitalAllocation"] =
-        "Enter a non-negative amount with up to two decimal places.";
-    } else if (!isGreaterThanZero(section11.capitalAllocation)) {
-      errors["section1_1.capitalAllocation"] =
-        "Capital Allocation must be greater than zero.";
-    }
-
-    if (
-      !isNonNegativeDecimal(section11.gsdpForFY) ||
-      !hasMaxTwoDecimals(section11.gsdpForFY)
-    ) {
-      errors["section1_1.gsdpForFY"] =
-        "Enter a non-negative amount with up to two decimal places.";
-    } else if (!isGreaterThanZero(section11.gsdpForFY)) {
-      errors["section1_1.gsdpForFY"] =
-        "GSDP for FY must be greater than zero.";
-    }
-
-    const capitalAllocation = parseNumber(section11.capitalAllocation);
-    const gsdpForFY = parseNumber(section11.gsdpForFY);
-    if (
-      !Number.isNaN(capitalAllocation) &&
-      !Number.isNaN(gsdpForFY) &&
-      gsdpForFY > 0
-    ) {
-      const allocationPercentage = (capitalAllocation / gsdpForFY) * 100;
-      // Show error if percentage exceeds 100% (but still allow calculation to show actual value)
-      if (allocationPercentage > 100) {
-        errors["section1_1.allocationToGSDP"] =
-          "Calculated allocation to GSDP cannot exceed 100%.";
+        errors["section1_1.year"] =
+          "Enter a valid year (e.g., 2024 or 2024-25).";
       }
-    }
+
+      if (
+        !isNonNegativeDecimal(section11.capitalAllocation) ||
+        !hasMaxTwoDecimals(section11.capitalAllocation)
+      ) {
+        errors["section1_1.capitalAllocation"] =
+          "Enter a non-negative amount with up to two decimal places.";
+      } else if (!isGreaterThanZero(section11.capitalAllocation)) {
+        errors["section1_1.capitalAllocation"] =
+          "Capital Allocation must be greater than zero.";
+      }
+
+      if (
+        !isNonNegativeDecimal(section11.gsdpForFY) ||
+        !hasMaxTwoDecimals(section11.gsdpForFY)
+      ) {
+        errors["section1_1.gsdpForFY"] =
+          "Enter a non-negative amount with up to two decimal places.";
+      } else if (!isGreaterThanZero(section11.gsdpForFY)) {
+        errors["section1_1.gsdpForFY"] =
+          "GSDP for FY must be greater than zero.";
+      }
+
+      const capitalAllocation = parseNumber(section11.capitalAllocation);
+      const gsdpForFY = parseNumber(section11.gsdpForFY);
+      if (
+        !Number.isNaN(capitalAllocation) &&
+        !Number.isNaN(gsdpForFY) &&
+        gsdpForFY > 0
+      ) {
+        const allocationPercentage = (capitalAllocation / gsdpForFY) * 100;
+        // Show error if percentage exceeds 100% (but still allow calculation to show actual value)
+        if (allocationPercentage > 100) {
+          errors["section1_1.allocationToGSDP"] =
+            "Calculated allocation to GSDP cannot exceed 100%.";
+        }
+      }
     }
   }
 
@@ -152,45 +153,48 @@ export const validateInfraFinancing = (
       // Skip validation if section doesn't exist
     } else {
       if (!isValidYear(section12.year)) {
-      errors["section1_2.year"] = "Enter a valid year (e.g., 2024 or 2024-25).";
-    }
-
-    if (
-      !isNonNegativeDecimal(section12.actualCapex) ||
-      !hasMaxTwoDecimals(section12.actualCapex)
-    ) {
-      errors["section1_2.actualCapex"] =
-        "Enter a non-negative amount with up to two decimal places.";
-    } else if (!isGreaterThanZero(section12.actualCapex)) {
-      errors["section1_2.actualCapex"] =
-        "Actual Capex must be greater than zero.";
-    }
-
-    if (
-      !isNonNegativeDecimal(section12.stateCapexUtilisation) ||
-      !hasMaxTwoDecimals(section12.stateCapexUtilisation)
-    ) {
-      errors["section1_2.stateCapexUtilisation"] =
-        "Enter a non-negative amount with up to two decimal places.";
-    } else if (!isGreaterThanZero(section12.stateCapexUtilisation)) {
-      errors["section1_2.stateCapexUtilisation"] =
-        "State capex utilisation must be greater than zero.";
-    }
-
-    const actualCapex = parseNumber(section12.actualCapex);
-    const stateCapexUtilisation = parseNumber(section12.stateCapexUtilisation);
-    if (
-      !Number.isNaN(actualCapex) &&
-      !Number.isNaN(stateCapexUtilisation) &&
-      stateCapexUtilisation > 0
-    ) {
-      const capexPercentage = (actualCapex / stateCapexUtilisation) * 100;
-      // Show error if percentage exceeds 100% (but still allow calculation to show actual value)
-      if (capexPercentage > 100) {
-        errors["section1_2.capexActualsToGSDP"] =
-          "Calculated capex actuals to GSDP cannot exceed 100%.";
+        errors["section1_2.year"] =
+          "Enter a valid year (e.g., 2024 or 2024-25).";
       }
-    }
+
+      if (
+        !isNonNegativeDecimal(section12.actualCapex) ||
+        !hasMaxTwoDecimals(section12.actualCapex)
+      ) {
+        errors["section1_2.actualCapex"] =
+          "Enter a non-negative amount with up to two decimal places.";
+      } else if (!isGreaterThanZero(section12.actualCapex)) {
+        errors["section1_2.actualCapex"] =
+          "Actual Capex must be greater than zero.";
+      }
+
+      if (
+        !isNonNegativeDecimal(section12.stateCapexUtilisation) ||
+        !hasMaxTwoDecimals(section12.stateCapexUtilisation)
+      ) {
+        errors["section1_2.stateCapexUtilisation"] =
+          "Enter a non-negative amount with up to two decimal places.";
+      } else if (!isGreaterThanZero(section12.stateCapexUtilisation)) {
+        errors["section1_2.stateCapexUtilisation"] =
+          "State capex utilisation must be greater than zero.";
+      }
+
+      const actualCapex = parseNumber(section12.actualCapex);
+      const stateCapexUtilisation = parseNumber(
+        section12.stateCapexUtilisation
+      );
+      if (
+        !Number.isNaN(actualCapex) &&
+        !Number.isNaN(stateCapexUtilisation) &&
+        stateCapexUtilisation > 0
+      ) {
+        const capexPercentage = (actualCapex / stateCapexUtilisation) * 100;
+        // Show error if percentage exceeds 100% (but still allow calculation to show actual value)
+        if (capexPercentage > 100) {
+          errors["section1_2.capexActualsToGSDP"] =
+            "Calculated capex actuals to GSDP cannot exceed 100%.";
+        }
+      }
     }
   }
 
@@ -206,19 +210,19 @@ export const validateInfraFinancing = (
 
       if (section13.ulbList && Array.isArray(section13.ulbList)) {
         section13.ulbList.forEach((ulb, index) => {
-      const basePath = `section1_3.ulbList.${index}`;
-      if (!ulb.cityName) {
-        errors[`${basePath}.cityName`] = "City name is required.";
-      }
-      if (!ulb.ulb) {
-        errors[`${basePath}.ulb`] = "ULB is required.";
-      }
-      if (!ulb.ratingDate || Number.isNaN(Date.parse(ulb.ratingDate))) {
-        errors[`${basePath}.ratingDate`] = "Select a valid rating date.";
-      }
-      if (!ulb.rating) {
-          errors[`${basePath}.rating`] = "Rating is required.";
-        }
+          const basePath = `section1_3.ulbList.${index}`;
+          if (!ulb.cityName) {
+            errors[`${basePath}.cityName`] = "City name is required.";
+          }
+          if (!ulb.ulb) {
+            errors[`${basePath}.ulb`] = "ULB is required.";
+          }
+          if (!ulb.ratingDate || Number.isNaN(Date.parse(ulb.ratingDate))) {
+            errors[`${basePath}.ratingDate`] = "Select a valid rating date.";
+          }
+          if (!ulb.rating) {
+            errors[`${basePath}.rating`] = "Rating is required.";
+          }
         });
       }
 
@@ -232,7 +236,7 @@ export const validateInfraFinancing = (
           errors["section1_3.ulbList"] =
             "Add at least one ULB entry before submitting this indicator.";
         }
-    }
+      }
     }
   }
 
@@ -248,24 +252,40 @@ export const validateInfraFinancing = (
 
       if (section14.bondList && Array.isArray(section14.bondList)) {
         section14.bondList.forEach((bond, index) => {
-      const basePath = `section1_4.bondList.${index}`;
-      if (!bond.bondType) {
-        errors[`${basePath}.bondType`] = "Bond type is required.";
-      }
-      if (!bond.cityName) {
-        errors[`${basePath}.cityName`] = "City name is required.";
-      }
-      if (!bond.issuingAuthority) {
-        errors[`${basePath}.issuingAuthority`] =
-          "Issuing authority is required.";
-      } else if (bond.issuingAuthority.length > 100) {
-        errors[`${basePath}.issuingAuthority`] =
-          "Issuing authority must be 100 characters or fewer.";
-      }
-      if (!isNonNegativeDecimal(bond.value) || !hasMaxTwoDecimals(bond.value)) {
-          errors[`${basePath}.value`] =
-            "Enter a non-negative amount with up to two decimal places.";
-        }
+          const basePath = `section1_4.bondList.${index}`;
+          if (!bond.bondType) {
+            errors[`${basePath}.bondType`] = "Bond type is required.";
+          }
+          if (!bond.cityName) {
+            errors[`${basePath}.cityName`] = "City name is required.";
+          }
+          if (!bond.issuingAuthority) {
+            errors[`${basePath}.issuingAuthority`] =
+              "Issuing authority is required.";
+          } else if (bond.issuingAuthority.length > 100) {
+            errors[`${basePath}.issuingAuthority`] =
+              "Issuing authority must be 100 characters or fewer.";
+          }
+          if (
+            !isNonNegativeDecimal(bond.value) ||
+            !hasMaxTwoDecimals(bond.value)
+          ) {
+            errors[`${basePath}.value`] =
+              "Enter a non-negative amount with up to two decimal places.";
+          }
+          if (!bond.tenorOfBond || bond.tenorOfBond.trim() === "") {
+            errors[`${basePath}.tenorOfBond`] =
+              "Tenor of Bond (in years) is required.";
+          } else if (
+            !isNonNegativeDecimal(bond.tenorOfBond) ||
+            !hasMaxTwoDecimals(bond.tenorOfBond)
+          ) {
+            errors[`${basePath}.tenorOfBond`] =
+              "Enter a valid non-negative number with up to two decimal places for tenor of bond.";
+          } else if (!isGreaterThanZero(bond.tenorOfBond)) {
+            errors[`${basePath}.tenorOfBond`] =
+              "Tenor of Bond must be greater than zero.";
+          }
         });
       }
 
@@ -279,7 +299,7 @@ export const validateInfraFinancing = (
           errors["section1_4.bondList"] =
             "Add at least one bond entry before submitting this indicator.";
         }
-    }
+      }
     }
   }
 
@@ -291,48 +311,48 @@ export const validateInfraFinancing = (
     } else {
       const hasIntermediary = section15.hasIntermediary;
 
-    if (
-      !hasIntermediary ||
-      (hasIntermediary !== "yes" && hasIntermediary !== "no")
-    ) {
-      errors["section1_5.hasIntermediary"] = "Please select Yes or No.";
-    } else if (hasIntermediary === "yes") {
-      if (!section15.ffiArray || section15.ffiArray.length === 0) {
-        errors["section1_5.ffiArray"] =
-          "Add at least one financial intermediary when selecting Yes.";
-      } else {
-        section15.ffiArray.forEach((intermediary, index) => {
-          if (!intermediary.organisationName) {
-            errors[`section1_5.ffiArray.${index}.organisationName`] =
-              "Organisation name is required.";
-          }
-          if (!intermediary.organisationType) {
-            errors[`section1_5.ffiArray.${index}.organisationType`] =
-              "Organisation type is required.";
-          }
-          if (!isValidYear(intermediary.yearEstablished)) {
-            errors[`section1_5.ffiArray.${index}.yearEstablished`] =
-              "Enter a valid year in YYYY format";
-          }
-          if (
-            !isNonNegativeDecimal(intermediary.totalFunding) ||
-            !hasMaxTwoDecimals(intermediary.totalFunding)
-          ) {
-            errors[`section1_5.ffiArray.${index}.totalFunding`] =
-              "Enter a non-negative amount with up to two decimal places.";
-          }
-          if (!intermediary.website || !isValidUrl(intermediary.website)) {
-            errors[`section1_5.ffiArray.${index}.website`] =
-              "Enter a valid website URL.";
-          }
-        });
+      if (
+        !hasIntermediary ||
+        (hasIntermediary !== "yes" && hasIntermediary !== "no")
+      ) {
+        errors["section1_5.hasIntermediary"] = "Please select Yes or No.";
+      } else if (hasIntermediary === "yes") {
+        if (!section15.ffiArray || section15.ffiArray.length === 0) {
+          errors["section1_5.ffiArray"] =
+            "Add at least one financial intermediary when selecting Yes.";
+        } else {
+          section15.ffiArray.forEach((intermediary, index) => {
+            if (!intermediary.organisationName) {
+              errors[`section1_5.ffiArray.${index}.organisationName`] =
+                "Organisation name is required.";
+            }
+            if (!intermediary.organisationType) {
+              errors[`section1_5.ffiArray.${index}.organisationType`] =
+                "Organisation type is required.";
+            }
+            if (!isValidYear(intermediary.yearEstablished)) {
+              errors[`section1_5.ffiArray.${index}.yearEstablished`] =
+                "Enter a valid year in YYYY format";
+            }
+            if (
+              !isNonNegativeDecimal(intermediary.totalFunding) ||
+              !hasMaxTwoDecimals(intermediary.totalFunding)
+            ) {
+              errors[`section1_5.ffiArray.${index}.totalFunding`] =
+                "Enter a non-negative amount with up to two decimal places.";
+            }
+            if (!intermediary.website || !isValidUrl(intermediary.website)) {
+              errors[`section1_5.ffiArray.${index}.website`] =
+                "Enter a valid website URL.";
+            }
+          });
+        }
+      } else if (hasIntermediary === "no") {
+        if (!section15.comment || section15.comment.trim() === "") {
+          errors["section1_5.comment"] =
+            "Provide a comment explaining why no intermediary is available.";
+        }
       }
-    } else if (hasIntermediary === "no") {
-      if (!section15.comment || section15.comment.trim() === "") {
-        errors["section1_5.comment"] =
-          "Provide a comment explaining why no intermediary is available.";
-      }
-    }
     }
   }
 

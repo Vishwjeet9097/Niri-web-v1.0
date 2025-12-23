@@ -305,10 +305,14 @@ export const InfraFinancingStep = () => {
     title: string;
   } | null>(null);
   // Track indicator-specific validation errors
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
   // Section-level validation error messages (shown when save fails)
-  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
-  
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<
+    Record<string, string>
+  >({});
+
   // Use the shared field validation hook
   const {
     validatingIndicator,
@@ -899,6 +903,7 @@ export const InfraFinancingStep = () => {
       cityName: "",
       issuingAuthority: "",
       value: "",
+      tenorOfBond: "",
     };
     setFormData((prev) => ({
       ...prev,
@@ -1523,7 +1528,10 @@ export const InfraFinancingStep = () => {
 
   // Helper to render validation error message for an indicator
   const renderSectionValidationMessage = (indicatorCode: string) => {
-    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+    if (
+      !sectionValidationMessages[indicatorCode] ||
+      !editingIndicators.has(indicatorCode)
+    ) {
       return null;
     }
     return (
@@ -1556,7 +1564,8 @@ export const InfraFinancingStep = () => {
     if (isNodalOfficer) {
       // Run validation first
       const validationResult = validateInfraFinancing(formData, {
-        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+        allowedIndicators:
+          assignedIndicators.length > 0 ? assignedIndicators : undefined,
       });
 
       // Filter validation errors to only include the indicator being saved
@@ -1572,15 +1581,29 @@ export const InfraFinancingStep = () => {
       if (Object.keys(sectionErrors).length > 0) {
         // Mark all fields in this indicator as touched so ALL errors show
         const allIndicatorFields: string[] = [];
-        
+
         // Add base fields based on indicator
         if (indicatorCode === "1.1") {
-          allIndicatorFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.capitalAllocation`, `${sectionPrefix}.gsdpForFY`);
+          allIndicatorFields.push(
+            `${sectionPrefix}.year`,
+            `${sectionPrefix}.capitalAllocation`,
+            `${sectionPrefix}.gsdpForFY`
+          );
         } else if (indicatorCode === "1.2") {
-          allIndicatorFields.push(`${sectionPrefix}.year`, `${sectionPrefix}.actualCapex`, `${sectionPrefix}.stateCapexUtilisation`);
+          allIndicatorFields.push(
+            `${sectionPrefix}.year`,
+            `${sectionPrefix}.actualCapex`,
+            `${sectionPrefix}.stateCapexUtilisation`
+          );
         } else if (indicatorCode === "1.3") {
-          allIndicatorFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.ulbList`);
-          if (formData.section1_3?.ulbList && Array.isArray(formData.section1_3.ulbList)) {
+          allIndicatorFields.push(
+            `${sectionPrefix}.totalULBs`,
+            `${sectionPrefix}.ulbList`
+          );
+          if (
+            formData.section1_3?.ulbList &&
+            Array.isArray(formData.section1_3.ulbList)
+          ) {
             formData.section1_3.ulbList.forEach((_: any, index: number) => {
               allIndicatorFields.push(
                 `${sectionPrefix}.ulbList.${index}.cityName`,
@@ -1591,20 +1614,34 @@ export const InfraFinancingStep = () => {
             });
           }
         } else if (indicatorCode === "1.4") {
-          allIndicatorFields.push(`${sectionPrefix}.totalULBs`, `${sectionPrefix}.bondList`);
-          if (formData.section1_4?.bondList && Array.isArray(formData.section1_4.bondList)) {
+          allIndicatorFields.push(
+            `${sectionPrefix}.totalULBs`,
+            `${sectionPrefix}.bondList`
+          );
+          if (
+            formData.section1_4?.bondList &&
+            Array.isArray(formData.section1_4.bondList)
+          ) {
             formData.section1_4.bondList.forEach((_: any, index: number) => {
               allIndicatorFields.push(
                 `${sectionPrefix}.bondList.${index}.cityName`,
                 `${sectionPrefix}.bondList.${index}.bondType`,
                 `${sectionPrefix}.bondList.${index}.issuingAuthority`,
-                `${sectionPrefix}.bondList.${index}.value`
+                `${sectionPrefix}.bondList.${index}.value`,
+                `${sectionPrefix}.bondList.${index}.tenorOfBond`
               );
             });
           }
         } else if (indicatorCode === "1.5") {
-          allIndicatorFields.push(`${sectionPrefix}.hasIntermediary`, `${sectionPrefix}.comment`, `${sectionPrefix}.ffiArray`);
-          if (formData.section1_5?.ffiArray && Array.isArray(formData.section1_5.ffiArray)) {
+          allIndicatorFields.push(
+            `${sectionPrefix}.hasIntermediary`,
+            `${sectionPrefix}.comment`,
+            `${sectionPrefix}.ffiArray`
+          );
+          if (
+            formData.section1_5?.ffiArray &&
+            Array.isArray(formData.section1_5.ffiArray)
+          ) {
             formData.section1_5.ffiArray.forEach((_: any, index: number) => {
               allIndicatorFields.push(
                 `${sectionPrefix}.ffiArray.${index}.organisationName`,
@@ -1627,7 +1664,7 @@ export const InfraFinancingStep = () => {
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message
@@ -1636,7 +1673,10 @@ export const InfraFinancingStep = () => {
           ...prev,
           [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
         }));
-        console.log(`[InfraFinancingStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        console.log(
+          `[InfraFinancingStep] Validation failed for indicator ${indicatorCode}:`,
+          sectionErrors
+        );
         // Errors are displayed inline in the UI, don't show dialog
         return;
       }
@@ -1903,7 +1943,7 @@ export const InfraFinancingStep = () => {
                       showErrorsIfNeeded();
                       clearIndicatorValidationMessage("1.1");
                       const value = e.target.value;
-                      
+
                       setFormData((prev) => ({
                         ...prev,
                         section1_1: {
@@ -1911,7 +1951,7 @@ export const InfraFinancingStep = () => {
                           capitalAllocation: value,
                         },
                       }));
-                      
+
                       // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_1.gsdpForFY) {
                         markFieldAsTouched("section1_1.allocationToGSDP");
@@ -1947,7 +1987,7 @@ export const InfraFinancingStep = () => {
                       showErrorsIfNeeded();
                       clearIndicatorValidationMessage("1.1");
                       const value = e.target.value;
-                      
+
                       setFormData((prev) => ({
                         ...prev,
                         section1_1: {
@@ -1955,7 +1995,7 @@ export const InfraFinancingStep = () => {
                           gsdpForFY: value,
                         },
                       }));
-                      
+
                       // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_1.capitalAllocation) {
                         markFieldAsTouched("section1_1.allocationToGSDP");
@@ -2087,7 +2127,7 @@ export const InfraFinancingStep = () => {
                       showErrorsIfNeeded();
                       clearIndicatorValidationMessage("1.2");
                       const value = e.target.value;
-                      
+
                       setFormData((prev) => ({
                         ...prev,
                         section1_2: {
@@ -2095,7 +2135,7 @@ export const InfraFinancingStep = () => {
                           actualCapex: value,
                         },
                       }));
-                      
+
                       // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_2.stateCapexUtilisation) {
                         markFieldAsTouched("section1_2.capexActualsToGSDP");
@@ -2132,7 +2172,7 @@ export const InfraFinancingStep = () => {
                       showErrorsIfNeeded();
                       clearIndicatorValidationMessage("1.2");
                       const value = e.target.value;
-                      
+
                       setFormData((prev) => ({
                         ...prev,
                         section1_2: {
@@ -2140,7 +2180,7 @@ export const InfraFinancingStep = () => {
                           stateCapexUtilisation: value,
                         },
                       }));
-                      
+
                       // Mark percentage field as touched when values change (validation file handles the logic)
                       if (value && formData.section1_2.actualCapex) {
                         markFieldAsTouched("section1_2.capexActualsToGSDP");
@@ -2475,8 +2515,14 @@ export const InfraFinancingStep = () => {
                                 const d = new Date(ulb.ratingDate);
                                 if (isNaN(d.getTime())) return "";
                                 const year = d.getFullYear();
-                                const month = String(d.getMonth() + 1).padStart(2, "0");
-                                const day = String(d.getDate()).padStart(2, "0");
+                                const month = String(d.getMonth() + 1).padStart(
+                                  2,
+                                  "0"
+                                );
+                                const day = String(d.getDate()).padStart(
+                                  2,
+                                  "0"
+                                );
                                 return `${year}-${month}-${day}`;
                               })()
                             : ""
@@ -2507,7 +2553,7 @@ export const InfraFinancingStep = () => {
                             `section1_3.ulbList.${index}.ratingDate`
                           ),
                           isIndicatorSubmitted("1.3") &&
-                          "bg-gray-50 cursor-not-allowed"
+                            "bg-gray-50 cursor-not-allowed"
                         )}
                       />
                       {renderFieldError(
@@ -2732,7 +2778,10 @@ export const InfraFinancingStep = () => {
                 </div>
 
                 {formData.section1_4.bondList.map((bond, index) => (
-                  <div key={bond.id} className="grid grid-cols-6 gap-4">
+                  <div
+                    key={bond.id}
+                    className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center"
+                  >
                     <div>
                       <Label>
                         Select Bond Type
@@ -2931,15 +2980,64 @@ export const InfraFinancingStep = () => {
                       />
                       {renderFieldError(`section1_4.bondList.${index}.value`)}
                     </div>
-                    <div className="flex items-end">
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Label>
+                          Tenor of Bond (in years)
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          placeholder="Enter tenor in years"
+                          value={bond.tenorOfBond}
+                          onChange={(e) => {
+                            showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("1.4");
+                            const value = e.target.value;
+                            // Only allow numbers and decimal point
+                            if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                              setFormData((prev) => ({
+                                ...prev,
+                                section1_4: {
+                                  ...prev.section1_4,
+                                  bondList: prev.section1_4.bondList.map(
+                                    (item) =>
+                                      item.id === bond.id
+                                        ? { ...item, tenorOfBond: value }
+                                        : item
+                                  ),
+                                },
+                              }));
+                            }
+                          }}
+                          disabled={isIndicatorSubmitted("1.4")}
+                          className={cn(
+                            getInputValidationClass(
+                              `section1_4.bondList.${index}.tenorOfBond`
+                            ),
+                            isIndicatorSubmitted("1.4") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        />
+                        {renderFieldError(
+                          `section1_4.bondList.${index}.tenorOfBond`
+                        )}
+                      </div>
+
                       <Button
-                        variant="outline"
+                        type="button"
+                        variant="ghost"
                         size="icon"
+                        className="self-start mt-6"
                         onClick={() => removeBond(bond.id)}
                         disabled={isIndicatorSubmitted("1.4")}
-                        className="text-red-500 hover:text-red-700 border-none bg-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label="Remove"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="w-5 h-5 text-destructive" />
                       </Button>
                     </div>
                   </div>
@@ -2974,6 +3072,9 @@ export const InfraFinancingStep = () => {
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Value (INR Cr)
                           </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Tenor of Bond (in years)
+                          </th>
                           <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                             Action
                           </th>
@@ -2993,6 +3094,9 @@ export const InfraFinancingStep = () => {
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {bond.value}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {bond.tenorOfBond}
                             </td>
                             <td className="py-3 px-4">
                               <button
