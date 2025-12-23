@@ -497,6 +497,21 @@ export const InfraEnablersReview = ({
 
     // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (state && state[sectionKey]) || (formData && formData[sectionKey]);
+      const sectionStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.status
+        : sectionData?.status;
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If section status is RESUBMITTED, allow editing if section is in edit mode
+      if (sectionStatus === "RESUBMITTED") {
+        return isEditable(sectionId);
+      }
+
       // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
       if (
@@ -506,13 +521,6 @@ export const InfraEnablersReview = ({
       ) {
         return false;
       }
-
-      const sectionKey = `section${sectionId.replace(".", "_")}`;
-      const sectionData =
-        (state && state[sectionKey]) || (formData && formData[sectionKey]);
-      const mospiStatus = Array.isArray(sectionData)
-        ? (sectionData as any)?.mospi_status
-        : sectionData?.mospi_status;
 
       // If mospi_status is ACCEPTED, section should NOT be editable
       if (mospiStatus === "ACCEPTED") {
@@ -736,12 +744,38 @@ export const InfraEnablersReview = ({
   };
 
   // Handle cancel - restore original state
-  const handleCancel = (sectionId: string) => {
+  const handleCancel = async (sectionId: string) => {
+    console.log(`[InfraEnablersReview] handleCancel called for section ${sectionId}`, {
+      hasSnapshot: !!originalFormDataSnapshot,
+      hasFormData: !!formData,
+    });
+    
     if (originalFormDataSnapshot) {
       isRestoringRef.current = true;
-      setFormDataState(originalFormDataSnapshot);
+      // Create a fresh deep copy to ensure React detects the change
+      const restoredState = JSON.parse(
+        JSON.stringify(originalFormDataSnapshot)
+      );
+      console.log(`[InfraEnablersReview] Restoring from snapshot for ${sectionId}:`, restoredState);
+      setFormDataState(restoredState);
       setOriginalFormDataSnapshot(null);
       setEditable(sectionId, false);
+      // Clear validation errors for this section
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      setIndicatorValidationErrors((prev) => {
+        const filtered = { ...prev };
+        Object.keys(filtered).forEach((key) => {
+          if (key.startsWith(sectionPrefix)) {
+            delete filtered[key];
+          }
+        });
+        return filtered;
+      });
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
       // Increment reset key to force Select components to remount
       setSelectResetKey((prev) => prev + 1);
 
@@ -784,7 +818,62 @@ export const InfraEnablersReview = ({
         });
       });
     } else {
+      // If no snapshot exists (e.g., after page refresh), fetch fresh data from server
+      // to ensure we have the latest saved values
+      isRestoringRef.current = true;
+      (async () => {
+        try {
+          console.log(`[InfraEnablersReview] No snapshot found, fetching fresh data for ${sectionId}`);
+          const freshSubmission = await apiService.getSubmission(submissionId);
+          if (freshSubmission && (freshSubmission as any).formData) {
+            const freshFormData = (freshSubmission as any).formData;
+            if (freshFormData.infraEnablers) {
+              // Create a fresh deep copy to ensure React detects the change
+              const restoredState = JSON.parse(JSON.stringify(freshFormData.infraEnablers));
+              console.log(`[InfraEnablersReview] Restored from fresh server data for ${sectionId}:`, restoredState);
+              setFormDataState(restoredState);
+            } else if (formData) {
+              // Fallback to formData prop if server fetch doesn't have the data
+              const rawData = (formData as any)?.infraEnablers || formData;
+              const restoredState = JSON.parse(JSON.stringify(rawData));
+              console.log(`[InfraEnablersReview] Restored from formData prop for ${sectionId}:`, restoredState);
+              setFormDataState(restoredState);
+            }
+          } else if (formData) {
+            // Fallback to formData prop if server fetch doesn't have the data
+            const rawData = (formData as any)?.infraEnablers || formData;
+            const restoredState = JSON.parse(JSON.stringify(rawData));
+            setFormDataState(restoredState);
+          }
+        } catch (error) {
+          console.error(`[InfraEnablersReview] Error fetching fresh data for ${sectionId}:`, error);
+          // Fallback to formData prop if fetch fails
+          if (formData) {
+            const rawData = (formData as any)?.infraEnablers || formData;
+            const restoredState = JSON.parse(JSON.stringify(rawData));
+            setFormDataState(restoredState);
+          }
+        }
+      })();
       setEditable(sectionId, false);
+      // Clear validation errors for this section
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      setIndicatorValidationErrors((prev) => {
+        const filtered = { ...prev };
+        Object.keys(filtered).forEach((key) => {
+          if (key.startsWith(sectionPrefix)) {
+            delete filtered[key];
+          }
+        });
+        return filtered;
+      });
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
+      // Increment reset key to force Select components to remount
+      setSelectResetKey((prev) => prev + 1);
       // Still close forms even if no snapshot exists
       if (sectionId === "4.3") {
         setShowAddProjectForm(false);
@@ -812,6 +901,12 @@ export const InfraEnablersReview = ({
           trainingType: "",
         });
       }
+      // Reset the flag after React has processed the state update
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isRestoringRef.current = false;
+        });
+      });
     }
   };
 
@@ -2135,16 +2230,30 @@ export const InfraEnablersReview = ({
   };
 
   // Handle removing project from section 4.3
-  const handleRemoveProject = (id: string) => {
+  const handleRemoveProject = (idOrIndex: string | number) => {
     setFormDataState((prev: any) => {
+      const currentSection = prev?.section4_3 || {};
       const projects = (prev?.section4_3?.projects || []).filter(
-        (project: any) => project.id !== id
+        (project: any, index: number) => {
+          // If idOrIndex is a number or starts with "item-", it's an index-based delete
+          const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+          if (isIndexBased) {
+            const targetIndex = typeof idOrIndex === 'number' 
+              ? idOrIndex 
+              : parseInt(String(idOrIndex).replace('item-', ''), 10);
+            return index !== targetIndex;
+          } else {
+            return project.id !== idOrIndex;
+          }
+        }
       );
       return {
         ...prev,
         section4_3: {
-          ...(prev?.section4_3 || {}),
+          ...currentSection,
           projects,
+          // Preserve status if it exists
+          ...(currentSection.status ? { status: currentSection.status } : {}),
         },
       };
     });
@@ -2250,33 +2359,61 @@ export const InfraEnablersReview = ({
   };
 
   // Handle removing practice from section 4.5
-  const handleRemovePractice = (id: string) => {
+  const handleRemovePractice = (idOrIndex: string | number) => {
     setFormDataState((prev: any) => {
+      const currentSection = prev?.section4_5 || {};
       const practices = (prev?.section4_5?.practices || []).filter(
-        (practice: any) => practice.id !== id
+        (practice: any, index: number) => {
+          // If idOrIndex is a number or starts with "item-", it's an index-based delete
+          const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+          if (isIndexBased) {
+            const targetIndex = typeof idOrIndex === 'number' 
+              ? idOrIndex 
+              : parseInt(String(idOrIndex).replace('item-', ''), 10);
+            return index !== targetIndex;
+          } else {
+            return practice.id !== idOrIndex;
+          }
+        }
       );
       return {
         ...prev,
         section4_5: {
-          ...(prev?.section4_5 || {}),
+          ...currentSection,
           practices,
+          // Preserve status if it exists
+          ...(currentSection.status ? { status: currentSection.status } : {}),
         },
       };
     });
   };
 
   // Handle removing capacity entry from section 4.6
-  const handleRemoveCapacityEntry = (id: string) => {
+  const handleRemoveCapacityEntry = (idOrIndex: string | number) => {
     setFormDataState((prev: any) => {
       const current = prev?.section4_6?.capacityArray;
+      const currentSection = prev?.section4_6 || {};
       const rows = Array.isArray(current)
-        ? current.filter((item: any) => item.id !== id)
+        ? current.filter((item: any, index: number) => {
+            // If idOrIndex is a number or starts with "item-", it's an index-based delete
+            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            if (isIndexBased) {
+              const targetIndex = typeof idOrIndex === 'number' 
+                ? idOrIndex 
+                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              return index !== targetIndex;
+            } else {
+              return item.id !== idOrIndex;
+            }
+          })
         : [];
       return {
         ...prev,
         section4_6: {
-          ...(prev?.section4_6 || {}),
+          ...currentSection,
           capacityArray: rows,
+          // Preserve status if it exists
+          ...(currentSection.status ? { status: currentSection.status } : {}),
         },
       };
     });
@@ -3026,7 +3163,7 @@ export const InfraEnablersReview = ({
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => setEditable(sectionId, false)}
+              onClick={() => handleCancel(sectionId)}
             >
               <X className="w-4 h-4" />
               Cancel
@@ -3799,11 +3936,10 @@ export const InfraEnablersReview = ({
                                   <Button
                                     variant="outline"
                                     size="icon"
-                                    onClick={() =>
-                                      handleRemoveProject(
-                                        project.id || idx.toString()
-                                      )
-                                    }
+                                    onClick={() => {
+                                      // Use index for deletion since items may not have IDs
+                                      handleRemoveProject(idx);
+                                    }}
                                     className="text-red-500 hover:text-red-700 border-none bg-none"
                                   >
                                     <Trash2 className="h-5 w-5" />
@@ -4390,11 +4526,10 @@ export const InfraEnablersReview = ({
                                   <Button
                                     variant="outline"
                                     size="icon"
-                                    onClick={() =>
-                                      handleRemovePractice(
-                                        practice.id || idx.toString()
-                                      )
-                                    }
+                                    onClick={() => {
+                                      // Use index for deletion since items may not have IDs
+                                      handleRemovePractice(idx);
+                                    }}
                                     className="text-red-500 hover:text-red-700 border-none bg-none"
                                   >
                                     <Trash2 className="h-5 w-5" />
@@ -4737,11 +4872,10 @@ export const InfraEnablersReview = ({
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  onClick={() =>
-                                    handleRemoveCapacityEntry(
-                                      item.id || idx.toString()
-                                    )
-                                  }
+                                  onClick={() => {
+                                    // Use index for deletion since items may not have IDs
+                                    handleRemoveCapacityEntry(idx);
+                                  }}
                                   className="text-red-500 hover:text-red-700 border-none bg-none"
                                 >
                                   <Trash2 className="h-5 w-5" />

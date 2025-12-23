@@ -519,6 +519,22 @@ export const InfraDevelopmentReview = ({
 
     // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const sectionData =
+        (formDataState && formDataState[sectionKey]) ||
+        (formData && formData[sectionKey]);
+      const sectionStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.status
+        : sectionData?.status;
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      // If section status is RESUBMITTED, allow editing if section is in edit mode
+      if (sectionStatus === "RESUBMITTED") {
+        return isEditable(sectionId);
+      }
+
       // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
       if (
@@ -528,14 +544,6 @@ export const InfraDevelopmentReview = ({
       ) {
         return false;
       }
-
-      const sectionKey = `section${sectionId.replace(".", "_")}`;
-      const sectionData =
-        (formDataState && formDataState[sectionKey]) ||
-        (formData && formData[sectionKey]);
-      const mospiStatus = Array.isArray(sectionData)
-        ? (sectionData as any)?.mospi_status
-        : sectionData?.mospi_status;
 
       // If mospi_status is ACCEPTED, section should NOT be editable
       if (mospiStatus === "ACCEPTED") {
@@ -772,12 +780,38 @@ export const InfraDevelopmentReview = ({
   };
 
   // Handle cancel - restore original state
-  const handleCancel = (sectionId: string) => {
+  const handleCancel = async (sectionId: string) => {
+    console.log(`[InfraDevelopmentReview] handleCancel called for section ${sectionId}`, {
+      hasSnapshot: !!originalFormDataSnapshot,
+      hasFormData: !!formData,
+    });
+    
     if (originalFormDataSnapshot) {
       isRestoringRef.current = true;
-      setFormDataState(originalFormDataSnapshot);
+      // Create a fresh deep copy to ensure React detects the change
+      const restoredState = JSON.parse(
+        JSON.stringify(originalFormDataSnapshot)
+      );
+      console.log(`[InfraDevelopmentReview] Restoring from snapshot for ${sectionId}:`, restoredState);
+      setFormDataState(restoredState);
       setOriginalFormDataSnapshot(null);
       setEditable(sectionId, false);
+      // Clear validation errors for this section
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      setIndicatorValidationErrors((prev) => {
+        const filtered = { ...prev };
+        Object.keys(filtered).forEach((key) => {
+          if (key.startsWith(sectionPrefix)) {
+            delete filtered[key];
+          }
+        });
+        return filtered;
+      });
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
       // Increment reset key to force Select components to remount
       setSelectResetKey((prev) => prev + 1);
       // Reset the flag after React has processed the state update
@@ -787,7 +821,77 @@ export const InfraDevelopmentReview = ({
         });
       });
     } else {
+      // If no snapshot exists (e.g., after page refresh), fetch fresh data from server
+      // to ensure we have the latest saved values
+      isRestoringRef.current = true;
+      (async () => {
+        try {
+          console.log(`[InfraDevelopmentReview] No snapshot found, fetching fresh data for ${sectionId}`);
+          const freshSubmission = await apiService.getSubmission(submissionId);
+          if (freshSubmission && (freshSubmission as any).formData) {
+            const freshFormData = (freshSubmission as any).formData;
+            if (freshFormData.infraDevelopment) {
+              const normalized = normalizeInfraDevelopment(
+                freshFormData.infraDevelopment
+              );
+              // Create a fresh deep copy to ensure React detects the change
+              const restoredState = JSON.parse(JSON.stringify(normalized));
+              console.log(`[InfraDevelopmentReview] Restored from fresh server data for ${sectionId}:`, restoredState);
+              setFormDataState(restoredState);
+            } else if (formData) {
+              // Fallback to formData prop if server fetch doesn't have the data
+              const rawData = (formData as any)?.infraDevelopment || formData;
+              const normalized = normalizeInfraDevelopment(rawData);
+              const restoredState = JSON.parse(JSON.stringify(normalized));
+              console.log(`[InfraDevelopmentReview] Restored from formData prop for ${sectionId}:`, restoredState);
+              setFormDataState(restoredState);
+            }
+          } else if (formData) {
+            // Fallback to formData prop if server fetch doesn't have the data
+            const rawData = (formData as any)?.infraDevelopment || formData;
+            const normalized = normalizeInfraDevelopment(rawData);
+            const restoredState = JSON.parse(JSON.stringify(normalized));
+            console.log(`[InfraDevelopmentReview] Restored from formData prop for ${sectionId}:`, restoredState);
+            setFormDataState(restoredState);
+          }
+        } catch (error) {
+          console.error(`[InfraDevelopmentReview] Error fetching fresh data for ${sectionId}:`, error);
+          // Fallback to formData prop if fetch fails
+          if (formData) {
+            const rawData = (formData as any)?.infraDevelopment || formData;
+            const normalized = normalizeInfraDevelopment(rawData);
+            const restoredState = JSON.parse(JSON.stringify(normalized));
+            setFormDataState(restoredState);
+          } else {
+            console.warn(`[InfraDevelopmentReview] No formData available to restore for ${sectionId}`);
+          }
+        }
+      })();
       setEditable(sectionId, false);
+      // Clear validation errors for this section
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      setIndicatorValidationErrors((prev) => {
+        const filtered = { ...prev };
+        Object.keys(filtered).forEach((key) => {
+          if (key.startsWith(sectionPrefix)) {
+            delete filtered[key];
+          }
+        });
+        return filtered;
+      });
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
+      // Increment reset key to force Select components to remount
+      setSelectResetKey((prev) => prev + 1);
+      // Reset the flag after React has processed the state update
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isRestoringRef.current = false;
+        });
+      });
     }
     // Reset Add More forms on cancel
     if (sectionId === "2.1") {
@@ -892,11 +996,22 @@ export const InfraDevelopmentReview = ({
   };
 
   // Handle removing entry for section 2.1
-  const handleRemoveEntry2_1 = (id: string) => {
+  const handleRemoveEntry2_1 = (idOrIndex: string | number) => {
     const sectionKey = "section2_1";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.infraActArray)
-      ? currentSection.infraActArray.filter((item: any) => item.id !== id)
+      ? currentSection.infraActArray.filter((item: any, index: number) => {
+          // If idOrIndex is a number or starts with "item-", it's an index-based delete
+          const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+          if (isIndexBased) {
+            const targetIndex = typeof idOrIndex === 'number' 
+              ? idOrIndex 
+              : parseInt(String(idOrIndex).replace('item-', ''), 10);
+            return index !== targetIndex;
+          } else {
+            return item.id !== idOrIndex;
+          }
+        })
       : [];
     const updatedSection = {
       ...(currentSection && !Array.isArray(currentSection)
@@ -911,12 +1026,23 @@ export const InfraDevelopmentReview = ({
   };
 
   // Handle removing entry for section 2.2
-  const handleRemoveEntry2_2 = (id: string) => {
+  const handleRemoveEntry2_2 = (idOrIndex: string | number) => {
     const sectionKey = "section2_2";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.specializedEntityArray)
       ? currentSection.specializedEntityArray.filter(
-          (item: any) => item.id !== id
+          (item: any, index: number) => {
+            // If idOrIndex is a number or starts with "item-", it's an index-based delete
+            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            if (isIndexBased) {
+              const targetIndex = typeof idOrIndex === 'number' 
+                ? idOrIndex 
+                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              return index !== targetIndex;
+            } else {
+              return item.id !== idOrIndex;
+            }
+          }
         )
       : [];
     const updatedSection = {
@@ -932,12 +1058,23 @@ export const InfraDevelopmentReview = ({
   };
 
   // Handle removing entry for section 2.3
-  const handleRemoveEntry2_3 = (id: string) => {
+  const handleRemoveEntry2_3 = (idOrIndex: string | number) => {
     const sectionKey = "section2_3";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.infraDevelopmentArray)
       ? currentSection.infraDevelopmentArray.filter(
-          (item: any) => item.id !== id
+          (item: any, index: number) => {
+            // If idOrIndex is a number or starts with "item-", it's an index-based delete
+            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            if (isIndexBased) {
+              const targetIndex = typeof idOrIndex === 'number' 
+                ? idOrIndex 
+                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              return index !== targetIndex;
+            } else {
+              return item.id !== idOrIndex;
+            }
+          }
         )
       : [];
     const updatedSection = {
@@ -1041,12 +1178,23 @@ export const InfraDevelopmentReview = ({
   };
 
   // Handle removing entry for section 2.4
-  const handleRemoveEntry2_4 = (id: string) => {
+  const handleRemoveEntry2_4 = (idOrIndex: string | number) => {
     const sectionKey = "section2_4";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.investmentReadyArray)
       ? currentSection.investmentReadyArray.filter(
-          (item: any) => item.id !== id
+          (item: any, index: number) => {
+            // If idOrIndex is a number or starts with "item-", it's an index-based delete
+            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            if (isIndexBased) {
+              const targetIndex = typeof idOrIndex === 'number' 
+                ? idOrIndex 
+                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              return index !== targetIndex;
+            } else {
+              return item.id !== idOrIndex;
+            }
+          }
         )
       : [];
     const updatedSection = {
@@ -1062,12 +1210,23 @@ export const InfraDevelopmentReview = ({
   };
 
   // Handle removing entry for section 2.5
-  const handleRemoveEntry2_5 = (id: string) => {
+  const handleRemoveEntry2_5 = (idOrIndex: string | number) => {
     const sectionKey = "section2_5";
     const currentSection = state?.[sectionKey] || {};
     const existingArray = Array.isArray(currentSection?.assetMonetizationArray)
       ? currentSection.assetMonetizationArray.filter(
-          (item: any) => item.id !== id
+          (item: any, index: number) => {
+            // If idOrIndex is a number or starts with "item-", it's an index-based delete
+            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            if (isIndexBased) {
+              const targetIndex = typeof idOrIndex === 'number' 
+                ? idOrIndex 
+                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              return index !== targetIndex;
+            } else {
+              return item.id !== idOrIndex;
+            }
+          }
         )
       : [];
     const updatedSection = {
@@ -2274,6 +2433,24 @@ export const InfraDevelopmentReview = ({
           return updated;
         });
       }
+
+      // Update formDataState with saved data to ensure UI reflects changes immediately
+      // The formDataState already has the saved data (since we built fields from it),
+      // but we ensure it's properly structured and trigger a re-render
+      setFormDataState((prev: any) => {
+        if (!prev) return prev;
+        const updated = { ...prev };
+        // Ensure the section data is properly structured
+        if (updated[sectionKey]) {
+          updated[sectionKey] = {
+            ...updated[sectionKey],
+            // Preserve status if it was updated
+            ...(upperStatus === "RESUBMITTED" && isNodalOfficer ? { status: "RESUBMITTED" } : {}),
+            ...(upperStatus === "RESUBMITTED" && isStateApprover ? { status: "RESUBMITTED" } : {}),
+          };
+        }
+        return updated;
+      });
 
       // Disable editing after successful save
       setEditable(sectionId, false);
@@ -3517,7 +3694,7 @@ export const InfraDevelopmentReview = ({
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => setEditable(sectionId, false)}
+              onClick={() => handleCancel(sectionId)}
             >
               <X className="w-4 h-4" />
               Cancel
@@ -3707,6 +3884,7 @@ export const InfraDevelopmentReview = ({
         {/* Section 2.1 */}
         {sectionsWithData.includes("section2_1") && (
           <SectionCard
+            key="section-2.1"
             title={
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
@@ -4037,11 +4215,10 @@ export const InfraDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() =>
-                                  handleRemoveEntry2_1(
-                                    item.id || index.toString()
-                                  )
-                                }
+                                onClick={() => {
+                                  // Use index for deletion since items may not have IDs
+                                  handleRemoveEntry2_1(index);
+                                }}
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
@@ -4145,6 +4322,7 @@ export const InfraDevelopmentReview = ({
         {/* Section 2.2 */}
         {sectionsWithData.includes("section2_2") && (
           <SectionCard
+            key="section-2.2"
             title={
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
@@ -4464,11 +4642,10 @@ export const InfraDevelopmentReview = ({
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  onClick={() =>
-                                    handleRemoveEntry2_2(
-                                      item.id || index.toString()
-                                    )
-                                  }
+                                  onClick={() => {
+                                    // Use index for deletion since items may not have IDs
+                                    handleRemoveEntry2_2(index);
+                                  }}
                                   className="text-red-500 hover:text-red-700 border-none bg-none"
                                 >
                                   <Trash2 className="h-5 w-5" />
@@ -4575,6 +4752,7 @@ export const InfraDevelopmentReview = ({
         {/* Section 2.3 */}
         {sectionsWithData.includes("section2_3") && (
           <SectionCard
+            key="section-2.3"
             title={
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
@@ -4970,11 +5148,10 @@ export const InfraDevelopmentReview = ({
                                     <Button
                                       variant="outline"
                                       size="icon"
-                                      onClick={() =>
-                                        handleRemoveEntry2_3(
-                                          item.id || index.toString()
-                                        )
-                                      }
+                                      onClick={() => {
+                                        // Use index for deletion since items may not have IDs
+                                        handleRemoveEntry2_3(index);
+                                      }}
                                       className="text-red-500 hover:text-red-700 border-none bg-none"
                                     >
                                       <Trash2 className="h-5 w-5" />
@@ -5102,6 +5279,7 @@ export const InfraDevelopmentReview = ({
         {/* Section 2.4 */}
         {sectionsWithData.includes("section2_4") && (
           <SectionCard
+            key="section-2.4"
             title={
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
@@ -5496,11 +5674,10 @@ export const InfraDevelopmentReview = ({
                                     <Button
                                       variant="outline"
                                       size="icon"
-                                      onClick={() =>
-                                        handleRemoveEntry2_4(
-                                          item.id || index.toString()
-                                        )
-                                      }
+                                      onClick={() => {
+                                        // Use index for deletion since items may not have IDs
+                                        handleRemoveEntry2_4(index);
+                                      }}
                                       className="text-red-500 hover:text-red-700 border-none bg-none"
                                     >
                                       <Trash2 className="h-5 w-5" />
@@ -5728,6 +5905,7 @@ export const InfraDevelopmentReview = ({
         {/* Section 2.5 */}
         {sectionsWithData.includes("section2_5") && (
           <SectionCard
+            key="section-2.5"
             title={
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
@@ -6065,11 +6243,10 @@ export const InfraDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() =>
-                                  handleRemoveEntry2_5(
-                                    item.id || index.toString()
-                                  )
-                                }
+                                onClick={() => {
+                                  // Use index for deletion since items may not have IDs
+                                  handleRemoveEntry2_5(index);
+                                }}
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />

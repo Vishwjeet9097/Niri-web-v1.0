@@ -4922,6 +4922,7 @@ export const InfraFinancingReview = ({
                                     variant="outline"
                                     size="icon"
                                     onClick={() => {
+                                      // Use index for deletion (already index-based)
                                       const updatedArray = ffiArray.filter(
                                         (_, idx) => idx !== index
                                       );

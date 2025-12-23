@@ -282,8 +282,6 @@ export const PPPDevelopmentReview = ({
   const isRestoringRef = useRef(false);
   // Counter to force remount of Select components on cancel
   const [selectResetKey, setSelectResetKey] = useState(0);
-  // Refresh key to force component re-render on cancel
-  const [refreshKey, setRefreshKey] = useState(0);
 
   // State for adding new project in section 3.4
   const [showAddProjectForm, setShowAddProjectForm] = useState(false);
@@ -389,6 +387,43 @@ export const PPPDevelopmentReview = ({
 
     // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      // Check both formDataState (state) and formData to ensure we get the correct status
+      // Use the same logic as renderActionButtons
+      const state = formDataState as any;
+      const sectionData =
+        (state && state[sectionKey]) || (formData && formData[sectionKey]);
+      // Handle both array and object sections for status - match renderActionButtons logic exactly
+      const sectionStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status
+        : undefined;
+      const mospiStatus = Array.isArray(sectionData)
+        ? (sectionData as any)?.mospi_status
+        : sectionData?.mospi_status;
+
+      console.log(`[PPPDevelopmentReview] shouldBeEditable(${sectionId}) - STATE_APPROVER:`, {
+        sectionKey,
+        sectionStatus,
+        mospiStatus,
+        isEditable: isEditable(sectionId),
+        hasFormDataState: !!(state && state[sectionKey]),
+        hasFormData: !!(formData && formData[sectionKey]),
+        sectionData: sectionData ? (Array.isArray(sectionData) ? 'array' : 'object') : 'null',
+      });
+
+      // If section status is RESUBMITTED, allow editing if section is in edit mode
+      if (sectionStatus === "RESUBMITTED") {
+        const result = isEditable(sectionId);
+        console.log(`[PPPDevelopmentReview] RESUBMITTED check for ${sectionId}:`, {
+          sectionStatus,
+          isEditable: isEditable(sectionId),
+          result,
+        });
+        return result;
+      }
+
       // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
       if (
@@ -398,14 +433,6 @@ export const PPPDevelopmentReview = ({
       ) {
         return false;
       }
-
-      const sectionKey = `section${sectionId.replace(".", "_")}`;
-      const sectionData =
-        (formDataState && formDataState[sectionKey]) ||
-        (formData && formData[sectionKey]);
-      const mospiStatus = Array.isArray(sectionData)
-        ? (sectionData as any)?.mospi_status
-        : sectionData?.mospi_status;
 
       // If mospi_status is ACCEPTED, section should NOT be editable
       if (mospiStatus === "ACCEPTED") {
@@ -596,20 +623,40 @@ export const PPPDevelopmentReview = ({
   };
 
   // Handle cancel - restore original state
-  const handleCancel = (sectionId: string) => {
+  const handleCancel = async (sectionId: string) => {
+    console.log(`[PPPDevelopmentReview] handleCancel called for section ${sectionId}`, {
+      hasSnapshot: !!originalFormDataSnapshot,
+      hasFormData: !!formData,
+    });
+    
     if (originalFormDataSnapshot) {
       isRestoringRef.current = true;
       // Create a fresh deep copy to ensure React detects the change
       const restoredState = JSON.parse(
         JSON.stringify(originalFormDataSnapshot)
       );
+      console.log(`[PPPDevelopmentReview] Restoring from snapshot for ${sectionId}:`, restoredState);
       setFormDataState(restoredState);
       setOriginalFormDataSnapshot(null);
       setEditable(sectionId, false);
+      // Clear validation errors for this section
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      setIndicatorValidationErrors((prev) => {
+        const filtered = { ...prev };
+        Object.keys(filtered).forEach((key) => {
+          if (key.startsWith(sectionPrefix)) {
+            delete filtered[key];
+          }
+        });
+        return filtered;
+      });
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
       // Increment reset key to force Select components to remount
       setSelectResetKey((prev) => prev + 1);
-      // Increment refresh key to force component re-render
-      setRefreshKey((prev) => prev + 1);
 
       // Close and reset "Add More Project" forms for section 3.3
       if (sectionId === "3.3") {
@@ -644,9 +691,62 @@ export const PPPDevelopmentReview = ({
         });
       });
     } else {
+      // If no snapshot exists (e.g., after page refresh), fetch fresh data from server
+      // to ensure we have the latest saved values
+      isRestoringRef.current = true;
+      (async () => {
+        try {
+          console.log(`[PPPDevelopmentReview] No snapshot found, fetching fresh data for ${sectionId}`);
+          const freshSubmission = await apiService.getSubmission(submissionId);
+          if (freshSubmission && (freshSubmission as any).formData) {
+            const freshFormData = (freshSubmission as any).formData;
+            if (freshFormData.pppDevelopment) {
+              // Create a fresh deep copy to ensure React detects the change
+              const restoredState = JSON.parse(JSON.stringify(freshFormData.pppDevelopment));
+              console.log(`[PPPDevelopmentReview] Restored from fresh server data for ${sectionId}:`, restoredState);
+              setFormDataState(restoredState);
+            } else if (formData) {
+              // Fallback to formData prop if server fetch doesn't have the data
+              const rawData = (formData as any)?.pppDevelopment || formData;
+              const restoredState = JSON.parse(JSON.stringify(rawData));
+              console.log(`[PPPDevelopmentReview] Restored from formData prop for ${sectionId}:`, restoredState);
+              setFormDataState(restoredState);
+            }
+          } else if (formData) {
+            // Fallback to formData prop if server fetch doesn't have the data
+            const rawData = (formData as any)?.pppDevelopment || formData;
+            const restoredState = JSON.parse(JSON.stringify(rawData));
+            setFormDataState(restoredState);
+          }
+        } catch (error) {
+          console.error(`[PPPDevelopmentReview] Error fetching fresh data for ${sectionId}:`, error);
+          // Fallback to formData prop if fetch fails
+          if (formData) {
+            const rawData = (formData as any)?.pppDevelopment || formData;
+            const restoredState = JSON.parse(JSON.stringify(rawData));
+            setFormDataState(restoredState);
+          }
+        }
+      })();
       setEditable(sectionId, false);
-      // Increment refresh key even if no snapshot exists
-      setRefreshKey((prev) => prev + 1);
+      // Clear validation errors for this section
+      const sectionPrefix = `section${sectionId.replace(".", "_")}`;
+      setIndicatorValidationErrors((prev) => {
+        const filtered = { ...prev };
+        Object.keys(filtered).forEach((key) => {
+          if (key.startsWith(sectionPrefix)) {
+            delete filtered[key];
+          }
+        });
+        return filtered;
+      });
+      setSectionValidationMessages((prev) => {
+        const updated = { ...prev };
+        delete updated[sectionId];
+        return updated;
+      });
+      // Increment reset key to force Select components to remount
+      setSelectResetKey((prev) => prev + 1);
       // Still close forms even if no snapshot exists
       if (sectionId === "3.3") {
         setShowAddVGFForm(false);
@@ -670,6 +770,12 @@ export const PPPDevelopmentReview = ({
           totalProjectCost: "",
         });
       }
+      // Reset the flag after React has processed the state update
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isRestoringRef.current = false;
+        });
+      });
     }
   };
 
@@ -1238,34 +1344,86 @@ export const PPPDevelopmentReview = ({
   };
 
   // Handle removing entry from section 3.3
-  const handleRemoveVGFEntry = (id: string) => {
+  const handleRemoveVGFEntry = (idOrIndex: string | number) => {
+    console.log(`[PPPDevelopmentReview] handleRemoveVGFEntry called for idOrIndex: ${idOrIndex}`);
     setFormDataState((prev: any) => {
       const current = prev?.section3_3?.VGFArray;
+      const currentSection = prev?.section3_3 || {};
       const rows = Array.isArray(current)
-        ? current.filter((item: any) => item.id !== id)
+        ? current.filter((item: any, index: number) => {
+            // If idOrIndex is a number or starts with "item-", it's an index-based delete
+            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            let shouldKeep: boolean;
+            
+            if (isIndexBased) {
+              // Extract index from "item-0" format or use number directly
+              const targetIndex = typeof idOrIndex === 'number' 
+                ? idOrIndex 
+                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              shouldKeep = index !== targetIndex;
+            } else {
+              // ID-based delete: match by item.id
+              shouldKeep = item.id !== idOrIndex;
+            }
+            
+            console.log(`[PPPDevelopmentReview] Filtering item at index ${index}:`, {
+              itemId: item.id,
+              itemIndex: index,
+              targetIdOrIndex: idOrIndex,
+              isIndexBased,
+              shouldKeep,
+            });
+            return shouldKeep;
+          })
         : [];
+      console.log(`[PPPDevelopmentReview] After filtering:`, {
+        originalCount: Array.isArray(current) ? current.length : 0,
+        newCount: rows.length,
+        preservedStatus: currentSection.status,
+      });
       return {
         ...prev,
         section3_3: {
-          ...(prev?.section3_3 || {}),
+          ...currentSection,
           VGFArray: rows,
+          // Preserve status if it exists
+          ...(currentSection.status ? { status: currentSection.status } : {}),
         },
       };
     });
   };
 
   // Handle removing entry from section 3.4
-  const handleRemoveProjectEntry = (id: string) => {
+  const handleRemoveProjectEntry = (idOrIndex: string | number) => {
     setFormDataState((prev: any) => {
       const current = prev?.section3_4?.projects;
+      const currentSection = prev?.section3_4 || {};
       const projects = Array.isArray(current)
-        ? current.filter((item: any) => item.id !== id)
+        ? current.filter((item: any, index: number) => {
+            // If idOrIndex is a number or starts with "item-", it's an index-based delete
+            const isIndexBased = typeof idOrIndex === 'number' || String(idOrIndex).startsWith('item-');
+            let shouldKeep: boolean;
+            
+            if (isIndexBased) {
+              // Extract index from "item-0" format or use number directly
+              const targetIndex = typeof idOrIndex === 'number' 
+                ? idOrIndex 
+                : parseInt(String(idOrIndex).replace('item-', ''), 10);
+              shouldKeep = index !== targetIndex;
+            } else {
+              // ID-based delete: match by item.id
+              shouldKeep = item.id !== idOrIndex;
+            }
+            return shouldKeep;
+          })
         : [];
       return {
         ...prev,
         section3_4: {
-          ...(prev?.section3_4 || {}),
+          ...currentSection,
           projects: projects,
+          // Preserve status if it exists
+          ...(currentSection.status ? { status: currentSection.status } : {}),
         },
       };
     });
@@ -2774,7 +2932,7 @@ export const PPPDevelopmentReview = ({
               variant="outline"
               size="sm"
               className="flex items-center gap-1"
-              onClick={() => setEditable(sectionId, false)}
+              onClick={() => handleCancel(sectionId)}
             >
               <X className="w-4 h-4" />
               Cancel
@@ -3239,7 +3397,7 @@ export const PPPDevelopmentReview = ({
         {/* Section 3.3 */}
         {sectionsWithData.includes("section3_3") && (
           <SectionCard
-            key={`section-3.3-${refreshKey}`}
+            key="section-3.3"
             title={
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
@@ -3304,7 +3462,7 @@ export const PPPDevelopmentReview = ({
                     </tr>
                   </thead>
                   <tbody
-                    key={`vgf-table-body-${selectResetKey}-${refreshKey}-${
+                    key={`vgf-table-body-${selectResetKey}-${
                       state?.section3_3?.VGFArray?.length || 0
                     }`}
                   >
@@ -3328,10 +3486,18 @@ export const PPPDevelopmentReview = ({
                         );
                       }
 
-                      return VGFArray.map((item: any, index: number) => (
+                      return VGFArray.map((item: any, index: number) => {
+                        const isEditable3_3 = shouldBeEditable("3.3");
+                        console.log(`[PPPDevelopmentReview] Rendering row ${index} for section 3.3:`, {
+                          itemId: item.id,
+                          index,
+                          isEditable3_3,
+                          willShowDeleteButton: isEditable3_3,
+                        });
+                        return (
                         <tr key={item.id || index} className="border-b">
                           <td className="py-3 px-4 text-sm font-normal">
-                            {shouldBeEditable("3.3") ? (
+                            {isEditable3_3 ? (
                               <div>
                                 <Input
                                   value={item.projectName || ""}
@@ -3671,24 +3837,35 @@ export const PPPDevelopmentReview = ({
                               </span>
                             )}
                           </td>
-                          {shouldBeEditable("3.3") && (
+                          {isEditable3_3 && (
                             <td className="py-3 px-4 text-sm font-normal">
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() =>
-                                  handleRemoveVGFEntry(
-                                    item.id || index.toString()
-                                  )
-                                }
-                                className="text-red-500 hover:text-red-700 border-none bg-none"
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  console.log(`[PPPDevelopmentReview] Delete button clicked for item:`, {
+                                    itemId: item.id,
+                                    index,
+                                    item,
+                                    timestamp: new Date().toISOString(),
+                                  });
+                                  // Use index for deletion since items may not have IDs
+                                  handleRemoveVGFEntry(index);
+                                }}
+                                className="text-red-500 hover:text-red-700 border-none bg-none cursor-pointer"
+                                disabled={false}
+                                title="Delete entry"
                               >
                                 <Trash2 className="h-5 w-5" />
                               </Button>
                             </td>
                           )}
                         </tr>
-                      ));
+                        );
+                      });
                     })()}
                   </tbody>
                 </table>
@@ -3835,7 +4012,7 @@ export const PPPDevelopmentReview = ({
         {/* Section 3.4 */}
         {sectionsWithData.includes("section3_4") && (
           <SectionCard
-            key={`section-3.4-${refreshKey}`}
+            key="section-3.4"
             title={
               <div className="flex flex-col relative">
                 <div className="flex items-center justify-between">
@@ -3995,7 +4172,7 @@ export const PPPDevelopmentReview = ({
                     </tr>
                   </thead>
                   <tbody
-                    key={`projects-table-body-${selectResetKey}-${refreshKey}-${
+                    key={`projects-table-body-${selectResetKey}-${
                       state?.section3_4?.projects?.length || 0
                     }`}
                   >
@@ -4187,11 +4364,10 @@ export const PPPDevelopmentReview = ({
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() =>
-                                  handleRemoveProjectEntry(
-                                    project.id || idx.toString()
-                                  )
-                                }
+                                onClick={() => {
+                                  // Use index for deletion since items may not have IDs
+                                  handleRemoveProjectEntry(idx);
+                                }}
                                 className="text-red-500 hover:text-red-700 border-none bg-none"
                               >
                                 <Trash2 className="h-5 w-5" />
