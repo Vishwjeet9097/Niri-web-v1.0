@@ -70,6 +70,7 @@ import { useMemo, useCallback } from "react";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
+  PROJECT_STATUS_OPTIONS,
 } from "@/features/submission/constants/steps";
 
 interface PPPDevelopmentReviewProps {
@@ -297,6 +298,8 @@ export const PPPDevelopmentReview = ({
     sector: "",
     scheme: "",
     submissionDate: "",
+    totalProjectCost: "",
+    statusOfProject: "",
     file: null as FileUpload | null,
   });
 
@@ -581,6 +584,10 @@ export const PPPDevelopmentReview = ({
           allSectionFields.push(
             `${sectionPrefix}.VGFArray.${index}.projectName`,
             `${sectionPrefix}.VGFArray.${index}.sector`,
+            `${sectionPrefix}.VGFArray.${index}.scheme`,
+            `${sectionPrefix}.VGFArray.${index}.totalProjectCost`,
+            `${sectionPrefix}.VGFArray.${index}.statusOfProject`,
+            `${sectionPrefix}.VGFArray.${index}.submissionDate`,
             `${sectionPrefix}.VGFArray.${index}.file`
           );
         });
@@ -632,6 +639,8 @@ export const PPPDevelopmentReview = ({
           sector: "",
           scheme: "",
           submissionDate: "",
+          totalProjectCost: "",
+          statusOfProject: "",
           file: null,
         });
       }
@@ -668,6 +677,8 @@ export const PPPDevelopmentReview = ({
           sector: "",
           scheme: "",
           submissionDate: "",
+          totalProjectCost: "",
+          statusOfProject: "",
           file: null,
         });
       }
@@ -1406,8 +1417,10 @@ export const PPPDevelopmentReview = ({
     setNewVGFItem({
       projectName: "",
       sector: "",
-      type: "",
+      scheme: "",
       submissionDate: "",
+      totalProjectCost: "",
+      statusOfProject: "",
       file: null,
     });
     setShowAddVGFForm(false);
@@ -1418,8 +1431,10 @@ export const PPPDevelopmentReview = ({
     setNewVGFItem({
       projectName: "",
       sector: "",
-      type: "",
+      scheme: "",
       submissionDate: "",
+      totalProjectCost: "",
+      statusOfProject: "",
       file: null,
     });
     setShowAddVGFForm(false);
@@ -1546,6 +1561,8 @@ export const PPPDevelopmentReview = ({
                 `${sectionPrefix}.VGFArray.${index}.projectName`,
                 `${sectionPrefix}.VGFArray.${index}.sector`,
                 `${sectionPrefix}.VGFArray.${index}.scheme`,
+                `${sectionPrefix}.VGFArray.${index}.totalProjectCost`,
+                `${sectionPrefix}.VGFArray.${index}.statusOfProject`,
                 `${sectionPrefix}.VGFArray.${index}.submissionDate`,
                 `${sectionPrefix}.VGFArray.${index}.file`
               );
@@ -1677,6 +1694,8 @@ export const PPPDevelopmentReview = ({
                   projectName: item?.projectName ?? null,
                   sector: item?.sector ?? null,
                   scheme: item?.scheme ?? null,
+                  totalProjectCost: item?.totalProjectCost ?? null,
+                  statusOfProject: item?.statusOfProject ?? null,
                   submissionDate: item?.submissionDate ?? null,
                   file: item?.file ?? null,
                   marksObtained: item?.marksObtained ?? null,
@@ -1811,6 +1830,10 @@ export const PPPDevelopmentReview = ({
               allSectionFields.push(
                 `${sectionPrefix}.VGFArray.${index}.projectName`,
                 `${sectionPrefix}.VGFArray.${index}.sector`,
+                `${sectionPrefix}.VGFArray.${index}.scheme`,
+                `${sectionPrefix}.VGFArray.${index}.totalProjectCost`,
+                `${sectionPrefix}.VGFArray.${index}.statusOfProject`,
+                `${sectionPrefix}.VGFArray.${index}.submissionDate`,
                 `${sectionPrefix}.VGFArray.${index}.file`
               );
             });
@@ -3386,6 +3409,12 @@ export const PPPDevelopmentReview = ({
                         Scheme
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
+                        Total Project Cost (INR - CRORES)
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Status of Project
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
                         Submission Date
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
@@ -3542,6 +3571,98 @@ export const PPPDevelopmentReview = ({
                               </div>
                             ) : (
                               item.scheme || ""
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {shouldBeEditable("3.3") ? (
+                              <div>
+                                <Input
+                                  type="number"
+                                  inputMode="decimal"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="Enter project cost in crores"
+                                  value={item.totalProjectCost || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (
+                                      value === "" ||
+                                      /^\d*\.?\d*$/.test(value)
+                                    ) {
+                                      handleTableFieldUpdate(
+                                        index,
+                                        "totalProjectCost",
+                                        value
+                                      );
+                                    }
+                                  }}
+                                  className={
+                                    getFieldError(
+                                      `section3_3.VGFArray.${index}.totalProjectCost`
+                                    )
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
+                                />
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.totalProjectCost`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.totalProjectCost`
+                                    )}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              item.totalProjectCost || "-"
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {shouldBeEditable("3.3") ? (
+                              <div>
+                                <Select
+                                  key={`status-${index}-${selectResetKey}`}
+                                  value={item.statusOfProject || ""}
+                                  onValueChange={(value) =>
+                                    handleTableFieldUpdate(
+                                      index,
+                                      "statusOfProject",
+                                      value
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className={
+                                      getFieldError(
+                                        `section3_3.VGFArray.${index}.statusOfProject`
+                                      )
+                                        ? "w-full border-red-500"
+                                        : "w-full"
+                                    }
+                                  >
+                                    <SelectValue placeholder="Select status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PROJECT_STATUS_OPTIONS.map((status) => (
+                                      <SelectItem key={status} value={status}>
+                                        {status}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {getFieldError(
+                                  `section3_3.VGFArray.${index}.statusOfProject`
+                                ) && (
+                                  <p className="text-sm text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section3_3.VGFArray.${index}.statusOfProject`
+                                    )}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              item.statusOfProject || "-"
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
@@ -3819,7 +3940,8 @@ export const PPPDevelopmentReview = ({
                   <h4 className="font-medium mb-3">
                     Add New VGF/IIPDF Proposal
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Row 1: Project Name, Sector, Scheme */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <Label>Project Name</Label>
                       <Input
@@ -3871,6 +3993,55 @@ export const PPPDevelopmentReview = ({
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                  {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <Label>
+                        Total Project Cost (INR - values is in CRORES)
+                      </Label>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        placeholder="Enter project cost in crores"
+                        value={newVGFItem.totalProjectCost}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                            setNewVGFItem({
+                              ...newVGFItem,
+                              totalProjectCost: value,
+                            });
+                          }
+                        }}
+                        className="bg-white"
+                      />
+                    </div>
+                    <div>
+                      <Label>Status of Project</Label>
+                      <Select
+                        value={newVGFItem.statusOfProject}
+                        onValueChange={(value) =>
+                          setNewVGFItem({
+                            ...newVGFItem,
+                            statusOfProject: value,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROJECT_STATUS_OPTIONS.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div>
                       <Label>Submission Date</Label>
                       <Input
@@ -3885,22 +4056,23 @@ export const PPPDevelopmentReview = ({
                         className="bg-white"
                       />
                     </div>
-                    <div className="md:col-span-2">
-                      <Label>Upload File</Label>
-                      <EditableFileDisplay
-                        files={newVGFItem.file}
-                        isEditable={true}
-                        submissionId={submissionId}
-                        onFilesChange={(updatedFile) => {
-                          setNewVGFItem({
-                            ...newVGFItem,
-                            file: updatedFile as FileUpload | null,
-                          });
-                        }}
-                        label=""
-                        multiple={false}
-                      />
-                    </div>
+                  </div>
+                  {/* Row 3: File Upload */}
+                  <div className="mb-4">
+                    <Label>Upload File</Label>
+                    <EditableFileDisplay
+                      files={newVGFItem.file}
+                      isEditable={true}
+                      submissionId={submissionId}
+                      onFilesChange={(updatedFile) => {
+                        setNewVGFItem({
+                          ...newVGFItem,
+                          file: updatedFile as FileUpload | null,
+                        });
+                      }}
+                      label=""
+                      multiple={false}
+                    />
                   </div>
                   <div className="flex gap-2 mt-4">
                     <Button

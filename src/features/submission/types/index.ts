@@ -150,6 +150,8 @@ export interface PPPDevelopmentData {
       sector?: string;
       scheme?: string;
       submissionDate?: string;
+      totalProjectCost?: string;
+      statusOfProject?: string;
       file: FileUpload | null;
       marksObtained?: number;
     }>;

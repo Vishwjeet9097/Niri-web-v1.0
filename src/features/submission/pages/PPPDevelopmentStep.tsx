@@ -34,6 +34,7 @@ import { useFieldValidation } from "../hooks/useFieldValidation";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
+  PROJECT_STATUS_OPTIONS,
   SUBMISSION_STEPS,
 } from "../constants/steps";
 import type { PPPDevelopmentData, FileUpload } from "../types";
@@ -599,6 +600,8 @@ export const PPPDevelopmentStep = () => {
             sector: "",
             scheme: "",
             submissionDate: "",
+            totalProjectCost: "",
+            statusOfProject: "",
             file: null,
           },
         ],
@@ -637,7 +640,14 @@ export const PPPDevelopmentStep = () => {
 
   const updateProject = (
     id: string,
-    field: "projectName" | "sector" | "scheme" | "submissionDate" | "file",
+    field:
+      | "projectName"
+      | "sector"
+      | "scheme"
+      | "submissionDate"
+      | "totalProjectCost"
+      | "statusOfProject"
+      | "file",
     value: string | FileUpload | null
   ) => {
     setFormData((prev) => ({
@@ -1299,19 +1309,22 @@ export const PPPDevelopmentStep = () => {
         } else if (indicatorCode === "3.2") {
           allIndicatorFields.push(`${sectionPrefix}.file`);
         } else if (indicatorCode === "3.3") {
-          allIndicatorFields.push(`${sectionPrefix}.projectArray`);
+          allIndicatorFields.push(`${sectionPrefix}.VGFArray`);
           if (
-            formData.section3_3?.projectArray &&
-            Array.isArray(formData.section3_3.projectArray)
+            formData.section3_3?.VGFArray &&
+            Array.isArray(formData.section3_3.VGFArray)
           ) {
-            formData.section3_3.projectArray.forEach(
-              (_: any, index: number) => {
-                allIndicatorFields.push(
-                  `${sectionPrefix}.projectArray.${index}.projectName`,
-                  `${sectionPrefix}.projectArray.${index}.file`
-                );
-              }
-            );
+            formData.section3_3.VGFArray.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.VGFArray.${index}.projectName`,
+                `${sectionPrefix}.VGFArray.${index}.sector`,
+                `${sectionPrefix}.VGFArray.${index}.scheme`,
+                `${sectionPrefix}.VGFArray.${index}.totalProjectCost`,
+                `${sectionPrefix}.VGFArray.${index}.statusOfProject`,
+                `${sectionPrefix}.VGFArray.${index}.submissionDate`,
+                `${sectionPrefix}.VGFArray.${index}.file`
+              );
+            });
           }
         } else if (indicatorCode === "3.4") {
           allIndicatorFields.push(`${sectionPrefix}.file`);
@@ -1937,7 +1950,8 @@ export const PPPDevelopmentStep = () => {
                 : []
               ).map((entry, idx) => (
                 <div key={entry.id} className="mb-2">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                  {/* Row 1: Project Name, Sector, Scheme */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
                     <div>
                       <Label>
                         Project Name
@@ -2029,83 +2043,156 @@ export const PPPDevelopmentStep = () => {
                       </Select>
                       {renderFieldError(`section3_3.VGFArray.${idx}.scheme`)}
                     </div>
-                    <div className="flex items-center gap-2 w-full">
-                      <div className="w-full">
-                        <Label>
-                          Submission Date
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          type="date"
-                          value={
-                            entry.submissionDate
-                              ? (() => {
-                                  // Convert ISO string to YYYY-MM-DD format for date input
-                                  const d = new Date(entry.submissionDate);
-                                  if (isNaN(d.getTime())) return "";
-                                  const year = d.getFullYear();
-                                  const month = String(
-                                    d.getMonth() + 1
-                                  ).padStart(2, "0");
-                                  const day = String(d.getDate()).padStart(
-                                    2,
-                                    "0"
-                                  );
-                                  return `${year}-${month}-${day}`;
-                                })()
-                              : ""
+                  </div>
+                  {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+                    <div>
+                      <Label>
+                        Total Project Cost (INR - values is in CRORES)
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        placeholder="Enter project cost in crores"
+                        value={entry.totalProjectCost || ""}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          clearIndicatorValidationMessage("3.3");
+                          const value = e.target.value;
+                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                            updateProject(entry.id, "totalProjectCost", value);
                           }
-                          onChange={(e) => {
-                            if (isIndicatorSubmitted("3.3")) return;
-                            showErrorsIfNeeded();
-                            updateProject(
-                              entry.id,
-                              "submissionDate",
-                              e.target.value
-                                ? new Date(e.target.value).toISOString()
-                                : ""
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("3.3")}
+                        }}
+                        disabled={isIndicatorSubmitted("3.3")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section3_3.VGFArray.${idx}.totalProjectCost`
+                          ),
+                          isIndicatorSubmitted("3.3") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {renderFieldError(
+                        `section3_3.VGFArray.${idx}.totalProjectCost`
+                      )}
+                    </div>
+                    <div>
+                      <Label>
+                        Status of Project
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={entry.statusOfProject || ""}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          clearIndicatorValidationMessage("3.3");
+                          updateProject(entry.id, "statusOfProject", value);
+                        }}
+                        disabled={isIndicatorSubmitted("3.3")}
+                      >
+                        <SelectTrigger
                           className={cn(
                             getInputValidationClass(
-                              `section3_3.VGFArray.${idx}.submissionDate`
-                            ),
-                            isIndicatorSubmitted("3.3") &&
-                              "bg-gray-50 cursor-not-allowed"
+                              `section3_3.VGFArray.${idx}.statusOfProject`
+                            )
                           )}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeProject(entry.id)}
+                        >
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROJECT_STATUS_OPTIONS.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {renderFieldError(
+                        `section3_3.VGFArray.${idx}.statusOfProject`
+                      )}
+                    </div>
+                    <div>
+                      <Label>
+                        Submission Date
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="date"
+                        value={
+                          entry.submissionDate
+                            ? (() => {
+                                // Convert ISO string to YYYY-MM-DD format for date input
+                                const d = new Date(entry.submissionDate);
+                                if (isNaN(d.getTime())) return "";
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(
+                                  2,
+                                  "0"
+                                );
+                                const day = String(d.getDate()).padStart(
+                                  2,
+                                  "0"
+                                );
+                                return `${year}-${month}-${day}`;
+                              })()
+                            : ""
+                        }
+                        onChange={(e) => {
+                          if (isIndicatorSubmitted("3.3")) return;
+                          showErrorsIfNeeded();
+                          updateProject(
+                            entry.id,
+                            "submissionDate",
+                            e.target.value
+                              ? new Date(e.target.value).toISOString()
+                              : ""
+                          );
+                        }}
                         disabled={isIndicatorSubmitted("3.3")}
-                        aria-label="Remove"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </Button>
+                        className={cn(
+                          getInputValidationClass(
+                            `section3_3.VGFArray.${idx}.submissionDate`
+                          ),
+                          isIndicatorSubmitted("3.3") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {renderFieldError(
+                        `section3_3.VGFArray.${idx}.submissionDate`
+                      )}
                     </div>
                   </div>
-                  <div className="mt-4">
-                    <FileUploadSection
-                      label="Upload File"
-                      value={entry.file ?? null}
-                      onChange={(fileUpload) => {
-                        showErrorsIfNeeded();
-                        updateProject(entry.id, "file", fileUpload);
-                      }}
-                      submissionId={submissionId}
+                  {/* Row 3: File Upload with Delete button */}
+                  <div className="flex items-end gap-4">
+                    <div className="flex-1">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={entry.file ?? null}
+                        onChange={(fileUpload) => {
+                          showErrorsIfNeeded();
+                          updateProject(entry.id, "file", fileUpload);
+                        }}
+                        submissionId={submissionId}
+                        disabled={isIndicatorSubmitted("3.3")}
+                        deferFileDeletion={editingIndicators.has("3.3")}
+                        // Note: Upload file is NON-mandatory in section 3.3, so no required prop
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeProject(entry.id)}
                       disabled={isIndicatorSubmitted("3.3")}
-                      deferFileDeletion={editingIndicators.has("3.3")}
-                      // Note: Upload file is NON-mandatory in section 3.3, so no required prop
-                    />
+                      aria-label="Remove"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
                   </div>
-                  {renderFieldError(
-                    `section3_3.VGFArray.${idx}.submissionDate`
-                  )}
                 </div>
               ))}
               <div>
@@ -2139,6 +2226,12 @@ export const PPPDevelopmentStep = () => {
                           Scheme
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
+                          Total Project Cost (INR - CRORES)
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
+                          Status of Project
+                        </th>
+                        <th className="py-3 px-4 text-left text-sm font-normal">
                           Submission Date
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2169,6 +2262,12 @@ export const PPPDevelopmentStep = () => {
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 {entry.scheme}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.totalProjectCost || "-"}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                {entry.statusOfProject || "-"}
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 {entry.submissionDate
@@ -2234,6 +2333,12 @@ export const PPPDevelopmentStep = () => {
                             </td>
                             <td className="py-3 px-4 text-sm">
                               {entry.scheme}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.totalProjectCost || "-"}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.statusOfProject || "-"}
                             </td>
                             <td className="py-3 px-4 text-sm">
                               {entry.submissionDate

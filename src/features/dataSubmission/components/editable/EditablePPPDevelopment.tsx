@@ -30,6 +30,7 @@ import { useReviewFormPersistence } from "../../hooks/useReviewFormPersistence";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
+  PROJECT_STATUS_OPTIONS,
 } from "@/features/submission/constants/steps";
 import type {
   PPPDevelopmentData,
@@ -116,6 +117,8 @@ export const EditablePPPDevelopment = ({
           sector: "",
           scheme: "",
           submissionDate: "",
+          totalProjectCost: "",
+          statusOfProject: "",
           file: null,
         },
       ],
@@ -131,7 +134,14 @@ export const EditablePPPDevelopment = ({
 
   const updateProject = (
     id: string,
-    field: "projectName" | "sector" | "scheme" | "submissionDate" | "file",
+    field:
+      | "projectName"
+      | "sector"
+      | "scheme"
+      | "submissionDate"
+      | "totalProjectCost"
+      | "statusOfProject"
+      | "file",
     value: any
   ) => {
     setFormData((prev) => ({
@@ -364,18 +374,9 @@ export const EditablePPPDevelopment = ({
                       key={entry.id}
                       className="border rounded-lg p-4 bg-card"
                     >
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-medium">Project {idx + 1}</h4>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeProject(entry.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <h4 className="font-medium mb-4">Project {idx + 1}</h4>
+                      {/* Row 1: Project Name, Sector, Scheme */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                           <Label>Project Name*</Label>
                           <Input
@@ -427,6 +428,52 @@ export const EditablePPPDevelopment = ({
                             </SelectContent>
                           </Select>
                         </div>
+                      </div>
+                      {/* Row 2: Total Project Cost, Status of Project, Submission Date */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <Label>
+                            Total Project Cost (INR - values is in CRORES)*
+                          </Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            min="0"
+                            placeholder="Enter project cost in crores"
+                            value={entry.totalProjectCost || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                                updateProject(
+                                  entry.id,
+                                  "totalProjectCost",
+                                  value
+                                );
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label>Status of Project*</Label>
+                          <Select
+                            value={entry.statusOfProject || ""}
+                            onValueChange={(value) =>
+                              updateProject(entry.id, "statusOfProject", value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROJECT_STATUS_OPTIONS.map((status) => (
+                                <SelectItem key={status} value={status}>
+                                  {status}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div>
                           <Label>Submission Date*</Label>
                           <Popover>
@@ -469,14 +516,27 @@ export const EditablePPPDevelopment = ({
                           </Popover>
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <FileUploadSection
-                          label="Upload File"
-                          value={entry.file}
-                          onChange={(file) =>
-                            updateProject(entry.id, "file", file)
-                          }
-                        />
+                      {/* Row 3: File Upload with Delete button */}
+                      <div className="flex items-end gap-4">
+                        <div className="flex-1">
+                          <FileUploadSection
+                            label="Upload File"
+                            value={entry.file}
+                            onChange={(file) =>
+                              updateProject(entry.id, "file", file)
+                            }
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeProject(entry.id)}
+                          aria-label="Remove"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
                       </div>
                     </div>
                   );

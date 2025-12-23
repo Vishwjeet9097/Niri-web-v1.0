@@ -64,19 +64,15 @@ export const SECTOR_OPTIONS = [
   "Other",
 ];
 
-export const BOND_TYPE_OPTIONS = [
-  "Municipal",
-  "Green", 
-  "Other",
-];
+export const BOND_TYPE_OPTIONS = ["Municipal", "Green", "Other"];
 
 export const ORGANISATION_TYPE_OPTIONS = [
-    "Trust", 
-    "Society", 
-    "Corporation", 
-    "Company",
-     "Partnership",
-      "Other"
+  "Trust",
+  "Society",
+  "Corporation",
+  "Company",
+  "Partnership",
+  "Other",
 ];
 
 export const PROJECT_TYPE_OPTIONS = ["BOT", "BOOT", "HAM", "EPC", "Other"];
@@ -93,6 +89,14 @@ export const MONETIZATION_STATUS_OPTIONS = [
   "Completed",
   "In Progress",
   "Planned",
+];
+
+export const PROJECT_STATUS_OPTIONS = [
+  "Completed",
+  "In Progress",
+  "Planned",
+  "Under Review",
+  "Other",
 ];
 
 export const RATING_OPTIONS = [
@@ -115,7 +119,7 @@ export const RATING_OPTIONS = [
   "CCC",
   "CC",
   "C",
-  "D"
+  "D",
 ];
 
 export const IMPACT_OPTIONS = [
@@ -124,18 +128,13 @@ export const IMPACT_OPTIONS = [
   // "Cost reduction",
   // "Time savings",
   // "Other",
-  
-    "Rollout",
-    "Viability",
-    "Tech",
-    "Monitoring",
-    "Capacity",
-    "Other",
-  
+
+  "Rollout",
+  "Viability",
+  "Tech",
+  "Monitoring",
+  "Capacity",
+  "Other",
 ];
 
-export const TRAINING_TYPE_OPTIONS = [
-  "Select Status",
-  "Online",
-  "Offline" 
-];
+export const TRAINING_TYPE_OPTIONS = ["Select Status", "Online", "Offline"];

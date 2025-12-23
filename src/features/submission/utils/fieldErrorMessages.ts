@@ -120,6 +120,10 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   "section3_3.VGFArray.projectName": "Project name is required.",
   "section3_3.VGFArray.sector": "Sector is required.",
   "section3_3.VGFArray.scheme": "Scheme is required.",
+  "section3_3.VGFArray.totalProjectCost": "Total Project Cost is required.",
+  "section3_3.VGFArray.totalProjectCost.format":
+    "Enter a non-negative number with up to two decimal places.",
+  "section3_3.VGFArray.statusOfProject": "Status of Project is required.",
   "section3_3.VGFArray.submissionDate":
     "Submission date is required (DD-MM-YYYY format).",
 

@@ -209,6 +209,8 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
         hasMeaningfulValue(r.projectName) &&
         hasMeaningfulValue(r.sector) &&
         hasMeaningfulValue(r.scheme) &&
+        hasMeaningfulValue(r.totalProjectCost) &&
+        hasMeaningfulValue(r.statusOfProject) &&
         hasMeaningfulValue(r.submissionDate)
     ),
   section3_4: (data) => {

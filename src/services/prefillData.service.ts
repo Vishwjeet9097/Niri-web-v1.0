@@ -185,6 +185,8 @@ export class PrefillDataService {
           sector: "Transport",
           scheme: "VGF",
           submissionDate: "2024-01-15",
+          totalProjectCost: "500.50",
+          statusOfProject: "In Progress",
           file: null,
         },
         {
@@ -193,6 +195,8 @@ export class PrefillDataService {
           sector: "Water",
           scheme: "VGF",
           submissionDate: "2024-02-20",
+          totalProjectCost: "750.25",
+          statusOfProject: "Completed",
           file: null,
         },
         {
@@ -201,6 +205,8 @@ export class PrefillDataService {
           sector: "Energy",
           scheme: "IIPDF",
           submissionDate: "2024-03-10",
+          totalProjectCost: "1200.75",
+          statusOfProject: "Planned",
           file: null,
         },
         {
@@ -209,6 +215,8 @@ export class PrefillDataService {
           sector: "Transport",
           scheme: "VGF",
           submissionDate: "2024-04-05",
+          totalProjectCost: "900.00",
+          statusOfProject: "Under Review",
           file: null,
         },
       ],
