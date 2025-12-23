@@ -148,7 +148,7 @@ export interface PPPDevelopmentData {
       id?: string;
       projectName?: string;
       sector?: string;
-      type?: string;
+      scheme?: string;
       submissionDate?: string;
       file: FileUpload | null;
       marksObtained?: number;

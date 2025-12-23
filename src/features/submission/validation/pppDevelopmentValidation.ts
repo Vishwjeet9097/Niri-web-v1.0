@@ -154,8 +154,8 @@ export const validatePPPDevelopment = (
         if (!entry.sector || entry.sector.trim() === "") {
           errors[`section3_3.VGFArray.${index}.sector`] = "Sector is required.";
         }
-        if (!entry.type || entry.type.trim() === "") {
-          errors[`section3_3.VGFArray.${index}.type`] = "Type is required.";
+        if (!entry.scheme || entry.scheme.trim() === "") {
+          errors[`section3_3.VGFArray.${index}.scheme`] = "Scheme is required.";
         }
         if (!entry.submissionDate || !isValidDate(entry.submissionDate)) {
           errors[`section3_3.VGFArray.${index}.submissionDate`] =

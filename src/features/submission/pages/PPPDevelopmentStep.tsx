@@ -224,10 +224,14 @@ export const PPPDevelopmentStep = () => {
     title: string;
   } | null>(null);
   // Track indicator-specific validation errors
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
   // Section-level validation error messages (shown when save fails)
-  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
-  
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<
+    Record<string, string>
+  >({});
+
   // Use the shared field validation hook
   const {
     validatingIndicator,
@@ -593,7 +597,7 @@ export const PPPDevelopmentStep = () => {
             id: crypto.randomUUID(),
             projectName: "",
             sector: "",
-            type: "",
+            scheme: "",
             submissionDate: "",
             file: null,
           },
@@ -633,7 +637,7 @@ export const PPPDevelopmentStep = () => {
 
   const updateProject = (
     id: string,
-    field: "projectName" | "sector" | "type" | "submissionDate" | "file",
+    field: "projectName" | "sector" | "scheme" | "submissionDate" | "file",
     value: string | FileUpload | null
   ) => {
     setFormData((prev) => ({
@@ -1235,7 +1239,10 @@ export const PPPDevelopmentStep = () => {
 
   // Helper to render validation error message for an indicator
   const renderSectionValidationMessage = (indicatorCode: string) => {
-    if (!sectionValidationMessages[indicatorCode] || !editingIndicators.has(indicatorCode)) {
+    if (
+      !sectionValidationMessages[indicatorCode] ||
+      !editingIndicators.has(indicatorCode)
+    ) {
       return null;
     }
     return (
@@ -1268,7 +1275,8 @@ export const PPPDevelopmentStep = () => {
     if (isNodalOfficer) {
       // Run validation first
       const validationResult = validatePPPDevelopment(formData, {
-        allowedIndicators: assignedIndicators.length > 0 ? assignedIndicators : undefined,
+        allowedIndicators:
+          assignedIndicators.length > 0 ? assignedIndicators : undefined,
       });
 
       // Filter validation errors to only include the indicator being saved
@@ -1284,7 +1292,7 @@ export const PPPDevelopmentStep = () => {
       if (Object.keys(sectionErrors).length > 0) {
         // Mark all fields in this indicator as touched so ALL errors show
         const allIndicatorFields: string[] = [];
-        
+
         // Add base fields based on indicator
         if (indicatorCode === "3.1") {
           allIndicatorFields.push(`${sectionPrefix}.file`);
@@ -1292,13 +1300,18 @@ export const PPPDevelopmentStep = () => {
           allIndicatorFields.push(`${sectionPrefix}.file`);
         } else if (indicatorCode === "3.3") {
           allIndicatorFields.push(`${sectionPrefix}.projectArray`);
-          if (formData.section3_3?.projectArray && Array.isArray(formData.section3_3.projectArray)) {
-            formData.section3_3.projectArray.forEach((_: any, index: number) => {
-              allIndicatorFields.push(
-                `${sectionPrefix}.projectArray.${index}.projectName`,
-                `${sectionPrefix}.projectArray.${index}.file`
-              );
-            });
+          if (
+            formData.section3_3?.projectArray &&
+            Array.isArray(formData.section3_3.projectArray)
+          ) {
+            formData.section3_3.projectArray.forEach(
+              (_: any, index: number) => {
+                allIndicatorFields.push(
+                  `${sectionPrefix}.projectArray.${index}.projectName`,
+                  `${sectionPrefix}.projectArray.${index}.file`
+                );
+              }
+            );
           }
         } else if (indicatorCode === "3.4") {
           allIndicatorFields.push(`${sectionPrefix}.file`);
@@ -1314,7 +1327,7 @@ export const PPPDevelopmentStep = () => {
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message
@@ -1323,7 +1336,10 @@ export const PPPDevelopmentStep = () => {
           ...prev,
           [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
         }));
-        console.log(`[PPPDevelopmentStep] Validation failed for indicator ${indicatorCode}:`, sectionErrors);
+        console.log(
+          `[PPPDevelopmentStep] Validation failed for indicator ${indicatorCode}:`,
+          sectionErrors
+        );
         // Errors are displayed inline in the UI, don't show dialog
         return;
       }
@@ -1986,35 +2002,32 @@ export const PPPDevelopmentStep = () => {
                     </div>
                     <div>
                       <Label>
-                        Select Type
+                        Select Scheme
                         <span className="text-red-500">*</span>
                       </Label>
                       <Select
-                        value={entry.type}
+                        value={entry.scheme}
                         onValueChange={(value) => {
                           showErrorsIfNeeded();
-                          updateProject(entry.id, "type", value);
+                          updateProject(entry.id, "scheme", value);
                         }}
                         disabled={isIndicatorSubmitted("3.3")}
                       >
                         <SelectTrigger
                           className={cn(
                             getInputValidationClass(
-                              `section3_3.VGFArray.${idx}.type`
+                              `section3_3.VGFArray.${idx}.scheme`
                             )
                           )}
                         >
-                          <SelectValue placeholder="Enter year" />
+                          <SelectValue placeholder="Select scheme" />
                         </SelectTrigger>
                         <SelectContent>
-                          {PROJECT_TYPE_OPTIONS.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="IIPDF">IIPDF</SelectItem>
+                          <SelectItem value="VGF">VGF</SelectItem>
                         </SelectContent>
                       </Select>
-                      {renderFieldError(`section3_3.VGFArray.${idx}.type`)}
+                      {renderFieldError(`section3_3.VGFArray.${idx}.scheme`)}
                     </div>
                     <div className="flex items-center gap-2 w-full">
                       <div className="w-full">
@@ -2031,8 +2044,13 @@ export const PPPDevelopmentStep = () => {
                                   const d = new Date(entry.submissionDate);
                                   if (isNaN(d.getTime())) return "";
                                   const year = d.getFullYear();
-                                  const month = String(d.getMonth() + 1).padStart(2, "0");
-                                  const day = String(d.getDate()).padStart(2, "0");
+                                  const month = String(
+                                    d.getMonth() + 1
+                                  ).padStart(2, "0");
+                                  const day = String(d.getDate()).padStart(
+                                    2,
+                                    "0"
+                                  );
                                   return `${year}-${month}-${day}`;
                                 })()
                               : ""
@@ -2118,7 +2136,7 @@ export const PPPDevelopmentStep = () => {
                           Sector
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
-                          Type
+                          Scheme
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-normal">
                           Submission Date
@@ -2150,7 +2168,7 @@ export const PPPDevelopmentStep = () => {
                                 {entry.sector}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                {entry.type}
+                                {entry.scheme}
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 {entry.submissionDate
@@ -2214,7 +2232,9 @@ export const PPPDevelopmentStep = () => {
                             <td className="py-3 px-4 text-sm">
                               {entry.sector}
                             </td>
-                            <td className="py-3 px-4 text-sm">{entry.type}</td>
+                            <td className="py-3 px-4 text-sm">
+                              {entry.scheme}
+                            </td>
                             <td className="py-3 px-4 text-sm">
                               {entry.submissionDate
                                 ? format(
@@ -2476,8 +2496,13 @@ export const PPPDevelopmentStep = () => {
                                   const d = new Date(project.dateOfAward);
                                   if (isNaN(d.getTime())) return "";
                                   const year = d.getFullYear();
-                                  const month = String(d.getMonth() + 1).padStart(2, "0");
-                                  const day = String(d.getDate()).padStart(2, "0");
+                                  const month = String(
+                                    d.getMonth() + 1
+                                  ).padStart(2, "0");
+                                  const day = String(d.getDate()).padStart(
+                                    2,
+                                    "0"
+                                  );
                                   return `${year}-${month}-${day}`;
                                 })()
                               : ""

@@ -132,7 +132,7 @@ export const PPPDevelopmentReview = ({
   const [submissionState, setSubmissionState] = useState(submission);
   const [formDataState, setFormDataState] = useState(initialFormData);
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
-  
+
   // Field validation hook for touch tracking
   const {
     touchedFields,
@@ -147,15 +147,22 @@ export const PPPDevelopmentReview = ({
   } = useFieldValidation();
 
   // Helper to check if field is touched
-  const isFieldTouched = useCallback((path: string) => {
-    return touchedFields.has(path);
-  }, [touchedFields]);
+  const isFieldTouched = useCallback(
+    (path: string) => {
+      return touchedFields.has(path);
+    },
+    [touchedFields]
+  );
 
   // Real-time validation state
   const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<Record<string, string>>({});
+  const [indicatorValidationErrors, setIndicatorValidationErrors] = useState<
+    Record<string, string>
+  >({});
   // Section-level validation error messages (shown when save fails)
-  const [sectionValidationMessages, setSectionValidationMessages] = useState<Record<string, string>>({});
+  const [sectionValidationMessages, setSectionValidationMessages] = useState<
+    Record<string, string>
+  >({});
 
   // Build full form data for validation
   const fullFormDataForValidation = useMemo(() => {
@@ -164,23 +171,27 @@ export const PPPDevelopmentReview = ({
 
   // Real-time validation using useMemo
   const validation = useMemo(() => {
-    const effectiveAssignedIndicators = assignedIndicators.length > 0 
-      ? assignedIndicators 
-      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
-    
+    const effectiveAssignedIndicators =
+      assignedIndicators.length > 0
+        ? assignedIndicators
+        : hookAssignedIndicators.length > 0
+        ? hookAssignedIndicators
+        : undefined;
+
     return validatePPPDevelopment(fullFormDataForValidation as any, {
       allowedIndicators: effectiveAssignedIndicators,
     });
   }, [fullFormDataForValidation, assignedIndicators, hookAssignedIndicators]);
 
   // Field error display hook
-  const { getFieldError, getInputValidationClass, renderFieldError } = useFieldErrorDisplay({
-    validationErrors: validation.errors,
-    indicatorValidationErrors,
-    showValidationErrors,
-    isFieldTouched,
-    validatingIndicator: null,
-  });
+  const { getFieldError, getInputValidationClass, renderFieldError } =
+    useFieldErrorDisplay({
+      validationErrors: validation.errors,
+      indicatorValidationErrors,
+      showValidationErrors,
+      isFieldTouched,
+      validatingIndicator: null,
+    });
 
   // Clear valid field errors when validation passes
   useEffect(() => {
@@ -197,8 +208,8 @@ export const PPPDevelopmentReview = ({
       Object.keys(updated).forEach((sectionId) => {
         const sectionPrefix = `section${sectionId.replace(".", "_")}`;
         // Check if there are any validation errors for this section
-        const hasSectionErrors = Object.keys(validation.errors).some((errorKey) =>
-          errorKey.startsWith(sectionPrefix)
+        const hasSectionErrors = Object.keys(validation.errors).some(
+          (errorKey) => errorKey.startsWith(sectionPrefix)
         );
 
         // If no errors for this section, clear the message
@@ -284,7 +295,7 @@ export const PPPDevelopmentReview = ({
   const [newVGFItem, setNewVGFItem] = useState({
     projectName: "",
     sector: "",
-    type: "",
+    scheme: "",
     submissionDate: "",
     file: null as FileUpload | null,
   });
@@ -516,9 +527,12 @@ export const PPPDevelopmentReview = ({
     // Build full form data for validation
     const fullData = formDataState || formData || {};
 
-    const effectiveAssignedIndicators = assignedIndicators.length > 0 
-      ? assignedIndicators 
-      : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+    const effectiveAssignedIndicators =
+      assignedIndicators.length > 0
+        ? assignedIndicators
+        : hookAssignedIndicators.length > 0
+        ? hookAssignedIndicators
+        : undefined;
 
     // Run validation for the section
     const validationResult = validatePPPDevelopment(fullData as any, {
@@ -536,19 +550,33 @@ export const PPPDevelopmentReview = ({
 
     // Mark all fields in this section as touched so errors show immediately
     const sectionKey = `section${sectionId.replace(".", "_")}`;
-    const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
-    
+    const sectionData =
+      formDataState?.[sectionKey as keyof typeof formDataState];
+
     // Get all possible field paths for this section
     const allSectionFields: string[] = [];
-    
+
     // Add base fields based on section
     if (sectionId === "3.1") {
-      allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+      allSectionFields.push(
+        `${sectionPrefix}.available`,
+        `${sectionPrefix}.file`,
+        `${sectionPrefix}.comment`
+      );
     } else if (sectionId === "3.2") {
-      allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+      allSectionFields.push(
+        `${sectionPrefix}.available`,
+        `${sectionPrefix}.file`,
+        `${sectionPrefix}.comment`
+      );
     } else if (sectionId === "3.3") {
       allSectionFields.push(`${sectionPrefix}.VGFArray`);
-      if (sectionData && typeof sectionData === "object" && "VGFArray" in sectionData && Array.isArray((sectionData as any).VGFArray)) {
+      if (
+        sectionData &&
+        typeof sectionData === "object" &&
+        "VGFArray" in sectionData &&
+        Array.isArray((sectionData as any).VGFArray)
+      ) {
         (sectionData as any).VGFArray.forEach((_: any, index: number) => {
           allSectionFields.push(
             `${sectionPrefix}.VGFArray.${index}.projectName`,
@@ -573,7 +601,7 @@ export const PPPDevelopmentReview = ({
     // Set validation errors and show them
     setShowValidationErrors(true);
     setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
-    
+
     console.log(
       `[PPPDevelopmentReview] Validation errors for section ${sectionId}:`,
       sectionErrors
@@ -602,7 +630,7 @@ export const PPPDevelopmentReview = ({
         setNewVGFItem({
           projectName: "",
           sector: "",
-          type: "",
+          scheme: "",
           submissionDate: "",
           file: null,
         });
@@ -638,7 +666,7 @@ export const PPPDevelopmentReview = ({
         setNewVGFItem({
           projectName: "",
           sector: "",
-          type: "",
+          scheme: "",
           submissionDate: "",
           file: null,
         });
@@ -748,35 +776,56 @@ export const PPPDevelopmentReview = ({
   }
 
   // Helper function to check if a section has meaningful data
-  const sectionHasMeaningfulData = (sectionKey: string, section: any): boolean => {
+  const sectionHasMeaningfulData = (
+    sectionKey: string,
+    section: any
+  ): boolean => {
     if (!section) return false;
-    
+
     switch (sectionKey) {
       case "section3_1": {
         return (
-          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
-          (section.available && (section.available === "yes" || section.available === "no")) ||
+          (section.file &&
+            (section.file.file ||
+              section.file.fileName ||
+              section.file.filePath)) ||
+          (section.available &&
+            (section.available === "yes" || section.available === "no")) ||
           (section.comment && section.comment.trim())
         );
       }
       case "section3_2": {
         return (
-          (section.file && (section.file.file || section.file.fileName || section.file.filePath)) ||
-          (section.available && (section.available === "yes" || section.available === "no")) ||
+          (section.file &&
+            (section.file.file ||
+              section.file.fileName ||
+              section.file.filePath)) ||
+          (section.available &&
+            (section.available === "yes" || section.available === "no")) ||
           (section.comment && section.comment.trim())
         );
       }
       case "section3_3": {
         const items = Array.isArray(section?.VGFArray) ? section.VGFArray : [];
-        return items.length > 0 && items.some((item: any) => 
-          item?.projectName?.trim() || item?.sector?.trim() || item?.type?.trim()
+        return (
+          items.length > 0 &&
+          items.some(
+            (item: any) =>
+              item?.projectName?.trim() ||
+              item?.sector?.trim() ||
+              item?.scheme?.trim()
+          )
         );
       }
       case "section3_4": {
         return (
-          (section.totalProjectsAwarded && section.totalProjectsAwarded.trim()) ||
-          (section.totalProjectCostAwarded && section.totalProjectCostAwarded.trim()) ||
-          (section.projects && Array.isArray(section.projects) && section.projects.length > 0)
+          (section.totalProjectsAwarded &&
+            section.totalProjectsAwarded.trim()) ||
+          (section.totalProjectCostAwarded &&
+            section.totalProjectCostAwarded.trim()) ||
+          (section.projects &&
+            Array.isArray(section.projects) &&
+            section.projects.length > 0)
         );
       }
       default:
@@ -798,36 +847,38 @@ export const PPPDevelopmentReview = ({
       "section3_3",
       "section3_4",
     ];
-    
+
     // Helper function to check if a section has meaningful data
     const hasSectionData = (sectionKey: string, sectionData: any): boolean => {
       if (!sectionData || typeof sectionData !== "object") return false;
-      
+
       // Check if section has any non-empty values (excluding metadata fields)
       return Object.entries(sectionData).some(([key, value]) => {
         // Skip metadata fields that don't indicate actual data
         if (["year", "percentage", "marksObtained"].includes(key)) {
           return false;
         }
-        
+
         if (value === null || value === undefined || value === "") {
           return false;
         }
-        
+
         // For arrays, check if they have items
         if (Array.isArray(value)) {
           return value.length > 0;
         }
-        
+
         // For objects, recursively check if they have any meaningful data
         if (typeof value === "object") {
-          return Object.keys(value).length > 0 && hasSectionData(sectionKey, value);
+          return (
+            Object.keys(value).length > 0 && hasSectionData(sectionKey, value)
+          );
         }
-        
+
         return true;
       });
     };
-    
+
     // Filter sections: only include if they have data OR (for nodal officers) if they're assigned
     const existingSections = allPossibleSections.filter((sectionKey) => {
       const section = formDataState[sectionKey];
@@ -1175,7 +1226,7 @@ export const PPPDevelopmentReview = ({
 
     // Removed auto-save - files are stored as File objects and will be uploaded
     // when user clicks Save button (via updateSubmission → uploadFilesAndReplace)
-    
+
     // Clear section validation message when user uploads files
     if (sectionValidationMessages[sectionId]) {
       setSectionValidationMessages((prev) => {
@@ -1392,15 +1443,18 @@ export const PPPDevelopmentReview = ({
     const sectionKey = `section${sectionId.replace(".", "_")}`;
     // Check multiple sources for status: submission.section_status, formDataState
     let currentStatus: string | undefined;
-    
+
     // Get sectionData for logging and fallback status check
     const sectionData = formDataState && formDataState[sectionKey];
-    
+
     // First check submission.section_status (most reliable source)
-    if (submission?.section_status && typeof submission.section_status === "object") {
+    if (
+      submission?.section_status &&
+      typeof submission.section_status === "object"
+    ) {
       currentStatus = (submission.section_status as any)[sectionKey];
     }
-    
+
     // Fallback to formDataState status
     if (!currentStatus) {
       currentStatus = sectionData
@@ -1409,7 +1463,7 @@ export const PPPDevelopmentReview = ({
           : sectionData.status
         : undefined;
     }
-    
+
     const upperStatus = (currentStatus || "").toUpperCase();
     const isReverted = upperStatus === "REVERTED";
 
@@ -1427,7 +1481,7 @@ export const PPPDevelopmentReview = ({
       console.log(
         `[PPPDevelopmentReview] ✅ Running validation before showing dialog for NODAL_OFFICER`
       );
-      
+
       // Run validation first (same logic as in performSave)
       const fullData = {
         section3_1: formDataState?.section3_1 || { available: "", file: null },
@@ -1436,9 +1490,12 @@ export const PPPDevelopmentReview = ({
         section3_4: formDataState?.section3_4 || { projects: [] },
       };
 
-      const effectiveAssignedIndicators = assignedIndicators.length > 0 
-        ? assignedIndicators 
-        : (hookAssignedIndicators.length > 0 ? hookAssignedIndicators : undefined);
+      const effectiveAssignedIndicators =
+        assignedIndicators.length > 0
+          ? assignedIndicators
+          : hookAssignedIndicators.length > 0
+          ? hookAssignedIndicators
+          : undefined;
 
       const validationResult = validatePPPDevelopment(fullData, {
         allowedIndicators: effectiveAssignedIndicators,
@@ -1457,32 +1514,55 @@ export const PPPDevelopmentReview = ({
       if (Object.keys(sectionErrors).length > 0) {
         // Mark all fields in this section as touched so ALL errors show
         const sectionKey = `section${sectionId.replace(".", "_")}`;
-        const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
-        
+        const sectionData =
+          formDataState?.[sectionKey as keyof typeof formDataState];
+
         // Get all possible field paths for this section
         const allSectionFields: string[] = [];
-        
+
         // Add base fields based on section
         if (sectionId === "3.1") {
-          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+          allSectionFields.push(
+            `${sectionPrefix}.available`,
+            `${sectionPrefix}.file`,
+            `${sectionPrefix}.comment`
+          );
         } else if (sectionId === "3.2") {
-          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+          allSectionFields.push(
+            `${sectionPrefix}.available`,
+            `${sectionPrefix}.file`,
+            `${sectionPrefix}.comment`
+          );
         } else if (sectionId === "3.3") {
           allSectionFields.push(`${sectionPrefix}.VGFArray`);
-          if (sectionData && typeof sectionData === "object" && "VGFArray" in sectionData && Array.isArray((sectionData as any).VGFArray)) {
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "VGFArray" in sectionData &&
+            Array.isArray((sectionData as any).VGFArray)
+          ) {
             (sectionData as any).VGFArray.forEach((_: any, index: number) => {
               allSectionFields.push(
                 `${sectionPrefix}.VGFArray.${index}.projectName`,
                 `${sectionPrefix}.VGFArray.${index}.sector`,
-                `${sectionPrefix}.VGFArray.${index}.type`,
+                `${sectionPrefix}.VGFArray.${index}.scheme`,
                 `${sectionPrefix}.VGFArray.${index}.submissionDate`,
                 `${sectionPrefix}.VGFArray.${index}.file`
               );
             });
           }
         } else if (sectionId === "3.4") {
-          allSectionFields.push(`${sectionPrefix}.totalProjectsAwarded`, `${sectionPrefix}.totalProjectCostAwarded`, `${sectionPrefix}.projects`);
-          if (sectionData && typeof sectionData === "object" && "projects" in sectionData && Array.isArray((sectionData as any).projects)) {
+          allSectionFields.push(
+            `${sectionPrefix}.totalProjectsAwarded`,
+            `${sectionPrefix}.totalProjectCostAwarded`,
+            `${sectionPrefix}.projects`
+          );
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "projects" in sectionData &&
+            Array.isArray((sectionData as any).projects)
+          ) {
             (sectionData as any).projects.forEach((_: any, index: number) => {
               allSectionFields.push(
                 `${sectionPrefix}.projects.${index}.nameOfProject`,
@@ -1506,7 +1586,7 @@ export const PPPDevelopmentReview = ({
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message (same as STATE_APPROVER)
@@ -1596,7 +1676,7 @@ export const PPPDevelopmentReview = ({
                 (item: any) => ({
                   projectName: item?.projectName ?? null,
                   sector: item?.sector ?? null,
-                  type: item?.type ?? null,
+                  scheme: item?.scheme ?? null,
                   submissionDate: item?.submissionDate ?? null,
                   file: item?.file ?? null,
                   marksObtained: item?.marksObtained ?? null,
@@ -1700,19 +1780,33 @@ export const PPPDevelopmentReview = ({
       if (Object.keys(sectionErrors).length > 0) {
         // Mark all fields in this section as touched so ALL errors show
         const sectionKey = `section${sectionId.replace(".", "_")}`;
-        const sectionData = formDataState?.[sectionKey as keyof typeof formDataState];
-        
+        const sectionData =
+          formDataState?.[sectionKey as keyof typeof formDataState];
+
         // Get all possible field paths for this section
         const allSectionFields: string[] = [];
-        
+
         // Add base fields based on section
         if (sectionId === "3.1") {
-          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+          allSectionFields.push(
+            `${sectionPrefix}.available`,
+            `${sectionPrefix}.file`,
+            `${sectionPrefix}.comment`
+          );
         } else if (sectionId === "3.2") {
-          allSectionFields.push(`${sectionPrefix}.available`, `${sectionPrefix}.file`, `${sectionPrefix}.comment`);
+          allSectionFields.push(
+            `${sectionPrefix}.available`,
+            `${sectionPrefix}.file`,
+            `${sectionPrefix}.comment`
+          );
         } else if (sectionId === "3.3") {
           allSectionFields.push(`${sectionPrefix}.VGFArray`);
-          if (sectionData && typeof sectionData === "object" && "VGFArray" in sectionData && Array.isArray((sectionData as any).VGFArray)) {
+          if (
+            sectionData &&
+            typeof sectionData === "object" &&
+            "VGFArray" in sectionData &&
+            Array.isArray((sectionData as any).VGFArray)
+          ) {
             (sectionData as any).VGFArray.forEach((_: any, index: number) => {
               allSectionFields.push(
                 `${sectionPrefix}.VGFArray.${index}.projectName`,
@@ -1733,7 +1827,7 @@ export const PPPDevelopmentReview = ({
             markFieldAsTouched(errorKey);
           }
         });
-        
+
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
         // Set section-level validation message
@@ -3289,7 +3383,7 @@ export const PPPDevelopmentReview = ({
                         Sector
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
-                        Type
+                        Scheme
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
                         Submission Date
@@ -3351,7 +3445,9 @@ export const PPPDevelopmentReview = ({
                                       : "w-full"
                                   }
                                 />
-                                {renderFieldError(`section3_3.VGFArray.${index}.projectName`)}
+                                {renderFieldError(
+                                  `section3_3.VGFArray.${index}.projectName`
+                                )}
                               </div>
                             ) : (
                               item.projectName || ""
@@ -3408,43 +3504,44 @@ export const PPPDevelopmentReview = ({
                             {shouldBeEditable("3.3") ? (
                               <div>
                                 <Select
-                                  key={`type-${index}-${selectResetKey}`}
-                                  value={item.type || ""}
+                                  key={`scheme-${index}-${selectResetKey}`}
+                                  value={item.scheme || ""}
                                   onValueChange={(value) =>
-                                    handleTableFieldUpdate(index, "type", value)
+                                    handleTableFieldUpdate(
+                                      index,
+                                      "scheme",
+                                      value
+                                    )
                                   }
                                 >
                                   <SelectTrigger
                                     className={
                                       getFieldError(
-                                        `section3_3.VGFArray.${index}.type`
+                                        `section3_3.VGFArray.${index}.scheme`
                                       )
                                         ? "w-full border-red-500"
                                         : "w-full"
                                     }
                                   >
-                                    <SelectValue placeholder="Select type" />
+                                    <SelectValue placeholder="Select scheme" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {PROJECT_TYPE_OPTIONS.map((type) => (
-                                      <SelectItem key={type} value={type}>
-                                        {type}
-                                      </SelectItem>
-                                    ))}
+                                    <SelectItem value="IIPDF">IIPDF</SelectItem>
+                                    <SelectItem value="VGF">VGF</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 {getFieldError(
-                                  `section3_3.VGFArray.${index}.type`
+                                  `section3_3.VGFArray.${index}.scheme`
                                 ) && (
                                   <p className="text-sm text-red-500 mt-1">
                                     {getFieldError(
-                                      `section3_3.VGFArray.${index}.type`
+                                      `section3_3.VGFArray.${index}.scheme`
                                     )}
                                   </p>
                                 )}
                               </div>
                             ) : (
-                              item.type || ""
+                              item.scheme || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
@@ -3758,22 +3855,19 @@ export const PPPDevelopmentReview = ({
                       </Select>
                     </div>
                     <div>
-                      <Label>Type</Label>
+                      <Label>Scheme</Label>
                       <Select
-                        value={newVGFItem.type}
+                        value={newVGFItem.scheme}
                         onValueChange={(value) =>
-                          setNewVGFItem({ ...newVGFItem, type: value })
+                          setNewVGFItem({ ...newVGFItem, scheme: value })
                         }
                       >
                         <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Select type" />
+                          <SelectValue placeholder="Select scheme" />
                         </SelectTrigger>
                         <SelectContent>
-                          {PROJECT_TYPE_OPTIONS.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="IIPDF">IIPDF</SelectItem>
+                          <SelectItem value="VGF">VGF</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

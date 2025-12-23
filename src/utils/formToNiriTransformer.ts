@@ -61,19 +61,22 @@ export function transformFormDataToNiriSubmission(
         user_fill_value_a1: creditRatedULBs,
         user_fill_value_a2: null,
         details: {
-          planned_sectors: formData.infraFinancing.section1_3.ulbList.map((ulb) => ({
-            sector: ulb.cityName,
-            plan_year:
-              new Date(ulb.ratingDate).getFullYear() ||
-              new Date().getFullYear(),
-          })),
+          planned_sectors: formData.infraFinancing.section1_3.ulbList.map(
+            (ulb) => ({
+              sector: ulb.cityName,
+              plan_year:
+                new Date(ulb.ratingDate).getFullYear() ||
+                new Date().getFullYear(),
+            })
+          ),
         },
       });
     }
 
     // 1.4 - ULBs issuing Bonds
     if (formData.infraFinancing.section1_4) {
-      const ulbsIssuingBonds = formData.infraFinancing.section1_4.bondList.length;
+      const ulbsIssuingBonds =
+        formData.infraFinancing.section1_4.bondList.length;
 
       submissionData.Infrastructure_Financing.push({
         indicator_id: "1.4",
@@ -221,7 +224,7 @@ export function transformFormDataToNiriSubmission(
           projects_submitted: formData.pppDevelopment.section3_3.map(
             (proposal) => ({
               project_name: proposal.projectName,
-              fund_type: proposal.type,
+              fund_type: proposal.scheme,
             })
           ),
         },

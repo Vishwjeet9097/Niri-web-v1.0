@@ -17,7 +17,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "@/features/submission/components/SectionCard";
@@ -27,7 +31,10 @@ import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
 } from "@/features/submission/constants/steps";
-import type { PPPDevelopmentData, FileUpload } from "@/features/submission/types";
+import type {
+  PPPDevelopmentData,
+  FileUpload,
+} from "@/features/submission/types";
 
 interface EditablePPPDevelopmentProps {
   submissionId: string;
@@ -49,34 +56,42 @@ const defaultData: PPPDevelopmentData = {
   },
 };
 
-export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPPDevelopmentProps) => {
-  const { getStepData, updateFormData } = useReviewFormPersistence(submissionId);
+export const EditablePPPDevelopment = ({
+  submissionId,
+  submission,
+}: EditablePPPDevelopmentProps) => {
+  const { getStepData, updateFormData } =
+    useReviewFormPersistence(submissionId);
 
   // Get data from persistence hook (this will be the source of truth)
-  const persistedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
-    // Debug logging removed for performance
+  const persistedData =
+    (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
+  // Debug logging removed for performance
 
   // Create form data by merging persisted data with defaults
-  const createFormData = (data: Partial<PPPDevelopmentData>): PPPDevelopmentData => ({
+  const createFormData = (
+    data: Partial<PPPDevelopmentData>
+  ): PPPDevelopmentData => ({
     ...defaultData,
     ...data,
     section3_1: { ...defaultData.section3_1, ...(data.section3_1 || {}) },
     section3_2: { ...defaultData.section3_2, ...(data.section3_2 || {}) },
     section3_3: data.section3_3 || [],
-    section3_4: { 
+    section3_4: {
       projects: data.section3_4?.projects || defaultData.section3_4.projects,
     },
   });
 
-  const [formData, setFormData] = useState<PPPDevelopmentData>(() => 
+  const [formData, setFormData] = useState<PPPDevelopmentData>(() =>
     createFormData(persistedData)
   );
 
   // Sync with persisted data when it changes
   useEffect(() => {
-    const currentPersistedData = (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
+    const currentPersistedData =
+      (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) || {};
     const newFormData = createFormData(currentPersistedData);
-    
+
     // Only update if data has actually changed
     if (JSON.stringify(formData) !== JSON.stringify(newFormData)) {
       console.log("🔄 Syncing form data with persisted data:", newFormData);
@@ -99,7 +114,7 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
           id: crypto.randomUUID(),
           projectName: "",
           sector: "",
-          type: "",
+          scheme: "",
           submissionDate: "",
           file: null,
         },
@@ -116,7 +131,7 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
 
   const updateProject = (
     id: string,
-    field: "projectName" | "sector" | "type" | "submissionDate" | "file",
+    field: "projectName" | "sector" | "scheme" | "submissionDate" | "file",
     value: any
   ) => {
     setFormData((prev) => ({
@@ -154,22 +169,30 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
       ...prev,
       section3_4: {
         ...prev.section3_4,
-        projects: (prev.section3_4.projects || []).filter((entry) => entry.id !== id),
+        projects: (prev.section3_4.projects || []).filter(
+          (entry) => entry.id !== id
+        ),
       },
     }));
   };
 
   const updatePPPProject = (
     id: string,
-    field: "nameOfProject" | "nipId" | "fundingSource" | "infrastructureSector" | "dateOfAward" | "capexPercentage",
-    value: string,
+    field:
+      | "nameOfProject"
+      | "nipId"
+      | "fundingSource"
+      | "infrastructureSector"
+      | "dateOfAward"
+      | "capexPercentage",
+    value: string
   ) => {
     setFormData((prev) => ({
       ...prev,
       section3_4: {
         ...prev.section3_4,
         projects: (prev.section3_4.projects || []).map((entry) =>
-          entry.id === id ? { ...entry, [field]: value } : entry,
+          entry.id === id ? { ...entry, [field]: value } : entry
         ),
       },
     }));
@@ -239,7 +262,9 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
                     }))
                   }
                 />
-                <p className="text-xs text-muted-foreground">Upload copy of Act/Policy</p>
+                <p className="text-xs text-muted-foreground">
+                  Upload copy of Act/Policy
+                </p>
               </div>
             )}
           </div>
@@ -257,7 +282,9 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
                 <TooltipTrigger>
                   <Info className="inline w-3 h-3 ml-1" />
                 </TooltipTrigger>
-                <TooltipContent>Is there a functional PPP Cell/Unit?</TooltipContent>
+                <TooltipContent>
+                  Is there a functional PPP Cell/Unit?
+                </TooltipContent>
               </Tooltip>
             </Label>
             <div className="flex gap-6">
@@ -323,17 +350,20 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
             {Array.isArray(formData.section3_3?.VGFArray)
               ? formData.section3_3.VGFArray.map((rawEntry, idx) => {
                   const entry = {
-                    id: '',
-                    projectName: '',
-                    sector: '',
-                    type: '',
-                    submissionDate: '',
+                    id: "",
+                    projectName: "",
+                    sector: "",
+                    type: "",
+                    submissionDate: "",
                     file: null,
                     marksObtained: 0,
-                    ...rawEntry
+                    ...rawEntry,
                   };
                   return (
-                    <div key={entry.id} className="border rounded-lg p-4 bg-card">
+                    <div
+                      key={entry.id}
+                      className="border rounded-lg p-4 bg-card"
+                    >
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-medium">Project {idx + 1}</h4>
                         <Button
@@ -352,7 +382,11 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
                             placeholder="Enter project name"
                             value={entry.projectName}
                             onChange={(e) =>
-                              updateProject(entry.id, "projectName", e.target.value)
+                              updateProject(
+                                entry.id,
+                                "projectName",
+                                e.target.value
+                              )
                             }
                           />
                         </div>
@@ -377,20 +411,19 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
                           </Select>
                         </div>
                         <div>
-                          <Label>Select Type*</Label>
+                          <Label>Select Scheme*</Label>
                           <Select
-                            value={entry.type}
-                            onValueChange={(value) => updateProject(entry.id, "type", value)}
+                            value={entry.scheme}
+                            onValueChange={(value) =>
+                              updateProject(entry.id, "scheme", value)
+                            }
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
+                              <SelectValue placeholder="Select scheme" />
                             </SelectTrigger>
                             <SelectContent>
-                              {PROJECT_TYPE_OPTIONS.map((type) => (
-                                <SelectItem key={type} value={type}>
-                                  {type}
-                                </SelectItem>
-                              ))}
+                              <SelectItem value="IIPDF">IIPDF</SelectItem>
+                              <SelectItem value="VGF">VGF</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -402,19 +435,33 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
                                 variant="outline"
                                 className={cn(
                                   "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                                  !entry.submissionDate && "text-muted-foreground"
+                                  !entry.submissionDate &&
+                                    "text-muted-foreground"
                                 )}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {entry.submissionDate ? format(new Date(entry.submissionDate), "dd-MM-yyyy") : "DD-MM-YYYY"}
+                                {entry.submissionDate
+                                  ? format(
+                                      new Date(entry.submissionDate),
+                                      "dd-MM-yyyy"
+                                    )
+                                  : "DD-MM-YYYY"}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
                               <Calendar
                                 mode="single"
-                                selected={entry.submissionDate ? new Date(entry.submissionDate) : undefined}
+                                selected={
+                                  entry.submissionDate
+                                    ? new Date(entry.submissionDate)
+                                    : undefined
+                                }
                                 onSelect={(date) =>
-                                  updateProject(entry.id, "submissionDate", date ? date.toISOString() : "")
+                                  updateProject(
+                                    entry.id,
+                                    "submissionDate",
+                                    date ? date.toISOString() : ""
+                                  )
                                 }
                                 initialFocus
                               />
@@ -426,7 +473,9 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
                         <FileUploadSection
                           label="Upload File"
                           value={entry.file}
-                          onChange={(file) => updateProject(entry.id, "file", file)}
+                          onChange={(file) =>
+                            updateProject(entry.id, "file", file)
+                          }
                         />
                       </div>
                     </div>
@@ -457,190 +506,236 @@ export const EditablePPPDevelopment = ({ submissionId, submission }: EditablePPP
           <div className="flex flex-col gap-4">
             {(formData.section3_4.projects || []).map((rawProject, idx) => {
               const project = {
-                id: '',
-                nameOfProject: '',
-                nipId: '',
-                fundingSource: '',
-                infrastructureSector: '',
-                dateOfAward: '',
-                capexPercentage: '',
-                totalProjectCost: '',
-                ...rawProject
+                id: "",
+                nameOfProject: "",
+                nipId: "",
+                fundingSource: "",
+                infrastructureSector: "",
+                dateOfAward: "",
+                capexPercentage: "",
+                totalProjectCost: "",
+                ...rawProject,
               };
               return (
                 <div key={project.id} className="mb-4 p-4 border rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Column 1 */}
-                  <div className="space-y-4">
-                    {/* Name of PPP/Bankable Projects */}
-                    <div>
-                      <Label>
-                        Name of PPP/Bankable Projects{" "}
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Enter the name of the PPP or Bankable project</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter project name"
-                        value={project.nameOfProject}
-                        onChange={(e) =>
-                          updatePPPProject(project.id, "nameOfProject", e.target.value)
-                        }
-                      />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Column 1 */}
+                    <div className="space-y-4">
+                      {/* Name of PPP/Bankable Projects */}
+                      <div>
+                        <Label>
+                          Name of PPP/Bankable Projects{" "}
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="inline w-3 h-3 ml-1" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Enter the name of the PPP or Bankable project
+                            </TooltipContent>
+                          </Tooltip>
+                        </Label>
+                        <Input
+                          type="text"
+                          placeholder="Enter project name"
+                          value={project.nameOfProject}
+                          onChange={(e) =>
+                            updatePPPProject(
+                              project.id,
+                              "nameOfProject",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+
+                      {/* NIP ID */}
+                      <div>
+                        <Label>
+                          NIP ID{" "}
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="inline w-3 h-3 ml-1" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Enter the NIP ID of the project
+                            </TooltipContent>
+                          </Tooltip>
+                        </Label>
+                        <Input
+                          type="text"
+                          placeholder="Enter NIP ID"
+                          value={project.nipId}
+                          onChange={(e) =>
+                            updatePPPProject(
+                              project.id,
+                              "nipId",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+
+                      {/* Funding Source */}
+                      <div>
+                        <Label>
+                          Funding Source (In case of bankable project){" "}
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="inline w-3 h-3 ml-1" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Enter the funding source name
+                            </TooltipContent>
+                          </Tooltip>
+                        </Label>
+                        <Input
+                          type="text"
+                          placeholder="Enter funding source name"
+                          value={project.fundingSource}
+                          onChange={(e) =>
+                            updatePPPProject(
+                              project.id,
+                              "fundingSource",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
                     </div>
 
-                    {/* NIP ID */}
-                    <div>
-                      <Label>
-                        NIP ID{" "}
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Enter the NIP ID of the project</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter NIP ID"
-                        value={project.nipId}
-                        onChange={(e) =>
-                          updatePPPProject(project.id, "nipId", e.target.value)
-                        }
-                      />
-                    </div>
+                    {/* Column 2 */}
+                    <div className="space-y-4">
+                      {/* Infrastructure Sector */}
+                      <div>
+                        <Label>
+                          Infrastructure Sector{" "}
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="inline w-3 h-3 ml-1" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Select the infrastructure sector
+                            </TooltipContent>
+                          </Tooltip>
+                        </Label>
+                        <Select
+                          value={project.infrastructureSector}
+                          onValueChange={(value) =>
+                            updatePPPProject(
+                              project.id,
+                              "infrastructureSector",
+                              value
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a sector" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SECTOR_OPTIONS.map((sector) => (
+                              <SelectItem key={sector} value={sector}>
+                                {sector}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                    {/* Funding Source */}
-                    <div>
-                      <Label>
-                        Funding Source (In case of bankable project){" "}
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Enter the funding source name</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter funding source name"
-                        value={project.fundingSource}
-                        onChange={(e) =>
-                          updatePPPProject(project.id, "fundingSource", e.target.value)
-                        }
-                      />
+                      {/* Date of Award */}
+                      <div>
+                        <Label>
+                          Date of Award{" "}
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="inline w-3 h-3 ml-1" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Select the date of award
+                            </TooltipContent>
+                          </Tooltip>
+                        </Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
+                                !project.dateOfAward && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {project.dateOfAward
+                                ? format(
+                                    new Date(project.dateOfAward),
+                                    "dd-MM-yyyy"
+                                  )
+                                : "DD-MM-YYYY"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={
+                                project.dateOfAward
+                                  ? new Date(project.dateOfAward)
+                                  : undefined
+                              }
+                              onSelect={(date) =>
+                                updatePPPProject(
+                                  project.id,
+                                  "dateOfAward",
+                                  date ? date.toISOString() : ""
+                                )
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      {/* % of Capex funded by non-Govt sources */}
+                      <div>
+                        <Label>
+                          % of Capex funded by non-Govt sources{" "}
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="inline w-3 h-3 ml-1" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Enter the percentage of Capex funded by
+                              non-government sources
+                            </TooltipContent>
+                          </Tooltip>
+                        </Label>
+                        <Input
+                          type="text"
+                          placeholder="Enter percentage"
+                          value={project.capexPercentage}
+                          onChange={(e) =>
+                            updatePPPProject(
+                              project.id,
+                              "capexPercentage",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Column 2 */}
-                  <div className="space-y-4">
-                    {/* Infrastructure Sector */}
-                    <div>
-                      <Label>
-                        Infrastructure Sector{" "}
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Select the infrastructure sector</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Select
-                        value={project.infrastructureSector}
-                        onValueChange={(value) =>
-                          updatePPPProject(project.id, "infrastructureSector", value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a sector" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SECTOR_OPTIONS.map((sector) => (
-                            <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Date of Award */}
-                    <div>
-                      <Label>
-                        Date of Award{" "}
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Select the date of award</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal bg-[#fff] border border-[#C6C6C6]",
-                              !project.dateOfAward && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {project.dateOfAward ? format(new Date(project.dateOfAward), "dd-MM-yyyy") : "DD-MM-YYYY"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={project.dateOfAward ? new Date(project.dateOfAward) : undefined}
-                            onSelect={(date) =>
-                              updatePPPProject(project.id, "dateOfAward", date ? date.toISOString() : "")
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-
-                    {/* % of Capex funded by non-Govt sources */}
-                    <div>
-                      <Label>
-                        % of Capex funded by non-Govt sources{" "}
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="inline w-3 h-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>Enter the percentage of Capex funded by non-government sources</TooltipContent>
-                        </Tooltip>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter percentage"
-                        value={project.capexPercentage}
-                        onChange={(e) =>
-                          updatePPPProject(project.id, "capexPercentage", e.target.value)
-                        }
-                      />
-                    </div>
+                  {/* Remove Button */}
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removePPPProject(project.id)}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-5 h-5 text-destructive" />
+                    </Button>
                   </div>
                 </div>
-
-                {/* Remove Button */}
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removePPPProject(project.id)}
-                    aria-label="Remove"
-                  >
-                    <Trash2 className="w-5 h-5 text-destructive" />
-                  </Button>
-                </div>
-              </div>
               );
             })}
 
