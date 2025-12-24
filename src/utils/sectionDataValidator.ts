@@ -243,14 +243,36 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
     if (!section) return false;
 
     switch (sectionId) {
-      case "section2_1":
+      case "section2_1": {
+        // Section 2.1 has boolean field (hasOverarchingPolicy)
+        const hasBoolean =
+          section?.hasOverarchingPolicy !== null &&
+          section?.hasOverarchingPolicy !== undefined &&
+          section?.hasOverarchingPolicy !== "";
+        
+        // If boolean is set, return true
+        if (hasBoolean) {
+          return true;
+        }
+        
+        // Otherwise check array data (for backward compatibility)
+        const items = Array.isArray(section?.infraActArray)
+          ? section.infraActArray
+          : Array.isArray(section)
+          ? section
+          : [];
+        return (
+          hasArrayData(items) &&
+          items.some(
+            (item: any) =>
+              hasMeaningfulValue(item.sector) ||
+              (item.files && hasArrayData(item.files))
+          )
+        );
+      }
       case "section2_2": {
-        const arrayKey =
-          sectionId === "section2_1"
-            ? "infraActArray"
-            : "specializedEntityArray";
-        const items = Array.isArray(section?.[arrayKey])
-          ? section[arrayKey]
+        const items = Array.isArray(section?.specializedEntityArray)
+          ? section.specializedEntityArray
           : Array.isArray(section)
           ? section
           : [];
@@ -675,14 +697,36 @@ const hasSectionData = (
 
     case "infraDevelopment":
       switch (sectionId) {
-        case "section2_1":
+        case "section2_1": {
+          // Section 2.1 has boolean field (hasOverarchingPolicy)
+          const hasBoolean =
+            section?.hasOverarchingPolicy !== null &&
+            section?.hasOverarchingPolicy !== undefined &&
+            section?.hasOverarchingPolicy !== "";
+          
+          // If boolean is set, return true
+          if (hasBoolean) {
+            return true;
+          }
+          
+          // Otherwise check array data (for backward compatibility)
+          const items = Array.isArray(section?.infraActArray)
+            ? section.infraActArray
+            : Array.isArray(section)
+            ? section
+            : [];
+          return (
+            hasArrayData(items) &&
+            items.some(
+              (item: any) =>
+                hasMeaningfulValue(item.sector) ||
+                (item.files && hasArrayData(item.files))
+            )
+          );
+        }
         case "section2_2": {
-          const arrayKey =
-            sectionId === "section2_1"
-              ? "infraActArray"
-              : "specializedEntityArray";
-          const items = Array.isArray(section?.[arrayKey])
-            ? section[arrayKey]
+          const items = Array.isArray(section?.specializedEntityArray)
+            ? section.specializedEntityArray
             : Array.isArray(section)
             ? section
             : [];

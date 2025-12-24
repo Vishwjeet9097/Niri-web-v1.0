@@ -92,33 +92,80 @@ export const validateInfraDevelopment = (
     const section21 = data.section2_1;
     if (!section21) {
       // Skip validation if section doesn't exist
-    } else if (
-      !section21.infraActArray ||
-      section21.infraActArray.length === 0
-    ) {
-      errors["section2_1.infraActArray"] =
-        "Minimum 1 sector required. Add at least 1 entry.";
     } else {
-      section21.infraActArray.forEach((entry, index) => {
-        if (!entry.sector || entry.sector.trim() === "") {
-          errors[`section2_1.infraActArray.${index}.sector`] =
-            "Sector is required.";
-        }
-        if (!hasRequiredFile(entry.files)) {
-          errors[`section2_1.infraActArray.${index}.files`] =
-            "Upload file is required.";
+      // First validate the yes/no question
+      const hasOverarchingPolicy = section21.hasOverarchingPolicy;
+      if (
+        !hasOverarchingPolicy ||
+        (hasOverarchingPolicy !== "yes" && hasOverarchingPolicy !== "no")
+      ) {
+        errors["section2_1.hasOverarchingPolicy"] =
+          "Please select Yes or No.";
+      } else if (hasOverarchingPolicy === "yes") {
+        // If yes, validate that infraActArray has entries and files are uploaded
+        // Sector is auto-set to "Overarching", so no need to validate sector
+        if (
+          !section21.infraActArray ||
+          section21.infraActArray.length === 0
+        ) {
+          errors["section2_1.infraActArray"] =
+            "At least 1 file upload is required.";
         } else {
-          const file = entry.files?.[0];
-          if (file && file.file && !isValidPdfFile(file)) {
-            errors[`section2_1.infraActArray.${index}.files`] =
-              "Only PDF files are allowed.";
-          }
-          if (file && !isFileSizeValid(file, 50)) {
-            errors[`section2_1.infraActArray.${index}.files`] =
-              "File size must be ≤50MB.";
-          }
+          section21.infraActArray.forEach((entry, index) => {
+            // Ensure sector is set to "Overarching" (auto-set, but validate for safety)
+            if (!entry.sector || entry.sector.trim() === "") {
+              // Auto-set to "Overarching" if empty
+              entry.sector = "Overarching";
+            }
+            // File upload is mandatory when "yes" is selected
+            if (!hasRequiredFile(entry.files)) {
+              errors[`section2_1.infraActArray.${index}.files`] =
+                "Upload file is required.";
+            } else {
+              const file = entry.files?.[0];
+              if (file && file.file && !isValidPdfFile(file)) {
+                errors[`section2_1.infraActArray.${index}.files`] =
+                  "Only PDF files are allowed.";
+              }
+              if (file && !isFileSizeValid(file, 50)) {
+                errors[`section2_1.infraActArray.${index}.files`] =
+                  "File size must be ≤50MB.";
+              }
+            }
+          });
         }
-      });
+      } else if (hasOverarchingPolicy === "no") {
+        // If no, validate sector dropdown and files (current implementation)
+        if (
+          !section21.infraActArray ||
+          section21.infraActArray.length === 0
+        ) {
+          errors["section2_1.infraActArray"] =
+            "Minimum 1 sector required. Add at least 1 entry.";
+        } else {
+          section21.infraActArray.forEach((entry, index) => {
+            if (!entry.sector || entry.sector.trim() === "") {
+              errors[`section2_1.infraActArray.${index}.sector`] =
+                "Sector is required.";
+            }
+            if (!hasRequiredFile(entry.files)) {
+              errors[`section2_1.infraActArray.${index}.files`] =
+                "Upload file is required.";
+            } else {
+              const file = entry.files?.[0];
+              if (file && file.file && !isValidPdfFile(file)) {
+                errors[`section2_1.infraActArray.${index}.files`] =
+                  "Only PDF files are allowed.";
+              }
+              if (file && !isFileSizeValid(file, 50)) {
+                errors[`section2_1.infraActArray.${index}.files`] =
+                  "File size must be ≤50MB.";
+              }
+            }
+          });
+        }
+      }
+      // If no, infraActArray can be empty (no validation needed)
     }
   }
 

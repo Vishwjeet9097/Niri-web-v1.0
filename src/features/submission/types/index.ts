@@ -89,6 +89,7 @@ export interface InfraDevelopmentData {
       sector: string;
       files: FileUpload[];
     }>;
+    hasOverarchingPolicy?: string;
   };
   section2_2: {
     specializedEntityArray: Array<{

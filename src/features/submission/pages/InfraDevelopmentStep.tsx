@@ -84,7 +84,7 @@ import {
 // This component was updated to use those nested arrays e.g. formData.section2_1.infraActArray
 
 const defaultData: InfraDevelopmentData = {
-  section2_1: { infraActArray: [] },
+  section2_1: { infraActArray: [], hasOverarchingPolicy: "" },
   section2_2: { specializedEntityArray: [] },
   section2_3: {
     infraDevelopmentArray: [],
@@ -113,6 +113,7 @@ function safeInfraDevelopmentFormData(
       infraActArray: Array.isArray(data.section2_1?.infraActArray)
         ? data.section2_1.infraActArray
         : [],
+      hasOverarchingPolicy: data.section2_1?.hasOverarchingPolicy || "",
       // Preserve status field
       status: (data.section2_1 as any)?.status,
     } as any,
@@ -732,17 +733,24 @@ export const InfraDevelopmentStep = () => {
   const addEntry = (section: "section2_1" | "section2_2" | "section2_3") => {
     const arrKey = sectionArrayKeyMap[section];
     setFormData(
-      (prev) =>
-        ({
+      (prev) => {
+        // For section2_1, if hasOverarchingPolicy is "yes", set sector to "Overarching"
+        const sectorValue = 
+          section === "section2_1" && (prev as any).section2_1?.hasOverarchingPolicy === "yes"
+            ? "Overarching"
+            : "";
+        
+        return {
           ...prev,
           [section]: {
             ...(prev as any)[section],
             [arrKey]: [
               ...((prev as any)[section]?.[arrKey] || []),
-              { id: crypto.randomUUID(), sector: "", files: [] },
+              { id: crypto.randomUUID(), sector: sectorValue, files: [] },
             ],
           },
-        } as any)
+        } as any;
+      }
     );
     if (section === "section2_3") {
       setFormData((prev) => ({
@@ -2191,6 +2199,159 @@ export const InfraDevelopmentStep = () => {
           >
             {renderSectionValidationMessage("2.1")}
             <div className="flex flex-col gap-4 ">
+              {/* Yes/No selection */}
+              <div>
+                <Label>
+                  Have an Overarching Infrastructure Act/Policy?{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
+                <div className="flex gap-6 mt-2">
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="overarching-policy"
+                      value="yes"
+                      checked={
+                        formData.section2_1.hasOverarchingPolicy === "yes"
+                      }
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.1")) return;
+                        showErrorsIfNeeded();
+                        setFormData((prev) => {
+                          // When switching to "yes", ensure at least one entry with "Overarching" sector
+                          const currentArray = prev.section2_1?.infraActArray || [];
+                          const hasEntry = currentArray.length > 0;
+                          const newArray = hasEntry
+                            ? currentArray.map((entry) => ({
+                                ...entry,
+                                sector: "Overarching", // Auto-set sector to "Overarching"
+                              }))
+                            : [{ id: crypto.randomUUID(), sector: "Overarching", files: [] }];
+                          
+                          return {
+                            ...prev,
+                            section2_1: {
+                              ...prev.section2_1,
+                              hasOverarchingPolicy: "yes",
+                              infraActArray: newArray,
+                            },
+                          };
+                        });
+                      }}
+                      disabled={isIndicatorSubmitted("2.1")}
+                    />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="overarching-policy"
+                      value="no"
+                      checked={formData.section2_1.hasOverarchingPolicy === "no"}
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.1")) return;
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_1: {
+                            ...prev.section2_1,
+                            hasOverarchingPolicy: "no",
+                            infraActArray: [],
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("2.1")}
+                    />
+                    No
+                  </label>
+                </div>
+                {renderFieldError("section2_1.hasOverarchingPolicy")}
+              </div>
+
+              {/* If Yes → show only file upload (sector is auto-set to "Overarching") */}
+              {formData.section2_1.hasOverarchingPolicy === "yes" && (
+                <>
+              {(Array.isArray(formData.section2_1?.infraActArray)
+                ? formData.section2_1.infraActArray
+                : []
+              ).map((entry) => {
+                // Ensure sector is always "Overarching" when yes is selected
+                if (entry.sector !== "Overarching") {
+                  // Use setTimeout to avoid state update during render
+                  setTimeout(() => {
+                    updateEntry("section2_1", entry.id, "sector", "Overarching");
+                  }, 0);
+                }
+                return (
+                <div key={entry.id} className=" mb-2 relative">
+                  <div className="flex flex-col gap-4 max-w-[70%]">
+                    <div className="flex-1 w-full">
+                      <FileUploadSection
+                        label="Upload File"
+                        value={entry.files?.[0] || null}
+                        onChange={(file) => {
+                          showErrorsIfNeeded();
+                          // Always set file to null if not a real FileUpload
+                          const safeFile =
+                            file &&
+                            typeof file === "object" &&
+                            (file.file instanceof File || file.file === null)
+                              ? file
+                              : null;
+                          updateEntry(
+                            "section2_1",
+                            entry.id,
+                            "files",
+                            safeFile ? [safeFile] : []
+                          );
+                          // Ensure sector is always "Overarching"
+                          if (entry.sector !== "Overarching") {
+                            updateEntry("section2_1", entry.id, "sector", "Overarching");
+                          }
+                        }}
+                        submissionId={submissionId}
+                        required
+                        disabled={isIndicatorSubmitted("2.1")}
+                        deferFileDeletion={editingIndicators.has("2.1")}
+                        className={getInputValidationClass(
+                          `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                            (e) => e.id === entry.id
+                          )}.files`
+                        )}
+                      />
+                      {renderFieldError(
+                        `section2_1.infraActArray.${formData.section2_1.infraActArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.files`
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="self-start absolute top-2 right-2"
+                      onClick={() => removeEntry("section2_1", entry.id)}
+                      disabled={isIndicatorSubmitted("2.1")}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-5 h-5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+                );
+              })}
+              <div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload copy of Act/Policy
+                </p>
+                {renderFieldError("section2_1.infraActArray")}
+              </div>
+              </>
+              )}
+
+              {/* If No → show current implementation with sector dropdown */}
+              {formData.section2_1.hasOverarchingPolicy === "no" && (
+                <>
               {(Array.isArray(formData.section2_1?.infraActArray)
                 ? formData.section2_1.infraActArray
                 : []
@@ -2303,17 +2464,23 @@ export const InfraDevelopmentStep = () => {
                 </p>
                 {renderFieldError("section2_1.infraActArray")}
               </div>
+                </>
+              )}
 
+              {/* Table display - conditionally show sector column based on yes/no selection */}
               {Array.isArray(formData.section2_1?.infraActArray) &&
                 formData.section2_1.infraActArray.length > 0 && (
                   <div className="overflow-x-auto rounded-xl">
                     <table className="min-w-full border-separate border-spacing-0 ">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                            Sector
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
+                          {/* Hide sector column when "yes" is selected */}
+                          {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                            <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                              Sector
+                            </th>
+                          )}
+                          <th className={`py-3 px-4 text-left ${formData.section2_1.hasOverarchingPolicy === "yes" ? "rounded-tl-xl" : ""} text-sm font-normal`}>
                             Uploaded File
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
@@ -2333,9 +2500,12 @@ export const InfraDevelopmentStep = () => {
                           if (!file) {
                             return (
                               <tr key={entry.id} className="bg-white">
-                                <td className="py-3 px-4 text-sm font-normal">
-                                  {entry.sector}
-                                </td>
+                                {/* Hide sector column when "yes" is selected */}
+                                {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                                  <td className="py-3 px-4 text-sm font-normal">
+                                    {entry.sector}
+                                  </td>
+                                )}
                                 <td className="py-3 px-4 text-sm font-normal">
                                   No file uploaded
                                 </td>
@@ -2391,9 +2561,12 @@ export const InfraDevelopmentStep = () => {
 
                           return (
                             <tr key={entry.id} className="bg-white">
-                              <td className="py-3 px-4 text-sm font-normal">
-                                {entry.sector}
-                              </td>
+                              {/* Hide sector column when "yes" is selected */}
+                              {formData.section2_1.hasOverarchingPolicy !== "yes" && (
+                                <td className="py-3 px-4 text-sm font-normal">
+                                  {entry.sector}
+                                </td>
+                              )}
                               <td className="py-3 px-4 text-sm font-normal">
                                 {displayName}
                               </td>
@@ -2426,6 +2599,7 @@ export const InfraDevelopmentStep = () => {
                     </table>
                   </div>
                 )}
+
               <div className="mt-4">
                 <Button
                   onClick={() =>

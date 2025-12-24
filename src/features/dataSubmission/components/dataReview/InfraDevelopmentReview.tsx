@@ -1131,7 +1131,8 @@ export const InfraDevelopmentReview = ({
     value: any
   ) => {
     const sectionKey = `section${sectionId.replace(".", "_")}`;
-    const currentSection = state?.[sectionKey] || {};
+    // Read from formDataState to ensure we have the latest value
+    const currentSection = formDataState?.[sectionKey] || {};
     const currentStatus = currentSection
       ? (currentSection as any).status
       : undefined;
@@ -1192,6 +1193,107 @@ export const InfraDevelopmentReview = ({
       // Force a re-render by updating a dummy state if needed
       setShowValidationErrors(true);
       return; // Early return to prevent double update
+    }
+
+    // Handle hasOverarchingPolicy changes for section 2.1
+    if (
+      sectionId === "2.1" &&
+      fieldName === "hasOverarchingPolicy"
+    ) {
+      if (value === "no") {
+        // When switching to "no", clear infraActArray
+        setShowAddForm2_1(false);
+        setNewEntry2_1({ sector: "", files: [] });
+        const updatedSection = {
+          ...(currentSection && !Array.isArray(currentSection)
+            ? currentSection
+            : {}),
+          [fieldName]: value,
+          infraActArray: [], // Clear the array
+          ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+        };
+        console.log(`[InfraDevelopmentReview] Clearing section 2.1 when switching to "no":`, updatedSection);
+        console.log(`[InfraDevelopmentReview] Previous formDataState.section2_1:`, formDataState?.section2_1);
+        setFormDataState((prev: any) => {
+          const updated = {
+            ...prev,
+            [sectionKey]: {
+              ...updatedSection,
+              hasOverarchingPolicy: "no", // Explicitly ensure it's set to "no"
+            },
+          };
+          console.log(`[InfraDevelopmentReview] Updated formDataState.section2_1:`, updated[sectionKey]);
+          console.log(`[InfraDevelopmentReview] hasOverarchingPolicy value:`, updated[sectionKey]?.hasOverarchingPolicy);
+          // Also update submissionData to ensure document tab reflects the change
+          setSubmissionData((prevSubmission: any) => {
+            if (!prevSubmission) return prevSubmission;
+            const infraDev = prevSubmission?.infraDevelopment || {};
+            return {
+              ...prevSubmission,
+              infraDevelopment: {
+                ...infraDev,
+                [sectionKey]: {
+                  ...updatedSection,
+                  hasOverarchingPolicy: "no", // Explicitly ensure it's set to "no"
+                },
+              },
+            };
+          });
+          return updated;
+        });
+        // Mark fields as touched to trigger validation updates
+        markFieldAsTouched(`${sectionKey}.infraActArray`);
+        markFieldAsTouched(`${sectionKey}.hasOverarchingPolicy`);
+        setShowValidationErrors(true);
+        return; // Early return to prevent double update
+      } else if (value === "yes") {
+        // When switching to "yes", clear all existing files and start fresh with one empty entry
+        setShowAddForm2_1(false);
+        setNewEntry2_1({ sector: "", files: [] });
+        
+        // Start with a fresh array with one entry that has sector "Overarching" but no files
+        const updatedArray = [{ id: crypto.randomUUID(), sector: "Overarching", files: [] }];
+        
+        const updatedSection = {
+          ...(currentSection && !Array.isArray(currentSection)
+            ? currentSection
+            : {}),
+          [fieldName]: value,
+          infraActArray: updatedArray, // Fresh array with one empty entry
+          ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+        };
+        console.log(`[InfraDevelopmentReview] Setting section 2.1 to "yes" - clearing files and starting fresh:`, updatedSection);
+        setFormDataState((prev: any) => {
+          const updated = {
+            ...prev,
+            [sectionKey]: {
+              ...updatedSection,
+              hasOverarchingPolicy: "yes", // Explicitly ensure it's set to "yes"
+            },
+          };
+          console.log(`[InfraDevelopmentReview] hasOverarchingPolicy value:`, updated[sectionKey]?.hasOverarchingPolicy);
+          // Also update submissionData
+          setSubmissionData((prevSubmission: any) => {
+            if (!prevSubmission) return prevSubmission;
+            const infraDev = prevSubmission?.infraDevelopment || {};
+            return {
+              ...prevSubmission,
+              infraDevelopment: {
+                ...infraDev,
+                [sectionKey]: {
+                  ...updatedSection,
+                  hasOverarchingPolicy: "yes", // Explicitly ensure it's set to "yes"
+                },
+              },
+            };
+          });
+          return updated;
+        });
+        markFieldAsTouched(`${sectionKey}.infraActArray`);
+        markFieldAsTouched(`${sectionKey}.hasOverarchingPolicy`);
+        setShowValidationErrors(true);
+        return; // Early return to prevent double update
+      }
     }
 
     // If switching hasInfraDevelopmentPlan to "no", clear all related data
@@ -1454,7 +1556,40 @@ export const InfraDevelopmentReview = ({
       files: Array.isArray(item?.files) ? item.files : toFileArray(item?.files),
     });
 
-    ensureArraySection("section2_1", "infraActArray", mapFilesArray);
+    // Special handling for section2_1 to preserve hasOverarchingPolicy
+    if (normalized.section2_1) {
+      const section2_1 = normalized.section2_1;
+      const status = section2_1?.status;
+      const hasOverarchingPolicy = section2_1?.hasOverarchingPolicy;
+
+      let items: any[] = [];
+      if (Array.isArray(section2_1?.infraActArray)) {
+        items = section2_1.infraActArray;
+      } else if (Array.isArray(section2_1)) {
+        items = section2_1;
+      }
+
+      const normalizedItems = Array.isArray(items)
+        ? items.map((item) => mapFilesArray(item))
+        : [];
+
+      normalized.section2_1 = {
+        ...(section2_1 && !Array.isArray(section2_1) ? section2_1 : {}),
+        infraActArray: normalizedItems,
+        ...(hasOverarchingPolicy !== undefined && hasOverarchingPolicy !== null
+          ? { hasOverarchingPolicy }
+          : {}),
+        ...(status !== undefined ? { status } : {}),
+      };
+
+      console.log("🔍 [NORMALIZE section2_1]:", {
+        original: section2_1,
+        normalized: normalized.section2_1,
+        hasOverarchingPolicy,
+      });
+    } else {
+      ensureArraySection("section2_1", "infraActArray", mapFilesArray);
+    }
     ensureArraySection("section2_2", "specializedEntityArray", mapFilesArray);
     ensureArraySection("section2_3", "infraDevelopmentArray", mapFilesArray);
 
@@ -1514,6 +1649,19 @@ export const InfraDevelopmentReview = ({
 
   // Type assertion for formDataState to avoid TypeScript errors
   const state = (formDataState as any) || {};
+
+  // 🔍 DEBUG: Log state for section2_1
+  useEffect(() => {
+    if (formDataState?.section2_1) {
+      console.log("🔍 [REVIEW STATE] section2_1 in formDataState:", {
+        section2_1: formDataState?.section2_1,
+        hasOverarchingPolicy: formDataState?.section2_1?.hasOverarchingPolicy,
+        infraActArrayLength: Array.isArray(formDataState?.section2_1?.infraActArray)
+          ? formDataState.section2_1.infraActArray.length
+          : 0,
+      });
+    }
+  }, [formDataState?.section2_1?.hasOverarchingPolicy, formDataState?.section2_1?.infraActArray]);
 
   // 🔍 DEBUG: Log state for section2_4
   useEffect(() => {
@@ -2093,7 +2241,7 @@ export const InfraDevelopmentReview = ({
 
   const buildSectionFields = (
     sectionId: string,
-    sourceState: any = state
+    sourceState: any = formDataState
   ): Record<string, any>[] => {
     switch (sectionId) {
       case "2.1": {
@@ -2116,8 +2264,12 @@ export const InfraDevelopmentReview = ({
             mimeType: file?.mimeType,
           })),
         }));
-        console.log("🔨 Built fields for 2.1:", files);
-        return [{ infraActArray: files }];
+        const hasOverarchingPolicy = sourceState?.section2_1?.hasOverarchingPolicy ?? null;
+        console.log("🔨 Built fields for 2.1:", { infraActArray: files, hasOverarchingPolicy });
+        return [{ 
+          infraActArray: files,
+          hasOverarchingPolicy: hasOverarchingPolicy
+        }];
       }
 
       case "2.2": {
@@ -2288,7 +2440,7 @@ export const InfraDevelopmentReview = ({
 
       // Run validation first (same logic as in performSave)
       const fullData = {
-        section2_1: formDataState?.section2_1 || { infraActArray: [] },
+        section2_1: formDataState?.section2_1 || { infraActArray: [], hasOverarchingPolicy: "" },
         section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
         section2_3: formDataState?.section2_3 || {
           infraDevelopmentArray: [],
@@ -2528,7 +2680,7 @@ export const InfraDevelopmentReview = ({
 
       // Validate form data before saving
       const fullData = {
-        section2_1: formDataState?.section2_1 || { infraActArray: [] },
+        section2_1: formDataState?.section2_1 || { infraActArray: [], hasOverarchingPolicy: "" },
         section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
         section2_3: formDataState?.section2_3 || {
           infraDevelopmentArray: [],
@@ -4223,6 +4375,69 @@ export const InfraDevelopmentReview = ({
             </div>
           </CardHeader> */}
             <div className="space-y-4">
+              {/* RadioGroup for hasOverarchingPolicy */}
+              <div>
+                <Label className="mb-3 block">
+                  Have an overarching infrastructure/Act policy?*
+                </Label>
+                {shouldBeEditable("2.1") ? (
+                  <RadioGroup
+                    key={`hasOverarchingPolicy-${formDataState?.section2_1?.hasOverarchingPolicy || ""}`}
+                    value={formDataState?.section2_1?.hasOverarchingPolicy || ""}
+                    onValueChange={(value) => {
+                      console.log(`[InfraDevelopmentReview] RadioGroup value changed to: ${value}`);
+                      console.log(`[InfraDevelopmentReview] Current formDataState.section2_1:`, formDataState?.section2_1);
+                      handleSectionFieldUpdate(
+                        "2.1",
+                        "hasOverarchingPolicy",
+                        value
+                      );
+                      // Clear validation error when user selects
+                      if (getFieldError("section2_1.hasOverarchingPolicy")) {
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section2_1.hasOverarchingPolicy"];
+                          return updated;
+                        });
+                      }
+                      // Note: Clearing infraActArray when "no" is selected is now handled in handleSectionFieldUpdate
+                    }}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="2.1-yes" />
+                      <Label htmlFor="2.1-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="2.1-no" />
+                      <Label htmlFor="2.1-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        formDataState?.section2_1?.hasOverarchingPolicy === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : formDataState?.section2_1?.hasOverarchingPolicy === "no"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {formDataState?.section2_1?.hasOverarchingPolicy === "yes"
+                        ? "Yes"
+                        : formDataState?.section2_1?.hasOverarchingPolicy === "no"
+                        ? "No"
+                        : "Not specified"}
+                    </span>
+                  </div>
+                )}
+                {renderFieldError("section2_1.hasOverarchingPolicy")}
+              </div>
+
+              {/* Show table and Add More button based on yes/no selection */}
+              {formDataState?.section2_1?.hasOverarchingPolicy === "yes" && (
+                <>
               {/* Validation error for infraActArray */}
               {renderFieldError("section2_1.infraActArray")}
 
@@ -4231,10 +4446,13 @@ export const InfraDevelopmentReview = ({
                 <table className="min-w-full border-separate border-spacing-0">
                   <thead>
                     <tr className="bg-[#DDE3F9]">
-                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                        Sector
-                      </th>
-                      <th className="py-3 px-4 text-left text-sm font-normal">
+                      {/* Hide sector column when "yes" is selected */}
+                      {formDataState?.section2_1?.hasOverarchingPolicy !== "yes" && (
+                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          Sector
+                        </th>
+                      )}
+                      <th className={`py-3 px-4 text-left ${formDataState?.section2_1?.hasOverarchingPolicy === "yes" ? "rounded-tl-xl" : ""} text-sm font-normal`}>
                         Uploaded File
                       </th>
                       <th className="py-3 px-4 text-left text-sm font-normal">
@@ -4250,16 +4468,19 @@ export const InfraDevelopmentReview = ({
                   <tbody>
                     {(() => {
                       const infraActArray = Array.isArray(
-                        state?.section2_1?.infraActArray
+                        formDataState?.section2_1?.infraActArray
                       )
-                        ? state.section2_1.infraActArray
+                        ? formDataState.section2_1.infraActArray
                         : [];
 
                       if (!infraActArray.length) {
+                        const colSpan = shouldBeEditable("2.1") 
+                          ? (formDataState?.section2_1?.hasOverarchingPolicy === "yes" ? 3 : 4)
+                          : (formDataState?.section2_1?.hasOverarchingPolicy === "yes" ? 2 : 3);
                         return (
                           <tr>
                             <td
-                              colSpan={shouldBeEditable("2.1") ? 4 : 3}
+                              colSpan={colSpan}
                               className="py-8 text-center text-muted-foreground"
                             >
                               No data available
@@ -4268,8 +4489,16 @@ export const InfraDevelopmentReview = ({
                         );
                       }
 
-                      return infraActArray.map((item: any, index: number) => (
+                      return infraActArray.map((item: any, index: number) => {
+                        // When "yes" is selected, ensure sector is "Overarching"
+                        if (formDataState?.section2_1?.hasOverarchingPolicy === "yes" && item.sector !== "Overarching") {
+                          handleArrayFieldUpdate("2.1", index, "sector", "Overarching");
+                        }
+                        
+                        return (
                         <tr key={item.id || index} className="border-b">
+                          {/* Hide sector column when "yes" is selected */}
+                          {formDataState?.section2_1?.hasOverarchingPolicy !== "yes" && (
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.1") ? (
                               <div>
@@ -4313,6 +4542,7 @@ export const InfraDevelopmentReview = ({
                               item.sector || "N/A"
                             )}
                           </td>
+                          )}
                           <td className="py-3 px-4 text-sm font-normal">
                             {shouldBeEditable("2.1") ? (
                               <div className="space-y-1.5">
@@ -4527,13 +4757,415 @@ export const InfraDevelopmentReview = ({
                             </td>
                           )}
                         </tr>
-                      ));
+                        );
+                      });
                     })()}
                   </tbody>
                 </table>
               </div>
 
-              {/* Add More Button - Only visible when in edit mode */}
+              {/* Add More Button - Only visible when in edit mode and "no" is selected */}
+              {isEditable("2.1") && !showAddForm2_1 && formDataState?.section2_1?.hasOverarchingPolicy !== "yes" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2"
+                  onClick={() => setShowAddForm2_1(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add More
+                </Button>
+              )}
+
+              {/* Add Entry Form - Only visible when showAddForm2_1 is true */}
+              {showAddForm2_1 && isEditable("2.1") && (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-medium mb-3">
+                    Add New Infrastructure Act/Policy Entry
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Sector</Label>
+                      <Dropdown
+                        options={dropdownValues.sector.map((opt) => ({
+                          label: opt,
+                          value: opt,
+                        }))}
+                        value={newEntry2_1.sector}
+                        onChange={(value) =>
+                          setNewEntry2_1({ ...newEntry2_1, sector: value })
+                        }
+                        placeholder="Select Sector"
+                        isEditable={true}
+                      />
+                      {renderFieldError("section2_1.infraActArray.new.sector")}
+                    </div>
+                    <div>
+                      <Label>Upload Files</Label>
+                      <EditableFileDisplay
+                        files={newEntry2_1.files}
+                        isEditable={true}
+                        submissionId={submissionId}
+                        onFilesChange={(updatedFiles) =>
+                          setNewEntry2_1({
+                            ...newEntry2_1,
+                            files: toFileArray(updatedFiles),
+                          })
+                        }
+                        label=""
+                        multiple={true}
+                      />
+                      {renderFieldError("section2_1.infraActArray.new.files")}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleAddNewEntry2_1}
+                      className="flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Save Entry
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowAddForm2_1(false);
+                        setNewEntry2_1({ sector: "", files: [] });
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Upload copy of Act/Policy
+              </p>
+                </>
+              )}
+
+              {/* Show table and form fields when "no" is selected */}
+              {formDataState?.section2_1?.hasOverarchingPolicy === "no" && (
+                <>
+              {/* Validation error for infraActArray */}
+              {renderFieldError("section2_1.infraActArray")}
+
+              {/* Table Display */}
+              <div className="overflow-x-auto rounded-xl">
+                <table className="min-w-full border-separate border-spacing-0">
+                  <thead>
+                    <tr className="bg-[#DDE3F9]">
+                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                        Sector
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Uploaded File
+                      </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        File Type
+                      </th>
+                      {shouldBeEditable("2.1") && (
+                        <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          Action
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const infraActArray = Array.isArray(
+                        formDataState?.section2_1?.infraActArray
+                      )
+                        ? formDataState.section2_1.infraActArray
+                        : [];
+
+                      if (!infraActArray.length) {
+                        const colSpan = shouldBeEditable("2.1") ? 4 : 3;
+                        return (
+                          <tr>
+                            <td
+                              colSpan={colSpan}
+                              className="py-8 text-center text-muted-foreground"
+                            >
+                              No data available
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return infraActArray.map((item: any, index: number) => {
+                        return (
+                        <tr key={item.id || index} className="border-b">
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {shouldBeEditable("2.1") ? (
+                              <div>
+                                <Dropdown
+                                  options={dropdownValues.sector.map((opt) => ({
+                                    label: opt,
+                                    value: opt,
+                                  }))}
+                                  value={item.sector || ""}
+                                  onChange={(value) => {
+                                    handleArrayFieldUpdate(
+                                      "2.1",
+                                      index,
+                                      "sector",
+                                      value
+                                    );
+                                    // Clear validation error when user selects
+                                    if (
+                                      getFieldError(
+                                        `section2_1.infraActArray.${index}.sector`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[
+                                          `section2_1.infraActArray.${index}.sector`
+                                        ];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  placeholder="Select Sector"
+                                  isEditable={true}
+                                  resetKey={selectResetKey}
+                                />
+                                {renderFieldError(
+                                  `section2_1.infraActArray.${index}.sector`
+                                )}
+                              </div>
+                            ) : (
+                              item.sector || "N/A"
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {shouldBeEditable("2.1") ? (
+                              <div className="space-y-1.5">
+                                {item.files && item.files.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {item.files.map(
+                                      (file: any, fileIndex: number) => (
+                                        <Badge
+                                          key={fileIndex}
+                                          variant="secondary"
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[180px] group"
+                                          title={
+                                            extractOriginalName(
+                                              file.fileName || "",
+                                              (file as any)?.originalName
+                                            ) || "Unknown file"
+                                          }
+                                        >
+                                          <Upload className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">
+                                            {extractOriginalName(
+                                              file.fileName || "",
+                                              (file as any)?.originalName
+                                            ) || "Unknown file"}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const updatedFiles =
+                                                item.files.filter(
+                                                  (_: any, idx: number) =>
+                                                    idx !== fileIndex
+                                                );
+                                              handleFilesUpdate(
+                                                "2.1",
+                                                index,
+                                                updatedFiles.length > 0
+                                                  ? updatedFiles
+                                                  : []
+                                              );
+                                            }}
+                                            className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          >
+                                            <X className="w-3 h-3 text-destructive hover:text-destructive/80" />
+                                          </button>
+                                        </Badge>
+                                      )
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">
+                                    No files
+                                  </span>
+                                )}
+                                <div className="flex items-center">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx"
+                                    onChange={async (e) => {
+                                      const selectedFile = e.target.files?.[0];
+                                      if (selectedFile) {
+                                        const uploadedFile =
+                                          await handleFileUpload(selectedFile);
+                                        if (uploadedFile) {
+                                          const existingFiles =
+                                            item.files || [];
+                                          await handleFilesUpdate(
+                                            "2.1",
+                                            index,
+                                            [...existingFiles, uploadedFile]
+                                          );
+                                        }
+                                        e.target.value = ""; // Reset input
+                                      }
+                                    }}
+                                    className="hidden"
+                                    id={`file-input-2.1-no-${index}`}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      document
+                                        .getElementById(
+                                          `file-input-2.1-no-${index}`
+                                        )
+                                        ?.click()
+                                    }
+                                    className="h-6 px-2 text-xs"
+                                  >
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Add
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : item.files && item.files.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                {item.files.map(
+                                  (file: any, fileIndex: number) => {
+                                    const fileKey = `2.1-${index}-${fileIndex}`;
+                                    const isLoading = !!fileLoading[fileKey];
+                                    const hasFileAccess = !!(
+                                      file.filePath ||
+                                      file.file ||
+                                      file.fileUrl
+                                    );
+                                    return (
+                                      <div
+                                        key={fileIndex}
+                                        className="flex items-center gap-1"
+                                      >
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs px-2 py-0.5 flex items-center gap-1 max-w-[200px]"
+                                          title={
+                                            extractOriginalName(
+                                              file.fileName || "",
+                                              (file as any)?.originalName
+                                            ) || "Unknown file"
+                                          }
+                                        >
+                                          <Upload className="w-3 h-3" />
+                                          <span className="truncate">
+                                            {extractOriginalName(
+                                              file.fileName || "",
+                                              (file as any)?.originalName
+                                            ) || "Unknown file"}
+                                          </span>
+                                        </Badge>
+                                        {hasFileAccess && (
+                                          <>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                handleViewFile(file, fileKey)
+                                              }
+                                              disabled={isLoading}
+                                              className="h-7 w-7 p-0"
+                                              title="View file"
+                                            >
+                                              <Eye className="w-3 h-3" />
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                handleDownloadFile(
+                                                  file,
+                                                  fileKey
+                                                )
+                                              }
+                                              disabled={isLoading}
+                                              className="h-7 w-7 p-0"
+                                              title="Download file"
+                                            >
+                                              <Download className="w-3 h-3" />
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">
+                                No files
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {item.files && item.files.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {item.files.map(
+                                  (file: any, fileIndex: number) => (
+                                    <Badge
+                                      key={fileIndex}
+                                      variant="outline"
+                                      className="text-xs px-1.5 py-0.5"
+                                    >
+                                      {file.fileName
+                                        ?.split(".")
+                                        .pop()
+                                        ?.toUpperCase() || "N/A"}
+                                    </Badge>
+                                  )
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">
+                                N/A
+                              </span>
+                            )}
+                          </td>
+                          {shouldBeEditable("2.1") && (
+                            <td className="py-3 px-4 text-sm font-normal">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  handleRemoveEntry2_1(index);
+                                }}
+                                className="text-red-500 hover:text-red-700 border-none bg-none"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </Button>
+                            </td>
+                          )}
+                        </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Add More Button - Only visible when in edit mode and "no" is selected */}
               {isEditable("2.1") && !showAddForm2_1 && (
                 <Button
                   variant="outline"
@@ -4616,6 +5248,8 @@ export const InfraDevelopmentReview = ({
               <p className="text-xs text-muted-foreground">
                 Upload copy of Act/Policy
               </p>
+                </>
+              )}
             </div>
           </SectionCard>
         )}
