@@ -1136,7 +1136,7 @@ export const InfraDevelopmentReview = ({
       ? (currentSection as any).status
       : undefined;
 
-    // If switching hasInvestmentReady to "no", reset the Add More form state
+    // If switching hasInvestmentReady to "no", clear all related data
     if (
       sectionId === "2.4" &&
       fieldName === "hasInvestmentReady" &&
@@ -1151,9 +1151,50 @@ export const InfraDevelopmentReview = ({
         investmentType: "",
         dprFile: null,
       });
+      // Clear investmentReadyArray, websiteLink, and comment when switching to "no"
+      // Note: Section 2.4 doesn't have a top-level file field - files are in investmentReadyArray items as dprFile
+      // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
+      const updatedSection = {
+        ...(currentSection && !Array.isArray(currentSection)
+          ? currentSection
+          : {}),
+        [fieldName]: value,
+        investmentReadyArray: [], // Clear the array (which contains items with dprFile)
+        websiteLink: "", // Clear website link
+        comment: "", // Clear comment - user should enter fresh comment for new "no" selection
+        ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+      };
+      console.log(`[InfraDevelopmentReview] Clearing section 2.4 when switching to "no":`, updatedSection);
+      console.log(`[InfraDevelopmentReview] Previous formDataState.section2_4:`, formDataState?.section2_4);
+      setFormDataState((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: updatedSection,
+        };
+        console.log(`[InfraDevelopmentReview] Updated formDataState.section2_4:`, updated[sectionKey]);
+        // Also update submissionData to ensure document tab reflects the change
+        setSubmissionData((prevSubmission: any) => {
+          if (!prevSubmission) return prevSubmission;
+          const infraDev = prevSubmission?.infraDevelopment || {};
+          return {
+            ...prevSubmission,
+            infraDevelopment: {
+              ...infraDev,
+              [sectionKey]: updatedSection,
+            },
+          };
+        });
+        return updated;
+      });
+      // Mark fields as touched to trigger validation updates
+      markFieldAsTouched(`${sectionKey}.investmentReadyArray`);
+      markFieldAsTouched(`${sectionKey}.websiteLink`);
+      // Force a re-render by updating a dummy state if needed
+      setShowValidationErrors(true);
+      return; // Early return to prevent double update
     }
 
-    // If switching hasInfraDevelopmentPlan to "no", reset the Add More form state
+    // If switching hasInfraDevelopmentPlan to "no", clear all related data
     if (
       sectionId === "2.3" &&
       fieldName === "hasInfraDevelopmentPlan" &&
@@ -1161,6 +1202,44 @@ export const InfraDevelopmentReview = ({
     ) {
       setShowAddForm2_3(false);
       setNewEntry2_3({ sector: "", files: [] });
+      // Clear infraDevelopmentArray, files, and comment when switching to "no"
+      // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
+      const updatedSection = {
+        ...(currentSection && !Array.isArray(currentSection)
+          ? currentSection
+          : {}),
+        [fieldName]: value,
+        infraDevelopmentArray: [], // Clear the array (which contains files)
+        files: [], // Clear files array if it exists
+        file: null, // Clear any single file field
+        comment: "", // Clear comment - user should enter fresh comment for new "no" selection
+        ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+      };
+      console.log(`[InfraDevelopmentReview] Clearing section 2.3 when switching to "no":`, updatedSection);
+      setFormDataState((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: updatedSection,
+        };
+        // Also update submissionData to ensure document tab reflects the change
+        setSubmissionData((prevSubmission: any) => {
+          if (!prevSubmission) return prevSubmission;
+          const infraDev = prevSubmission?.infraDevelopment || {};
+          return {
+            ...prevSubmission,
+            infraDevelopment: {
+              ...infraDev,
+              [sectionKey]: updatedSection,
+            },
+          };
+        });
+        return updated;
+      });
+      // Mark fields as touched to trigger validation updates
+      markFieldAsTouched(`${sectionKey}.infraDevelopmentArray`);
+      markFieldAsTouched(`${sectionKey}.files`);
+      markFieldAsTouched(`${sectionKey}.file`);
+      return; // Early return to prevent double update
     }
 
     const updatedSection = {
@@ -1540,39 +1619,202 @@ export const InfraDevelopmentReview = ({
     };
   }, [submissionId]);
 
-  // Check if this section has any data
-  const hasData = hasInfraDevelopmentData({ infraDevelopment: state });
-  let sectionsWithData = getSectionsWithData(
-    { infraDevelopment: state },
-    "infraDevelopment"
-  );
-
-  // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
-  // This ensures assigned indicators are visible in preview, regardless of data presence
-  if (
-    isPreview &&
-    isNodalOfficer &&
-    assignedIndicators &&
-    assignedIndicators.length > 0
-  ) {
-    const assignedSectionKeys: string[] = [];
-    const indicatorToSectionMap: Record<string, string> = {
-      "2.1": "section2_1",
-      "2.2": "section2_2",
-      "2.3": "section2_3",
-      "2.4": "section2_4",
-      "2.5": "section2_5",
-    };
-
-    assignedIndicators.forEach((indicator) => {
-      const sectionKey = indicatorToSectionMap[indicator];
-      if (sectionKey && !sectionsWithData.includes(sectionKey)) {
-        assignedSectionKeys.push(sectionKey);
+  // Store which sections were initially submitted when component first mounts or when data changes
+  // This ensures we remember sections even if they're removed from formData after deletion
+  // Once a section is marked as submitted, it stays in the set (never removed)
+  const initiallySubmittedSections = useRef<Set<string>>(new Set());
+  
+  useEffect(() => {
+    // Check which sections were submitted and add them to the set
+    // This runs on mount and when formData/submission changes
+    // We only ADD sections, never remove them (once submitted, always submitted)
+    const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    allPossibleSections.forEach((sectionKey) => {
+      // Skip if already marked as submitted
+      if (initiallySubmittedSections.current.has(sectionKey)) {
+        return;
+      }
+      
+      // Check submission.section_status first (most reliable)
+      let wasSubmitted = false;
+      if (submission?.section_status && typeof submission.section_status === "object") {
+        const sectionStatus = (submission.section_status as any)[sectionKey];
+        if (sectionStatus && 
+            sectionStatus !== "NOT_STARTED" && 
+            sectionStatus !== null && 
+            sectionStatus !== undefined) {
+          wasSubmitted = true;
+        }
+      }
+      
+      // Also check if section exists in formData
+      if (!wasSubmitted && formData && typeof formData === "object") {
+        const infraDev = (formData as any).infraDevelopment;
+        if (infraDev && typeof infraDev === "object" && infraDev[sectionKey] !== undefined && infraDev[sectionKey] !== null) {
+          wasSubmitted = true;
+        }
+      }
+      
+      if (wasSubmitted) {
+        initiallySubmittedSections.current.add(sectionKey);
+        console.log(`[InfraDevelopmentReview] Marking ${sectionKey} as submitted`);
       }
     });
+    console.log(`[InfraDevelopmentReview] Submitted sections set:`, Array.from(initiallySubmittedSections.current));
+  }, [formData, submission]); // Run when formData or submission changes
 
-    sectionsWithData = [...sectionsWithData, ...assignedSectionKeys];
-  }
+  // Track which sections are currently in edit mode - call isEditable for all sections to track changes
+  // This ensures useMemo updates when edit mode changes
+  const editModeState = useMemo(() => {
+    return {
+      "2.1": isEditable("2.1"),
+      "2.2": isEditable("2.2"),
+      "2.3": isEditable("2.3"),
+      "2.4": isEditable("2.4"),
+      "2.5": isEditable("2.5"),
+    };
+  }, [isEditable]);
+
+  const editableSections = useMemo(() => {
+    const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    const sectionIdMap: Record<string, string> = {
+      "section2_1": "2.1",
+      "section2_2": "2.2",
+      "section2_3": "2.3",
+      "section2_4": "2.4",
+      "section2_5": "2.5",
+    };
+    return allPossibleSections.filter((sectionKey) => {
+      const sectionId = sectionIdMap[sectionKey];
+      return sectionId ? editModeState[sectionId as keyof typeof editModeState] : false;
+    });
+  }, [editModeState]);
+
+  // Check if this section has any data
+  const hasData = hasInfraDevelopmentData({ infraDevelopment: state });
+  
+  // Helper function to check if a section was previously submitted/saved
+  // Uses initiallySubmittedSections ref (set on mount) as the source of truth
+  // Also checks current submission.section_status and edit mode as fallbacks
+  const wasSectionPreviouslySubmitted = useCallback((sectionKey: string): boolean => {
+    // Map sectionKey to sectionId for edit mode check
+    const sectionIdMap: Record<string, string> = {
+      "section2_1": "2.1",
+      "section2_2": "2.2",
+      "section2_3": "2.3",
+      "section2_4": "2.4",
+      "section2_5": "2.5",
+    };
+    const sectionId = sectionIdMap[sectionKey];
+    
+    // PRIORITY 1: Check if section was marked as initially submitted on mount
+    // This is the most reliable as it captures the state when component first loaded
+    if (initiallySubmittedSections.current.has(sectionKey)) {
+      console.log(`[InfraDevelopmentReview] ${sectionKey} was initially submitted (from ref)`);
+      return true;
+    }
+    
+    // PRIORITY 2: Check if section is currently editable - if it's editable, it was previously submitted
+    // You can only edit sections that were already submitted
+    if (sectionId && isEditable(sectionId)) {
+      console.log(`[InfraDevelopmentReview] ${sectionKey} is currently editable, marking as previously submitted`);
+      // Add to ref for future checks
+      initiallySubmittedSections.current.add(sectionKey);
+      return true;
+    }
+    
+    // PRIORITY 3: Check submission.section_status - this is also reliable
+    // This persists even if section data is removed after deletion
+    if (submission?.section_status && typeof submission.section_status === "object") {
+      const sectionStatus = (submission.section_status as any)[sectionKey];
+      if (sectionStatus && 
+          sectionStatus !== "NOT_STARTED" && 
+          sectionStatus !== null && 
+          sectionStatus !== undefined) {
+        console.log(`[InfraDevelopmentReview] ${sectionKey} has submitted status in submission.section_status:`, sectionStatus);
+        // Add to ref for future checks
+        initiallySubmittedSections.current.add(sectionKey);
+        return true;
+      }
+    }
+    
+    // PRIORITY 4: Check original formData prop (from backend) - fallback check
+    // formData comes from the backend and represents what was actually submitted
+    const infraDevFromFormData = formData && 
+      typeof formData === "object" && 
+      (formData as any).infraDevelopment 
+      ? (formData as any).infraDevelopment 
+      : null;
+    
+    // Check if section exists in formData.infraDevelopment (original from backend)
+    // Even if the section object is empty {}, it still means the section was submitted
+    const inFormData = infraDevFromFormData && 
+      typeof infraDevFromFormData === "object" && 
+      (infraDevFromFormData as any)[sectionKey] !== undefined &&
+      (infraDevFromFormData as any)[sectionKey] !== null;
+    
+    if (inFormData) {
+      console.log(`[InfraDevelopmentReview] ${sectionKey} exists in formData`);
+      // Add to ref for future checks
+      initiallySubmittedSections.current.add(sectionKey);
+      return true;
+    }
+    
+    return false;
+  }, [formData, submission, isEditable]);
+
+  // Wrap sectionsWithData computation in useMemo to ensure it updates when edit mode changes
+  const sectionsWithData = useMemo(() => {
+    let result = getSectionsWithData(
+      { infraDevelopment: state },
+      "infraDevelopment"
+    );
+
+    // ALWAYS include sections that were previously submitted, even if they have no data now
+    // This ensures submitted indicators never disappear from the UI
+    const allPossibleSections = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    const previouslySubmittedSections = allPossibleSections.filter((sectionKey) => {
+      const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
+      console.log(`[InfraDevelopmentReview] sectionsWithData - ${sectionKey} wasPreviouslySubmitted:`, wasSubmitted);
+      return wasSubmitted;
+    });
+    
+    console.log(`[InfraDevelopmentReview] sectionsWithData - previouslySubmittedSections:`, previouslySubmittedSections);
+    console.log(`[InfraDevelopmentReview] sectionsWithData - result before merge:`, result);
+    
+    // Merge previously submitted sections with result
+    result = Array.from(
+      new Set([...result, ...previouslySubmittedSections])
+    );
+    
+    console.log(`[InfraDevelopmentReview] sectionsWithData - result after merge:`, result);
+
+    // For preview mode with assigned indicators (nodal officers), always include assigned sections even if they have no data
+    // This ensures assigned indicators are visible in preview, regardless of data presence
+    if (
+      isPreview &&
+      isNodalOfficer &&
+      assignedIndicators &&
+      assignedIndicators.length > 0
+    ) {
+      const assignedSectionKeys: string[] = [];
+      const indicatorToSectionMap: Record<string, string> = {
+        "2.1": "section2_1",
+        "2.2": "section2_2",
+        "2.3": "section2_3",
+        "2.4": "section2_4",
+        "2.5": "section2_5",
+      };
+
+      assignedIndicators.forEach((indicator) => {
+        const sectionKey = indicatorToSectionMap[indicator];
+        if (sectionKey && !result.includes(sectionKey)) {
+          assignedSectionKeys.push(sectionKey);
+        }
+      });
+
+      result = [...result, ...assignedSectionKeys];
+    }
 
   // Helper function to check if a section has meaningful data
   const sectionHasMeaningfulData = (
@@ -1727,6 +1969,7 @@ export const InfraDevelopmentReview = ({
     
     // Filter sections: only include if they have actual submitted data
     // For both nodal officers and non-nodal officers: only show indicators that have been submitted
+    // BUT: Always keep sections that were previously submitted, even if they have no data now
     const existingSections = allPossibleSections.filter((sectionKey) => {
       const section = state[sectionKey];
       const hasData = sectionHasMeaningfulData(sectionKey, section);
@@ -1734,17 +1977,41 @@ export const InfraDevelopmentReview = ({
       
       // Check if section is currently in edit mode
       const sectionId = sectionIdMap[sectionKey];
-      const isCurrentlyEditable = sectionId ? isEditable(sectionId) : false;
+      const isCurrentlyEditable = sectionId ? editModeState[sectionId as keyof typeof editModeState] : false;
       
-      // Keep section visible if it has data OR if it's in edit mode
-      return hasData || isCurrentlyEditable;
+      // Check if section was previously submitted
+      const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
+      
+      // Keep section visible if it has data OR if it's in edit mode OR if it was previously submitted
+      return hasData || isCurrentlyEditable || wasSubmitted;
     });
 
-    // Merge existing sections with sectionsWithData, avoiding duplicates
-    sectionsWithData = Array.from(
-      new Set([...sectionsWithData, ...existingSections])
+    // Merge existing sections with result, avoiding duplicates
+    result = Array.from(
+      new Set([...result, ...existingSections])
     );
-  }
+    }
+
+    // ALWAYS ensure sections in edit mode are visible, regardless of data or preview mode
+    // This prevents sections from disappearing when user deletes all entries in edit mode
+    // Use the editableSections computed above
+    result = Array.from(
+      new Set([...result, ...editableSections])
+    );
+
+    // Final merge: ensure previously submitted sections are always included
+    // Compute again to ensure we have the latest state
+    const allPossibleSectionsFinal = ["section2_1", "section2_2", "section2_3", "section2_4", "section2_5"];
+    const previouslySubmittedSectionsFinal = allPossibleSectionsFinal.filter((sectionKey) => {
+      return wasSectionPreviouslySubmitted(sectionKey);
+    });
+    result = Array.from(
+      new Set([...result, ...previouslySubmittedSectionsFinal])
+    );
+
+    console.log(`[InfraDevelopmentReview] sectionsWithData useMemo - Final result:`, result);
+    return result;
+  }, [state, isPreview, isNodalOfficer, assignedIndicators, editableSections, wasSectionPreviouslySubmitted, editModeState]);
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -3875,8 +4142,10 @@ export const InfraDevelopmentReview = ({
     );
   };
 
-  // If no data, show message
-  if (!hasData) {
+  // If no data AND no sections to show (including previously submitted sections), show message
+  // IMPORTANT: Check sectionsWithData.length instead of just hasData
+  // This ensures previously submitted sections remain visible even if they have no data
+  if (!hasData && sectionsWithData.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">

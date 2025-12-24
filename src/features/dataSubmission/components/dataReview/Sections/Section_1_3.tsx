@@ -149,8 +149,39 @@ export const Section_1_3 = ({
     }
   };
 
-  const handleRemoveULB = (id: string) => {
-    const updatedUlbList = ulbList.filter((ulb) => ulb.id !== id);
+  const handleRemoveULB = (idOrIndex: string | number) => {
+    console.log(`[Section_1_3] handleRemoveULB called with idOrIndex:`, idOrIndex);
+    console.log(`[Section_1_3] Current ulbList:`, ulbList);
+    
+    // Convert to string for comparison
+    const targetId = String(idOrIndex);
+    
+    // Try to parse as number to check if it's an index
+    const targetIndex = parseInt(targetId, 10);
+    const isIndex = !isNaN(targetIndex) && targetIndex >= 0;
+    
+    const updatedUlbList = ulbList.filter((ulb, index) => {
+      // If ulb has an id, compare by id
+      if (ulb.id !== undefined && ulb.id !== null) {
+        const ulbId = String(ulb.id);
+        const shouldKeep = ulbId !== targetId;
+        console.log(`[Section_1_3] Comparing by id - ulb.id:`, ulbId, `target:`, targetId, `shouldKeep:`, shouldKeep);
+        return shouldKeep;
+      }
+      
+      // If no id and target is a valid index, compare by index
+      if (isIndex) {
+        const shouldKeep = index !== targetIndex;
+        console.log(`[Section_1_3] Comparing by index - ulb index:`, index, `target index:`, targetIndex, `shouldKeep:`, shouldKeep);
+        return shouldKeep;
+      }
+      
+      // Fallback: keep the ulb if we can't match
+      console.log(`[Section_1_3] No match found, keeping ulb at index:`, index);
+      return true;
+    });
+    
+    console.log(`[Section_1_3] Updated ulbList:`, updatedUlbList);
     if (setSectionState) {
       setSectionState({ totalULBs, ulbList: updatedUlbList });
     }
@@ -377,7 +408,15 @@ export const Section_1_3 = ({
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => handleRemoveULB(item.id || index.toString())}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log(`[Section_1_3] Delete button clicked for item:`, item);
+                          console.log(`[Section_1_3] isEditable("1.3"):`, isEditable("1.3"));
+                          // Pass id if available, otherwise pass index as number
+                          const idOrIndex = item.id !== undefined && item.id !== null ? item.id : index;
+                          handleRemoveULB(idOrIndex);
+                        }}
                         className="text-red-500 hover:text-red-700 border-none bg-none"
                       >
                         <Trash2 className="h-5 w-5" />

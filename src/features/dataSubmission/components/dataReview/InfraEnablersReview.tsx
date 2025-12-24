@@ -25,7 +25,7 @@ import {
   Eye,
   Download,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   AlertDialog,
@@ -70,7 +70,7 @@ import { useFieldValidation } from "@/features/submission/hooks/useFieldValidati
 import { useFieldErrorDisplay } from "@/features/submission/hooks/useFieldErrorDisplay";
 import { getInputValidationClass as getInputValidationClassUtil } from "@/features/submission/utils/validationStyles";
 import { cn } from "@/lib/utils";
-import { useMemo, useCallback } from "react";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   isSubmissionFromNodalOfficer,
@@ -997,11 +997,102 @@ export const InfraEnablersReview = ({
     };
   }, [submissionId]);
 
+  // Store which sections were initially submitted when component first mounts or when data changes
+  // This ensures we remember sections even if they're removed from formData after deletion
+  // Once a section is marked as submitted, it stays in the set (never removed)
+  const initiallySubmittedSections = useRef<Set<string>>(new Set());
+  
+  useEffect(() => {
+    // Check which sections were submitted and add them to the set
+    // This runs on mount and when formData/submission changes
+    // We only ADD sections, never remove them (once submitted, always submitted)
+    const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+    allPossibleSections.forEach((sectionKey) => {
+      // Skip if already marked as submitted
+      if (initiallySubmittedSections.current.has(sectionKey)) {
+        return;
+      }
+      
+      // Check submission.section_status first (most reliable)
+      let wasSubmitted = false;
+      if (submission?.section_status && typeof submission.section_status === "object") {
+        const sectionStatus = (submission.section_status as any)[sectionKey];
+        if (sectionStatus && 
+            sectionStatus !== "NOT_STARTED" && 
+            sectionStatus !== null && 
+            sectionStatus !== undefined) {
+          wasSubmitted = true;
+        }
+      }
+      
+      // Also check if section exists in formData
+      if (!wasSubmitted && formData && typeof formData === "object") {
+        const infraEnab = (formData as any).infraEnablers;
+        if (infraEnab && typeof infraEnab === "object" && infraEnab[sectionKey] !== undefined && infraEnab[sectionKey] !== null) {
+          wasSubmitted = true;
+        }
+      }
+      
+      if (wasSubmitted) {
+        initiallySubmittedSections.current.add(sectionKey);
+        console.log(`[InfraEnablersReview] Marking ${sectionKey} as submitted`);
+      }
+    });
+    console.log(`[InfraEnablersReview] Submitted sections set:`, Array.from(initiallySubmittedSections.current));
+  }, [formData, submission]); // Run when formData or submission changes
+
+  // Helper function to check if a section was previously submitted/saved
+  // Uses initiallySubmittedSections ref (set on mount) as the source of truth
+  // Also checks current submission.section_status as a fallback
+  const wasSectionPreviouslySubmitted = useCallback((sectionKey: string): boolean => {
+    // PRIORITY 1: Check if section was marked as initially submitted on mount
+    if (initiallySubmittedSections.current.has(sectionKey)) {
+      return true;
+    }
+    
+    // PRIORITY 2: Check submission.section_status - this is also reliable
+    if (submission?.section_status && typeof submission.section_status === "object") {
+      const sectionStatus = (submission.section_status as any)[sectionKey];
+      if (sectionStatus && 
+          sectionStatus !== "NOT_STARTED" && 
+          sectionStatus !== null && 
+          sectionStatus !== undefined) {
+        return true;
+      }
+    }
+    
+    // PRIORITY 3: Check original formData prop (from backend) - fallback check
+    const infraEnabFromFormData = formData && 
+      typeof formData === "object" && 
+      (formData as any).infraEnablers 
+      ? (formData as any).infraEnablers 
+      : null;
+    
+    const inFormData = infraEnabFromFormData && 
+      typeof infraEnabFromFormData === "object" && 
+      (infraEnabFromFormData as any)[sectionKey] !== undefined &&
+      (infraEnabFromFormData as any)[sectionKey] !== null;
+    
+    return inFormData;
+  }, [formData, submission]);
+
   // Check if this section has any data
   const hasData = hasInfraEnablersData({ infraEnablers: state });
   let sectionsWithData = getSectionsWithData(
     { infraEnablers: state },
     "infraEnablers"
+  );
+
+  // ALWAYS include sections that were previously submitted, even if they have no data now
+  // This ensures submitted indicators never disappear from the UI
+  const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+  const previouslySubmittedSections = allPossibleSections.filter((sectionKey) => {
+    return wasSectionPreviouslySubmitted(sectionKey);
+  });
+  
+  // Merge previously submitted sections with sectionsWithData
+  sectionsWithData = Array.from(
+    new Set([...sectionsWithData, ...previouslySubmittedSections])
   );
 
   // For preview mode with assigned indicators, always include assigned sections even if they have no data
@@ -1144,6 +1235,7 @@ export const InfraEnablersReview = ({
     
     // Filter sections: only include if they have data OR (for nodal officers) if they're assigned
     // OR sections that are currently in edit mode (to allow adding entries)
+    // BUT: Always keep sections that were previously submitted, even if they have no data now
     const existingSections = allPossibleSections.filter((sectionKey) => {
       const section = state[sectionKey];
       const hasData = sectionHasMeaningfulData(sectionKey, section);
@@ -1153,8 +1245,11 @@ export const InfraEnablersReview = ({
       const sectionId = sectionIdMap[sectionKey];
       const isCurrentlyEditable = sectionId ? isEditable(sectionId) : false;
       
-      // Keep section visible if it has data OR if it's in edit mode
-      return hasData || isCurrentlyEditable;
+      // Check if section was previously submitted
+      const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
+      
+      // Keep section visible if it has data OR if it's in edit mode OR if it was previously submitted
+      return hasData || isCurrentlyEditable || wasSubmitted;
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
@@ -1162,6 +1257,38 @@ export const InfraEnablersReview = ({
       new Set([...sectionsWithData, ...existingSections])
     );
   }
+
+  // ALWAYS ensure sections in edit mode are visible, regardless of data or preview mode
+  // This prevents sections from disappearing when user deletes all entries in edit mode
+  // Reuse allPossibleSections declared earlier
+  const sectionIdMap: Record<string, string> = {
+    "section4_1": "4.1",
+    "section4_2": "4.2",
+    "section4_3": "4.3",
+    "section4_4": "4.4",
+    "section4_5": "4.5",
+    "section4_6": "4.6",
+  };
+  
+  const sectionsInEditMode = allPossibleSections.filter((sectionKey) => {
+    const sectionId = sectionIdMap[sectionKey];
+    return sectionId ? isEditable(sectionId) : false;
+  });
+  
+  // Merge sections in edit mode with sectionsWithData
+  sectionsWithData = Array.from(
+    new Set([...sectionsWithData, ...sectionsInEditMode])
+  );
+
+  // Final merge: ensure previously submitted sections are always included
+  // This ensures submitted indicators never disappear, even after canceling edit or deleting entries
+  // Reuse allPossibleSections declared earlier
+  const previouslySubmittedSectionsFinal = allPossibleSections.filter((sectionKey) => {
+    return wasSectionPreviouslySubmitted(sectionKey);
+  });
+  sectionsWithData = Array.from(
+    new Set([...sectionsWithData, ...previouslySubmittedSectionsFinal])
+  );
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -2193,11 +2320,56 @@ export const InfraEnablersReview = ({
   ) => {
     setFormDataState((prev: any) => {
       const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const currentSection = prev?.[sectionKey] || {};
+      
+      // When switching from "yes" to "no", clear related fields
+      let clearedFields: any = {};
+      
+      if (value === "no") {
+        switch (sectionId) {
+          case "4.1":
+            if (fieldName === "allEligible") {
+              clearedFields = { websiteLink: "", file: null, files: [], comment: "" };
+            }
+            break;
+          case "4.2":
+            if (fieldName === "available") {
+              clearedFields = { file: null, files: [], comment: "" };
+            }
+            break;
+          case "4.3":
+            if (fieldName === "adopted") {
+              // Clear projects array (which may contain files)
+              clearedFields = { projects: [], file: null, files: [], comment: "" };
+            }
+            break;
+          case "4.4":
+            if (fieldName === "adopted") {
+              clearedFields = { file: null, files: [], comment: "" };
+            }
+            break;
+          case "4.5":
+            if (fieldName === "implemented") {
+              // Clear practices array (which may contain files)
+              clearedFields = { practices: [], file: null, files: [], comment: "" };
+            }
+            break;
+          case "4.6":
+            if (fieldName === "participated") {
+              // Clear capacityArray (which may contain files)
+              clearedFields = { capacityArray: [], comment: "" };
+            }
+            break;
+        }
+        console.log(`[InfraEnablersReview] Clearing fields for ${sectionId}.${fieldName}:`, clearedFields);
+      }
+      
       return {
         ...prev,
         [sectionKey]: {
-          ...prev?.[sectionKey],
+          ...currentSection,
           [fieldName]: value,
+          ...clearedFields,
         },
       };
     });
@@ -3340,8 +3512,10 @@ export const InfraEnablersReview = ({
       </div>
     );
   };
-  // If no data, show message
-  if (!hasData) {
+  // If no data AND no sections to show (including previously submitted sections), show message
+  // IMPORTANT: Check sectionsWithData.length instead of just hasData
+  // This ensures previously submitted sections remain visible even if they have no data
+  if (!hasData && sectionsWithData.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">

@@ -29,6 +29,18 @@ export const Section_1_4 = ({
   };
   const bondList = formData?.section1_4?.bondList || [];
   const totalULBs = formData?.section1_4?.totalULBs || 0;
+  
+  // Debug: Log component render and editability
+  const isSectionEditable = isEditable("1.4");
+  console.log(`[Section_1_4] Component render - isEditable("1.4"):`, isSectionEditable);
+  console.log(`[Section_1_4] bondList length:`, bondList.length);
+  console.log(`[Section_1_4] bondList:`, bondList);
+  
+  // Debug: Log when bondList changes
+  useEffect(() => {
+    console.log(`[Section_1_4] bondList updated:`, bondList);
+    console.log(`[Section_1_4] isEditable("1.4"):`, isEditable("1.4"));
+  }, [bondList]);
 
   // State for adding new bond entry
   const [showAddBondForm, setShowAddBondForm] = useState(false);
@@ -69,8 +81,39 @@ export const Section_1_4 = ({
     }
   };
 
-  const handleRemoveBond = (id: string) => {
-    const updatedBondList = bondList.filter((bond) => bond.id !== id);
+  const handleRemoveBond = (idOrIndex: string | number) => {
+    console.log(`[Section_1_4] handleRemoveBond called with idOrIndex:`, idOrIndex);
+    console.log(`[Section_1_4] Current bondList:`, bondList);
+    
+    // Convert to string for comparison
+    const targetId = String(idOrIndex);
+    
+    // Try to parse as number to check if it's an index
+    const targetIndex = parseInt(targetId, 10);
+    const isIndex = !isNaN(targetIndex) && targetIndex >= 0;
+    
+    const updatedBondList = bondList.filter((bond, index) => {
+      // If bond has an id, compare by id
+      if (bond.id !== undefined && bond.id !== null) {
+        const bondId = String(bond.id);
+        const shouldKeep = bondId !== targetId;
+        console.log(`[Section_1_4] Comparing by id - bond.id:`, bondId, `target:`, targetId, `shouldKeep:`, shouldKeep);
+        return shouldKeep;
+      }
+      
+      // If no id and target is a valid index, compare by index
+      if (isIndex) {
+        const shouldKeep = index !== targetIndex;
+        console.log(`[Section_1_4] Comparing by index - bond index:`, index, `target index:`, targetIndex, `shouldKeep:`, shouldKeep);
+        return shouldKeep;
+      }
+      
+      // Fallback: keep the bond if we can't match
+      console.log(`[Section_1_4] No match found, keeping bond at index:`, index);
+      return true;
+    });
+    
+    console.log(`[Section_1_4] Updated bondList:`, updatedBondList);
     if (setSectionState) {
       setSectionState({ totalULBs, bondList: updatedBondList });
     }
@@ -153,9 +196,14 @@ export const Section_1_4 = ({
               <th className="py-3 px-4 text-left text-sm font-normal">
                 Value (INR - values is in CRORES)
               </th>
-              <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+              <th className="py-3 px-4 text-left text-sm font-normal">
                 Tenor of Bond (in years)
               </th>
+              {isEditable("1.4") && (
+                <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                  Action
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -315,9 +363,15 @@ export const Section_1_4 = ({
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() =>
-                          handleRemoveBond(item.id || index.toString())
-                        }
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log(`[Section_1_4] Delete button clicked for item:`, item);
+                          console.log(`[Section_1_4] isEditable("1.4"):`, isEditable("1.4"));
+                          // Pass id if available, otherwise pass index as number
+                          const idOrIndex = item.id !== undefined && item.id !== null ? item.id : index;
+                          handleRemoveBond(idOrIndex);
+                        }}
                         className="text-red-500 hover:text-red-700 border-none bg-none"
                       >
                         <Trash2 className="h-5 w-5" />

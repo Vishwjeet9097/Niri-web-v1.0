@@ -235,9 +235,100 @@ export const InfraFinancingReview = ({
   );
 
   const hasData = hasInfraFinancingData({ infraFinancing: formData });
+  // Store which sections were initially submitted when component first mounts or when data changes
+  // This ensures we remember sections even if they're removed from formData after deletion
+  // Once a section is marked as submitted, it stays in the set (never removed)
+  const initiallySubmittedSections = useRef<Set<string>>(new Set());
+  
+  useEffect(() => {
+    // Check which sections were submitted and add them to the set
+    // This runs on mount and when formData/submission changes
+    // We only ADD sections, never remove them (once submitted, always submitted)
+    const allPossibleSections = ["section1_1", "section1_2", "section1_3", "section1_4", "section1_5"];
+    allPossibleSections.forEach((sectionKey) => {
+      // Skip if already marked as submitted
+      if (initiallySubmittedSections.current.has(sectionKey)) {
+        return;
+      }
+      
+      // Check submission.section_status first (most reliable)
+      let wasSubmitted = false;
+      if (submission?.section_status && typeof submission.section_status === "object") {
+        const sectionStatus = (submission.section_status as any)[sectionKey];
+        if (sectionStatus && 
+            sectionStatus !== "NOT_STARTED" && 
+            sectionStatus !== null && 
+            sectionStatus !== undefined) {
+          wasSubmitted = true;
+        }
+      }
+      
+      // Also check if section exists in formData
+      if (!wasSubmitted && formData && typeof formData === "object") {
+        const infraFin = (formData as any).infraFinancing || ((formData as any).section1_1 ? formData : null);
+        if (infraFin && typeof infraFin === "object" && infraFin[sectionKey] !== undefined && infraFin[sectionKey] !== null) {
+          wasSubmitted = true;
+        }
+      }
+      
+      if (wasSubmitted) {
+        initiallySubmittedSections.current.add(sectionKey);
+        console.log(`[InfraFinancingReview] Marking ${sectionKey} as submitted`);
+      }
+    });
+    console.log(`[InfraFinancingReview] Submitted sections set:`, Array.from(initiallySubmittedSections.current));
+  }, [formData, submission]); // Run when formData or submission changes
+
+  // Helper function to check if a section was previously submitted/saved
+  // Uses initiallySubmittedSections ref (set on mount) as the source of truth
+  // Also checks current submission.section_status as a fallback
+  const wasSectionPreviouslySubmitted = useCallback((sectionKey: string): boolean => {
+    // PRIORITY 1: Check if section was marked as initially submitted on mount
+    if (initiallySubmittedSections.current.has(sectionKey)) {
+      return true;
+    }
+    
+    // PRIORITY 2: Check submission.section_status - this is also reliable
+    if (submission?.section_status && typeof submission.section_status === "object") {
+      const sectionStatus = (submission.section_status as any)[sectionKey];
+      if (sectionStatus && 
+          sectionStatus !== "NOT_STARTED" && 
+          sectionStatus !== null && 
+          sectionStatus !== undefined) {
+        return true;
+      }
+    }
+    
+    // PRIORITY 3: Check original formData prop (from backend) - fallback check
+    const infraFinFromFormData = formData && 
+      typeof formData === "object" && 
+      ((formData as any).infraFinancing || (formData as any).section1_1)
+      ? ((formData as any).infraFinancing || formData)
+      : null;
+    
+    const inFormData = infraFinFromFormData && 
+      typeof infraFinFromFormData === "object" && 
+      (infraFinFromFormData as any)[sectionKey] !== undefined &&
+      (infraFinFromFormData as any)[sectionKey] !== null;
+    
+    return inFormData;
+  }, [formData, submission]);
+
   const sectionsWithData = useMemo(() => {
     const detectedSections =
       getSectionsWithData({ infraFinancing: formData }, "infraFinancing") || [];
+
+    // ALWAYS include sections that were previously submitted, even if they have no data now
+    // This ensures submitted indicators never disappear from the UI
+    const allPossibleSections = ["section1_1", "section1_2", "section1_3", "section1_4", "section1_5"];
+    const previouslySubmittedSections = allPossibleSections.filter((sectionKey) => {
+      return wasSectionPreviouslySubmitted(sectionKey);
+    });
+    
+    // Merge previously submitted sections with detected sections
+    const mergedDetectedSections = Array.from(
+      new Set([...detectedSections, ...previouslySubmittedSections])
+    );
 
     const infraPayload =
       formData && (formData as any).section1_1
@@ -246,9 +337,14 @@ export const InfraFinancingReview = ({
         ? (formData as any).infraFinancing || formData
         : {};
 
-    // Filter out sections 1.1 and 1.2 from detectedSections if they don't have meaningful data
+    // Filter out sections 1.1 and 1.2 from mergedDetectedSections if they don't have meaningful data
     // (exclude year, percentage, and marksObtained from meaningful data check)
-    const filteredDetectedSections = detectedSections.filter((sec) => {
+    // BUT: Always keep sections that were previously submitted
+    const filteredDetectedSections = mergedDetectedSections.filter((sec) => {
+      // Always keep previously submitted sections
+      if (wasSectionPreviouslySubmitted(sec)) {
+        return true;
+      }
       if (sec === "section1_1") {
         const section = infraPayload?.section1_1;
         if (!section || typeof section !== "object") return false;
@@ -461,12 +557,12 @@ export const InfraFinancingReview = ({
     // For both nodal officers and non-nodal officers: only show indicators that have been submitted
     // This ensures only saved/submitted indicators are shown
     const final = merged.filter((sec) => {
-      // Check if section has actual data - only show if submitted
+      // Check if section has actual data - only show if submitted OR if in edit mode
       if (sec === "section1_1") {
         const section = infraPayload?.section1_1;
         if (!section) {
-          console.log("🚫 Section 1.1 excluded: no section object");
-          return false;
+          // Check if it's in edit mode even if section doesn't exist
+          return isEditable("1.1");
         }
         // Exclude percentage, marksObtained, and year from meaningful data check
         // percentage and marksObtained are calculated/backend fields and should not determine visibility
@@ -485,19 +581,20 @@ export const InfraFinancingReview = ({
             return false;
           return true;
         });
+        const isSectionEditable = isEditable("1.1");
         console.log(
-          `${hasData ? "✅" : "🚫"} Section 1.1 ${
-            hasData ? "included" : "excluded"
+          `${hasData || isSectionEditable ? "✅" : "🚫"} Section 1.1 ${
+            hasData || isSectionEditable ? "included" : "excluded"
           }:`,
           section
         );
-        return hasData;
+        return hasData || isSectionEditable;
       }
       if (sec === "section1_2") {
         const section = infraPayload?.section1_2;
         if (!section) {
-          console.log("🚫 Section 1.2 excluded: no section object");
-          return false;
+          // Check if it's in edit mode even if section doesn't exist
+          return isEditable("1.2");
         }
         // Exclude percentage, marksObtained, and year from meaningful data check
         // percentage and marksObtained are calculated/backend fields and should not determine visibility
@@ -516,25 +613,36 @@ export const InfraFinancingReview = ({
             return false;
           return true;
         });
+        const isSectionEditable = isEditable("1.2");
         console.log(
-          `${hasData ? "✅" : "🚫"} Section 1.2 ${
-            hasData ? "included" : "excluded"
+          `${hasData || isSectionEditable ? "✅" : "🚫"} Section 1.2 ${
+            hasData || isSectionEditable ? "included" : "excluded"
           }:`,
           section
         );
-        return hasData;
+        return hasData || isSectionEditable;
       }
       if (sec === "section1_3") {
+        const section = infraPayload?.section1_3;
+        if (!section) {
+          // Check if it's in edit mode even if section doesn't exist
+          return isEditable("1.3");
+        }
         const hasData =
-          Array.isArray(infraPayload?.section1_3?.ulbList) &&
-          infraPayload.section1_3.ulbList.length > 0;
+          Array.isArray(section?.ulbList) &&
+          section.ulbList.length > 0;
         const isSectionEditable = isEditable("1.3");
         return hasData || isSectionEditable;
       }
       if (sec === "section1_4") {
+        const section = infraPayload?.section1_4;
+        if (!section) {
+          // Check if it's in edit mode even if section doesn't exist
+          return isEditable("1.4");
+        }
         const hasData =
-          Array.isArray(infraPayload?.section1_4?.bondList) &&
-          infraPayload.section1_4.bondList.length > 0;
+          Array.isArray(section?.bondList) &&
+          section.bondList.length > 0;
         const isSectionEditable = isEditable("1.4");
         return hasData || isSectionEditable;
       }
@@ -566,8 +674,39 @@ export const InfraFinancingReview = ({
       return true;
     });
 
-    return final;
-  }, [formData, isPreview, isNodalOfficer, assignedIndicators]);
+    // ALWAYS ensure sections in edit mode are visible, regardless of data or preview mode
+    // This prevents sections from disappearing when user deletes all entries in edit mode
+    // Reuse allPossibleSections declared earlier in this useMemo
+    const sectionIdMap: Record<string, string> = {
+      "section1_1": "1.1",
+      "section1_2": "1.2",
+      "section1_3": "1.3",
+      "section1_4": "1.4",
+      "section1_5": "1.5",
+    };
+    
+    const sectionsInEditMode = allPossibleSections.filter((sectionKey) => {
+      const sectionId = sectionIdMap[sectionKey];
+      return sectionId ? isEditable(sectionId) : false;
+    });
+    
+    // Merge sections in edit mode with final, ensuring they're always visible
+    let result = Array.from(
+      new Set([...final, ...sectionsInEditMode])
+    );
+
+    // Final merge: ensure previously submitted sections are always included
+    // This ensures submitted indicators never disappear, even after canceling edit or deleting entries
+    // Reuse allPossibleSections declared earlier in this useMemo
+    const previouslySubmittedSectionsFinal = allPossibleSections.filter((sectionKey) => {
+      return wasSectionPreviouslySubmitted(sectionKey);
+    });
+    result = Array.from(
+      new Set([...result, ...previouslySubmittedSectionsFinal])
+    );
+
+    return result;
+  }, [formData, isPreview, isNodalOfficer, assignedIndicators, wasSectionPreviouslySubmitted]);
 
   // State for real-time calculation
   const [capitalAllocation, setCapitalAllocation] = useState("");
@@ -852,11 +991,11 @@ export const InfraFinancingReview = ({
           : sectionData.status
         : undefined;
 
-      // If section status is REVERTED, allow editing if section is in edit mode
-      if (sectionStatusValue === "REVERTED") {
+      // If section status is REVERTED or RESUBMITTED, allow editing if section is in edit mode
+      if (sectionStatusValue === "REVERTED" || sectionStatusValue === "RESUBMITTED") {
         const result = isEditable(sectionId);
         console.log(
-          `[InfraFinancingReview] NODAL_OFFICER shouldBeEditable (REVERTED section):`,
+          `[InfraFinancingReview] NODAL_OFFICER shouldBeEditable (${sectionStatusValue} section):`,
           {
             sectionId,
             sectionStatusValue,
@@ -897,6 +1036,58 @@ export const InfraFinancingReview = ({
 
     // For STATE_APPROVER, check submission status first
     if (isStateApprover) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      
+      // Check multiple sources for status: submission.section_status (most reliable), then formData, submissionData, and store
+      // Use the same logic as renderActionButtons to ensure consistency
+      let sectionStatusValue: string | undefined;
+      
+      // First check submission.section_status (most reliable source)
+      if (submission?.section_status && typeof submission.section_status === "object") {
+        sectionStatusValue = (submission.section_status as any)[sectionKey];
+      }
+      
+      // Check both formData prop and store data to ensure we get the correct status after refresh
+      // This matches the logic in renderActionButtons
+      const storeSectionData = getSectionData(sectionKey) as any;
+      const sectionData = (formData && formData[sectionKey]) || (submissionData && submissionData[sectionKey]) || storeSectionData;
+      
+      // Fallback to sectionData status if not found in submission.section_status
+      if (!sectionStatusValue && sectionData) {
+        sectionStatusValue = Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status;
+      }
+      
+      const mospiStatus = sectionData
+        ? Array.isArray(sectionData)
+          ? (sectionData as any)?.mospi_status
+          : sectionData?.mospi_status
+        : undefined;
+
+      // Debug logging for STATE_APPROVER status check
+      console.log(`[InfraFinancingReview] shouldBeEditable(${sectionId}) - STATE_APPROVER status check:`, {
+        sectionKey,
+        sectionStatusValue,
+        fromSubmissionSectionStatus: submission?.section_status ? (submission.section_status as any)[sectionKey] : undefined,
+        fromFormData: formData?.[sectionKey] ? (Array.isArray(formData[sectionKey]) ? (formData[sectionKey] as any).status : (formData[sectionKey] as any).status) : undefined,
+        fromSubmissionData: submissionData?.[sectionKey] ? (Array.isArray(submissionData[sectionKey]) ? (submissionData[sectionKey] as any).status : (submissionData[sectionKey] as any).status) : undefined,
+        fromStore: storeSectionData ? (Array.isArray(storeSectionData) ? undefined : (storeSectionData as any).status) : undefined,
+        mospiStatus,
+        isEditable: isEditable(sectionId),
+      });
+
+      // If section status is RESUBMITTED, allow editing if section is in edit mode
+      if (sectionStatusValue === "RESUBMITTED") {
+        const result = isEditable(sectionId);
+        console.log(`[InfraFinancingReview] shouldBeEditable - RESUBMITTED detected for ${sectionId}:`, {
+          sectionStatusValue,
+          isEditable: isEditable(sectionId),
+          result,
+        });
+        return result;
+      }
+
       // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       // Should NOT have editing access when status is SUBMITTED_TO_MOSPI_REVIEWER or SUBMITTED_TO_MOSPI_APPROVER
       if (
@@ -906,14 +1097,6 @@ export const InfraFinancingReview = ({
       ) {
         return false;
       }
-
-      const sectionKey = `section${sectionId.replace(".", "_")}`;
-      const sectionData = formData && formData[sectionKey];
-      const mospiStatus = sectionData
-        ? Array.isArray(sectionData)
-          ? (sectionData as any)?.mospi_status
-          : sectionData?.mospi_status
-        : undefined;
 
       // If mospi_status is ACCEPTED, section should NOT be editable
       if (mospiStatus === "ACCEPTED") {
@@ -990,6 +1173,36 @@ export const InfraFinancingReview = ({
     }
 
     if (isStateApprover) {
+      const sectionKey = `section${sectionId.replace(".", "_")}`;
+      
+      // Check multiple sources for status: submission.section_status (most reliable), then formData, submissionData, and store
+      let sectionStatusValue: string | undefined;
+      
+      // First check submission.section_status (most reliable source)
+      if (submission?.section_status && typeof submission.section_status === "object") {
+        sectionStatusValue = (submission.section_status as any)[sectionKey];
+      }
+      
+      // Check both formData prop and store data to ensure we get the correct status after refresh
+      const storeSectionData = getSectionData(sectionKey) as any;
+      const sectionData = (formData && formData[sectionKey]) || (submissionData && submissionData[sectionKey]) || storeSectionData;
+      
+      // Fallback to sectionData status if not found in submission.section_status
+      if (!sectionStatusValue && sectionData) {
+        sectionStatusValue = Array.isArray(sectionData)
+          ? (sectionData as any).status
+          : sectionData.status;
+      }
+      
+      // If section status is RESUBMITTED, allow editing (STATE_APPROVER can edit resubmitted sections)
+      if (sectionStatusValue === "RESUBMITTED") {
+        console.log(`[InfraFinancingReview] canEditSection - RESUBMITTED detected for ${sectionId}:`, {
+          sectionStatusValue,
+          canEdit: true,
+        });
+        return true;
+      }
+      
       // STATE_APPROVER can edit when status is DRAFT, SUBMITTED_TO_STATE, or RETURNED_FROM_MOSPI
       if (
         submissionStatus !== "DRAFT" &&
@@ -999,8 +1212,6 @@ export const InfraFinancingReview = ({
         return false;
       }
 
-      const sectionKey = `section${sectionId.replace(".", "_")}`;
-      const sectionData = formData && formData[sectionKey];
       const mospiStatus = sectionData
         ? Array.isArray(sectionData)
           ? (sectionData as any)?.mospi_status
@@ -4804,7 +5015,7 @@ export const InfraFinancingReview = ({
 
             <Section_1_3
               formData={{ section1_3: section13State }}
-              isEditable={isEditable}
+              isEditable={shouldBeEditable}
               setSectionState={setSection13State}
               resetKey={selectResetKey}
               validationErrors={validation.errors}
@@ -4897,7 +5108,7 @@ export const InfraFinancingReview = ({
 
             <Section_1_4
               formData={{ section1_4: section14State }}
-              isEditable={isEditable}
+              isEditable={shouldBeEditable}
               setSectionState={setSection14State}
               resetKey={selectResetKey}
               validationErrors={validation.errors}
@@ -4937,12 +5148,31 @@ export const InfraFinancingReview = ({
                   <RadioGroup
                     value={section15State?.hasIntermediary || ""}
                     onValueChange={(value) => {
-                      setSection15State({
-                        ...section15State,
-                        hasIntermediary: value,
-                        // Clear comment if switching to "yes"
-                        ...(value === "yes" ? { comment: undefined } : {}),
-                      });
+                      if (value === "no") {
+                        // When switching to "no", clear ffiArray and comment
+                        // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
+                        const updatedState = {
+                          ...section15State,
+                          hasIntermediary: value,
+                          ffiArray: [], // Clear the array (files are in the array items)
+                          comment: "", // Clear comment - user should enter fresh comment for new "no" selection
+                        };
+                        setSection15State(updatedState);
+                        // Also update formDataState to ensure persistence and document tab updates
+                        setFormDataForSection("section1_5", updatedState);
+                      } else if (value === "yes") {
+                        // When switching to "yes", clear comment but keep ffiArray
+                        setSection15State({
+                          ...section15State,
+                          hasIntermediary: value,
+                          comment: undefined, // Clear comment
+                        });
+                      } else {
+                        setSection15State({
+                          ...section15State,
+                          hasIntermediary: value,
+                        });
+                      }
                     }}
                     className="flex flex-row gap-6"
                   >
@@ -5240,11 +5470,28 @@ export const InfraFinancingReview = ({
                                   <Button
                                     variant="outline"
                                     size="icon"
-                                    onClick={() => {
-                                      // Use index for deletion (already index-based)
-                                      const updatedArray = ffiArray.filter(
-                                        (_, idx) => idx !== index
-                                      );
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      console.log(`[Section_1_5] Delete button clicked for item:`, item);
+                                      console.log(`[Section_1_5] isEditable("1.5"):`, shouldBeEditable("1.5"));
+                                      console.log(`[Section_1_5] Current ffiArray:`, ffiArray);
+                                      
+                                      // Handle deletion: if item has id, filter by id, otherwise filter by index
+                                      const updatedArray = ffiArray.filter((ffiItem, idx) => {
+                                        if (ffiItem.id !== undefined && ffiItem.id !== null) {
+                                          // If item has id, compare by id
+                                          const shouldKeep = String(ffiItem.id) !== String(item.id);
+                                          console.log(`[Section_1_5] Comparing by id - ffiItem.id:`, ffiItem.id, `item.id:`, item.id, `shouldKeep:`, shouldKeep);
+                                          return shouldKeep;
+                                        }
+                                        // Otherwise, filter by index
+                                        const shouldKeep = idx !== index;
+                                        console.log(`[Section_1_5] Comparing by index - idx:`, idx, `target index:`, index, `shouldKeep:`, shouldKeep);
+                                        return shouldKeep;
+                                      });
+                                      
+                                      console.log(`[Section_1_5] Updated ffiArray:`, updatedArray);
                                       setSection15State({
                                         ...section15State,
                                         ffiArray: updatedArray,
@@ -5264,7 +5511,7 @@ export const InfraFinancingReview = ({
                   </div>
 
                   {/* Add More Button - Only visible when in edit mode */}
-                  {isEditable("1.5") && !showAddForm1_5 && (
+                  {shouldBeEditable("1.5") && !showAddForm1_5 && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -5277,7 +5524,7 @@ export const InfraFinancingReview = ({
                   )}
 
                   {/* Add Entry Form - Only visible when showAddForm1_5 is true */}
-                  {showAddForm1_5 && isEditable("1.5") && (
+                  {showAddForm1_5 && shouldBeEditable("1.5") && (
                     <div className="border rounded-lg p-4 bg-gray-50">
                       <h4 className="font-medium mb-3">Add New Organization</h4>
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">

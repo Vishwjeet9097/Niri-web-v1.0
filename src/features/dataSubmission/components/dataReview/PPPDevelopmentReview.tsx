@@ -871,11 +871,102 @@ export const PPPDevelopmentReview = ({
     };
   }, [submissionId]);
 
+  // Store which sections were initially submitted when component first mounts or when data changes
+  // This ensures we remember sections even if they're removed from formData after deletion
+  // Once a section is marked as submitted, it stays in the set (never removed)
+  const initiallySubmittedSections = useRef<Set<string>>(new Set());
+  
+  useEffect(() => {
+    // Check which sections were submitted and add them to the set
+    // This runs on mount and when formData/submission changes
+    // We only ADD sections, never remove them (once submitted, always submitted)
+    const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
+    allPossibleSections.forEach((sectionKey) => {
+      // Skip if already marked as submitted
+      if (initiallySubmittedSections.current.has(sectionKey)) {
+        return;
+      }
+      
+      // Check submission.section_status first (most reliable)
+      let wasSubmitted = false;
+      if (submission?.section_status && typeof submission.section_status === "object") {
+        const sectionStatus = (submission.section_status as any)[sectionKey];
+        if (sectionStatus && 
+            sectionStatus !== "NOT_STARTED" && 
+            sectionStatus !== null && 
+            sectionStatus !== undefined) {
+          wasSubmitted = true;
+        }
+      }
+      
+      // Also check if section exists in formData
+      if (!wasSubmitted && formData && typeof formData === "object") {
+        const pppDev = (formData as any).pppDevelopment;
+        if (pppDev && typeof pppDev === "object" && pppDev[sectionKey] !== undefined && pppDev[sectionKey] !== null) {
+          wasSubmitted = true;
+        }
+      }
+      
+      if (wasSubmitted) {
+        initiallySubmittedSections.current.add(sectionKey);
+        console.log(`[PPPDevelopmentReview] Marking ${sectionKey} as submitted`);
+      }
+    });
+    console.log(`[PPPDevelopmentReview] Submitted sections set:`, Array.from(initiallySubmittedSections.current));
+  }, [formData, submission]); // Run when formData or submission changes
+
+  // Helper function to check if a section was previously submitted/saved
+  // Uses initiallySubmittedSections ref (set on mount) as the source of truth
+  // Also checks current submission.section_status as a fallback
+  const wasSectionPreviouslySubmitted = useCallback((sectionKey: string): boolean => {
+    // PRIORITY 1: Check if section was marked as initially submitted on mount
+    if (initiallySubmittedSections.current.has(sectionKey)) {
+      return true;
+    }
+    
+    // PRIORITY 2: Check submission.section_status - this is also reliable
+    if (submission?.section_status && typeof submission.section_status === "object") {
+      const sectionStatus = (submission.section_status as any)[sectionKey];
+      if (sectionStatus && 
+          sectionStatus !== "NOT_STARTED" && 
+          sectionStatus !== null && 
+          sectionStatus !== undefined) {
+        return true;
+      }
+    }
+    
+    // PRIORITY 3: Check original formData prop (from backend) - fallback check
+    const pppDevFromFormData = formData && 
+      typeof formData === "object" && 
+      (formData as any).pppDevelopment 
+      ? (formData as any).pppDevelopment 
+      : null;
+    
+    const inFormData = pppDevFromFormData && 
+      typeof pppDevFromFormData === "object" && 
+      (pppDevFromFormData as any)[sectionKey] !== undefined &&
+      (pppDevFromFormData as any)[sectionKey] !== null;
+    
+    return inFormData;
+  }, [formData, submission]);
+
   // Check if this section has any data
   const hasData = hasPPPDevelopmentData({ pppDevelopment: formDataState });
   let sectionsWithData = getSectionsWithData(
     { pppDevelopment: formDataState },
     "pppDevelopment"
+  );
+
+  // ALWAYS include sections that were previously submitted, even if they have no data now
+  // This ensures submitted indicators never disappear from the UI
+  const allPossibleSections = ["section3_1", "section3_2", "section3_3", "section3_4"];
+  const previouslySubmittedSections = allPossibleSections.filter((sectionKey) => {
+    return wasSectionPreviouslySubmitted(sectionKey);
+  });
+  
+  // Merge previously submitted sections with sectionsWithData
+  sectionsWithData = Array.from(
+    new Set([...sectionsWithData, ...previouslySubmittedSections])
   );
 
   // For preview mode with assigned indicators, always include assigned sections even if they have no data
@@ -1017,6 +1108,7 @@ export const PPPDevelopmentReview = ({
 
     // Filter sections: only include if they have data OR (for nodal officers) if they're assigned
     // OR sections that are currently in edit mode (to allow adding entries)
+    // BUT: Always keep sections that were previously submitted, even if they have no data now
     const existingSections = allPossibleSections.filter((sectionKey) => {
       const section = formDataState[sectionKey];
       const hasData = sectionHasMeaningfulData(sectionKey, section);
@@ -1026,8 +1118,11 @@ export const PPPDevelopmentReview = ({
       const sectionId = sectionIdMap[sectionKey];
       const isCurrentlyEditable = sectionId ? isEditable(sectionId) : false;
       
-      // Keep section visible if it has data OR if it's in edit mode
-      return hasData || isCurrentlyEditable;
+      // Check if section was previously submitted
+      const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
+      
+      // Keep section visible if it has data OR if it's in edit mode OR if it was previously submitted
+      return hasData || isCurrentlyEditable || wasSubmitted;
     });
 
     // Merge existing sections with sectionsWithData, avoiding duplicates
@@ -1035,6 +1130,35 @@ export const PPPDevelopmentReview = ({
       new Set([...sectionsWithData, ...existingSections])
     );
   }
+
+  // ALWAYS ensure sections in edit mode are visible, regardless of data or preview mode
+  // This prevents sections from disappearing when user deletes all entries in edit mode
+  const allPossibleSectionsForEditMode = ["section3_1", "section3_2", "section3_3", "section3_4"];
+  const sectionIdMap: Record<string, string> = {
+    "section3_1": "3.1",
+    "section3_2": "3.2",
+    "section3_3": "3.3",
+    "section3_4": "3.4",
+  };
+  
+  const sectionsInEditMode = allPossibleSectionsForEditMode.filter((sectionKey) => {
+    const sectionId = sectionIdMap[sectionKey];
+    return sectionId ? isEditable(sectionId) : false;
+  });
+  
+  // Merge sections in edit mode with sectionsWithData
+  sectionsWithData = Array.from(
+    new Set([...sectionsWithData, ...sectionsInEditMode])
+  );
+
+  // Final merge: ensure previously submitted sections are always included
+  // This ensures submitted indicators never disappear, even after canceling edit or deleting entries
+  const previouslySubmittedSectionsFinal = allPossibleSections.filter((sectionKey) => {
+    return wasSectionPreviouslySubmitted(sectionKey);
+  });
+  sectionsWithData = Array.from(
+    new Set([...sectionsWithData, ...previouslySubmittedSectionsFinal])
+  );
 
   const handleOpenModal = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -1321,11 +1445,33 @@ export const PPPDevelopmentReview = ({
   ) => {
     setFormDataState((prev: any) => {
       const sectionKey = `section${sectionId.replace(".", "_")}`;
+      const currentSection = prev?.[sectionKey] || {};
+      
+      // When switching from "yes" to "no", clear related fields
+      let clearedFields: any = {};
+      
+      if (value === "no") {
+        switch (sectionId) {
+          case "3.1":
+            if (fieldName === "available") {
+              clearedFields = { file: null, files: [], comment: "" };
+            }
+            break;
+          case "3.2":
+            if (fieldName === "available") {
+              clearedFields = { file: null, files: [], comment: "" };
+            }
+            break;
+        }
+        console.log(`[PPPDevelopmentReview] Clearing fields for ${sectionId}.${fieldName}:`, clearedFields);
+      }
+      
       return {
         ...prev,
         [sectionKey]: {
-          ...prev?.[sectionKey],
+          ...currentSection,
           [fieldName]: value,
+          ...clearedFields,
         },
       };
     });
@@ -3223,8 +3369,10 @@ export const PPPDevelopmentReview = ({
       </div>
     );
   };
-  // If no data, show message
-  if (!hasData) {
+  // If no data AND no sections to show (including previously submitted sections), show message
+  // IMPORTANT: Check sectionsWithData.length instead of just hasData
+  // This ensures previously submitted sections remain visible even if they have no data
+  if (!hasData && sectionsWithData.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">
@@ -4131,7 +4279,7 @@ export const PPPDevelopmentReview = ({
               </div>
 
               {/* Add More Project Button - Only visible when in edit mode */}
-              {isEditable("3.3") && !showAddVGFForm && (
+              {shouldBeEditable("3.3") && !showAddVGFForm && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -4144,7 +4292,7 @@ export const PPPDevelopmentReview = ({
               )}
 
               {/* Add VGF Form - Only visible when showAddVGFForm is true */}
-              {showAddVGFForm && isEditable("3.3") && (
+              {showAddVGFForm && shouldBeEditable("3.3") && (
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <h4 className="font-medium mb-3">
                     Add New VGF/IIPDF Proposal
@@ -4361,7 +4509,7 @@ export const PPPDevelopmentReview = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <Label>Total Projects Awarded</Label>
-                  {isEditable("3.4") ? (
+                  {shouldBeEditable("3.4") ? (
                     <div>
                       <Input
                         type="number"
@@ -4404,7 +4552,7 @@ export const PPPDevelopmentReview = ({
                     Total Project Cost Awarded (INR - values is in CRORES){" "}
                   </Label>
                   {/* <p className="text-xs text-muted-foreground mt-1">INR - values is in CRORES</p> */}
-                  {isEditable("3.4") ? (
+                  {shouldBeEditable("3.4") ? (
                     <div>
                       <Input
                         type="number"
@@ -4689,7 +4837,7 @@ export const PPPDevelopmentReview = ({
               </div>
 
               {/* Add More Project Button - Only visible when in edit mode */}
-              {isEditable("3.4") && !showAddProjectForm && (
+              {shouldBeEditable("3.4") && !showAddProjectForm && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -4702,7 +4850,7 @@ export const PPPDevelopmentReview = ({
               )}
 
               {/* Add Project Form - Only visible when showAddProjectForm is true */}
-              {showAddProjectForm && isEditable("3.4") && (
+              {showAddProjectForm && shouldBeEditable("3.4") && (
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <h4 className="font-medium mb-3">Add New Project</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
