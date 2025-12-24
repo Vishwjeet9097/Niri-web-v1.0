@@ -271,6 +271,22 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
         );
       }
       case "section2_2": {
+        // Section 2.2 has boolean field (hasSpecializedEntity) and comment field
+        const hasBoolean =
+          section?.hasSpecializedEntity !== null &&
+          section?.hasSpecializedEntity !== undefined &&
+          section?.hasSpecializedEntity !== "";
+        const hasComment =
+          section?.comment !== null &&
+          section?.comment !== undefined &&
+          section?.comment !== "";
+
+        // If boolean or comment is set, return true
+        if (hasBoolean || hasComment) {
+          return true;
+        }
+
+        // Otherwise check array data
         const items = Array.isArray(section?.specializedEntityArray)
           ? section.specializedEntityArray
           : Array.isArray(section)
@@ -373,6 +389,7 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
       }
 
       case "section2_5": {
+        // Check array data
         const array = Array.isArray(section?.assetMonetizationArray)
           ? section.assetMonetizationArray
           : Array.isArray(section)
@@ -386,6 +403,8 @@ export const hasInfraDevelopmentData = (formData: any): boolean => {
               hasMeaningfulValue(item.sector) ||
               hasMeaningfulValue(item.type) ||
               hasMeaningfulValue(item.ownership) ||
+              hasMeaningfulValue(item.location) ||
+              hasMeaningfulValue(item.websiteLink) ||
               hasMeaningfulValue(item.estimatedMonetization)
           )
         );
@@ -725,6 +744,22 @@ const hasSectionData = (
           );
         }
         case "section2_2": {
+          // Section 2.2 has boolean field (hasSpecializedEntity) and comment field
+          const hasBoolean =
+            section?.hasSpecializedEntity !== null &&
+            section?.hasSpecializedEntity !== undefined &&
+            section?.hasSpecializedEntity !== "";
+          const hasComment =
+            section?.comment !== null &&
+            section?.comment !== undefined &&
+            section?.comment !== "";
+
+          // If boolean or comment is set, return true
+          if (hasBoolean || hasComment) {
+            return true;
+          }
+
+          // Otherwise check array data
           const items = Array.isArray(section?.specializedEntityArray)
             ? section.specializedEntityArray
             : Array.isArray(section)

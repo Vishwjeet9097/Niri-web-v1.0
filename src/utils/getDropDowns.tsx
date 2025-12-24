@@ -1,7 +1,7 @@
 import { useDropdownStore } from '@/utils/useDropDownStore';
 import React from 'react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { ORGANISATION_TYPE_OPTIONS, OWNERSHIP_OPTIONS, PROJECT_TYPE_OPTIONS, RATING_OPTIONS, SECTOR_OPTIONS } from '@/features/submission/constants/steps';
+import { ORGANISATION_TYPE_OPTIONS, OWNERSHIP_OPTIONS, PROJECT_TYPE_OPTIONS, ASSET_TYPE_OPTIONS, RATING_OPTIONS, SECTOR_OPTIONS } from '@/features/submission/constants/steps';
 // Dropdown values as arrays
 export const dropdownValues = {
   ulbList: [
@@ -30,6 +30,8 @@ export const dropdownValues = {
   sector: SECTOR_OPTIONS,
 
   projectType: PROJECT_TYPE_OPTIONS,
+  
+  assetType: ASSET_TYPE_OPTIONS,
 
   ownership: OWNERSHIP_OPTIONS,
    

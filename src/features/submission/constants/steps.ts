@@ -77,6 +77,8 @@ export const ORGANISATION_TYPE_OPTIONS = [
 
 export const PROJECT_TYPE_OPTIONS = ["BOT", "BOOT", "HAM", "EPC", "Other"];
 
+export const ASSET_TYPE_OPTIONS = ["Core", "Non-Core", "Other"];
+
 export const OWNERSHIP_OPTIONS = [
   "Asset ownership",
   "Revenue sharing",

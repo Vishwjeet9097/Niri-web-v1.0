@@ -174,30 +174,45 @@ export const validateInfraDevelopment = (
     const section22 = data.section2_2;
     if (!section22) {
       // Skip validation if section doesn't exist
-    } else if (
-      !section22 ||
-      !section22.specializedEntityArray ||
-      section22.specializedEntityArray.length === 0
-    ) {
-      errors["section2_2.specializedEntityArray"] =
-        "At least one entry is required.";
     } else {
-      section22.specializedEntityArray.forEach((entry, index) => {
-        if (!entry.sector || entry.sector.trim() === "") {
-          errors[`section2_2.specializedEntityArray.${index}.sector`] =
-            "Sector is required.";
-        }
-        if (!hasRequiredFile(entry.files)) {
-          errors[`section2_2.specializedEntityArray.${index}.files`] =
-            "Upload evidence is required.";
+      const hasSpecializedEntity = section22.hasSpecializedEntity;
+
+      if (
+        !hasSpecializedEntity ||
+        (hasSpecializedEntity !== "yes" && hasSpecializedEntity !== "no")
+      ) {
+        errors["section2_2.hasSpecializedEntity"] =
+          "Please select Yes or No.";
+      } else if (hasSpecializedEntity === "yes") {
+        if (
+          !section22.specializedEntityArray ||
+          section22.specializedEntityArray.length === 0
+        ) {
+          errors["section2_2.specializedEntityArray"] =
+            "At least one entry is required when specialized entity is available.";
         } else {
-          const file = entry.files?.[0];
-          if (file && file.file && !isValidPdfFile(file)) {
-            errors[`section2_2.specializedEntityArray.${index}.files`] =
-              "Only PDF files are allowed.";
-          }
+          section22.specializedEntityArray.forEach((entry, index) => {
+            if (!entry.sector || entry.sector.trim() === "") {
+              errors[`section2_2.specializedEntityArray.${index}.sector`] =
+                "Sector is required.";
+            }
+            if (!hasRequiredFile(entry.files)) {
+              errors[`section2_2.specializedEntityArray.${index}.files`] =
+                "Upload evidence is required.";
+            } else {
+              const file = entry.files?.[0];
+              if (file && file.file && !isValidPdfFile(file)) {
+                errors[`section2_2.specializedEntityArray.${index}.files`] =
+                  "Only PDF files are allowed.";
+              }
+            }
+          });
         }
-      });
+      } else if (hasSpecializedEntity === "no") {
+        if (!section22.comment || section22.comment.trim() === "") {
+          errors["section2_2.comment"] = "Comment (reason) is required.";
+        }
+      }
     }
   }
 
@@ -324,14 +339,14 @@ export const validateInfraDevelopment = (
     const section25 = data.section2_5;
     if (!section25) {
       // Skip validation if section doesn't exist
-    } else if (
-      !section25 ||
-      !section25.assetMonetizationArray ||
-      section25.assetMonetizationArray.length === 0
-    ) {
-      errors["section2_5.assetMonetizationArray"] =
-        "At least one asset entry is required.";
     } else {
+      if (
+        !section25.assetMonetizationArray ||
+        section25.assetMonetizationArray.length === 0
+      ) {
+        errors["section2_5.assetMonetizationArray"] =
+          "At least one asset entry is required.";
+      } else {
       section25.assetMonetizationArray.forEach((entry, index) => {
         if (!entry.projectName || entry.projectName.trim() === "") {
           errors[`section2_5.assetMonetizationArray.${index}.projectName`] =
@@ -344,6 +359,19 @@ export const validateInfraDevelopment = (
         if (!entry.sector || entry.sector.trim() === "") {
           errors[`section2_5.assetMonetizationArray.${index}.sector`] =
             "Sector is required.";
+        }
+        if (!entry.location || entry.location.trim() === "") {
+          errors[`section2_5.assetMonetizationArray.${index}.location`] =
+            "Location is required.";
+        }
+        // Validate website link (mandatory)
+        const websiteLinkValue = entry.websiteLink?.trim() || "";
+        if (!websiteLinkValue) {
+          errors[`section2_5.assetMonetizationArray.${index}.websiteLink`] =
+            "Website link is required.";
+        } else if (!isValidUrl(websiteLinkValue)) {
+          errors[`section2_5.assetMonetizationArray.${index}.websiteLink`] =
+            "Enter a valid website URL (must start with http:// or https://).";
         }
         if (entry.ownership && entry.ownership.length > 100) {
           errors[`section2_5.assetMonetizationArray.${index}.ownership`] =
@@ -363,6 +391,7 @@ export const validateInfraDevelopment = (
           }
         }
       });
+      }
     }
   }
 

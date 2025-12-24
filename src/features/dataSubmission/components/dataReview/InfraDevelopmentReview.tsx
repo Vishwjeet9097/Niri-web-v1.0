@@ -459,6 +459,8 @@ export const InfraDevelopmentReview = ({
     sector: "",
     type: "",
     ownership: "",
+    location: "",
+    websiteLink: "",
     estimatedMonetization: "",
   });
 
@@ -920,6 +922,8 @@ export const InfraDevelopmentReview = ({
         sector: "",
         type: "",
         ownership: "",
+        location: "",
+        websiteLink: "",
         estimatedMonetization: "",
       });
     }
@@ -1344,6 +1348,104 @@ export const InfraDevelopmentReview = ({
       return; // Early return to prevent double update
     }
 
+    // If switching hasSpecializedEntity to "no", clear all related data
+    if (
+      sectionId === "2.2" &&
+      fieldName === "hasSpecializedEntity" &&
+      value === "no"
+    ) {
+      setShowAddForm2_2(false);
+      setNewEntry2_2({ sector: "", files: [] });
+      // Clear specializedEntityArray and comment when switching to "no"
+      // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
+      const updatedSection = {
+        ...(currentSection && !Array.isArray(currentSection)
+          ? currentSection
+          : {}),
+        [fieldName]: value,
+        specializedEntityArray: [], // Clear the array (which contains files)
+        comment: "", // Clear comment - user should enter fresh comment for new "no" selection
+        ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+      };
+      console.log(`[InfraDevelopmentReview] Clearing section 2.2 when switching to "no":`, updatedSection);
+      setFormDataState((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: updatedSection,
+        };
+        // Also update submissionData to ensure document tab reflects the change
+        setSubmissionData((prevSubmission: any) => {
+          if (!prevSubmission) return prevSubmission;
+          const infraDev = prevSubmission?.infraDevelopment || {};
+          return {
+            ...prevSubmission,
+            infraDevelopment: {
+              ...infraDev,
+              [sectionKey]: updatedSection,
+            },
+          };
+        });
+        return updated;
+      });
+      // Mark fields as touched to trigger validation updates
+      markFieldAsTouched(`${sectionKey}.specializedEntityArray`);
+      markFieldAsTouched(`${sectionKey}.hasSpecializedEntity`);
+      setShowValidationErrors(true);
+      return; // Early return to prevent double update
+    } else if (
+      sectionId === "2.2" &&
+      fieldName === "hasSpecializedEntity" &&
+      value === "yes"
+    ) {
+      // When switching to "yes", clear all existing files and start fresh
+      setShowAddForm2_2(false);
+      setNewEntry2_2({ sector: "", files: [] });
+      
+      // Start with a fresh array (empty, user will add entries)
+      const updatedArray: any[] = [];
+      
+      const updatedSection = {
+        ...(currentSection && !Array.isArray(currentSection)
+          ? currentSection
+          : {}),
+        [fieldName]: value,
+        specializedEntityArray: updatedArray, // Fresh empty array
+        comment: "", // Clear comment when switching to "yes"
+        ...(currentStatus !== undefined ? { status: currentStatus } : {}),
+      };
+      console.log(`[InfraDevelopmentReview] Setting section 2.2 to "yes" - clearing files and starting fresh:`, updatedSection);
+      setFormDataState((prev: any) => {
+        const updated = {
+          ...prev,
+          [sectionKey]: {
+            ...updatedSection,
+            hasSpecializedEntity: "yes", // Explicitly ensure it's set to "yes"
+          },
+        };
+        console.log(`[InfraDevelopmentReview] hasSpecializedEntity value:`, updated[sectionKey]?.hasSpecializedEntity);
+        // Also update submissionData
+        setSubmissionData((prevSubmission: any) => {
+          if (!prevSubmission) return prevSubmission;
+          const infraDev = prevSubmission?.infraDevelopment || {};
+          return {
+            ...prevSubmission,
+            infraDevelopment: {
+              ...infraDev,
+              [sectionKey]: {
+                ...updatedSection,
+                hasSpecializedEntity: "yes", // Explicitly ensure it's set to "yes"
+              },
+            },
+          };
+        });
+        return updated;
+      });
+      markFieldAsTouched(`${sectionKey}.specializedEntityArray`);
+      markFieldAsTouched(`${sectionKey}.hasSpecializedEntity`);
+      setShowValidationErrors(true);
+      return; // Early return to prevent double update
+    }
+
     const updatedSection = {
       ...(currentSection && !Array.isArray(currentSection)
         ? currentSection
@@ -1485,6 +1587,8 @@ export const InfraDevelopmentReview = ({
       sector: newEntry2_5.sector,
       type: newEntry2_5.type,
       ownership: newEntry2_5.ownership,
+      location: newEntry2_5.location,
+      websiteLink: newEntry2_5.websiteLink,
       estimatedMonetization: newEntry2_5.estimatedMonetization,
     };
 
@@ -1507,6 +1611,8 @@ export const InfraDevelopmentReview = ({
       sector: "",
       type: "",
       ownership: "",
+      location: "",
+      websiteLink: "",
       estimatedMonetization: "",
     });
     setShowAddForm2_5(false);
@@ -1590,7 +1696,43 @@ export const InfraDevelopmentReview = ({
     } else {
       ensureArraySection("section2_1", "infraActArray", mapFilesArray);
     }
-    ensureArraySection("section2_2", "specializedEntityArray", mapFilesArray);
+    // Special handling for section2_2 to preserve hasSpecializedEntity and comment
+    if (normalized.section2_2) {
+      const section2_2 = normalized.section2_2;
+      const status = section2_2?.status;
+      const hasSpecializedEntity = section2_2?.hasSpecializedEntity;
+      const comment = section2_2?.comment;
+
+      let items: any[] = [];
+      if (Array.isArray(section2_2?.specializedEntityArray)) {
+        items = section2_2.specializedEntityArray;
+      } else if (Array.isArray(section2_2)) {
+        items = section2_2;
+      }
+
+      const normalizedItems = Array.isArray(items)
+        ? items.map((item) => mapFilesArray(item))
+        : [];
+
+      normalized.section2_2 = {
+        ...(section2_2 && !Array.isArray(section2_2) ? section2_2 : {}),
+        specializedEntityArray: normalizedItems,
+        ...(hasSpecializedEntity !== undefined && hasSpecializedEntity !== null
+          ? { hasSpecializedEntity }
+          : {}),
+        ...(comment !== undefined && comment !== null ? { comment } : {}),
+        ...(status !== undefined ? { status } : {}),
+      };
+
+      console.log("🔍 [NORMALIZE section2_2]:", {
+        original: section2_2,
+        normalized: normalized.section2_2,
+        hasSpecializedEntity,
+        comment,
+      });
+    } else {
+      ensureArraySection("section2_2", "specializedEntityArray", mapFilesArray);
+    }
     ensureArraySection("section2_3", "infraDevelopmentArray", mapFilesArray);
 
     // Special handling for section2_4 to preserve hasInvestmentReady, comment, and websiteLink
@@ -2292,8 +2434,14 @@ export const InfraDevelopmentReview = ({
             mimeType: file?.mimeType,
           })),
         }));
-        console.log("🔨 Built fields for 2.2:", files);
-        return [{ specializedEntityArray: files }];
+        const hasSpecializedEntity = sourceState?.section2_2?.hasSpecializedEntity ?? null;
+        const comment = sourceState?.section2_2?.comment ?? null;
+        console.log("🔨 Built fields for 2.2:", { specializedEntityArray: files, hasSpecializedEntity, comment });
+        return [{ 
+          specializedEntityArray: files,
+          hasSpecializedEntity: hasSpecializedEntity,
+          comment: comment
+        }];
       }
 
       case "2.3": {
@@ -2366,6 +2514,8 @@ export const InfraDevelopmentReview = ({
               sector: item?.sector ?? null,
               type: item?.type ?? null,
               ownership: item?.ownership ?? null,
+              location: item?.location ?? null,
+              websiteLink: item?.websiteLink ?? null,
               estimatedMonetization: item?.estimatedMonetization ?? null,
             })),
           },
@@ -2441,7 +2591,7 @@ export const InfraDevelopmentReview = ({
       // Run validation first (same logic as in performSave)
       const fullData = {
         section2_1: formDataState?.section2_1 || { infraActArray: [], hasOverarchingPolicy: "" },
-        section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
+        section2_2: formDataState?.section2_2 || { specializedEntityArray: [], hasSpecializedEntity: "", comment: "" },
         section2_3: formDataState?.section2_3 || {
           infraDevelopmentArray: [],
           hasInfraDevelopmentPlan: "",
@@ -2681,7 +2831,7 @@ export const InfraDevelopmentReview = ({
       // Validate form data before saving
       const fullData = {
         section2_1: formDataState?.section2_1 || { infraActArray: [], hasOverarchingPolicy: "" },
-        section2_2: formDataState?.section2_2 || { specializedEntityArray: [] },
+        section2_2: formDataState?.section2_2 || { specializedEntityArray: [], hasSpecializedEntity: "", comment: "" },
         section2_3: formDataState?.section2_3 || {
           infraDevelopmentArray: [],
           hasInfraDevelopmentPlan: "",
@@ -5295,6 +5445,71 @@ export const InfraDevelopmentReview = ({
             </div>
           </CardHeader> */}
             <div className="space-y-4">
+              {/* RadioGroup for hasSpecializedEntity */}
+              <div>
+                <Label className="mb-3 block">
+                  Has Specialized Entity?*
+                </Label>
+                {shouldBeEditable("2.2") ? (
+                  <RadioGroup
+                    key={`hasSpecializedEntity-${formDataState?.section2_2?.hasSpecializedEntity || ""}`}
+                    value={formDataState?.section2_2?.hasSpecializedEntity || ""}
+                    onValueChange={(value) => {
+                      console.log(`[InfraDevelopmentReview] RadioGroup value changed to: ${value}`);
+                      console.log(`[InfraDevelopmentReview] Current formDataState.section2_2:`, formDataState?.section2_2);
+                      handleSectionFieldUpdate(
+                        "2.2",
+                        "hasSpecializedEntity",
+                        value
+                      );
+                      // Clear validation error when user selects
+                      if (getFieldError("section2_2.hasSpecializedEntity")) {
+                        setIndicatorValidationErrors((prev) => {
+                          const updated = { ...prev };
+                          delete updated["section2_2.hasSpecializedEntity"];
+                          return updated;
+                        });
+                      }
+                    }}
+                    className="flex flex-row gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="2.2-yes" />
+                      <Label htmlFor="2.2-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="2.2-no" />
+                      <Label htmlFor="2.2-no">No</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        formDataState?.section2_2?.hasSpecializedEntity === "yes"
+                          ? "bg-green-100 text-green-800"
+                          : formDataState?.section2_2?.hasSpecializedEntity === "no"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {formDataState?.section2_2?.hasSpecializedEntity === "yes"
+                        ? "Yes"
+                        : formDataState?.section2_2?.hasSpecializedEntity === "no"
+                        ? "No"
+                        : "Not specified"}
+                    </span>
+                  </div>
+                )}
+                {renderFieldError("section2_2.hasSpecializedEntity")}
+              </div>
+
+              {/* Show table and Add More button if hasSpecializedEntity is "yes" */}
+              {formDataState?.section2_2?.hasSpecializedEntity === "yes" && (
+                <>
+              {/* Validation error for specializedEntityArray */}
+              {renderFieldError("section2_2.specializedEntityArray")}
+
               {/* Table Display */}
               <div className="overflow-x-auto rounded-xl">
                 <table className="min-w-full border-separate border-spacing-0">
@@ -5319,9 +5534,9 @@ export const InfraDevelopmentReview = ({
                   <tbody>
                     {(() => {
                       const specializedEntityArray = Array.isArray(
-                        state?.section2_2?.specializedEntityArray
+                        formDataState?.section2_2?.specializedEntityArray
                       )
-                        ? state.section2_2.specializedEntityArray
+                        ? formDataState.section2_2.specializedEntityArray
                         : [];
 
                       if (!specializedEntityArray.length) {
@@ -5595,8 +5810,8 @@ export const InfraDevelopmentReview = ({
                 </table>
               </div>
 
-              {/* Add More Button - Only visible when in edit mode */}
-              {isEditable("2.2") && !showAddForm2_2 && (
+              {/* Add More Button - Only visible when in edit mode and "yes" is selected */}
+              {isEditable("2.2") && !showAddForm2_2 && formDataState?.section2_2?.hasSpecializedEntity === "yes" && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -5678,8 +5893,38 @@ export const InfraDevelopmentReview = ({
                   </div>
                 </div>
               )}
+                </>
+              )}
 
-              <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
+              {/* Show comment field if hasSpecializedEntity is "no" */}
+              {formDataState?.section2_2?.hasSpecializedEntity === "no" && (
+                <div>
+                  <Label className="mb-2 block">Comment</Label>
+                  {shouldBeEditable("2.2") ? (
+                    <Textarea
+                      value={formDataState?.section2_2?.comment || ""}
+                      onChange={(e) =>
+                        handleSectionFieldUpdate(
+                          "2.2",
+                          "comment",
+                          e.target.value
+                        )
+                      }
+                      placeholder="Enter comment..."
+                      className="min-h-[100px]"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {formDataState?.section2_2?.comment || "No comment"}
+                    </p>
+                  )}
+                  {renderFieldError("section2_2.comment")}
+                </div>
+              )}
+
+              {formDataState?.section2_2?.hasSpecializedEntity === "yes" && (
+                <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
+              )}
             </div>
           </SectionCard>
         )}
@@ -6859,24 +7104,6 @@ export const InfraDevelopmentReview = ({
             {renderMOSPIReviewerComments("2.5")}
             {/* Show validation error message if save failed */}
             {renderSectionValidationMessage("2.5")}
-            {/* <CardHeader className="bg-muted/30">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                 Availability of Asset Monetization Pipeline
-              </CardTitle>
-              {!isPreview && (
-                <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => handleOpenModal("2.5")}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Add Comment
-              </Button>
-              )}
-            </div>
-          </CardHeader> */}
             <div className="overflow-x-auto rounded-xl">
               <table className="w-full text-sm">
                 <thead>
@@ -6888,10 +7115,16 @@ export const InfraDevelopmentReview = ({
                       Select Sector
                     </th>
                     <th className="py-3 px-4 text-left text-sm font-normal">
-                      Select Type
+                      Asset Type
                     </th>
                     <th className="py-3 px-4 text-left text-sm font-normal">
                       Asset Ownership
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">
+                      Location
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-normal">
+                      Website Link
                     </th>
                     <th className="py-3 px-4 text-left text-sm font-normal">
                       Estimated Monetization (INR - values is in CRORES)
@@ -6915,7 +7148,7 @@ export const InfraDevelopmentReview = ({
                       return (
                         <tr>
                           <td
-                            colSpan={shouldBeEditable("2.5") ? 6 : 5}
+                            colSpan={shouldBeEditable("2.5") ? 8 : 7}
                             className="py-8 text-center text-muted-foreground"
                           >
                             No asset monetization pipeline data available
@@ -7029,7 +7262,7 @@ export const InfraDevelopmentReview = ({
                             {shouldBeEditable("2.5") ? (
                               <div>
                                 <Dropdown
-                                  options={dropdownValues.projectType.map(
+                                  options={dropdownValues.assetType.map(
                                     (opt) => ({ label: opt, value: opt })
                                   )}
                                   value={item.type || ""}
@@ -7055,7 +7288,7 @@ export const InfraDevelopmentReview = ({
                                       });
                                     }
                                   }}
-                                  placeholder="Select Type"
+                                  placeholder="Select Asset Type"
                                   isEditable={true}
                                   resetKey={selectResetKey}
                                 />
@@ -7119,6 +7352,107 @@ export const InfraDevelopmentReview = ({
                               </div>
                             ) : (
                               item.ownership || ""
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {shouldBeEditable("2.5") ? (
+                              <div>
+                                <Input
+                                  value={item.location || ""}
+                                  onChange={(e) => {
+                                    handleArrayFieldUpdate(
+                                      "2.5",
+                                      index,
+                                      "location",
+                                      e.target.value
+                                    );
+                                    // Clear validation error when user types
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.location`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.location`
+                                        ];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  className={
+                                    getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.location`
+                                    )
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
+                                  placeholder="Enter location"
+                                />
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.location`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.location`
+                                    )}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              item.location || ""
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm font-normal">
+                            {shouldBeEditable("2.5") ? (
+                              <div>
+                                <Input
+                                  type="url"
+                                  value={item.websiteLink || ""}
+                                  onChange={(e) => {
+                                    handleArrayFieldUpdate(
+                                      "2.5",
+                                      index,
+                                      "websiteLink",
+                                      e.target.value
+                                    );
+                                    // Clear validation error when user types
+                                    if (
+                                      getFieldError(
+                                        `section2_5.assetMonetizationArray.${index}.websiteLink`
+                                      )
+                                    ) {
+                                      setIndicatorValidationErrors((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[
+                                          `section2_5.assetMonetizationArray.${index}.websiteLink`
+                                        ];
+                                        return updated;
+                                      });
+                                    }
+                                  }}
+                                  className={
+                                    getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.websiteLink`
+                                    )
+                                      ? "w-full border-red-500"
+                                      : "w-full"
+                                  }
+                                  placeholder="Enter website URL"
+                                />
+                                {getFieldError(
+                                  `section2_5.assetMonetizationArray.${index}.websiteLink`
+                                ) && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    {getFieldError(
+                                      `section2_5.assetMonetizationArray.${index}.websiteLink`
+                                    )}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              item.websiteLink || ""
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm font-normal">
@@ -7305,9 +7639,9 @@ export const InfraDevelopmentReview = ({
                     )}
                   </div>
                   <div>
-                    <Label>Type</Label>
+                    <Label>Asset Type</Label>
                     <Dropdown
-                      options={dropdownValues.projectType.map((opt) => ({
+                      options={dropdownValues.assetType.map((opt) => ({
                         label: opt,
                         value: opt,
                       }))}
@@ -7329,7 +7663,7 @@ export const InfraDevelopmentReview = ({
                           });
                         }
                       }}
-                      placeholder="Select Type"
+                      placeholder="Select Asset Type"
                       isEditable={true}
                     />
                     {getFieldError(
@@ -7376,6 +7710,97 @@ export const InfraDevelopmentReview = ({
                       <p className="text-sm text-red-500 mt-1">
                         {getFieldError(
                           "section2_5.assetMonetizationArray.new.ownership"
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>
+                      Location <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      value={newEntry2_5.location}
+                      onChange={(e) => {
+                        setNewEntry2_5({
+                          ...newEntry2_5,
+                          location: e.target.value,
+                        });
+                        // Clear validation error when user types
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.location"
+                          )
+                        ) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.location"
+                            ];
+                            return updated;
+                          });
+                        }
+                      }}
+                      className={
+                        getFieldError(
+                          "section2_5.assetMonetizationArray.new.location"
+                        )
+                          ? "bg-white border-red-500"
+                          : "bg-white"
+                      }
+                      placeholder="Enter location"
+                    />
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.location"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.location"
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>
+                      Website Link <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="url"
+                      value={newEntry2_5.websiteLink}
+                      onChange={(e) => {
+                        setNewEntry2_5({
+                          ...newEntry2_5,
+                          websiteLink: e.target.value,
+                        });
+                        // Clear validation error when user types
+                        if (
+                          getFieldError(
+                            "section2_5.assetMonetizationArray.new.websiteLink"
+                          )
+                        ) {
+                          setIndicatorValidationErrors((prev) => {
+                            const updated = { ...prev };
+                            delete updated[
+                              "section2_5.assetMonetizationArray.new.websiteLink"
+                            ];
+                            return updated;
+                          });
+                        }
+                      }}
+                      className={
+                        getFieldError(
+                          "section2_5.assetMonetizationArray.new.websiteLink"
+                        )
+                          ? "bg-white border-red-500"
+                          : "bg-white"
+                      }
+                      placeholder="Enter website URL"
+                    />
+                    {getFieldError(
+                      "section2_5.assetMonetizationArray.new.websiteLink"
+                    ) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {getFieldError(
+                          "section2_5.assetMonetizationArray.new.websiteLink"
                         )}
                       </p>
                     )}
@@ -7444,6 +7869,8 @@ export const InfraDevelopmentReview = ({
                         sector: "",
                         type: "",
                         ownership: "",
+                        location: "",
+                        websiteLink: "",
                         estimatedMonetization: "",
                       });
                     }}

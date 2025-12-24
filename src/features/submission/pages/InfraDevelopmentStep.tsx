@@ -52,6 +52,7 @@ import { useFieldValidation } from "../hooks/useFieldValidation";
 import {
   SECTOR_OPTIONS,
   PROJECT_TYPE_OPTIONS,
+  ASSET_TYPE_OPTIONS,
   OWNERSHIP_OPTIONS,
   MONETIZATION_STATUS_OPTIONS,
   SUBMISSION_STEPS,
@@ -85,7 +86,11 @@ import {
 
 const defaultData: InfraDevelopmentData = {
   section2_1: { infraActArray: [], hasOverarchingPolicy: "" },
-  section2_2: { specializedEntityArray: [] },
+  section2_2: { 
+    specializedEntityArray: [],
+    hasSpecializedEntity: "",
+    comment: "",
+  },
   section2_3: {
     infraDevelopmentArray: [],
     hasInfraDevelopmentPlan: "",
@@ -125,6 +130,8 @@ function safeInfraDevelopmentFormData(
       )
         ? data.section2_2.specializedEntityArray
         : [],
+      hasSpecializedEntity: data.section2_2?.hasSpecializedEntity || "",
+      comment: data.section2_2?.comment || "",
       // Preserve status field
       status: (data.section2_2 as any)?.status,
     } as any,
@@ -607,6 +614,9 @@ export const InfraDevelopmentStep = () => {
         section2_2: {
           specializedEntityArray:
             (currentStepData.section2_2 as any)?.specializedEntityArray || [],
+          hasSpecializedEntity:
+            (currentStepData.section2_2 as any)?.hasSpecializedEntity || "",
+          comment: (currentStepData.section2_2 as any)?.comment || "",
           // Preserve status field
           status: (currentStepData.section2_2 as any)?.status,
         },
@@ -951,6 +961,8 @@ export const InfraDevelopmentStep = () => {
                 sector: "",
                 type: "",
                 ownership: "Asset ownership",
+                location: "",
+                websiteLink: "",
                 estimatedMonetization: "",
               },
             ],
@@ -982,6 +994,8 @@ export const InfraDevelopmentStep = () => {
       | "sector"
       | "type"
       | "ownership"
+      | "location"
+      | "websiteLink"
       | "estimatedMonetization",
     value: any
   ) => {
@@ -1864,10 +1878,12 @@ export const InfraDevelopmentStep = () => {
             formData.section2_5.assetMonetizationArray.forEach((_: any, index: number) => {
               allIndicatorFields.push(
                 `${sectionPrefix}.assetMonetizationArray.${index}.projectName`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.projectType`,
+                `${sectionPrefix}.assetMonetizationArray.${index}.sector`,
+                `${sectionPrefix}.assetMonetizationArray.${index}.type`,
                 `${sectionPrefix}.assetMonetizationArray.${index}.ownership`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.monetizationStatus`,
-                `${sectionPrefix}.assetMonetizationArray.${index}.file`
+                `${sectionPrefix}.assetMonetizationArray.${index}.location`,
+                `${sectionPrefix}.assetMonetizationArray.${index}.websiteLink`,
+                `${sectionPrefix}.assetMonetizationArray.${index}.estimatedMonetization`
               );
             });
           }
@@ -2645,7 +2661,76 @@ export const InfraDevelopmentStep = () => {
             isSaving={savingIndicators.has("2.2")}
           >
             {renderSectionValidationMessage("2.2")}
-            <div className="flex flex-col gap-4">
+            <div className="space-y-6">
+              <div>
+                <Label>
+                  Has Specialized Entity?{" "}
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="inline w-3 h-3 ml-1" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Select "Yes" if there is a Specialized Entity available
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+                <div className="flex gap-6 mt-2">
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="specialized-entity"
+                      value="yes"
+                      checked={
+                        formData.section2_2.hasSpecializedEntity === "yes"
+                      }
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.2")) return;
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_2: {
+                            ...prev.section2_2,
+                            hasSpecializedEntity: "yes",
+                            comment: "",
+                            specializedEntityArray: prev.section2_2?.specializedEntityArray || [],
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("2.2")}
+                    />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <Input
+                      type="radio"
+                      name="specialized-entity"
+                      value="no"
+                      checked={
+                        formData.section2_2.hasSpecializedEntity === "no"
+                      }
+                      onChange={() => {
+                        if (isIndicatorSubmitted("2.2")) return;
+                        showErrorsIfNeeded();
+                        setFormData((prev) => ({
+                          ...prev,
+                          section2_2: {
+                            ...prev.section2_2,
+                            hasSpecializedEntity: "no",
+                            specializedEntityArray: [],
+                          },
+                        }));
+                      }}
+                      disabled={isIndicatorSubmitted("2.2")}
+                    />
+                    No
+                  </label>
+                </div>
+                {renderFieldError("section2_2.hasSpecializedEntity")}
+              </div>
+
+              {/* If Yes → show specialized entity fields */}
+              {formData.section2_2.hasSpecializedEntity === "yes" && (
+                <div className="flex flex-col gap-4">
               {(Array.isArray(formData.section2_2?.specializedEntityArray)
                 ? formData.section2_2.specializedEntityArray
                 : []
@@ -2741,25 +2826,57 @@ export const InfraDevelopmentStep = () => {
                   </div>
                 </div>
               ))}
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addEntry("section2_2")}
-                  disabled={isIndicatorSubmitted("2.2")}
-                  className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Entry
-                </Button>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Upload evidence
-                </p>
-                {renderFieldError("section2_2.specializedEntityArray")}
-              </div>
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addEntry("section2_2")}
+                      disabled={isIndicatorSubmitted("2.2")}
+                      className="w-fit border-primary text-primary hover:bg-blue-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add More Entry
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Upload evidence
+                    </p>
+                    {renderFieldError("section2_2.specializedEntityArray")}
+                  </div>
+                </div>
+              )}
 
-              {Array.isArray(formData.section2_2?.specializedEntityArray) &&
+              {/* If No → show comment box */}
+              {formData.section2_2.hasSpecializedEntity === "no" && (
+                <div>
+                  <Label>Comments (Reason)</Label>
+                  <Input
+                    placeholder="Enter reason or comment"
+                    value={formData.section2_2.comment || ""}
+                    onChange={(e) => {
+                      showErrorsIfNeeded();
+                      setFormData((prev) => ({
+                        ...prev,
+                        section2_2: {
+                          ...prev.section2_2,
+                          comment: e.target.value,
+                        },
+                      }));
+                    }}
+                    disabled={isIndicatorSubmitted("2.2")}
+                    className={cn(
+                      getInputValidationClass("section2_2.comment"),
+                      isIndicatorSubmitted("2.2") &&
+                        "bg-gray-50 cursor-not-allowed"
+                    )}
+                  />
+                  {renderFieldError("section2_2.comment")}
+                </div>
+              )}
+
+              {/* Table display - only show when "yes" is selected */}
+              {formData.section2_2.hasSpecializedEntity === "yes" && (
+                Array.isArray(formData.section2_2?.specializedEntityArray) &&
                 formData.section2_2.specializedEntityArray.length > 0 && (
                   <div className="overflow-x-auto rounded-xl">
                     <table className="min-w-full border-separate border-spacing-0 ">
@@ -2882,7 +2999,8 @@ export const InfraDevelopmentStep = () => {
                       </tbody>
                     </table>
                   </div>
-                )}
+                )
+              )}
               <div className="mt-4">
                 <Button
                   onClick={() =>
@@ -3804,7 +3922,7 @@ export const InfraDevelopmentStep = () => {
                 : []
               ).map((entry) => (
                 <div key={entry.id} className="mb-2">
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
                     <div>
                       <Label>
                         Project/Asset Name{" "}
@@ -3881,7 +3999,7 @@ export const InfraDevelopmentStep = () => {
                     </div>
                     <div>
                       <Label>
-                        Select Type <span className="text-destructive">*</span>
+                        Asset Type <span className="text-destructive">*</span>
                       </Label>
                       <Select
                         value={entry.type}
@@ -3894,16 +4012,16 @@ export const InfraDevelopmentStep = () => {
                         <SelectTrigger
                           className={cn(
                             getInputValidationClass(
-                              `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
-                                (e) => e.id === entry.id
-                              )}.type`
+                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.type`
                             )
                           )}
                         >
-                          <SelectValue placeholder="Select an Option" />
+                          <SelectValue placeholder="Select Asset Type" />
                         </SelectTrigger>
                         <SelectContent>
-                          {PROJECT_TYPE_OPTIONS.map((type) => (
+                          {ASSET_TYPE_OPTIONS.map((type) => (
                             <SelectItem key={type} value={type}>
                               {type}
                             </SelectItem>
@@ -3952,6 +4070,70 @@ export const InfraDevelopmentStep = () => {
                         `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
                           (e) => e.id === entry.id
                         )}.ownership`
+                      )}
+                    </div>
+                    <div>
+                      <Label>
+                        Location (City/Cities){" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter location"
+                        value={entry.location || ""}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "location", e.target.value);
+                        }}
+                        disabled={isIndicatorSubmitted("2.5")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.location`
+                          ),
+                          isIndicatorSubmitted("2.5") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {renderFieldError(
+                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.location`
+                      )}
+                    </div>
+                    <div>
+                      <Label>
+                        Website Link <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="url"
+                        placeholder="Enter website URL (e.g., https://example.com)"
+                        value={entry.websiteLink || ""}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          updateAsset(entry.id, "websiteLink", e.target.value);
+                        }}
+                        onBlur={createOnBlurHandler(
+                          `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                            (e) => e.id === entry.id
+                          )}.websiteLink`
+                        )}
+                        disabled={isIndicatorSubmitted("2.5")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                              (e) => e.id === entry.id
+                            )}.websiteLink`
+                          ),
+                          isIndicatorSubmitted("2.5") &&
+                            "bg-gray-50 cursor-not-allowed"
+                        )}
+                      />
+                      {renderFieldError(
+                        `section2_5.assetMonetizationArray.${formData.section2_5.assetMonetizationArray.findIndex(
+                          (e) => e.id === entry.id
+                        )}.websiteLink`
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -4029,10 +4211,16 @@ export const InfraDevelopmentStep = () => {
                             Sector
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
-                            Type
+                            Asset Type
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Ownership
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Location
+                          </th>
+                          <th className="py-3 px-4 text-left text-sm font-normal">
+                            Website Link
                           </th>
                           <th className="py-3 px-4 text-left text-sm font-normal">
                             Estimated Monetization (INR Cr)
@@ -4061,6 +4249,12 @@ export const InfraDevelopmentStep = () => {
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {entry.ownership}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.location || "N/A"}
+                            </td>
+                            <td className="py-3 px-4 text-sm font-normal">
+                              {entry.websiteLink || "N/A"}
                             </td>
                             <td className="py-3 px-4 text-sm font-normal">
                               {entry.estimatedMonetization}

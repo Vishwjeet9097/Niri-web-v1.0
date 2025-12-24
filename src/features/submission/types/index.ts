@@ -97,6 +97,8 @@ export interface InfraDevelopmentData {
       sector: string;
       files: FileUpload[];
     }>;
+    hasSpecializedEntity?: string;
+    comment?: string;
   };
   section2_3: {
     infraDevelopmentArray: Array<{
@@ -128,6 +130,8 @@ export interface InfraDevelopmentData {
       sector?: string;
       type?: string;
       ownership?: string;
+      location?: string;
+      websiteLink?: string;
       estimatedMonetization?: string;
     }>;
   };
