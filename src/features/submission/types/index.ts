@@ -185,17 +185,12 @@ export interface PPPDevelopmentData {
 
 export interface InfraEnablersData {
   section4_1: {
-    allEligible: "yes" | "no" | "";
-    websiteLink: string;
-    comment?: string;
-  };
-  section4_2: {
     available: "yes" | "no" | "";
     file: FileUpload | null;
     websiteLink?: string;
     comment?: string;
   };
-  section4_3: {
+  section4_2: {
     projects: Array<{
       id: string;
       projectName: string;
@@ -208,7 +203,7 @@ export interface InfraEnablersData {
     numberOfProjects?: string;
     marksObtained?: number;
   };
-  section4_4: {
+  section4_3: {
     adopted: "yes" | "no" | "";
     file: FileUpload | null;
 
@@ -216,7 +211,7 @@ export interface InfraEnablersData {
     marksObtained?: number;
     comment?: string;
   };
-  section4_5: {
+  section4_4: {
     implemented: "yes" | "no" | "";
     practices: Array<{
       id: string;
@@ -226,7 +221,7 @@ export interface InfraEnablersData {
     }>;
     comment?: string;
   };
-  section4_6: {
+  section4_5: {
     participated?: string;
     capacityArray: Array<{
       id: string;

@@ -249,94 +249,80 @@ export function transformFormDataToNiriSubmission(
 
   // Transform Infrastructure Enablers data
   if (formData.infraEnablers) {
-    // 4.1 - PMG Portal Eligible
+    // 4.1 - State PMG Portal
     if (formData.infraEnablers.section4_1) {
-      const allEligible =
-        formData.infraEnablers.section4_1.allEligible === "yes";
+      const hasStatePortal =
+        formData.infraEnablers.section4_1.available === "yes";
 
       submissionData.Infrastructure_Enablers.push({
         indicator_id: "4.1",
-        indicator_name: "Are all eligible Infra projects on PMG portal",
-        user_fill_value_a1: allEligible ? "Yes" : "No",
-        user_fill_value_a2: null,
-      });
-    }
-
-    // 4.2 - State PMG Portal
-    if (formData.infraEnablers.section4_2) {
-      const hasStatePortal =
-        formData.infraEnablers.section4_2.available === "yes";
-
-      submissionData.Infrastructure_Enablers.push({
-        indicator_id: "4.2",
         indicator_name: "Availability and use of State/UT PMG portal",
         user_fill_value_a1: hasStatePortal ? "Yes" : "No",
         user_fill_value_a2: null,
       });
     }
 
-    // 4.3 - PM GatiShakti NMP
-    if (formData.infraEnablers.section4_3) {
-      const adopted = formData.infraEnablers.section4_3.adopted === "yes";
+    // 4.2 - PM GatiShakti NMP
+    if (formData.infraEnablers.section4_2) {
+      const adopted =
+        formData.infraEnablers.section4_2.adopted === "yes";
 
       submissionData.Infrastructure_Enablers.push({
-        indicator_id: "4.3",
+        indicator_id: "4.2",
         indicator_name: "Adoption of PM GatiShakti NMP",
         user_fill_value_a1: adopted ? 1 : 0,
         user_fill_value_a2: null,
         details: {
           projects_planned_via_pmgs: adopted
-            ? [
-                {
-                  project_name: "PM GatiShakti NMP Implementation",
-                },
-              ]
+            ? formData.infraEnablers.section4_2.projects.map((p: any) => ({
+                project_name: p.projectName,
+              }))
             : [],
         },
       });
     }
 
-    // 4.4 - ADR Adoption
-    if (formData.infraEnablers.section4_4) {
-      const adopted = formData.infraEnablers.section4_4.adopted === "yes";
+    // 4.3 - ADR Adoption
+    if (formData.infraEnablers.section4_3) {
+      const adopted =
+        formData.infraEnablers.section4_3.adopted === "yes";
 
       submissionData.Infrastructure_Enablers.push({
-        indicator_id: "4.4",
+        indicator_id: "4.3",
         indicator_name: "Adoption of Alternate Dispute Resolution (ADR)",
         user_fill_value_a1: adopted ? "Yes" : "No",
         user_fill_value_a2: null,
       });
     }
 
-    // 4.5 - Innovative Practices
-    if (formData.infraEnablers.section4_5) {
+    // 4.4 - Innovative Practices
+    if (formData.infraEnablers.section4_4) {
       const implemented =
-        formData.infraEnablers.section4_5.implemented === "yes";
+        formData.infraEnablers.section4_4.implemented === "yes";
 
       submissionData.Infrastructure_Enablers.push({
-        indicator_id: "4.5",
+        indicator_id: "4.4",
         indicator_name: "Any Innovative Practice for Infra Dev",
         user_fill_value_a1: implemented ? 1 : 0,
         user_fill_value_a2: null,
         details: {
-          practices_list:
-            implemented && formData.infraEnablers.section4_5.practiceName
-              ? [
-                  {
-                    name: formData.infraEnablers.section4_5.practiceName,
-                  },
-                ]
-              : [],
+          practices_list: implemented
+            ? formData.infraEnablers.section4_4.practices.map((p: any) => ({
+                practice_name: p.practiceName,
+                impact: p.impact,
+              }))
+            : [],
         },
       });
     }
 
-    // 4.6 - Capacity Building
-    if (formData.infraEnablers.section4_6) {
-      const capacityBuilding = formData.infraEnablers.section4_6.length;
+    // 4.5 - Capacity Building
+    if (formData.infraEnablers.section4_5) {
+      const capacityBuilding =
+        formData.infraEnablers.section4_5.capacityArray?.length || 0;
 
       submissionData.Infrastructure_Enablers.push({
-        indicator_id: "4.6",
+        indicator_id: "4.5",
         indicator_name: "Capacity building - officer participation",
         user_fill_value_a1: capacityBuilding,
         user_fill_value_a2: null,

@@ -1,10 +1,11 @@
 # Centralized Field Error Messages
 
-This document describes the centralized error message system for all mandatory fields across all 20 indicators.
+This document describes the centralized error message system for all mandatory fields across all 19 indicators.
 
 ## Overview
 
 The centralized error message system provides:
+
 - **Single source of truth** for error messages
 - **Dynamic error handling** for all mandatory fields
 - **Reusable across components** (create mode and edit mode)
@@ -20,8 +21,8 @@ The centralized error message system provides:
 ### In Create Mode (Submission Pages)
 
 ```typescript
-import { useFieldErrorDisplay } from '../hooks/useFieldErrorDisplay';
-import { useFieldValidation } from '../hooks/useFieldValidation';
+import { useFieldErrorDisplay } from "../hooks/useFieldErrorDisplay";
+import { useFieldValidation } from "../hooks/useFieldValidation";
 
 // In your component
 const {
@@ -33,13 +34,14 @@ const {
   markIndicatorFieldsAsTouched,
 } = useFieldValidation();
 
-const { getFieldError, getInputValidationClass, renderFieldError } = useFieldErrorDisplay({
-  validationErrors: validation.errors,
-  indicatorValidationErrors,
-  showValidationErrors,
-  isFieldTouched: (path) => touchedFields.has(path),
-  validatingIndicator,
-});
+const { getFieldError, getInputValidationClass, renderFieldError } =
+  useFieldErrorDisplay({
+    validationErrors: validation.errors,
+    indicatorValidationErrors,
+    showValidationErrors,
+    isFieldTouched: (path) => touchedFields.has(path),
+    validatingIndicator,
+  });
 
 // Use in JSX
 <Input
@@ -47,33 +49,38 @@ const { getFieldError, getInputValidationClass, renderFieldError } = useFieldErr
   onChange={createOnChangeHandler("section1_1.capitalAllocation", (e) => {
     // your onChange logic
   })}
-/>
-{renderFieldError("section1_1.capitalAllocation")}
+/>;
+{
+  renderFieldError("section1_1.capitalAllocation");
+}
 ```
 
 ### In Edit Mode (Review Components)
 
 ```typescript
-import { useFieldErrorDisplay } from '../../submission/hooks/useFieldErrorDisplay';
+import { useFieldErrorDisplay } from "../../submission/hooks/useFieldErrorDisplay";
 
 // In your review component
-const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+const [validationErrors, setValidationErrors] = useState<
+  Record<string, string>
+>({});
 
 // After validation
 const validationResult = validateInfraFinancing(formData);
 setValidationErrors(validationResult.errors);
 
-const { getFieldError, getInputValidationClass, renderFieldError } = useFieldErrorDisplay({
-  validationErrors,
-  showValidationErrors: true, // Always show in edit mode
-  // No touched fields needed in edit mode - show all errors
-});
+const { getFieldError, getInputValidationClass, renderFieldError } =
+  useFieldErrorDisplay({
+    validationErrors,
+    showValidationErrors: true, // Always show in edit mode
+    // No touched fields needed in edit mode - show all errors
+  });
 
 // Use in JSX (same as create mode)
-<Input
-  className={getInputValidationClass("section1_1.capitalAllocation")}
-/>
-{renderFieldError("section1_1.capitalAllocation")}
+<Input className={getInputValidationClass("section1_1.capitalAllocation")} />;
+{
+  renderFieldError("section1_1.capitalAllocation");
+}
 ```
 
 ## Adding New Error Messages
@@ -81,6 +88,7 @@ const { getFieldError, getInputValidationClass, renderFieldError } = useFieldErr
 To add error messages for new fields:
 
 1. **Add to `FIELD_ERROR_MESSAGES`** in `fieldErrorMessages.ts`:
+
 ```typescript
 export const FIELD_ERROR_MESSAGES: Record<string, string> = {
   // ... existing messages
@@ -93,6 +101,7 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
 ## Field Path Patterns
 
 Field paths follow this pattern:
+
 - Simple field: `section1_1.capitalAllocation`
 - Array field: `section1_3.ulbList`
 - Array item field: `section1_3.ulbList.0.ulb` (index-based)
@@ -101,6 +110,7 @@ Field paths follow this pattern:
 ## Priority Order
 
 Error messages are resolved in this priority:
+
 1. **Validation error** (from validation files) - highest priority
 2. **Field-specific message** (from FIELD_ERROR_MESSAGES)
 3. **Default message** (from DEFAULT_ERROR_MESSAGES)
@@ -112,5 +122,3 @@ Error messages are resolved in this priority:
 - ✅ Reusable: Works in create and edit modes
 - ✅ Maintainable: Easy to update messages
 - ✅ Consistent: Same messages across all components
-
-

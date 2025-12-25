@@ -34,28 +34,30 @@ interface EditableInfraEnablersProps {
 
 const defaultData: InfraEnablersData = {
   section4_1: {
-    allEligible: "",
-    websiteLink: "",
-  },
-  section4_2: {
     available: "",
     file: null,
+    comment: "",
+  },
+  section4_2: {
+    adopted: "",
+    projects: [],
+    comment: "",
   },
   section4_3: {
     adopted: "",
     file: null,
+    comment: "",
   },
   section4_4: {
-    adopted: "",
-    file: null,
+    implemented: "",
+    practices: [],
+    comment: "",
   },
   section4_5: {
-    implemented: "",
-    practiceName: "",
-    impact: "",
-    file: null,
+    participated: "",
+    capacityArray: [],
+    comment: "",
   },
-  section4_6: [],
 };
 
 export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfraEnablersProps) => {
@@ -74,8 +76,7 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
     section4_3: { ...defaultData.section4_3, ...(data.section4_3 || {}) },
     section4_4: { ...defaultData.section4_4, ...(data.section4_4 || {}) },
     section4_5: { ...defaultData.section4_5, ...(data.section4_5 || {}) },
-    section4_6: data.section4_6 || [],
-  });
+  }); 
 
   const [formData, setFormData] = useState<InfraEnablersData>(() => 
     createFormData(persistedData)
@@ -98,28 +99,36 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
     updateFormData("infraEnablers", formData);
   }, [formData, updateFormData]);
 
-  // Section 4.6 handlers
+  // Section 4.5 handlers
   const addTraining = () => {
     setFormData((prev) => ({
       ...prev,
-      section4_6: [
-        ...prev.section4_6,
-        {
-          id: crypto.randomUUID(),
-          officerName: "",
-          designation: "",
-          programName: "",
-          organiser: "",
-          trainingType: "",
-        },
-      ],
+      section4_5: {
+        ...prev.section4_5,
+        capacityArray: [
+          ...(prev.section4_5?.capacityArray || []),
+          {
+            id: crypto.randomUUID(),
+            officerName: "",
+            designation: "",
+            programName: "",
+            organiser: "",
+            trainingType: "",
+          },
+        ],
+      },
     }));
   };
 
   const removeTraining = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      section4_6: prev.section4_6.filter((entry) => entry.id !== id),
+      section4_5: {
+        ...prev.section4_5,
+        capacityArray: (prev.section4_5?.capacityArray || []).filter(
+          (entry) => entry.id !== id
+        ),
+      },
     }));
   };
 
@@ -135,9 +144,12 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
   ) => {
     setFormData((prev) => ({
       ...prev,
-      section4_6: prev.section4_6.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      ),
+      section4_5: {
+        ...prev.section4_5,
+        capacityArray: (prev.section4_5?.capacityArray || []).map((entry) =>
+          entry.id === id ? { ...entry, [field]: value } : entry
+        ),
+      },
     }));
   };
 
@@ -146,77 +158,7 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
       <div className="space-y-6">
         {/* Section 4.1 */}
         <SectionCard
-          title="4.1 - Eligible Infrastructure Projects"
-          subtitle="(50 marks)"
-        >
-          <div className="flex flex-col gap-4">
-            <Label>
-              All Eligible Infra Projects on NIP Portal{" "}
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="inline w-3 h-3 ml-1" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Are all eligible infra projects on NIP Portal?
-                </TooltipContent>
-              </Tooltip>
-            </Label>
-            <div className="flex gap-6">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="all-eligible"
-                  value="yes"
-                  checked={formData.section4_1.allEligible === "yes"}
-                  onChange={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_1: { ...prev.section4_1, allEligible: "yes" },
-                    }))
-                  }
-                  className="w-4 h-4"
-                />
-                Yes
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="all-eligible"
-                  value="no"
-                  checked={formData.section4_1.allEligible === "no"}
-                  onChange={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_1: { ...prev.section4_1, allEligible: "no" },
-                    }))
-                  }
-                  className="w-4 h-4"
-                />
-                No
-              </label>
-            </div>
-            <div>
-              <Label>Website Link</Label>
-              <Input
-                placeholder="Enter website URL"
-                value={formData.section4_1.websiteLink}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    section4_1: {
-                      ...prev.section4_1,
-                      websiteLink: e.target.value,
-                    },
-                  }))
-                }
-              />
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Section 4.2 */}
-        <SectionCard
-          title="4.2 - Availability & Use of State/UT PMG"
+          title="4.1 - Availability & Use of State/UT PMG"
           subtitle="(50 marks)"
         >
           <div className="flex flex-col gap-4">
@@ -235,11 +177,11 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                   type="radio"
                   name="pmg-available"
                   value="yes"
-                  checked={formData.section4_2.available === "yes"}
+                  checked={formData.section4_1.available === "yes"}
                   onChange={() =>
                     setFormData((prev) => ({
                       ...prev,
-                      section4_2: { ...prev.section4_2, available: "yes" },
+                      section4_1: { ...prev.section4_1, available: "yes" },
                     }))
                   }
                   className="w-4 h-4"
@@ -251,11 +193,11 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                   type="radio"
                   name="pmg-available"
                   value="no"
-                  checked={formData.section4_2.available === "no"}
+                  checked={formData.section4_1.available === "no"}
                   onChange={() =>
                     setFormData((prev) => ({
                       ...prev,
-                      section4_2: { ...prev.section4_2, available: "no" },
+                      section4_1: { ...prev.section4_1, available: "no" },
                     }))
                   }
                   className="w-4 h-4"
@@ -263,15 +205,15 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                 No
               </label>
             </div>
-            {formData.section4_2.available === "yes" && (
+            {formData.section4_1.available === "yes" && (
               <div className="flex flex-col gap-2">
                 <FileUploadSection
                   label="Upload File"
-                  value={formData.section4_2.file}
+                  value={formData.section4_1.file}
                   onChange={(file) =>
                     setFormData((prev) => ({
                       ...prev,
-                      section4_2: { ...prev.section4_2, file },
+                      section4_1: { ...prev.section4_1, file },
                     }))
                   }
                 />
@@ -281,9 +223,9 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
           </div>
         </SectionCard>
 
-        {/* Section 4.3 */}
+        {/* Section 4.2 */}
         <SectionCard
-          title="4.3 - Adoption of PM GatiShakti (5 marks per 1%)"
+          title="4.2 - Adoption of PM GatiShakti (5 marks per 1%)"
           subtitle="(50 marks)"
         >
           <div className="flex flex-col gap-4">
@@ -302,6 +244,72 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                   type="radio"
                   name="gati-shakti"
                   value="yes"
+                  checked={formData.section4_2.adopted === "yes"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_2: { ...prev.section4_2, adopted: "yes" },
+                    }))
+                  }
+                  className="w-4 h-4"
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="gati-shakti"
+                  value="no"
+                  checked={formData.section4_2.adopted === "no"}
+                  onChange={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      section4_2: { ...prev.section4_2, adopted: "no" },
+                    }))
+                  }
+                  className="w-4 h-4"
+                />
+                No
+              </label>
+            </div>
+            {formData.section4_2.adopted === "yes" && (
+              <div className="flex flex-col gap-2">
+                <FileUploadSection
+                  label="Upload File"
+                  value={formData.section4_2.projects?.[0]?.file}
+                  onChange={(file) => {
+                    // Handle project file upload
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Upload GatiShakti evidence
+                </p>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Section 4.3 */}
+        <SectionCard
+          title="4.3 - Adoption of ADR (10 marks per practice)"
+          subtitle="(50 marks)"
+        >
+          <div className="flex flex-col gap-4">
+            <Label>
+              Adoption of ADR{" "}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="inline w-3 h-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>Is ADR adopted?</TooltipContent>
+              </Tooltip>
+            </Label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="adr-adopted"
+                  value="yes"
                   checked={formData.section4_3.adopted === "yes"}
                   onChange={() =>
                     setFormData((prev) => ({
@@ -316,7 +324,7 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
               <label className="flex items-center gap-2">
                 <input
                   type="radio"
-                  name="gati-shakti"
+                  name="adr-adopted"
                   value="no"
                   checked={formData.section4_3.adopted === "no"}
                   onChange={() =>
@@ -343,7 +351,7 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  Upload GatiShakti evidence
+                  Upload ADR orders/notifications
                 </p>
               </div>
             )}
@@ -352,76 +360,7 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
 
         {/* Section 4.4 */}
         <SectionCard
-          title="4.4 - Adoption of ADR (10 marks per practice)"
-          subtitle="(50 marks)"
-        >
-          <div className="flex flex-col gap-4">
-            <Label>
-              Adoption of ADR{" "}
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="inline w-3 h-3 ml-1" />
-                </TooltipTrigger>
-                <TooltipContent>Is ADR adopted?</TooltipContent>
-              </Tooltip>
-            </Label>
-            <div className="flex gap-6">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="adr-adopted"
-                  value="yes"
-                  checked={formData.section4_4.adopted === "yes"}
-                  onChange={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_4: { ...prev.section4_4, adopted: "yes" },
-                    }))
-                  }
-                  className="w-4 h-4"
-                />
-                Yes
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="adr-adopted"
-                  value="no"
-                  checked={formData.section4_4.adopted === "no"}
-                  onChange={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_4: { ...prev.section4_4, adopted: "no" },
-                    }))
-                  }
-                  className="w-4 h-4"
-                />
-                No
-              </label>
-            </div>
-            {formData.section4_4.adopted === "yes" && (
-              <div className="flex flex-col gap-2">
-                <FileUploadSection
-                  label="Upload File"
-                  value={formData.section4_4.file}
-                  onChange={(file) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_4: { ...prev.section4_4, file },
-                    }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Upload ADR orders/notifications
-                </p>
-              </div>
-            )}
-          </div>
-        </SectionCard>
-
-        {/* Section 4.5 */}
-        <SectionCard
-          title="4.5 - Innovative Practices (10 marks per practice)"
+          title="4.4 - Innovative Practices (10 marks per practice)"
           subtitle="(50 marks)"
         >
           <div className="flex flex-col gap-4">
@@ -440,11 +379,11 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                   type="radio"
                   name="innovation-practices"
                   value="yes"
-                  checked={formData.section4_5.implemented === "yes"}
+                  checked={formData.section4_4.implemented === "yes"}
                   onChange={() =>
                     setFormData((prev) => ({
                       ...prev,
-                      section4_5: { ...prev.section4_5, implemented: "yes" },
+                      section4_4: { ...prev.section4_4, implemented: "yes" },
                     }))
                   }
                   className="w-4 h-4"
@@ -456,11 +395,11 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                   type="radio"
                   name="innovation-practices"
                   value="no"
-                  checked={formData.section4_5.implemented === "no"}
+                  checked={formData.section4_4.implemented === "no"}
                   onChange={() =>
                     setFormData((prev) => ({
                       ...prev,
-                      section4_5: { ...prev.section4_5, implemented: "no" },
+                      section4_4: { ...prev.section4_4, implemented: "no" },
                     }))
                   }
                   className="w-4 h-4"
@@ -468,74 +407,73 @@ export const EditableInfraEnablers = ({ submissionId, submission }: EditableInfr
                 No
               </label>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Practice Name</Label>
-                <Input
-                  placeholder="Enter practice name"
-                  value={formData.section4_5.practiceName}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_5: {
-                        ...prev.section4_5,
-                        practiceName: e.target.value,
-                      },
-                    }))
-                  }
-                />
-              </div>
-              <div>
-                <Label>Impact</Label>
-                <Select
-                  value={formData.section4_5.impact}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_5: { ...prev.section4_5, impact: value },
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select impact" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {IMPACT_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {formData.section4_5.implemented === "yes" && (
-              <div className="flex flex-col gap-2">
-                <FileUploadSection
-                  label="Upload File"
-                  value={formData.section4_5.file}
-                  onChange={(file) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      section4_5: { ...prev.section4_5, file },
-                    }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Upload documentation of innovative practices
-                </p>
-              </div>
+            {formData.section4_4.implemented === "yes" && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Practice Name</Label>
+                    <Input
+                      placeholder="Enter practice name"
+                      onChange={(e) => {
+                        // TODO: Implement practice update logic
+                        console.log("Practice name update:", e.target.value);
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_5: {
+                            ...prev.section4_5,
+                            practiceName: e.target.value,
+                          },
+                        }))
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label>Impact</Label>
+                    <Select
+                    value={formData.section4_4.impact}
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          section4_4: { ...prev.section4_4, impact: value },
+                        }))
+                      }                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select impact" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {IMPACT_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <FileUploadSection
+                    label="Upload File"
+                    onChange={(file) => {
+                      // TODO: Implement practice file update logic
+                      console.log("Practice file update:", file);
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload documentation of innovative practices
+                  </p>
+                </div>
+              </>
             )}
           </div>
         </SectionCard>
 
-        {/* Section 4.6 */}
+        {/* Section 4.5 */}
         <SectionCard
-          title="4.6 - Officer Training Programs"
+          title="4.5 - Officer Training Programs"
           subtitle="(10 marks per officer trained)"
         >
           <div className="space-y-4">
-            {formData.section4_6.map((training, index) => (
+            {(formData.section4_5?.capacityArray || []).map((training, index) => (
               <div key={training.id} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Training Record {index + 1}</h4>

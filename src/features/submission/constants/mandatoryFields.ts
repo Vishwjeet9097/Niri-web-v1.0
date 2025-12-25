@@ -142,18 +142,8 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
   "section3_4": ["projects"],
   
   // Section 4.1 - All Eligible Infra Projects on NIP Portal
+  // Section 4.1 - Availability & Use of State/UT PMG
   "section4_1": (data: any) => {
-    const fields: string[] = ["allEligible"];
-    if (data?.allEligible === "yes") {
-      fields.push("websiteLink");
-    } else if (data?.allEligible === "no") {
-      fields.push("comment");
-    }
-    return fields;
-  },
-  
-  // Section 4.2 - Availability & Use of State/UT PMG
-  "section4_2": (data: any) => {
     const fields: string[] = ["available"];
     if (data?.available === "yes") {
       fields.push("file");
@@ -163,8 +153,8 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     return fields;
   },
   
-  // Section 4.3 - PM GatiShakti NMP Projects
-  "section4_3": (data: any) => {
+  // Section 4.2 - PM GatiShakti NMP Projects
+  "section4_2": (data: any) => {
     const fields: string[] = ["adopted"];
     if (data?.adopted === "yes") {
       // projects array is required
@@ -174,8 +164,8 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     return fields;
   },
   
-  // Section 4.4 - Adoption of ADR
-  "section4_4": (data: any) => {
+  // Section 4.3 - Adoption of ADR
+  "section4_3": (data: any) => {
     const fields: string[] = ["adopted"];
     if (data?.adopted === "yes") {
       fields.push("file");
@@ -185,8 +175,8 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     return fields;
   },
   
-  // Section 4.5 - Best Practices
-  "section4_5": (data: any) => {
+  // Section 4.4 - Best Practices
+  "section4_4": (data: any) => {
     const fields: string[] = ["implemented"];
     if (data?.implemented === "yes") {
       // practices array is required
@@ -196,7 +186,7 @@ export const MANDATORY_FIELDS: MandatoryFieldsConfig = {
     return fields;
   },
   
-  // Section 4.6 - Capacity Building
-  "section4_6": ["capacityArray"],
+  // Section 4.5 - Capacity Building
+  "section4_5": ["capacityArray"],
 };
 
