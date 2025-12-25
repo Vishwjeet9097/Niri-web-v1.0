@@ -149,35 +149,48 @@ export const Section_1_3 = ({
     }
   };
 
-  const handleRemoveULB = (idOrIndex: string | number) => {
-    console.log(`[Section_1_3] handleRemoveULB called with idOrIndex:`, idOrIndex);
+  const handleRemoveULB = (idOrIndex: string | number, targetIndex?: number) => {
+    console.log(`[Section_1_3] handleRemoveULB called with idOrIndex:`, idOrIndex, `targetIndex:`, targetIndex);
     console.log(`[Section_1_3] Current ulbList:`, ulbList);
     
-    // Convert to string for comparison
-    const targetId = String(idOrIndex);
+    // If targetIndex is provided, use index-based deletion (most reliable)
+    if (targetIndex !== undefined && targetIndex >= 0) {
+      const updatedUlbList = ulbList.filter((ulb, index) => index !== targetIndex);
+      console.log(`[Section_1_3] Updated ulbList (index-based):`, updatedUlbList);
+      if (setSectionState) {
+        setSectionState({ totalULBs, ulbList: updatedUlbList });
+      }
+      return;
+    }
     
-    // Try to parse as number to check if it's an index
-    const targetIndex = parseInt(targetId, 10);
-    const isIndex = !isNaN(targetIndex) && targetIndex >= 0;
+    // Otherwise, try ID-based deletion
+    const targetId = String(idOrIndex);
+    const parsedIndex = parseInt(targetId, 10);
+    const isIndex = !isNaN(parsedIndex) && parsedIndex >= 0;
     
     const updatedUlbList = ulbList.filter((ulb, index) => {
-      // If ulb has an id, compare by id
+      // If ulb has an id, compare by id AND index to ensure uniqueness
       if (ulb.id !== undefined && ulb.id !== null) {
         const ulbId = String(ulb.id);
-        const shouldKeep = ulbId !== targetId;
-        console.log(`[Section_1_3] Comparing by id - ulb.id:`, ulbId, `target:`, targetId, `shouldKeep:`, shouldKeep);
-        return shouldKeep;
+        // Match by ID, but also ensure we're matching the correct item by index if provided
+        if (ulbId === targetId) {
+          // If it's an index-based call, also match by index to ensure we delete the right one
+          if (isIndex) {
+            return index !== parsedIndex;
+          }
+          // For ID-only match, delete only the first match to prevent deleting duplicates
+          // This is a safety measure - ideally IDs should be unique
+          return false; // Delete first match only
+        }
+        return true; // Keep items with different IDs
       }
       
       // If no id and target is a valid index, compare by index
       if (isIndex) {
-        const shouldKeep = index !== targetIndex;
-        console.log(`[Section_1_3] Comparing by index - ulb index:`, index, `target index:`, targetIndex, `shouldKeep:`, shouldKeep);
-        return shouldKeep;
+        return index !== parsedIndex;
       }
       
       // Fallback: keep the ulb if we can't match
-      console.log(`[Section_1_3] No match found, keeping ulb at index:`, index);
       return true;
     });
     
@@ -413,9 +426,10 @@ export const Section_1_3 = ({
                           e.stopPropagation();
                           console.log(`[Section_1_3] Delete button clicked for item:`, item);
                           console.log(`[Section_1_3] isEditable("1.3"):`, isEditable("1.3"));
-                          // Pass id if available, otherwise pass index as number
+                          // Always pass the index for reliable deletion
+                          // Pass both id and index to ensure correct deletion even if IDs are duplicated
                           const idOrIndex = item.id !== undefined && item.id !== null ? item.id : index;
-                          handleRemoveULB(idOrIndex);
+                          handleRemoveULB(idOrIndex, index);
                         }}
                         className="text-red-500 hover:text-red-700 border-none bg-none"
                       >

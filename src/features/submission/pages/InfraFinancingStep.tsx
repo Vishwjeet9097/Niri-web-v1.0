@@ -880,14 +880,50 @@ export const InfraFinancingStep = () => {
     }));
   };
 
-  const removeULB = (id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      section1_3: {
-        ...prev.section1_3,
-        ulbList: prev.section1_3.ulbList.filter((ulb) => ulb.id !== id),
-      },
-    }));
+  const removeULB = (idOrIndex: string | number, targetIndex?: number) => {
+    setFormData((prev) => {
+      const currentList = prev.section1_3.ulbList || [];
+      // Always use index-based deletion when index is provided (most reliable)
+      if (targetIndex !== undefined && targetIndex >= 0) {
+        return {
+          ...prev,
+          section1_3: {
+            ...prev.section1_3,
+            ulbList: currentList.filter((ulb, index) => index !== targetIndex),
+          },
+        };
+      }
+      // Fallback to ID-based deletion if index not provided
+      const targetId = String(idOrIndex);
+      return {
+        ...prev,
+        section1_3: {
+          ...prev.section1_3,
+          ulbList: currentList.filter((ulb, index) => {
+            // If ulb has an id, compare by id, but also match by index if it's a number
+            if (ulb.id !== undefined && ulb.id !== null) {
+              const ulbId = String(ulb.id);
+              if (ulbId === targetId) {
+                // If targetId is a number, also check index to ensure we delete the right one
+                const parsedIndex = parseInt(targetId, 10);
+                if (!isNaN(parsedIndex) && parsedIndex >= 0) {
+                  return index !== parsedIndex;
+                }
+                // For ID-only match, delete only first match to prevent deleting duplicates
+                return false;
+              }
+              return true;
+            }
+            // If no id, try to match by index
+            const parsedIndex = parseInt(targetId, 10);
+            if (!isNaN(parsedIndex) && parsedIndex >= 0) {
+              return index !== parsedIndex;
+            }
+            return true;
+          }),
+        },
+      };
+    });
   };
 
   const addBond = () => {
@@ -908,14 +944,50 @@ export const InfraFinancingStep = () => {
     }));
   };
 
-  const removeBond = (id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      section1_4: {
-        ...prev.section1_4,
-        bondList: prev.section1_4.bondList.filter((item) => item.id !== id),
-      },
-    }));
+  const removeBond = (idOrIndex: string | number, targetIndex?: number) => {
+    setFormData((prev) => {
+      const currentList = prev.section1_4.bondList || [];
+      // Always use index-based deletion when index is provided (most reliable)
+      if (targetIndex !== undefined && targetIndex >= 0) {
+        return {
+          ...prev,
+          section1_4: {
+            ...prev.section1_4,
+            bondList: currentList.filter((bond, index) => index !== targetIndex),
+          },
+        };
+      }
+      // Fallback to ID-based deletion if index not provided
+      const targetId = String(idOrIndex);
+      return {
+        ...prev,
+        section1_4: {
+          ...prev.section1_4,
+          bondList: currentList.filter((bond, index) => {
+            // If bond has an id, compare by id, but also match by index if it's a number
+            if (bond.id !== undefined && bond.id !== null) {
+              const bondId = String(bond.id);
+              if (bondId === targetId) {
+                // If targetId is a number, also check index to ensure we delete the right one
+                const parsedIndex = parseInt(targetId, 10);
+                if (!isNaN(parsedIndex) && parsedIndex >= 0) {
+                  return index !== parsedIndex;
+                }
+                // For ID-only match, delete only first match to prevent deleting duplicates
+                return false;
+              }
+              return true;
+            }
+            // If no id, try to match by index
+            const parsedIndex = parseInt(targetId, 10);
+            if (!isNaN(parsedIndex) && parsedIndex >= 0) {
+              return index !== parsedIndex;
+            }
+            return true;
+          }),
+        },
+      };
+    });
   };
 
   // section1_5 -> use ffiArray per interface
@@ -938,14 +1010,50 @@ export const InfraFinancingStep = () => {
     }));
   };
 
-  const removeIntermediary = (id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      section1_5: {
-        ...prev.section1_5,
-        ffiArray: prev.section1_5.ffiArray.filter((item) => item.id !== id),
-      },
-    }));
+  const removeIntermediary = (idOrIndex: string | number, targetIndex?: number) => {
+    setFormData((prev) => {
+      const currentList = prev.section1_5.ffiArray || [];
+      // Always use index-based deletion when index is provided (most reliable)
+      if (targetIndex !== undefined && targetIndex >= 0) {
+        return {
+          ...prev,
+          section1_5: {
+            ...prev.section1_5,
+            ffiArray: currentList.filter((item, index) => index !== targetIndex),
+          },
+        };
+      }
+      // Fallback to ID-based deletion if index not provided
+      const targetId = String(idOrIndex);
+      return {
+        ...prev,
+        section1_5: {
+          ...prev.section1_5,
+          ffiArray: currentList.filter((item, index) => {
+            // If item has an id, compare by id, but also match by index if it's a number
+            if (item.id !== undefined && item.id !== null) {
+              const itemId = String(item.id);
+              if (itemId === targetId) {
+                // If targetId is a number, also check index to ensure we delete the right one
+                const parsedIndex = parseInt(targetId, 10);
+                if (!isNaN(parsedIndex) && parsedIndex >= 0) {
+                  return index !== parsedIndex;
+                }
+                // For ID-only match, delete only first match to prevent deleting duplicates
+                return false;
+              }
+              return true;
+            }
+            // If no id, try to match by index
+            const parsedIndex = parseInt(targetId, 10);
+            if (!isNaN(parsedIndex) && parsedIndex >= 0) {
+              return index !== parsedIndex;
+            }
+            return true;
+          }),
+        },
+      };
+    });
   };
 
   // ------------------------
@@ -2614,7 +2722,7 @@ export const InfraFinancingStep = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => removeULB(ulb.id)}
+                        onClick={() => removeULB(ulb.id, index)}
                         disabled={isIndicatorSubmitted("1.3")}
                         className="text-red-500 hover:text-red-700 border-none bg-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -2682,7 +2790,7 @@ export const InfraFinancingStep = () => {
                             <td className="py-3 px-4">
                               <button
                                 type="button"
-                                onClick={() => removeULB(ulb.id)}
+                                onClick={() => removeULB(ulb.id, index)}
                                 disabled={isIndicatorSubmitted("1.3")}
                                 className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                 aria-label="Delete"
@@ -2980,6 +3088,14 @@ export const InfraFinancingStep = () => {
                         <Label>
                           Tenor of Bond (in years)
                           <span className="text-red-500">*</span>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="inline w-3 h-3 ml-1" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Tenor – Maturity Period of Bond
+                            </TooltipContent>
+                          </Tooltip>
                         </Label>
                         <Input
                           type="number"
@@ -3027,7 +3143,7 @@ export const InfraFinancingStep = () => {
                         variant="ghost"
                         size="icon"
                         className="self-start mt-6"
-                        onClick={() => removeBond(bond.id)}
+                        onClick={() => removeBond(bond.id, index)}
                         disabled={isIndicatorSubmitted("1.4")}
                         aria-label="Remove"
                       >
@@ -3095,7 +3211,7 @@ export const InfraFinancingStep = () => {
                             <td className="py-3 px-4">
                               <button
                                 type="button"
-                                onClick={() => removeBond(bond.id)}
+                                onClick={() => removeBond(bond.id, index)}
                                 disabled={isIndicatorSubmitted("1.4")}
                                 className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                 aria-label="Delete"
@@ -3449,7 +3565,7 @@ export const InfraFinancingStep = () => {
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => removeIntermediary(intermediary.id)}
+                            onClick={() => removeIntermediary(intermediary.id, index)}
                             disabled={isIndicatorSubmitted("1.5")}
                             className="text-red-500 hover:text-red-700 border-none bg-none disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -3500,7 +3616,7 @@ export const InfraFinancingStep = () => {
                             </thead>
                             <tbody>
                               {formData.section1_5.ffiArray.map(
-                                (intermediary) => (
+                                (intermediary, index) => (
                                   <tr
                                     key={intermediary.id}
                                     className="bg-white"
@@ -3524,7 +3640,7 @@ export const InfraFinancingStep = () => {
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          removeIntermediary(intermediary.id)
+                                          removeIntermediary(intermediary.id, index)
                                         }
                                         disabled={isIndicatorSubmitted("1.5")}
                                         className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"

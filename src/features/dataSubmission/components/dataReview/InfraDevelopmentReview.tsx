@@ -14,6 +14,7 @@ import {
   Eye,
   Download,
   Trash2,
+  Info,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,6 +38,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
 import { useSectionMessages } from "../../hooks/useSectionMessages";
@@ -1358,11 +1364,11 @@ export const InfraDevelopmentReview = ({
       setNewEntry2_2({ sector: "", files: [] });
       // Clear specializedEntityArray and comment when switching to "no"
       // Clear comment so user can enter a fresh comment (don't keep old comment from previous "no" selection)
-      const updatedSection = {
-        ...(currentSection && !Array.isArray(currentSection)
-          ? currentSection
-          : {}),
-        [fieldName]: value,
+    const updatedSection = {
+      ...(currentSection && !Array.isArray(currentSection)
+        ? currentSection
+        : {}),
+      [fieldName]: value,
         specializedEntityArray: [], // Clear the array (which contains files)
         comment: "", // Clear comment - user should enter fresh comment for new "no" selection
         ...(currentStatus !== undefined ? { status: currentStatus } : {}),
@@ -1694,7 +1700,7 @@ export const InfraDevelopmentReview = ({
         hasOverarchingPolicy,
       });
     } else {
-      ensureArraySection("section2_1", "infraActArray", mapFilesArray);
+    ensureArraySection("section2_1", "infraActArray", mapFilesArray);
     }
     // Special handling for section2_2 to preserve hasSpecializedEntity and comment
     if (normalized.section2_2) {
@@ -1731,7 +1737,7 @@ export const InfraDevelopmentReview = ({
         comment,
       });
     } else {
-      ensureArraySection("section2_2", "specializedEntityArray", mapFilesArray);
+    ensureArraySection("section2_2", "specializedEntityArray", mapFilesArray);
     }
     ensureArraySection("section2_3", "infraDevelopmentArray", mapFilesArray);
 
@@ -4529,6 +4535,14 @@ export const InfraDevelopmentReview = ({
               <div>
                 <Label className="mb-3 block">
                   Have an overarching infrastructure/Act policy?*
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="inline w-3 h-3 ml-1" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Overarching policy valid across multiple sectors
+                    </TooltipContent>
+                  </Tooltip>
                 </Label>
                 {shouldBeEditable("2.1") ? (
                   <RadioGroup
@@ -4598,9 +4612,9 @@ export const InfraDevelopmentReview = ({
                     <tr className="bg-[#DDE3F9]">
                       {/* Hide sector column when "yes" is selected */}
                       {formDataState?.section2_1?.hasOverarchingPolicy !== "yes" && (
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
-                          Sector
-                        </th>
+                      <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                        Sector
+                      </th>
                       )}
                       <th className={`py-3 px-4 text-left ${formDataState?.section2_1?.hasOverarchingPolicy === "yes" ? "rounded-tl-xl" : ""} text-sm font-normal`}>
                         Uploaded File
@@ -5923,7 +5937,7 @@ export const InfraDevelopmentReview = ({
               )}
 
               {formDataState?.section2_2?.hasSpecializedEntity === "yes" && (
-                <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
+              <p className="text-sm text-muted-foreground">Upload OPM/SPC</p>
               )}
             </div>
           </SectionCard>

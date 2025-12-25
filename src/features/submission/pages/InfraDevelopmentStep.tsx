@@ -2220,6 +2220,14 @@ export const InfraDevelopmentStep = () => {
                 <Label>
                   Have an Overarching Infrastructure Act/Policy?{" "}
                   <span className="text-destructive">*</span>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="inline w-3 h-3 ml-1" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Overarching policy valid across multiple sectors
+                    </TooltipContent>
+                  </Tooltip>
                 </Label>
                 <div className="flex gap-6 mt-2">
                   <label className="flex items-center gap-2">

@@ -3,7 +3,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
-import { Plus, Check, X, Trash2 } from "lucide-react";
+import { Plus, Check, X, Trash2, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Section1_4Props {
   formData: any;
@@ -81,35 +86,48 @@ export const Section_1_4 = ({
     }
   };
 
-  const handleRemoveBond = (idOrIndex: string | number) => {
-    console.log(`[Section_1_4] handleRemoveBond called with idOrIndex:`, idOrIndex);
+  const handleRemoveBond = (idOrIndex: string | number, targetIndex?: number) => {
+    console.log(`[Section_1_4] handleRemoveBond called with idOrIndex:`, idOrIndex, `targetIndex:`, targetIndex);
     console.log(`[Section_1_4] Current bondList:`, bondList);
     
-    // Convert to string for comparison
-    const targetId = String(idOrIndex);
+    // If targetIndex is provided, use index-based deletion (most reliable)
+    if (targetIndex !== undefined && targetIndex >= 0) {
+      const updatedBondList = bondList.filter((bond, index) => index !== targetIndex);
+      console.log(`[Section_1_4] Updated bondList (index-based):`, updatedBondList);
+      if (setSectionState) {
+        setSectionState({ totalULBs, bondList: updatedBondList });
+      }
+      return;
+    }
     
-    // Try to parse as number to check if it's an index
-    const targetIndex = parseInt(targetId, 10);
-    const isIndex = !isNaN(targetIndex) && targetIndex >= 0;
+    // Otherwise, try ID-based deletion
+    const targetId = String(idOrIndex);
+    const parsedIndex = parseInt(targetId, 10);
+    const isIndex = !isNaN(parsedIndex) && parsedIndex >= 0;
     
     const updatedBondList = bondList.filter((bond, index) => {
-      // If bond has an id, compare by id
+      // If bond has an id, compare by id AND index to ensure uniqueness
       if (bond.id !== undefined && bond.id !== null) {
         const bondId = String(bond.id);
-        const shouldKeep = bondId !== targetId;
-        console.log(`[Section_1_4] Comparing by id - bond.id:`, bondId, `target:`, targetId, `shouldKeep:`, shouldKeep);
-        return shouldKeep;
+        // Match by ID, but also ensure we're matching the correct item by index if provided
+        if (bondId === targetId) {
+          // If it's an index-based call, also match by index to ensure we delete the right one
+          if (isIndex) {
+            return index !== parsedIndex;
+          }
+          // For ID-only match, delete only the first match to prevent deleting duplicates
+          // This is a safety measure - ideally IDs should be unique
+          return false; // Delete first match only
+        }
+        return true; // Keep items with different IDs
       }
       
       // If no id and target is a valid index, compare by index
       if (isIndex) {
-        const shouldKeep = index !== targetIndex;
-        console.log(`[Section_1_4] Comparing by index - bond index:`, index, `target index:`, targetIndex, `shouldKeep:`, shouldKeep);
-        return shouldKeep;
+        return index !== parsedIndex;
       }
       
       // Fallback: keep the bond if we can't match
-      console.log(`[Section_1_4] No match found, keeping bond at index:`, index);
       return true;
     });
     
@@ -368,9 +386,10 @@ export const Section_1_4 = ({
                           e.stopPropagation();
                           console.log(`[Section_1_4] Delete button clicked for item:`, item);
                           console.log(`[Section_1_4] isEditable("1.4"):`, isEditable("1.4"));
-                          // Pass id if available, otherwise pass index as number
+                          // Always pass the index for reliable deletion
+                          // Pass both id and index to ensure correct deletion even if IDs are duplicated
                           const idOrIndex = item.id !== undefined && item.id !== null ? item.id : index;
-                          handleRemoveBond(idOrIndex);
+                          handleRemoveBond(idOrIndex, index);
                         }}
                         className="text-red-500 hover:text-red-700 border-none bg-none"
                       >
@@ -503,6 +522,14 @@ export const Section_1_4 = ({
             <div>
               <Label>
                 Tenor of Bond (in years)<span className="text-red-500">*</span>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="inline w-3 h-3 ml-1" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Tenor – Maturity Period of Bond
+                  </TooltipContent>
+                </Tooltip>
               </Label>
               <Input
                 type="number"

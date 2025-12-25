@@ -5477,15 +5477,10 @@ export const InfraFinancingReview = ({
                                       console.log(`[Section_1_5] isEditable("1.5"):`, shouldBeEditable("1.5"));
                                       console.log(`[Section_1_5] Current ffiArray:`, ffiArray);
                                       
-                                      // Handle deletion: if item has id, filter by id, otherwise filter by index
+                                      // Handle deletion: Always use index-based deletion for reliability
+                                      // This prevents issues when multiple items have the same ID or no ID
                                       const updatedArray = ffiArray.filter((ffiItem, idx) => {
-                                        if (ffiItem.id !== undefined && ffiItem.id !== null) {
-                                          // If item has id, compare by id
-                                          const shouldKeep = String(ffiItem.id) !== String(item.id);
-                                          console.log(`[Section_1_5] Comparing by id - ffiItem.id:`, ffiItem.id, `item.id:`, item.id, `shouldKeep:`, shouldKeep);
-                                          return shouldKeep;
-                                        }
-                                        // Otherwise, filter by index
+                                        // Always compare by index to ensure we only delete the intended item
                                         const shouldKeep = idx !== index;
                                         console.log(`[Section_1_5] Comparing by index - idx:`, idx, `target index:`, index, `shouldKeep:`, shouldKeep);
                                         return shouldKeep;
