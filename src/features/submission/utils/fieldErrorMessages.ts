@@ -1,5 +1,5 @@
 /**
- * Centralized error message utility for all mandatory fields across all 20 indicators.
+ * Centralized error message utility for all mandatory fields across all 19 indicators.
  * This provides a single source of truth for error messages that can be used
  * in both create mode (submission pages) and edit mode (review components).
  */
@@ -139,46 +139,40 @@ export const FIELD_ERROR_MESSAGES: Record<string, string> = {
     "Enter a valid non-negative percentage.",
 
   // Section 4.1
-  "section4_1.allEligible": "Please select Yes or No.",
-  "section4_1.websiteLink": "Website link is required.",
-  "section4_1.websiteLink.invalid": "Enter a valid website URL.",
+  "section4_1.available": "Please select Yes or No.",
+  "section4_1.file": "Upload file is required.",
   "section4_1.comment": "Comment (reason) is required.",
 
   // Section 4.2
-  "section4_2.available": "Please select Yes or No.",
-  "section4_2.file": "Upload file is required.",
+  "section4_2.adopted": "Please select Yes or No.",
+  "section4_2.projects": "At least one project is required.",
+  "section4_2.projects.projectName": "Project name is required.",
+  "section4_2.projects.sector": "Sector is required.",
+  "section4_2.projects.file": "Upload evidence is required.",
   "section4_2.comment": "Comment (reason) is required.",
 
   // Section 4.3
   "section4_3.adopted": "Please select Yes or No.",
-  "section4_3.projects": "At least one project is required.",
-  "section4_3.projects.projectName": "Project name is required.",
-  "section4_3.projects.sector": "Sector is required.",
-  "section4_3.projects.file": "Upload evidence is required.",
+  "section4_3.file": "Upload orders is required.",
   "section4_3.comment": "Comment (reason) is required.",
 
   // Section 4.4
-  "section4_4.adopted": "Please select Yes or No.",
-  "section4_4.file": "Upload orders is required.",
+  "section4_4.implemented": "Please select Yes or No.",
+  "section4_4.practices": "At least one practice is required.",
+  "section4_4.practices.practiceName": "Practice name is required.",
+  "section4_4.practices.impact": "Impact is required.",
+  "section4_4.practices.file": "Upload evidence is required.",
   "section4_4.comment": "Comment (reason) is required.",
 
   // Section 4.5
-  "section4_5.implemented": "Please select Yes or No.",
-  "section4_5.practices": "At least one practice is required.",
-  "section4_5.practices.practiceName": "Practice name is required.",
-  "section4_5.practices.impact": "Impact is required.",
-  "section4_5.practices.file": "Upload evidence is required.",
+  "section4_5.participated": "Please select Yes or No.",
+  "section4_5.capacityArray": "At least one officer entry is required.",
+  "section4_5.capacityArray.officerName": "Officer name is required.",
+  "section4_5.capacityArray.designation": "Designation is required.",
+  "section4_5.capacityArray.programName": "Program name is required.",
+  "section4_5.capacityArray.organiser": "Organizer is required.",
+  "section4_5.capacityArray.trainingType": "Type is required.",
   "section4_5.comment": "Comment (reason) is required.",
-
-  // Section 4.6
-  "section4_6.participated": "Please select Yes or No.",
-  "section4_6.capacityArray": "At least one officer entry is required.",
-  "section4_6.capacityArray.officerName": "Officer name is required.",
-  "section4_6.capacityArray.designation": "Designation is required.",
-  "section4_6.capacityArray.programName": "Program name is required.",
-  "section4_6.capacityArray.organiser": "Organizer is required.",
-  "section4_6.capacityArray.trainingType": "Type is required.",
-  "section4_6.comment": "Comment (reason) is required.",
 };
 
 /**

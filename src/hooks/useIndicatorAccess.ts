@@ -4,12 +4,27 @@ import { authService } from "@/services/auth.service";
 import { apiService } from "@/services/api.service";
 import type { IndicatorAccess, IndicatorSection, SectionAccess } from "@/types";
 
-// All NIRI indicator codes (20 total)
+// All NIRI indicator codes (19 total)
 export const ALL_INDICATOR_CODES = [
-  "1.1", "1.2", "1.3", "1.4", "1.5", // Infrastructure Financing
-  "2.1", "2.2", "2.3", "2.4", "2.5", // Infrastructure Development
-  "3.1", "3.2", "3.3", "3.4",         // PPP Development
-  "4.1", "4.2", "4.3", "4.4", "4.5", "4.6", // Infrastructure Enablers
+  "1.1",
+  "1.2",
+  "1.3",
+  "1.4",
+  "1.5", // Infrastructure Financing
+  "2.1",
+  "2.2",
+  "2.3",
+  "2.4",
+  "2.5", // Infrastructure Development
+  "3.1",
+  "3.2",
+  "3.3",
+  "3.4", // PPP Development
+  "4.1",
+  "4.2",
+  "4.3",
+  "4.4",
+  "4.5", // Infrastructure Enablers
 ];
 
 // NIRI Indicator Sections Configuration
@@ -38,7 +53,7 @@ export const INDICATOR_SECTIONS: IndicatorSection[] = [
   {
     id: "infra-enablers",
     name: "Infrastructure Enablers",
-    indicators: ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"],
+    indicators: ["4.1", "4.2", "4.3", "4.4", "4.5"],
     points: 250,
     description: "Supporting infrastructure and policy enablers",
   },
@@ -58,11 +73,26 @@ export function useIndicatorAccess() {
   const isStateApprover = user?.role === "STATE_APPROVER";
 
   // cache keys - available indicators cache will include stateUt (if present)
-  const CACHE_KEY_ASSIGNED = useMemo(() => `niri_assigned_indicators_${userId}`, [userId]);
-  const CACHE_EXPIRY_ASSIGNED = useMemo(() => `${CACHE_KEY_ASSIGNED}_expiry`, [CACHE_KEY_ASSIGNED]);
+  const CACHE_KEY_ASSIGNED = useMemo(
+    () => `niri_assigned_indicators_${userId}`,
+    [userId]
+  );
+  const CACHE_EXPIRY_ASSIGNED = useMemo(
+    () => `${CACHE_KEY_ASSIGNED}_expiry`,
+    [CACHE_KEY_ASSIGNED]
+  );
 
-  const CACHE_KEY_AVAILABLE = useMemo(() => (userId && stateUt ? `niri_available_indicators_${userId}_${stateUt}` : null), [userId, stateUt]);
-  const CACHE_EXPIRY_AVAILABLE = useMemo(() => (CACHE_KEY_AVAILABLE ? `${CACHE_KEY_AVAILABLE}_expiry` : null), [CACHE_KEY_AVAILABLE]);
+  const CACHE_KEY_AVAILABLE = useMemo(
+    () =>
+      userId && stateUt
+        ? `niri_available_indicators_${userId}_${stateUt}`
+        : null,
+    [userId, stateUt]
+  );
+  const CACHE_EXPIRY_AVAILABLE = useMemo(
+    () => (CACHE_KEY_AVAILABLE ? `${CACHE_KEY_AVAILABLE}_expiry` : null),
+    [CACHE_KEY_AVAILABLE]
+  );
 
   // Move CACHE_DURATION outside component or use useMemo to prevent recreation
   const CACHE_DURATION = useMemo(() => 5 * 60 * 1000, []); // 5 minutes - memoized to prevent recreation
@@ -70,21 +100,40 @@ export function useIndicatorAccess() {
   // normalize helper (same as before)
   const normalizeToCodes = (resp: any): string[] => {
     if (!resp) return [];
+    let codes: string[] = [];
     if (Array.isArray(resp)) {
       if (resp.length === 0) return [];
-      if (typeof resp[0] === "string") return resp as string[];
-      return resp.map((r: any) => r?.code || r?.indicator?.code || (typeof r === "string" ? r : null)).filter(Boolean);
-    }
-    if (Array.isArray(resp?.data)) {
+      if (typeof resp[0] === "string") codes = resp as string[];
+      else
+        codes = resp
+          .map(
+            (r: any) =>
+              r?.code ||
+              r?.indicator?.code ||
+              (typeof r === "string" ? r : null)
+          )
+          .filter(Boolean);
+    } else if (Array.isArray(resp?.data)) {
       const d = resp.data;
       if (d.length === 0) return [];
-      if (typeof d[0] === "string") return d as string[];
-      return d.map((r: any) => r?.code || r?.indicator?.code || (typeof r === "string" ? r : null)).filter(Boolean);
+      if (typeof d[0] === "string") codes = d as string[];
+      else
+        codes = d
+          .map(
+            (r: any) =>
+              r?.code ||
+              r?.indicator?.code ||
+              (typeof r === "string" ? r : null)
+          )
+          .filter(Boolean);
+    } else if (
+      typeof resp === "object" &&
+      (resp.code || resp.indicator?.code)
+    ) {
+      codes = [resp.code || resp.indicator?.code].filter(Boolean) as string[];
     }
-    if (typeof resp === "object" && (resp.code || resp.indicator?.code)) {
-      return [resp.code || resp.indicator?.code].filter(Boolean) as string[];
-    }
-    return [];
+    // Filter out invalid indicators (old 4.6 and any other invalid codes)
+    return codes.filter((code: string) => ALL_INDICATOR_CODES.includes(code));
   };
 
   // load function - now depends on stateUt and userId so it will re-run when stateUt becomes available
@@ -110,21 +159,33 @@ export function useIndicatorAccess() {
             setAssignedIndicators(Array.isArray(parsed) ? parsed : []);
             console.log("useIndicatorAccess: used assigned cache", parsed);
           } else {
-            console.log("useIndicatorAccess: fetching assigned indicators", userId);
+            console.log(
+              "useIndicatorAccess: fetching assigned indicators",
+              userId
+            );
             const resp = await apiService.getUserAssignedIndicators(userId);
             const codes = normalizeToCodes(resp);
             setAssignedIndicators(codes);
             // persist
             localStorage.setItem(CACHE_KEY_ASSIGNED, JSON.stringify(codes));
-            localStorage.setItem(CACHE_EXPIRY_ASSIGNED, (now + CACHE_DURATION).toString());
+            localStorage.setItem(
+              CACHE_EXPIRY_ASSIGNED,
+              (now + CACHE_DURATION).toString()
+            );
             // update auth parity
             const currentUser = authService.getUser();
             if (currentUser) {
-              authService.setAuth({ ...currentUser, assignedIndicators: codes }, authService.getTokens());
+              authService.setAuth(
+                { ...currentUser, assignedIndicators: codes },
+                authService.getTokens()
+              );
             }
           }
         } catch (err) {
-          console.error("useIndicatorAccess: failed loading assigned indicators", err);
+          console.error(
+            "useIndicatorAccess: failed loading assigned indicators",
+            err
+          );
           setAssignedIndicators([]);
         }
       }
@@ -132,7 +193,9 @@ export function useIndicatorAccess() {
       // STATE_APPROVER: available indicators must be fetched **for a valid stateUt**
       if (isStateApprover) {
         if (!stateUt || !stateUt.trim()) {
-          console.warn("useIndicatorAccess: stateUt not available yet; skipping available fetch (will retry when stateUt changes)");
+          console.warn(
+            "useIndicatorAccess: stateUt not available yet; skipping available fetch (will retry when stateUt changes)"
+          );
           // do not set cache or empty persist — allow re-run when stateUt appears
           setAvailableIndicators([]);
         } else {
@@ -147,24 +210,41 @@ export function useIndicatorAccess() {
             if (useCache) {
               const parsed = JSON.parse(cached || "[]");
               setAvailableIndicators(Array.isArray(parsed) ? parsed : []);
-              console.log("useIndicatorAccess: used available cache for stateUt", stateUt, parsed);
+              console.log(
+                "useIndicatorAccess: used available cache for stateUt",
+                stateUt,
+                parsed
+              );
             } else {
-              console.log("useIndicatorAccess: fetching available indicators for stateUt", stateUt);
-              const resp = await apiService.getAvailableIndicatorsForApprover(stateUt);
+              console.log(
+                "useIndicatorAccess: fetching available indicators for stateUt",
+                stateUt
+              );
+              const resp = await apiService.getAvailableIndicatorsForApprover(
+                stateUt
+              );
               const codes = normalizeToCodes(resp);
               setAvailableIndicators(codes);
               // cache since we have a valid stateUt
               localStorage.setItem(cachedKey, JSON.stringify(codes));
-              localStorage.setItem(expiryKey, (now + CACHE_DURATION).toString());
-              console.log("useIndicatorAccess: fetched & cached available indicators", codes);
+              localStorage.setItem(
+                expiryKey,
+                (now + CACHE_DURATION).toString()
+              );
+              console.log(
+                "useIndicatorAccess: fetched & cached available indicators",
+                codes
+              );
             }
           } catch (err) {
-            console.error("useIndicatorAccess: failed loading available indicators", err);
+            console.error(
+              "useIndicatorAccess: failed loading available indicators",
+              err
+            );
             setAvailableIndicators([]);
           }
         }
       }
-
     } catch (err) {
       console.error("useIndicatorAccess: unexpected error", err);
       setError((err as any)?.message || "Failed to load indicators");
@@ -214,9 +294,13 @@ export function useIndicatorAccess() {
     }
     // Use effectiveIndicators (includes fallback to all if empty)
     const availableSections = INDICATOR_SECTIONS.filter((section) =>
-      section.indicators.some((indicator) => effectiveIndicators.includes(indicator))
+      section.indicators.some((indicator) =>
+        effectiveIndicators.includes(indicator)
+      )
     );
-    const restrictedSections = INDICATOR_SECTIONS.filter((section) => !availableSections.includes(section)).map((s) => s.id);
+    const restrictedSections = INDICATOR_SECTIONS.filter(
+      (section) => !availableSections.includes(section)
+    ).map((s) => s.id);
     return {
       hasAccess: effectiveIndicators.length > 0,
       assignedIndicators: effectiveIndicators,
@@ -228,7 +312,7 @@ export function useIndicatorAccess() {
   const hasIndicatorAccess = (indicatorCode: string) => {
     // For non-restricted roles (MOSPI, ADMIN), allow all
     if (!isNodalOfficer && !isStateApprover) return true;
-    
+
     // For NODAL_OFFICER: If no indicators assigned, allow access to all (fallback)
     if (isNodalOfficer) {
       if (assignedIndicators.length === 0) {
@@ -236,12 +320,12 @@ export function useIndicatorAccess() {
       }
       return assignedIndicators.includes(indicatorCode);
     }
-    
+
     // For STATE_APPROVER: Only allow access to available (unassigned) indicators
     if (isStateApprover) {
       return availableIndicators.includes(indicatorCode);
     }
-    
+
     return false;
   };
 
@@ -254,15 +338,25 @@ export function useIndicatorAccess() {
       localStorage.removeItem(CACHE_KEY_AVAILABLE);
       localStorage.removeItem(CACHE_EXPIRY_AVAILABLE!);
     }
-  }, [userId, CACHE_KEY_ASSIGNED, CACHE_EXPIRY_ASSIGNED, CACHE_KEY_AVAILABLE, CACHE_EXPIRY_AVAILABLE]);
+  }, [
+    userId,
+    CACHE_KEY_ASSIGNED,
+    CACHE_EXPIRY_ASSIGNED,
+    CACHE_KEY_AVAILABLE,
+    CACHE_EXPIRY_AVAILABLE,
+  ]);
 
   const getAvailableSections = (): IndicatorSection[] => {
     if (isNodalOfficer) {
       // Use effectiveIndicators (includes fallback to all if empty)
-      return INDICATOR_SECTIONS.filter((section) => section.indicators.some((i) => effectiveIndicators.includes(i)));
+      return INDICATOR_SECTIONS.filter((section) =>
+        section.indicators.some((i) => effectiveIndicators.includes(i))
+      );
     }
     if (isStateApprover) {
-      return INDICATOR_SECTIONS.filter((section) => section.indicators.some((i) => availableIndicators.includes(i)));
+      return INDICATOR_SECTIONS.filter((section) =>
+        section.indicators.some((i) => availableIndicators.includes(i))
+      );
     }
     return INDICATOR_SECTIONS;
   };
@@ -271,7 +365,9 @@ export function useIndicatorAccess() {
     if (isNodalOfficer) return indicatorAccess.restrictedSections;
     if (isStateApprover) {
       const available = getAvailableSections();
-      return INDICATOR_SECTIONS.filter((s) => !available.includes(s)).map((s) => s.id);
+      return INDICATOR_SECTIONS.filter((s) => !available.includes(s)).map(
+        (s) => s.id
+      );
     }
     return [];
   };
@@ -290,28 +386,31 @@ export function useIndicatorAccess() {
     return available.length > 0 ? available[0].id : null;
   };
 
-  const refresh = useCallback(async (opts?: { clearCache?: boolean }) => {
-    if (opts?.clearCache) {
-      // Clear both caches including available for this (userId,stateUt)
-      clearCache();
-    }
-    await loadIndicators();
-  }, [loadIndicators, clearCache]);
+  const refresh = useCallback(
+    async (opts?: { clearCache?: boolean }) => {
+      if (opts?.clearCache) {
+        // Clear both caches including available for this (userId,stateUt)
+        clearCache();
+      }
+      await loadIndicators();
+    },
+    [loadIndicators, clearCache]
+  );
 
   // Listen for indicator update events and refresh cache
   useEffect(() => {
     const handleIndicatorUpdate = (event: Event) => {
       const customEvent = event as CustomEvent;
       const eventDetail = customEvent.detail || {};
-      
+
       // Determine if we should refresh based on event details
       let shouldRefresh = false;
-      
+
       // Check if userId matches (for the user whose indicators changed)
       if (eventDetail.userId && eventDetail.userId === userId) {
         shouldRefresh = true;
       }
-      
+
       // Also check if this is a NODAL_OFFICER indicator change
       // For STATE_APPROVERs: always refresh when any NODAL_OFFICER indicators change
       // (backend API will filter by stateUt, so we'll only get indicators for our state)
@@ -321,77 +420,98 @@ export function useIndicatorAccess() {
           // STATE_APPROVER should always refresh when any NODAL_OFFICER indicators change
           // The backend API getAvailableIndicatorsForApprover filters by stateUt anyway
           shouldRefresh = true;
-          console.log('[useIndicatorAccess] STATE_APPROVER refreshing due to NODAL_OFFICER indicator change', {
-            eventStateUt: eventDetail.stateUt,
-            currentStateUt: stateUt
-          });
+          console.log(
+            "[useIndicatorAccess] STATE_APPROVER refreshing due to NODAL_OFFICER indicator change",
+            {
+              eventStateUt: eventDetail.stateUt,
+              currentStateUt: stateUt,
+            }
+          );
         } else if (isNodalOfficer && eventDetail.stateUt) {
           // NODAL_OFFICER should refresh if it's their state
           // Normalize state names for comparison (case-insensitive, trim whitespace)
           const normalizeState = (s: string) => (s || "").trim().toLowerCase();
           const eventStateUt = normalizeState(eventDetail.stateUt);
           const currentStateUt = normalizeState(stateUt || "");
-          
+
           // Handle comma-separated states (e.g., "State1, State2")
-          const eventStates = eventStateUt.split(",").map(s => s.trim()).filter(Boolean);
-          const currentStates = currentStateUt.split(",").map(s => s.trim()).filter(Boolean);
-          
+          const eventStates = eventStateUt
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const currentStates = currentStateUt
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+
           // Check if any state matches
-          const stateMatches = eventStates.some(es => 
-            currentStates.some(cs => cs === es || cs.includes(es) || es.includes(cs))
-          ) || eventStates.some(es => currentStateUt.includes(es)) || 
-             currentStates.some(cs => eventStateUt.includes(cs));
-          
+          const stateMatches =
+            eventStates.some((es) =>
+              currentStates.some(
+                (cs) => cs === es || cs.includes(es) || es.includes(cs)
+              )
+            ) ||
+            eventStates.some((es) => currentStateUt.includes(es)) ||
+            currentStates.some((cs) => eventStateUt.includes(cs));
+
           shouldRefresh = stateMatches || eventStateUt === currentStateUt;
-          
-          console.log('[useIndicatorAccess] NODAL_OFFICER state comparison', {
+
+          console.log("[useIndicatorAccess] NODAL_OFFICER state comparison", {
             eventStateUt: eventDetail.stateUt,
             currentStateUt: stateUt,
             normalizedEvent: eventStateUt,
             normalizedCurrent: currentStateUt,
             stateMatches,
-            shouldRefresh
+            shouldRefresh,
           });
         }
       }
-      
+
       // If no userId or stateUt specified, refresh for all users (e.g., when admin assigns indicators globally)
       if (!shouldRefresh && !eventDetail.userId && !eventDetail.stateUt) {
         shouldRefresh = true;
       }
-      
+
       if (!shouldRefresh) {
-        console.log('[useIndicatorAccess] Indicators updated event received but skipping refresh', {
+        console.log(
+          "[useIndicatorAccess] Indicators updated event received but skipping refresh",
+          {
+            eventDetail,
+            currentUserId: userId,
+            currentStateUt: stateUt,
+            role: user?.role,
+          }
+        );
+        return;
+      }
+
+      console.log(
+        "[useIndicatorAccess] Indicators updated event received, refreshing cache...",
+        {
           eventDetail,
           currentUserId: userId,
           currentStateUt: stateUt,
-          role: user?.role
-        });
-        return;
-      }
-      
-      console.log('[useIndicatorAccess] Indicators updated event received, refreshing cache...', {
-        eventDetail,
-        currentUserId: userId,
-        currentStateUt: stateUt,
-        role: user?.role,
-        isNodalOfficer,
-        isStateApprover
-      });
-      
+          role: user?.role,
+          isNodalOfficer,
+          isStateApprover,
+        }
+      );
+
       // Clear cache and refresh indicators
-      console.log('[useIndicatorAccess] Calling refresh with clearCache=true');
-      refresh({ clearCache: true }).then(() => {
-        console.log('[useIndicatorAccess] Refresh completed');
-      }).catch((err) => {
-        console.error('[useIndicatorAccess] Refresh failed:', err);
-      });
+      console.log("[useIndicatorAccess] Calling refresh with clearCache=true");
+      refresh({ clearCache: true })
+        .then(() => {
+          console.log("[useIndicatorAccess] Refresh completed");
+        })
+        .catch((err) => {
+          console.error("[useIndicatorAccess] Refresh failed:", err);
+        });
     };
 
-    window.addEventListener('indicatorsUpdated', handleIndicatorUpdate);
-    
+    window.addEventListener("indicatorsUpdated", handleIndicatorUpdate);
+
     return () => {
-      window.removeEventListener('indicatorsUpdated', handleIndicatorUpdate);
+      window.removeEventListener("indicatorsUpdated", handleIndicatorUpdate);
     };
   }, [refresh, userId, stateUt, user?.role, isNodalOfficer, isStateApprover]);
 
@@ -411,7 +531,9 @@ export function useIndicatorAccess() {
       if (assignedIndicators.length === 0) {
         return true;
       }
-      return section.indicators.some((indicator) => assignedIndicators.includes(indicator));
+      return section.indicators.some((indicator) =>
+        assignedIndicators.includes(indicator)
+      );
     },
     getSectionAccess: (sectionId: string) => {
       if (!isNodalOfficer) {
@@ -424,8 +546,14 @@ export function useIndicatorAccess() {
         } as SectionAccess;
       }
       const section = INDICATOR_SECTIONS.find((s) => s.id === sectionId);
-      if (!section) return { sectionId, hasAccess: false, assignedIndicators: [], hiddenIndicators: [] } as SectionAccess;
-      
+      if (!section)
+        return {
+          sectionId,
+          hasAccess: false,
+          assignedIndicators: [],
+          hiddenIndicators: [],
+        } as SectionAccess;
+
       // If no indicators assigned, show all indicators in section (fallback)
       if (assignedIndicators.length === 0) {
         return {
@@ -435,10 +563,19 @@ export function useIndicatorAccess() {
           hiddenIndicators: [],
         } as SectionAccess;
       }
-      
-      const assignedInSection = section.indicators.filter((indicator) => assignedIndicators.includes(indicator));
-      const hiddenInSection = section.indicators.filter((indicator) => !assignedIndicators.includes(indicator));
-      return { sectionId, hasAccess: assignedInSection.length > 0, assignedIndicators: assignedInSection, hiddenIndicators: hiddenInSection } as SectionAccess;
+
+      const assignedInSection = section.indicators.filter((indicator) =>
+        assignedIndicators.includes(indicator)
+      );
+      const hiddenInSection = section.indicators.filter(
+        (indicator) => !assignedIndicators.includes(indicator)
+      );
+      return {
+        sectionId,
+        hasAccess: assignedInSection.length > 0,
+        assignedIndicators: assignedInSection,
+        hiddenIndicators: hiddenInSection,
+      } as SectionAccess;
     },
     getAvailableSections,
     getRestrictedSections,

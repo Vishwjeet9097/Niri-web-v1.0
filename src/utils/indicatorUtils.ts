@@ -26,7 +26,7 @@ export const INDICATOR_SECTIONS: IndicatorSection[] = [
   {
     id: "infra-enablers",
     name: "Infrastructure Enablers",
-    indicators: ["4.1", "4.2", "4.3", "4.4", "4.5", "4.6"],
+    indicators: ["4.1", "4.2", "4.3", "4.4", "4.5"],
     points: 250,
     description: "Supporting infrastructure and policy enablers",
   },
@@ -233,11 +233,11 @@ export function getIndicatorDisplayName(indicatorCode: string): string {
     "3.3": "VGF/IIPDF Proposals",
     "3.4": "PPP Bankable Projects",
     "3.5": "PPP Project Monitoring",
-    "4.1": "PMG Portal Eligible",
-    "4.2": "State PMG Portal",
-    "4.3": "PM Gati Shakti Adoption",
-    "4.4": "ADR Adoption",
-    "4.5": "Innovative Practices",
+    "4.1": "Availability & Use of State/UT PMG",
+    "4.2": "Adoption of PM GatiShakti",
+    "4.3": "Adoption of ADR",
+    "4.4": "Innovative Practices",
+    "4.5": "Capacity Building – Officer Participation",
   };
 
   return indicatorNames[indicatorCode] || indicatorCode;
@@ -317,7 +317,6 @@ export function filterSectionFormDataByIndicators(
     "4.3": { category: "infraEnablers", sectionKey: "section4_3" },
     "4.4": { category: "infraEnablers", sectionKey: "section4_4" },
     "4.5": { category: "infraEnablers", sectionKey: "section4_5" },
-    "4.6": { category: "infraEnablers", sectionKey: "section4_6" },
   };
 
   // Only include sections for assigned indicators

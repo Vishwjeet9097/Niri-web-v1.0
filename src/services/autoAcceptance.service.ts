@@ -41,13 +41,12 @@ const INDICATOR_TO_CATEGORY_MAP: Record<
   "3.3": { category: "pppDevelopment", section: "section3_3" },
   "3.4": { category: "pppDevelopment", section: "section3_4" },
 
-  // Infrastructure Enablers (4.1 - 4.6)
+  // Infrastructure Enablers (4.1 - 4.5)
   "4.1": { category: "infraEnablers", section: "section4_1" },
   "4.2": { category: "infraEnablers", section: "section4_2" },
   "4.3": { category: "infraEnablers", section: "section4_3" },
   "4.4": { category: "infraEnablers", section: "section4_4" },
   "4.5": { category: "infraEnablers", section: "section4_5" },
-  "4.6": { category: "infraEnablers", section: "section4_6" },
 };
 
 /**
@@ -69,12 +68,11 @@ const FIELD_TO_INDICATOR_MAP: Record<string, string> = {
   pppCell: "3.2",
   vgfIipdfProposals: "3.3",
   pppBankableProjects: "3.4",
-  pmgPortalEligible: "4.1",
-  statePmgPortal: "4.2",
-  pmGatiShaktiAdoption: "4.3",
-  adrAdoption: "4.4",
-  innovativePractices: "4.5",
-  capacityBuilding: "4.6",
+  statePmgPortal: "4.1",
+  pmGatiShaktiAdoption: "4.2",
+  adrAdoption: "4.3",
+  innovativePractices: "4.4",
+  capacityBuilding: "4.5",
 };
 
 /**
@@ -100,7 +98,6 @@ const SECTION_KEY_TO_INDICATOR_MAP: Record<string, string> = {
   section4_3: "4.3",
   section4_4: "4.4",
   section4_5: "4.5",
-  section4_6: "4.6",
 };
 
 /**

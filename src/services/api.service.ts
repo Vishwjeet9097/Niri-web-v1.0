@@ -77,7 +77,7 @@ export type CumulativePreviewResponse = {
   data: {
     stateUt: string;
     users: number; // always 0 in lean mode
-    totalIndicators: number; // should be 20
+    totalIndicators: number; // should be 19
     categories: string[]; // 4 categories
     indicators: Record<
       string,
@@ -2687,12 +2687,14 @@ class ApiService implements HttpClient {
     }
   }
 
-  async getFileUrl(filePath: string): Promise<{ url: string; signedUrl?: string }> {
+  async getFileUrl(
+    filePath: string
+  ): Promise<{ url: string; signedUrl?: string }> {
     try {
       // Encode the entire filePath as one string to match backend API format
       // Example: "submissions/SUB-2025-260315/file.pdf" -> "submissions%2FSUB-2025-260315%2Ffile.pdf"
       const encodedFilePath = encodeURIComponent(filePath);
-      
+
       const response = await this.axios.get(`/file/url/${encodedFilePath}`);
       console.log(
         "🔍 API Service - Get File URL Response Status:",
@@ -2712,14 +2714,14 @@ class ApiService implements HttpClient {
       // Handle response.data.data pattern - extract signedUrl from response
       const fileUrlData =
         response.data?.data !== undefined ? response.data.data : response.data;
-      
+
       // The backend returns { filePath, signedUrl, expiresIn }
       // Map signedUrl to url for compatibility
       const result = {
         url: fileUrlData?.signedUrl || fileUrlData?.url || fileUrlData,
         signedUrl: fileUrlData?.signedUrl,
       };
-      
+
       console.log("🔍 API Service - Processed Get File URL Data:", result);
 
       return result;
@@ -4284,25 +4286,37 @@ class ApiService implements HttpClient {
 
         // Create a sanitized payload without File objects for JSON serialization
         const sanitizedPayload = this.sanitizePayloadForJSON(payload);
-        
+
         // Validate required fields before stringifying
         if (!sanitizedPayload.submissionId) {
-          console.error("❌ [updateIndicator] submissionId is missing in sanitized payload");
+          console.error(
+            "❌ [updateIndicator] submissionId is missing in sanitized payload"
+          );
           throw new Error("submissionId is required");
         }
         if (!sanitizedPayload.category) {
-          console.error("❌ [updateIndicator] category is missing in sanitized payload");
+          console.error(
+            "❌ [updateIndicator] category is missing in sanitized payload"
+          );
           throw new Error("category is required");
         }
         if (!sanitizedPayload.section) {
-          console.error("❌ [updateIndicator] section is missing in sanitized payload");
+          console.error(
+            "❌ [updateIndicator] section is missing in sanitized payload"
+          );
           throw new Error("section is required");
         }
-        if (!sanitizedPayload.fields || !Array.isArray(sanitizedPayload.fields) || sanitizedPayload.fields.length === 0) {
-          console.error("❌ [updateIndicator] fields array is missing or empty in sanitized payload");
+        if (
+          !sanitizedPayload.fields ||
+          !Array.isArray(sanitizedPayload.fields) ||
+          sanitizedPayload.fields.length === 0
+        ) {
+          console.error(
+            "❌ [updateIndicator] fields array is missing or empty in sanitized payload"
+          );
           throw new Error("fields array is required and must not be empty");
         }
-        
+
         const payloadString = JSON.stringify(sanitizedPayload);
         console.log("📤 [updateIndicator] Sanitized payload:", {
           submissionId: sanitizedPayload.submissionId,
@@ -4311,7 +4325,7 @@ class ApiService implements HttpClient {
           fieldsCount: sanitizedPayload.fields?.length,
           payloadString: payloadString.substring(0, 500), // First 500 chars for debugging
         });
-        
+
         formData.append("payload", payloadString);
 
         // Append files recursively with proper paths

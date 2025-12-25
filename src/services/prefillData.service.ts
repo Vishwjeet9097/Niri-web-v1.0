@@ -240,25 +240,20 @@ export class PrefillDataService {
         allEligible: "no" as "no",
         websiteLink: "https://pmgati.maharashtra.gov.in",
       },
-      section4_2: {
         available: "yes" as "yes",
         file: null,
       },
-      section4_3: {
         adopted: "yes" as "yes",
         file: null,
       },
-      section4_4: {
         adopted: "yes" as "yes",
         file: null,
       },
-      section4_5: {
         implemented: "yes" as "yes",
         practiceName: "GIS Mapping",
         impact: "High",
         file: null,
       },
-      section4_6: [
         {
           id: crypto.randomUUID(),
           officerName: "Rajesh Kumar",

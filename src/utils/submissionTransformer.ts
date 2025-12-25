@@ -43,11 +43,11 @@ export function transformFormDataToNiriSubmission(
       indicatorData.details = {
         projects_submitted: generateProjectsSubmitted(value),
       };
-    } else if (mapping.indicator_id === "4.3" && value > 0) {
+    } else if (mapping.indicator_id === "4.2"" && value > 0) {
       indicatorData.details = {
         projects_planned_via_pmgs: generatePmgsProjects(value),
       };
-    } else if (mapping.indicator_id === "4.5" && value > 0) {
+    } else if (mapping.indicator_id === "4.4"" && value > 0) {
       indicatorData.details = {
         practices_list: generateInnovativePractices(value),
       };
@@ -105,11 +105,6 @@ export function transformFormDataToSectionSubmission(
       },
       infraEnablers: {
         section4_1: formData.section4_1 || {},
-        section4_2: formData.section4_2 || {},
-        section4_3: formData.section4_3 || {},
-        section4_4: formData.section4_4 || {},
-        section4_5: formData.section4_5 || {},
-        section4_6: formData.section4_6 || {},
       },
     },
     status: "SUBMITTED_TO_STATE",
@@ -167,12 +162,11 @@ function getIndicatorName(indicatorId: string): string {
     "3.2": "Functional State/UT PPP Cell/Unit",
     "3.3": "Proposals submitted under VGF/IIPDF",
     "3.4": "Proportion of TPC of PPP or Bankable projects",
-    "4.1": "Are all eligible Infra projects on PMG portal",
-    "4.2": "Availability and use of State/UT PMG portal",
-    "4.3": "Adoption of PM GatiShakti NMP",
-    "4.4": "Adoption of Alternate Dispute Resolution (ADR)",
-    "4.5": "Any Innovative Practice for Infra Dev",
-    "4.6": "Capacity building - officer participation",
+    "4.1": "Availability and use of State/UT PMG portal",
+    "4.2": "Adoption of PM GatiShakti NMP",
+    "4.3": "Adoption of Alternate Dispute Resolution (ADR)",
+    "4.4": "Any Innovative Practice for Infra Dev",
+    "4.5": "Capacity building - officer participation",
   };
 
   return indicatorNames[indicatorId] || "";

@@ -1,4 +1,7 @@
-import { INDICATOR_SECTIONS } from "@/hooks/useIndicatorAccess";
+import {
+  INDICATOR_SECTIONS,
+  ALL_INDICATOR_CODES,
+} from "@/hooks/useIndicatorAccess";
 export interface ProgressStats {
   approved: number;
   total: number;
@@ -231,6 +234,19 @@ export const calculateStateProgressFromSubmissions = (
             ).toUpperCase();
             const code = toCodeFromSectionKey(sectionKey);
 
+            // Debug logging for indicators 2.3, 2.4, 2.5
+            if (code && ["2.3", "2.4", "2.5"].includes(code)) {
+              console.log(`🔍[calc] DEBUG ${code} from RETURNED_FROM_MOSPI:`, {
+                sectionKey,
+                parentKey,
+                rawStatus: sectionData?.status,
+                rawMospiStatus: sectionData?.mospi_status,
+                normalizedStatus: status,
+                normalizedMospiStatus: mospiStatus,
+                sectionDataKeys: Object.keys(sectionData || {}),
+              });
+            }
+
             if (code) {
               // Store both status and mospi_status from RETURNED_FROM_MOSPI form with priority flag
               // If mospi_status is ACCEPTED, treat it as ACCEPTED even if status is SUBMITTED_TO_STATE
@@ -238,12 +254,17 @@ export const calculateStateProgressFromSubmissions = (
                 ? mospiStatus
                 : status;
 
+              // Always add RETURNED_FROM_MOSPI form indicators to map (they have highest priority)
+              // Even if status is empty, we mark it so we know it came from RETURNED_FROM_MOSPI
+              // This preserves the priority: RETURNED_FROM_MOSPI > other forms
               indicatorStatusMap.set(code, {
-                status: effectiveStatus,
+                status: effectiveStatus || "", // Store empty string if no status
                 fromReturnedForm: true,
               });
               console.log(
-                `🔵[calc] RETURNED_FROM_MOSPI form: indicator ${code} has status ${status}, mospi_status ${mospiStatus} → effective: ${effectiveStatus} in ${parentKey}.${sectionKey}`
+                `🔵[calc] RETURNED_FROM_MOSPI form: indicator ${code} has status ${status}, mospi_status ${mospiStatus} → effective: ${
+                  effectiveStatus || "(empty)"
+                } in ${parentKey}.${sectionKey}`
               );
             }
           }
@@ -275,24 +296,73 @@ export const calculateStateProgressFromSubmissions = (
             ).toUpperCase();
             const code = toCodeFromSectionKey(sectionKey);
 
-            if (code) {
-              // Only add if not already in map (RETURNED_FROM_MOSPI takes priority)
-              if (!indicatorStatusMap.has(code)) {
-                // If mospi_status is ACCEPTED, treat it as ACCEPTED even if status is SUBMITTED_TO_STATE
-                const effectiveStatus = APPROVED.has(mospiStatus)
-                  ? mospiStatus
-                  : status;
+            // Debug logging for indicators 2.3, 2.4, 2.5
+            if (code && ["2.3", "2.4", "2.5"].includes(code)) {
+              console.log(`🔍[calc] DEBUG ${code} from ${sub.status}:`, {
+                sectionKey,
+                parentKey,
+                rawStatus: sectionData?.status,
+                rawMospiStatus: sectionData?.mospi_status,
+                normalizedStatus: status,
+                normalizedMospiStatus: mospiStatus,
+                sectionDataKeys: Object.keys(sectionData || {}),
+              });
+            }
 
+            if (code) {
+              const existingEntry = indicatorStatusMap.get(code);
+              const effectiveStatus = APPROVED.has(mospiStatus)
+                ? mospiStatus
+                : status;
+
+              // RETURNED_FROM_MOSPI form has highest priority
+              // Only override if:
+              // 1. Not in map yet (no RETURNED_FROM_MOSPI form has this indicator)
+              // 2. OR existing entry is from RETURNED_FROM_MOSPI but has empty status AND we have a valid status
+              //    (This allows filling in missing statuses from RETURNED_FROM_MOSPI forms)
+              const isFromReturnedForm =
+                existingEntry?.fromReturnedForm === true;
+              const existingStatusEmpty =
+                !existingEntry?.status || existingEntry.status.trim() === "";
+              const hasValidStatus =
+                effectiveStatus && effectiveStatus.trim() !== "";
+
+              const shouldAdd =
+                !existingEntry || // Not in map yet
+                (isFromReturnedForm && existingStatusEmpty && hasValidStatus); // RETURNED_FROM_MOSPI has empty status, we have valid status
+
+              if (shouldAdd && hasValidStatus) {
+                // If existing entry is from RETURNED_FROM_MOSPI, preserve that flag
                 indicatorStatusMap.set(code, {
                   status: effectiveStatus,
-                  fromReturnedForm: false,
+                  fromReturnedForm: isFromReturnedForm || false, // Preserve RETURNED_FROM_MOSPI flag if it exists
                 });
                 console.log(
-                  `🟢[calc] Other form (${sub.status}): indicator ${code} has status ${status}, mospi_status ${mospiStatus} → effective: ${effectiveStatus} in ${parentKey}.${sectionKey}`
+                  `🟢[calc] Other form (${
+                    sub.status
+                  }): indicator ${code} has status ${status}, mospi_status ${mospiStatus} → effective: ${effectiveStatus} in ${parentKey}.${sectionKey}${
+                    isFromReturnedForm
+                      ? " (filling empty RETURNED_FROM_MOSPI status)"
+                      : ""
+                  }`
                 );
+              } else if (existingEntry) {
+                if (isFromReturnedForm && !existingStatusEmpty) {
+                  console.log(
+                    `⏭️[calc] Skipping indicator ${code} from ${sub.status} - RETURNED_FROM_MOSPI form has priority with status: ${existingEntry.status}`
+                  );
+                } else {
+                  console.log(
+                    `⏭️[calc] Skipping indicator ${code} from ${
+                      sub.status
+                    } - already exists in map with status: ${
+                      existingEntry.status || "(empty)"
+                    }`
+                  );
+                }
               } else {
                 console.log(
-                  `⏭️[calc] Skipping indicator ${code} from ${sub.status} - already exists in RETURNED_FROM_MOSPI form`
+                  `⚠️[calc] Skipping indicator ${code} from ${sub.status} - empty status`
                 );
               }
             }
@@ -314,7 +384,7 @@ export const calculateStateProgressFromSubmissions = (
     }
   });
 
-  const total = 20; // Default total indicators
+  const total = ALL_INDICATOR_CODES.length; // Default total indicators (19)
   const approved = acceptedCodes.size;
   const percentage = total ? Math.round((approved / total) * 100) : 0;
 
@@ -597,8 +667,11 @@ export const calculateStateProgressFromApi = (
     );
   }
 
-  // If backend didn't give a total, keep your previous default (20) or make configurable
-  const total = typeof s?.totalIndicators === "number" ? s.totalIndicators : 20;
+  // If backend didn't give a total, keep your previous default (19) or make configurable
+  const total =
+    typeof s?.totalIndicators === "number"
+      ? s.totalIndicators
+      : ALL_INDICATOR_CODES.length;
   const approved = acceptedCodes.size;
   const percentage = total ? Math.round((approved / total) * 100) : 0;
 

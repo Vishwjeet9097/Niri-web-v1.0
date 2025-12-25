@@ -63,7 +63,6 @@ export const hasInfraEnablersData = (formData: any): boolean => {
     "section4_3",
     "section4_4",
     "section4_5",
-    "section4_6",
   ];
 
   return sections.some((sectionId) => {
@@ -73,20 +72,12 @@ export const hasInfraEnablersData = (formData: any): boolean => {
     switch (sectionId) {
       case "section4_1":
         return (
-          hasMeaningfulValue(section.allEligible) ||
-          hasMeaningfulValue(section.websiteLink) ||
+          hasMeaningfulValue(section.available) ||
           hasMeaningfulValue(section.comment) ||
           hasFileData(section.file)
         );
 
       case "section4_2":
-        return (
-          hasMeaningfulValue(section.available) ||
-          hasMeaningfulValue(section.comment) ||
-          hasFileData(section.files)
-        );
-
-      case "section4_3":
         // Check mandatory field: adopted (yes/no)
         if (section.adopted === "yes" || section.adopted === "no") {
           // If "yes", check for projects array
@@ -104,23 +95,24 @@ export const hasInfraEnablersData = (formData: any): boolean => {
           hasMeaningfulValue(section.numberOfProjects)
         );
 
-      case "section4_4":
+      case "section4_3":
         return (
-          hasFileData(section.files) ||
+          hasFileData(section.file) ||
           hasMeaningfulValue(section.adopted) ||
           hasMeaningfulValue(section.comment) ||
           hasMeaningfulValue(section.marksObtained)
         );
 
-      case "section4_5":
+      case "section4_4":
         return (
           hasFileData(section.file) ||
           hasMeaningfulValue(section.impact) ||
           hasMeaningfulValue(section.implemented) ||
-          hasMeaningfulValue(section.practiceName)
+          hasMeaningfulValue(section.practiceName) ||
+          hasArrayData(section.practices)
         );
 
-      case "section4_6":
+      case "section4_5":
         // Check mandatory field: participated (yes/no)
         if (section.participated === "yes" || section.participated === "no") {
           // If "yes", check for capacityArray
@@ -449,7 +441,6 @@ export const getSectionsWithData = (
           "section4_3",
           "section4_4",
           "section4_5",
-          "section4_6",
         ];
         infraEnablersSections.forEach((sectionId) => {
           const section = categoryData[sectionId];
@@ -560,18 +551,12 @@ const hasSectionData = (
       switch (sectionId) {
         case "section4_1":
           return (
-            hasMeaningfulValue(section.allEligible) ||
-            hasMeaningfulValue(section.websiteLink) ||
+            hasMeaningfulValue(section.available) ||
             hasMeaningfulValue(section.comment) ||
             hasFileData(section.file)
           );
+
         case "section4_2":
-          return (
-            hasMeaningfulValue(section.available) ||
-            hasMeaningfulValue(section.comment) ||
-            hasFileData(section.files)
-          );
-        case "section4_3":
           // Check mandatory field: adopted (yes/no)
           if (section.adopted === "yes" || section.adopted === "no") {
             // If "yes", check for projects array
@@ -588,21 +573,25 @@ const hasSectionData = (
             hasMeaningfulValue(section.marksObtained) ||
             hasMeaningfulValue(section.numberOfProjects)
           );
-        case "section4_4":
+
+        case "section4_3":
           return (
-            hasFileData(section.files) ||
+            hasFileData(section.file) ||
             hasMeaningfulValue(section.adopted) ||
             hasMeaningfulValue(section.comment) ||
             hasMeaningfulValue(section.marksObtained)
           );
-        case "section4_5":
+
+        case "section4_4":
           return (
             hasFileData(section.file) ||
             hasMeaningfulValue(section.impact) ||
             hasMeaningfulValue(section.implemented) ||
-            hasMeaningfulValue(section.practiceName)
+            hasMeaningfulValue(section.practiceName) ||
+            hasArrayData(section.practices)
           );
-        case "section4_6":
+
+        case "section4_5":
           // Check mandatory field: participated (yes/no)
           if (section.participated === "yes" || section.participated === "no") {
             // If "yes", check for capacityArray
@@ -616,6 +605,7 @@ const hasSectionData = (
           }
           // Fallback: check for capacityArray (for backward compatibility)
           return hasArrayData(section?.capacityArray);
+
         default:
           return false;
       }

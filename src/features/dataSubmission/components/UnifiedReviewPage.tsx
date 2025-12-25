@@ -499,12 +499,12 @@ export const UnifiedReviewPage = ({
       });
 
       // Final Submit button - enabled only if:
-      // 1. All 20 indicators have some action (ACCEPTED or REVERTED)
-      // 2. All 20 indicators are ACCEPTED
+      // 1. All 19 indicators have some action (ACCEPTED or REVERTED)
+      // 2. All 19 indicators are ACCEPTED
       const canFinalSubmit = allActioned && allIndicatorsAccepted;
 
       // Send Back button - enabled only if:
-      // 1. All 20 indicators have some action (ACCEPTED or REVERTED)
+      // 1. All 19 indicators have some action (ACCEPTED or REVERTED)
       // 2. At least one indicator is REVERTED
       const canSendBack = allActioned && hasReverted;
 
