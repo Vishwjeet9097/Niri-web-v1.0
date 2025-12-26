@@ -85,6 +85,7 @@ export const PPPDevelopmentStep = () => {
     formData: persistedFormData,
     getStepData,
     updateFormData,
+    clearFormData,
   } = useFormPersistence();
   // Detect edit mode to hide empty indicators
   const isEditMode =
@@ -400,11 +401,11 @@ export const PPPDevelopmentStep = () => {
           setFormData(newFormData);
           setIsDataLoaded(true);
         } else {
-          // If no backend data, use local storage or defaults
-          const loadedData =
-            (getStepData("pppDevelopment") as Partial<PPPDevelopmentData>) ||
-            {};
-          setFormData(safePPPFormData(loadedData));
+          // If no backend data found (submission was deleted), clear localStorage and use defaults
+          console.log("🧹 No submission found in database - clearing localStorage");
+          clearFormData();
+          
+          setFormData(safePPPFormData({}));
           // No submission found, but still initialize sectionStatus
           setSectionStatus({
             completedIndicators: [],

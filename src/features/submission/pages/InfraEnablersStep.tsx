@@ -86,7 +86,7 @@ const defaultData: InfraEnablersData = {
 export const InfraEnablersStep = () => {
   const { currentStep, goToStep, goToNext, goToPrevious, isLastStep } =
     useStepNavigation(4);
-  const { getStepData, updateFormData } = useFormPersistence();
+  const { getStepData, updateFormData, clearFormData } = useFormPersistence();
 
   // Detect edit mode to hide empty indicators
   const isEditMode =
@@ -346,6 +346,11 @@ export const InfraEnablersStep = () => {
           setFormData(newFormData);
           setIsDataLoaded(true);
         } else {
+          // No submission found in database (submission was deleted), clear localStorage
+          console.log("🧹 No submission found in database - clearing localStorage");
+          clearFormData();
+          
+          setFormData(safeInfraEnablersFormData({}));
           // No submission found, but still initialize sectionStatus
           setSectionStatus({
             completedIndicators: [],

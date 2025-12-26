@@ -63,6 +63,7 @@ import { EditableFileDisplay } from "../EditableFileDisplay";
 import type { FileUpload } from "@/types";
 import { Dropdown, dropdownValues } from "@/utils/getDropDowns";
 import { validateInfraDevelopment } from "@/features/submission/validation/infraDevelopmentValidation";
+import { INVESTMENT_READY_STATUS_OPTIONS } from "@/features/submission/constants/steps";
 import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
 import {
   isSubmissionFromNodalOfficer,
@@ -6744,11 +6745,7 @@ export const InfraDevelopmentReview = ({
                                   {shouldBeEditable("2.4") ? (
                                     <div>
                                       <Dropdown
-                                        options={[
-                                          "Tender Done",
-                                          "Bidding",
-                                          "Other",
-                                        ].map((opt) => ({
+                                        options={INVESTMENT_READY_STATUS_OPTIONS.map((opt) => ({
                                           label: opt,
                                           value: opt,
                                         }))}
@@ -6948,7 +6945,7 @@ export const InfraDevelopmentReview = ({
                             Status <span className="text-destructive">*</span>
                           </Label>
                           <Dropdown
-                            options={["Tender Done", "Bidding", "Other"].map(
+                            options={INVESTMENT_READY_STATUS_OPTIONS.map(
                               (opt) => ({ label: opt, value: opt })
                             )}
                             value={newEntry2_4.status}

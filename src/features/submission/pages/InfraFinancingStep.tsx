@@ -143,7 +143,7 @@ export const InfraFinancingStep = () => {
     completedCount: 0,
     totalAssigned: 0,
   });
-  const { getStepData, updateFormData } = useFormPersistence();
+  const { getStepData, updateFormData, clearFormData } = useFormPersistence();
 
   const {
     currentStep,
@@ -700,6 +700,11 @@ export const InfraFinancingStep = () => {
           setIsDataLoaded(true);
           setTimeout(() => forceUpdate({}), 50);
         } else {
+          // No submission found in database (submission was deleted), clear localStorage
+          console.log("🧹 No submission found in database - clearing localStorage");
+          clearFormData();
+          
+          setFormData(safeInfraFinancingFormData({}));
           // No submission found, but still initialize sectionStatus
           setSectionStatus({
             completedIndicators: [],

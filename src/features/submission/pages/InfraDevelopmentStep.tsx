@@ -55,6 +55,7 @@ import {
   ASSET_TYPE_OPTIONS,
   OWNERSHIP_OPTIONS,
   MONETIZATION_STATUS_OPTIONS,
+  INVESTMENT_READY_STATUS_OPTIONS,
   SUBMISSION_STEPS,
 } from "../constants/steps";
 import type { InfraDevelopmentData, FileUpload } from "../types";
@@ -193,6 +194,7 @@ export const InfraDevelopmentStep = () => {
     formData: persistedFormData,
     getStepData,
     updateFormData,
+    clearFormData,
   } = useFormPersistence();
   // Detect edit mode to hide empty indicators
   const isEditMode =
@@ -451,6 +453,11 @@ export const InfraDevelopmentStep = () => {
           setFormData(newFormData);
           setIsDataLoaded(true);
         } else {
+          // No submission found in database (submission was deleted), clear localStorage
+          console.log("🧹 No submission found in database - clearing localStorage");
+          clearFormData();
+          
+          setFormData(safeInfraDevelopmentFormData({}));
           // No submission found, but still initialize sectionStatus
           setSectionStatus({
             completedIndicators: [],
@@ -3662,7 +3669,7 @@ export const InfraDevelopmentStep = () => {
                               <SelectValue placeholder="Select Status" />
                             </SelectTrigger>
                             <SelectContent>
-                              {["Tender Done", "Bidding", "Other"].map((s) => (
+                              {INVESTMENT_READY_STATUS_OPTIONS.map((s) => (
                                 <SelectItem key={s} value={s}>
                                   {s}
                                 </SelectItem>

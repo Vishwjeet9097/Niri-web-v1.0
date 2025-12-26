@@ -169,3 +169,9 @@ export const IMPACT_OPTIONS = [
 ];
 
 export const TRAINING_TYPE_OPTIONS = ["Select Status", "Online", "Offline"];
+
+export const INVESTMENT_READY_STATUS_OPTIONS = [
+  "Tender",
+  "Bidding",
+  "Other",
+];
