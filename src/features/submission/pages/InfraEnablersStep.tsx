@@ -520,17 +520,20 @@ export const InfraEnablersStep = () => {
   // Removed empty useEffect
 
   // Autosave to persistence with debounce
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const structuredData: InfraEnablersData = {
-        section4_1: formData.section4_1 || defaultData.section4_1,
-      };
-      updateFormData("infraEnablers", structuredData);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line
-  }, [formData]);
+  // REMOVED: This useEffect was causing data loss by only saving section4_1
+  // and overwriting all other sections (4.2-4.5) whenever formData changed.
+  // The updateFormData is now handled properly in handleConfirmSubmit and other places.
+  // useEffect(() => {
+  //   const timeoutId = setTimeout(() => {
+  //     const structuredData: InfraEnablersData = {
+  //       section4_1: formData.section4_1 || defaultData.section4_1,
+  //     };
+  //     updateFormData("infraEnablers", structuredData);
+  //   }, 500);
+  //
+  //   return () => clearTimeout(timeoutId);
+  //   // eslint-disable-next-line
+  // }, [formData]);
 
   // --- Section 4.2 helpers ---
   const addGatiProject = () => {
@@ -819,7 +822,7 @@ export const InfraEnablersStep = () => {
         "4.5",
       ];
       // Remove unwanted keys (preserves File instances for upload)
-      let sanitizedFormData = deepRemoveUnwantedKeys(formData);
+      const sanitizedFormData = deepRemoveUnwantedKeys(formData);
       // Debug: Log sanitized payload before submit
       console.log(
         "[DEBUG] Payload to submit InfraEnablersStep:",
@@ -936,6 +939,8 @@ export const InfraEnablersStep = () => {
         [indicatorCode]
       );
 
+      console.log("🔵 [SUBMIT] API response:", result);
+
       // Update submissionId if it was created/updated
       if (result?.id || result?.submissionId) {
         const newSubmissionId = result.id || result.submissionId;
@@ -977,9 +982,6 @@ export const InfraEnablersStep = () => {
         variant: "default",
       });
 
-      // Update form data with sanitized data that includes status
-      updateFormData("infraEnablers", sanitizedFormDataWithStatus);
-
       // Optimistically update sectionStatus to immediately disable the button
       setSectionStatus((prev: any) => {
         const currentCompleted = prev?.completedIndicators || [];
@@ -1013,6 +1015,37 @@ export const InfraEnablersStep = () => {
           const fullSubmission = await apiService.getSubmission(
             userSubmission.id
           );
+          console.log("🔵 [SUBMIT] Full submission from server:", {
+            id: fullSubmission.id,
+            formDataKeys: fullSubmission.formData
+              ? Object.keys(
+                  typeof fullSubmission.formData === "string"
+                    ? JSON.parse(fullSubmission.formData)
+                    : fullSubmission.formData
+                )
+              : "no formData",
+            section_status: fullSubmission.section_status,
+          });
+
+          // Check if formData in DB has all sections
+          let parsedFormData = fullSubmission.formData;
+          if (typeof fullSubmission.formData === "string") {
+            try {
+              parsedFormData = JSON.parse(fullSubmission.formData);
+            } catch (e) {
+              console.error("🔵 [SUBMIT] Error parsing formData:", e);
+            }
+          }
+          const dbFormData = parsedFormData?.infraEnablers || {};
+          console.log("🔵 [SUBMIT] DB formData infraEnablers sections:", {
+            section4_1: dbFormData.section4_1 ? "exists" : "missing",
+            section4_2: dbFormData.section4_2 ? "exists" : "missing",
+            section4_3: dbFormData.section4_3 ? "exists" : "missing",
+            section4_4: dbFormData.section4_4 ? "exists" : "missing",
+            section4_5: dbFormData.section4_5 ? "exists" : "missing",
+            keys: Object.keys(dbFormData),
+          });
+
           // Merge server response with current state to ensure we don't lose the optimistic update
           setSectionStatus((current: any) => {
             const serverCompleted =
@@ -2311,6 +2344,7 @@ export const InfraEnablersStep = () => {
                     type="radio"
                     name="innovative-practices"
                     value="yes"
+                    checked={formData.section4_4.implemented === "yes"}
                     onChange={() => {
                       if (isIndicatorSubmitted("4.4")) return;
                       showErrorsIfNeeded();
@@ -2333,6 +2367,7 @@ export const InfraEnablersStep = () => {
                     type="radio"
                     name="innovative-practices"
                     value="no"
+                    checked={formData.section4_4.implemented === "no"}
                     onChange={() => {
                       if (isIndicatorSubmitted("4.4")) return;
                       showErrorsIfNeeded();
@@ -2592,6 +2627,7 @@ export const InfraEnablersStep = () => {
                     type="radio"
                     name="capacity-building"
                     value="yes"
+                    checked={formData.section4_5.participated === "yes"}
                     onChange={() => {
                       if (isIndicatorSubmitted("4.5")) return;
                       showErrorsIfNeeded();
@@ -2614,6 +2650,7 @@ export const InfraEnablersStep = () => {
                     type="radio"
                     name="capacity-building"
                     value="no"
+                    checked={formData.section4_5.participated === "no"}
                     onChange={() => {
                       if (isIndicatorSubmitted("4.5")) return;
                       showErrorsIfNeeded();
