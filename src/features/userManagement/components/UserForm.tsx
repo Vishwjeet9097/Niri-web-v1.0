@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { getRoleDisplayName } from "@/utils/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +47,7 @@ interface UserFormProps {
 }
 
 
-export function UserForm({
+function UserFormComponent({
   officer,
   onSave,
   onCancel,
@@ -268,51 +268,97 @@ export function UserForm({
   const fetchedDisabledStatesRef = useRef<string>("");
   const fetchedSubmittedIndicatorsRef = useRef<string>("");
   const formDataInitializedRef = useRef(false); // Track if form data has been initialized to prevent unnecessary updates
+  const lastFetchTimeRef = useRef<number>(0); // Track last fetch time to prevent rapid successive calls
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Debounce timeout ref
+
+  // Track last fetched values to prevent duplicate calls
+  const lastFetchedRef = useRef<{
+    stateName: string;
+    officerId: string | undefined;
+    role: string;
+  } | null>(null);
+  
+  // Stabilize user role and state to prevent unnecessary re-renders
+  const userRole = user?.role;
+  const userState = user?.state;
 
   // Compute available indicators for selected state (using backend API for real-time data)
   useEffect(() => {
-    const computeAvailableIndicators = async () => {
-      // Only compute indicators if creating a NODAL_OFFICER
-      if (formData.role !== "NODAL_OFFICER") {
+    // Skip during initialization to prevent unnecessary API calls
+    if (isInitializingRef.current) {
+      return;
+    }
+    
+    // Early return checks BEFORE async function to prevent unnecessary calls
+    // Only compute indicators if creating a NODAL_OFFICER
+    if (formData.role !== "NODAL_OFFICER") {
+      // Only reset if role actually changed
+      if (lastFetchedRef.current?.role === "NODAL_OFFICER") {
         setAvailableIndicatorsForState([]);
         fetchedIndicatorsRef.current = ""; // Reset cache
-        return;
+        lastFetchedRef.current = null;
       }
+      return;
+    }
 
-      // Admin should have access to all indicators - no need to fetch filtered list
-      if (user?.role === "ADMIN") {
-        // For admin, use allIndicators directly but filter to only valid indicator codes
-        if (allIndicators.length > 0) {
-          // Filter to only include indicators with valid codes (exclude old/removed indicators)
-          const validIndicators = allIndicators.filter((ind: any) => 
-            ind.code && ALL_INDICATOR_CODES.includes(ind.code)
-          );
-          const formattedAvailable = validIndicators.map((ind: any) => ({
-            code: ind.code,
-            name: ind.name || getIndicatorDisplayName(ind.code),
-            category: ind.category || ind.section || '',
-            id: ind.id,
-          }));
-          setAvailableIndicatorsForState(formattedAvailable);
-        }
-        return;
+    // Admin should have access to all indicators - no need to fetch filtered list
+    if (userRole === "ADMIN") {
+      // For admin, use allIndicators directly but filter to only valid indicator codes
+      if (allIndicators.length > 0) {
+        // Only update if not already set or if allIndicators changed
+        const validIndicators = allIndicators.filter((ind: any) => 
+          ind.code && ALL_INDICATOR_CODES.includes(ind.code)
+        );
+        const formattedAvailable = validIndicators.map((ind: any) => ({
+          code: ind.code,
+          name: ind.name || getIndicatorDisplayName(ind.code),
+          category: ind.category || ind.section || '',
+          id: ind.id,
+        }));
+        setAvailableIndicatorsForState(formattedAvailable);
       }
+      return;
+    }
 
-      // For non-admin users (STATE_APPROVER, etc.), fetch filtered indicators
-      const stateName = user?.state || "";
-      
-      if (!stateName) {
-        setAvailableIndicatorsForState([]);
-        return;
-      }
+    // For non-admin users (STATE_APPROVER, etc.), fetch filtered indicators
+    const stateName = userState || "";
+    
+    if (!stateName) {
+      setAvailableIndicatorsForState([]);
+      return;
+    }
 
-      // Create cache key to prevent duplicate API calls
-      const cacheKey = `${stateName}-${officer?.id || 'new'}-${allIndicators.length}`;
-      
-      // Skip API call if we've already fetched for this exact scenario
-      if (fetchedIndicatorsRef.current === cacheKey && availableIndicatorsForState.length > 0) {
-        return;
-      }
+    // Create cache key to prevent duplicate API calls
+    // Use a stable key based on state and officer only (not allIndicators.length)
+    const cacheKey = `${stateName}-${officer?.id || 'new'}`;
+    
+    // Check if we've already fetched for this exact scenario BEFORE async function
+    // Compare with last fetched values to prevent duplicate calls
+    if (fetchedIndicatorsRef.current === cacheKey && 
+        lastFetchedRef.current?.stateName === stateName &&
+        lastFetchedRef.current?.officerId === (officer?.id || 'new') &&
+        lastFetchedRef.current?.role === formData.role) {
+      return; // Already fetched, skip
+    }
+    
+    // Throttle: Only as a safety mechanism - prevent rapid successive calls
+    // This should NOT trigger periodic calls, only prevent duplicate rapid calls
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchTimeRef.current;
+    const THROTTLE_MS = 1000; // 1 second safety throttle - only prevents rapid duplicates
+    
+    // Only throttle if we've fetched very recently (within 1 second)
+    // This prevents duplicate calls from rapid state updates, not periodic calls
+    if (timeSinceLastFetch < THROTTLE_MS && fetchedIndicatorsRef.current === cacheKey) {
+      // Skip only if cache key matches AND it's been less than 1 second
+      // This means it's a duplicate rapid call, not a legitimate change
+      return;
+    }
+    
+    // Update last fetch time BEFORE async call
+    lastFetchTimeRef.current = now;
+    
+    const computeAvailableIndicators = async () => {
 
       try {
         // Use backend API to get real-time available indicators
@@ -339,6 +385,12 @@ export function UserForm({
         
         setAvailableIndicatorsForState(indicators);
         fetchedIndicatorsRef.current = cacheKey; // Cache the result to prevent duplicate API calls
+        // Track what we just fetched
+        lastFetchedRef.current = {
+          stateName,
+          officerId: officer?.id || 'new',
+          role: formData.role,
+        };
       } catch (error) {
         console.error("❌ Failed to fetch available indicators from API, falling back to frontend filtering:", error);
         
@@ -386,49 +438,101 @@ export function UserForm({
         
         setAvailableIndicatorsForState(formattedAvailable);
         fetchedIndicatorsRef.current = cacheKey; // Cache the result
+        // Track what we just fetched
+        lastFetchedRef.current = {
+          stateName,
+          officerId: officer?.id || 'new',
+          role: formData.role,
+        };
       }
     };
     
     computeAvailableIndicators();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.role, user?.role, user?.state, officer?.id]); // Caching prevents unnecessary API calls even if allIndicators/officers change
+  }, [formData.role, userRole, userState, officer?.id]); // Use stabilized userRole/userState instead of user?.role/user?.state
 
-  // Build the options list from INDICATOR_SECTIONS but only include:
-  //  - indicators present in availableIndicatorCodes OR
-  //  - indicators already selected for this form (so editing doesn't drop them)
+  // Build the options list - always include ALL valid indicators from ALL_INDICATOR_CODES
+  // This ensures indicators don't disappear when deselected
   const indicatorOptions: MultiSelectOption[] = useMemo(() => {
-    // Collect all codes from API response
+    // Collect all codes from API response (available indicators)
     let apiCodes: string[] = [];
     if (!availableIndicatorsForState || availableIndicatorsForState.length === 0) {
       apiCodes = [];
     } else if (availableIndicatorsForState.length > 0 && typeof availableIndicatorsForState[0] === 'object') {
-      apiCodes = availableIndicatorsForState.map((item: any) => item.code);
+      apiCodes = availableIndicatorsForState.map((item: any) => item.code).filter(Boolean);
     } else {
-      apiCodes = availableIndicatorsForState;
+      apiCodes = availableIndicatorsForState.filter(Boolean);
     }
 
-    // Sort: assigned indicators first (in their order), then API indicators (in their order, excluding duplicates)
-    // CRITICAL: Always include submitted indicators that are in the current assigned list
-    // This ensures they remain visible even if user tries to remove them
+    // Get currently assigned indicators
     const assigned = formData.assignedIndicators || [];
-    const apiUnique = apiCodes.filter(code => !assigned.includes(code));
     
     // Get submitted indicators that are currently assigned - these MUST always appear
     const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
       assigned.includes(code)
     );
     
-    // Build allCodes: assigned first, then unassigned from API
-    let allCodes = [...assigned, ...apiUnique];
+    // Get original assigned indicators from officer (when editing)
+    // This ensures indicators remain visible even after deselection
+    const originalAssigned = officer?.assignedIndicators 
+      ? (Array.isArray(officer.assignedIndicators) 
+          ? officer.assignedIndicators 
+          : [officer.assignedIndicators])
+      : [];
+    
+    // CRITICAL: Build allCodes to ensure indicators are always visible
+    // This prevents indicators from disappearing when deselected
+    let allCodes: string[] = [];
+    
+    if (user?.role === "ADMIN") {
+      // Admin can see and assign all valid indicators
+      allCodes = [...ALL_INDICATOR_CODES];
+    } else {
+      // For non-admin users (STATE_APPROVER, etc.):
+      // Show indicators that are available from API (not assigned to other users)
+      // OR currently assigned to the user being edited
+      // OR originally assigned to the user being edited (to allow re-selection after deselection)
+      
+      // Start with API codes (available indicators that aren't assigned to others)
+      if (apiCodes.length > 0) {
+        allCodes = [...apiCodes];
+      }
+      
+      // CRITICAL: Always include ALL currently assigned indicators
+      // This ensures they remain visible even if API doesn't return them
+      assigned.forEach(code => {
+        if (!allCodes.includes(code) && ALL_INDICATOR_CODES.includes(code)) {
+          allCodes.push(code);
+        }
+      });
+      
+      // CRITICAL: When editing, always include originally assigned indicators
+      // This allows re-selection after deselection
+      if (officer && originalAssigned.length > 0) {
+        originalAssigned.forEach(code => {
+          if (!allCodes.includes(code) && ALL_INDICATOR_CODES.includes(code)) {
+            allCodes.push(code);
+          }
+        });
+      }
+      
+      // If no indicators from API and no assigned indicators, show all as fallback
+      // This prevents empty dropdown while API is loading
+      if (allCodes.length === 0) {
+        allCodes = [...ALL_INDICATOR_CODES];
+      }
+    }
     
     // CRITICAL: Ensure ALL submitted indicators that are assigned are ALWAYS in allCodes
     // This prevents them from disappearing even if they're temporarily removed from assigned
-    // Add them at the beginning to ensure they're always visible
     submittedAssigned.forEach(code => {
-      if (!allCodes.includes(code)) {
+      if (!allCodes.includes(code) && ALL_INDICATOR_CODES.includes(code)) {
         allCodes.unshift(code); // Add at beginning to keep them visible
       }
     });
+    
+    // Remove duplicates while preserving order (submitted/assigned first, then others)
+    allCodes = Array.from(new Set(allCodes));
 
     // Build name map - prioritize frontend mapping for 4.x indicators, then API response, then allIndicators, then fallback
     const indicatorNameMap: Record<string, string> = {};
@@ -560,8 +664,8 @@ export function UserForm({
     // );
   }, []);
 
-  // Handle indicator selection change
-  const handleIndicatorChange = (selectedIndicators: string[]) => {
+  // Handle indicator selection change - memoized to prevent re-renders
+  const handleIndicatorChange = useCallback((selectedIndicators: string[]) => {
     console.log("🔍 [UserForm] handleIndicatorChange called:", {
       selectedIndicators,
       currentAssigned: formData.assignedIndicators,
@@ -613,7 +717,7 @@ export function UserForm({
       ...prev,
       assignedIndicators: finalSelection,
     }));
-  };
+  }, [effectiveSubmittedIndicators, toast, formData.assignedIndicators]);
 
   // Fetch assigned indicators from API for editing
   const fetchAssignedIndicators = async (userId: string) => {
@@ -725,10 +829,17 @@ export function UserForm({
 
   // Track if we've already fixed the role to prevent infinite loops
   const roleFixedRef = useRef(false);
+  const isInitializingRef = useRef(false); // Track if form is initializing
 
   // Validate and fix role if it's not in available roles (only once)
+  // Skip during initialization to prevent cascading updates
   useEffect(() => {
-    if (!officer && formData.role && !roleFixedRef.current) {
+    // Skip if form is initializing or if role is already fixed
+    if (isInitializingRef.current || roleFixedRef.current) {
+      return;
+    }
+    
+    if (!officer && formData.role) {
       const availableRoles = getAvailableRoles();
       const availableRoleValues = availableRoles.map(r => r.value);
       
@@ -736,7 +847,10 @@ export function UserForm({
       if (!availableRoleValues.includes(formData.role)) {
         const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
         roleFixedRef.current = true; // Mark as fixed to prevent loop
-        setFormData(prev => ({ ...prev, role: defaultRole }));
+        // Use setTimeout to batch this update and prevent immediate re-render
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, role: defaultRole }));
+        }, 0);
       } else {
         roleFixedRef.current = true; // Role is valid, mark as checked
       }
@@ -751,6 +865,8 @@ export function UserForm({
   useEffect(() => {
     // Reset initialization flag when officer changes (switching between edit/new)
     formDataInitializedRef.current = false;
+    isInitializingRef.current = true; // Mark as initializing
+    roleFixedRef.current = false; // Reset role fixed flag
     
      if (officer) {
       // console.log("🔍 Setting form data for officer:", {
@@ -847,6 +963,7 @@ export function UserForm({
               // Restore form data from sessionStorage (with validated role)
               setFormData(restoredData);
               formDataInitializedRef.current = true;
+              roleFixedRef.current = true; // Mark role as fixed since it's restored
               // Reset cache refs to allow fresh API calls with restored data
               fetchedIndicatorsRef.current = "";
               fetchedDisabledStatesRef.current = "";
@@ -856,6 +973,12 @@ export function UserForm({
               // Clear errors when restoring
               setErrors({});
               setNodalHasSubmission(false);
+              
+              // Mark initialization complete after a brief delay
+              setTimeout(() => {
+                isInitializingRef.current = false;
+              }, 100);
+              
               return; // Exit early - form data restored from sessionStorage
             }
           } else {
@@ -886,24 +1009,34 @@ export function UserForm({
         defaultRole = "STATE_APPROVER";
       }
 
-      // Set default form values
-      setFormData({
-        firstName: "",
-        lastName: "",
-        contactNumber: "",
-        email: "",
-        password: "",
-        role: defaultRole,
-        stateId: user?.role === "ADMIN" ? "" : user?.state || "",
-        assignedIndicators: [],
-        stateUt: "",
-      });
-      
-      // Clear errors
-      setErrors({});
-      
-      // Reset nodal submission check for new user
-      setNodalHasSubmission(false);
+      // Only set default form values if form hasn't been initialized yet
+      if (!formDataInitializedRef.current) {
+        // Set default form values
+        setFormData({
+          firstName: "",
+          lastName: "",
+          contactNumber: "",
+          email: "",
+          password: "",
+          role: defaultRole,
+          stateId: user?.role === "ADMIN" ? "" : user?.state || "",
+          assignedIndicators: [],
+          stateUt: "",
+        });
+        formDataInitializedRef.current = true;
+        roleFixedRef.current = false; // Reset role fixed flag for new user
+        
+        // Clear errors
+        setErrors({});
+        
+        // Reset nodal submission check for new user
+        setNodalHasSubmission(false);
+        
+        // Mark initialization complete after a brief delay
+        setTimeout(() => {
+          isInitializingRef.current = false;
+        }, 100);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officer?.id, officer?.firstName, officer?.lastName, officer?.email, officer?.contactNumber, officer?.role, officer?.state, user?.state, user?.role]); // Removed states array to prevent frequent re-renders
@@ -912,33 +1045,37 @@ export function UserForm({
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Save form data to sessionStorage whenever it changes (only for new users) - debounced
+  // Skip during initialization to prevent unnecessary saves
   useEffect(() => {
-    if (!officer && typeof window !== 'undefined') {
-      // Clear any pending save
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      
-      // Debounce the save to prevent excessive sessionStorage writes and UI flickering
-      saveTimeoutRef.current = setTimeout(() => {
-        // Only save if form has meaningful data (not empty form)
-        const hasData = formData.firstName || formData.lastName || formData.email || 
-                       formData.contactNumber || formData.password || 
-                       (Array.isArray(formData.assignedIndicators) && formData.assignedIndicators.length > 0);
-        
-        if (hasData) {
-          const dataToSave = {
-            data: formData,
-            timestamp: Date.now(),
-          };
-          sessionStorage.setItem('userManagementFormDraft', JSON.stringify(dataToSave));
-        } else {
-          // Clear sessionStorage if form is empty
-          sessionStorage.removeItem('userManagementFormDraft');
-        }
-      }, 500); // Debounce by 500ms to prevent excessive updates
+    // Skip if form is initializing or if editing an existing user
+    if (isInitializingRef.current || officer || typeof window === 'undefined') {
+      return;
     }
     
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // Debounce the save to prevent excessive sessionStorage writes and UI flickering
+    // Increased debounce time to 1000ms to reduce frequency
+    saveTimeoutRef.current = setTimeout(() => {
+      // Only save if form has meaningful data (not empty form)
+      const hasData = formData.firstName || formData.lastName || formData.email || 
+                     formData.contactNumber || formData.password || 
+                     (Array.isArray(formData.assignedIndicators) && formData.assignedIndicators.length > 0);
+      
+      if (hasData) {
+        const dataToSave = {
+          data: formData,
+          timestamp: Date.now(),
+        };
+        sessionStorage.setItem('userManagementFormDraft', JSON.stringify(dataToSave));
+      } else {
+        // Clear sessionStorage if form is empty
+        sessionStorage.removeItem('userManagementFormDraft');
+      }
+    }, 1000); // Increased debounce to 1000ms to reduce frequency
     // Cleanup timeout on unmount or when officer changes
     return () => {
       if (saveTimeoutRef.current) {
@@ -1015,15 +1152,27 @@ export function UserForm({
     }
   }, [officer, states, formData.stateId]);
 
+  // Helper function to validate alphabets only (letters, spaces, hyphens, apostrophes)
+  const isAlphabetsOnly = (value: string): boolean => {
+    if (!value || typeof value !== "string") return false;
+    // Allow letters, spaces, hyphens, apostrophes (for names like "O'Brien", "Mary-Jane")
+    // Unicode regex for letters including accented characters
+    return /^[\p{L}\s'-]+$/u.test(value.trim());
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.firstName.trim()) {
       newErrors.firstName = "First name is required";
+    } else if (!isAlphabetsOnly(formData.firstName)) {
+      newErrors.firstName = "First name should contain only letters, spaces, hyphens, and apostrophes";
     }
 
     if (!formData.lastName.trim()) {
       newErrors.lastName = "Last name is required";
+    } else if (!isAlphabetsOnly(formData.lastName)) {
+      newErrors.lastName = "Last name should contain only letters, spaces, hyphens, and apostrophes";
     }
 
     if (!formData.contactNumber.trim()) {
@@ -1154,11 +1303,7 @@ export function UserForm({
           email: "This email is already registered to another user",
         }));
         setCheckingEmail(false);
-        toast({
-          title: "Validation Error",
-          description: "This email is already registered to another user",
-          variant: "destructive",
-        });
+        // Error is shown inline in the UI, no toast needed
         return; // Stop submission
       }
       
@@ -1172,12 +1317,11 @@ export function UserForm({
       });
     } catch (error: any) {
       console.error("❌ [handleSubmit] Error checking email availability:", error);
-      // On error, show warning but allow submission (fail open)
-      toast({
-        title: "Warning",
-        description: "Could not verify email availability. Please verify manually.",
-        variant: "default",
-      });
+      // On error, set error state to show in UI, but allow submission (fail open)
+      setErrors((prev) => ({
+        ...prev,
+        email: "Could not verify email availability. Please verify manually.",
+      }));
     } finally {
       setCheckingEmail(false);
     }
@@ -1211,11 +1355,7 @@ export function UserForm({
           contactNumber: "This contact number is already registered to another user",
         }));
         setCheckingContact(false);
-        toast({
-          title: "Validation Error",
-          description: "This contact number is already registered to another user",
-          variant: "destructive",
-        });
+        // Error is shown inline in the UI, no toast needed
         return; // Stop submission
       }
       
@@ -1236,12 +1376,11 @@ export function UserForm({
         status: error?.response?.status,
         url: error?.config?.url
       });
-      // On error, show warning but allow submission (fail open)
-      toast({
-        title: "Warning",
-        description: "Could not verify contact number availability. Please verify manually.",
-        variant: "default",
-      });
+      // On error, set error state to show in UI, but allow submission (fail open)
+      setErrors((prev) => ({
+        ...prev,
+        contactNumber: "Could not verify contact number availability. Please verify manually.",
+      }));
     } finally {
       setCheckingContact(false);
     }
@@ -1309,7 +1448,7 @@ const getSelectedStateName = () => {
 
   
 
-const handleStateChange = (values: string | string[]) => {
+const handleStateChange = useCallback((values: string | string[]) => {
   // Always update stateId and stateUt to reflect the latest selection, not keeping previous state
   if (!values || (Array.isArray(values) && values.length === 0)) {
     setFormData(prev => ({
@@ -1339,7 +1478,7 @@ const handleStateChange = (values: string | string[]) => {
       stateUt: name
     }));
   }
-};
+}, [formData.role, states]);
  
 
   // Fetch assigned states by role to disable them in dropdown
@@ -1612,7 +1751,7 @@ const handleStateChange = (values: string | string[]) => {
             placeholder="Enter your first name"
             value={formData.firstName}
             onChange={(e) => {
-              setFormData({ ...formData, firstName: e.target.value });
+              setFormData((prev) => ({ ...prev, firstName: e.target.value }));
               // Clear error when user starts typing
               if (errors.firstName) {
                 setErrors((prev) => {
@@ -1649,7 +1788,7 @@ const handleStateChange = (values: string | string[]) => {
             placeholder="Enter your last name"
             value={formData.lastName}
             onChange={(e) => {
-              setFormData({ ...formData, lastName: e.target.value });
+              setFormData((prev) => ({ ...prev, lastName: e.target.value }));
               // Clear error when user starts typing
               if (errors.lastName) {
                 setErrors((prev) => {
@@ -1694,7 +1833,7 @@ const handleStateChange = (values: string | string[]) => {
               // Limit to 10 digits
               const contactNumber = inputValue.slice(0, 10);
               
-              setFormData({ ...formData, contactNumber });
+              setFormData((prev) => ({ ...prev, contactNumber }));
 
               // Real-time validation
               const newErrors: Record<string, string> = { ...errors };
@@ -1776,7 +1915,7 @@ const handleStateChange = (values: string | string[]) => {
             disabled={!!officer} // Disable email field when editing existing user
             onChange={(e) => {
               const email = e.target.value;
-              setFormData({ ...formData, email });
+              setFormData((prev) => ({ ...prev, email }));
 
               // Real-time validation
               const newErrors: Record<string, string> = { ...errors };
@@ -1855,7 +1994,7 @@ const handleStateChange = (values: string | string[]) => {
                 placeholder="Enter password (min 6 characters)"
                 value={formData.password}
                 onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
+                  setFormData((prev) => ({ ...prev, password: e.target.value }))
                 }
                 className={
                   errors.password ? "border-destructive pr-10" : "pr-10"
@@ -1984,7 +2123,7 @@ const handleStateChange = (values: string | string[]) => {
                 });
  
 
-                setFormData({ ...formData, stateId: value });
+                setFormData((prev) => ({ ...prev, stateId: value }));
               }}
               disabled={loadingStates}
             >
@@ -2304,7 +2443,8 @@ const handleStateChange = (values: string | string[]) => {
   );
 }
 
-
+// Memoize UserForm to prevent unnecessary re-renders when props haven't changed
+export const UserForm = memo(UserFormComponent);
 
 // Helper function to get indicator display name
 function getIndicatorDisplayName(indicatorCode: string): string {

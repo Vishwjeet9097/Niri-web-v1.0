@@ -63,6 +63,14 @@ const isValidUrl = (value: string): boolean => {
   }
 };
 
+// Helper function to validate alphabets only (letters, spaces, hyphens, apostrophes)
+const isAlphabetsOnly = (value: string): boolean => {
+  if (!value || typeof value !== "string") return false;
+  // Allow letters, spaces, hyphens, apostrophes (for names like "O'Brien", "Mary-Jane")
+  // Unicode regex for letters including accented characters
+  return /^[\p{L}\s'-]+$/u.test(value.trim());
+};
+
 /**
  * Check if a value is greater than zero
  * Handles cases like "0", "000", "00000", etc.
@@ -325,6 +333,9 @@ export const validateInfraFinancing = (
             if (!intermediary.organisationName) {
               errors[`section1_5.ffiArray.${index}.organisationName`] =
                 "Organisation name is required.";
+            } else if (!isAlphabetsOnly(intermediary.organisationName)) {
+              errors[`section1_5.ffiArray.${index}.organisationName`] =
+                "Organisation name should contain only letters, spaces, hyphens, and apostrophes.";
             }
             if (!intermediary.organisationType) {
               errors[`section1_5.ffiArray.${index}.organisationType`] =

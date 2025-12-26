@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { authService } from "@/services/auth.service";
 import { apiService } from "@/services/api.service";
 import type { IndicatorAccess, IndicatorSection, SectionAccess } from "@/types";
@@ -265,11 +265,29 @@ export function useIndicatorAccess() {
     // CACHE_DURATION removed - it's a constant and doesn't need to be in deps
   ]);
 
+  // Track last load to prevent duplicate calls
+  const lastLoadRef = useRef<{ userId: string | undefined; stateUt: string | undefined; role: string | undefined } | null>(null);
+  
   // initial + re-run on userId/stateUt/role changes
   useEffect(() => {
+    // Check if values actually changed
+    const currentValues = { userId, stateUt, role: user?.role };
+    const lastValues = lastLoadRef.current;
+    
+    // Skip if values haven't changed - this is the main guard
+    if (lastValues && 
+        lastValues.userId === currentValues.userId &&
+        lastValues.stateUt === currentValues.stateUt &&
+        lastValues.role === currentValues.role) {
+      return; // Values haven't changed, skip
+    }
+    
+    // Update tracking BEFORE calling
+    lastLoadRef.current = currentValues;
+    
     loadIndicators();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadIndicators]);
+  }, [userId, stateUt, user?.role]); // Use primitive values instead of loadIndicators function
 
   // Helper: Get effective indicators for NODAL_OFFICER
   // If no indicators assigned, return all indicators (fallback behavior)

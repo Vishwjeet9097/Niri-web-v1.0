@@ -295,6 +295,20 @@ export function NiriSubmissionForm({
         }
       }
 
+      // Dispatch event to refresh indicators after submission
+      // This ensures the "Create Submission" button disables correctly when last indicator is submitted
+      if (isStateApprover && submissionId) {
+        console.log("📢 [NiriSubmissionForm] Dispatching indicatorsUpdated event after submission creation");
+        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
+          detail: { 
+            userId: user?.id,
+            role: 'STATE_APPROVER',
+            action: 'submission_created',
+            submissionId 
+          } 
+        }));
+      }
+
       toast({
         title: "Success",
         description: "Submission created successfully",

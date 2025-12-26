@@ -67,6 +67,14 @@ const isValidDate = (value: string): boolean => {
   }
 };
 
+// Helper function to validate alphabets only (letters, spaces, hyphens, apostrophes)
+const isAlphabetsOnly = (value: string): boolean => {
+  if (!value || typeof value !== "string") return false;
+  // Allow letters, spaces, hyphens, apostrophes (for names like "O'Brien", "Mary-Jane")
+  // Unicode regex for letters including accented characters
+  return /^[\p{L}\s'-]+$/u.test(value.trim());
+};
+
 export const validatePPPDevelopment = (
   data: PPPDevelopmentData,
   options: PPPDevelopmentValidationOptions = {}
@@ -150,12 +158,18 @@ export const validatePPPDevelopment = (
         if (!entry.projectName || entry.projectName.trim() === "") {
           errors[`section3_3.VGFArray.${index}.projectName`] =
             "Project name is required.";
+        } else if (!isAlphabetsOnly(entry.projectName)) {
+          errors[`section3_3.VGFArray.${index}.projectName`] =
+            "Project name should contain only letters, spaces, hyphens, and apostrophes.";
         }
         if (!entry.sector || entry.sector.trim() === "") {
           errors[`section3_3.VGFArray.${index}.sector`] = "Sector is required.";
         }
         if (!entry.scheme || entry.scheme.trim() === "") {
           errors[`section3_3.VGFArray.${index}.scheme`] = "Scheme is required.";
+        } else if (!isAlphabetsOnly(entry.scheme)) {
+          errors[`section3_3.VGFArray.${index}.scheme`] =
+            "Scheme should contain only letters, spaces, hyphens, and apostrophes.";
         }
         if (!entry.submissionDate || !isValidDate(entry.submissionDate)) {
           errors[`section3_3.VGFArray.${index}.submissionDate`] =
@@ -174,6 +188,9 @@ export const validatePPPDevelopment = (
         if (!entry.statusOfProject || entry.statusOfProject.trim() === "") {
           errors[`section3_3.VGFArray.${index}.statusOfProject`] =
             "Status of Project is required.";
+        } else if (!isAlphabetsOnly(entry.statusOfProject)) {
+          errors[`section3_3.VGFArray.${index}.statusOfProject`] =
+            "Status should contain only letters, spaces, hyphens, and apostrophes.";
         }
       });
     }
@@ -219,6 +236,13 @@ export const validatePPPDevelopment = (
       // but if projects are added, they should be validated for completeness
       if (section34.projects && section34.projects.length > 0) {
         section34.projects.forEach((project, index) => {
+          // Validate project name if it has a value
+          if (project.nameOfProject && project.nameOfProject.trim() !== "") {
+            if (!isAlphabetsOnly(project.nameOfProject)) {
+              errors[`section3_4.projects.${index}.nameOfProject`] =
+                "Project name should contain only letters, spaces, hyphens, and apostrophes.";
+            }
+          }
           // Validate decimal fields if they have values
           const totalProjectCostStr =
             project.totalProjectCost != null

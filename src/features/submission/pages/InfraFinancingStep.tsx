@@ -1287,7 +1287,7 @@ export const InfraFinancingStep = () => {
       };
 
       // Submit only this indicator
-      await apiService.submitSectionToStateApprover(
+      const result = await apiService.submitSectionToStateApprover(
         sanitizedFormDataWithStatus,
         "infraFinancing",
         [indicatorCode]
@@ -1324,6 +1324,21 @@ export const InfraFinancingStep = () => {
         description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
         variant: "default",
       });
+
+      // Dispatch event to refresh indicators after indicator submission
+      // This ensures the "Create Submission" button disables correctly when last indicator is submitted
+      if (user?.role === "STATE_APPROVER" && user?.id) {
+        console.log("📢 [InfraFinancingStep] Dispatching indicatorsUpdated event after indicator submission");
+        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
+          detail: { 
+            userId: user.id,
+            role: 'STATE_APPROVER',
+            action: 'indicator_submitted',
+            indicatorCode,
+            submissionId: result?.id || result?.submissionId
+          } 
+        }));
+      }
 
       // Optimistically update sectionStatus to immediately disable the button
       // Use functional update to ensure we have the latest state

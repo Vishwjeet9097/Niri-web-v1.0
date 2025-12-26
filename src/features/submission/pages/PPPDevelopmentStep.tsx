@@ -911,11 +911,8 @@ export const PPPDevelopmentStep = () => {
 
       // Store indicator-specific errors
       setIndicatorValidationErrors(indicatorValidation.errors);
-      toast({
-        title: "Incomplete Indicator",
-        description: `Please complete all required fields for indicator ${indicatorCode} before submitting.`,
-        variant: "destructive",
-      });
+      setShowValidationErrors(true);
+      // Errors are displayed inline in the UI via renderFieldError, no toast needed
       return;
     }
 
@@ -1019,6 +1016,21 @@ export const PPPDevelopmentStep = () => {
         description: `Indicator ${indicatorCode} (${indicatorTitle}) submitted to State Approver successfully.`,
         variant: "default",
       });
+
+      // Dispatch event to refresh indicators after indicator submission
+      // This ensures the "Create Submission" button disables correctly when last indicator is submitted
+      if (user?.role === "STATE_APPROVER" && user?.id) {
+        console.log("📢 [PPPDevelopmentStep] Dispatching indicatorsUpdated event after indicator submission");
+        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
+          detail: { 
+            userId: user.id,
+            role: 'STATE_APPROVER',
+            action: 'indicator_submitted',
+            indicatorCode,
+            submissionId: result?.id || result?.submissionId
+          } 
+        }));
+      }
 
       // Update form data with sanitized data that includes status
       updateFormData("pppDevelopment", sanitizedFormDataWithStatus);
@@ -1321,7 +1333,20 @@ export const PPPDevelopmentStep = () => {
             });
           }
         } else if (indicatorCode === "3.4") {
-          allIndicatorFields.push(`${sectionPrefix}.file`);
+          // Add all project fields for section 3.4
+          if (formData.section3_4?.projects && Array.isArray(formData.section3_4.projects)) {
+            formData.section3_4.projects.forEach((_: any, index: number) => {
+              allIndicatorFields.push(
+                `${sectionPrefix}.projects.${index}.nameOfProject`,
+                `${sectionPrefix}.projects.${index}.nipId`,
+                `${sectionPrefix}.projects.${index}.fundingSource`,
+                `${sectionPrefix}.projects.${index}.infrastructureSector`,
+                `${sectionPrefix}.projects.${index}.dateOfAward`,
+                `${sectionPrefix}.projects.${index}.capexPercentage`,
+                `${sectionPrefix}.projects.${index}.totalProjectCost`
+              );
+            });
+          }
         }
 
         // Mark all indicator fields as touched so ALL errors show
@@ -1337,11 +1362,15 @@ export const PPPDevelopmentStep = () => {
 
         setShowValidationErrors(true);
         setIndicatorValidationErrors((prev) => ({ ...prev, ...sectionErrors }));
-        // Set section-level validation message
+        // Set section-level validation message with specific error details
         const errorCount = Object.keys(sectionErrors).length;
+        const errorMessages = Object.values(sectionErrors).slice(0, 3); // Show first 3 errors
+        const errorMessage = errorMessages.length > 0 
+          ? `${errorMessages.join("; ")}${errorCount > 3 ? ` and ${errorCount - 3} more error(s).` : "."}`
+          : `Please fill all mandatory fields. ${errorCount} field(s) are missing.`;
         setSectionValidationMessages((prev) => ({
           ...prev,
-          [indicatorCode]: `Please fill all mandatory fields. ${errorCount} field(s) are missing.`,
+          [indicatorCode]: errorMessage,
         }));
         console.log(
           `[PPPDevelopmentStep] Validation failed for indicator ${indicatorCode}:`,
@@ -1377,11 +1406,16 @@ export const PPPDevelopmentStep = () => {
       });
 
       if (!indicatorValidation.isValid) {
-        toast({
-          title: "Validation Error",
-          description: `Please complete all required fields for indicator ${indicatorCode} before saving.`,
-          variant: "destructive",
+        // Mark all fields with errors as touched so they show inline
+        Object.keys(indicatorValidation.errors).forEach((errorKey) => {
+          const sectionPrefix = `section${indicatorCode.replace(".", "_")}`;
+          if (errorKey.startsWith(sectionPrefix)) {
+            markFieldAsTouched(errorKey);
+          }
         });
+        setShowValidationErrors(true);
+        setIndicatorValidationErrors((prev) => ({ ...prev, ...indicatorValidation.errors }));
+        // Errors are displayed inline in the UI, no toast needed
         return;
       }
 
@@ -2494,19 +2528,31 @@ export const PPPDevelopmentStep = () => {
                           type="text"
                           placeholder="Enter project name"
                           value={project.nameOfProject}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            showErrorsIfNeeded();
+                            clearIndicatorValidationMessage("3.4");
                             updatePPPProject(
                               project.id,
                               "nameOfProject",
                               e.target.value
-                            )
-                          }
+                            );
+                          }}
                           disabled={isIndicatorSubmitted("3.4")}
                           className={cn(
+                            getInputValidationClass(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.nameOfProject`
+                            ),
                             isIndicatorSubmitted("3.4") &&
                               "bg-gray-50 cursor-not-allowed"
                           )}
                         />
+                        {renderFieldError(
+                          `section3_4.projects.${formData.section3_4.projects.findIndex(
+                            (p) => p.id === project.id
+                          )}.nameOfProject`
+                        )}
                       </div>
                       <div>
                         <Label>NIP ID</Label>
