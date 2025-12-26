@@ -1,5 +1,6 @@
+import React from "react";
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getRoleDisplayName } from "@/utils/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,50 +74,27 @@ export function UserForm({
   
   // Debug: Log when component receives submittedIndicatorsInState
   useEffect(() => {
-    console.log("🔍 [UserForm] Component mounted/re-rendered");
-    console.log("🔍 [UserForm] submittedIndicatorsInState prop:", submittedIndicatorsInState);
-    console.log("🔍 [UserForm] localSubmittedIndicators:", localSubmittedIndicators);
-    console.log("🔍 [UserForm] effectiveSubmittedIndicators:", effectiveSubmittedIndicators);
-    console.log("🔍 [UserForm] Officer stateUt:", officer?.stateUt);
-    console.log("🔍 [UserForm] Officer state:", officer?.state);
-    console.log("🔍 [UserForm] Current user stateUt:", user?.stateUt);
-    console.log("🔍 [UserForm] Current user state:", user?.state);
-    console.log("🔍 [UserForm] Current user:", user);
+    // Debug logs removed
   }, [submittedIndicatorsInState, localSubmittedIndicators, effectiveSubmittedIndicators, officer?.stateUt, officer?.state, user?.stateUt, user?.state, user]);
   
   // Fallback: Fetch submitted indicators if not provided and we have a stateUt
   useEffect(() => {
-    const fetchIfNeeded = async () => {
-      // Only fetch if:
-      // 1. No submitted indicators provided
-      // 2. We have a stateUt (from officer or user)
-      // 3. We haven't already fetched
+    const fetchIfNeeded = async () => { 
       if (submittedIndicatorsInState.length === 0 && localSubmittedIndicators.length === 0) {
-        // Priority: officer.stateUt > officer.state > user.stateUt > user.state
-        // For state approvers managing officers, use their own state (since officers are in the same state)
+         // For state approvers managing officers, use their own state (since officers are in the same state)
         const stateUt = officer?.stateUt || officer?.state || user?.stateUt || user?.state;
         
-        console.log("🔍 [UserForm] Determining stateUt for submitted indicators fetch:", {
-          officerStateUt: officer?.stateUt,
-          officerState: officer?.state,
-          userStateUt: user?.stateUt,
-          userState: user?.state,
-          resolvedStateUt: stateUt,
-        });
-        
+         
         if (stateUt) {
-          console.log("🔍 [UserForm] Fetching submitted indicators as fallback for stateUt:", stateUt);
-          console.log("🔍 [UserForm] NOTE: This query is STATE-SCOPED - only finds submissions within state:", stateUt);
+          // Debug logs removed
           try {
             const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
-            console.log("✅ [UserForm] Fetched submitted indicators (fallback):", submitted);
-            console.log("✅ [UserForm] These indicators are submitted within state:", stateUt, "only (not globally)");
             setLocalSubmittedIndicators(submitted);
           } catch (error) {
-            console.error("❌ [UserForm] Error fetching submitted indicators (fallback):", error);
+            // Error log removed
           }
         } else {
-          console.warn("⚠️ [UserForm] Cannot fetch submitted indicators - no stateUt available from officer or user");
+          // Warning log removed
         }
       }
     };
@@ -129,27 +107,7 @@ export function UserForm({
     if (submittedIndicatorsInState.length > 0) {
       setLocalSubmittedIndicators(submittedIndicatorsInState);
     }
-  }, [submittedIndicatorsInState]);
-
-  // Debug user info (temporarily enabled)
-  // console.log("🔍 UserForm - User info:", {
-  //   userRole: user?.role,
-  //   userState: user?.state,
-  //   userEmail: user?.email,
-  //   isAdmin: user?.role === "ADMIN",
-  // });
-
-  // const [formData, setFormData] = useState({
-  //   firstName: "",
-  //   lastName: "",
-  //   contactNumber: "",
-  //   email: "",
-  //   password: "",
-  //   role: "NODAL_OFFICER",
-  //   stateId: "",
-  //   stateUt: "",
-  //   assignedIndicators: [] as string[],
-  // });
+  }, [submittedIndicatorsInState]);   
 
   // Initialize formData with saved draft data if creating a new user
   const [formData, setFormData] = useState<{
@@ -162,38 +120,19 @@ export function UserForm({
     stateId: string | string[]; // Allow array for multiple states
     assignedIndicators: string[];
     stateUt: string | string[];
-  }>(() => {
-    // Try to restore from sessionStorage if creating a new user
-    if (typeof window !== 'undefined' && !officer) {
-      const savedFormData = sessionStorage.getItem('userManagementFormDraft');
-      if (savedFormData) {
-        try {
-          const parsed = JSON.parse(savedFormData);
-          // Only restore if it's recent (within last hour)
-          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000) {
-            return parsed.data;
-          } else {
-            // Clear old data
-            sessionStorage.removeItem('userManagementFormDraft');
-          }
-        } catch (e) {
-          console.warn('Failed to parse saved form data:', e);
-        }
-      }
-    }
-    // Default initial state
-    return {
-      firstName: "",
-      lastName: "",
-      contactNumber: "",
-      email: "",
-      password: "",
-      role: "NODAL_OFFICER",
-      stateId: "",
-      assignedIndicators: [],
-      stateUt: "",
-    };
-  });
+    ministryId: string;
+  }>(() => ({
+    firstName: "",
+    lastName: "",
+    contactNumber: "",
+    email: "",
+    password: "",
+    role: "NODAL_OFFICER",
+    stateId: "",
+    assignedIndicators: [],
+    stateUt: "",
+    ministryId: "",
+  }));
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [states, setStates] = useState<State[]>([]);
@@ -205,6 +144,33 @@ export function UserForm({
   const [nodalHasSubmission, setNodalHasSubmission] = useState(false);
   const [checkingNodalSubmission, setCheckingNodalSubmission] = useState(false);
 
+  // Ministry dropdown state (for MINISTRY_APPROVER role)
+  const [ministries, setMinistries] = React.useState<{ id: string; name: string }[]>([]);
+  const [loadingMinistries, setLoadingMinistries] = React.useState(false);
+  const [ministryError, setMinistryError] = React.useState<string | null>(null);
+  // Auto-load ministries if initial role is MINISTRY_APPROVER
+  useEffect(() => {
+    if (formData.role === "MINISTRY_APPROVER") {
+      setLoadingMinistries(true);
+      setMinistryError(null);
+      apiService.get("/ministries")
+        .then(res => {
+          let data = res?.data?.data || res?.data || res;
+          if (Array.isArray(data)) {
+            setMinistries(data);
+          } else {
+            setMinistries([]);
+          }
+        })
+        .catch(() => {
+          setMinistryError("Failed to load ministries");
+          setMinistries([]);
+        })
+        .finally(() => {
+          setLoadingMinistries(false);
+        });
+    }
+  }, [formData.role]);
 
   // State for API response
   const [availableIndicatorsForState, setAvailableIndicatorsForState] = useState<any[]>([]);
@@ -216,6 +182,32 @@ export function UserForm({
   // Debounced values for real-time validation
   const debouncedEmail = useDebounce(formData.email, 500);
   const debouncedContactNumber = useDebounce(formData.contactNumber, 500);
+
+  // Load ministries when role changes (MINISTRY_APPROVER)
+  React.useEffect(() => {
+    if (formData.role === "MINISTRY_APPROVER") {
+      setLoadingMinistries(true);
+      setMinistryError(null);
+      apiService
+        .get("/ministries")
+        .then((res: any) => {
+          let data = res?.data?.data || res?.data || res;
+          if (Array.isArray(data)) {
+            setMinistries(data);
+          } else {
+            setMinistries([]);
+          }
+        })
+        .catch((err: any) => {
+          setMinistryError("Failed to load ministries");
+          setMinistries([]);
+        })
+        .finally(() => setLoadingMinistries(false));
+    } else {
+      setMinistries([]);
+      setMinistryError(null);
+    }
+  }, [formData.role]);
 
   // Compute available indicators for selected state (using backend API for real-time data)
   useEffect(() => {
@@ -268,17 +260,15 @@ export function UserForm({
         
         // Ensure we have an array
         if (!Array.isArray(indicators)) {
-          console.warn("⚠️ API returned invalid indicators format:", indicators);
           indicators = [];
         }
         
         setAvailableIndicatorsForState(indicators);
       } catch (error) {
-        console.error("❌ Failed to fetch available indicators from API, falling back to frontend filtering:", error);
+        // Error log removed
         
         // Fallback to frontend filtering if API fails
         if (allIndicators.length === 0) {
-          console.warn("⚠️ allIndicators is empty, cannot show indicators. Please wait for indicators to load.");
           setAvailableIndicatorsForState([]);
           return;
         }
@@ -413,16 +403,7 @@ export function UserForm({
       
       // Debug logging for indicator 1.1 specifically
       if (code === "1.1") {
-        console.log("🔍 [UserForm] Indicator 1.1 Debug:", {
-          code,
-          isSubmitted,
-          submittedIndicatorsInState,
-          effectiveSubmittedIndicators,
-          inArray: effectiveSubmittedIndicators.includes(code),
-          assigned: assigned.includes(code),
-          allCodesIncludes: allCodes.includes(code),
-          submittedIndicatorsLength: submittedIndicatorsInState.length,
-        });
+        // Debug log removed
       }
       
       return {
@@ -438,18 +419,7 @@ export function UserForm({
 
     // Debug logging to help troubleshoot
     if (formData.assignedIndicators && formData.assignedIndicators.length > 0) {
-      console.log("🔍 [UserForm] Indicator Options Debug:", {
-        assignedIndicators: formData.assignedIndicators,
-        availableFromAPI: apiCodes.length,
-        allCodesCount: allCodes.length,
-        optionsCount: options.length,
-        assignedInOptions: options.filter(opt => formData.assignedIndicators.includes(opt.value)).map(opt => opt.value),
-        submittedIndicatorsInState: submittedIndicatorsInState,
-        effectiveSubmittedIndicators: effectiveSubmittedIndicators,
-        localSubmittedIndicators: localSubmittedIndicators,
-        submittedIndicatorsCount: effectiveSubmittedIndicators.length,
-        disabledOptions: options.filter(opt => opt.disabled).map(opt => opt.value),
-      });
+      // Debug log removed
     }
 
     return options;
@@ -457,10 +427,8 @@ export function UserForm({
 
   // Memoize the MultiSelect value to ensure submitted indicators are always included
   const multiSelectValue = useMemo(() => {
-    // Ensure submitted indicators are always in the value, even if somehow removed
-    const currentAssigned = formData.assignedIndicators || [];
-    // Always include submitted indicators that are assigned to this user
-    const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
+     const currentAssigned = formData.assignedIndicators || [];
+     const submittedAssigned = effectiveSubmittedIndicators.filter(code => 
       currentAssigned.includes(code)
     );
     // Merge: current assigned + ensure submitted ones are included
@@ -468,25 +436,11 @@ export function UserForm({
     return finalValue;
   }, [formData.assignedIndicators, effectiveSubmittedIndicators]);
 
-// Removed useEffect syncing stateUt from stateId; now handled only in handleStateChange
-
-  // Debug: Log indicator options to verify 4.6 is included
-  useEffect(() => {
-    // console.log("🔍 Indicator Options:", indicatorOptions);
-    // console.log(
-    //   "🔍 4.6 in options:",
-    //   indicatorOptions.find((opt) => opt.value === "4.6")
-    // );
-  }, []);
-
+ 
+  
   // Handle indicator selection change
   const handleIndicatorChange = (selectedIndicators: string[]) => {
-    console.log("🔍 [UserForm] handleIndicatorChange called:", {
-      selectedIndicators,
-      currentAssigned: formData.assignedIndicators,
-      submittedIndicatorsInState,
-      effectiveSubmittedIndicators,
-    });
+    // Debug log removed
     
     // Always preserve submitted indicators that are currently assigned
     const currentlySelected = formData.assignedIndicators || [];
@@ -494,7 +448,7 @@ export function UserForm({
       effectiveSubmittedIndicators.includes(ind)
     );
 
-    console.log("🔍 [UserForm] handleIndicatorChange - submittedAssigned:", submittedAssigned);
+    // Debug log removed
 
     // Check if user tried to remove any submitted indicators
     const beingRemoved = currentlySelected.filter(
@@ -504,12 +458,11 @@ export function UserForm({
       effectiveSubmittedIndicators.includes(ind)
     );
 
-    console.log("🔍 [UserForm] handleIndicatorChange - beingRemoved:", beingRemoved);
-    console.log("🔍 [UserForm] handleIndicatorChange - cannotRemove:", cannotRemove);
+    // Debug log removed
 
     // If user tried to remove submitted indicators, show error and prevent change
     if (cannotRemove.length > 0) {
-      console.warn("⚠️ [UserForm] Attempted to remove submitted indicators:", cannotRemove);
+      // Warning log removed
       toast({
         title: "Cannot Remove Indicators",
         description: `The following indicators are already submitted and cannot be removed: ${cannotRemove.join(", ")}`,
@@ -525,7 +478,7 @@ export function UserForm({
     );
     const finalSelection = [...submittedAssigned, ...newSelectionWithoutSubmitted];
 
-    console.log("🔍 [UserForm] handleIndicatorChange - finalSelection:", finalSelection);
+   // Debug log removed
 
     // Always update with final selection (includes submitted indicators)
     setFormData((prev) => ({
@@ -537,9 +490,7 @@ export function UserForm({
   // Fetch assigned indicators from API for editing
   const fetchAssignedIndicators = async (userId: string) => {
     try {
-     // console.log("🔍 Fetching assigned indicators for user:", userId);
       const indicators = await apiService.getUserAssignedIndicators(userId);
-      //console.log("🔍 Fetched indicators:", indicators);
 
       if (Array.isArray(indicators) && indicators.length > 0) {
         setFormData((prev) => ({
@@ -548,7 +499,7 @@ export function UserForm({
         }));
       }
     } catch (error) {
-      console.error("❌ Failed to fetch assigned indicators:", error);
+      // Error log removed
       // Don't show error to user as this is for edit mode
     }
   };
@@ -584,7 +535,6 @@ export function UserForm({
       if (error?.response?.status === 404) {
         setNodalHasSubmission(false);
       } else {
-        console.warn("⚠️ Error checking nodal officer submission:", error);
         setNodalHasSubmission(false);
       }
     } finally {
@@ -596,9 +546,16 @@ export function UserForm({
   const getAvailableRoles = useCallback(() => {
     const currentUserRole = user?.role;
 
-   // console.log("🔍 getAvailableRoles - Current user role:", currentUserRole);
+  // Debug log removed
 
     switch (currentUserRole) {
+    case "MINISTRY_APPROVER":
+          return [
+            {
+              value: "MINISTRY_APPROVER",
+              label: getRoleDisplayName("MINISTRY_APPROVER"),
+            },
+          ];
       case "STATE_APPROVER":
         // State Approver can only create Nodal Officers
         return [
@@ -622,6 +579,10 @@ export function UserForm({
       case "ADMIN":
         // Admin can create all roles (for system administration)
         return [
+ 	    {
+            value: "MINISTRY_APPROVER",
+            label: getRoleDisplayName("MINISTRY_APPROVER"),
+          },
           {
             value: "STATE_APPROVER",
             label: getRoleDisplayName("STATE_APPROVER"),
@@ -634,7 +595,10 @@ export function UserForm({
             value: "MOSPI_APPROVER",
             label: getRoleDisplayName("MOSPI_APPROVER"),
           },
-          { value: "ADMIN", label: getRoleDisplayName("ADMIN") },
+          { 
+	   value: "ADMIN",
+	   label: getRoleDisplayName("ADMIN") 
+	   },
         ];
       default:
         // Default fallback - no roles available
@@ -643,21 +607,15 @@ export function UserForm({
   }, [user?.role]);
 
   useEffect(() => {
-     if (officer) {
-      // console.log("🔍 Setting form data for officer:", {
-      //   officer,
-      //   stateId: officer.stateId,
-      //   state: officer.state,
-      // });
+    if (officer) {
+      // ...existing code for setting formData from officer...
       const stateIdsRaw = officer.state
         ? officer.state.split(",").map(name => {
             const match = states.find(s => s.name.trim() === name.trim());
             return match ? match.id : officer.state;
           }).filter(Boolean)
         : [];
-      // Deduplicate stateIds
       const stateIds = Array.from(new Set(stateIdsRaw));
-      // Get unique state names for stateUt
       const uniqueStateNames = Array.from(new Set(stateIds.map(id => {
         const found = states.find(s => s.id === id);
         return found ? found.name : id;
@@ -667,10 +625,11 @@ export function UserForm({
         lastName: officer.lastName || "",
         contactNumber: officer.contactNumber || "",
         email: officer.email || "",
-        password: "", // Don't show password for existing users
+        password: "",
         role: officer.role || "NODAL_OFFICER",
-        stateId: stateIds, // Will be set after states are loaded 
-        stateUt: uniqueStateNames.join(", "), // Always unique, comma-separated string
+        stateId: stateIds,
+        ministryId:  officer.ministryId || "",
+        stateUt: uniqueStateNames.join(", "),
         assignedIndicators: (() => {
           if (Array.isArray(officer.assignedIndicators)) {
             return officer.assignedIndicators as string[];
@@ -694,23 +653,56 @@ export function UserForm({
         })(),
       });
 
-      // Fetch assigned indicators from API for NODAL_OFFICER
       if (officer.role === "NODAL_OFFICER" && officer.id) {
         fetchAssignedIndicators(officer.id);
-        // Check if nodal officer has submitted
         checkNodalOfficerSubmission(officer.id);
       } else {
         setNodalHasSubmission(false);
       }
-    } else {
-      // For new user: Only reset if there's no saved draft data
-      // This prevents clearing user input when navigating away and back
-      const savedFormData = typeof window !== 'undefined' 
-        ? sessionStorage.getItem('userManagementFormDraft') 
+    } else if (
+      formData.firstName === "" &&
+      formData.lastName === "" &&
+      formData.contactNumber === "" &&
+      formData.email === "" &&
+      formData.password === "" &&
+      formData.assignedIndicators.length === 0 &&
+      formData.stateUt === "" &&
+      formData.ministryId === ""
+    ) {
+      // Only reset if form is already blank (prevents overwriting user input on failed save)
+      const savedFormData = typeof window !== 'undefined'
+        ? sessionStorage.getItem('userManagementFormDraft')
         : null;
-      
-      if (!savedFormData) {
-        // Only reset if no saved data exists
+      if (savedFormData) {
+        try {
+          const parsed = JSON.parse(savedFormData);
+          if (parsed && parsed.data) {
+            setFormData(parsed.data);
+          }
+        } catch (e) {
+          // If parsing fails, fall back to default
+          let defaultRole = "NODAL_OFFICER";
+          if (user?.role === "STATE_APPROVER") {
+            defaultRole = "NODAL_OFFICER";
+          } else if (user?.role === "MOSPI_APPROVER") {
+            defaultRole = "MOSPI_REVIEWER";
+          } else if (user?.role === "ADMIN") {
+            defaultRole = "STATE_APPROVER";
+          }
+          setFormData({
+            firstName: "",
+            lastName: "",
+            contactNumber: "",
+            email: "",
+            password: "",
+            role: defaultRole,
+            stateId: user?.role === "ADMIN" ? "" : user?.state || "",
+            assignedIndicators: [],
+            stateUt: "",
+            ministryId: "",
+          });
+        }
+      } else {
         let defaultRole = "NODAL_OFFICER";
         if (user?.role === "STATE_APPROVER") {
           defaultRole = "NODAL_OFFICER";
@@ -719,7 +711,6 @@ export function UserForm({
         } else if (user?.role === "ADMIN") {
           defaultRole = "STATE_APPROVER";
         }
-
         setFormData({
           firstName: "",
           lastName: "",
@@ -727,13 +718,12 @@ export function UserForm({
           email: "",
           password: "",
           role: defaultRole,
-          stateId: user?.role === "ADMIN" ? "" : user?.state || "", // ✅ Admin can select any state, others use current state
-          assignedIndicators: [], 
-          stateUt: "", 
+          stateId: user?.role === "ADMIN" ? "" : user?.state || "",
+          assignedIndicators: [],
+          stateUt: "",
+          ministryId: "",
         });
       }
-      // If savedFormData exists, it will be used from the initial state
-      // Reset nodal submission check for new user
       setNodalHasSubmission(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -750,51 +740,54 @@ export function UserForm({
     }
   }, [formData, officer]);
 
-  // Load states on component mount
+  // Load states only if stateUt is present
   useEffect(() => {
+    // Do not call states API for MINISTRY_APPROVER
+    if (formData.role === "MINISTRY_APPROVER") {
+      setLoadingStates(false);
+      return;
+    }
+    const stateUt = officer?.stateUt || officer?.state || user?.stateUt || user?.state;
+    if (!stateUt) {
+      setLoadingStates(false);
+      return;
+    }
+    // Only call states API if not MINISTRY_APPROVER
     const loadStates = async () => {
+      if (formData.role === "MINISTRY_APPROVER") {
+        setLoadingStates(false);
+        return;
+      }
       setLoadingStates(true);
       try {
         const statesData = await statesService.getStates();
-        // console.log("🔍 States loaded in UserForm:", {
-        //   statesCount: statesData.length,
-        //   firstState: statesData[0],
-        //   userRole: user?.role,
-        // });
         setStates(statesData);
-
         // If we have an officer but no stateId, try to find it by stateUt/state name
         if (
           officer &&
           (!officer.stateId || officer.stateId === "") &&
           officer.state
-        ) {          
-
+        ) {
           const foundState = statesData.find(
             (state) =>
               state.name.toLowerCase() === officer.state.toLowerCase() ||
               state.code.toLowerCase() === officer.state.toLowerCase()
           );
-
           if (foundState) {
-           // console.log("🔍 Found matching state:", foundState);
             setFormData((prev) => ({
               ...prev,
               stateId: foundState.id,
             }));
-          } else {
-            console.warn("⚠️ No matching state found for:", officer.state);
           }
         }
       } catch (error) {
-        console.error("Error loading states:", error);
+        // Error log removed
       } finally {
         setLoadingStates(false);
       }
     };
-
     loadStates();
-  }, [officer, user?.role]);
+  }, [officer, user?.role, officer?.stateUt, officer?.state, user?.stateUt, user?.state, formData.role]);
 
   // Set stateId after states are loaded and officer is available
   useEffect(() => {
@@ -807,13 +800,12 @@ export function UserForm({
       );
 
       if (foundState) {
-        
         setFormData((prev) => ({
           ...prev,
           stateId: foundState.id,
         }));
       } else {
-        console.warn("⚠️ No matching state found for form:", officer.state);
+        // Warning log removed
       }
     }
   }, [officer, states, formData.stateId]);
@@ -859,20 +851,27 @@ export function UserForm({
     // Indicator assignment is optional for NODAL_OFFICER
     // If no indicators are assigned, the user will see all indicators (via effectiveIndicators logic)
 
-    // ✅ State validation - ADMIN and MOSPI_APPROVER roles don't require state
-   if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
-    if (formData.role === "MOSPI_REVIEWER") {
-      // Validate multiple states for MOSPI_REVIEWER
-      if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
-        newErrors.stateId = "Please select at least one state";
-      }
-    } else if (formData.role !== "MOSPI_APPROVER" && formData.role !== "ADMIN") {
-      // Validate single state for other roles (excluding MOSPI_APPROVER and ADMIN)
-      if (!formData.stateId || (Array.isArray(formData.stateId) && formData.stateId.length === 0)) {
-        newErrors.stateId = "State is required";
+    // Ministry validation for MINISTRY_APPROVER
+    if (formData.role === "MINISTRY_APPROVER") {
+      if (!formData.ministryId || formData.ministryId === "") {
+        newErrors.ministryId = "Please select a ministry";
       }
     }
-  }
+
+    // ✅ State validation - skip for MINISTRY_APPROVER (even if user is ADMIN)
+    if ((user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") && formData.role?.toUpperCase() !== "MINISTRY_APPROVER") {
+      if (formData.role === "MOSPI_REVIEWER") {
+        // Validate multiple states for MOSPI_REVIEWER
+        if (!Array.isArray(formData.stateId) || formData.stateId.length === 0) {
+          newErrors.stateId = "Please select at least one state";
+        }
+      } else if (formData.role !== "MOSPI_APPROVER" && formData.role !== "ADMIN") {
+        // Validate single state for other roles (excluding MOSPI_APPROVER and ADMIN)
+        if (!formData.stateId || (Array.isArray(formData.stateId) && formData.stateId.length === 0)) {
+          newErrors.stateId = "State is required";
+        }
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -903,7 +902,8 @@ export function UserForm({
   const payload = {
     ...formData,
     stateUt: stateNames.join(", "),      // string for backend
-     stateId: normalizedStateId,  // ✅ string for backend
+    stateId: formData.role === "MOSPI_REVIEWER" ? normalizedStateId : normalizedStateId[0] || "",
+    ministryId: formData.ministryId || "",
   };
     type SubmitPayload = Omit<
   NodalOfficer,
@@ -920,36 +920,30 @@ export function UserForm({
     sessionStorage.removeItem('userManagementFormDraft');
   }
 
-  console.log("payload", formData);
-
+ 
   onSave(payload  as SubmitPayload); // Make sure onSave type includes stateUt
 
    
 };
 
  const handleSubmit = async () => {
-  if (!validate()) return;
+  console.log('[UserForm] Save User button clicked');
+  const isValid = validate();
+  if (!isValid) {
+    console.log('[UserForm] Validation failed:', errors);
+    return;
+  }
 
-  // Always check email via API before saving (even if unchanged)
-  // This ensures we verify against the full database, not just local officers array
+   // This ensures we verify against the full database, not just local officers array
   if (formData.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-    try {
-      console.log("🔍 [handleSubmit] Checking email availability via API...", {
-        email: formData.email,
-        officerId: officer?.id,
-        isEditing: !!officer
-      });
+    try {     
       
       setCheckingEmail(true);
       const isEmailAvailable = await apiService.checkEmailAvailability(
         formData.email,
         officer?.id // This excludes current user when editing
       );
-
-      console.log("🔍 [handleSubmit] Email API response:", {
-        isAvailable: isEmailAvailable,
-        email: formData.email
-      });
+ 
 
       if (!isEmailAvailable) {
         setErrors((prev) => ({
@@ -991,22 +985,11 @@ export function UserForm({
   const normalizedContact = formData.contactNumber.replace(/\s/g, "");
   if (normalizedContact && /^\d{10}$/.test(normalizedContact)) {
     try {
-      console.log("🔍 [handleSubmit] Checking contact availability via API...", {
-        contactNumber: normalizedContact,
-        officerId: officer?.id,
-        isEditing: !!officer
-      });
-      
       setCheckingContact(true);
       const isContactAvailable = await apiService.checkContactAvailability(
         normalizedContact,
         officer?.id // This excludes current user when editing
       );
-
-      console.log("🔍 [handleSubmit] API response:", {
-        isAvailable: isContactAvailable,
-        contactNumber: normalizedContact
-      });
 
       if (!isContactAvailable) {
         setErrors((prev) => ({
@@ -1071,32 +1054,49 @@ export function UserForm({
   const payload = {
     ...formData,
     stateUt: stateNames.join(", "), // always only the selected unique state(s)
-    stateId: normalizedStateId,
+    stateId: formData.role === "MOSPI_REVIEWER" ? normalizedStateId : normalizedStateId[0] || "",
+    ministryId: formData.ministryId || "",
   };
-
+ 
+  
   type SubmitPayload = Omit<
   NodalOfficer,
   "id" | "state" | "createdAt" | "assignedIndicator"
 > & {
   password?: string;
+  ministryId?: string;
   assignedIndicators?: string[];
   stateId?: string | string[];
   stateUt?: string; // string joined for backend
 };
 
-  // Clear saved draft before saving
-  if (typeof window !== 'undefined') {
-    sessionStorage.removeItem('userManagementFormDraft');
+  try {
+    await onSave(payload as SubmitPayload);
+    // Only clear form and draft if save succeeded
+    setFormData(prev => ({
+      ...prev,
+      firstName: '',
+      lastName: '',
+      contactNumber: '',
+      email: '',
+      password: '',
+      role: prev.role,
+      stateId: prev.role === "MOSPI_REVIEWER" ? [] : '',
+      stateUt: '',
+      assignedIndicators: [],
+      ministryId: '',
+    }));
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('userManagementFormDraft');
+    }
+  } catch (error) {
+    toast({
+      title: "Save Failed",
+      description: "Could not save user. Please try again.",
+      variant: "destructive",
+    });
+    // Do NOT clear form if save fails
   }
-
-  onSave(payload as SubmitPayload);
-
-  // ✅ Reset values after submit
-  setFormData(prev => ({
-    ...prev,
-    stateId: formData.role === "MOSPI_REVIEWER" ? [] : '',
-    stateUt: '', // always clear after submit
-  }));
 };
 
 
@@ -1149,37 +1149,40 @@ const handleStateChange = (values: string | string[]) => {
  
 
   // Fetch assigned states by role to disable them in dropdown
+  // Cache for assigned states by role
+  const assignedStatesCache = useRef<{ [role: string]: string[] }>({});
+  const lastRoleChecked = useRef<string | null>(null);
   useEffect(() => {
+    if (!formData.role) {
+      setDisabledStateNames([]);
+      return;
+    }
+    if (formData.role === "NODAL_OFFICER") {
+      setDisabledStateNames([]);
+      return;
+    }
+    // Use cache if available
+    if (assignedStatesCache.current[formData.role]) {
+      setDisabledStateNames(assignedStatesCache.current[formData.role]);
+      return;
+    }
+    // Prevent duplicate fetches for the same role
+    if (lastRoleChecked.current === formData.role) return;
+    lastRoleChecked.current = formData.role;
     const fetchDisabledStates = async () => {
       try {
-        // Use the selected role from formData, default to empty if no role selected
-        if (!formData.role) {
-          setDisabledStateNames([]);
-          return;
-        }
-        
-        // Only fetch for roles that can have state assignments checked
-        // Skip NODAL_OFFICER as they don't need this check (they are assigned to states, not the other way around)
-        if (formData.role === "NODAL_OFFICER") {
-          setDisabledStateNames([]);
-          return;
-        }
-        
         const response = await apiService.getAssignedStateOnly(formData.role);
-        
-        // Extract state names from the response
         if (response && Array.isArray(response)) {
           const stateNames = response.map((item: any) => item.stateName || item.name || item).filter(Boolean);
+          assignedStatesCache.current[formData.role] = stateNames;
           setDisabledStateNames(stateNames);
         }
       } catch (error) {
-        console.error("Error fetching assigned states:", error);
         setDisabledStateNames([]);
       }
     };
-
     fetchDisabledStates();
-  }, [formData.role]); // Re-fetch when role changes
+  }, [formData.role]);
 
   // Real-time email availability check
   useEffect(() => {
@@ -1670,24 +1673,63 @@ const handleStateChange = (values: string | string[]) => {
           </Label>
           {(() => {
             const availableRoles = getAvailableRoles();
-            
             return (
               <Select
-                value={formData.role}
+                value={
+                    availableRoles.some(r => r.value === formData.role)
+                      ? formData.role
+                      : (availableRoles.length > 0 ? availableRoles[0].value : "")
+                  }
                 disabled={user?.role === "STATE_APPROVER"}
-                onValueChange={(value) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    role: value,
-                    stateId: value === "MOSPI_REVIEWER" ? [] : '',
-                    stateUt: ''
-                  }));
-                  // Reset nodal submission check when role changes
-                  if (value !== "NODAL_OFFICER") {
-                    setNodalHasSubmission(false);
-                  } else if (officer?.id && value === "NODAL_OFFICER") {
-                    // Re-check if switching back to NODAL_OFFICER
-                    checkNodalOfficerSubmission(officer.id);
+                onValueChange={async (value) => {
+                  // Only update if the role is actually changing
+                  setFormData(prev => {
+                    if (prev.role === value) return prev;
+                    let newFormData = { ...prev, role: value };
+                    // Only reset fields that are not relevant for the new role
+                    if (value === "MOSPI_REVIEWER") {
+                      newFormData.stateId = [];
+                      newFormData.stateUt = '';
+                    }
+                    // Handle ministryId only if switching to/from MINISTRY_APPROVER
+                    if (prev.role !== "MINISTRY_APPROVER" && value === "MINISTRY_APPROVER") {
+                      newFormData.ministryId = '';
+                    } else if (prev.role === "MINISTRY_APPROVER" && value !== "MINISTRY_APPROVER") {
+                      newFormData.ministryId = undefined;
+                    }
+                    // Otherwise, keep all other fields as is
+                    return newFormData;
+                  });
+                  if (formData.role !== value) {
+                    if (value === "MINISTRY_APPROVER") {
+                      // Load ministries when switching to MINISTRY_APPROVER
+                      setLoadingMinistries(true);
+                      setMinistryError(null);
+                      try {
+                        const res = await apiService.get("/ministries");
+                        let data = res?.data?.data || res?.data || res;
+                        if (Array.isArray(data)) {
+                          setMinistries(data);
+                        } else {
+                          setMinistries([]);
+                        }
+                      } catch (err) {
+                        setMinistryError("Failed to load ministries");
+                        setMinistries([]);
+                      } finally {
+                        setLoadingMinistries(false);
+                      }
+                    } else {
+                      // Clear ministries when switching away
+                      setMinistries([]);
+                      setMinistryError(null);
+                    }
+                    if (value !== "NODAL_OFFICER") {
+                      setNodalHasSubmission(false);
+                    } else if (officer?.id && value === "NODAL_OFFICER") {
+                      // Re-check if switching back to NODAL_OFFICER
+                      checkNodalOfficerSubmission(officer.id);
+                    }
                   }
                 }}
               >
@@ -1711,6 +1753,9 @@ const handleStateChange = (values: string | string[]) => {
           )}
         </div>
 
+ {/* State/UT Dropdown - hide if MINISTRY_APPROVER */}
+        {/* Hide state dropdown for MINISTRY_APPROVER, show ministry dropdown below */}
+        {(formData.role && formData.role !== "MINISTRY_APPROVER") && (
         <div className="space-y-2">
           {formData?.role !== "MOSPI_APPROVER" && formData?.role !== "ADMIN" && (<>
           <Label htmlFor="stateId" className="flex items-center gap-2">
@@ -1732,73 +1777,7 @@ const handleStateChange = (values: string | string[]) => {
             </TooltipProvider> */}
           </Label>
           </>
-      )}
-          
-
-          {/* {user?.role === "ADMIN"  || user?.role === "MOSPI_APPROVER" ? (
-            <Select
-              value={formData.stateId}
-              onValueChange={(value) => {
-                console.log("🔍 State selected in UserForm:", {
-                  selectedValue: value,
-                  valueType: typeof value,
-                  valueLength: value.length,
-                  currentUserRole: user?.role,
-                  currentUserState: user?.state,
-                  formDataBefore: formData,
-                  availableStates: states.length,
-                  matchingState: states.find((s) => s.id === value),
-                });
- 
-
-                setFormData({ ...formData, stateId: value });
-              }}
-              disabled={loadingStates}
-            >
-              <SelectTrigger
-                className={errors.stateId ? "border-destructive" : ""}
-              >
-                <SelectValue
-                  placeholder={
-                    loadingStates ? "Loading states..." : "Select state/UT"
-                  }
-                >
-                  {formData.stateId
-                    ? getSelectedStateName()
-                    : loadingStates
-                    ? "Loading states..."
-                    : "Select state/UT"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {loadingStates ? (
-                  <div className="flex items-center justify-center p-2">
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Loading states...
-                  </div>
-                ) : (
-                  states.map((state) => (
-                    <SelectItem
-                      key={state.id}
-                      value={state.id}
-                      disabled={!state.isActive}
-                    >
-                      {state.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input
-              id="stateId"
-              value={user?.state || "Loading..."}
-              disabled={true}
-              className="bg-muted"
-              placeholder="Your current state"
-            />
-          )} */}
-
+      )} 
 
  
 {user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER" ? (
@@ -1913,6 +1892,60 @@ const handleStateChange = (values: string | string[]) => {
             <p className="text-sm text-destructive">{errors.stateId}</p>
           )}
         </div>
+  )}
+  {/* Ministry Dropdown - show left side, aligned with State/UT, for MINISTRY_APPROVER */}
+        {(formData.role && formData.role === "MINISTRY_APPROVER") && (
+          <div className="space-y-2 flex flex-col justify-start" style={{ minHeight: 80 }}>
+            <Label htmlFor="ministryId" className="flex items-center gap-2">
+              Ministry
+              <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={formData.ministryId || ''}
+              onValueChange={(value) => {
+                // Always coerce ministryId to string
+                let ministryIdValue = Array.isArray(value) ? (value[0] || '') : value;
+                setFormData(prev => ({ ...prev, ministryId: ministryIdValue }));
+              }}
+              disabled={loadingMinistries}
+            >
+              <SelectTrigger className={ministryError || errors.ministryId ? "border-destructive" : ""}>
+                <SelectValue placeholder={
+                  loadingMinistries
+                    ? "Loading ministries..."
+                    : ministryError
+                      ? "Failed to load ministries"
+                      : ministries.length === 0
+                        ? "No ministries available"
+                        : "Select Ministry"
+                } />
+              </SelectTrigger>
+              <SelectContent>
+                {loadingMinistries ? (
+                  <div className="flex items-center justify-center p-2">
+                    Loading ministries...
+                  </div>
+                ) : ministryError ? (
+                  <div className="p-2 text-destructive">{ministryError}</div>
+                ) : ministries.length > 0 ? (
+                  ministries.map((ministry) => (
+                    <SelectItem key={ministry.id} value={ministry.id}>
+                      {ministry.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="p-2 text-muted-foreground">No ministries available</div>
+                )}
+              </SelectContent>
+            </Select>
+            {ministryError && (
+              <p className="text-sm text-destructive">{ministryError}</p>
+            )}
+            {errors.ministryId && (
+              <p className="text-sm text-destructive">{errors.ministryId}</p>
+            )}
+          </div>
+        )}
 
         {/* Indicator Assignment Section - Only for NODAL_OFFICER */}
         {formData.role === "NODAL_OFFICER" && (

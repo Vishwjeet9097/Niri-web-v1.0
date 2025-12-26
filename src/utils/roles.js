@@ -4,6 +4,7 @@ export const ROLES = {
   MOSPI_REVIEWER: "MOSPI_REVIEWER",
   MOSPI_APPROVER: "MOSPI_APPROVER",
   STATE_APPROVER: "STATE_APPROVER",
+  MINISTRY_APPROVER: "MINISTRY_APPROVER",
   ADMIN: "ADMIN",
 };
 
@@ -13,6 +14,7 @@ export const ROLE_DISPLAY_NAMES = {
   [ROLES.MOSPI_REVIEWER]: "MoSPI Reviewer",
   [ROLES.MOSPI_APPROVER]: "MoSPI Approver",
   [ROLES.STATE_APPROVER]: "State Approver",
+  [ROLES.MINISTRY_APPROVER]: "Ministry Approver",
   [ROLES.ADMIN]: "Admin",
 };
 
@@ -27,6 +29,7 @@ export const LEGACY_ROLES = {
   REVIEWER: "MoSPI Reviewer",
   APPROVER: "MoSPI Approver",
   STATE_APPROVER: "State Approver",
+  MINISTRY_APPROVER: "Ministry Approver",
   ADMIN: "admin",
 };
 

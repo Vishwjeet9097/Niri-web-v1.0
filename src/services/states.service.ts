@@ -14,6 +14,7 @@ class StatesService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   async getStates(): Promise<State[]> {
+    
     // Check if we have valid cached data
     if (this.statesCache && Date.now() < this.cacheExpiry) {
       return this.statesCache;
@@ -30,6 +31,7 @@ class StatesService {
       const data = await response.json();
       console.log("🌍 States API Response:", data);
 
+
       // Handle different response formats
       let states: State[];
       if (Array.isArray(data)) {
@@ -37,56 +39,19 @@ class StatesService {
       } else if (data.data && Array.isArray(data.data)) {
         // Direct API response - use index+1 as id and value as name
         states = data.data.map((state: any, index: number) => ({
-          id: (index + 1).toString(), // Use 1-based index as ID
+          id: (index + 1).toString(),
           name: state.value || state.label,
           code: state.value || state.label,
           isActive: true,
         }));
-
-        console.log("🌍 Processed states:", states.slice(0, 3)); // Log first 3 states for debugging
-        console.log("🌍 All states count:", states.length);
-        console.log("🌍 Sample state structure:", states[0]);
-
-        // Check for any states with unusual characters
-        const unusualStates = states.filter(
-          (state) =>
-            state.id.includes("q") ||
-            state.name.includes("q") ||
-            state.id.length < 3
-        );
-        if (unusualStates.length > 0) {
-          console.warn("⚠️ Found unusual states:", unusualStates);
-        }
-
-        // Log all state IDs to check for issues
-        console.log(
-          "🌍 All state IDs:",
-          states.map((s) => s.id)
-        );
-
-        // Check for any states that might be causing the "4 q" issue
-        const problematicStates = states.filter(
-          (state) =>
-            state.id === "4 q" ||
-            state.name === "4 q" ||
-            state.id.includes("4 q") ||
-            state.name.includes("4 q")
-        );
-        if (problematicStates.length > 0) {
-          console.error("❌ Found problematic states:", problematicStates);
-        }
-
-        // Check for any states with numbers and letters
-        const numberLetterStates = states.filter(
-          (state) =>
-            /\d.*[a-zA-Z]/.test(state.id) || /\d.*[a-zA-Z]/.test(state.name)
-        );
-        if (numberLetterStates.length > 0) {
-          console.warn(
-            "⚠️ Found states with numbers and letters:",
-            numberLetterStates
-          );
-        }
+      } else if (data.data && data.data.data && Array.isArray(data.data.data)) {
+        // Nested API response: data.data.data is the array
+        states = data.data.data.map((state: any, index: number) => ({
+          id: (index + 1).toString(),
+          name: state.value || state.label,
+          code: state.value || state.label,
+          isActive: true,
+        }));
       } else if (data.states && Array.isArray(data.states)) {
         states = data.states;
       } else {

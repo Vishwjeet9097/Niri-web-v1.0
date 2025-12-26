@@ -12,6 +12,7 @@ export interface NodalOfficer {
   assignedIndicators?: string[]; // Added for multiple indicator assignment
   isActive?: boolean; // Added for API compatibility
   createdAt: number;
+  ministryId?: string; // Added for ministry association  
   stateUt?: string; // Added for state/UT distinction
 }
 

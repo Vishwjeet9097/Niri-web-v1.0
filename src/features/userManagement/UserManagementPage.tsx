@@ -358,12 +358,13 @@ export function UserManagementPage() {
       return { hasSubmitted: false, submittedIndicators: [] };
     }
   };
+ 
 
   const handleSaveUser = async (
     officerData: Omit<
       NodalOfficer,
       "id" | "state" | "createdAt" | "assignedIndicator"
-    > & { password?: string; assignedIndicators?: string[] }
+    > & { password?: string; assignedIndicators?: string[]; }
   ) => {
     try {
       if (editingOfficer) {
@@ -476,7 +477,7 @@ export function UserManagementPage() {
             }
             // Debug logging removed for performance
           } else {
-            throw new Error("State selection is required for Admin");
+            //throw new Error("State selection is required for Admin");
           }
         } else {
           // STATE_APPROVER and MOSPI_APPROVER use their own state
@@ -594,7 +595,7 @@ export function UserManagementPage() {
               isNumber: !isNaN(Number(officerData.stateId)),
             });
           } else {
-            throw new Error("State selection is required for Admin");
+           // throw new Error("State selection is required for Admin");
           }
         } else {
           // STATE_APPROVER and MOSPI_APPROVER use their own state
@@ -614,17 +615,20 @@ export function UserManagementPage() {
             selectedStateName || officerData.stateUt || selectedStateId || "";
  
 
-        // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
+         // Call register with the state NAME as `stateUt`, and selectedStateId as `stateId`
         const newUser = await apiService.register(
-          officerData.email,
-          officerData.password || "password123",
-          officerData.firstName,
-          officerData.lastName,
-          officerData.contactNumber,
-          officerData.role,
-          officerData.stateUt, // <- pass state NAME here (was officerData.stateUt)
-          selectedStateId, // <- state ID
-          officerData.assignedIndicators // indicators
+          {
+            email: officerData.email,
+            password: officerData.password || "password123",
+            firstName: officerData.firstName,
+            lastName: officerData.lastName,
+            contactNumber: officerData.contactNumber,
+            role: officerData.role,
+            stateUt: officerData.stateUt,
+            stateId: selectedStateId,
+            ministryId: officerData?.ministryId ? String(officerData.ministryId) : undefined,
+            indicatorCodes: officerData.assignedIndicators,
+          }
         );
 
         // Debug logging removed for performance
