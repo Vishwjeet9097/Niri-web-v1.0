@@ -16,6 +16,7 @@ import {
   Eye,
   Download,
   Trash2,
+  Info,
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect, useRef } from "react";
@@ -98,6 +99,8 @@ export const PPPDevelopmentReview = ({
   isNodalOfficer = false,
 }: PPPDevelopmentReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [isIndicator1_1AcceptedState, setIsIndicator1_1AcceptedState] =
+    useState<boolean | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [isIndicator1_1AcceptedState, setIsIndicator1_1AcceptedState] =
     useState<boolean | null>(null);
@@ -2919,6 +2922,139 @@ export const PPPDevelopmentReview = ({
         </div>
       </div>
     );
+  };
+
+  // Fetch all submissions for the same state and check if indicator 1.1 is accepted in any of them
+  useEffect(() => {
+    const checkIndicator1_1AcrossSubmissions = async () => {
+      if (!submission) {
+        setIsIndicator1_1AcceptedState(false);
+        return;
+      }
+
+      const currentStateUt =
+        (submission as any)?.stateUt || (submission as any)?.user?.stateUt;
+      if (!currentStateUt) {
+        console.log(
+          "❌ [isIndicator1_1Accepted] No stateUt found in submission"
+        );
+        setIsIndicator1_1AcceptedState(false);
+        return;
+      }
+
+      console.log(
+        "🔍 [isIndicator1_1Accepted] Checking across all submissions for state:",
+        currentStateUt
+      );
+
+      try {
+        // Fetch all submissions
+        const submissionsData = await apiService.getSubmissions(1, 100);
+
+        // Handle different response structures
+        let submissionsArray: any[] = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (
+          submissionsData?.submissions &&
+          Array.isArray(submissionsData.submissions)
+        ) {
+          submissionsArray = submissionsData.submissions;
+        } else if (
+          (submissionsData as any)?.data &&
+          Array.isArray((submissionsData as any).data)
+        ) {
+          submissionsArray = (submissionsData as any).data;
+        }
+
+        // Filter submissions for the same state/UT
+        const sameStateSubmissions = submissionsArray.filter((sub: any) => {
+          const subStateUt = sub.stateUt || sub.user?.stateUt;
+          return (
+            subStateUt &&
+            String(subStateUt).toUpperCase() ===
+              String(currentStateUt).toUpperCase()
+          );
+        });
+
+        console.log(
+          "🔍 [isIndicator1_1Accepted] Found submissions for same state:",
+          sameStateSubmissions.length
+        );
+
+        // Check each submission for indicator 1.1 acceptance
+        for (const sub of sameStateSubmissions) {
+          // Check section_status first
+          if (sub?.section_status && typeof sub.section_status === "object") {
+            const sectionStatus = (sub.section_status as any)["section1_1"];
+            if (sectionStatus === "ACCEPTED" || sectionStatus === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in submission:",
+                sub.id
+              );
+              setIsIndicator1_1AcceptedState(true);
+              return;
+            }
+          }
+
+          // Check completedIndicators
+          if (
+            sub?.section_status?.completedIndicators &&
+            Array.isArray(sub.section_status.completedIndicators)
+          ) {
+            if (sub.section_status.completedIndicators.includes("1.1")) {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 in completedIndicators for submission:",
+                sub.id
+              );
+              setIsIndicator1_1AcceptedState(true);
+              return;
+            }
+          }
+
+          // Check formData
+          if (sub?.formData?.infraFinancing?.section1_1) {
+            const section1_1Data = sub.formData.infraFinancing.section1_1;
+            const statusValue = section1_1Data.status
+              ? String(section1_1Data.status).trim().toUpperCase()
+              : null;
+
+            if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in formData for submission:",
+                sub.id
+              );
+              setIsIndicator1_1AcceptedState(true);
+              return;
+            }
+          }
+        }
+
+        console.log(
+          "❌ [isIndicator1_1Accepted] Indicator 1.1 not found as ACCEPTED in any submission for state:",
+          currentStateUt
+        );
+        setIsIndicator1_1AcceptedState(false);
+      } catch (error) {
+        console.error(
+          "❌ [isIndicator1_1Accepted] Error checking across submissions:",
+          error
+        );
+        setIsIndicator1_1AcceptedState(false);
+      }
+    };
+
+    checkIndicator1_1AcrossSubmissions();
+  }, [submission]);
+
+  // Helper function to check if indicator 1.1 is accepted (uses cached state)
+  const isIndicator1_1Accepted = (): boolean => {
+    // Use the cached state from useEffect
+    if (isIndicator1_1AcceptedState === null) {
+      // Still loading, return false for now
+      return false;
+    }
+    return isIndicator1_1AcceptedState;
   };
 
   const renderActionButtons = (sectionId: string) => {
