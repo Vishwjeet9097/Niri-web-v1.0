@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getRoleDisplayName } from "@/utils/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,33 +90,23 @@ export function UserForm({
       // Only fetch if:
       // 1. No submitted indicators provided
       // 2. We have a stateUt (from officer or user)
-      // 3. We haven't already fetched
-      if (submittedIndicatorsInState.length === 0 && localSubmittedIndicators.length === 0) {
-        // Priority: officer.stateUt > officer.state > user.stateUt > user.state
-        // For state approvers managing officers, use their own state (since officers are in the same state)
-        const stateUt = officer?.stateUt || officer?.state || user?.stateUt || user?.state;
+      // 3. We haven't already fetched for this stateUt
+      const stateUt = officer?.stateUt || officer?.state || user?.stateUt || user?.state;
+      const cacheKey = `${stateUt || 'none'}`;
+      
+      if (submittedIndicatorsInState.length === 0 && 
+          localSubmittedIndicators.length === 0 && 
+          stateUt && 
+          fetchedSubmittedIndicatorsRef.current !== cacheKey) {
         
-        console.log("🔍 [UserForm] Determining stateUt for submitted indicators fetch:", {
-          officerStateUt: officer?.stateUt,
-          officerState: officer?.state,
-          userStateUt: user?.stateUt,
-          userState: user?.state,
-          resolvedStateUt: stateUt,
-        });
+        fetchedSubmittedIndicatorsRef.current = cacheKey;
         
-        if (stateUt) {
-          console.log("🔍 [UserForm] Fetching submitted indicators as fallback for stateUt:", stateUt);
-          console.log("🔍 [UserForm] NOTE: This query is STATE-SCOPED - only finds submissions within state:", stateUt);
-          try {
-            const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
-            console.log("✅ [UserForm] Fetched submitted indicators (fallback):", submitted);
-            console.log("✅ [UserForm] These indicators are submitted within state:", stateUt, "only (not globally)");
-            setLocalSubmittedIndicators(submitted);
-          } catch (error) {
-            console.error("❌ [UserForm] Error fetching submitted indicators (fallback):", error);
-          }
-        } else {
-          console.warn("⚠️ [UserForm] Cannot fetch submitted indicators - no stateUt available from officer or user");
+        try {
+          const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
+          setLocalSubmittedIndicators(submitted);
+        } catch (error) {
+          console.error("❌ [UserForm] Error fetching submitted indicators (fallback):", error);
+          fetchedSubmittedIndicatorsRef.current = ""; // Reset on error to allow retry
         }
       }
     };
@@ -151,7 +141,7 @@ export function UserForm({
   //   assignedIndicators: [] as string[],
   // });
 
-  // Initialize formData with saved draft data if creating a new user
+  // Initialize formData - restore from sessionStorage if available (for persistence across tab switches/page refresh)
   const [formData, setFormData] = useState<{
     firstName: string;
     lastName: string;
@@ -163,32 +153,87 @@ export function UserForm({
     assignedIndicators: string[];
     stateUt: string | string[];
   }>(() => {
-    // Try to restore from sessionStorage if creating a new user
+    // Helper function to get default role based on current user
+    const getDefaultRole = () => {
+      let defaultRole = "NODAL_OFFICER";
+      if (typeof window !== 'undefined') {
+        try {
+          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+          if (currentUser?.role === "STATE_APPROVER") {
+            defaultRole = "NODAL_OFFICER";
+          } else if (currentUser?.role === "MOSPI_APPROVER") {
+            defaultRole = "MOSPI_REVIEWER";
+          } else if (currentUser?.role === "ADMIN") {
+            defaultRole = "STATE_APPROVER";
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+      return defaultRole;
+    };
+
+    // Helper function to get available role values based on current user
+    const getAvailableRoleValues = () => {
+      if (typeof window !== 'undefined') {
+        try {
+          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const userRole = currentUser?.role;
+          
+          if (userRole === "STATE_APPROVER") {
+            return ["NODAL_OFFICER"];
+          } else if (userRole === "MOSPI_APPROVER") {
+            return ["MOSPI_REVIEWER", "STATE_APPROVER"];
+          } else if (userRole === "ADMIN") {
+            return ["STATE_APPROVER", "MOSPI_REVIEWER", "MOSPI_APPROVER", "ADMIN"];
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+      return ["NODAL_OFFICER"]; // Default fallback
+    };
+
+    // Try to restore from sessionStorage if creating a new user (not editing)
     if (typeof window !== 'undefined' && !officer) {
       const savedFormData = sessionStorage.getItem('userManagementFormDraft');
       if (savedFormData) {
         try {
           const parsed = JSON.parse(savedFormData);
-          // Only restore if it's recent (within last hour)
-          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000) {
-            return parsed.data;
+          // Only restore if it's recent (within last hour) and has valid data
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000 && parsed.data) {
+            const restoredData = parsed.data;
+            const availableRoles = getAvailableRoleValues();
+            const defaultRole = getDefaultRole();
+            
+            // Validate that the restored role is in the available roles list
+            // If not, replace it with the default role
+            if (!restoredData.role || !availableRoles.includes(restoredData.role)) {
+              restoredData.role = defaultRole;
+            }
+            
+            return restoredData;
           } else {
             // Clear old data
             sessionStorage.removeItem('userManagementFormDraft');
           }
         } catch (e) {
           console.warn('Failed to parse saved form data:', e);
+          sessionStorage.removeItem('userManagementFormDraft');
         }
       }
     }
+    
     // Default initial state
+    const defaultRole = getDefaultRole();
+    
     return {
       firstName: "",
       lastName: "",
       contactNumber: "",
       email: "",
       password: "",
-      role: "NODAL_OFFICER",
+      role: defaultRole,
       stateId: "",
       assignedIndicators: [],
       stateUt: "",
@@ -213,9 +258,15 @@ export function UserForm({
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [checkingContact, setCheckingContact] = useState(false);
 
-  // Debounced values for real-time validation
-  const debouncedEmail = useDebounce(formData.email, 500);
-  const debouncedContactNumber = useDebounce(formData.contactNumber, 500);
+  // Debounced values for real-time validation (increased debounce time to reduce API calls)
+  const debouncedEmail = useDebounce(formData.email, 1000);
+  const debouncedContactNumber = useDebounce(formData.contactNumber, 1000);
+
+  // Refs to track if we've already fetched data to prevent duplicate calls
+  const fetchedIndicatorsRef = useRef<string>("");
+  const fetchedDisabledStatesRef = useRef<string>("");
+  const fetchedSubmittedIndicatorsRef = useRef<string>("");
+  const formDataInitializedRef = useRef(false); // Track if form data has been initialized to prevent unnecessary updates
 
   // Compute available indicators for selected state (using backend API for real-time data)
   useEffect(() => {
@@ -223,6 +274,7 @@ export function UserForm({
       // Only compute indicators if creating a NODAL_OFFICER
       if (formData.role !== "NODAL_OFFICER") {
         setAvailableIndicatorsForState([]);
+        fetchedIndicatorsRef.current = ""; // Reset cache
         return;
       }
 
@@ -246,6 +298,14 @@ export function UserForm({
       
       if (!stateName) {
         setAvailableIndicatorsForState([]);
+        return;
+      }
+
+      // Create cache key to prevent duplicate API calls
+      const cacheKey = `${stateName}-${officer?.id || 'new'}-${allIndicators.length}`;
+      
+      // Skip API call if we've already fetched for this exact scenario
+      if (fetchedIndicatorsRef.current === cacheKey && availableIndicatorsForState.length > 0) {
         return;
       }
 
@@ -273,6 +333,7 @@ export function UserForm({
         }
         
         setAvailableIndicatorsForState(indicators);
+        fetchedIndicatorsRef.current = cacheKey; // Cache the result
       } catch (error) {
         console.error("❌ Failed to fetch available indicators from API, falling back to frontend filtering:", error);
         
@@ -317,11 +378,13 @@ export function UserForm({
         }));
         
         setAvailableIndicatorsForState(formattedAvailable);
+        fetchedIndicatorsRef.current = cacheKey; // Cache the result
       }
     };
     
     computeAvailableIndicators();
-  }, [formData.role, user?.role, user?.state, allIndicators, officers, officer?.id, states]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.role, user?.role, user?.state, officer?.id]); // Caching prevents unnecessary API calls even if allIndicators/officers change
 
   // Build the options list from INDICATOR_SECTIONS but only include:
   //  - indicators present in availableIndicatorCodes OR
@@ -642,7 +705,35 @@ export function UserForm({
     }
   }, [user?.role]);
 
+  // Track if we've already fixed the role to prevent infinite loops
+  const roleFixedRef = useRef(false);
+
+  // Validate and fix role if it's not in available roles (only once)
   useEffect(() => {
+    if (!officer && formData.role && !roleFixedRef.current) {
+      const availableRoles = getAvailableRoles();
+      const availableRoleValues = availableRoles.map(r => r.value);
+      
+      // If current role is not in available roles, fix it (only once)
+      if (!availableRoleValues.includes(formData.role)) {
+        const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
+        roleFixedRef.current = true; // Mark as fixed to prevent loop
+        setFormData(prev => ({ ...prev, role: defaultRole }));
+      } else {
+        roleFixedRef.current = true; // Role is valid, mark as checked
+      }
+    }
+    
+    // Reset flag when officer changes or when creating new user
+    if (!officer && !formData.role) {
+      roleFixedRef.current = false;
+    }
+  }, [formData.role, user?.role, officer, getAvailableRoles]);
+
+  useEffect(() => {
+    // Reset initialization flag when officer changes (switching between edit/new)
+    formDataInitializedRef.current = false;
+    
      if (officer) {
       // console.log("🔍 Setting form data for officer:", {
       //   officer,
@@ -662,37 +753,41 @@ export function UserForm({
         const found = states.find(s => s.id === id);
         return found ? found.name : id;
       })));
-      setFormData({
-        firstName: officer.firstName || "",
-        lastName: officer.lastName || "",
-        contactNumber: officer.contactNumber || "",
-        email: officer.email || "",
-        password: "", // Don't show password for existing users
-        role: officer.role || "NODAL_OFFICER",
-        stateId: stateIds, // Will be set after states are loaded 
-        stateUt: uniqueStateNames.join(", "), // Always unique, comma-separated string
-        assignedIndicators: (() => {
-          if (Array.isArray(officer.assignedIndicators)) {
-            return officer.assignedIndicators as string[];
-          }
-          if (
-            officer.assignedIndicators &&
-            typeof officer.assignedIndicators === "object"
-          ) {
-            try {
-              const arr = officer.assignedIndicators as any;
-              if (Array.isArray(arr)) {
-                return arr
-                  .map((ai: any) => ai.indicator?.code || ai.indicatorId || ai)
-                  .filter(Boolean) as string[];
-              }
-            } catch (e) {
-              // Ignore
+      // Only update form data if it hasn't been initialized for this officer
+      if (!formDataInitializedRef.current) {
+        setFormData({
+          firstName: officer.firstName || "",
+          lastName: officer.lastName || "",
+          contactNumber: officer.contactNumber || "",
+          email: officer.email || "",
+          password: "", // Don't show password for existing users
+          role: officer.role || "NODAL_OFFICER",
+          stateId: stateIds, // Will be set after states are loaded 
+          stateUt: uniqueStateNames.join(", "), // Always unique, comma-separated string
+          assignedIndicators: (() => {
+            if (Array.isArray(officer.assignedIndicators)) {
+              return officer.assignedIndicators as string[];
             }
-          }
-          return [];
-        })(),
-      });
+            if (
+              officer.assignedIndicators &&
+              typeof officer.assignedIndicators === "object"
+            ) {
+              try {
+                const arr = officer.assignedIndicators as any;
+                if (Array.isArray(arr)) {
+                  return arr
+                    .map((ai: any) => ai.indicator?.code || ai.indicatorId || ai)
+                    .filter(Boolean) as string[];
+                }
+              } catch (e) {
+                // Ignore
+              }
+            }
+            return [];
+          })(),
+        });
+        formDataInitializedRef.current = true;
+      }
 
       // Fetch assigned indicators from API for NODAL_OFFICER
       if (officer.role === "NODAL_OFFICER" && officer.id) {
@@ -703,51 +798,135 @@ export function UserForm({
         setNodalHasSubmission(false);
       }
     } else {
-      // For new user: Only reset if there's no saved draft data
-      // This prevents clearing user input when navigating away and back
+      // For new user: Restore from sessionStorage if available, otherwise use defaults
+      // Don't clear sessionStorage here - it should only be cleared on save or cancel
+      // This allows form data to persist across tab switches and page refreshes
+      
+      // Check if we have saved data in sessionStorage
       const savedFormData = typeof window !== 'undefined' 
         ? sessionStorage.getItem('userManagementFormDraft') 
         : null;
       
-      if (!savedFormData) {
-        // Only reset if no saved data exists
-        let defaultRole = "NODAL_OFFICER";
-        if (user?.role === "STATE_APPROVER") {
-          defaultRole = "NODAL_OFFICER";
-        } else if (user?.role === "MOSPI_APPROVER") {
-          defaultRole = "MOSPI_REVIEWER";
-        } else if (user?.role === "ADMIN") {
-          defaultRole = "STATE_APPROVER";
+      if (savedFormData) {
+        try {
+          const parsed = JSON.parse(savedFormData);
+          // Only restore if it's recent (within last hour) and has valid data
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000 && parsed.data) {
+            // Get available roles to validate restored role
+            const availableRoles = getAvailableRoles();
+            const availableRoleValues = availableRoles.map(r => r.value);
+            const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
+            
+            // Validate that the restored role is in the available roles list
+            // If not, replace it with the first available role (default)
+            const restoredData = { ...parsed.data };
+            if (!restoredData.role || !availableRoleValues.includes(restoredData.role)) {
+              restoredData.role = defaultRole;
+            }
+            
+            // Only restore if form hasn't been initialized yet
+            if (!formDataInitializedRef.current) {
+              // Restore form data from sessionStorage (with validated role)
+              setFormData(restoredData);
+              formDataInitializedRef.current = true;
+              // Reset cache refs to allow fresh API calls with restored data
+              fetchedIndicatorsRef.current = "";
+              fetchedDisabledStatesRef.current = "";
+              fetchedSubmittedIndicatorsRef.current = "";
+              lastCheckedEmailRef.current = "";
+              lastCheckedContactRef.current = "";
+              // Clear errors when restoring
+              setErrors({});
+              setNodalHasSubmission(false);
+              return; // Exit early - form data restored from sessionStorage
+            }
+          } else {
+            // Clear old/stale data
+            sessionStorage.removeItem('userManagementFormDraft');
+          }
+        } catch (e) {
+          console.warn('Failed to parse saved form data:', e);
+          sessionStorage.removeItem('userManagementFormDraft');
         }
-
-        setFormData({
-          firstName: "",
-          lastName: "",
-          contactNumber: "",
-          email: "",
-          password: "",
-          role: defaultRole,
-          stateId: user?.role === "ADMIN" ? "" : user?.state || "", // ✅ Admin can select any state, others use current state
-          assignedIndicators: [], 
-          stateUt: "", 
-        });
       }
-      // If savedFormData exists, it will be used from the initial state
+      
+      // No saved data or data is stale - use default values
+      // Reset cache refs to allow fresh API calls
+      fetchedIndicatorsRef.current = "";
+      fetchedDisabledStatesRef.current = "";
+      fetchedSubmittedIndicatorsRef.current = "";
+      lastCheckedEmailRef.current = "";
+      lastCheckedContactRef.current = "";
+
+      // Determine default role based on user role
+      let defaultRole = "NODAL_OFFICER";
+      if (user?.role === "STATE_APPROVER") {
+        defaultRole = "NODAL_OFFICER";
+      } else if (user?.role === "MOSPI_APPROVER") {
+        defaultRole = "MOSPI_REVIEWER";
+      } else if (user?.role === "ADMIN") {
+        defaultRole = "STATE_APPROVER";
+      }
+
+      // Set default form values
+      setFormData({
+        firstName: "",
+        lastName: "",
+        contactNumber: "",
+        email: "",
+        password: "",
+        role: defaultRole,
+        stateId: user?.role === "ADMIN" ? "" : user?.state || "",
+        assignedIndicators: [],
+        stateUt: "",
+      });
+      
+      // Clear errors
+      setErrors({});
+      
       // Reset nodal submission check for new user
       setNodalHasSubmission(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [officer, user?.state, user?.role, states]);
+  }, [officer?.id, officer?.firstName, officer?.lastName, officer?.email, officer?.contactNumber, officer?.role, officer?.state, user?.state, user?.role]); // Removed states array to prevent frequent re-renders
 
-  // Save form data to sessionStorage whenever it changes (only for new users)
+  // Debounce ref for sessionStorage saves to prevent excessive writes
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Save form data to sessionStorage whenever it changes (only for new users) - debounced
   useEffect(() => {
     if (!officer && typeof window !== 'undefined') {
-      const dataToSave = {
-        data: formData,
-        timestamp: Date.now(),
-      };
-      sessionStorage.setItem('userManagementFormDraft', JSON.stringify(dataToSave));
+      // Clear any pending save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      
+      // Debounce the save to prevent excessive sessionStorage writes and UI flickering
+      saveTimeoutRef.current = setTimeout(() => {
+        // Only save if form has meaningful data (not empty form)
+        const hasData = formData.firstName || formData.lastName || formData.email || 
+                       formData.contactNumber || formData.password || 
+                       (Array.isArray(formData.assignedIndicators) && formData.assignedIndicators.length > 0);
+        
+        if (hasData) {
+          const dataToSave = {
+            data: formData,
+            timestamp: Date.now(),
+          };
+          sessionStorage.setItem('userManagementFormDraft', JSON.stringify(dataToSave));
+        } else {
+          // Clear sessionStorage if form is empty
+          sessionStorage.removeItem('userManagementFormDraft');
+        }
+      }, 500); // Debounce by 500ms to prevent excessive updates
     }
+    
+    // Cleanup timeout on unmount or when officer changes
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [formData, officer]);
 
   // Load states on component mount
@@ -1089,14 +1268,11 @@ export function UserForm({
     sessionStorage.removeItem('userManagementFormDraft');
   }
 
+  // Call onSave - the parent component will handle redirect and form clearing
   onSave(payload as SubmitPayload);
-
-  // ✅ Reset values after submit
-  setFormData(prev => ({
-    ...prev,
-    stateId: formData.role === "MOSPI_REVIEWER" ? [] : '',
-    stateUt: '', // always clear after submit
-  }));
+  
+  // Note: Form clearing is now handled by the parent component (UserManagementPage)
+  // to ensure it happens simultaneously with redirect, preventing visible form clearing
 };
 
 
@@ -1155,6 +1331,7 @@ const handleStateChange = (values: string | string[]) => {
         // Use the selected role from formData, default to empty if no role selected
         if (!formData.role) {
           setDisabledStateNames([]);
+          fetchedDisabledStatesRef.current = "";
           return;
         }
         
@@ -1162,7 +1339,13 @@ const handleStateChange = (values: string | string[]) => {
         // Skip NODAL_OFFICER as they don't need this check (they are assigned to states, not the other way around)
         if (formData.role === "NODAL_OFFICER") {
           setDisabledStateNames([]);
+          fetchedDisabledStatesRef.current = "";
           return;
+        }
+        
+        // Check if we've already fetched for this role
+        if (fetchedDisabledStatesRef.current === formData.role) {
+          return; // Skip duplicate API call
         }
         
         const response = await apiService.getAssignedStateOnly(formData.role);
@@ -1171,17 +1354,22 @@ const handleStateChange = (values: string | string[]) => {
         if (response && Array.isArray(response)) {
           const stateNames = response.map((item: any) => item.stateName || item.name || item).filter(Boolean);
           setDisabledStateNames(stateNames);
+          fetchedDisabledStatesRef.current = formData.role; // Cache the role we fetched for
         }
       } catch (error) {
         console.error("Error fetching assigned states:", error);
         setDisabledStateNames([]);
+        fetchedDisabledStatesRef.current = ""; // Reset on error
       }
     };
 
     fetchDisabledStates();
   }, [formData.role]); // Re-fetch when role changes
 
-  // Real-time email availability check
+  // Track last checked email to prevent duplicate API calls
+  const lastCheckedEmailRef = useRef<string>("");
+
+  // Real-time email availability check (only when creating new user or email changed)
   useEffect(() => {
     let isCancelled = false;
 
@@ -1198,6 +1386,11 @@ const handleStateChange = (values: string | string[]) => {
         return;
       }
 
+      // Skip if we've already checked this exact email
+      if (debouncedEmail && lastCheckedEmailRef.current === debouncedEmail) {
+        return;
+      }
+
       // Clear duplicate error if email is empty or invalid format
       if (!debouncedEmail || !/@(gov\.in|nic\.in)$/i.test(debouncedEmail)) {
         if (!isCancelled) {
@@ -1210,11 +1403,13 @@ const handleStateChange = (values: string | string[]) => {
             return newErrors;
           });
         }
+        lastCheckedEmailRef.current = ""; // Reset cache
         return; // Don't check if email format is invalid
       }
 
       if (!isCancelled) {
         setCheckingEmail(true);
+        lastCheckedEmailRef.current = debouncedEmail; // Cache the email we're checking
       }
 
       try {
@@ -1252,6 +1447,7 @@ const handleStateChange = (values: string | string[]) => {
             }
             return newErrors;
           });
+          lastCheckedEmailRef.current = ""; // Reset cache on error
         }
       } finally {
         if (!isCancelled) {
@@ -1268,7 +1464,10 @@ const handleStateChange = (values: string | string[]) => {
     };
   }, [debouncedEmail, officer?.id, officer?.email]);
 
-  // Real-time contact number availability check
+  // Track last checked contact to prevent duplicate API calls
+  const lastCheckedContactRef = useRef<string>("");
+
+  // Real-time contact number availability check (only when creating new user or contact changed)
   useEffect(() => {
     let isCancelled = false;
 
@@ -1287,6 +1486,12 @@ const handleStateChange = (values: string | string[]) => {
 
       // Only check if it's a valid 10-digit number
       const normalizedContact = debouncedContactNumber.replace(/\s/g, "");
+      
+      // Skip if we've already checked this exact contact number
+      if (normalizedContact && lastCheckedContactRef.current === normalizedContact) {
+        return;
+      }
+      
       if (!normalizedContact || !/^\d{10}$/.test(normalizedContact)) {
         // Clear duplicate error if contact number is empty or invalid format
         if (!isCancelled) {
@@ -1299,11 +1504,13 @@ const handleStateChange = (values: string | string[]) => {
             return newErrors;
           });
         }
+        lastCheckedContactRef.current = ""; // Reset cache
         return; // Don't check if format is invalid
       }
 
       if (!isCancelled) {
         setCheckingContact(true);
+        lastCheckedContactRef.current = normalizedContact; // Cache the contact we're checking
       }
 
       try {
@@ -1341,6 +1548,7 @@ const handleStateChange = (values: string | string[]) => {
             }
             return newErrors;
           });
+          lastCheckedContactRef.current = ""; // Reset cache on error
         }
       } finally {
         if (!isCancelled) {
@@ -1670,10 +1878,17 @@ const handleStateChange = (values: string | string[]) => {
           </Label>
           {(() => {
             const availableRoles = getAvailableRoles();
+            const availableRoleValues = availableRoles.map(r => r.value);
+            const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : "NODAL_OFFICER";
+            
+            // Ensure formData.role is valid - if not, use default (useEffect will fix it)
+            const currentRole = formData.role && availableRoleValues.includes(formData.role) 
+              ? formData.role 
+              : defaultRole;
             
             return (
               <Select
-                value={formData.role}
+                value={currentRole}
                 disabled={user?.role === "STATE_APPROVER"}
                 onValueChange={(value) => {
                   setFormData(prev => ({

@@ -659,9 +659,19 @@ export function UserManagementPage() {
           window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
         }
       }
-      await loadOfficers();
+      
+      // Hide form immediately and clear editing state BEFORE loading officers
+      // This ensures user doesn't see form clearing - redirect happens simultaneously
       setShowForm(false);
       setEditingOfficer(null);
+      
+      // Clear sessionStorage immediately
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('userManagementFormDraft');
+      }
+      
+      // Load officers and refresh indicators
+      await loadOfficers();
 
       // >>> REFRESH: force indicator hook to re-fetch so approver UI sees updated availableIndicators
       try {
