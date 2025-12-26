@@ -103,7 +103,31 @@ export const InfraEnablersReview = ({
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
   const [submissionData, setSubmissionData] = useState(formData);
   const [submissionState, setSubmissionState] = useState(submission);
-  const [formDataState, setFormDataState] = useState(formData);
+  // Normalize formData to ensure trainingPeriod exists in capacityArray entries
+  const normalizeFormData = (data: any) => {
+    if (!data || typeof data !== "object") return data;
+
+    const normalized = { ...data };
+    const infraEnablers = normalized.infraEnablers || normalized;
+
+    if (infraEnablers?.section4_5?.capacityArray) {
+      infraEnablers.section4_5 = {
+        ...infraEnablers.section4_5,
+        capacityArray: infraEnablers.section4_5.capacityArray.map(
+          (item: any) => ({
+            ...item,
+            trainingPeriod: item.trainingPeriod || "",
+          })
+        ),
+      };
+    }
+
+    return normalized;
+  };
+
+  const [formDataState, setFormDataState] = useState(() =>
+    normalizeFormData(formData)
+  );
   const { assignedIndicators: hookAssignedIndicators } = useIndicatorAccess();
 
   // State for edit functionality indicator wise - moved here to be available before useMemo
@@ -212,6 +236,70 @@ export const InfraEnablersReview = ({
       setSubmissionState(submission);
     }
   }, [submission]);
+
+  // Normalize capacityArray entries to ensure trainingPeriod field exists
+  // This handles cases where old data doesn't have the trainingPeriod field
+  useEffect(() => {
+    if (formDataState?.section4_5?.capacityArray) {
+      const hasMissingTrainingPeriod =
+        formDataState.section4_5.capacityArray.some(
+          (item: any) =>
+            item.trainingPeriod === undefined || item.trainingPeriod === null
+        );
+
+      if (hasMissingTrainingPeriod) {
+        setFormDataState((prev: any) => {
+          if (!prev?.section4_5?.capacityArray) return prev;
+
+          return {
+            ...prev,
+            section4_5: {
+              ...prev.section4_5,
+              capacityArray: prev.section4_5.capacityArray.map((item: any) => ({
+                ...item,
+                trainingPeriod: item.trainingPeriod || "",
+              })),
+            },
+          };
+        });
+      }
+    }
+  }, [formDataState?.section4_5?.capacityArray]);
+
+  // Also normalize when formData prop changes (initial load)
+  useEffect(() => {
+    if (formData && typeof formData === "object") {
+      const infraEnablers = (formData as any)?.infraEnablers;
+      if (infraEnablers?.section4_5?.capacityArray) {
+        const hasMissingTrainingPeriod =
+          infraEnablers.section4_5.capacityArray.some(
+            (item: any) =>
+              item.trainingPeriod === undefined || item.trainingPeriod === null
+          );
+
+        if (hasMissingTrainingPeriod) {
+          setFormDataState((prev: any) => {
+            const currentInfraEnablers = prev?.infraEnablers || prev || {};
+            return {
+              ...(typeof prev === "object" && !prev.infraEnablers ? prev : {}),
+              infraEnablers: {
+                ...currentInfraEnablers,
+                section4_5: {
+                  ...currentInfraEnablers.section4_5,
+                  capacityArray: (
+                    currentInfraEnablers.section4_5?.capacityArray || []
+                  ).map((item: any) => ({
+                    ...item,
+                    trainingPeriod: item.trainingPeriod || "",
+                  })),
+                },
+              },
+            };
+          });
+        }
+      }
+    }
+  }, [formData]);
 
   // Store original formDataState snapshot when edit mode starts (for cancel functionality)
   const [originalFormDataSnapshot, setOriginalFormDataSnapshot] =
@@ -450,6 +538,7 @@ export const InfraEnablersReview = ({
     programName: "",
     organiser: "",
     trainingType: "",
+    trainingPeriod: "",
   });
 
   // Helper function to check user role
@@ -782,7 +871,8 @@ export const InfraEnablersReview = ({
             `${sectionPrefix}.capacityArray.${index}.designation`,
             `${sectionPrefix}.capacityArray.${index}.programName`,
             `${sectionPrefix}.capacityArray.${index}.organiser`,
-            `${sectionPrefix}.capacityArray.${index}.trainingType`
+            `${sectionPrefix}.capacityArray.${index}.trainingType`,
+            `${sectionPrefix}.capacityArray.${index}.trainingPeriod`
           );
         });
       }
@@ -825,6 +915,14 @@ export const InfraEnablersReview = ({
       const restoredState = JSON.parse(
         JSON.stringify(originalFormDataSnapshot)
       );
+      // Normalize trainingPeriod in capacityArray
+      if (restoredState?.section4_5?.capacityArray) {
+        restoredState.section4_5.capacityArray =
+          restoredState.section4_5.capacityArray.map((item: any) => ({
+            ...item,
+            trainingPeriod: item.trainingPeriod || "",
+          }));
+      }
       console.log(
         `[InfraEnablersReview] Restoring from snapshot for ${sectionId}:`,
         restoredState
@@ -881,6 +979,7 @@ export const InfraEnablersReview = ({
           programName: "",
           organiser: "",
           trainingType: "",
+          trainingPeriod: "",
         });
       }
 
@@ -907,6 +1006,14 @@ export const InfraEnablersReview = ({
               const restoredState = JSON.parse(
                 JSON.stringify(freshFormData.infraEnablers)
               );
+              // Normalize trainingPeriod in capacityArray
+              if (restoredState?.section4_5?.capacityArray) {
+                restoredState.section4_5.capacityArray =
+                  restoredState.section4_5.capacityArray.map((item: any) => ({
+                    ...item,
+                    trainingPeriod: item.trainingPeriod || "",
+                  }));
+              }
               console.log(
                 `[InfraEnablersReview] Restored from fresh server data for ${sectionId}:`,
                 restoredState
@@ -916,6 +1023,14 @@ export const InfraEnablersReview = ({
               // Fallback to formData prop if server fetch doesn't have the data
               const rawData = (formData as any)?.infraEnablers || formData;
               const restoredState = JSON.parse(JSON.stringify(rawData));
+              // Normalize trainingPeriod in capacityArray
+              if (restoredState?.section4_5?.capacityArray) {
+                restoredState.section4_5.capacityArray =
+                  restoredState.section4_5.capacityArray.map((item: any) => ({
+                    ...item,
+                    trainingPeriod: item.trainingPeriod || "",
+                  }));
+              }
               console.log(
                 `[InfraEnablersReview] Restored from formData prop for ${sectionId}:`,
                 restoredState
@@ -987,6 +1102,7 @@ export const InfraEnablersReview = ({
           programName: "",
           organiser: "",
           trainingType: "",
+          trainingPeriod: "",
         });
       }
       // Reset the flag after React has processed the state update
@@ -1132,80 +1248,110 @@ export const InfraEnablersReview = ({
   // This ensures we remember sections even if they're removed from formData after deletion
   // Once a section is marked as submitted, it stays in the set (never removed)
   const initiallySubmittedSections = useRef<Set<string>>(new Set());
-  
+
   useEffect(() => {
     // Check which sections were submitted and add them to the set
     // This runs on mount and when formData/submission changes
     // We only ADD sections, never remove them (once submitted, always submitted)
-    const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
+    const allPossibleSections = [
+      "section4_1",
+      "section4_2",
+      "section4_3",
+      "section4_4",
+      "section4_5",
+      "section4_6",
+    ];
     allPossibleSections.forEach((sectionKey) => {
       // Skip if already marked as submitted
       if (initiallySubmittedSections.current.has(sectionKey)) {
         return;
       }
-      
+
       // Check submission.section_status first (most reliable)
       let wasSubmitted = false;
-      if (submission?.section_status && typeof submission.section_status === "object") {
+      if (
+        submission?.section_status &&
+        typeof submission.section_status === "object"
+      ) {
         const sectionStatus = (submission.section_status as any)[sectionKey];
-        if (sectionStatus && 
-            sectionStatus !== "NOT_STARTED" && 
-            sectionStatus !== null && 
-            sectionStatus !== undefined) {
+        if (
+          sectionStatus &&
+          sectionStatus !== "NOT_STARTED" &&
+          sectionStatus !== null &&
+          sectionStatus !== undefined
+        ) {
           wasSubmitted = true;
         }
       }
-      
+
       // Also check if section exists in formData
       if (!wasSubmitted && formData && typeof formData === "object") {
         const infraEnab = (formData as any).infraEnablers;
-        if (infraEnab && typeof infraEnab === "object" && infraEnab[sectionKey] !== undefined && infraEnab[sectionKey] !== null) {
+        if (
+          infraEnab &&
+          typeof infraEnab === "object" &&
+          infraEnab[sectionKey] !== undefined &&
+          infraEnab[sectionKey] !== null
+        ) {
           wasSubmitted = true;
         }
       }
-      
+
       if (wasSubmitted) {
         initiallySubmittedSections.current.add(sectionKey);
         console.log(`[InfraEnablersReview] Marking ${sectionKey} as submitted`);
       }
     });
-    console.log(`[InfraEnablersReview] Submitted sections set:`, Array.from(initiallySubmittedSections.current));
+    console.log(
+      `[InfraEnablersReview] Submitted sections set:`,
+      Array.from(initiallySubmittedSections.current)
+    );
   }, [formData, submission]); // Run when formData or submission changes
 
   // Helper function to check if a section was previously submitted/saved
   // Uses initiallySubmittedSections ref (set on mount) as the source of truth
   // Also checks current submission.section_status as a fallback
-  const wasSectionPreviouslySubmitted = useCallback((sectionKey: string): boolean => {
-    // PRIORITY 1: Check if section was marked as initially submitted on mount
-    if (initiallySubmittedSections.current.has(sectionKey)) {
-      return true;
-    }
-    
-    // PRIORITY 2: Check submission.section_status - this is also reliable
-    if (submission?.section_status && typeof submission.section_status === "object") {
-      const sectionStatus = (submission.section_status as any)[sectionKey];
-      if (sectionStatus && 
-          sectionStatus !== "NOT_STARTED" && 
-          sectionStatus !== null && 
-          sectionStatus !== undefined) {
+  const wasSectionPreviouslySubmitted = useCallback(
+    (sectionKey: string): boolean => {
+      // PRIORITY 1: Check if section was marked as initially submitted on mount
+      if (initiallySubmittedSections.current.has(sectionKey)) {
         return true;
       }
-    }
-    
-    // PRIORITY 3: Check original formData prop (from backend) - fallback check
-    const infraEnabFromFormData = formData && 
-      typeof formData === "object" && 
-      (formData as any).infraEnablers 
-      ? (formData as any).infraEnablers 
-      : null;
-    
-    const inFormData = infraEnabFromFormData && 
-      typeof infraEnabFromFormData === "object" && 
-      (infraEnabFromFormData as any)[sectionKey] !== undefined &&
-      (infraEnabFromFormData as any)[sectionKey] !== null;
-    
-    return inFormData;
-  }, [formData, submission]);
+
+      // PRIORITY 2: Check submission.section_status - this is also reliable
+      if (
+        submission?.section_status &&
+        typeof submission.section_status === "object"
+      ) {
+        const sectionStatus = (submission.section_status as any)[sectionKey];
+        if (
+          sectionStatus &&
+          sectionStatus !== "NOT_STARTED" &&
+          sectionStatus !== null &&
+          sectionStatus !== undefined
+        ) {
+          return true;
+        }
+      }
+
+      // PRIORITY 3: Check original formData prop (from backend) - fallback check
+      const infraEnabFromFormData =
+        formData &&
+        typeof formData === "object" &&
+        (formData as any).infraEnablers
+          ? (formData as any).infraEnablers
+          : null;
+
+      const inFormData =
+        infraEnabFromFormData &&
+        typeof infraEnabFromFormData === "object" &&
+        (infraEnabFromFormData as any)[sectionKey] !== undefined &&
+        (infraEnabFromFormData as any)[sectionKey] !== null;
+
+      return inFormData;
+    },
+    [formData, submission]
+  );
 
   // Check if this section has any data
   const hasData = hasInfraEnablersData({ infraEnablers: state });
@@ -1216,11 +1362,20 @@ export const InfraEnablersReview = ({
 
   // ALWAYS include sections that were previously submitted, even if they have no data now
   // This ensures submitted indicators never disappear from the UI
-  const allPossibleSections = ["section4_1", "section4_2", "section4_3", "section4_4", "section4_5", "section4_6"];
-  const previouslySubmittedSections = allPossibleSections.filter((sectionKey) => {
-    return wasSectionPreviouslySubmitted(sectionKey);
-  });
-  
+  const allPossibleSections = [
+    "section4_1",
+    "section4_2",
+    "section4_3",
+    "section4_4",
+    "section4_5",
+    "section4_6",
+  ];
+  const previouslySubmittedSections = allPossibleSections.filter(
+    (sectionKey) => {
+      return wasSectionPreviouslySubmitted(sectionKey);
+    }
+  );
+
   // Merge previously submitted sections with sectionsWithData
   sectionsWithData = Array.from(
     new Set([...sectionsWithData, ...previouslySubmittedSections])
@@ -1367,10 +1522,10 @@ export const InfraEnablersReview = ({
       // Check if section is currently in edit mode
       const sectionId = sectionIdMap[sectionKey];
       const isCurrentlyEditable = sectionId ? isEditable(sectionId) : false;
-      
+
       // Check if section was previously submitted
       const wasSubmitted = wasSectionPreviouslySubmitted(sectionKey);
-      
+
       // Keep section visible if it has data OR if it's in edit mode OR if it was previously submitted
       return hasData || isCurrentlyEditable || wasSubmitted;
     });
@@ -1385,19 +1540,19 @@ export const InfraEnablersReview = ({
   // This prevents sections from disappearing when user deletes all entries in edit mode
   // Reuse allPossibleSections declared earlier
   const sectionIdMap: Record<string, string> = {
-    "section4_1": "4.1",
-    "section4_2": "4.2",
-    "section4_3": "4.3",
-    "section4_4": "4.4",
-    "section4_5": "4.5",
-    "section4_6": "4.6",
+    section4_1: "4.1",
+    section4_2: "4.2",
+    section4_3: "4.3",
+    section4_4: "4.4",
+    section4_5: "4.5",
+    section4_6: "4.6",
   };
-  
+
   const sectionsInEditMode = allPossibleSections.filter((sectionKey) => {
     const sectionId = sectionIdMap[sectionKey];
     return sectionId ? isEditable(sectionId) : false;
   });
-  
+
   // Merge sections in edit mode with sectionsWithData
   sectionsWithData = Array.from(
     new Set([...sectionsWithData, ...sectionsInEditMode])
@@ -1406,9 +1561,11 @@ export const InfraEnablersReview = ({
   // Final merge: ensure previously submitted sections are always included
   // This ensures submitted indicators never disappear, even after canceling edit or deleting entries
   // Reuse allPossibleSections declared earlier
-  const previouslySubmittedSectionsFinal = allPossibleSections.filter((sectionKey) => {
-    return wasSectionPreviouslySubmitted(sectionKey);
-  });
+  const previouslySubmittedSectionsFinal = allPossibleSections.filter(
+    (sectionKey) => {
+      return wasSectionPreviouslySubmitted(sectionKey);
+    }
+  );
   sectionsWithData = Array.from(
     new Set([...sectionsWithData, ...previouslySubmittedSectionsFinal])
   );
@@ -1859,6 +2016,7 @@ export const InfraEnablersReview = ({
             programName: item?.programName ?? null,
             trainingType: item?.trainingType ?? null,
             organiser: item?.organiser ?? null,
+            trainingPeriod: item?.trainingPeriod ?? null,
           }));
           fields = [
             {
@@ -2531,15 +2689,20 @@ export const InfraEnablersReview = ({
     setFormDataState((prev: any) => {
       const sectionKey = `section${sectionId.replace(".", "_")}`;
       const currentSection = prev?.[sectionKey] || {};
-      
+
       // When switching from "yes" to "no", clear related fields
       let clearedFields: any = {};
-      
+
       if (value === "no") {
         switch (sectionId) {
           case "4.1":
             if (fieldName === "allEligible") {
-              clearedFields = { websiteLink: "", file: null, files: [], comment: "" };
+              clearedFields = {
+                websiteLink: "",
+                file: null,
+                files: [],
+                comment: "",
+              };
             }
             break;
           case "4.2":
@@ -2550,7 +2713,12 @@ export const InfraEnablersReview = ({
           case "4.3":
             if (fieldName === "adopted") {
               // Clear projects array (which may contain files)
-              clearedFields = { projects: [], file: null, files: [], comment: "" };
+              clearedFields = {
+                projects: [],
+                file: null,
+                files: [],
+                comment: "",
+              };
             }
             break;
           case "4.4":
@@ -2561,7 +2729,12 @@ export const InfraEnablersReview = ({
           case "4.5":
             if (fieldName === "implemented") {
               // Clear practices array (which may contain files)
-              clearedFields = { practices: [], file: null, files: [], comment: "" };
+              clearedFields = {
+                practices: [],
+                file: null,
+                files: [],
+                comment: "",
+              };
             }
             break;
           case "4.6":
@@ -2571,9 +2744,12 @@ export const InfraEnablersReview = ({
             }
             break;
         }
-        console.log(`[InfraEnablersReview] Clearing fields for ${sectionId}.${fieldName}:`, clearedFields);
+        console.log(
+          `[InfraEnablersReview] Clearing fields for ${sectionId}.${fieldName}:`,
+          clearedFields
+        );
       }
-      
+
       return {
         ...prev,
         [sectionKey]: {
@@ -2891,6 +3067,7 @@ export const InfraEnablersReview = ({
       programName: "",
       organiser: "",
       trainingType: "",
+      trainingPeriod: "",
     });
     setShowAddCapacityForm(false);
   };
@@ -2903,6 +3080,7 @@ export const InfraEnablersReview = ({
       programName: "",
       organiser: "",
       trainingType: "",
+      trainingPeriod: "",
     });
     setShowAddCapacityForm(false);
   };
@@ -5079,23 +5257,26 @@ export const InfraEnablersReview = ({
                   <table className="min-w-full border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#DDE3F9]">
-                        <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                        <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
                           Officer Name
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-2 px-2 text-left text-sm font-normal">
                           Designation
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-2 px-2 text-left text-sm font-normal">
                           Program Name
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-2 px-2 text-left text-sm font-normal">
                           Type
                         </th>
-                        <th className="py-3 px-4 text-left text-sm font-normal">
+                        <th className="py-2 px-2 text-left text-sm font-normal">
                           Organiser
                         </th>
+                        <th className="py-2 px-2 text-left text-sm font-normal">
+                          Training Period (MMYY)
+                        </th>
                         {shouldBeEditable("4.5") && (
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
                             Action
                           </th>
                         )}
@@ -5106,14 +5287,19 @@ export const InfraEnablersReview = ({
                         const capacityArray = Array.isArray(
                           formDataState?.section4_5?.capacityArray
                         )
-                          ? formDataState.section4_5.capacityArray
+                          ? formDataState.section4_5.capacityArray.map(
+                              (item: any) => ({
+                                ...item,
+                                trainingPeriod: item.trainingPeriod || "",
+                              })
+                            )
                           : [];
 
                         if (!capacityArray.length) {
                           return (
                             <tr>
                               <td
-                                colSpan={shouldBeEditable("4.5") ? 6 : 5}
+                                colSpan={shouldBeEditable("4.5") ? 7 : 6}
                                 className="py-8 text-center text-muted-foreground"
                               >
                                 No capacity building data available
@@ -5124,7 +5310,7 @@ export const InfraEnablersReview = ({
 
                         return capacityArray.map((item: any, idx: number) => (
                           <tr key={item.id || idx} className="border-b">
-                            <td className="py-3 px-4 text-sm font-normal">
+                            <td className="py-2 px-2 text-sm font-normal">
                               {shouldBeEditable("4.5") ? (
                                 <Input
                                   value={item.officerName || ""}
@@ -5135,14 +5321,14 @@ export const InfraEnablersReview = ({
                                       e.target.value
                                     )
                                   }
-                                  className="w-full"
+                                  className="w-full h-8 text-sm"
                                   placeholder="Enter officer name"
                                 />
                               ) : (
                                 item.officerName || "N/A"
                               )}
                             </td>
-                            <td className="py-3 px-4 text-sm font-normal">
+                            <td className="py-2 px-2 text-sm font-normal">
                               {shouldBeEditable("4.5") ? (
                                 <Input
                                   value={item.designation || ""}
@@ -5153,14 +5339,14 @@ export const InfraEnablersReview = ({
                                       e.target.value
                                     )
                                   }
-                                  className="w-full"
+                                  className="w-full h-8 text-sm"
                                   placeholder="Enter designation"
                                 />
                               ) : (
                                 item.designation || "N/A"
                               )}
                             </td>
-                            <td className="py-3 px-4 text-sm font-normal">
+                            <td className="py-2 px-2 text-sm font-normal">
                               {shouldBeEditable("4.5") ? (
                                 <Input
                                   value={item.programName || ""}
@@ -5171,14 +5357,14 @@ export const InfraEnablersReview = ({
                                       e.target.value
                                     )
                                   }
-                                  className="w-full"
+                                  className="w-full h-8 text-sm"
                                   placeholder="Enter program name"
                                 />
                               ) : (
                                 item.programName || "N/A"
                               )}
                             </td>
-                            <td className="py-3 px-4 text-sm font-normal">
+                            <td className="py-2 px-2 text-sm font-normal">
                               {shouldBeEditable("4.5") ? (
                                 <Dropdown
                                   resetKey={idx}
@@ -5200,7 +5386,7 @@ export const InfraEnablersReview = ({
                                 item.trainingType || "N/A"
                               )}
                             </td>
-                            <td className="py-3 px-4 text-sm font-normal">
+                            <td className="py-2 px-2 text-sm font-normal">
                               {shouldBeEditable("4.5") ? (
                                 <Input
                                   value={item.organiser || ""}
@@ -5211,15 +5397,38 @@ export const InfraEnablersReview = ({
                                       e.target.value
                                     )
                                   }
-                                  className="w-full"
+                                  className="w-full h-8 text-sm"
                                   placeholder="Enter organiser"
                                 />
                               ) : (
                                 item.organiser || "N/A"
                               )}
                             </td>
+                            <td className="py-2 px-2 text-sm font-normal">
+                              {shouldBeEditable("4.5") ? (
+                                <Input
+                                  value={item.trainingPeriod || ""}
+                                  onChange={(e) => {
+                                    // Only allow numbers and limit to 4 characters
+                                    const value = e.target.value
+                                      .replace(/\D/g, "")
+                                      .slice(0, 4);
+                                    handleTableFieldUpdate(
+                                      idx,
+                                      "trainingPeriod",
+                                      value
+                                    );
+                                  }}
+                                  className="w-full h-8 text-sm"
+                                  placeholder="MMYY"
+                                  maxLength={4}
+                                />
+                              ) : (
+                                item.trainingPeriod || "N/A"
+                              )}
+                            </td>
                             {shouldBeEditable("4.5") && (
-                              <td className="py-3 px-4 text-sm font-normal">
+                              <td className="py-2 px-2 text-sm font-normal text-center w-12">
                                 <Button
                                   variant="outline"
                                   size="icon"
@@ -5227,9 +5436,9 @@ export const InfraEnablersReview = ({
                                     // Use index for deletion since items may not have IDs
                                     handleRemoveCapacityEntry(idx);
                                   }}
-                                  className="text-red-500 hover:text-red-700 border-none bg-none"
+                                  className="text-red-500 hover:text-red-700 border-none bg-none h-8 w-8"
                                 >
-                                  <Trash2 className="h-5 w-5" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </td>
                             )}
@@ -5353,6 +5562,25 @@ export const InfraEnablersReview = ({
                         }
                         className="bg-white"
                         placeholder="Enter organiser"
+                      />
+                    </div>
+                    <div>
+                      <Label>Training Period (MMYY)</Label>
+                      <Input
+                        value={newCapacityEntry.trainingPeriod}
+                        onChange={(e) => {
+                          // Only allow numbers and limit to 4 characters
+                          const value = e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 4);
+                          setNewCapacityEntry({
+                            ...newCapacityEntry,
+                            trainingPeriod: value,
+                          });
+                        }}
+                        className="bg-white"
+                        placeholder="MMYY (e.g., 1224)"
+                        maxLength={4}
                       />
                     </div>
                   </div>

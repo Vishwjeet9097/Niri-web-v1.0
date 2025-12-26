@@ -649,6 +649,7 @@ export const InfraEnablersStep = () => {
       programName: "",
       organiser: "",
       trainingType: "",
+      trainingPeriod: "",
     };
     setFormData((prev) => ({
       ...prev,
@@ -678,7 +679,8 @@ export const InfraEnablersStep = () => {
       | "designation"
       | "programName"
       | "organiser"
-      | "trainingType",
+      | "trainingType"
+      | "trainingPeriod",
     value: string
   ) => {
     setFormData((prev) => ({
@@ -2676,7 +2678,7 @@ export const InfraEnablersStep = () => {
                 {(formData.section4_5?.capacityArray || []).map(
                   (entry, index) => (
                     <div key={entry.id || `entry-${index}`} className="mb-2">
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 items-end">
                         <div>
                           <Label>
                             Officer Name{" "}
@@ -2829,45 +2831,84 @@ export const InfraEnablersStep = () => {
                             }.organiser`
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <Label>
-                              Type <span className="text-destructive">*</span>
-                            </Label>
-                            <Select
-                              value={entry.trainingType}
-                              onValueChange={(v) => {
-                                showErrorsIfNeeded();
-                                updateTraining(entry.id, "trainingType", v);
-                              }}
-                              disabled={isIndicatorSubmitted("4.5")}
+                        <div>
+                          <Label>
+                            Type <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={entry.trainingType}
+                            onValueChange={(v) => {
+                              showErrorsIfNeeded();
+                              updateTraining(entry.id, "trainingType", v);
+                            }}
+                            disabled={isIndicatorSubmitted("4.5")}
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                getInputValidationClass(
+                                  `section4_5.capacityArray.${
+                                    formData.section4_5?.capacityArray?.findIndex(
+                                      (e) => e.id === entry.id
+                                    ) ?? 0
+                                  }.trainingType`
+                                )
+                              )}
                             >
-                              <SelectTrigger
-                                className={cn(
-                                  getInputValidationClass(
-                                    `section4_5.capacityArray.${
-                                      formData.section4_5?.capacityArray?.findIndex(
-                                        (e) => e.id === entry.id
-                                      ) ?? 0
-                                    }.trainingType`
-                                  )
-                                )}
-                              >
-                                <SelectValue placeholder="Select type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Online">Online</SelectItem>
-                                <SelectItem value="Offline">Offline</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {renderFieldError(
-                              `section4_5.capacityArray.${
-                                formData.section4_5?.capacityArray?.findIndex(
-                                  (e) => e.id === entry.id
-                                ) ?? 0
-                              }.trainingType`
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Online">Online</SelectItem>
+                              <SelectItem value="Offline">Offline</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {renderFieldError(
+                            `section4_5.capacityArray.${
+                              formData.section4_5?.capacityArray?.findIndex(
+                                (e) => e.id === entry.id
+                              ) ?? 0
+                            }.trainingType`
+                          )}
+                        </div>
+                        <div>
+                          <Label>
+                            Training Period (MMYY){" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="MMYY (e.g., 1224)"
+                            value={entry.trainingPeriod || ""}
+                            onChange={(e) => {
+                              showErrorsIfNeeded();
+                              // Only allow numbers and limit to 4 characters
+                              const value = e.target.value
+                                .replace(/\D/g, "")
+                                .slice(0, 4);
+                              updateTraining(entry.id, "trainingPeriod", value);
+                            }}
+                            disabled={isIndicatorSubmitted("4.5")}
+                            className={cn(
+                              getInputValidationClass(
+                                `section4_5.capacityArray.${
+                                  formData.section4_5?.capacityArray?.findIndex(
+                                    (e) => e.id === entry.id
+                                  ) ?? 0
+                                }.trainingPeriod`
+                              ),
+                              isIndicatorSubmitted("4.5") &&
+                                "bg-gray-50 cursor-not-allowed"
                             )}
-                          </div>
+                            maxLength={4}
+                          />
+                          {renderFieldError(
+                            `section4_5.capacityArray.${
+                              formData.section4_5?.capacityArray?.findIndex(
+                                (e) => e.id === entry.id
+                              ) ?? 0
+                            }.trainingPeriod`
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center w-12">
                           <Button
                             type="button"
                             variant="ghost"
@@ -2875,9 +2916,9 @@ export const InfraEnablersStep = () => {
                             onClick={() => removeTraining(entry.id)}
                             disabled={isIndicatorSubmitted("4.5")}
                             aria-label="Remove"
-                            className="text-destructive hover:bg-destructive/10 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8"
                           >
-                            <Trash2 className="w-5 h-5" />
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -2919,6 +2960,9 @@ export const InfraEnablersStep = () => {
                       <th className="py-3 px-4 text-left text-sm font-normal">
                         Type
                       </th>
+                      <th className="py-3 px-4 text-left text-sm font-normal">
+                        Training Period (MMYY)
+                      </th>
                       <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
                         Action
                       </th>
@@ -2945,6 +2989,9 @@ export const InfraEnablersStep = () => {
                           </td>
                           <td className="py-3 px-4 text-sm">
                             {entry.trainingType}
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            {entry.trainingPeriod || "-"}
                           </td>
                           <td className="py-3 px-4">
                             <button

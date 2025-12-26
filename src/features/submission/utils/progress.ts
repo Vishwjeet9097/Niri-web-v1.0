@@ -317,7 +317,8 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
           hasMeaningfulValue(r.designation) &&
           hasMeaningfulValue(r.programName) &&
           hasMeaningfulValue(r.organiser) &&
-          hasMeaningfulValue(r.trainingType)
+          hasMeaningfulValue(r.trainingType) &&
+          hasMeaningfulValue(r.trainingPeriod)
       );
     }
     // If "no", comment is required

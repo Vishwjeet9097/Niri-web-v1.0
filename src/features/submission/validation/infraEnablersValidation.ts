@@ -229,6 +229,25 @@ export const validateInfraEnablers = (
             errors[`section4_5.capacityArray.${index}.trainingType`] =
               "Type is required.";
           }
+          if (!entry.trainingPeriod || entry.trainingPeriod.trim() === "") {
+            errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
+              "Training Period (MMYY) is required.";
+          } else if (!/^\d{4}$/.test(entry.trainingPeriod)) {
+            errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
+              "Training Period must be in MMYY format (e.g., 1224).";
+          } else {
+            // Validate month (01-12) and year (reasonable range)
+            const month = parseInt(entry.trainingPeriod.substring(0, 2), 10);
+            const year = parseInt(entry.trainingPeriod.substring(2, 4), 10);
+            if (month < 1 || month > 12) {
+              errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
+                "Month must be between 01 and 12.";
+            }
+            if (year < 0 || year > 99) {
+              errors[`section4_5.capacityArray.${index}.trainingPeriod`] =
+                "Year must be between 00 and 99.";
+            }
+          }
         });
       }
     } else if (section46.participated === "no") {

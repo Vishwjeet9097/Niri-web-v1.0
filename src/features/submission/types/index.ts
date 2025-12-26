@@ -230,6 +230,7 @@ export interface InfraEnablersData {
       programName: string;
       organiser: string;
       trainingType: string;
+      trainingPeriod: string; // MMYY format
       marksObtained?: number;
     }>;
     comment?: string;
