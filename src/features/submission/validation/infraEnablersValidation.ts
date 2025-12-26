@@ -23,6 +23,14 @@ const isValidUrl = (value: string): boolean => {
   }
 };
 
+// Helper function to validate alphabets only (letters, spaces, hyphens, apostrophes)
+const isAlphabetsOnly = (value: string): boolean => {
+  if (!value || typeof value !== "string") return false;
+  // Allow letters, spaces, hyphens, apostrophes (for names like "O'Brien", "Mary-Jane")
+  // Unicode regex for letters including accented characters
+  return /^[\p{L}\s'-]+$/u.test(value.trim());
+};
+
 const isValidPdfFile = (file: FileUpload | null): boolean => {
   if (!file || !file.file) return false;
   const fileName = file.fileName || file.file.name || "";
@@ -105,6 +113,9 @@ export const validateInfraEnablers = (
           if (!project.projectName || project.projectName.trim() === "") {
             errors[`section4_2.projects.${index}.projectName`] =
               "Project name is required.";
+          } else if (!isAlphabetsOnly(project.projectName)) {
+            errors[`section4_2.projects.${index}.projectName`] =
+              "Project name should contain only letters, spaces, hyphens, and apostrophes.";
           }
           if (!project.sector || project.sector.trim() === "") {
             errors[`section4_2.projects.${index}.sector`] =
@@ -175,6 +186,9 @@ export const validateInfraEnablers = (
           if (!practice.practiceName || practice.practiceName.trim() === "") {
             errors[`section4_4.practices.${index}.practiceName`] =
               "Practice name is required.";
+          } else if (!isAlphabetsOnly(practice.practiceName)) {
+            errors[`section4_4.practices.${index}.practiceName`] =
+              "Practice name should contain only letters, spaces, hyphens, and apostrophes.";
           }
           if (!practice.impact || practice.impact.trim() === "") {
             errors[`section4_4.practices.${index}.impact`] =
@@ -212,22 +226,37 @@ export const validateInfraEnablers = (
           if (!entry.officerName || entry.officerName.trim() === "") {
             errors[`section4_5.capacityArray.${index}.officerName`] =
               "Officer name is required.";
+          } else if (!isAlphabetsOnly(entry.officerName)) {
+            errors[`section4_5.capacityArray.${index}.officerName`] =
+              "Officer name should contain only letters, spaces, hyphens, and apostrophes.";
           }
           if (!entry.designation || entry.designation.trim() === "") {
             errors[`section4_5.capacityArray.${index}.designation`] =
               "Designation is required.";
+          } else if (!isAlphabetsOnly(entry.designation)) {
+            errors[`section4_5.capacityArray.${index}.designation`] =
+              "Designation should contain only letters, spaces, hyphens, and apostrophes.";
           }
           if (!entry.programName || entry.programName.trim() === "") {
             errors[`section4_5.capacityArray.${index}.programName`] =
               "Program name is required.";
+          } else if (!isAlphabetsOnly(entry.programName)) {
+            errors[`section4_5.capacityArray.${index}.programName`] =
+              "Program name should contain only letters, spaces, hyphens, and apostrophes.";
           }
           if (!entry.organiser || entry.organiser.trim() === "") {
             errors[`section4_5.capacityArray.${index}.organiser`] =
               "Organizer is required.";
+          } else if (!isAlphabetsOnly(entry.organiser)) {
+            errors[`section4_5.capacityArray.${index}.organiser`] =
+              "Organizer should contain only letters, spaces, hyphens, and apostrophes.";
           }
           if (!entry.trainingType || entry.trainingType.trim() === "") {
             errors[`section4_5.capacityArray.${index}.trainingType`] =
               "Type is required.";
+          } else if (!isAlphabetsOnly(entry.trainingType)) {
+            errors[`section4_5.capacityArray.${index}.trainingType`] =
+              "Training type should contain only letters, spaces, hyphens, and apostrophes.";
           }
           if (!entry.trainingPeriod || entry.trainingPeriod.trim() === "") {
             errors[`section4_5.capacityArray.${index}.trainingPeriod`] =

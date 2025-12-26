@@ -1506,6 +1506,21 @@ export const InfraDevelopmentStep = () => {
         variant: "default",
       });
 
+      // Dispatch event to refresh indicators after indicator submission
+      // This ensures the "Create Submission" button disables correctly when last indicator is submitted
+      if (user?.role === "STATE_APPROVER" && user?.id) {
+        console.log("📢 [InfraDevelopmentStep] Dispatching indicatorsUpdated event after indicator submission");
+        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
+          detail: { 
+            userId: user.id,
+            role: 'STATE_APPROVER',
+            action: 'indicator_submitted',
+            indicatorCode,
+            submissionId: result?.id || result?.submissionId
+          } 
+        }));
+      }
+
       // 🔍 DEBUG: Log before updating form data
       console.log(`🔍 [SUBMIT ${indicatorCode}] Before updateFormData:`, {
         indicatorCode,

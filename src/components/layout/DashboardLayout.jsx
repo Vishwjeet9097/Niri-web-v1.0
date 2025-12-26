@@ -74,8 +74,6 @@ export function DashboardLayout() {
   useEffect(() => {
     // Only setup auto-refresh for STATE_APPROVER
     if (user?.role !== "STATE_APPROVER") return;
-
-    let refreshTimer;
     
     // ✅ Helper function uses ref to avoid dependency issues
     const refreshAndUpdate = async (clearCache = false) => {
@@ -84,18 +82,19 @@ export function DashboardLayout() {
       // State will update automatically through the hook, no need to force re-render
     };
     
-    // Refresh on window focus (when user switches back to tab)
+    // Debounce ref for focus handler
+    let focusTimeout = null;
+    
+    // Refresh on window focus (when user switches back to tab) - debounced
     const handleFocus = () => {
-      console.log('[DashboardLayout] Window focused, refreshing indicators');
-      refreshAndUpdate(true);
-    };
-
-    // Refresh periodically every 10 seconds to catch assignment changes
-    const setupPeriodicRefresh = () => {
-      refreshTimer = setInterval(() => {
-        console.log('[DashboardLayout] Periodic refresh triggered');
-        refreshAndUpdate(true); // Always clear cache on periodic refresh
-      }, 10000); // Refresh every 10 seconds - faster updates without too much overhead
+      // Debounce focus refresh to prevent rapid calls
+      if (focusTimeout) {
+        clearTimeout(focusTimeout);
+      }
+      focusTimeout = setTimeout(() => {
+        console.log('[DashboardLayout] Window focused, refreshing indicators');
+        refreshAndUpdate(true);
+      }, 500);
     };
 
     // Listen for storage events (when cache is cleared elsewhere)
@@ -121,16 +120,13 @@ export function DashboardLayout() {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('indicatorsUpdated', handleIndicatorUpdate);
 
-    // Start periodic refresh
-    setupPeriodicRefresh();
-
     // Cleanup
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('indicatorsUpdated', handleIndicatorUpdate);
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
+      if (focusTimeout) {
+        clearTimeout(focusTimeout);
       }
     };
   }, [user?.role]); // ✅ Only depend on user?.role - refreshIndicators removed from deps (using ref instead)

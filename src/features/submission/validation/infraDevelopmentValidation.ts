@@ -45,6 +45,14 @@ const isValidUrl = (value: string): boolean => {
   }
 };
 
+// Helper function to validate alphabets only (letters, spaces, hyphens, apostrophes)
+const isAlphabetsOnly = (value: string): boolean => {
+  if (!value || typeof value !== "string") return false;
+  // Allow letters, spaces, hyphens, apostrophes (for names like "O'Brien", "Mary-Jane")
+  // Unicode regex for letters including accented characters
+  return /^[\p{L}\s'-]+$/u.test(value.trim());
+};
+
 const isValidPdfFile = (file: FileUpload | null): boolean => {
   if (!file || !file.file) return false;
   const fileName = file.fileName || file.file.name || "";
@@ -298,6 +306,9 @@ export const validateInfraDevelopment = (
             if (!entry.projectName || entry.projectName.trim() === "") {
               errors[`section2_4.investmentReadyArray.${index}.projectName`] =
                 "Project name is required.";
+            } else if (!isAlphabetsOnly(entry.projectName)) {
+              errors[`section2_4.investmentReadyArray.${index}.projectName`] =
+                "Project name should contain only letters, spaces, hyphens, and apostrophes.";
             }
             if (!entry.sector || entry.sector.trim() === "") {
               errors[`section2_4.investmentReadyArray.${index}.sector`] =
@@ -351,6 +362,9 @@ export const validateInfraDevelopment = (
         if (!entry.projectName || entry.projectName.trim() === "") {
           errors[`section2_5.assetMonetizationArray.${index}.projectName`] =
             "Asset/Project name is required.";
+        } else if (!isAlphabetsOnly(entry.projectName)) {
+          errors[`section2_5.assetMonetizationArray.${index}.projectName`] =
+            "Project name should contain only letters, spaces, hyphens, and apostrophes.";
         }
         if (!entry.type || entry.type.trim() === "") {
           errors[`section2_5.assetMonetizationArray.${index}.type`] =
@@ -363,6 +377,9 @@ export const validateInfraDevelopment = (
         if (!entry.location || entry.location.trim() === "") {
           errors[`section2_5.assetMonetizationArray.${index}.location`] =
             "Location is required.";
+        } else if (!isAlphabetsOnly(entry.location)) {
+          errors[`section2_5.assetMonetizationArray.${index}.location`] =
+            "Location should contain only letters, spaces, hyphens, and apostrophes.";
         }
         // Validate website link (mandatory)
         const websiteLinkValue = entry.websiteLink?.trim() || "";

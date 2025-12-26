@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,6 @@ import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
 import { useIndicatorAccess, ALL_INDICATOR_CODES } from "@/hooks/useIndicatorAccess";
-import { useMemo } from "react";
 import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 
 export function UserManagementPage() {
@@ -53,41 +52,57 @@ export function UserManagementPage() {
   // Check if state approver has submitted their form
   const { hasSubmission: stateApproverHasSubmission } = useUserSubmissionStatus();
 
-  const loadStates = async () => {
+  // Refs to prevent unnecessary API calls and track loading state
+  const officersLoadedRef = useRef(false);
+  const statesLoadedRef = useRef(false);
+  const submittedIndicatorsLoadedRef = useRef<string>("");
+  const lastRefreshTimeRef = useRef<number>(0);
+  const refreshDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Minimum time between refreshes (2 seconds)
+  const MIN_REFRESH_INTERVAL = 2000;
+
+  const loadStates = useCallback(async () => {
+    // Only load if not already loaded or if states array is empty
+    if (statesLoadedRef.current && states.length > 0) {
+      return;
+    }
+    
     try {
       const statesData = await statesService.getStates();
       setStates(statesData);
+      statesLoadedRef.current = true;
     } catch (error) {
       console.error("❌ Error loading states:", error);
     }
-  };
+  }, [states.length]);
 
-  const loadOfficers = useCallback(async () => {
+  const loadOfficers = useCallback(async (forceRefresh = false) => {
+    // Prevent rapid successive calls
+    const now = Date.now();
+    if (!forceRefresh && officersLoadedRef.current && (now - lastRefreshTimeRef.current) < MIN_REFRESH_INTERVAL) {
+      return;
+    }
+    
     try {
       setIsLoading(true);
-      // Debug logging removed for performance
+      lastRefreshTimeRef.current = now;
 
       // Try to load from backend API first
       // ADMIN and MOSPI_APPROVER can see all users, STATE_APPROVER can only see their state users
       let backendUsers;
       if (user?.role === "ADMIN" || user?.role === "MOSPI_APPROVER") {
-        // Admin and MOSPI Approver can see all users across all states
-        // Debug logging removed for performance
-
         backendUsers = await apiService.getAllUsers();
       } else {
-        // State Approver can only see users from their state
-        // Debug logging removed for performance
-
         backendUsers = await apiService.getUsersByState(user?.state || "");
       }
-      // Debug logging removed for performance
 
       // Safety check: ensure backendUsers is an array
       if (!backendUsers || !Array.isArray(backendUsers)) {
         console.warn("⚠️ Backend API returned invalid data, using local storage:", backendUsers);
         const data = userManagementService.getOfficers(user?.state || "");
         setOfficers(data);
+        officersLoadedRef.current = true;
         return;
       }
 
@@ -105,7 +120,7 @@ export function UserManagementPage() {
             | "MOSPI_REVIEWER"
             | "MOSPI_APPROVER",
           state: user.stateUt || user.state || "",
-          stateId: user.stateId || "", // Will be set later when states are loaded
+          stateId: user.stateId || "",
           assignedIndicator: user.assignedIndicator,
           assignedIndicators: user.assignedIndicators || [],
           isActive: user.isActive,
@@ -114,18 +129,25 @@ export function UserManagementPage() {
       );
 
       setOfficers(transformedOfficers);
+      officersLoadedRef.current = true;
     } catch (error) {
       console.warn("⚠️ Backend API failed, using local storage:", error);
       // Fallback to local storage
       const data = userManagementService.getOfficers(user?.state || "");
       setOfficers(data);
+      officersLoadedRef.current = true;
     } finally {
       setIsLoading(false);
     }
-  }, [user?.role, user?.state]); // Add dependencies
+  }, [user?.role, user?.state]);
 
-  // New function to load indicators
-  const loadIndicators = async () => {
+  // New function to load indicators - memoized to prevent unnecessary calls
+  const loadIndicators = useCallback(async () => {
+    // Only load if indicators array is empty
+    if (allIndicators.length > 0) {
+      return;
+    }
+    
     try {
       setIsIndicatorsLoading(true);
       const indicators = await apiService.getAllIndicators();
@@ -133,7 +155,6 @@ export function UserManagementPage() {
       const validIndicators = (indicators || []).filter((ind: any) => 
         ind.code && ALL_INDICATOR_CODES.includes(ind.code)
       );
-      // Expect each indicator object to have a unique `code` (or `id`) and `name`
       setAllIndicators(validIndicators);
     } catch (err) {
       console.error("❌ Error loading indicators:", err);
@@ -141,57 +162,70 @@ export function UserManagementPage() {
     } finally {
       setIsIndicatorsLoading(false);
     }
-  };
+  }, [allIndicators.length]);
 
+  // Load indicators only once on mount
   useEffect(() => {
     loadIndicators();
-  }, []);
+  }, []); // Empty dependency array - only run once
 
+  // Load officers and states on mount and when user role/state changes
   useEffect(() => {
-    loadOfficers();
-    // Load states to ensure cache is available
+    // Reset flags when user changes
+    officersLoadedRef.current = false;
+    statesLoadedRef.current = false;
+    submittedIndicatorsLoadedRef.current = "";
+    
+    loadOfficers(true); // Force refresh on user change
     loadStates();
-  }, [loadOfficers]); // Add loadOfficers dependency back
+  }, [user?.role, user?.state]); // Only depend on user role/state, not loadOfficers
 
   // Fetch submitted indicators in state when component loads or state changes
   // NOTE: This is STATE-SCOPED, not global. Only finds submissions within the user's state.
   useEffect(() => {
     const fetchSubmittedIndicators = async () => {
-      if (user?.stateUt || user?.state) {
-        try {
-          const stateUt = user.stateUt || user.state;
-          console.log("🔍 [UserManagementPage] Fetching submitted indicators for state:", stateUt);
-          console.log("🔍 [UserManagementPage] NOTE: Query is STATE-SCOPED - only finds submissions within this state, not globally");
-          const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
-          console.log("📊 [UserManagementPage] Submitted indicators in state:", submitted);
-          console.log("📊 [UserManagementPage] Submitted indicators array:", JSON.stringify(submitted));
-          console.log("📊 [UserManagementPage] Is 1.1 in submitted?", submitted.includes("1.1"));
-          setSubmittedIndicatorsInState(submitted);
-        } catch (error) {
-          console.error("❌ [UserManagementPage] Error fetching submitted indicators:", error);
-          setSubmittedIndicatorsInState([]);
-        }
-      } else {
-        console.warn("⚠️ [UserManagementPage] No stateUt or state found for user:", user);
+      const stateUt = user?.stateUt || user?.state;
+      
+      // Skip if no state or already loaded for this state
+      if (!stateUt || submittedIndicatorsLoadedRef.current === stateUt) {
+        return;
+      }
+      
+      try {
+        const submitted = await apiService.getSubmittedIndicatorsInState(stateUt);
+        setSubmittedIndicatorsInState(submitted);
+        submittedIndicatorsLoadedRef.current = stateUt;
+      } catch (error) {
+        console.error("❌ [UserManagementPage] Error fetching submitted indicators:", error);
+        setSubmittedIndicatorsInState([]);
       }
     };
 
     fetchSubmittedIndicators();
   }, [user?.stateUt, user?.state]);
 
-  // Refresh officers list when window regains focus (handles multi-tab scenarios)
+  // Debounced refresh on window focus (handles multi-tab scenarios)
   useEffect(() => {
     const handleFocus = () => {
-      // Refresh officers list when user switches back to this tab
-      // This ensures UI stays in sync if user creates/deletes users in another tab
-      loadOfficers();
+      // Clear any pending refresh
+      if (refreshDebounceTimeoutRef.current) {
+        clearTimeout(refreshDebounceTimeoutRef.current);
+      }
+      
+      // Debounce the refresh to prevent rapid successive calls
+      refreshDebounceTimeoutRef.current = setTimeout(() => {
+        loadOfficers(true); // Force refresh on focus
+      }, 500); // 500ms debounce
     };
 
     window.addEventListener('focus', handleFocus);
     return () => {
       window.removeEventListener('focus', handleFocus);
+      if (refreshDebounceTimeoutRef.current) {
+        clearTimeout(refreshDebounceTimeoutRef.current);
+      }
     };
-  }, [loadOfficers]);
+  }, []); // Empty dependency array - setup once
 
   const computeAvailableIndicatorsForState = (
     stateName: string,
@@ -663,18 +697,35 @@ export function UserManagementPage() {
           window.dispatchEvent(new CustomEvent('indicatorsUpdated', { detail: eventDetail }));
         }
       }
-      await loadOfficers();
+      
+      // Hide form immediately and clear editing state BEFORE loading officers
+      // This ensures user doesn't see form clearing - redirect happens simultaneously
       setShowForm(false);
       setEditingOfficer(null);
-
-      // >>> REFRESH: force indicator hook to re-fetch so approver UI sees updated availableIndicators
-      try {
-        console.log("🔁 Triggering indicator refresh after save user");
-        await refresh?.({ clearCache: true });
-      } catch (err) {
-        console.warn("⚠️ Indicator refresh failed after save user:", err);
+      
+      // Clear sessionStorage immediately
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('userManagementFormDraft');
       }
-      // <<< REFRESH
+      
+      // Reset flags to force refresh
+      officersLoadedRef.current = false;
+      
+      // Load officers and refresh indicators
+      await loadOfficers(true); // Force refresh after save
+
+      // Debounce indicator refresh to prevent rapid successive calls
+      if (refreshDebounceTimeoutRef.current) {
+        clearTimeout(refreshDebounceTimeoutRef.current);
+      }
+      
+      refreshDebounceTimeoutRef.current = setTimeout(async () => {
+        try {
+          await refresh?.({ clearCache: true });
+        } catch (err) {
+          console.warn("⚠️ Indicator refresh failed after save user:", err);
+        }
+      }, 300); // 300ms debounce
     } catch (error: any) {
       console.error("❌ Error saving user:", error);
 
@@ -786,16 +837,24 @@ export function UserManagementPage() {
         "Deactivation Successful"
       );
 
+      // Reset flag to force refresh
+      officersLoadedRef.current = false;
+      
       // Refresh data
-      await loadOfficers();
-      // >>> REFRESH: refresh available indicators for approver
-      try {
-        console.log("🔁 Triggering indicator refresh after delete user");
-        await refresh?.({ clearCache: true });
-      } catch (err) {
-        console.warn("⚠️ Indicator refresh failed after delete user:", err);
+      await loadOfficers(true); // Force refresh after delete
+      
+      // Debounce indicator refresh
+      if (refreshDebounceTimeoutRef.current) {
+        clearTimeout(refreshDebounceTimeoutRef.current);
       }
-      // <<< REFRESH
+      
+      refreshDebounceTimeoutRef.current = setTimeout(async () => {
+        try {
+          await refresh?.({ clearCache: true });
+        } catch (err) {
+          console.warn("⚠️ Indicator refresh failed after delete user:", err);
+        }
+      }, 300);
       // Close modal
       setDeleteModalOpen(false);
       setUserToDelete(null);
@@ -944,19 +1003,24 @@ export function UserManagementPage() {
 
       // Clear selection and refresh data
       setSelectedIds(new Set());
-      await loadOfficers();
+      
+      // Reset flag to force refresh
+      officersLoadedRef.current = false;
+      
+      await loadOfficers(true); // Force refresh after bulk delete
 
-      // >>> REFRESH: refresh available indicators for approver
-      try {
-        console.log("🔁 Triggering indicator refresh after bulk delete users");
-        await refresh?.({ clearCache: true });
-      } catch (err) {
-        console.warn(
-          "⚠️ Indicator refresh failed after bulk delete users:",
-          err
-        );
+      // Debounce indicator refresh
+      if (refreshDebounceTimeoutRef.current) {
+        clearTimeout(refreshDebounceTimeoutRef.current);
       }
-      // <<< REFRESH
+      
+      refreshDebounceTimeoutRef.current = setTimeout(async () => {
+        try {
+          await refresh?.({ clearCache: true });
+        } catch (err) {
+          console.warn("⚠️ Indicator refresh failed after bulk delete users:", err);
+        }
+      }, 300);
 
       // Close modal
       setDeleteModalOpen(false);
@@ -983,16 +1047,24 @@ export function UserManagementPage() {
         "Indicator assigned successfully",
         "Assignment Successful"
       );
-      await loadOfficers();
-      try {
-        console.log("🔁 Triggering indicator refresh after assign indicator");
-        await refresh?.({ clearCache: true });
-      } catch (err) {
-        console.warn(
-          "⚠️ Indicator refresh failed after assign indicator:",
-          err
-        );
+      
+      // Reset flag to force refresh
+      officersLoadedRef.current = false;
+      
+      await loadOfficers(true); // Force refresh after assign
+      
+      // Debounce indicator refresh
+      if (refreshDebounceTimeoutRef.current) {
+        clearTimeout(refreshDebounceTimeoutRef.current);
       }
+      
+      refreshDebounceTimeoutRef.current = setTimeout(async () => {
+        try {
+          await refresh?.({ clearCache: true });
+        } catch (err) {
+          console.warn("⚠️ Indicator refresh failed after assign indicator:", err);
+        }
+      }, 300);
     } catch (error) {
       console.error("❌ Error assigning indicator:", error);
       notificationService.error(

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   Table,
   TableBody,
@@ -39,7 +39,7 @@ interface UserTableProps {
   onSort?: (field: "firstName" | "role" | "state" | "email") => void;
 }
 
-export function UserTable({
+function UserTableComponent({
   officers,
   onEdit,
   onDelete,
@@ -204,3 +204,6 @@ export function UserTable({
     </div>
   );
 }
+
+// Memoize UserTable to prevent unnecessary re-renders when props haven't changed
+export const UserTable = memo(UserTableComponent);
