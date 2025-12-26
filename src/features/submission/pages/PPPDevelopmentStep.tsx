@@ -511,6 +511,32 @@ export const PPPDevelopmentStep = () => {
     }
   };
 
+  // Auto-calculate Total of all TPC of all Projects as sum of all project costs
+  const calculatedTotalTPC = useMemo(() => {
+    const projects = formData.section3_4?.projects || [];
+    const sum = projects.reduce((total: number, project: any) => {
+      const cost = project.totalProjectCost
+        ? parseFloat(String(project.totalProjectCost))
+        : 0;
+      return total + (isNaN(cost) ? 0 : cost);
+    }, 0);
+    return sum.toFixed(2);
+  }, [formData.section3_4?.projects]);
+
+  useEffect(() => {
+    // Only update if the calculated value is different from current value
+    const currentValue = formData.section3_4?.totalProjectCostAwarded || "";
+    if (currentValue !== calculatedTotalTPC) {
+      setFormData((prev) => ({
+        ...prev,
+        section3_4: {
+          ...prev.section3_4,
+          totalProjectCostAwarded: calculatedTotalTPC,
+        },
+      }));
+    }
+  }, [calculatedTotalTPC, formData.section3_4?.totalProjectCostAwarded]);
+
   // Autosave to localStorage with debouncing (avoid infinite loop)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -2540,10 +2566,11 @@ export const PPPDevelopmentStep = () => {
                         "bg-gray-50 cursor-not-allowed"
                     )}
                   />
+                  
+                  {renderFieldError("section3_4.totalProjectCostAwarded")}
                   <p className="text-xs text-muted-foreground mt-1">
                     Automatically calculated from sum of all project costs
                   </p>
-                  {renderFieldError("section3_4.totalProjectCostAwarded")}
                 </div>
               </div>
 

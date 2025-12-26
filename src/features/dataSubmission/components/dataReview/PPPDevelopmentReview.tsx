@@ -1965,6 +1965,33 @@ export const PPPDevelopmentReview = ({
   };
 
   // Helper to update section 3.4 summary fields
+  // Auto-calculate Total of all TPC of all Projects as sum of all project costs
+  const calculatedTotalTPC = useMemo(() => {
+    const projects = formDataState?.section3_4?.projects || [];
+    const sum = projects.reduce((total: number, project: any) => {
+      const cost = project.totalProjectCost
+        ? parseFloat(String(project.totalProjectCost))
+        : 0;
+      return total + (isNaN(cost) ? 0 : cost);
+    }, 0);
+    return sum.toFixed(2);
+  }, [formDataState?.section3_4?.projects]);
+
+  useEffect(() => {
+    // Only update if the calculated value is different from current value
+    const currentValue =
+      formDataState?.section3_4?.totalProjectCostAwarded || "";
+    if (currentValue !== calculatedTotalTPC) {
+      setFormDataState((prev: any) => ({
+        ...prev,
+        section3_4: {
+          ...prev?.section3_4,
+          totalProjectCostAwarded: calculatedTotalTPC,
+        },
+      }));
+    }
+  }, [calculatedTotalTPC, formDataState?.section3_4?.totalProjectCostAwarded]);
+
   const handleSection3_4FieldUpdate = (fieldName: string, value: any) => {
     setFormDataState((prev: any) => {
       return {
