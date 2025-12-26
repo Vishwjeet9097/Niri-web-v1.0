@@ -29,67 +29,69 @@ class StatesService {
 
       const data = await response.json();
       console.log("🌍 States API Response:", data);
+      console.log("🌍 States API Response Type:", typeof data);
+      console.log(
+        "🌍 States API Response Keys:",
+        data ? Object.keys(data) : "null/undefined"
+      );
 
       // Handle different response formats
       let states: State[];
-      if (Array.isArray(data)) {
-        states = data;
-      } else if (data.data && Array.isArray(data.data)) {
-        // Direct API response - use index+1 as id and value as name
-        states = data.data.map((state: any, index: number) => ({
-          id: (index + 1).toString(), // Use 1-based index as ID
-          name: state.value || state.label,
-          code: state.value || state.label,
-          isActive: true,
-        }));
 
-        console.log("🌍 Processed states:", states.slice(0, 3)); // Log first 3 states for debugging
-        console.log("🌍 All states count:", states.length);
-        console.log("🌍 Sample state structure:", states[0]);
-
-        // Check for any states with unusual characters
-        const unusualStates = states.filter(
-          (state) =>
-            state.id.includes("q") ||
-            state.name.includes("q") ||
-            state.id.length < 3
-        );
-        if (unusualStates.length > 0) {
-          console.warn("⚠️ Found unusual states:", unusualStates);
+      // Helper function to map state objects to State interface
+      const mapState = (state: any, index: number): State => {
+        if (typeof state === "string") {
+          return {
+            id: (index + 1).toString(),
+            name: state,
+            code: state,
+            isActive: true,
+          };
         }
+        return {
+          id: state.id || (index + 1).toString(),
+          name: state.name || state.value || state.label || state,
+          code: state.code || state.value || state.label || state,
+          isActive: state.isActive !== undefined ? state.isActive : true,
+        };
+      };
 
-        // Log all state IDs to check for issues
-        console.log(
-          "🌍 All state IDs:",
-          states.map((s) => s.id)
-        );
-
-        // Check for any states that might be causing the "4 q" issue
-        const problematicStates = states.filter(
-          (state) =>
-            state.id === "4 q" ||
-            state.name === "4 q" ||
-            state.id.includes("4 q") ||
-            state.name.includes("4 q")
-        );
-        if (problematicStates.length > 0) {
-          console.error("❌ Found problematic states:", problematicStates);
-        }
-
-        // Check for any states with numbers and letters
-        const numberLetterStates = states.filter(
-          (state) =>
-            /\d.*[a-zA-Z]/.test(state.id) || /\d.*[a-zA-Z]/.test(state.name)
-        );
-        if (numberLetterStates.length > 0) {
-          console.warn(
-            "⚠️ Found states with numbers and letters:",
-            numberLetterStates
-          );
-        }
-      } else if (data.states && Array.isArray(data.states)) {
-        states = data.states;
+      // Try nested structure: data.data.states (most common for this API)
+      if (data?.data?.data?.states && Array.isArray(data.data.data.states)) {
+        states = data.data.data.states.map(mapState);
+      }
+      // Try nested structure: data.data.states (alternative)
+      else if (data?.data?.states && Array.isArray(data.data.states)) {
+        states = data.data.states.map(mapState);
+      }
+      // Response is directly an array
+      else if (Array.isArray(data)) {
+        states = data.map(mapState);
+      }
+      // Response has data.data array
+      else if (data?.data && Array.isArray(data.data)) {
+        states = data.data.map(mapState);
+      }
+      // Response has data.states array
+      else if (data?.states && Array.isArray(data.states)) {
+        states = data.states.map(mapState);
+      }
+      // Response has data.results array
+      else if (data?.results && Array.isArray(data.results)) {
+        states = data.results.map(mapState);
       } else {
+        // Log the actual response structure for debugging
+        console.error("❌ Invalid states data format. Received:", {
+          type: typeof data,
+          isArray: Array.isArray(data),
+          hasData: !!data?.data,
+          hasDataData: !!data?.data?.data,
+          hasDataDataStates: !!data?.data?.data?.states,
+          hasDataStates: !!data?.data?.states,
+          hasStates: !!data?.states,
+          hasResults: !!data?.results,
+          keys: data ? Object.keys(data) : [],
+        });
         throw new Error("Invalid states data format");
       }
 

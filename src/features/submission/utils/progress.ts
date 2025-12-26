@@ -7,6 +7,7 @@
   strict validation.
 */
 import { apiService } from "@/services/api.service";
+import { ALL_INDICATOR_CODES } from "@/hooks/useIndicatorAccess";
 
 export type StepKey =
   | "infraFinancing"
@@ -45,7 +46,6 @@ const STEP_SECTIONS: Record<
     { sectionKey: "section4_3", indicator: "4.3" },
     { sectionKey: "section4_4", indicator: "4.4" },
     { sectionKey: "section4_5", indicator: "4.5" },
-    { sectionKey: "section4_6", indicator: "4.6" },
   ],
 };
 
@@ -246,17 +246,6 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
   // 4.x Infra Enablers
   section4_1: (data) => {
     const d = data as Record<string, unknown>;
-    if (!hasMeaningfulValue(d?.allEligible)) return false;
-    // अगर 'yes' है तो वेबसाइट लिंक भी चाहिए
-    if (d?.allEligible === "yes") return hasMeaningfulValue(d?.websiteLink);
-    // If "no", comment is required
-    if (d?.allEligible === "no") {
-      return hasMeaningfulValue(d?.comment);
-    }
-    return false;
-  },
-  section4_2: (data) => {
-    const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.available)) return false;
     if (d?.available === "yes") return hasMeaningfulValue(d?.file);
     // If "no", comment is required
@@ -265,7 +254,7 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     return false;
   },
-  section4_3: (data: any) => {
+  section4_2: (data: any) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.adopted)) return false;
     if (d?.adopted === "yes") {
@@ -286,7 +275,7 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     return true;
   },
-  section4_4: (data) => {
+  section4_3: (data) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.adopted)) return false;
     if (d?.adopted === "yes") return hasMeaningfulValue(d?.file);
@@ -296,7 +285,7 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     return false;
   },
-  section4_5: (data: any) => {
+  section4_4: (data: any) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.implemented)) return false;
     if (d?.implemented === "yes") {
@@ -317,7 +306,7 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
     }
     return true;
   },
-  section4_6: (data: any) => {
+  section4_5: (data: any) => {
     const d = data as Record<string, unknown>;
     if (!hasMeaningfulValue(d?.participated)) return false;
     if (d?.participated === "yes") {
@@ -328,7 +317,8 @@ const REQUIRED_SECTION_CHECKS: Partial<Record<string, SectionCheck>> = {
           hasMeaningfulValue(r.designation) &&
           hasMeaningfulValue(r.programName) &&
           hasMeaningfulValue(r.organiser) &&
-          hasMeaningfulValue(r.trainingType)
+          hasMeaningfulValue(r.trainingType) &&
+          hasMeaningfulValue(r.trainingPeriod)
       );
     }
     // If "no", comment is required
@@ -608,9 +598,9 @@ export async function calculateProgressByAcceptedStatus(
     normalizedUserRole === "MOSPI_APPROVER";
 
   if (isMospiUser) {
-    // For MOSPI users, use default total of 20
-    totalAssignedIndicators = 20;
-    console.log("📊 [Progress] Using default total of 20 for MOSPI user");
+    // For MOSPI users, use default total of 19
+    totalAssignedIndicators = ALL_INDICATOR_CODES.length;
+    console.log("📊 [Progress] Using default total of 19 for MOSPI user");
   } else {
     // For other users, fetch from API
     try {

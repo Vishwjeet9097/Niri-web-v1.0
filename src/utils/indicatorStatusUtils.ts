@@ -22,12 +22,6 @@ const SECTION_TO_INDICATOR_MAP: Record<string, string> = {
   section3_2: "3.2",
   section3_3: "3.3",
   section3_4: "3.4",
-  section4_1: "4.1",
-  section4_2: "4.2",
-  section4_3: "4.3",
-  section4_4: "4.4",
-  section4_5: "4.5",
-  section4_6: "4.6",
 };
 
 /**
@@ -735,12 +729,12 @@ export function hasAnyIndicatorMospiReverted(
 }
 
 /**
- * Expected total number of indicators (20)
+ * Expected total number of indicators (19)
  */
-const EXPECTED_INDICATOR_COUNT = 20;
+const EXPECTED_INDICATOR_COUNT = 19;
 
 /**
- * All expected indicator codes (20 indicators)
+ * All expected indicator codes (19 indicators)
  */
 const ALL_INDICATOR_CODES = [
   "1.1",
@@ -761,14 +755,13 @@ const ALL_INDICATOR_CODES = [
   "4.2",
   "4.3",
   "4.4",
-  "4.5",
-  "4.6", // Infra Enablers (6)
+  "4.5", // Infra Enablers (5)
 ];
 
 /**
- * Check if all 20 indicators have some action (either ACCEPTED or REVERTED)
+ * Check if all 19 indicators have some action (either ACCEPTED or REVERTED)
  * @param submission - The submission object with formData
- * @returns true if all 20 indicators have mospi_status set to either ACCEPTED or REVERTED
+ * @returns true if all 19 indicators have mospi_status set to either ACCEPTED or REVERTED
  */
 export function areAllIndicatorsActioned(
   submission: Record<string, any> | undefined
@@ -790,7 +783,7 @@ export function areAllIndicatorsActioned(
 
   let actionedCount = 0;
 
-  // Check each of the 20 expected indicators
+  // Check each of the 19 expected indicators
   for (const indicatorCode of ALL_INDICATOR_CODES) {
     // Map indicator code to category and section
     const [sectionNum, indicatorNum] = indicatorCode.split(".");

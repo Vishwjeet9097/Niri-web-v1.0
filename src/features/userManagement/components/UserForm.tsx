@@ -25,6 +25,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { statesService, State } from "@/services/states.service";
 import { apiService } from "@/services/api.service";
 import { INDICATOR_SECTIONS } from "@/utils/indicatorUtils";
+import { ALL_INDICATOR_CODES } from "@/hooks/useIndicatorAccess";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 
@@ -280,9 +281,13 @@ export function UserForm({
 
       // Admin should have access to all indicators - no need to fetch filtered list
       if (user?.role === "ADMIN") {
-        // For admin, use allIndicators directly (no filtering needed)
+        // For admin, use allIndicators directly but filter to only valid indicator codes
         if (allIndicators.length > 0) {
-          const formattedAvailable = allIndicators.map((ind: any) => ({
+          // Filter to only include indicators with valid codes (exclude old/removed indicators)
+          const validIndicators = allIndicators.filter((ind: any) => 
+            ind.code && ALL_INDICATOR_CODES.includes(ind.code)
+          );
+          const formattedAvailable = validIndicators.map((ind: any) => ({
             code: ind.code,
             name: ind.name || getIndicatorDisplayName(ind.code),
             category: ind.category || ind.section || '',
@@ -333,7 +338,7 @@ export function UserForm({
         }
         
         setAvailableIndicatorsForState(indicators);
-        fetchedIndicatorsRef.current = cacheKey; // Cache the result
+        fetchedIndicatorsRef.current = cacheKey; // Cache the result to prevent duplicate API calls
       } catch (error) {
         console.error("❌ Failed to fetch available indicators from API, falling back to frontend filtering:", error);
         
@@ -365,9 +370,11 @@ export function UserForm({
           }
         });
 
-        // Return indicators whose code is NOT in assignedSet
+        // Return indicators whose code is NOT in assignedSet AND is a valid indicator code
         // Convert to the same format as API response (array of objects with code, name, category)
-        const available = allIndicators.filter((ind: any) => !assignedSet.has(ind.code));
+        const available = allIndicators.filter((ind: any) => 
+          !assignedSet.has(ind.code) && ind.code && ALL_INDICATOR_CODES.includes(ind.code)
+        );
         
         // Transform to match API response format
         const formattedAvailable = available.map((ind: any) => ({
@@ -423,15 +430,25 @@ export function UserForm({
       }
     });
 
-    // Build name map - prioritize API response, then allIndicators, then fallback
+    // Build name map - prioritize frontend mapping for 4.x indicators, then API response, then allIndicators, then fallback
     const indicatorNameMap: Record<string, string> = {};
     const indicatorCategoryMap: Record<string, string> = {};
     
-    // First, add from API response
+    // First, set frontend display names for Infrastructure Enablers (4.1-4.5) to ensure correct names
+    // This overrides any incorrect names from the backend API
+    const infraEnablersCodes = ["4.1", "4.2", "4.3", "4.4", "4.5"];
+    infraEnablersCodes.forEach((code) => {
+      indicatorNameMap[code] = getIndicatorDisplayName(code);
+    });
+    
+    // Then, add from API response (but don't override 4.x indicators we just set)
     if (availableIndicatorsForState && availableIndicatorsForState.length > 0 && typeof availableIndicatorsForState[0] === 'object') {
       availableIndicatorsForState.forEach((item: any) => {
         if (item && item.code) {
-          if (item.name) indicatorNameMap[item.code] = item.name;
+          // Only use API name if it's not a 4.x indicator (we want frontend names for those)
+          if (!infraEnablersCodes.includes(item.code) && item.name) {
+            indicatorNameMap[item.code] = item.name;
+          }
           if (item.category) indicatorCategoryMap[item.code] = item.category;
         }
       });
@@ -441,7 +458,8 @@ export function UserForm({
     allIndicators.forEach((ind: any) => {
       const code = ind.code;
       if (code) {
-        if (!indicatorNameMap[code] && ind.name) {
+        // Only use allIndicators name if it's not a 4.x indicator and not already set
+        if (!infraEnablersCodes.includes(code) && !indicatorNameMap[code] && ind.name) {
           indicatorNameMap[code] = ind.name;
         }
         if (!indicatorCategoryMap[code] && (ind.category || ind.section)) {
@@ -2306,12 +2324,11 @@ function getIndicatorDisplayName(indicatorCode: string): string {
     "3.3": "VGF/IIPDF Proposals",
     "3.4": "PPP Bankable Projects",
     "3.5": "PPP Project Monitoring",
-    "4.1": "PMG Portal Eligible",
-    "4.2": "State PMG Portal",
-    "4.3": "PM Gati Shakti Adoption",
-    "4.4": "ADR Adoption",
-    "4.5": "Innovative Practices",
-    "4.6": "Capacity Building - Officer Participation",
+    "4.1": "Availability & Use of State/UT PMG",
+    "4.2": "Adoption of PM GatiShakti",
+    "4.3": "Adoption of ADR",
+    "4.4": "Innovative Practices",
+    "4.5": "Capacity Building – Officer Participation",
   };
 
   return indicatorNames[indicatorCode] || indicatorCode;

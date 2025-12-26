@@ -25,7 +25,7 @@ import { apiService } from "@/services/api.service";
 import { notificationService } from "@/services/notification.service";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import { statesService } from "@/services/states.service";
-import { useIndicatorAccess } from "@/hooks/useIndicatorAccess";
+import { useIndicatorAccess, ALL_INDICATOR_CODES } from "@/hooks/useIndicatorAccess";
 import { useMemo } from "react";
 import { useUserSubmissionStatus } from "@/hooks/useUserSubmissionStatus";
 
@@ -129,8 +129,12 @@ export function UserManagementPage() {
     try {
       setIsIndicatorsLoading(true);
       const indicators = await apiService.getAllIndicators();
+      // Filter to only include indicators with valid codes (exclude old/removed indicators like old 4.1 and 4.6)
+      const validIndicators = (indicators || []).filter((ind: any) => 
+        ind.code && ALL_INDICATOR_CODES.includes(ind.code)
+      );
       // Expect each indicator object to have a unique `code` (or `id`) and `name`
-      setAllIndicators(indicators || []);
+      setAllIndicators(validIndicators);
     } catch (err) {
       console.error("❌ Error loading indicators:", err);
       setAllIndicators([]);
