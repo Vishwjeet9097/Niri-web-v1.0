@@ -512,6 +512,32 @@ export const PPPDevelopmentStep = () => {
     }
   };
 
+  // Auto-calculate Total of all TPC of all Projects as sum of all project costs
+  const calculatedTotalTPC = useMemo(() => {
+    const projects = formData.section3_4?.projects || [];
+    const sum = projects.reduce((total: number, project: any) => {
+      const cost = project.totalProjectCost
+        ? parseFloat(String(project.totalProjectCost))
+        : 0;
+      return total + (isNaN(cost) ? 0 : cost);
+    }, 0);
+    return sum.toFixed(2);
+  }, [formData.section3_4?.projects]);
+
+  useEffect(() => {
+    // Only update if the calculated value is different from current value
+    const currentValue = formData.section3_4?.totalProjectCostAwarded || "";
+    if (currentValue !== calculatedTotalTPC) {
+      setFormData((prev) => ({
+        ...prev,
+        section3_4: {
+          ...prev.section3_4,
+          totalProjectCostAwarded: calculatedTotalTPC,
+        },
+      }));
+    }
+  }, [calculatedTotalTPC, formData.section3_4?.totalProjectCostAwarded]);
+
   // Autosave to localStorage with debouncing (avoid infinite loop)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -542,6 +568,34 @@ export const PPPDevelopmentStep = () => {
       marksObtained: 0,
     };
   }, [formData.section3_4.projects]);
+
+  // Auto-calculate Total of all TPC of all Projects as sum of all project costs
+  const calculatedTotalProjectCostAwarded = useMemo(() => {
+    const projects = formData.section3_4?.projects || [];
+    const sum = projects.reduce((total: number, project: any) => {
+      const cost = project.totalProjectCost
+        ? parseFloat(String(project.totalProjectCost))
+        : 0;
+      return total + (isNaN(cost) ? 0 : cost);
+    }, 0);
+    return sum > 0 ? sum.toFixed(2) : "";
+  }, [formData.section3_4?.projects]);
+
+  // Update totalProjectCostAwarded when calculated value changes
+  useEffect(() => {
+    if (calculatedTotalProjectCostAwarded !== "") {
+      const currentValue = formData.section3_4?.totalProjectCostAwarded || "";
+      if (currentValue !== calculatedTotalProjectCostAwarded) {
+        setFormData((prev) => ({
+          ...prev,
+          section3_4: {
+            ...prev.section3_4,
+            totalProjectCostAwarded: calculatedTotalProjectCostAwarded,
+          },
+        }));
+      }
+    }
+  }, [calculatedTotalProjectCostAwarded]);
 
   useEffect(() => {
     const section3_3Calc = calculateSection3_3();
@@ -672,11 +726,8 @@ export const PPPDevelopmentStep = () => {
           {
             id: crypto.randomUUID(),
             nameOfProject: "",
-            nipId: "",
-            fundingSource: "",
             infrastructureSector: "",
             dateOfAward: "",
-            capexPercentage: "",
             totalProjectCost: "",
             // file: null,
           },
@@ -701,11 +752,8 @@ export const PPPDevelopmentStep = () => {
     id: string,
     field:
       | "nameOfProject"
-      | "nipId"
-      | "fundingSource"
       | "infrastructureSector"
       | "dateOfAward"
-      | "capexPercentage"
       | "totalProjectCost",
     value: string
   ) => {
@@ -1021,16 +1069,20 @@ export const PPPDevelopmentStep = () => {
       // Dispatch event to refresh indicators after indicator submission
       // This ensures the "Create Submission" button disables correctly when last indicator is submitted
       if (user?.role === "STATE_APPROVER" && user?.id) {
-        console.log("📢 [PPPDevelopmentStep] Dispatching indicatorsUpdated event after indicator submission");
-        window.dispatchEvent(new CustomEvent('indicatorsUpdated', { 
-          detail: { 
-            userId: user.id,
-            role: 'STATE_APPROVER',
-            action: 'indicator_submitted',
-            indicatorCode,
-            submissionId: result?.id || result?.submissionId
-          } 
-        }));
+        console.log(
+          "📢 [PPPDevelopmentStep] Dispatching indicatorsUpdated event after indicator submission"
+        );
+        window.dispatchEvent(
+          new CustomEvent("indicatorsUpdated", {
+            detail: {
+              userId: user.id,
+              role: "STATE_APPROVER",
+              action: "indicator_submitted",
+              indicatorCode,
+              submissionId: result?.id || result?.submissionId,
+            },
+          })
+        );
       }
 
       // Update form data with sanitized data that includes status
@@ -1335,7 +1387,10 @@ export const PPPDevelopmentStep = () => {
           }
         } else if (indicatorCode === "3.4") {
           // Add all project fields for section 3.4
-          if (formData.section3_4?.projects && Array.isArray(formData.section3_4.projects)) {
+          if (
+            formData.section3_4?.projects &&
+            Array.isArray(formData.section3_4.projects)
+          ) {
             formData.section3_4.projects.forEach((_: any, index: number) => {
               allIndicatorFields.push(
                 `${sectionPrefix}.projects.${index}.nameOfProject`,
@@ -1366,9 +1421,12 @@ export const PPPDevelopmentStep = () => {
         // Set section-level validation message with specific error details
         const errorCount = Object.keys(sectionErrors).length;
         const errorMessages = Object.values(sectionErrors).slice(0, 3); // Show first 3 errors
-        const errorMessage = errorMessages.length > 0 
-          ? `${errorMessages.join("; ")}${errorCount > 3 ? ` and ${errorCount - 3} more error(s).` : "."}`
-          : `Please fill all mandatory fields. ${errorCount} field(s) are missing.`;
+        const errorMessage =
+          errorMessages.length > 0
+            ? `${errorMessages.join("; ")}${
+                errorCount > 3 ? ` and ${errorCount - 3} more error(s).` : "."
+              }`
+            : `Please fill all mandatory fields. ${errorCount} field(s) are missing.`;
         setSectionValidationMessages((prev) => ({
           ...prev,
           [indicatorCode]: errorMessage,
@@ -1415,7 +1473,10 @@ export const PPPDevelopmentStep = () => {
           }
         });
         setShowValidationErrors(true);
-        setIndicatorValidationErrors((prev) => ({ ...prev, ...indicatorValidation.errors }));
+        setIndicatorValidationErrors((prev) => ({
+          ...prev,
+          ...indicatorValidation.errors,
+        }));
         // Errors are displayed inline in the UI, no toast needed
         return;
       }
@@ -2282,7 +2343,10 @@ export const PPPDevelopmentStep = () => {
                         const file = entry.file;
                         if (!file) {
                           return (
-                            <tr key={entry.id || `entry-${index}`} className="bg-white">
+                            <tr
+                              key={entry.id || `entry-${index}`}
+                              className="bg-white"
+                            >
                               <td className="py-3 px-4 text-sm">
                                 {entry.projectName}
                               </td>
@@ -2353,7 +2417,10 @@ export const PPPDevelopmentStep = () => {
                         );
 
                         return (
-                          <tr key={entry.id || `entry-${index}`} className="bg-white">
+                          <tr
+                            key={entry.id || `entry-${index}`}
+                            className="bg-white"
+                          >
                             <td className="py-3 px-4 text-sm">
                               {entry.projectName}
                             </td>
@@ -2451,14 +2518,14 @@ export const PPPDevelopmentStep = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="block min-h-[40px] leading-snug">
-                    Total Number of Infrastructure Projects awarded in the
-                    financial year of assessment
+                    Total Budgeted capital allocation (INR - values is in
+                    CRORES)
                     <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     type="number"
                     min="0"
-                    placeholder="Enter number of projects awarded"
+                    placeholder="Enter total budgeted capital allocation"
                     value={formData.section3_4.totalProjectsAwarded || ""}
                     onChange={(e) => {
                       showErrorsIfNeeded();
@@ -2483,280 +2550,215 @@ export const PPPDevelopmentStep = () => {
                 </div>
                 <div>
                   <Label className="block min-h-[40px] leading-snug">
-                    Total Project Cost of Infrastructure Projects awarded in the
-                    financial year of assessment (INR - values is in CRORES)
+                    Total of all TPC of all Projects (INR - values is in CRORES)
                     <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="Enter total cost"
-                    value={formData.section3_4.totalProjectCostAwarded || ""}
-                    onChange={(e) => {
-                      showErrorsIfNeeded();
-                      setFormData((prev) => ({
-                        ...prev,
-                        section3_4: {
-                          ...prev.section3_4,
-                          totalProjectCostAwarded: e.target.value,
-                        },
-                      }));
-                    }}
-                    disabled={isIndicatorSubmitted("3.4")}
+                    placeholder="Auto-calculated"
+                    value={calculatedTotalProjectCostAwarded || ""}
+                    readOnly
+                    disabled
                     className={cn(
-                      getInputValidationClass(
-                        "section3_4.totalProjectCostAwarded"
-                      ),
+                      "bg-gray-50 cursor-not-allowed",
                       isIndicatorSubmitted("3.4") &&
                         "bg-gray-50 cursor-not-allowed"
                     )}
                   />
+                  
                   {renderFieldError("section3_4.totalProjectCostAwarded")}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Automatically calculated from sum of all project costs
+                  </p>
                 </div>
               </div>
 
               {/* Existing per-project list */}
               {(formData.section3_4.projects || []).map((project, index) => (
-                <div key={project.id || `project-${index}`} className="mb-4 p-4 border rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    <div className="space-y-4">
-                      <div>
-                        <Label>
-                          Name of PPP/Bankable Projects that have been awarded
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter project name"
-                          value={project.nameOfProject}
-                          onChange={(e) => {
-                            showErrorsIfNeeded();
-                            clearIndicatorValidationMessage("3.4");
-                            updatePPPProject(
-                              project.id,
-                              "nameOfProject",
-                              e.target.value
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("3.4")}
-                          className={cn(
-                            getInputValidationClass(
-                              `section3_4.projects.${formData.section3_4.projects.findIndex(
-                                (p) => p.id === project.id
-                              )}.nameOfProject`
-                            ),
-                            isIndicatorSubmitted("3.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                        {renderFieldError(
-                          `section3_4.projects.${formData.section3_4.projects.findIndex(
-                            (p) => p.id === project.id
-                          )}.nameOfProject`
+                <div key={project.id || `project-${index}`} className="mb-2">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-end">
+                    <div>
+                      <Label>
+                        Name of PPP/Bankable Projects that have been awarded
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter project name"
+                        value={project.nameOfProject}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          clearIndicatorValidationMessage("3.4");
+                          updatePPPProject(
+                            project.id,
+                            "nameOfProject",
+                            e.target.value
+                          );
+                        }}
+                        disabled={isIndicatorSubmitted("3.4")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section3_4.projects.${formData.section3_4.projects.findIndex(
+                              (p) => p.id === project.id
+                            )}.nameOfProject`
+                          ),
+                          isIndicatorSubmitted("3.4") &&
+                            "bg-gray-50 cursor-not-allowed"
                         )}
-                      </div>
-                      <div>
-                        <Label>NIP ID</Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter NIP ID"
-                          value={project.nipId}
-                          onChange={(e) =>
-                            updatePPPProject(
-                              project.id,
-                              "nipId",
-                              e.target.value
-                            )
-                          }
-                          disabled={isIndicatorSubmitted("3.4")}
-                          className={cn(
-                            isIndicatorSubmitted("3.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                      </div>
-                      <div>
-                        <Label>
-                          Source of Funding (in case of Bankable project)
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter funding source"
-                          value={project.fundingSource}
-                          onChange={(e) =>
-                            updatePPPProject(
-                              project.id,
-                              "fundingSource",
-                              e.target.value
-                            )
-                          }
-                          disabled={isIndicatorSubmitted("3.4")}
-                          className={cn(
-                            isIndicatorSubmitted("3.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                      </div>
-                      <div>
-                        <Label>% of Capex funded by non-Govt sources</Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter percentage"
-                          value={project.capexPercentage}
-                          onChange={(e) => {
-                            showErrorsIfNeeded();
-                            updatePPPProject(
-                              project.id,
-                              "capexPercentage",
-                              e.target.value
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("3.4")}
-                          className={cn(
-                            getInputValidationClass(
-                              `section3_4.projects.${formData.section3_4.projects.findIndex(
-                                (p) => p.id === project.id
-                              )}.capexPercentage`
-                            ),
-                            isIndicatorSubmitted("3.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                        {renderFieldError(
-                          `section3_4.projects.${formData.section3_4.projects.findIndex(
-                            (p) => p.id === project.id
-                          )}.capexPercentage`
-                        )}
-                      </div>
+                      />
+                      {renderFieldError(
+                        `section3_4.projects.${formData.section3_4.projects.findIndex(
+                          (p) => p.id === project.id
+                        )}.nameOfProject`
+                      )}
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Date of Award (DD-MM-YYYY)</Label>
-                        <Input
-                          type="date"
-                          value={
-                            project.dateOfAward
-                              ? (() => {
-                                  // Convert ISO string to YYYY-MM-DD format for date input
-                                  const d = new Date(project.dateOfAward);
-                                  if (isNaN(d.getTime())) return "";
-                                  const year = d.getFullYear();
-                                  const month = String(
-                                    d.getMonth() + 1
-                                  ).padStart(2, "0");
-                                  const day = String(d.getDate()).padStart(
-                                    2,
-                                    "0"
-                                  );
-                                  return `${year}-${month}-${day}`;
-                                })()
+                    <div>
+                      <Label>
+                        Infrastructure Sector{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={project.infrastructureSector}
+                        onValueChange={(value) => {
+                          showErrorsIfNeeded();
+                          updatePPPProject(
+                            project.id,
+                            "infrastructureSector",
+                            value
+                          );
+                        }}
+                        disabled={isIndicatorSubmitted("3.4")}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            getInputValidationClass(
+                              `section3_4.projects.${formData.section3_4.projects.findIndex(
+                                (p) => p.id === project.id
+                              )}.infrastructureSector`
+                            ),
+                            isIndicatorSubmitted("3.4") &&
+                              "bg-gray-50 cursor-not-allowed"
+                          )}
+                        >
+                          <SelectValue placeholder="Select sector" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SECTOR_OPTIONS.map((sector) => (
+                            <SelectItem key={sector} value={sector}>
+                              {sector}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {renderFieldError(
+                        `section3_4.projects.${formData.section3_4.projects.findIndex(
+                          (p) => p.id === project.id
+                        )}.infrastructureSector`
+                      )}
+                    </div>
+
+                    <div>
+                      <Label>Date of Award (DD-MM-YYYY)</Label>
+                      <Input
+                        type="date"
+                        value={
+                          project.dateOfAward
+                            ? (() => {
+                                // Convert ISO string to YYYY-MM-DD format for date input
+                                const d = new Date(project.dateOfAward);
+                                if (isNaN(d.getTime())) return "";
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(
+                                  2,
+                                  "0"
+                                );
+                                const day = String(d.getDate()).padStart(
+                                  2,
+                                  "0"
+                                );
+                                return `${year}-${month}-${day}`;
+                              })()
+                            : ""
+                        }
+                        onChange={(e) => {
+                          if (isIndicatorSubmitted("3.4")) return;
+                          showErrorsIfNeeded();
+                          updatePPPProject(
+                            project.id,
+                            "dateOfAward",
+                            e.target.value
+                              ? new Date(e.target.value).toISOString()
                               : ""
-                          }
-                          onChange={(e) => {
-                            if (isIndicatorSubmitted("3.4")) return;
-                            showErrorsIfNeeded();
-                            updatePPPProject(
-                              project.id,
-                              "dateOfAward",
-                              e.target.value
-                                ? new Date(e.target.value).toISOString()
-                                : ""
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("3.4")}
-                          className={cn(
-                            getInputValidationClass(
-                              `section3_4.projects.${formData.section3_4.projects.findIndex(
-                                (p) => p.id === project.id
-                              )}.dateOfAward`
-                            ),
-                            isIndicatorSubmitted("3.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                        {renderFieldError(
-                          `section3_4.projects.${formData.section3_4.projects.findIndex(
-                            (p) => p.id === project.id
-                          )}.dateOfAward`
+                          );
+                        }}
+                        disabled={isIndicatorSubmitted("3.4")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section3_4.projects.${formData.section3_4.projects.findIndex(
+                              (p) => p.id === project.id
+                            )}.dateOfAward`
+                          ),
+                          isIndicatorSubmitted("3.4") &&
+                            "bg-gray-50 cursor-not-allowed"
                         )}
-                      </div>
+                      />
+                      {renderFieldError(
+                        `section3_4.projects.${formData.section3_4.projects.findIndex(
+                          (p) => p.id === project.id
+                        )}.dateOfAward`
+                      )}
+                    </div>
 
-                      <div>
-                        <Label>
-                          Total Project Cost (INR - values is in CRORES)
-                        </Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Enter cost in crore"
-                          value={project.totalProjectCost || ""}
-                          onChange={(e) => {
-                            showErrorsIfNeeded();
-                            updatePPPProject(
-                              project.id,
-                              "totalProjectCost",
-                              e.target.value
-                            );
-                          }}
-                          disabled={isIndicatorSubmitted("3.4")}
-                          className={cn(
-                            getInputValidationClass(
-                              `section3_4.projects.${formData.section3_4.projects.findIndex(
-                                (p) => p.id === project.id
-                              )}.totalProjectCost`
-                            ),
-                            isIndicatorSubmitted("3.4") &&
-                              "bg-gray-50 cursor-not-allowed"
-                          )}
-                        />
-                        {renderFieldError(
-                          `section3_4.projects.${formData.section3_4.projects.findIndex(
-                            (p) => p.id === project.id
-                          )}.totalProjectCost`
+                    <div>
+                      <Label>
+                        Total Project Cost (INR - values is in CRORES)
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Enter cost in crore"
+                        value={project.totalProjectCost || ""}
+                        onChange={(e) => {
+                          showErrorsIfNeeded();
+                          updatePPPProject(
+                            project.id,
+                            "totalProjectCost",
+                            e.target.value
+                          );
+                        }}
+                        disabled={isIndicatorSubmitted("3.4")}
+                        className={cn(
+                          getInputValidationClass(
+                            `section3_4.projects.${formData.section3_4.projects.findIndex(
+                              (p) => p.id === project.id
+                            )}.totalProjectCost`
+                          ),
+                          isIndicatorSubmitted("3.4") &&
+                            "bg-gray-50 cursor-not-allowed"
                         )}
-                      </div>
+                      />
+                      {renderFieldError(
+                        `section3_4.projects.${formData.section3_4.projects.findIndex(
+                          (p) => p.id === project.id
+                        )}.totalProjectCost`
+                      )}
+                    </div>
 
-                      <div>
-                        <Label>Infrastructure Sector</Label>
-                        <Select
-                          value={project.infrastructureSector}
-                          onValueChange={(value) =>
-                            updatePPPProject(
-                              project.id,
-                              "infrastructureSector",
-                              value
-                            )
-                          }
-                          disabled={isIndicatorSubmitted("3.4")}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select sector" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SECTOR_OPTIONS.map((sector) => (
-                              <SelectItem key={sector} value={sector}>
-                                {sector}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="mt-4 flex justify-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removePPPProject(project.id)}
-                          disabled={isIndicatorSubmitted("3.4")}
-                          aria-label="Remove"
-                          className="disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 className="w-5 h-5 text-destructive" />
-                        </Button>
-                      </div>
+                    <div className="flex items-center justify-center w-12">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removePPPProject(project.id)}
+                        disabled={isIndicatorSubmitted("3.4")}
+                        aria-label="Remove"
+                        className="text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -2780,28 +2782,19 @@ export const PPPDevelopmentStep = () => {
                     <table className="min-w-full border-separate border-spacing-0">
                       <thead>
                         <tr className="bg-[#DDE3F9]">
-                          <th className="py-3 px-4 text-left rounded-tl-xl text-sm font-normal">
+                          <th className="py-2 px-2 text-left rounded-tl-xl text-sm font-normal">
                             Project Name
                           </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            NIP ID
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            Funding Source
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
-                            % of Capex from Non-Govt
-                          </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
+                          <th className="py-2 px-2 text-left text-sm font-normal">
                             Infra Sector
                           </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
+                          <th className="py-2 px-2 text-left text-sm font-normal">
                             Date of Award
                           </th>
-                          <th className="py-3 px-4 text-left text-sm font-normal">
+                          <th className="py-2 px-2 text-left text-sm font-normal">
                             Total Cost (INR - values is in CRORES)
                           </th>
-                          <th className="py-3 px-4 text-left rounded-tr-xl text-sm font-normal">
+                          <th className="py-2 px-2 text-center rounded-tr-xl text-sm font-normal w-12">
                             Action
                           </th>
                         </tr>
@@ -2811,23 +2804,17 @@ export const PPPDevelopmentStep = () => {
                           ? formData.section3_4.projects
                           : []
                         ).map((project, index) => (
-                          <tr key={project.id || `project-${index}`} className="bg-white">
-                            <td className="py-3 px-4 text-sm">
+                          <tr
+                            key={project.id || `project-${index}`}
+                            className="bg-white"
+                          >
+                            <td className="py-2 px-2 text-sm">
                               {project.nameOfProject}
                             </td>
-                            <td className="py-3 px-4 text-sm">
-                              {project.nipId}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {project.fundingSource}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
-                              {project.capexPercentage}
-                            </td>
-                            <td className="py-3 px-4 text-sm">
+                            <td className="py-2 px-2 text-sm">
                               {project.infrastructureSector}
                             </td>
-                            <td className="py-3 px-4 text-sm">
+                            <td className="py-2 px-2 text-sm">
                               {project.dateOfAward
                                 ? format(
                                     new Date(project.dateOfAward),
@@ -2835,18 +2822,18 @@ export const PPPDevelopmentStep = () => {
                                   )
                                 : "-"}
                             </td>
-                            <td className="py-3 px-4 text-sm">
+                            <td className="py-2 px-2 text-sm">
                               {project.totalProjectCost}
                             </td>
-                            <td className="py-3 px-4">
+                            <td className="py-2 px-2 text-center w-12">
                               <button
                                 type="button"
                                 onClick={() => removePPPProject(project.id)}
                                 disabled={isIndicatorSubmitted("3.4")}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed h-8 w-8 flex items-center justify-center"
                                 aria-label="Delete"
                               >
-                                <Trash2 className="w-5 h-5" />
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </td>
                           </tr>

@@ -163,11 +163,9 @@ export const EditablePPPDevelopment = ({
           {
             id: crypto.randomUUID(),
             nameOfProject: "",
-            nipId: "",
-            fundingSource: "",
             infrastructureSector: "",
             dateOfAward: "",
-            capexPercentage: "",
+            totalProjectCost: "",
           },
         ],
       },
@@ -190,11 +188,9 @@ export const EditablePPPDevelopment = ({
     id: string,
     field:
       | "nameOfProject"
-      | "nipId"
-      | "fundingSource"
       | "infrastructureSector"
       | "dateOfAward"
-      | "capexPercentage",
+      | "totalProjectCost",
     value: string
   ) => {
     setFormData((prev) => ({
@@ -568,11 +564,8 @@ export const EditablePPPDevelopment = ({
               const project = {
                 id: "",
                 nameOfProject: "",
-                nipId: "",
-                fundingSource: "",
                 infrastructureSector: "",
                 dateOfAward: "",
-                capexPercentage: "",
                 totalProjectCost: "",
                 ...rawProject,
               };
@@ -607,60 +600,6 @@ export const EditablePPPDevelopment = ({
                           }
                         />
                       </div>
-
-                      {/* NIP ID */}
-                      <div>
-                        <Label>
-                          NIP ID{" "}
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="inline w-3 h-3 ml-1" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Enter the NIP ID of the project
-                            </TooltipContent>
-                          </Tooltip>
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter NIP ID"
-                          value={project.nipId}
-                          onChange={(e) =>
-                            updatePPPProject(
-                              project.id,
-                              "nipId",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-
-                      {/* Funding Source */}
-                      <div>
-                        <Label>
-                          Funding Source (In case of bankable project){" "}
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="inline w-3 h-3 ml-1" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Enter the funding source name
-                            </TooltipContent>
-                          </Tooltip>
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter funding source name"
-                          value={project.fundingSource}
-                          onChange={(e) =>
-                            updatePPPProject(
-                              project.id,
-                              "fundingSource",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
                     </div>
 
                     {/* Column 2 */}
@@ -669,6 +608,7 @@ export const EditablePPPDevelopment = ({
                       <div>
                         <Label>
                           Infrastructure Sector{" "}
+                          <span className="text-red-500">*</span>
                           <Tooltip>
                             <TooltipTrigger>
                               <Info className="inline w-3 h-3 ml-1" />
@@ -751,34 +691,6 @@ export const EditablePPPDevelopment = ({
                             />
                           </PopoverContent>
                         </Popover>
-                      </div>
-
-                      {/* % of Capex funded by non-Govt sources */}
-                      <div>
-                        <Label>
-                          % of Capex funded by non-Govt sources{" "}
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="inline w-3 h-3 ml-1" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Enter the percentage of Capex funded by
-                              non-government sources
-                            </TooltipContent>
-                          </Tooltip>
-                        </Label>
-                        <Input
-                          type="text"
-                          placeholder="Enter percentage"
-                          value={project.capexPercentage}
-                          onChange={(e) =>
-                            updatePPPProject(
-                              project.id,
-                              "capexPercentage",
-                              e.target.value
-                            )
-                          }
-                        />
                       </div>
                     </div>
                   </div>

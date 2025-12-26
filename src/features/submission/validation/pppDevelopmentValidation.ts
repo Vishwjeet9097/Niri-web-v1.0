@@ -208,29 +208,14 @@ export const validatePPPDevelopment = (
           : "";
       if (!totalProjectsAwardedStr || totalProjectsAwardedStr.trim() === "") {
         errors["section3_4.totalProjectsAwarded"] =
-          "Total number of infrastructure projects awarded is required.";
+          "Total Budgeted capital allocation is required.";
       } else if (!isValidInteger(totalProjectsAwardedStr)) {
         errors["section3_4.totalProjectsAwarded"] =
           "Enter a valid non-negative integer.";
       }
 
-      const totalProjectCostAwardedStr =
-        section34.totalProjectCostAwarded != null
-          ? String(section34.totalProjectCostAwarded)
-          : "";
-      if (
-        !totalProjectCostAwardedStr ||
-        totalProjectCostAwardedStr.trim() === ""
-      ) {
-        errors["section3_4.totalProjectCostAwarded"] =
-          "Total project cost of infrastructure projects awarded is required.";
-      } else if (
-        !isNonNegativeDecimal(totalProjectCostAwardedStr) ||
-        !hasMaxTwoDecimals(totalProjectCostAwardedStr)
-      ) {
-        errors["section3_4.totalProjectCostAwarded"] =
-          "Enter a valid non-negative amount with up to two decimal places.";
-      }
+      // Note: totalProjectCostAwarded is auto-calculated, so we don't validate it here
+      // It will be automatically set based on the sum of project costs
 
       // Note: Individual project fields in section3_4.projects are not required per the table
       // but if projects are added, they should be validated for completeness
@@ -243,6 +228,15 @@ export const validatePPPDevelopment = (
                 "Project name should contain only letters, spaces, hyphens, and apostrophes.";
             }
           }
+          // Validate infrastructureSector (required)
+          if (
+            !project.infrastructureSector ||
+            project.infrastructureSector.trim() === ""
+          ) {
+            errors[`section3_4.projects.${index}.infrastructureSector`] =
+              "Infrastructure Sector is required.";
+          }
+
           // Validate decimal fields if they have values
           const totalProjectCostStr =
             project.totalProjectCost != null
@@ -255,16 +249,6 @@ export const validatePPPDevelopment = (
             ) {
               errors[`section3_4.projects.${index}.totalProjectCost`] =
                 "Enter a valid non-negative amount with up to two decimal places.";
-            }
-          }
-          const capexPercentageStr =
-            project.capexPercentage != null
-              ? String(project.capexPercentage)
-              : "";
-          if (capexPercentageStr && capexPercentageStr.trim() !== "") {
-            if (!isNonNegativeDecimal(capexPercentageStr)) {
-              errors[`section3_4.projects.${index}.capexPercentage`] =
-                "Enter a valid non-negative percentage.";
             }
           }
         });
