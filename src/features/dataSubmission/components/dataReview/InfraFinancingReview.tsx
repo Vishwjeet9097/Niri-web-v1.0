@@ -148,6 +148,16 @@ export const InfraFinancingReview = ({
     }
   }, [formData]);
 
+  // Sync submission prop when it changes (for indicatorScores updates)
+  useEffect(() => {
+    if (submission && submission.indicatorScores) {
+      console.log(
+        "🔄 [InfraFinancingReview] submission prop updated with indicatorScores:",
+        submission.indicatorScores
+      );
+    }
+  }, [submission]);
+
   // Section 1.3 state management
   const [section13State, setSection13State] = useState({
     totalULBs: formData?.section1_3?.totalULBs || 0,
@@ -1866,15 +1876,49 @@ export const InfraFinancingReview = ({
       }
     };
 
+    const handleSubmissionUpdate = async (event: CustomEvent) => {
+      const { submissionId: eventSubmissionId, indicatorScore } = event.detail || {};
+      if (eventSubmissionId === submissionId) {
+        // Add a small delay to ensure backend has processed the update
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Refresh complete submission data to get updated indicator scores
+        try {
+          console.log("🔄 InfraFinancingReview - Refreshing submission data after indicator update...");
+          const freshSubmission = await apiService.getSubmission(submissionId);
+
+          if (freshSubmission) {
+            // Update submission data state with fresh data (includes indicatorScores in response)
+            if (freshSubmission.formData) {
+              setSubmissionData(freshSubmission.formData);
+            }
+
+            console.log("✅ InfraFinancingReview - Fresh submission data loaded with updated indicator scores:", freshSubmission);
+          }
+        } catch (error) {
+          console.error("❌ InfraFinancingReview - Failed to refresh submission data after update:", error);
+        }
+      }
+    };
+
     window.addEventListener(
       "niri-comment-updated",
       handleCommentUpdate as EventListener
+    );
+
+    window.addEventListener(
+      "niri-submission-updated",
+      handleSubmissionUpdate as EventListener
     );
 
     return () => {
       window.removeEventListener(
         "niri-comment-updated",
         handleCommentUpdate as EventListener
+      );
+      window.removeEventListener(
+        "niri-submission-updated",
+        handleSubmissionUpdate as EventListener
       );
     };
   }, [submissionId]);

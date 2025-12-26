@@ -1189,18 +1189,18 @@ export const InfraEnablersReview = ({
     };
 
     const handleSubmissionUpdate = async (event: CustomEvent) => {
-      const { submissionId: eventSubmissionId } = event.detail;
+      const { submissionId: eventSubmissionId, indicatorScore } = event.detail || {};
       if (eventSubmissionId === submissionId) {
         // Add a small delay to ensure backend has processed the update
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Refresh complete submission data
+        // Refresh complete submission data to get updated indicator scores
         try {
-          console.log("🔄 Refreshing submission data after update...");
+          console.log("🔄 Refreshing submission data after indicator update...");
           const freshSubmission = await apiService.getSubmission(submissionId);
 
           if (freshSubmission) {
-            // Update submission state with fresh data
+            // Update submission state with fresh data (includes indicatorScores)
             setSubmissionState(freshSubmission);
 
             // Update form data with fresh data (only this section's slice)
@@ -1209,7 +1209,7 @@ export const InfraEnablersReview = ({
             }
 
             console.log(
-              "✅ Fresh submission data loaded after update:",
+              "✅ Fresh submission data loaded with updated indicator scores:",
               freshSubmission
             );
           }
@@ -2267,6 +2267,33 @@ export const InfraEnablersReview = ({
         `[InfraEnablersReview] ✅ performSave - API call successful:`,
         saveResult
       );
+
+      // Update submission state directly from saveResult if it contains indicatorScore
+      if (saveResult?.indicatorScore) {
+        console.log(
+          `[InfraEnablersReview] 📊 Indicator score received in saveResult:`,
+          saveResult.indicatorScore
+        );
+        // Update submission state with the score from the response
+        setSubmissionState((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          // Update or add indicatorScore to the submission
+          if (!updated.indicatorScores) {
+            updated.indicatorScores = [];
+          }
+          // Find and update existing score or add new one
+          const existingIndex = updated.indicatorScores.findIndex(
+            (score: any) => score.indicatorCode === saveResult.indicatorScore.indicatorCode
+          );
+          if (existingIndex >= 0) {
+            updated.indicatorScores[existingIndex] = saveResult.indicatorScore;
+          } else {
+            updated.indicatorScores.push(saveResult.indicatorScore);
+          }
+          return updated;
+        });
+      }
 
       // Refresh data from server after successful save to ensure UI shows latest data
       // Add a small delay to ensure backend has processed the update

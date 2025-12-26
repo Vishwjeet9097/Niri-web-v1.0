@@ -1903,15 +1903,54 @@ export const InfraDevelopmentReview = ({
       }
     };
 
+    const handleSubmissionUpdate = async (event: CustomEvent) => {
+      const { submissionId: eventSubmissionId, indicatorScore } = event.detail || {};
+      if (eventSubmissionId === submissionId) {
+        // Add a small delay to ensure backend has processed the update
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Refresh complete submission data to get updated indicator scores
+        try {
+          console.log("🔄 Refreshing submission data after indicator update...");
+          const freshSubmission = await apiService.getSubmission(submissionId);
+
+          if (freshSubmission) {
+            // Update submission state with fresh data (includes indicatorScores)
+            setSubmissionState(freshSubmission);
+
+            // Update form data with fresh data
+            if (freshSubmission.formData?.infraDevelopment) {
+              setFormDataState(
+                normalizeInfraDevelopment(freshSubmission.formData.infraDevelopment)
+              );
+            }
+
+            console.log("✅ Fresh submission data loaded with updated indicator scores:", freshSubmission);
+          }
+        } catch (error) {
+          console.error("❌ Failed to refresh submission data after update:", error);
+        }
+      }
+    };
+
     window.addEventListener(
       "niri-comment-updated",
       handleCommentUpdate as EventListener
+    );
+
+    window.addEventListener(
+      "niri-submission-updated",
+      handleSubmissionUpdate as EventListener
     );
 
     return () => {
       window.removeEventListener(
         "niri-comment-updated",
         handleCommentUpdate as EventListener
+      );
+      window.removeEventListener(
+        "niri-submission-updated",
+        handleSubmissionUpdate as EventListener
       );
     };
   }, [submissionId]);
@@ -3006,6 +3045,33 @@ export const InfraDevelopmentReview = ({
         `[InfraDevelopmentReview] ✅ performSave - API call successful:`,
         saveResult
       );
+
+      // Update submission state directly from saveResult if it contains indicatorScore
+      if (saveResult?.indicatorScore) {
+        console.log(
+          `[InfraDevelopmentReview] 📊 Indicator score received in saveResult:`,
+          saveResult.indicatorScore
+        );
+        // Update submission state with the score from the response
+        setSubmissionState((prev: any) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          // Update or add indicatorScore to the submission
+          if (!updated.indicatorScores) {
+            updated.indicatorScores = [];
+          }
+          // Find and update existing score or add new one
+          const existingIndex = updated.indicatorScores.findIndex(
+            (score: any) => score.indicatorCode === saveResult.indicatorScore.indicatorCode
+          );
+          if (existingIndex >= 0) {
+            updated.indicatorScores[existingIndex] = saveResult.indicatorScore;
+          } else {
+            updated.indicatorScores.push(saveResult.indicatorScore);
+          }
+          return updated;
+        });
+      }
 
       // If NODAL_OFFICER, update local state to reflect RESUBMITTED status only if it was REVERTED
       if (isNodalOfficer) {
