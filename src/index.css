@@ -130,6 +130,20 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Ensure body can scroll when Radix UI Select dropdown is open */
+  /* This prevents the dropdown from blocking page scroll */
+  body:has([data-radix-select-content][data-state="open"]),
+  html:has([data-radix-select-content][data-state="open"]) {
+    overflow: auto !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Fallback for browsers that don't support :has() */
+  /* Ensure body overflow is never hidden by default */
+  body {
+    overflow-y: auto !important;
+  }
 }
 
 @layer utilities {

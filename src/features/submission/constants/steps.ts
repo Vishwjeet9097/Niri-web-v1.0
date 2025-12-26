@@ -54,7 +54,7 @@ export const SUBMISSION_STEPS: SubmissionStep[] = [
 ];
 
 export const SECTOR_OPTIONS = [
- " Roads & Bridges",
+"Roads & Bridges",
 "Ports",
 "Shipyards",
 "Inland Waterways",
@@ -65,7 +65,7 @@ export const SECTOR_OPTIONS = [
 "Urban Public Transport (excluding road transport rolling stock)",
 "Logistics Infrastructure",
 "Bulk Material Transportation Pipelines",
-  "Electricity Generation ",
+"Electricity Generation ",
 "Electricity Transmission",
 "Electricity Distribution",
 "Oil / Gas / LNG Storage Facilities",
