@@ -16,6 +16,7 @@ import {
   Eye,
   Download,
   Trash2,
+  Info,
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect, useRef } from "react";
@@ -37,6 +38,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { MessageModal } from "../modals/MessageModal";
 import { TimelineModal } from "../modals/TimelineModal";
@@ -92,6 +98,8 @@ export const PPPDevelopmentReview = ({
   isNodalOfficer = false,
 }: PPPDevelopmentReviewProps) => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [isIndicator1_1AcceptedState, setIsIndicator1_1AcceptedState] =
+    useState<boolean | null>(null);
   const [timelineSection, setTimelineSection] = useState<string | null>(null);
 
   // Normalization function for PPP Development data
@@ -2748,6 +2756,139 @@ export const PPPDevelopmentReview = ({
     );
   };
 
+  // Fetch all submissions for the same state and check if indicator 1.1 is accepted in any of them
+  useEffect(() => {
+    const checkIndicator1_1AcrossSubmissions = async () => {
+      if (!submission) {
+        setIsIndicator1_1AcceptedState(false);
+        return;
+      }
+
+      const currentStateUt =
+        (submission as any)?.stateUt || (submission as any)?.user?.stateUt;
+      if (!currentStateUt) {
+        console.log(
+          "❌ [isIndicator1_1Accepted] No stateUt found in submission"
+        );
+        setIsIndicator1_1AcceptedState(false);
+        return;
+      }
+
+      console.log(
+        "🔍 [isIndicator1_1Accepted] Checking across all submissions for state:",
+        currentStateUt
+      );
+
+      try {
+        // Fetch all submissions
+        const submissionsData = await apiService.getSubmissions(1, 100);
+
+        // Handle different response structures
+        let submissionsArray: any[] = [];
+        if (Array.isArray(submissionsData)) {
+          submissionsArray = submissionsData;
+        } else if (
+          submissionsData?.submissions &&
+          Array.isArray(submissionsData.submissions)
+        ) {
+          submissionsArray = submissionsData.submissions;
+        } else if (
+          (submissionsData as any)?.data &&
+          Array.isArray((submissionsData as any).data)
+        ) {
+          submissionsArray = (submissionsData as any).data;
+        }
+
+        // Filter submissions for the same state/UT
+        const sameStateSubmissions = submissionsArray.filter((sub: any) => {
+          const subStateUt = sub.stateUt || sub.user?.stateUt;
+          return (
+            subStateUt &&
+            String(subStateUt).toUpperCase() ===
+              String(currentStateUt).toUpperCase()
+          );
+        });
+
+        console.log(
+          "🔍 [isIndicator1_1Accepted] Found submissions for same state:",
+          sameStateSubmissions.length
+        );
+
+        // Check each submission for indicator 1.1 acceptance
+        for (const sub of sameStateSubmissions) {
+          // Check section_status first
+          if (sub?.section_status && typeof sub.section_status === "object") {
+            const sectionStatus = (sub.section_status as any)["section1_1"];
+            if (sectionStatus === "ACCEPTED" || sectionStatus === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in submission:",
+                sub.id
+              );
+              setIsIndicator1_1AcceptedState(true);
+              return;
+            }
+          }
+
+          // Check completedIndicators
+          if (
+            sub?.section_status?.completedIndicators &&
+            Array.isArray(sub.section_status.completedIndicators)
+          ) {
+            if (sub.section_status.completedIndicators.includes("1.1")) {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 in completedIndicators for submission:",
+                sub.id
+              );
+              setIsIndicator1_1AcceptedState(true);
+              return;
+            }
+          }
+
+          // Check formData
+          if (sub?.formData?.infraFinancing?.section1_1) {
+            const section1_1Data = sub.formData.infraFinancing.section1_1;
+            const statusValue = section1_1Data.status
+              ? String(section1_1Data.status).trim().toUpperCase()
+              : null;
+
+            if (statusValue === "ACCEPTED" || statusValue === "APPROVED") {
+              console.log(
+                "✅ [isIndicator1_1Accepted] Found indicator 1.1 ACCEPTED in formData for submission:",
+                sub.id
+              );
+              setIsIndicator1_1AcceptedState(true);
+              return;
+            }
+          }
+        }
+
+        console.log(
+          "❌ [isIndicator1_1Accepted] Indicator 1.1 not found as ACCEPTED in any submission for state:",
+          currentStateUt
+        );
+        setIsIndicator1_1AcceptedState(false);
+      } catch (error) {
+        console.error(
+          "❌ [isIndicator1_1Accepted] Error checking across submissions:",
+          error
+        );
+        setIsIndicator1_1AcceptedState(false);
+      }
+    };
+
+    checkIndicator1_1AcrossSubmissions();
+  }, [submission]);
+
+  // Helper function to check if indicator 1.1 is accepted (uses cached state)
+  const isIndicator1_1Accepted = (): boolean => {
+    // Use the cached state from useEffect
+    if (isIndicator1_1AcceptedState === null) {
+      // Still loading, return false for now
+      return false;
+    }
+    return isIndicator1_1AcceptedState;
+  };
+
   const renderActionButtons = (sectionId: string) => {
     // Don't show action buttons in preview mode
     if (isPreview) {
@@ -3082,18 +3223,57 @@ export const PPPDevelopmentReview = ({
             <CheckCircle className="w-4 h-4" />
             Re Submitted
           </Button>
-          {!isNodalOfficer && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => onIndicatorStatus(sectionId, true)}
-              disabled={shouldBeEditable(sectionId)} // Disable Accept during editing
-            >
-              <CheckCircle className="w-4 h-4" />
-              Accept
-            </Button>
-          )}
+          {!isNodalOfficer &&
+            (() => {
+              // Log for debugging Accept button state
+              const isEditing = shouldBeEditable(sectionId);
+              const isIndicator1_1AcceptedValue = isIndicator1_1Accepted();
+              const shouldDisableFor3_4 =
+                isStateApprover &&
+                sectionId === "3.4" &&
+                !isIndicator1_1AcceptedValue;
+              const isDisabled = isEditing || shouldDisableFor3_4;
+
+              console.log(`🔍    ${sectionId}:`, {
+                isNodalOfficer,
+                isStateApprover,
+                isEditing,
+                isIndicator1_1Accepted: isIndicator1_1AcceptedValue,
+                shouldDisableFor3_4,
+                isDisabled,
+                sectionId,
+              });
+
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => onIndicatorStatus(sectionId, true)}
+                        disabled={isDisabled}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Accept
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {isDisabled && (
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-sm">
+                        {shouldDisableFor3_4
+                          ? "Indicator 1.1 must be accepted before accepting indicator 3.4"
+                          : isEditing
+                          ? "Please save your changes before accepting"
+                          : ""}
+                      </p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })()}
           <Button
             variant="outline"
             size="sm"
@@ -3456,18 +3636,62 @@ export const PPPDevelopmentReview = ({
           Timeline ({commentCount})
         </Button>
 
-        {!isNodalOfficer && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => onIndicatorStatus(sectionId, true)}
-            disabled={shouldBeEditable(sectionId)}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Accept
-          </Button>
-        )}
+        {!isNodalOfficer &&
+          (() => {
+            // Log for debugging Accept button state
+            const isEditing = shouldBeEditable(sectionId);
+            const isIndicator1_1AcceptedValue = isIndicator1_1Accepted();
+            const shouldDisableFor3_4 =
+              isStateApprover &&
+              sectionId === "3.4" &&
+              !isIndicator1_1AcceptedValue;
+            const isDisabled = isEditing || shouldDisableFor3_4;
+
+            console.log(
+              `🔍 [Accept Button - Second Instance] Section ${sectionId}:`,
+              {
+                isNodalOfficer,
+                isStateApprover,
+                isEditing,
+                isIndicator1_1Accepted: isIndicator1_1AcceptedValue,
+                shouldDisableFor3_4,
+                isDisabled,
+                sectionId,
+              }
+            );
+
+            return (
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => onIndicatorStatus(sectionId, true)}
+                        disabled={isDisabled}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Accept
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {isDisabled && (
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-sm">
+                        {shouldDisableFor3_4
+                          ? "Indicator 1.1 must be accepted before accepting indicator 3.4"
+                          : isEditing
+                          ? "Please save your changes before accepting"
+                          : ""}
+                      </p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </div>
+            );
+          })()}
       </div>
     );
   };
